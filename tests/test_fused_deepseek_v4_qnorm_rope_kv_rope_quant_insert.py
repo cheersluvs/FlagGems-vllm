@@ -12,16 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
+
 import pytest
 import torch
 
 import flaggems_vllm
+from flaggems_vllm.ops.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert import (
+    fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert as _generic_impl,
+)
 from flaggems_vllm.utils.device_info import get_device_capability
 
 from .conftest import QUICK_MODE
 
+_FP8E4NV_CAPABLE_VENDORS = frozenset({"metax"})
+
 
 def is_support_fp8e4nv():
+    if not hasattr(torch, "float8_e4m3fn"):
+        return False
+    if flaggems_vllm.vendor_name in _FP8E4NV_CAPABLE_VENDORS:
+        return True
     major, minor = get_device_capability()
     return major * 10 + minor >= 89
 
@@ -38,6 +49,66 @@ TOKEN_DATA_BYTES = NOPE_DIM + ROPE_DIM * 2  # 576
 NUM_QUANT_BLOCKS = NOPE_DIM // QUANT_BLOCK  # 7
 SCALE_BYTES_PER_TOKEN = NUM_QUANT_BLOCKS + 1  # 8
 HEAD_BYTES = TOKEN_DATA_BYTES + SCALE_BYTES_PER_TOKEN  # 584
+
+REF_BYTES_PER_ELEM_PERSISTENT = 4
+REF_BYTES_PER_ELEM_IN_SLICE = 10
+
+
+def _free_device_memory():
+    """Free device bytes, or None if the backend cannot report it.
+
+    Two corrections matter, and both were found by getting them wrong on a
+    MetaX C550:
+
+    1. Collect before measuring. The previous parametrized case's tensors are
+       still reachable from its frame, so without this a 64GB card reports
+       ~38GB free and the guard skips shapes that in fact pass.
+    2. Count PyTorch's cached-but-unused blocks as available instead of calling
+       `empty_cache` to release them. Releasing hands them back to the driver,
+       and a marginal allocation then has to be re-served from possibly
+       fragmented driver memory rather than reusing blocks already in hand --
+       which is enough to turn 65536 x 128, a shape that otherwise passes,
+       into an OutOfMemoryError.
+    """
+    try:
+        gc.collect()  # drop the previous case's tensors before measuring
+        driver_free = torch.cuda.mem_get_info()[0]
+        cached = torch.cuda.memory_reserved() - torch.cuda.memory_allocated()
+        return driver_free + cached
+    except Exception:
+        pass
+    try:
+        return torch.cuda.get_device_properties(0).total_memory
+    except Exception:
+        return None
+
+
+def _skip_if_reference_wont_fit(num_tokens: int, n_heads: int):
+    """Skip shapes whose fp32 reference exceeds device memory.
+
+    Replaces a hardcoded exclusion list tuned for an 80GB H800, which still
+    OOMs on 64GB cards -- MetaX C550 died at num_tokens=131072, n_heads=64,
+    inside the reference and before the op was ever called. With the reference
+    chunked the fp32 temporaries no longer scale with the input, so the shapes
+    that list excluded now fit and run.
+
+    This is a cheap pre-check that avoids allocating tens of GiB only to fail.
+    It is deliberately not the whole story: whether a marginal shape fits also
+    depends on allocator fragmentation (65536 x 128 passes on a C550 while
+    131072 x 64, an identical element count, does not), so the reference call
+    itself also catches OutOfMemoryError.
+    """
+    elems = num_tokens * n_heads * HEAD_DIM
+    needed = (
+        elems * REF_BYTES_PER_ELEM_PERSISTENT
+        + min(elems, _REF_MAX_ELEMS) * REF_BYTES_PER_ELEM_IN_SLICE
+    )
+    free = _free_device_memory()
+    if free is not None and needed > free:
+        pytest.skip(
+            f"reference needs ~{needed / 2**30:.0f}GiB for num_tokens={num_tokens}, "
+            f"n_heads={n_heads}; only {free / 2**30:.0f}GiB free"
+        )
 
 
 # ─── pytorch reference implementation from vllm ───
@@ -259,8 +330,53 @@ def ref_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
         torch_quantize_and_insert_k_cache(kv, k_cache, slot_mapping, block_size=bs)
 
 
+_REF_MAX_ELEMS = 1 << 30
+
+
+def ref_impl_chunked(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
+    num_tokens = q.shape[0]
+    per_token = q.shape[1] * q.shape[2]
+    step = max(1, _REF_MAX_ELEMS // max(1, per_token))
+    n_ins = slot_mapping.shape[0]
+    if step >= num_tokens:
+        ref_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs)
+        return
+    for i in range(0, num_tokens, step):
+        j = min(i + step, num_tokens)
+        ref_impl(
+            q[i:j],
+            kv[i:j],
+            k_cache,
+            slot_mapping[i : min(j, n_ins)] if i < n_ins else slot_mapping[:0],
+            positions[i:j],
+            cos_sin_cache,
+            eps,
+            bs,
+        )
+
+
+def assert_close_chunked(actual, expected, *, rtol, atol):
+    """Compare along dim 0 in slices.
+
+    `assert_close` allocates several temporaries the size of its inputs --
+    `torch.isclose` alone needs a boolean mask over every element -- so at
+    131072 x 128 it asks for 12GiB with ~54GiB already held by the inputs and the
+    reference, and it is the *comparison* that runs out of memory rather than
+    anything under test. Slicing is equivalent and bounds that cost.
+    """
+    n = actual.shape[0]
+    per_row = max(1, actual.numel() // max(1, n))
+    step = max(1, _REF_MAX_ELEMS // per_row)
+    if step >= n:
+        torch.testing.assert_close(actual, expected, rtol=rtol, atol=atol)
+        return
+    for i in range(0, n, step):
+        j = min(i + step, n)
+        torch.testing.assert_close(actual[i:j], expected[i:j], rtol=rtol, atol=atol)
+
+
 def fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
-    flaggems_vllm.ops.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
+    flaggems_vllm.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
         q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs
     )
 
@@ -299,7 +415,7 @@ def test_q_path_matches_reference(num_tokens: int, n_heads: int):
     positions_ref = positions.clone()
     cos_sin_cache_ref = cos_sin_cache.clone()
 
-    ref_impl(
+    ref_impl_chunked(
         q_ref,
         kv_ref,
         k_cache_ref,
@@ -312,7 +428,7 @@ def test_q_path_matches_reference(num_tokens: int, n_heads: int):
 
     fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs)
 
-    torch.testing.assert_close(q, q_ref, rtol=1e-2, atol=1e-2)
+    assert_close_chunked(q, q_ref, rtol=1e-2, atol=1e-2)
 
 
 # ── Test 2: KV path round-trip byte/value parity ─────────────────────────────
@@ -359,7 +475,7 @@ def test_kv_path_matches_reference(num_tokens: int, block_size: int):
     cos_sin_cache_ref = cos_sin_cache.clone()
     slot_mapping_ref = slot_mapping.clone()
 
-    ref_impl(
+    ref_impl_chunked(
         q_ref,
         kv_ref,
         k_cache_ref,
@@ -412,7 +528,7 @@ def test_kv_path_with_dp_padding(num_tokens: int, pad: int, block_size: int):
     cos_sin_cache_ref = cos_sin_cache.clone()
     slot_mapping_ref = slot_mapping.clone()
 
-    ref_impl(
+    ref_impl_chunked(
         q_ref,
         kv_ref,
         k_cache_ref,
@@ -447,9 +563,7 @@ def test_kv_path_with_dp_padding(num_tokens: int, pad: int, block_size: int):
 @pytest.mark.parametrize("n_heads", [64, 128])
 @pytest.mark.parametrize("block_size", [16, 64])
 def test_combined_q_and_kv(num_tokens: int, n_heads: int, block_size: int):
-    # out of memory for huge shape on H800
-    if (num_tokens == 98304 or num_tokens == 131072) and n_heads == 128:
-        return
+    _skip_if_reference_wont_fit(num_tokens, n_heads)
 
     torch.manual_seed(2)
     device = "cuda"
@@ -473,7 +587,7 @@ def test_combined_q_and_kv(num_tokens: int, n_heads: int, block_size: int):
     cos_sin_cache_ref = cos_sin_cache.clone()
     slot_mapping_ref = slot_mapping.clone()
 
-    ref_impl(
+    ref_impl_chunked(
         q_ref,
         kv_ref,
         k_cache_ref,
@@ -485,5 +599,63 @@ def test_combined_q_and_kv(num_tokens: int, n_heads: int, block_size: int):
     )
     fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, block_size)
 
-    torch.testing.assert_close(q, q_ref, rtol=1e-2, atol=1e-2)
+    assert_close_chunked(q, q_ref, rtol=1e-2, atol=1e-2)
     k_cache_compare(k_cache, k_cache_ref, block_size, rtol=1e-2, atol=1e-2)
+
+
+_OVERRIDE_ACTIVE = (
+    flaggems_vllm.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert is not _generic_impl
+)
+
+
+@pytest.mark.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert
+@pytest.mark.skipif(not is_support_fp8e4nv(), reason="Device does not support fp8e4nv")
+@pytest.mark.skipif(
+    not _OVERRIDE_ACTIVE,
+    reason="No backend override registered; the generic kernel is in use",
+)
+@pytest.mark.parametrize(
+    "num_tokens",
+    [1, 17, 513] if QUICK_MODE else [1, 17, 64, 511, 512, 777, 1000, 4096],
+)
+@pytest.mark.parametrize("n_heads", [64, 128])
+@pytest.mark.parametrize("block_size", [16, 64])
+def test_backend_override_matches_reference(
+    num_tokens: int, n_heads: int, block_size: int
+):
+    # This compares against the torch reference, so it carries the reference's
+    # fp32 intermediates and needs the same budget check as the tests above. It
+    # did not when it compared two Triton kernels to each other, and skipping the
+    # check cost a CI failure on a shared card with little free memory.
+    _skip_if_reference_wont_fit(num_tokens, n_heads)
+    torch.manual_seed(3)
+    device = flaggems_vllm.device
+    eps = 1e-6
+    max_pos = max(4096, num_tokens)
+    num_blocks = (num_tokens + block_size - 1) // block_size + 1
+
+    q = torch.randn(num_tokens, n_heads, HEAD_DIM, dtype=torch.bfloat16, device=device)
+    kv = torch.randn(num_tokens, HEAD_DIM, dtype=torch.bfloat16, device=device)
+    k_cache = torch.zeros(
+        num_blocks, block_size * HEAD_BYTES, dtype=torch.uint8, device=device
+    )
+    slot_mapping = torch.arange(num_tokens, dtype=torch.int64, device=device)
+    positions = torch.arange(num_tokens, dtype=torch.int64, device=device)
+    cos_sin_cache = make_cos_sin_cache(max_pos, ROPE_DIM, torch.float32, device)
+
+    q_ref, kv_ref = q.clone(), kv.clone()
+    k_cache_ref = k_cache.clone()
+    ref_impl_chunked(
+        q_ref,
+        kv_ref,
+        k_cache_ref,
+        slot_mapping.clone(),
+        positions.clone(),
+        cos_sin_cache.clone(),
+        eps,
+        block_size,
+    )
+    fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, block_size)
+
+    k_cache_compare(k_cache, k_cache_ref, block_size, rtol=1e-2, atol=1e-2)
+    assert_close_chunked(q, q_ref, rtol=1e-2, atol=1e-2)
