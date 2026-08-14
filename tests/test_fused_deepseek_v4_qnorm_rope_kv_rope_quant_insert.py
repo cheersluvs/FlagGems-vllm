@@ -37,9 +37,17 @@ def is_support_fp8e4nv():
     return major * 10 + minor >= 89
 
 
-VLLM_REF_AVAILABLE = hasattr(
-    torch.ops._C, "fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert"
-)
+OP_NAME = "fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert"
+
+HAS_VLLM = False
+try:
+    import vllm._custom_ops  # noqa: F401 - loads torch.ops._C
+
+    HAS_VLLM = True
+except (ImportError, AttributeError):
+    pass
+
+VLLM_REF_AVAILABLE = HAS_VLLM and hasattr(torch.ops._C, OP_NAME)
 HEAD_DIM = 512
 ROPE_DIM = 64
 NOPE_DIM = HEAD_DIM - ROPE_DIM  # 448
@@ -316,18 +324,23 @@ def k_cache_compare(
 
 
 def ref_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
-    if VLLM_REF_AVAILABLE:
-        torch.ops._C.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
-            q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs
-        )
-    else:
-        q_norm_f32 = rmsnorm_no_weight_f32(q, eps)
-        apply_rope_gptj_last_k(q, q_norm_f32, positions, cos_sin_cache)
-        if kv.size(0) > slot_mapping.size(0):
-            kv = kv[: slot_mapping.size(0), :]
-            positions = positions[: slot_mapping.size(0)]
-        apply_rope_gptj_last_k(kv, None, positions, cos_sin_cache)
-        torch_quantize_and_insert_k_cache(kv, k_cache, slot_mapping, block_size=bs)
+    """The oracle: always this file's torch reference.
+
+    This used to run vLLM's C++ kernel instead whenever `torch.ops._C` happened
+    to carry the op, which made the oracle depend on collection order -- nothing
+    here imports vLLM, but `test_cp_gather_indexer_k_quant_cache` and
+    `test_cutlass_scaled_mm` do so at module level and both sort earlier, so the
+    reference silently differed between running this file alone and running the
+    suite. Cross-checking against vLLM is worth doing, but as its own test
+    (`test_matches_vllm_reference`), not as a substitution inside the oracle.
+    """
+    q_norm_f32 = rmsnorm_no_weight_f32(q, eps)
+    apply_rope_gptj_last_k(q, q_norm_f32, positions, cos_sin_cache)
+    if kv.size(0) > slot_mapping.size(0):
+        kv = kv[: slot_mapping.size(0), :]
+        positions = positions[: slot_mapping.size(0)]
+    apply_rope_gptj_last_k(kv, None, positions, cos_sin_cache)
+    torch_quantize_and_insert_k_cache(kv, k_cache, slot_mapping, block_size=bs)
 
 
 _REF_MAX_ELEMS = 1 << 30
@@ -659,3 +672,63 @@ def test_backend_override_matches_reference(
 
     k_cache_compare(k_cache, k_cache_ref, block_size, rtol=1e-2, atol=1e-2)
     assert_close_chunked(q, q_ref, rtol=1e-2, atol=1e-2)
+
+
+@pytest.mark.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert
+@pytest.mark.skipif(not is_support_fp8e4nv(), reason="Device does not support fp8e4nv")
+@pytest.mark.skipif(not VLLM_REF_AVAILABLE, reason="vLLM is not installed")
+@pytest.mark.parametrize(
+    "num_tokens", [17, 512] if QUICK_MODE else [17, 512, 777, 4096]
+)
+@pytest.mark.parametrize("n_heads", [64, 128])
+@pytest.mark.parametrize("block_size", [16, 64])
+def test_matches_vllm_reference(num_tokens: int, n_heads: int, block_size: int):
+    """Cross-check against vLLM's own kernel -- the implementation this replaces.
+
+    Kept separate from the tests above, which compare against this file's torch
+    reference. That reference is the oracle; this is a comparison of two
+    production kernels, and it is skipped where vLLM is absent. Merging the two
+    is what the module used to do and it made the oracle order-dependent; see
+    `ref_impl`.
+    """
+    torch.manual_seed(4)
+    device = flaggems_vllm.device
+    dtype = torch.bfloat16
+    eps = 1e-6
+    max_pos = max(4096, num_tokens)
+    num_blocks = (num_tokens + block_size - 1) // block_size + 1
+
+    q = torch.randn(num_tokens, n_heads, HEAD_DIM, dtype=dtype, device=device)
+    kv = torch.randn(num_tokens, HEAD_DIM, dtype=dtype, device=device)
+    k_cache = torch.zeros(
+        num_blocks, block_size * HEAD_BYTES, dtype=torch.uint8, device=device
+    )
+    positions = torch.arange(num_tokens, dtype=torch.int64, device=device)
+    cos_sin_cache = make_cos_sin_cache(max_pos, ROPE_DIM, torch.float32, device)
+    slot_mapping = torch.arange(num_tokens, dtype=torch.int64, device=device)
+
+    q_ref = q.clone()
+    kv_ref = kv.clone()
+    k_cache_ref = k_cache.clone()
+
+    try:
+        torch.ops._C.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
+            q_ref,
+            kv_ref,
+            k_cache_ref,
+            slot_mapping.clone(),
+            positions.clone(),
+            cos_sin_cache.clone(),
+            eps,
+            block_size,
+        )
+        torch.zeros(1, device=device).sum()  # a launch is what surfaces the error
+        flaggems_vllm.runtime.torch_device_fn.synchronize()
+    except Exception as e:  # registered but unlaunchable -- e.g. MetaX C550
+        reason = str(e).splitlines()[0] if str(e) else type(e).__name__
+        pytest.skip("vLLM kernel is registered but fails to run: " + reason)
+
+    fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, block_size)
+
+    assert_close_chunked(q, q_ref, rtol=1e-2, atol=1e-2)
+    k_cache_compare(k_cache, k_cache_ref, block_size, rtol=1e-2, atol=1e-2)

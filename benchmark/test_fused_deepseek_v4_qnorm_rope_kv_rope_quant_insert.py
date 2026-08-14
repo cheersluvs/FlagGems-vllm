@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import dataclasses
-import importlib
-import logging
 import random
 
 import pytest
@@ -25,7 +23,6 @@ from flaggems_vllm.utils.device_info import get_device_capability
 
 from . import base
 
-logger = logging.getLogger(__name__)
 torch_device_fn = flaggems_vllm.runtime.torch_device_fn
 
 _FP8E4NV_CAPABLE_VENDORS = frozenset({"metax"})
@@ -40,34 +37,15 @@ def is_support_fp8e4nv():
     return major * 10 + minor >= 89
 
 
-VENDOR_OP_LIBS = ("vllm._custom_ops", "mcoplib._C")
+OP_NAME = "fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert"
 
+HAS_VLLM = False
+try:
+    import vllm._custom_ops  # noqa: F401 - loads torch.ops._C
 
-def _load_vendor_ref(op_name):
-    """Return `torch.ops._C.<op_name>`, importing vendor libraries as needed.
-
-    Returns None if no library provides it. Import failures are logged rather
-    than swallowed -- a silent `except: pass` is what makes a missing baseline
-    indistinguishable from an unimportable one.
-    """
-    fn = getattr(torch.ops._C, op_name, None)
-    if callable(fn):
-        return fn
-    for lib in VENDOR_OP_LIBS:
-        try:
-            importlib.import_module(lib)
-        except Exception as e:
-            logger.info("vendor op library %s unavailable: %s", lib, e)
-            continue
-        fn = getattr(torch.ops._C, op_name, None)
-        if callable(fn):
-            logger.info("found %s in %s", op_name, lib)
-            return fn
-        logger.info("%s loaded but does not provide %s", lib, op_name)
-    logger.info(
-        "no vendor kernel for %s (tried %s)", op_name, ", ".join(VENDOR_OP_LIBS)
-    )
-    return None
+    HAS_VLLM = True
+except (ImportError, AttributeError):
+    pass
 
 
 def _skip_if_unrunnable(ref, op_name):
@@ -90,6 +68,12 @@ def _skip_if_unrunnable(ref, op_name):
 
     `pytest.skip` raises `Skipped`, which derives from `BaseException` and so
     passes through the harness's `except (RuntimeError, Exception)` intact.
+
+    This is the one deliberate deviation from how the sibling `torch.ops._C`
+    benchmarks are written (`top_k_per_row_decode`, `persistent_topk`,
+    `cutlass_scaled_mm`): they gate on the import alone, which is enough because
+    none of them has met a vendor build that registers the op but cannot launch
+    it. Drop this wrapper once MetaX-MACA/mcoplib#59 is fixed.
     """
     checked = False
 
@@ -112,12 +96,12 @@ def _skip_if_unrunnable(ref, op_name):
     return wrapper
 
 
-_VENDOR_REF = _load_vendor_ref("fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert")
-VLLM_REF_AVAILABLE = _VENDOR_REF is not None
-if VLLM_REF_AVAILABLE:
-    _VENDOR_REF = _skip_if_unrunnable(
-        _VENDOR_REF, "fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert"
-    )
+VLLM_REF_AVAILABLE = HAS_VLLM and hasattr(torch.ops._C, OP_NAME)
+_VENDOR_REF = (
+    _skip_if_unrunnable(getattr(torch.ops._C, OP_NAME), OP_NAME)
+    if VLLM_REF_AVAILABLE
+    else None
+)
 HEAD_DIM = 512
 ROPE_DIM = 64
 HEAD_BYTES = 584
