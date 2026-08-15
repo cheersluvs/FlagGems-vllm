@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert import (
+    fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert,
+)
 from .fused_moe import fused_experts_impl, inplace_fused_experts, outplace_fused_experts
 
 __all__ = [
+    "fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert",
     "fused_experts_impl",
     "inplace_fused_experts",
     "outplace_fused_experts",
