@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import gc
 
 import pytest
 import torch
@@ -57,70 +56,6 @@ TOKEN_DATA_BYTES = NOPE_DIM + ROPE_DIM * 2  # 576
 NUM_QUANT_BLOCKS = NOPE_DIM // QUANT_BLOCK  # 7
 SCALE_BYTES_PER_TOKEN = NUM_QUANT_BLOCKS + 1  # 8
 HEAD_BYTES = TOKEN_DATA_BYTES + SCALE_BYTES_PER_TOKEN  # 584
-
-# The reference upcasts q to fp32 and assert_close allocates several
-# temporaries the size of its inputs, all at full size now that the
-# comparison is no longer sliced.
-REF_BYTES_PER_ELEM = 14
-
-
-def _free_device_memory():
-    """Free device bytes, or None if the backend cannot report it.
-
-    Two corrections matter, and both were found by getting them wrong on a
-    MetaX C550:
-
-    1. Collect before measuring. The previous parametrized case's tensors are
-       still reachable from its frame, so without this a 64GB card reports
-       ~38GB free and the guard skips shapes that in fact pass.
-    2. Count PyTorch's cached-but-unused blocks as available instead of calling
-       `empty_cache` to release them. Releasing hands them back to the driver,
-       and a marginal allocation then has to be re-served from possibly
-       fragmented driver memory rather than reusing blocks already in hand --
-       which is enough to turn 65536 x 128, a shape that otherwise passes,
-       into an OutOfMemoryError.
-    """
-    try:
-        gc.collect()  # drop the previous case's tensors before measuring
-        driver_free = torch.cuda.mem_get_info()[0]
-        cached = torch.cuda.memory_reserved() - torch.cuda.memory_allocated()
-        return driver_free + cached
-    except Exception:
-        pass
-    try:
-        return torch.cuda.get_device_properties(0).total_memory
-    except Exception:
-        return None
-
-
-def _skip_if_reference_wont_fit(num_tokens: int, n_heads: int):
-    """Skip shapes whose fp32 reference exceeds device memory.
-
-    Replaces a hardcoded exclusion list tuned for an 80GB H800, which still
-    OOMs on 64GB cards -- MetaX C550 died at num_tokens=131072, n_heads=64,
-    inside the reference and before the op was ever called. That list was a bare
-    `return`, so those cases were reported as passing without running.
-
-    A shape that does not fit is skipped rather than evaluated in slices. Slicing
-    the oracle would let more shapes run, but it changes what the oracle computes,
-    and an oracle is the wrong place to economise: if the whole-tensor path is
-    correct and the kernel has a size-dependent fault, a sliced reference would
-    agree with it and hide exactly the bug worth finding.
-
-    This is a cheap pre-check that avoids allocating tens of GiB only to fail.
-    It is deliberately not the whole story: whether a marginal shape fits also
-    depends on allocator fragmentation (65536 x 128 passes on a C550 while
-    131072 x 64, an identical element count, does not), so the reference call
-    itself also catches OutOfMemoryError.
-    """
-    elems = num_tokens * n_heads * HEAD_DIM
-    needed = elems * REF_BYTES_PER_ELEM
-    free = _free_device_memory()
-    if free is not None and needed > free:
-        pytest.skip(
-            f"reference needs ~{needed / 2**30:.0f}GiB for num_tokens={num_tokens}, "
-            f"n_heads={n_heads}; only {free / 2**30:.0f}GiB free"
-        )
 
 
 # ─── pytorch reference implementation from vllm ───
@@ -535,7 +470,6 @@ def test_kv_path_with_dp_padding(num_tokens: int, pad: int, block_size: int):
 @pytest.mark.parametrize("n_heads", [64, 128])
 @pytest.mark.parametrize("block_size", [16, 64])
 def test_combined_q_and_kv(num_tokens: int, n_heads: int, block_size: int):
-    _skip_if_reference_wont_fit(num_tokens, n_heads)
 
     torch.manual_seed(2)
     device = flaggems_vllm.device
@@ -595,11 +529,6 @@ _OVERRIDE_ACTIVE = (
 def test_backend_override_matches_reference(
     num_tokens: int, n_heads: int, block_size: int
 ):
-    # This compares against the torch reference, so it carries the reference's
-    # fp32 intermediates and needs the same budget check as the tests above. It
-    # did not when it compared two Triton kernels to each other, and skipping the
-    # check cost a CI failure on a shared card with little free memory.
-    _skip_if_reference_wont_fit(num_tokens, n_heads)
     torch.manual_seed(3)
     device = flaggems_vllm.device
     eps = 1e-6
