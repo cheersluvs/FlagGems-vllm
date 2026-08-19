@@ -81,6 +81,7 @@ def fused_qnorm_rope_kv_insert_kernel(
     q,
     kv,
     k_cache,
+    k_cache_bf16,
     slot_mapping,
     position_ids,
     cos_sin_cache,
@@ -162,15 +163,21 @@ def fused_qnorm_rope_kv_insert_kernel(
     pos_in_block = slot_id % cache_block_size
     block_base = k_cache + block_idx * kv_block_stride
     token_fp8_ptr = block_base + pos_in_block * TOKEN_DATA_BYTES
-    token_bf16_ptr = token_fp8_ptr + NOPE_DIM
-    token_bf16_ptr = token_bf16_ptr.to(tl.pointer_type(tl.bfloat16))
+    # Ascend's Triton rejects casting a pointer between element widths --
+    # `Casting pointers with unmatched bitwidth!` -- so the RoPE region is
+    # reached through a bf16 view passed in from the host. Every byte offset
+    # here is even (block stride 37376, 576 per token, 448 NoPE), so halving
+    # them is exact.
+    token_bf16_idx = (
+        block_idx * kv_block_stride + pos_in_block * TOKEN_DATA_BYTES + NOPE_DIM
+    ) // 2
     token_scale_ptr = (
         block_base
         + cache_block_size * TOKEN_DATA_BYTES
         + pos_in_block * SCALE_BYTES_PER_TOKEN
     )
     # store kv rope
-    tl.store(token_bf16_ptr + offset_rope, qkv_blk_rope)  # [ROPE_DIM]
+    tl.store(k_cache_bf16 + token_bf16_idx + offset_rope, qkv_blk_rope)  # [ROPE_DIM]
     # quantization of kv nope
     # unroll the quantization loop and co-issue loads for better performance
     kv_quant_blk0 = tl.load(kv_base + offset_quant)
@@ -385,10 +392,13 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     assert cos_sin_cache.dtype == torch.float32
 
     grid = num_tokens * (num_heads + 1)
+    assert k_cache.is_contiguous()
+    k_cache_bf16 = k_cache.view(torch.bfloat16)
     fused_qnorm_rope_kv_insert_kernel[(grid,)](
         q,
         kv,
         k_cache,
+        k_cache_bf16,
         slot_mapping,
         position_ids,
         cos_sin_cache,
