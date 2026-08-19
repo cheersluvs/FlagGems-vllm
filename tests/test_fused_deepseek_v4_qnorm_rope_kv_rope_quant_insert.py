@@ -147,6 +147,21 @@ def rmsnorm_no_weight_f32(x: torch.Tensor, eps: float) -> torch.Tensor:
 # ─── pytorch reference implementation from vllm end ───
 
 
+def _to_e4m3_uint8(x: torch.Tensor) -> torch.Tensor:
+    """The reference FP8 conversion, returned as uint8 bit patterns.
+
+    A backend can carry the `float8_e4m3fn` dtype and still be unable to cast to
+    it: torch_npu raises `Float8_e4m3fn has not been supported`. That would fail
+    the oracle rather than the kernel under test, so fall back to CPU for this
+    one step. The cast is elementwise and device-independent, so the numbers are
+    unaffected -- only where they are computed.
+    """
+    try:
+        return x.to(torch.float8_e4m3fn).view(torch.uint8)
+    except RuntimeError:
+        return x.cpu().to(torch.float8_e4m3fn).view(torch.uint8).to(x.device)
+
+
 def torch_quantize_and_insert_k_cache(
     k: torch.Tensor,  # [num_tokens, 512] bf16
     k_cache: torch.Tensor,  # [num_blocks, block_bytes] uint8
@@ -203,8 +218,7 @@ def torch_quantize_and_insert_k_cache(
     scale = torch.exp2(exponent)
     x_scaled = kv_quant_blk / scale[:, :, None]
     x_clamped = torch.clamp(x_scaled, min=-FP8_MAX, max=FP8_MAX)
-    x_fp8 = x_clamped.to(torch.float8_e4m3fn)
-    x_uint8 = x_fp8.view(torch.uint8).view(num, NOPE_DIM)
+    x_uint8 = _to_e4m3_uint8(x_clamped).view(num, NOPE_DIM)
     fp8_range = torch.arange(NOPE_DIM, dtype=torch.int64, device=k.device)
     k_cache[block_id[:, None], fp8_off[:, None] + fp8_range[None, :]] = x_uint8
     encoded_scale = exponent + 127.0
