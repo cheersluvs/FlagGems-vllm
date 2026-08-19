@@ -147,6 +147,27 @@ def rmsnorm_no_weight_f32(x: torch.Tensor, eps: float) -> torch.Tensor:
 # ─── pytorch reference implementation from vllm end ───
 
 
+def _exact_pow2(exponent: torch.Tensor) -> torch.Tensor:
+    """2 ** exponent for an integer-valued `exponent`, exactly.
+
+    `torch.exp2` and `torch.pow` do not return an exact power of two on every
+    backend: on Ascend, torch.exp2 is one ULP low for 492 of 512 integer
+    arguments. Almost anywhere else that is invisible, but the oracle divides by
+    this value, so every quantised element comes out a ULP high and the ones
+    sitting exactly between two E4M3 codes round the other way. The operator's
+    inputs keep bfloat16's 8 significand bits while E4M3 has 4, so such exact
+    ties are common, not a corner case -- this showed up as 16 differing bytes
+    per token, every one of them off by a single LSB.
+
+    Assembling the float from its exponent field is exact by construction. Done
+    on CPU because the exponent is small and this keeps it independent of what
+    the device's bit-level ops happen to support.
+    """
+    code = (exponent.detach().cpu().to(torch.int32) + 127).clamp(0, 255)
+    pow2 = (code << 23).contiguous().view(torch.float32)
+    return pow2.to(device=exponent.device, dtype=exponent.dtype)
+
+
 def _to_e4m3_uint8(x: torch.Tensor) -> torch.Tensor:
     """The reference FP8 conversion, returned as uint8 bit patterns.
 
@@ -215,7 +236,7 @@ def torch_quantize_and_insert_k_cache(
     raw_scale = block_max / FP8_MAX
     log_scale = torch.log2(raw_scale)
     exponent = torch.ceil(log_scale)
-    scale = torch.exp2(exponent)
+    scale = _exact_pow2(exponent)
     x_scaled = kv_quant_blk / scale[:, :, None]
     x_clamped = torch.clamp(x_scaled, min=-FP8_MAX, max=FP8_MAX)
     x_uint8 = _to_e4m3_uint8(x_clamped).view(num, NOPE_DIM)
@@ -363,7 +384,7 @@ def _ue8m0_per_block_scales(kv_roped_nope_f32: torch.Tensor, qblock: int):
     absmax = blocks.abs().amax(dim=-1).clamp(min=1e-4)
     raw = absmax / FP8_MAX
     exponent = torch.ceil(torch.log2(raw))
-    return torch.pow(2.0, exponent)  # [n_tok, n_blocks]
+    return _exact_pow2(exponent)  # [n_tok, n_blocks]
 
 
 @pytest.mark.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert
