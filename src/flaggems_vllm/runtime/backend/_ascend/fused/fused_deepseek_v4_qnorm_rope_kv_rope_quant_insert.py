@@ -64,9 +64,16 @@ MAX_PROGRAMS_PER_LAUNCH = 65535
 #
 #     8 -> 19.0 (107.8 GB/s)   16 -> 14.4 (142.6)   32 -> 11.5 (178.7)
 #
-# 64 does not run: a [64, HEAD_DIM] float32 tile is 128 KB against a usable
-# Unified Buffer nearer 36 KB than its nominal 192 KB. 32 is the last width
-# that fits, and it is also the fastest of the ones that do.
+# 64 does not run:
+#
+#     ub overflow, requires 3215360 bits while 1572864 bits available
+#
+# that is 392.5 KB wanted against 192 KB of Unified Buffer. Note it is three
+# times what the tile itself needs -- [64, HEAD_DIM] in float32 is 128 KB --
+# because several intermediates are live at once and multi-buffering asks for
+# more again, which the message says outright. So size a tile by measuring, not
+# by multiplying out its dimensions. 32 is both the widest width that fits and
+# the fastest of those that do.
 Q_UNITS_PER_PROGRAM = 32
 
 
