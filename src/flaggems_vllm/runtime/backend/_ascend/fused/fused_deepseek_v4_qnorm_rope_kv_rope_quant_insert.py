@@ -11,11 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Ascend override: encode OCP E4M3 with integer arithmetic.
+"""Ascend override for the fused DeepSeek-V4 qnorm/RoPE/quant/insert kernel.
 
-The kernel body is the generic one. The only change is the FP8 conversion: the
-seven unrolled quantisation groups call `_f32_to_e4m3_bits` instead of
-`.to(tl.float8e4nv)`.
+The arithmetic is the generic implementation's throughout. Four things are
+expressed differently, each because the toolchain rejects the generic form:
+
+1. FP8 conversion goes through `_f32_to_e4m3_bits`, not `.to(tl.float8e4nv)`.
+2. The UE8M0 scale is read off the exponent bits by `_ue8m0_scale`, not built
+   with log2/ceil/exp2 and a float-to-integer conversion.
+3. The bf16 half of each cache token is reached through a bfloat16 view passed
+   in by the wrapper, not by casting a pointer's element type.
+4. RoPE pairs are addressed with a 2-D offset, so they need no reshape.
+
+Each is explained at its definition or use site. Points 2, 3 and 4 also each
+surfaced as a compiler failure that reports the wrong thing -- a missing output
+file, or nothing at all -- so read those notes before reformulating any of them.
 
 `tl.float8e4nv` cannot be compiled for this card, but for a different reason than
 on T-Head. There is no capability gate to argue with — BiShengIR does not know the
@@ -34,8 +44,9 @@ against the 192 KB available and fails to compile with `ub overflow, requires
 1966080 bits while 1572864 bits available`. That is a loud compile-time failure
 rather than a silent one, but it caps how much this kernel can be widened.
 
-Delete this file once BiShengIR lowers `f8E4M3FN`. Nothing else here differs from
-the generic implementation.
+This file can go away once BiShengIR lowers `f8E4M3FN`, AICore can select a
+scalar float-to-integer conversion, Triton can bitcast a pointer's element type
+here, and `[ROPE_DIM] -> [HALF_ROPE_DIM, 2]` survives the shape pipeline.
 """
 
 import torch
@@ -74,6 +85,35 @@ def _f32_to_e4m3_bits(x):
     v = tl.where((e_n > 15) | ((e_n == 15) & (m_n == 7)), 0x7E, v)
     v = tl.where(mag == 0, 0, v)
     return (sign | v).to(tl.uint8)
+
+
+@triton.jit
+def _ue8m0_scale(raw_scale):
+    """UE8M0 scale for a positive float: 2^ceil(log2(raw_scale)), plus the byte
+    that encodes it -- which is exactly that power of two's biased exponent.
+
+    Read straight off the exponent bits rather than going through
+    log2 / ceil / exp2 and a float-to-integer conversion. The conversion is the
+    reason this exists: the value is a per-block scalar, and AICore's scalar
+    unit has no float-to-integer instruction, so `encoded_scale.to(tl.uint8)`
+    fails instruction selection in bisheng with
+
+        fatal error: error in backend: Cannot select: i64 = fp_to_uint
+
+    (wrapped in the NaN and lower-bound selects Triton emits for a saturating
+    conversion). The failure is reported as a missing kernel.o, because hivmc
+    exits 0 after bisheng fails.
+
+    raw_scale is always positive here -- block_max is floored at 1e-4 -- so the
+    sign bit needs no handling.
+    """
+    bits = raw_scale.to(tl.int32, bitcast=True)
+    biased_exp = (bits >> 23) & 0xFF
+    # Ceil rather than floor: any set mantissa bit means the next power of two.
+    code = biased_exp + tl.where((bits & 0x7FFFFF) != 0, 1, 0)
+    scale = (code << 23).to(tl.float32, bitcast=True)
+    stored = tl.minimum(tl.maximum(code, 0), 255)
+    return scale, stored
 
 
 @triton.jit
@@ -199,11 +239,9 @@ def fused_qnorm_rope_kv_insert_kernel(
     kv_quant_blk = kv_quant_blk0.to(tl.float32)
     block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
     block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX))
+    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
     raw_scale = block_max / FP8_MAX
-    log_scale = tl.log2(raw_scale)
-    exponent = tl.ceil(log_scale)
-    scale = tl.exp2(exponent)
+    scale, scale_code = _ue8m0_scale(raw_scale)
     # quantize to fp8: fp8_value = bf16_value / scale
     x_scaled = kv_quant_blk / scale
     x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
@@ -212,20 +250,16 @@ def fused_qnorm_rope_kv_insert_kernel(
     # store quantized data
     tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
     # store scale: stored_value = exponent + 127 (bias)
-    encoded_scale = exponent + 127.0
-    encoded_scale = tl.maximum(tl.minimum(encoded_scale, 255.0), 0.0)
-    tl.store(token_scale_ptr + qblock_idx, encoded_scale.to(tl.uint8))
+    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
 
     # quant group 1
     qblock_idx = 1
     kv_quant_blk = kv_quant_blk1.to(tl.float32)
     block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
     block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX))
+    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
     raw_scale = block_max / FP8_MAX
-    log_scale = tl.log2(raw_scale)
-    exponent = tl.ceil(log_scale)
-    scale = tl.exp2(exponent)
+    scale, scale_code = _ue8m0_scale(raw_scale)
     # quantize to fp8: fp8_value = bf16_value / scale
     x_scaled = kv_quant_blk / scale
     x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
@@ -234,20 +268,16 @@ def fused_qnorm_rope_kv_insert_kernel(
     # store quantized data
     tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
     # store scale: stored_value = exponent + 127 (bias)
-    encoded_scale = exponent + 127.0
-    encoded_scale = tl.maximum(tl.minimum(encoded_scale, 255.0), 0.0)
-    tl.store(token_scale_ptr + qblock_idx, encoded_scale.to(tl.uint8))
+    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
 
     # quant group 2
     qblock_idx = 2
     kv_quant_blk = kv_quant_blk2.to(tl.float32)
     block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
     block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX))
+    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
     raw_scale = block_max / FP8_MAX
-    log_scale = tl.log2(raw_scale)
-    exponent = tl.ceil(log_scale)
-    scale = tl.exp2(exponent)
+    scale, scale_code = _ue8m0_scale(raw_scale)
     # quantize to fp8: fp8_value = bf16_value / scale
     x_scaled = kv_quant_blk / scale
     x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
@@ -256,20 +286,16 @@ def fused_qnorm_rope_kv_insert_kernel(
     # store quantized data
     tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
     # store scale: stored_value = exponent + 127 (bias)
-    encoded_scale = exponent + 127.0
-    encoded_scale = tl.maximum(tl.minimum(encoded_scale, 255.0), 0.0)
-    tl.store(token_scale_ptr + qblock_idx, encoded_scale.to(tl.uint8))
+    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
 
     # quant group 3
     qblock_idx = 3
     kv_quant_blk = kv_quant_blk3.to(tl.float32)
     block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
     block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX))
+    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
     raw_scale = block_max / FP8_MAX
-    log_scale = tl.log2(raw_scale)
-    exponent = tl.ceil(log_scale)
-    scale = tl.exp2(exponent)
+    scale, scale_code = _ue8m0_scale(raw_scale)
     # quantize to fp8: fp8_value = bf16_value / scale
     x_scaled = kv_quant_blk / scale
     x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
@@ -278,20 +304,16 @@ def fused_qnorm_rope_kv_insert_kernel(
     # store quantized data
     tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
     # store scale: stored_value = exponent + 127 (bias)
-    encoded_scale = exponent + 127.0
-    encoded_scale = tl.maximum(tl.minimum(encoded_scale, 255.0), 0.0)
-    tl.store(token_scale_ptr + qblock_idx, encoded_scale.to(tl.uint8))
+    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
 
     # quant group 4
     qblock_idx = 4
     kv_quant_blk = kv_quant_blk4.to(tl.float32)
     block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
     block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX))
+    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
     raw_scale = block_max / FP8_MAX
-    log_scale = tl.log2(raw_scale)
-    exponent = tl.ceil(log_scale)
-    scale = tl.exp2(exponent)
+    scale, scale_code = _ue8m0_scale(raw_scale)
     # quantize to fp8: fp8_value = bf16_value / scale
     x_scaled = kv_quant_blk / scale
     x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
@@ -300,20 +322,16 @@ def fused_qnorm_rope_kv_insert_kernel(
     # store quantized data
     tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
     # store scale: stored_value = exponent + 127 (bias)
-    encoded_scale = exponent + 127.0
-    encoded_scale = tl.maximum(tl.minimum(encoded_scale, 255.0), 0.0)
-    tl.store(token_scale_ptr + qblock_idx, encoded_scale.to(tl.uint8))
+    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
 
     # quant group 5
     qblock_idx = 5
     kv_quant_blk = kv_quant_blk5.to(tl.float32)
     block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
     block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX))
+    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
     raw_scale = block_max / FP8_MAX
-    log_scale = tl.log2(raw_scale)
-    exponent = tl.ceil(log_scale)
-    scale = tl.exp2(exponent)
+    scale, scale_code = _ue8m0_scale(raw_scale)
     # quantize to fp8: fp8_value = bf16_value / scale
     x_scaled = kv_quant_blk / scale
     x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
@@ -322,20 +340,16 @@ def fused_qnorm_rope_kv_insert_kernel(
     # store quantized data
     tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
     # store scale: stored_value = exponent + 127 (bias)
-    encoded_scale = exponent + 127.0
-    encoded_scale = tl.maximum(tl.minimum(encoded_scale, 255.0), 0.0)
-    tl.store(token_scale_ptr + qblock_idx, encoded_scale.to(tl.uint8))
+    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
 
     # quant group 6
     qblock_idx = 6
     kv_quant_blk = kv_quant_blk6.to(tl.float32)
     block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
     block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX))
+    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
     raw_scale = block_max / FP8_MAX
-    log_scale = tl.log2(raw_scale)
-    exponent = tl.ceil(log_scale)
-    scale = tl.exp2(exponent)
+    scale, scale_code = _ue8m0_scale(raw_scale)
     # quantize to fp8: fp8_value = bf16_value / scale
     x_scaled = kv_quant_blk / scale
     x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
@@ -344,9 +358,7 @@ def fused_qnorm_rope_kv_insert_kernel(
     # store quantized data
     tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
     # store scale: stored_value = exponent + 127 (bias)
-    encoded_scale = exponent + 127.0
-    encoded_scale = tl.maximum(tl.minimum(encoded_scale, 255.0), 0.0)
-    tl.store(token_scale_ptr + qblock_idx, encoded_scale.to(tl.uint8))
+    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
 
     # padding of scale
     tl.store(token_scale_ptr + NUM_QUANT_BLOCKS, tl.zeros((), dtype=tl.uint8))
