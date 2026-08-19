@@ -59,9 +59,15 @@ MAX_PROGRAMS_PER_LAUNCH = 65535
 
 # (token, head) units per program on the Q path, as a [N, HEAD_DIM] tile.
 # One unit per program moves only a kilobyte, far too little to cover this
-# backend's per-program cost. Measured on the card, ns per unit: 1 -> 590,
-# 2 -> 64.8, 4 -> 48.7, 8 -> 31.1, 16 -> 24.9.
-Q_UNITS_PER_PROGRAM = 16
+# backend's per-program cost. Swept on the card against this kernel at 4096
+# tokens by 64 heads -- ns per unit, and the bandwidth that implies:
+#
+#     8 -> 19.0 (107.8 GB/s)   16 -> 14.4 (142.6)   32 -> 11.5 (178.7)
+#
+# 64 does not run: a [64, HEAD_DIM] float32 tile is 128 KB against a usable
+# Unified Buffer nearer 36 KB than its nominal 192 KB. 32 is the last width
+# that fits, and it is also the fastest of the ones that do.
+Q_UNITS_PER_PROGRAM = 32
 
 
 @triton.jit
