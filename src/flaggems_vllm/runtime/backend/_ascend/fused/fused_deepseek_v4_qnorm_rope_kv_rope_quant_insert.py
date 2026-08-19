@@ -57,6 +57,12 @@ import triton.language as tl
 # an invalid `coreDim`. It is a launch-API limit, not a hardware occupancy one.
 MAX_PROGRAMS_PER_LAUNCH = 65535
 
+# (token, head) units per program on the Q path, as a [N, HEAD_DIM] tile.
+# One unit per program moves only a kilobyte, far too little to cover this
+# backend's per-program cost. Measured on the card, ns per unit: 1 -> 590,
+# 2 -> 64.8, 4 -> 48.7, 8 -> 31.1, 16 -> 24.9.
+Q_UNITS_PER_PROGRAM = 16
+
 
 @triton.jit
 def _f32_to_e4m3_bits(x):
@@ -121,6 +127,90 @@ def _ue8m0_scale(raw_scale):
 
 
 @triton.jit
+def q_norm_rope_kernel(
+    q,
+    position_ids,
+    cos_sin_cache,
+    eps,
+    num_heads,
+    total_q_units,
+    pid_offset,
+    TPT: tl.constexpr,
+):
+    """RMSNorm without weight, then GPT-J RoPE, for TPT (token, head) units.
+
+    The Q path is 98% of the work -- one unit in num_heads + 1 is the KV one --
+    and it is the half with no gather, no quantisation and no cache write, so it
+    is where a wider tile pays and where it is safe to take one.
+
+    Deliberately built from nothing but wider vectors: no loop, no device
+    function, no early returns. All three of those abort ttir_to_linalg on this
+    backend, with no message.
+
+    Verified bit-identical to a torch reference computed on the device over
+    16.7M elements. It differs from the same reference computed on CPU in 63 of
+    them, every one by a single bfloat16 ULP -- that is `rsqrt`, which disagrees
+    between CPU and device for 8086 of 32768 inputs, not this kernel.
+    """
+    HEAD_DIM: tl.constexpr = 512
+    NOPE_DIM: tl.constexpr = 448
+    ROPE_DIM: tl.constexpr = 64
+    HALF_ROPE_DIM: tl.constexpr = 32
+
+    rows = (tl.program_id(0).to(tl.int64) + pid_offset) * TPT + tl.arange(0, TPT)
+    valid = rows < total_q_units
+    token_idx = rows // num_heads
+
+    col = tl.arange(0, HEAD_DIM)
+    blk = tl.load(
+        q + rows[:, None] * HEAD_DIM + col[None, :],
+        mask=valid[:, None],
+        other=0.0,
+    ).to(tl.float32)
+
+    variance = tl.sum(blk * blk, axis=1) / HEAD_DIM
+    rsqrt = tl.rsqrt(variance + eps)
+    blk = blk * rsqrt[:, None]
+    tl.store(
+        q + rows[:, None] * HEAD_DIM + col[None, :],
+        blk.to(tl.bfloat16),
+        mask=valid[:, None] & (col[None, :] < NOPE_DIM),
+    )
+
+    position_id = tl.load(position_ids + token_idx, mask=valid, other=0)
+    # position_id is a vector, so these are gathers and the pointer analysis
+    # takes its unstructured path -- where an addptr result may have exactly one
+    # user, `Invalid: tt.addptr has multiple users` (BlockPtrAnalysis.cpp:2120).
+    # cos and sin therefore get separate chains, with offsets that differ so
+    # they cannot be merged back into one.
+    half = tl.arange(0, HALF_ROPE_DIM)
+    cos_off = position_id[:, None] * ROPE_DIM + half[None, :]
+    cos_blk = tl.load(cos_sin_cache + cos_off, mask=valid[:, None], other=0.0)
+    sin_off = position_id[:, None] * ROPE_DIM + HALF_ROPE_DIM + half[None, :]
+    sin_blk = tl.load(cos_sin_cache + sin_off, mask=valid[:, None], other=0.0)
+
+    # [TPT, HALF_ROPE_DIM, 2]: the pair axis is broadcast into existence, as on
+    # the KV path, so no reshape is needed.
+    pair_off = (
+        rows[:, None, None] * HEAD_DIM
+        + NOPE_DIM
+        + half[None, :, None] * 2
+        + tl.arange(0, 2)[None, None, :]
+    )
+    pair = tl.load(q + pair_off, mask=valid[:, None, None], other=0.0).to(tl.float32)
+    even_blk, odd_blk = tl.split(pair)
+    even_blk = even_blk * rsqrt[:, None]
+    odd_blk = odd_blk * rsqrt[:, None]
+    new_even_blk = even_blk * cos_blk - odd_blk * sin_blk
+    new_odd_blk = even_blk * sin_blk + odd_blk * cos_blk
+    tl.store(
+        q + pair_off,
+        tl.join(new_even_blk, new_odd_blk).to(tl.bfloat16),
+        mask=valid[:, None, None],
+    )
+
+
+@triton.jit
 def fused_qnorm_rope_kv_insert_kernel(
     q,
     kv,
@@ -147,9 +237,13 @@ def fused_qnorm_rope_kv_insert_kernel(
     TOKEN_DATA_BYTES: tl.constexpr = NOPE_DIM + 2 * ROPE_DIM  # 576
     FP8_MAX: tl.constexpr = 448.0
 
-    # The work is issued in chunks of at most MAX_PROGRAMS_PER_LAUNCH, so the
-    # program's place in the whole job is its id plus the chunk's offset.
-    pid = tl.program_id(0).to(tl.int64) + pid_offset
+    # This kernel now runs only the KV unit of each token -- q_norm_rope_kernel
+    # takes the Q units, which are all but one in every num_heads + 1. One
+    # program per token, mapped onto the flat unit index the body below already
+    # expects, so nothing downstream changes. The work is issued in chunks of at
+    # most MAX_PROGRAMS_PER_LAUNCH, hence the offset.
+    token_of_program = tl.program_id(0).to(tl.int64) + pid_offset
+    pid = token_of_program * (num_heads + 1) + num_heads
     blocks_per_token = num_heads + 1
     token_idx = pid // blocks_per_token
     if token_idx >= num_tokens:
@@ -428,9 +522,26 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     #
     # which 8192 tokens at 64 heads already exceeds eightfold. The work is
     # issued in chunks and each program adds its chunk's offset to its id.
-    total_programs = num_tokens * (num_heads + 1)
-    for pid_offset in range(0, total_programs, MAX_PROGRAMS_PER_LAUNCH):
-        grid = min(MAX_PROGRAMS_PER_LAUNCH, total_programs - pid_offset)
+    # Q path: every (token, head) pair, tiled.
+    total_q_units = num_tokens * num_heads
+    q_programs = triton.cdiv(total_q_units, Q_UNITS_PER_PROGRAM)
+    for pid_offset in range(0, q_programs, MAX_PROGRAMS_PER_LAUNCH):
+        grid = min(MAX_PROGRAMS_PER_LAUNCH, q_programs - pid_offset)
+        q_norm_rope_kernel[(grid,)](
+            q,
+            position_ids,
+            cos_sin_cache,
+            eps,
+            num_heads,
+            total_q_units,
+            pid_offset,
+            Q_UNITS_PER_PROGRAM,
+            num_warps=1,
+        )
+
+    # KV path: one program per inserted token.
+    for pid_offset in range(0, num_tokens_insert, MAX_PROGRAMS_PER_LAUNCH):
+        grid = min(MAX_PROGRAMS_PER_LAUNCH, num_tokens_insert - pid_offset)
         fused_qnorm_rope_kv_insert_kernel[(grid,)](
             q,
             kv,
