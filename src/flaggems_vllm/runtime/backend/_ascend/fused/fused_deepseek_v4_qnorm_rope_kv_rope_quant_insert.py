@@ -57,13 +57,6 @@ import triton.language as tl
 # an invalid `coreDim`. It is a launch-API limit, not a hardware occupancy one.
 MAX_PROGRAMS_PER_LAUNCH = 65535
 
-# (token, head) units handled by one program. A unit moves about a kilobyte,
-# far too little to cover this backend's per-program cost, so the units are
-# batched. Chosen from a measured copy sweep on the card: 1 unit per program
-# reaches 51 GB/s, 2 -> 104, 4 -> 203, 8 -> 288, and it is flat from there to
-# 64. Overridable for re-tuning, but 8 is where the curve turns over.
-UNITS_PER_PROGRAM = 8
-
 
 @triton.jit
 def _f32_to_e4m3_bits(x):
@@ -128,8 +121,7 @@ def _ue8m0_scale(raw_scale):
 
 
 @triton.jit
-def _process_one(
-    pid,
+def fused_qnorm_rope_kv_insert_kernel(
     q,
     kv,
     k_cache,
@@ -142,17 +134,9 @@ def _process_one(
     num_tokens: tl.constexpr,
     num_heads: tl.constexpr,
     kv_block_stride,
+    pid_offset,
     num_tokens_insert: tl.constexpr,
 ):
-    """One (token, head) unit of work -- the generic kernel body, unchanged.
-
-    Split out as a device function so the launcher can run several of these per
-    program. Its early returns are preserved: a `return` here leaves this unit,
-    not the program, which is what lets the body stay identical to the generic
-    implementation instead of being restructured into nested conditionals. That
-    matters on this backend, where in-loop control flow is what breaks the UB
-    allocator.
-    """
     HEAD_DIM: tl.constexpr = 512
     NOPE_DIM: tl.constexpr = 448
     ROPE_DIM: tl.constexpr = 64
@@ -163,6 +147,9 @@ def _process_one(
     TOKEN_DATA_BYTES: tl.constexpr = NOPE_DIM + 2 * ROPE_DIM  # 576
     FP8_MAX: tl.constexpr = 448.0
 
+    # The work is issued in chunks of at most MAX_PROGRAMS_PER_LAUNCH, so the
+    # program's place in the whole job is its id plus the chunk's offset.
+    pid = tl.program_id(0).to(tl.int64) + pid_offset
     blocks_per_token = num_heads + 1
     token_idx = pid // blocks_per_token
     if token_idx >= num_tokens:
@@ -384,55 +371,6 @@ def _process_one(
     tl.store(token_scale_ptr + NUM_QUANT_BLOCKS, tl.zeros((), dtype=tl.uint8))
 
 
-@triton.jit
-def fused_qnorm_rope_kv_insert_kernel(
-    q,
-    kv,
-    k_cache,
-    k_cache_bf16,
-    slot_mapping,
-    position_ids,
-    cos_sin_cache,
-    eps,
-    cache_block_size: tl.constexpr,
-    num_tokens: tl.constexpr,
-    num_heads: tl.constexpr,
-    kv_block_stride,
-    pid_offset,
-    total_units,
-    num_tokens_insert: tl.constexpr,
-    UNITS_PER_PROGRAM: tl.constexpr,
-):
-    """Run UNITS_PER_PROGRAM (token, head) units per program.
-
-    One unit per program -- the generic shape -- costs about 76 ns each here and
-    is the operator's entire runtime; the work per unit is only a kilobyte, so
-    the fixed part dominates. Measured on this card with an isolated copy: 1 row
-    per program reaches 51 GB/s, 2 rows 104, 4 rows 203, 8 rows 288, after which
-    it is flat to 64 rows. num_warps is not a lever -- 1, 2 and 4 are identical.
-    """
-    base = (tl.program_id(0).to(tl.int64) + pid_offset) * UNITS_PER_PROGRAM
-    for k in tl.static_range(UNITS_PER_PROGRAM):
-        pid = base + k
-        if pid < total_units:
-            _process_one(
-                pid,
-                q,
-                kv,
-                k_cache,
-                k_cache_bf16,
-                slot_mapping,
-                position_ids,
-                cos_sin_cache,
-                eps,
-                cache_block_size,
-                num_tokens,
-                num_heads,
-                kv_block_stride,
-                num_tokens_insert,
-            )
-
-
 def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     q: torch.Tensor,
     kv: torch.Tensor,
@@ -490,8 +428,7 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     #
     # which 8192 tokens at 64 heads already exceeds eightfold. The work is
     # issued in chunks and each program adds its chunk's offset to its id.
-    total_units = num_tokens * (num_heads + 1)
-    total_programs = triton.cdiv(total_units, UNITS_PER_PROGRAM)
+    total_programs = num_tokens * (num_heads + 1)
     for pid_offset in range(0, total_programs, MAX_PROGRAMS_PER_LAUNCH):
         grid = min(MAX_PROGRAMS_PER_LAUNCH, total_programs - pid_offset)
         fused_qnorm_rope_kv_insert_kernel[(grid,)](
@@ -508,9 +445,7 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
             num_heads,
             k_cache.stride(0),
             pid_offset,
-            total_units,
             num_tokens_insert,
-            UNITS_PER_PROGRAM,
             num_warps=1,
             num_stages=2,
         )
