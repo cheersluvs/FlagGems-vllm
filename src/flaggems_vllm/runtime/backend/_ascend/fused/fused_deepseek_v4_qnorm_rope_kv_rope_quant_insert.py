@@ -115,15 +115,21 @@ def fused_qnorm_rope_kv_insert_kernel(
     kv_base = kv + token_idx * HEAD_DIM
     offset = tl.arange(0, HEAD_DIM)
     mask_nope = offset < NOPE_DIM
-    offset_rope = tl.arange(0, ROPE_DIM)
     offset_half_rope = tl.arange(0, HALF_ROPE_DIM)
     offset_quant = tl.arange(0, QUANT_BLOCK)
+    # The RoPE pairs are addressed with a 2-D offset, so they arrive already
+    # shaped [HALF_ROPE_DIM, 2] and need no reshape. BiShengIR rejects turning
+    # [ROPE_DIM] into [HALF_ROPE_DIM, 2] here (`cannot align 0 axis` on the
+    # expand_shape, `collapsing non-contiguous dims` on the way back), and
+    # taking the pairs with 1-D stride-2 offsets instead aborts the compiler in
+    # InterleaveOptimization.cpp. This form needs neither.
+    offset_pair = offset_half_rope[:, None] * 2 + tl.arange(0, 2)[None, :]
     if not is_kv:
         # load q
         q_blk = tl.load(q_base + offset).to(tl.float32)  # [NOPE_DIM]
-        q_blk_rope = tl.load(q_base + NOPE_DIM + offset_rope).to(
+        q_blk_rope = tl.load(q_base + NOPE_DIM + offset_pair).to(
             tl.float32
-        )  # [ROPE_DIM]
+        )  # [HALF_ROPE_DIM, 2]
         # RMSNorm with no weight
         variance = tl.sum(q_blk * q_blk) / HEAD_DIM
         rsqrt = tl.rsqrt(variance + eps)
@@ -133,9 +139,9 @@ def fused_qnorm_rope_kv_insert_kernel(
         qkv_blk_rope = q_blk_rope * rsqrt
     else:
         # load kv rope
-        qkv_blk_rope = tl.load(kv_base + NOPE_DIM + offset_rope).to(
+        qkv_blk_rope = tl.load(kv_base + NOPE_DIM + offset_pair).to(
             tl.float32
-        )  # [ROPE_DIM]
+        )  # [HALF_ROPE_DIM, 2]
     # load cos/sin
     position_id = tl.load(position_ids + token_idx)  # i64
     cs_base = cos_sin_cache + position_id * ROPE_DIM
@@ -144,16 +150,15 @@ def fused_qnorm_rope_kv_insert_kernel(
         cs_base + offset_half_rope + HALF_ROPE_DIM
     )  # [HALF_ROPE_DIM], f32
     # ROPE
-    qkv_blk_rope = tl.reshape(qkv_blk_rope, HALF_ROPE_DIM, 2)
     even_blk, odd_blk = tl.split(qkv_blk_rope)  # [HALF_ROPE_DIM], f32
     new_even_blk = even_blk * cos_blk - odd_blk * sin_blk
     new_odd_blk = even_blk * sin_blk + odd_blk * cos_blk
-    qkv_blk_rope = tl.reshape(tl.join(new_even_blk, new_odd_blk), ROPE_DIM).to(
+    qkv_blk_rope = tl.join(new_even_blk, new_odd_blk).to(
         tl.bfloat16
-    )
+    )  # [HALF_ROPE_DIM, 2]
     if not is_kv:
         # store q rope
-        tl.store(q_base + NOPE_DIM + offset_rope, qkv_blk_rope)  # [ROPE_DIM]
+        tl.store(q_base + NOPE_DIM + offset_pair, qkv_blk_rope)  # [HALF_ROPE_DIM, 2]
         return
     # load slot
     slot_id = tl.load(slot_mapping + token_idx)  # i64
@@ -177,7 +182,9 @@ def fused_qnorm_rope_kv_insert_kernel(
         + pos_in_block * SCALE_BYTES_PER_TOKEN
     )
     # store kv rope
-    tl.store(k_cache_bf16 + token_bf16_idx + offset_rope, qkv_blk_rope)  # [ROPE_DIM]
+    tl.store(
+        k_cache_bf16 + token_bf16_idx + offset_pair, qkv_blk_rope
+    )  # [HALF_ROPE_DIM, 2]
     # quantization of kv nope
     # unroll the quantization loop and co-issue loads for better performance
     kv_quant_blk0 = tl.load(kv_base + offset_quant)
