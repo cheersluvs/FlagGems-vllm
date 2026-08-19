@@ -522,11 +522,18 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     #
     # which 8192 tokens at 64 heads already exceeds eightfold. The work is
     # issued in chunks and each program adds its chunk's offset to its id.
-    # Q path: every (token, head) pair, tiled.
+    # Q path: every (token, head) pair, in full tiles plus a one-unit tail.
+    #
+    # Only whole tiles are issued, so every lane of every tile is a real unit.
+    # A partial tile would address past the end of q, and this backend faults on
+    # that rather than honouring the mask (`aicpu exception`, 507018). Clamping
+    # the out-of-range lanes instead is worse: it makes several lanes share an
+    # address, and a masked store with duplicate lane addresses is silently
+    # dropped here -- a wrong answer in place of a crash.
     total_q_units = num_tokens * num_heads
-    q_programs = triton.cdiv(total_q_units, Q_UNITS_PER_PROGRAM)
-    for pid_offset in range(0, q_programs, MAX_PROGRAMS_PER_LAUNCH):
-        grid = min(MAX_PROGRAMS_PER_LAUNCH, q_programs - pid_offset)
+    full_tiles = total_q_units // Q_UNITS_PER_PROGRAM
+    for pid_offset in range(0, full_tiles, MAX_PROGRAMS_PER_LAUNCH):
+        grid = min(MAX_PROGRAMS_PER_LAUNCH, full_tiles - pid_offset)
         q_norm_rope_kernel[(grid,)](
             q,
             position_ids,
@@ -536,6 +543,21 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
             total_q_units,
             pid_offset,
             Q_UNITS_PER_PROGRAM,
+            num_warps=1,
+        )
+    tail_start = full_tiles * Q_UNITS_PER_PROGRAM
+    tail = total_q_units - tail_start
+    for off in range(0, tail, MAX_PROGRAMS_PER_LAUNCH):
+        grid = min(MAX_PROGRAMS_PER_LAUNCH, tail - off)
+        q_norm_rope_kernel[(grid,)](
+            q,
+            position_ids,
+            cos_sin_cache,
+            eps,
+            num_heads,
+            total_q_units,
+            tail_start + off,
+            1,
             num_warps=1,
         )
 
