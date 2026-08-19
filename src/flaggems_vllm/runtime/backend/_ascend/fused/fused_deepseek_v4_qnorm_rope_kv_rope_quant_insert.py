@@ -53,6 +53,10 @@ import torch
 import triton
 import triton.language as tl
 
+# The runtime rejects a launch whose program count exceeds this, reporting it as
+# an invalid `coreDim`. It is a launch-API limit, not a hardware occupancy one.
+MAX_PROGRAMS_PER_LAUNCH = 65535
+
 
 @triton.jit
 def _f32_to_e4m3_bits(x):
@@ -130,6 +134,7 @@ def fused_qnorm_rope_kv_insert_kernel(
     num_tokens: tl.constexpr,
     num_heads: tl.constexpr,
     kv_block_stride,
+    pid_offset,
     num_tokens_insert: tl.constexpr,
 ):
     HEAD_DIM: tl.constexpr = 512
@@ -142,7 +147,9 @@ def fused_qnorm_rope_kv_insert_kernel(
     TOKEN_DATA_BYTES: tl.constexpr = NOPE_DIM + 2 * ROPE_DIM  # 576
     FP8_MAX: tl.constexpr = 448.0
 
-    pid = tl.program_id(0).to(tl.int64)  # grid = (num_tokens * (num_heads + 1),)
+    # The work is issued in chunks of at most MAX_PROGRAMS_PER_LAUNCH, so the
+    # program's place in the whole job is its id plus the chunk's offset.
+    pid = tl.program_id(0).to(tl.int64) + pid_offset
     blocks_per_token = num_heads + 1
     token_idx = pid // blocks_per_token
     if token_idx >= num_tokens:
@@ -410,23 +417,35 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     assert cos_sin_cache.dim() == 2 and cos_sin_cache.shape[1] == 64
     assert cos_sin_cache.dtype == torch.float32
 
-    grid = num_tokens * (num_heads + 1)
     assert k_cache.is_contiguous()
     k_cache_bf16 = k_cache.view(torch.bfloat16)
-    fused_qnorm_rope_kv_insert_kernel[(grid,)](
-        q,
-        kv,
-        k_cache,
-        k_cache_bf16,
-        slot_mapping,
-        position_ids,
-        cos_sin_cache,
-        eps,
-        cache_block_size,
-        num_tokens,
-        num_heads,
-        k_cache.stride(0),
-        num_tokens_insert,
-        num_warps=1,
-        num_stages=2,
-    )
+
+    # One program per (token, head), as in the generic implementation -- but the
+    # runtime refuses a launch wider than MAX_PROGRAMS_PER_LAUNCH:
+    #
+    #   KernelLaunch failed because value 532480 for parameter coreDim is
+    #   invalid. Expected value: less than or equal to 65535.
+    #
+    # which 8192 tokens at 64 heads already exceeds eightfold. The work is
+    # issued in chunks and each program adds its chunk's offset to its id.
+    total_programs = num_tokens * (num_heads + 1)
+    for pid_offset in range(0, total_programs, MAX_PROGRAMS_PER_LAUNCH):
+        grid = min(MAX_PROGRAMS_PER_LAUNCH, total_programs - pid_offset)
+        fused_qnorm_rope_kv_insert_kernel[(grid,)](
+            q,
+            kv,
+            k_cache,
+            k_cache_bf16,
+            slot_mapping,
+            position_ids,
+            cos_sin_cache,
+            eps,
+            cache_block_size,
+            num_tokens,
+            num_heads,
+            k_cache.stride(0),
+            pid_offset,
+            num_tokens_insert,
+            num_warps=1,
+            num_stages=2,
+        )
