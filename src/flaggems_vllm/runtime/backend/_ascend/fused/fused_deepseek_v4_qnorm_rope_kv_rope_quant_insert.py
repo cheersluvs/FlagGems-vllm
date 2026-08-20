@@ -80,9 +80,19 @@ Q_MAX_HEADS_PER_PROGRAM = 32
 def _f32_to_e4m3_bits(x):
     """float32 -> OCP E4M3 (float8_e4m3fn) bit pattern, round-to-nearest-even.
 
-    Handles subnormals (m * 2^-9 for m in 1..7) and saturates to 448. Note that
-    exponent field 15 with mantissa 0 is the legal value 256, not an overflow --
-    only e > 15, or e == 15 with mantissa 7 (the NaN encoding), may saturate.
+    **Requires |x| <= 448. This is NOT a general E4M3 encoder** -- it has no
+    saturation branch, so a larger input silently produces a wrong byte rather
+    than 448. The one caller satisfies the precondition by construction: it
+    divides by the smallest power of two with block_max / scale <= 448, and
+    dividing by a power of two is exact on this card. Reinstate the saturation
+    branch before using this anywhere else.
+
+    Handles subnormals (m * 2^-9 for m in 1..7). Two branches the generic
+    encoder carries are gone, each unreachable here and worth measuring:
+    saturation, since |x| <= 448 means e_n reaches 15 only with mantissa 6,
+    never the 15/7 NaN encoding; and the x == 0 case, which takes the subnormal
+    path where |x| * 512 rounds to zero anyway. Removing both took the
+    quantisation from 0.679 to 0.470 us per token.
     """
     b = x.to(tl.int32, bitcast=True)
     sign = (b >> 24) & 0x80
@@ -110,8 +120,6 @@ def _f32_to_e4m3_bits(x):
     m_s = ((tl.abs(x) * 512.0 + magic) - magic).to(tl.int32)
 
     v = tl.where(e >= 1, (e_n << 3) | m_n, m_s)
-    v = tl.where((e_n > 15) | ((e_n == 15) & (m_n == 7)), 0x7E, v)
-    v = tl.where(mag == 0, 0, v)
     return (sign | v).to(tl.uint8)
 
 
@@ -352,142 +360,41 @@ def fused_qnorm_rope_kv_insert_kernel(
     tl.store(
         k_cache_bf16 + token_bf16_idx + offset_pair, qkv_blk_rope
     )  # [HALF_ROPE_DIM, 2]
-    # quantization of kv nope
-    # unroll the quantization loop and co-issue loads for better performance
-    kv_quant_blk0 = tl.load(kv_base + offset_quant)
-    kv_quant_blk1 = tl.load(kv_base + QUANT_BLOCK + offset_quant)
-    kv_quant_blk2 = tl.load(kv_base + 2 * QUANT_BLOCK + offset_quant)
-    kv_quant_blk3 = tl.load(kv_base + 3 * QUANT_BLOCK + offset_quant)
-    kv_quant_blk4 = tl.load(kv_base + 4 * QUANT_BLOCK + offset_quant)
-    kv_quant_blk5 = tl.load(kv_base + 5 * QUANT_BLOCK + offset_quant)
-    kv_quant_blk6 = tl.load(kv_base + 6 * QUANT_BLOCK + offset_quant)
-    # quant group 0
-    qblock_idx = 0
-    kv_quant_blk = kv_quant_blk0.to(tl.float32)
-    block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
-    block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
+    # Quantisation of the KV NoPE region: all seven groups as ONE tile.
+    #
+    # The generic implementation unrolls seven 64-wide groups, its comment
+    # citing load co-issue -- an NVIDIA consideration. On this vector unit 64
+    # lanes do not fill the machine and 448 do: one [8, QUANT_BLOCK] tile, one
+    # axis=1 reduction giving all seven scales at once, one encoder pass over
+    # 448 lanes. Measured 0.688 vs 0.923 us per token on its own, and 0.470
+    # once the dead branches below go too.
+    #
+    # Triton wants a power-of-two block, hence eight rows. The eighth covers
+    # the token's RoPE segment -- a token is 512 elements, 448 quantised plus
+    # 64 -- so it is real memory, not an overrun. It is computed and discarded.
+    # Both stores mask it off with `gidx < NUM_QUANT_BLOCKS`: an upper bound
+    # over an affine address, which is the safe side of this backend's mask
+    # defect (a LOWER bound over a non-affine address is what corrupts).
+    gidx = tl.arange(0, 8)
+    keep_group = gidx < NUM_QUANT_BLOCKS
+    kv_quant_blk = tl.load(
+        kv_base + gidx[:, None] * QUANT_BLOCK + offset_quant[None, :]
+    ).to(tl.float32)
+    block_max = tl.maximum(tl.max(tl.abs(kv_quant_blk), axis=1), 1e-4)
     # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
-    raw_scale = block_max / FP8_MAX
-    scale, scale_code = _ue8m0_scale(raw_scale)
-    # quantize to fp8: fp8_value = bf16_value / scale
-    x_scaled = kv_quant_blk / scale
-    x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
-    # convert to fp8, then bitcast to uint8 for storage
-    x_uint8 = _f32_to_e4m3_bits(x_clamped)
-    # store quantized data
-    tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
+    scale, scale_code = _ue8m0_scale(block_max / FP8_MAX)
+    # No clamp: scale is the smallest power of two with block_max / scale <=
+    # FP8_MAX, and dividing by a power of two is exact on this card, so
+    # |x| <= FP8_MAX holds by construction. Worth 1.05x on its own.
+    x_scaled = kv_quant_blk / scale[:, None]
+    x_uint8 = _f32_to_e4m3_bits(x_scaled)
+    tl.store(
+        token_fp8_ptr + gidx[:, None] * QUANT_BLOCK + offset_quant[None, :],
+        x_uint8,
+        mask=keep_group[:, None],
+    )
     # store scale: stored_value = exponent + 127 (bias)
-    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
-
-    # quant group 1
-    qblock_idx = 1
-    kv_quant_blk = kv_quant_blk1.to(tl.float32)
-    block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
-    block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
-    raw_scale = block_max / FP8_MAX
-    scale, scale_code = _ue8m0_scale(raw_scale)
-    # quantize to fp8: fp8_value = bf16_value / scale
-    x_scaled = kv_quant_blk / scale
-    x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
-    # convert to fp8, then bitcast to uint8 for storage
-    x_uint8 = _f32_to_e4m3_bits(x_clamped)
-    # store quantized data
-    tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
-    # store scale: stored_value = exponent + 127 (bias)
-    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
-
-    # quant group 2
-    qblock_idx = 2
-    kv_quant_blk = kv_quant_blk2.to(tl.float32)
-    block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
-    block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
-    raw_scale = block_max / FP8_MAX
-    scale, scale_code = _ue8m0_scale(raw_scale)
-    # quantize to fp8: fp8_value = bf16_value / scale
-    x_scaled = kv_quant_blk / scale
-    x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
-    # convert to fp8, then bitcast to uint8 for storage
-    x_uint8 = _f32_to_e4m3_bits(x_clamped)
-    # store quantized data
-    tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
-    # store scale: stored_value = exponent + 127 (bias)
-    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
-
-    # quant group 3
-    qblock_idx = 3
-    kv_quant_blk = kv_quant_blk3.to(tl.float32)
-    block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
-    block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
-    raw_scale = block_max / FP8_MAX
-    scale, scale_code = _ue8m0_scale(raw_scale)
-    # quantize to fp8: fp8_value = bf16_value / scale
-    x_scaled = kv_quant_blk / scale
-    x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
-    # convert to fp8, then bitcast to uint8 for storage
-    x_uint8 = _f32_to_e4m3_bits(x_clamped)
-    # store quantized data
-    tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
-    # store scale: stored_value = exponent + 127 (bias)
-    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
-
-    # quant group 4
-    qblock_idx = 4
-    kv_quant_blk = kv_quant_blk4.to(tl.float32)
-    block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
-    block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
-    raw_scale = block_max / FP8_MAX
-    scale, scale_code = _ue8m0_scale(raw_scale)
-    # quantize to fp8: fp8_value = bf16_value / scale
-    x_scaled = kv_quant_blk / scale
-    x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
-    # convert to fp8, then bitcast to uint8 for storage
-    x_uint8 = _f32_to_e4m3_bits(x_clamped)
-    # store quantized data
-    tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
-    # store scale: stored_value = exponent + 127 (bias)
-    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
-
-    # quant group 5
-    qblock_idx = 5
-    kv_quant_blk = kv_quant_blk5.to(tl.float32)
-    block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
-    block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
-    raw_scale = block_max / FP8_MAX
-    scale, scale_code = _ue8m0_scale(raw_scale)
-    # quantize to fp8: fp8_value = bf16_value / scale
-    x_scaled = kv_quant_blk / scale
-    x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
-    # convert to fp8, then bitcast to uint8 for storage
-    x_uint8 = _f32_to_e4m3_bits(x_clamped)
-    # store quantized data
-    tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
-    # store scale: stored_value = exponent + 127 (bias)
-    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
-
-    # quant group 6
-    qblock_idx = 6
-    kv_quant_blk = kv_quant_blk6.to(tl.float32)
-    block_max = tl.max(tl.abs(kv_quant_blk), axis=0)
-    block_max = tl.maximum(block_max, 1e-4)  # match CUDA: fmaxf(amax, 1e-4)
-    # scale = 2^ceil(log2(block_max / FP8_MAX)), taken off the exponent bits
-    raw_scale = block_max / FP8_MAX
-    scale, scale_code = _ue8m0_scale(raw_scale)
-    # quantize to fp8: fp8_value = bf16_value / scale
-    x_scaled = kv_quant_blk / scale
-    x_clamped = tl.clamp(x_scaled, -FP8_MAX, FP8_MAX)
-    # convert to fp8, then bitcast to uint8 for storage
-    x_uint8 = _f32_to_e4m3_bits(x_clamped)
-    # store quantized data
-    tl.store(token_fp8_ptr + qblock_idx * QUANT_BLOCK + offset_quant, x_uint8)
-    # store scale: stored_value = exponent + 127 (bias)
-    tl.store(token_scale_ptr + qblock_idx, scale_code.to(tl.uint8))
-
-    # padding of scale
+    tl.store(token_scale_ptr + gidx, scale_code.to(tl.uint8), mask=keep_group)
     tl.store(token_scale_ptr + NUM_QUANT_BLOCKS, tl.zeros((), dtype=tl.uint8))
 
 
