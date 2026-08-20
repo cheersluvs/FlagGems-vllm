@@ -57,24 +57,23 @@ import triton.language as tl
 # an invalid `coreDim`. It is a launch-API limit, not a hardware occupancy one.
 MAX_PROGRAMS_PER_LAUNCH = 65535
 
-# (token, head) units per program on the Q path, as a [N, HEAD_DIM] tile.
-# One unit per program moves only a kilobyte, far too little to cover this
-# backend's per-program cost. Swept on the card against this kernel at 4096
-# tokens by 64 heads -- ns per unit, and the bandwidth that implies:
+# Most heads of one token that a Q program may take, as an [H, HEAD_DIM] tile.
+# A single head moves only a kilobyte, far too little to cover this backend's
+# per-program cost. Measured at 4096 tokens, ns per (token, head) unit:
 #
-#     8 -> 19.0 (107.8 GB/s)   16 -> 14.4 (142.6)   32 -> 11.5 (178.7)
+#     H = 16 -> 5.24 (391 GB/s)      H = 32 -> 4.15 (493 GB/s)   at 64 heads
+#     H = 16 -> 5.14 (398 GB/s)      H = 32 -> 3.99 (513 GB/s)   at 128 heads
 #
-# 64 does not run:
+# 64 will not compile:
 #
 #     ub overflow, requires 3215360 bits while 1572864 bits available
 #
-# that is 392.5 KB wanted against 192 KB of Unified Buffer. Note it is three
-# times what the tile itself needs -- [64, HEAD_DIM] in float32 is 128 KB --
-# because several intermediates are live at once and multi-buffering asks for
-# more again, which the message says outright. So size a tile by measuring, not
-# by multiplying out its dimensions. 32 is both the widest width that fits and
-# the fastest of those that do.
-Q_UNITS_PER_PROGRAM = 32
+# that is 392.5 KB wanted against 192 KB of Unified Buffer -- three times what
+# the tile itself occupies, [64, HEAD_DIM] in float32 being 128 KB, because
+# several intermediates are live at once and multi-buffering asks for more
+# again, as the message says. Size a tile by measuring it, not by multiplying
+# out its dimensions.
+Q_MAX_HEADS_PER_PROGRAM = 32
 
 
 @triton.jit
@@ -145,6 +144,21 @@ def _ue8m0_scale(raw_scale):
     return scale, stored
 
 
+def q_heads_per_program(num_heads: int) -> int:
+    """Heads of one token per program: the largest power of two, at most 32,
+    that divides num_heads.
+
+    Dividing exactly means every tile is full, so the kernel needs no masks and
+    can never address past the end of q -- which this backend faults on rather
+    than honouring a mask.
+    """
+    h = 1
+    cap = min(Q_MAX_HEADS_PER_PROGRAM, num_heads)
+    while h * 2 <= cap and num_heads % (h * 2) == 0:
+        h *= 2
+    return h
+
+
 @triton.jit
 def q_norm_rope_kernel(
     q,
@@ -152,40 +166,44 @@ def q_norm_rope_kernel(
     cos_sin_cache,
     eps,
     num_heads,
-    total_q_units,
+    tiles_per_token,
     pid_offset,
-    TPT: tl.constexpr,
+    H: tl.constexpr,
 ):
-    """RMSNorm without weight, then GPT-J RoPE, for TPT (token, head) units.
+    """RMSNorm without weight, then GPT-J RoPE, for H heads of ONE token.
 
-    The Q path is 98% of the work -- one unit in num_heads + 1 is the KV one --
-    and it is the half with no gather, no quantisation and no cache write, so it
-    is where a wider tile pays and where it is safe to take one.
+    Tiling heads within a token rather than walking a flat (token, head) index
+    is what makes `position_id` -- and with it cos and sin -- SCALAR. Every head
+    of a token shares one position, so the flat form gathered the same 256 bytes
+    of cos/sin once per head, 64 or 128 times over, on the unstructured pointer
+    path. Measured at 4096 tokens: 11.43 -> 4.15 ns per unit at 64 heads and
+    16.81 -> 3.99 at 128, i.e. 179 -> 493 GB/s and 122 -> 513. It also explains
+    why the flat form was markedly slower at 128 heads than at 64 -- more heads,
+    more repeats of the same gather -- and that gap is gone.
 
     Deliberately built from nothing but wider vectors: no loop, no device
     function, no early returns. All three of those abort ttir_to_linalg on this
-    backend, with no message.
+    backend, with no message. H divides num_heads, so every tile is full and no
+    mask is needed anywhere.
 
-    Verified bit-identical to a torch reference computed on the device over
-    16.7M elements. It differs from the same reference computed on CPU in 63 of
-    them, every one by a single bfloat16 ULP -- that is `rsqrt`, which disagrees
-    between CPU and device for 8086 of 32768 inputs, not this kernel.
+    Verified bit-identical to the flat form it replaces, and that form was in
+    turn bit-identical to a torch reference computed on the device over 16.7M
+    elements. Against the same reference computed on CPU, 63 elements differ by
+    one bfloat16 ULP each -- that is `rsqrt`, which disagrees between CPU and
+    device for 8086 of 32768 inputs, not this kernel.
     """
     HEAD_DIM: tl.constexpr = 512
     NOPE_DIM: tl.constexpr = 448
     ROPE_DIM: tl.constexpr = 64
     HALF_ROPE_DIM: tl.constexpr = 32
 
-    rows = (tl.program_id(0).to(tl.int64) + pid_offset) * TPT + tl.arange(0, TPT)
-    valid = rows < total_q_units
-    token_idx = rows // num_heads
+    pid = tl.program_id(0).to(tl.int64) + pid_offset
+    token_idx = pid // tiles_per_token
+    head_base = (pid % tiles_per_token) * H
+    rows = token_idx * num_heads + head_base + tl.arange(0, H)
 
     col = tl.arange(0, HEAD_DIM)
-    blk = tl.load(
-        q + rows[:, None] * HEAD_DIM + col[None, :],
-        mask=valid[:, None],
-        other=0.0,
-    ).to(tl.float32)
+    blk = tl.load(q + rows[:, None] * HEAD_DIM + col[None, :]).to(tl.float32)
 
     variance = tl.sum(blk * blk, axis=1) / HEAD_DIM
     rsqrt = tl.rsqrt(variance + eps)
@@ -193,22 +211,15 @@ def q_norm_rope_kernel(
     tl.store(
         q + rows[:, None] * HEAD_DIM + col[None, :],
         blk.to(tl.bfloat16),
-        mask=valid[:, None] & (col[None, :] < NOPE_DIM),
+        mask=col[None, :] < NOPE_DIM,
     )
 
-    position_id = tl.load(position_ids + token_idx, mask=valid, other=0)
-    # position_id is a vector, so these are gathers and the pointer analysis
-    # takes its unstructured path -- where an addptr result may have exactly one
-    # user, `Invalid: tt.addptr has multiple users` (BlockPtrAnalysis.cpp:2120).
-    # cos and sin therefore get separate chains, with offsets that differ so
-    # they cannot be merged back into one.
+    position_id = tl.load(position_ids + token_idx)  # scalar: one per token
     half = tl.arange(0, HALF_ROPE_DIM)
-    cos_off = position_id[:, None] * ROPE_DIM + half[None, :]
-    cos_blk = tl.load(cos_sin_cache + cos_off, mask=valid[:, None], other=0.0)
-    sin_off = position_id[:, None] * ROPE_DIM + HALF_ROPE_DIM + half[None, :]
-    sin_blk = tl.load(cos_sin_cache + sin_off, mask=valid[:, None], other=0.0)
+    cos_blk = tl.load(cos_sin_cache + position_id * ROPE_DIM + half)
+    sin_blk = tl.load(cos_sin_cache + position_id * ROPE_DIM + HALF_ROPE_DIM + half)
 
-    # [TPT, HALF_ROPE_DIM, 2]: the pair axis is broadcast into existence, as on
+    # [H, HALF_ROPE_DIM, 2]: the pair axis is broadcast into existence, as on
     # the KV path, so no reshape is needed.
     pair_off = (
         rows[:, None, None] * HEAD_DIM
@@ -216,17 +227,13 @@ def q_norm_rope_kernel(
         + half[None, :, None] * 2
         + tl.arange(0, 2)[None, None, :]
     )
-    pair = tl.load(q + pair_off, mask=valid[:, None, None], other=0.0).to(tl.float32)
+    pair = tl.load(q + pair_off).to(tl.float32)
     even_blk, odd_blk = tl.split(pair)
     even_blk = even_blk * rsqrt[:, None]
     odd_blk = odd_blk * rsqrt[:, None]
-    new_even_blk = even_blk * cos_blk - odd_blk * sin_blk
-    new_odd_blk = even_blk * sin_blk + odd_blk * cos_blk
-    tl.store(
-        q + pair_off,
-        tl.join(new_even_blk, new_odd_blk).to(tl.bfloat16),
-        mask=valid[:, None, None],
-    )
+    new_even_blk = even_blk * cos_blk[None, :] - odd_blk * sin_blk[None, :]
+    new_odd_blk = even_blk * sin_blk[None, :] + odd_blk * cos_blk[None, :]
+    tl.store(q + pair_off, tl.join(new_even_blk, new_odd_blk).to(tl.bfloat16))
 
 
 @triton.jit
@@ -541,42 +548,23 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     #
     # which 8192 tokens at 64 heads already exceeds eightfold. The work is
     # issued in chunks and each program adds its chunk's offset to its id.
-    # Q path: every (token, head) pair, in full tiles plus a one-unit tail.
-    #
-    # Only whole tiles are issued, so every lane of every tile is a real unit.
-    # A partial tile would address past the end of q, and this backend faults on
-    # that rather than honouring the mask (`aicpu exception`, 507018). Clamping
-    # the out-of-range lanes instead is worse: it makes several lanes share an
-    # address, and a masked store with duplicate lane addresses is silently
-    # dropped here -- a wrong answer in place of a crash.
-    total_q_units = num_tokens * num_heads
-    full_tiles = total_q_units // Q_UNITS_PER_PROGRAM
-    for pid_offset in range(0, full_tiles, MAX_PROGRAMS_PER_LAUNCH):
-        grid = min(MAX_PROGRAMS_PER_LAUNCH, full_tiles - pid_offset)
+    # Q path: H heads of one token per program. H divides num_heads, so every
+    # tile is full -- no masks, and nothing can address past the end of q, which
+    # this backend faults on rather than honouring a mask.
+    heads_per_program = q_heads_per_program(num_heads)
+    tiles_per_token = num_heads // heads_per_program
+    q_programs = num_tokens * tiles_per_token
+    for pid_offset in range(0, q_programs, MAX_PROGRAMS_PER_LAUNCH):
+        grid = min(MAX_PROGRAMS_PER_LAUNCH, q_programs - pid_offset)
         q_norm_rope_kernel[(grid,)](
             q,
             position_ids,
             cos_sin_cache,
             eps,
             num_heads,
-            total_q_units,
+            tiles_per_token,
             pid_offset,
-            Q_UNITS_PER_PROGRAM,
-            num_warps=1,
-        )
-    tail_start = full_tiles * Q_UNITS_PER_PROGRAM
-    tail = total_q_units - tail_start
-    for off in range(0, tail, MAX_PROGRAMS_PER_LAUNCH):
-        grid = min(MAX_PROGRAMS_PER_LAUNCH, tail - off)
-        q_norm_rope_kernel[(grid,)](
-            q,
-            position_ids,
-            cos_sin_cache,
-            eps,
-            num_heads,
-            total_q_units,
-            tail_start + off,
-            1,
+            heads_per_program,
             num_warps=1,
         )
 
