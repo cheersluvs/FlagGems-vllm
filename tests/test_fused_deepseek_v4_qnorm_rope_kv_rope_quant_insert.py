@@ -207,7 +207,7 @@ def torch_quantize_and_insert_k_cache(
     num_tokens_insert = slot_mapping.shape[0]
     assert num_tokens_insert <= num_tokens
 
-    token_id = torch.arange(num_tokens_insert)
+    token_id = torch.arange(num_tokens_insert, device=slot_mapping.device)
     slot_id = slot_mapping[token_id]
     mask = slot_id >= 0
     num = mask.sum()
