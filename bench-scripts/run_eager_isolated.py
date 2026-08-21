@@ -62,6 +62,13 @@ SHAPES = [
     for h in (64, 128)
 ]
 
+# ONLY_SHAPES="98304x128,131072x128" re-runs a subset without editing the file.
+if os.environ.get("ONLY_SHAPES"):
+    SHAPES = [
+        tuple(int(v) for v in part.split("x"))
+        for part in os.environ["ONLY_SHAPES"].split(",")
+    ]
+
 
 def patch_randn(torch):
     """Build large bfloat16 tensors without an fp32 temporary; see the other
@@ -137,7 +144,20 @@ def child(n, h):
     def timed(op, *args, **kwargs):
         state["i"] += 1
         which = "eager" if state["i"] % 2 == 1 else "fused"
-        ms = real_latency(op, *args, **kwargs)
+        # PRINT THE EXCEPTION HERE. The single-process runner did this and it
+        # worked; dropping it when this file was written cost a round trip. The
+        # harness will not do it for you: the timing except block stores the
+        # message in `metric.error_msg` and prints nothing, and the table shows
+        # only FAILED / N/A. (The input-iterator except block a few lines above
+        # it does print, but its second string literal is not an f-string, so it
+        # emits `err=<<<{e}>>>` verbatim -- a separate repo bug, and not the one
+        # that fires here.)
+        try:
+            ms = real_latency(op, *args, **kwargs)
+        except Exception as e:
+            print("[FAIL] {} {}".format(
+                which, " | ".join(str(e).splitlines()[:2])[:220]), flush=True)
+            raise
         # One machine-readable line per measurement, flushed, so the driver can
         # recover whichever side completed even if the other kills the process.
         print("[MEAS] {} {:.6f}".format(which, ms), flush=True)
@@ -192,6 +212,14 @@ def run_shape(n, h):
         note = ""
     else:
         note = "no result line (rc={})".format(rc)
+
+    fails = re.findall(r"\[FAIL\] (eager|fused) (.*)", out)
+    if fails:
+        note = "; ".join("{} raised: {}".format(w, m) for w, m in fails)
+    elif not note and len(meas) < 2:
+        # Exited cleanly having measured nothing. That is a contradiction, and
+        # calling it "incomplete" is how it went undiagnosed for a round trip.
+        note = "EXITED CLEANLY WITH NO MEASUREMENT -- diagnostic is missing"
     return meas, note, elapsed, log
 
 
