@@ -35,6 +35,24 @@ IMPORTED from the shipped module rather than copied, so this measures production
 code. What is dropped is only what a merged kernel would genuinely not have: the
 dead Q branch inside the KV kernel, and the bounds guards that an exact grid
 makes unreachable.
+
+FIRST RUN MEASURED NOTHING. All five variants died identically, in 19 seconds,
+on a mistake of mine rather than anything about this card:
+
+    Mismatched type for even_blk between then block (<[32, 32], fp32>)
+    and else block (<[32], fp32>)
+
+Triton folds a name assigned in both arms of an `if` into one SSA value and
+requires one type at the join, and both branches here bound `even_blk`,
+`odd_blk`, `new_even_blk`, `new_odd_blk` at different shapes. Nothing
+Ascend-specific -- it would fail the same way on NVIDIA. The shipped KV kernel
+escapes it only because its dead Q branch is the OLD per-unit body, whose
+`qkv_blk_rope` happens to be [32, 2] on both sides.
+
+The KV branch is now fully prefixed, including names that do agree today, and
+the fix is checked by walking the AST of both arms and asserting the sets of
+bound names are disjoint -- a check that costs nothing and would have caught
+this before a round trip to the box.
 """
 
 import os
@@ -143,23 +161,31 @@ def merged_kernel(
         new_odd_blk = even_blk * sin_blk[None, :] + odd_blk * cos_blk[None, :]
         tl.store(q + pair_off, tl.join(new_even_blk, new_odd_blk).to(tl.bfloat16))
     else:
-        token_idx = pid - q_programs
-        kv_base = kv + token_idx * HEAD_DIM
+        # Every name here is prefixed so that NOTHING is shared with the Q
+        # branch. Triton unifies a name assigned in both arms of an `if` into
+        # one SSA value and requires the types to match, so `even_blk` as
+        # [H, 32] above and [32] here is a compile error at the join point --
+        # which is what the first run of this probe hit, five times over, before
+        # it could say anything about UB at all. Names that DO happen to agree
+        # today (token_idx, cos_blk) are renamed too: relying on that is relying
+        # on the two branches never being edited independently.
+        kv_token = pid - q_programs
+        kv_base = kv + kv_token * HEAD_DIM
         offset_half_rope = tl.arange(0, HALF_ROPE_DIM)
         offset_quant = tl.arange(0, QUANT_BLOCK)
         offset_pair = offset_half_rope[:, None] * 2 + tl.arange(0, 2)[None, :]
 
         qkv_blk_rope = tl.load(kv_base + NOPE_DIM + offset_pair).to(tl.float32)
-        position_id = tl.load(position_ids + token_idx)
-        cs_base = cos_sin_cache + position_id * ROPE_DIM
-        cos_blk = tl.load(cs_base + offset_half_rope)
-        sin_blk = tl.load(cs_base + offset_half_rope + HALF_ROPE_DIM)
-        even_blk, odd_blk = tl.split(qkv_blk_rope)
-        new_even_blk = even_blk * cos_blk - odd_blk * sin_blk
-        new_odd_blk = even_blk * sin_blk + odd_blk * cos_blk
-        qkv_blk_rope = tl.join(new_even_blk, new_odd_blk).to(tl.bfloat16)
+        kv_position = tl.load(position_ids + kv_token)
+        cs_base = cos_sin_cache + kv_position * ROPE_DIM
+        kv_cos = tl.load(cs_base + offset_half_rope)
+        kv_sin = tl.load(cs_base + offset_half_rope + HALF_ROPE_DIM)
+        kv_even, kv_odd = tl.split(qkv_blk_rope)
+        kv_new_even = kv_even * kv_cos - kv_odd * kv_sin
+        kv_new_odd = kv_even * kv_sin + kv_odd * kv_cos
+        qkv_blk_rope = tl.join(kv_new_even, kv_new_odd).to(tl.bfloat16)
 
-        slot_id = tl.load(slot_mapping + token_idx)
+        kv_slot = tl.load(slot_mapping + kv_token)
 {kv_tail}
 
 
@@ -279,10 +305,10 @@ except Exception as e:
 sys.stdout.flush()
 '''
 
-KV_TAIL_RETURN = """        if slot_id < 0:
+KV_TAIL_RETURN = """        if kv_slot < 0:
             return
-        block_idx = slot_id // cache_block_size
-        pos_in_block = slot_id % cache_block_size
+        block_idx = kv_slot // cache_block_size
+        pos_in_block = kv_slot % cache_block_size
         block_base = k_cache + block_idx * kv_block_stride
         token_fp8_ptr = block_base + pos_in_block * TOKEN_DATA_BYTES
         token_bf16_idx = (
@@ -311,13 +337,42 @@ KV_TAIL_RETURN = """        if slot_id < 0:
         tl.store(token_scale_ptr + gidx, scale_code.to(tl.uint8), mask=keep_group)
         tl.store(token_scale_ptr + NUM_QUANT_BLOCKS, tl.zeros((), dtype=tl.uint8))"""
 
-# Same work under `if slot_id >= 0:` instead of an early return. This is the
+# Same work under `if kv_slot >= 0:` instead of an early return. This is the
 # variant that separates "a return inside a branch" from "UB is full" -- but it
 # is not free: it adds a second nested scf.if, and the UB allocator meeting an
 # scf.if is a known failure on this backend.
-KV_TAIL_NORET = "        if slot_id >= 0:\n" + "\n".join(
+KV_TAIL_NORET = "        if kv_slot >= 0:\n" + "\n".join(
     "    " + line for line in KV_TAIL_RETURN.splitlines()[2:]
 )
+
+
+def assert_branches_disjoint(src):
+    """No name may be bound in both arms of the kernel's `if`.
+
+    Triton unifies such a name into one SSA value and demands one type at the
+    join, so a shared name at two shapes is a compile error -- the one that cost
+    this probe its entire first run. Checking it here is free and local; finding
+    it on the box costs a round trip. It asserts disjointness rather than
+    matching types, because two branches that agree today can be edited apart
+    tomorrow.
+    """
+    import ast
+
+    body = src.split("if pid < q_programs:")[1].split("\ndef merged_op")[0]
+    q_arm, kv_arm = body.split("    else:\n")
+
+    def bound(text):
+        tree = ast.parse("if 1:\n" + text)
+        return {
+            n.id
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)
+        }
+
+    shared = bound(q_arm) & bound(kv_arm)
+    assert not shared, "bound in both branches, will not compile: {}".format(
+        sorted(shared)
+    )
 
 
 def run(name, h, ns, early_returns):
@@ -327,6 +382,7 @@ def run(name, h, ns, early_returns):
         ns=ns,
         kv_tail=KV_TAIL_RETURN if early_returns else KV_TAIL_NORET,
     )
+    assert_branches_disjoint(src)
     path = "/tmp/probe_merge_{}.py".format(name)
     log = path + ".log"
     with open(path, "w") as f:
