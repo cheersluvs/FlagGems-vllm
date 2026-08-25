@@ -147,17 +147,20 @@ TORCH_LIBRARY_IMPL(mcoplib_rebuilt, CUDA, m) {
 ''')
 print("  " + binding)
 
-head(4, "编译(完整日志,不截断 —— 截断编译错误在这个项目里骗过我一次)")
+head(4, "编译并加载(完整日志,不截断)")
 build = os.path.join(WORK, "build.py")
 with open(build, "w") as f:
     f.write('''
 import os, sys, torch
 from torch.utils.cpp_extension import load
 inc = os.path.join("%s", "op", "vllm")
-ext = load(name="mcoplib_rebuilt",
-           sources=["%s", "%s"],
-           extra_include_paths=[inc],
-           verbose=True)
+# is_python_module=False 是必需的:绑定用的是 TORCH_LIBRARY,
+# 它把算子注册进 torch 调度器,并不定义 PyInit_ 模块入口。
+load(name="mcoplib_rebuilt",
+     sources=["%s", "%s"],
+     extra_include_paths=[inc],
+     is_python_module=False,
+     verbose=True)
 print("BUILD_OK")
 ''' % (SRC, cu, binding))
 log = os.path.join(WORK, "build.log")
@@ -184,7 +187,7 @@ import torch
 from torch.utils.cpp_extension import load
 inc = os.path.join("%s", "op", "vllm")
 load(name="mcoplib_rebuilt", sources=["%s", "%s"],
-     extra_include_paths=[inc], verbose=False)
+     extra_include_paths=[inc], is_python_module=False, verbose=False)
 import flaggems_vllm
 from importlib import import_module
 mod = import_module("benchmark.test_fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert")
