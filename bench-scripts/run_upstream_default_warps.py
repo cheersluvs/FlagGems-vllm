@@ -150,10 +150,26 @@ def env():
         h = hashlib.md5(open(llc, "rb").read()).hexdigest()
         good = h == "cec9ff66714e311670b9412ec760e4aa"
         print("  自带 llc: 有  md5 {}  {}".format(h, "= 验证过的那个" if good else "!= 验证过的那个"))
+        print("  注意:版本号不是判据 —— 已见到 0.6.0+mthreads.git7d5dbab6 带着正确的 llc,")
+        print("        而覆盖文件的 docstring 写的是“需要 >= 0.6.1+mthreads3.6”。以 md5 为准。")
     else:
         print("  自带 llc: 无 —— Triton 会回退到 MUSA 工具链的 llc")
         print("           (路径 {})".format(llc))
-    print("  设备:", torch.cuda.get_device_name(0))
+    # 设备信息放在最后,而且不能让它掀翻整个脚本:上一次运行就死在这里,
+    # 把已经打印出来的 flagtree / llc 信息之后的一切都丢掉了。
+    n = torch.cuda.device_count()
+    print("  device_count:", n, "  is_available:", torch.cuda.is_available())
+    if n:
+        try:
+            print("  设备:", torch.cuda.get_device_name(0))
+        except Exception as e:
+            print("  设备名取不到:", str(e).splitlines()[0][:80])
+    else:
+        for k in ("MUSA_VISIBLE_DEVICES", "CUDA_VISIBLE_DEVICES", "MTHREADS_VISIBLE_DEVICES"):
+            print("  {} = {!r}".format(k, os.environ.get(k)))
+        print("\n  看不到设备,后面的测量没有意义,停止。")
+        print("  [RESULT] NO_DEVICE")
+        raise SystemExit(0)
 
 
 def make(n, h):
