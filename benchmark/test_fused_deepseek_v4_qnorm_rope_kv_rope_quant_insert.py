@@ -77,7 +77,28 @@ def _skip_if_unrunnable(ref, op_name):
     benchmarks are written (`top_k_per_row_decode`, `persistent_topk`,
     `cutlass_scaled_mm`): they gate on the import alone, which is enough because
     none of them has met a vendor build that registers the op but cannot launch
-    it. Drop this wrapper once MetaX-MACA/mcoplib#59 is fixed.
+    it.
+
+    KEEP THIS WRAPPER. MetaX has fixed the defect in source -- mcoplib 0.4.9
+    drops the `cudaLaunchKernelEx` path that 0.4.6 calls with an uninitialised
+    `cudaLaunchConfig_t` -- but that does not retire the wrapper, for two
+    reasons:
+
+      * No wheel carrying the fix is published anywhere reachable. MetaX ships
+        no wheels on GitHub (every release has zero assets) and the C550 image
+        installs mcoplib from a local file, not an index. Whoever runs this
+        still has 0.4.6.
+      * 0.4.9 is a different operator. Upstream vLLM changed this op's schema at
+        v0.22.0 -- `q` became read-only, a `q_head_padded` argument appeared and
+        the result is returned rather than written in place -- and 0.4.9 follows
+        it. This file targets the v0.21.0 contract, matching the vLLM version
+        the repo pins, so a 0.4.9 baseline would not be comparable even if a
+        wheel existed.
+
+    The kernel itself is fine: rebuilt from MetaX's own 0.4.6 source with their
+    own 0.4.9 launch fix, it runs on C550 and reaches 96.3% of the card's copy
+    ceiling, matching what it scored when forced to run under an LD_PRELOAD
+    shim. Only the published binary is unusable.
     """
     checked = False
 
