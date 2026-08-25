@@ -43,7 +43,11 @@ try:
     import vllm._custom_ops  # noqa: F401 - loads torch.ops._C
 
     HAS_VLLM = True
-except (ImportError, AttributeError):
+except (ImportError, AttributeError, RuntimeError):
+    # RuntimeError because a misconfigured vLLM should mean "no baseline", not a
+    # collection error: with two platform plugins registered it raises
+    # "Only one platform plugin can be activated, but got: ['fl', 'musa']" at
+    # import, which aborted collection of this whole file on an MTT box.
     pass
 
 VLLM_REF_AVAILABLE = HAS_VLLM and hasattr(torch.ops._C, OP_NAME)

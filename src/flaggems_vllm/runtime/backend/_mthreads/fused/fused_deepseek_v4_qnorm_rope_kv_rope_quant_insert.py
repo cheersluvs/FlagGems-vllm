@@ -13,18 +13,17 @@
 # limitations under the License.
 """Moore Threads override: token-tiled, and only at 64 heads.
 
-REQUIRES A FLAGTREE THAT BUNDLES A WORKING llc. On the build `backends.yaml`
-currently pins, this kernel does not compile in ANY configuration -- five were
-tried including TPP=1/num_warps=1, whose 16 elements per lane match the generic
-launch that works fine, and all five abort with `llc` code -6. The 2-D tile
-itself trips an instruction-selection defect in the llc shipped with MUSA
-toolkit 4.3.5 (`MTGPU DAG->DAG Pattern Instruction Selection`,
-`SelectionDAGISel::CannotYetSelect` on a v8bf16 `LSU_LD_CACHE_HINT`). FlagTree
-main carries its own fixed llc at `triton/backends/mthreads/bin/llc`; the pinned
-release has no `bin/` and so falls back to the system one. The same test passes
-5/5 under that build. Until a FlagTree release bundles it, this file is inert on
-a stock install -- the dispatch below routes to the generic kernel and nothing
-here is reached.
+REQUIRES FLAGTREE >= 0.6.1+mthreads3.6, which bundles a working `llc` at
+`triton/backends/mthreads/bin/llc` (md5 cec9ff66714e311670b9412ec760e4aa). On
+older builds -- 0.6.0rc3+mthreads3.6 among them -- there is no `bin/` and Triton
+falls back to the `llc` shipped with MUSA toolkit 4.3.5, where this kernel does
+not compile in ANY configuration: five were tried, including TPP=1/num_warps=1
+whose 16 elements per lane match the generic launch that works fine, and all five
+abort with `llc` code -6. The 2-D tile trips an instruction-selection defect
+there (`MTGPU DAG->DAG Pattern Instruction Selection`,
+`SelectionDAGISel::CannotYetSelect` on a v8bf16 `LSU_LD_CACHE_HINT`); the same
+five pass under the bundled one. On a build without it the dispatch below still
+routes to the generic kernel, so nothing here is reached and nothing breaks.
 
 Two conditions gate the tiled path, and both were measured on S5000 rather than
 carried over -- the MetaX and Hygon overrides use different rules, and their
