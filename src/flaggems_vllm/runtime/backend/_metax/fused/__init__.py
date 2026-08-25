@@ -14,6 +14,9 @@ from flaggems_vllm.runtime.backend._metax.fused.fused_moe import (
 from flaggems_vllm.runtime.backend._metax.fused.gdn_chunk import (
     chunk_gated_delta_rule_fwd,
 )
+from flaggems_vllm.runtime.backend._metax.fused.top_k_per_row_prefill import (
+    top_k_per_row_prefill,
+)
 
 __all__ = [
     "fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert",
@@ -21,4 +24,5 @@ __all__ = [
     "inplace_fused_experts",
     "outplace_fused_experts",
     "chunk_gated_delta_rule_fwd",
+    "top_k_per_row_prefill",
 ]

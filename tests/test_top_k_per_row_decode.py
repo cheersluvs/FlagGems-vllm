@@ -14,37 +14,25 @@
 
 """Accuracy tests for top_k_per_row_decode (DeepSeek V4 decode-phase top-K).
 
-Tests the Triton radix-select kernel against the vLLM CUDA reference.
+Tests the Triton radix-select kernel against a native torch reference.
 Uses value-based comparison (sorted selected values must match) to handle
-non-deterministic tie-breaking between implementations.
+non-deterministic tie-breaking between implementations. The comparison against
+vLLM's own kernel is a separate, skipif-gated test below.
 """
-
-import inspect
 
 import pytest
 import torch
-import triton.language as tl
 
 import flaggems_vllm
-from flaggems_vllm.ops import top_k_per_row_decode
+from flaggems_vllm.ops.top_k_per_row_decode import top_k_per_row_decode as _generic_impl
 
 from . import conftest as cfg
 
 device = flaggems_vllm.device
 
-
-def _has_histogram_mask():
-    if not hasattr(tl, "histogram"):
-        return False
-    try:
-        return "mask" in inspect.signature(tl.histogram).parameters
-    except (ValueError, TypeError):
-        return False
-
-
 pytestmark = pytest.mark.skipif(
-    not _has_histogram_mask(),
-    reason="tl.histogram with mask parameter not available",
+    not flaggems_vllm.runtime.torch_device_fn.is_available(),
+    reason="accelerator device required",
 )
 
 # --- Shape configuration with QUICK_MODE support ---
@@ -117,7 +105,7 @@ def _torch_topk_ref(
 def test_top_k_per_row_decode(vocab_size, top_k):
     """Test top-k correctness: selected values must match reference."""
     torch.manual_seed(42)
-    ref_fn = _vllm_top_k_per_row_decode if HAS_VLLM else _torch_topk_ref
+    ref_fn = _torch_topk_ref
 
     logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
         vocab_size, top_k
@@ -125,7 +113,9 @@ def test_top_k_per_row_decode(vocab_size, top_k):
     logits_ref = logits.clone()
     indices_ref = torch.zeros_like(indices)
 
-    top_k_per_row_decode(logits, next_n, seq_lens, indices, num_rows, s0, s1, k)
+    flaggems_vllm.top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+    )
     ref_fn(logits_ref, next_n, seq_lens, indices_ref, num_rows, s0, s1, k)
 
     vals_tri = _selected_values(logits, indices)
@@ -146,7 +136,7 @@ def test_top_k_per_row_decode(vocab_size, top_k):
 def test_top_k_per_row_decode_partial_seqlen(vocab_size, top_k, seq_len):
     """Test with seq_len < vocab_size (partial valid range)."""
     torch.manual_seed(123)
-    ref_fn = _vllm_top_k_per_row_decode if HAS_VLLM else _torch_topk_ref
+    ref_fn = _torch_topk_ref
 
     logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
         vocab_size, top_k, seq_len=seq_len
@@ -154,7 +144,9 @@ def test_top_k_per_row_decode_partial_seqlen(vocab_size, top_k, seq_len):
     logits_ref = logits.clone()
     indices_ref = torch.zeros_like(indices)
 
-    top_k_per_row_decode(logits, next_n, seq_lens, indices, num_rows, s0, s1, k)
+    flaggems_vllm.top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+    )
     ref_fn(logits_ref, next_n, seq_lens, indices_ref, num_rows, s0, s1, k)
 
     vals_tri = _selected_values(logits, indices)
@@ -170,7 +162,9 @@ def test_top_k_per_row_decode_indices_in_range():
     logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
         vocab_size, top_k, seq_len=seq_len
     )
-    top_k_per_row_decode(logits, next_n, seq_lens, indices, num_rows, s0, s1, k)
+    flaggems_vllm.top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+    )
     assert indices.min().item() >= 0
     assert indices.max().item() < seq_len
 
@@ -191,10 +185,50 @@ def test_top_k_per_row_decode_vs_vllm(vocab_size, top_k):
     logits_ref = logits.clone()
     indices_ref = torch.zeros_like(indices)
 
-    top_k_per_row_decode(logits, next_n, seq_lens, indices, num_rows, s0, s1, k)
+    flaggems_vllm.top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+    )
     _vllm_top_k_per_row_decode(
         logits_ref, next_n, seq_lens, indices_ref, num_rows, s0, s1, k
     )
+
+    vals_tri = _selected_values(logits, indices)
+    vals_ref = _selected_values(logits_ref, indices_ref)
+    torch.testing.assert_close(vals_tri, vals_ref, rtol=1e-5, atol=1e-5)
+
+
+_OVERRIDE_ACTIVE = flaggems_vllm.top_k_per_row_decode is not _generic_impl
+
+
+@pytest.mark.top_k_per_row_decode
+@pytest.mark.skipif(
+    not _OVERRIDE_ACTIVE,
+    reason="No backend override registered; the generic kernel is in use",
+)
+@pytest.mark.parametrize(
+    "vocab_size, top_k",
+    [(v, k) for v, k in zip(VOCAB_SIZE_LIST, TOP_K_LIST)],
+    ids=[f"V{v}_K{k}" for v, k in zip(VOCAB_SIZE_LIST, TOP_K_LIST)],
+)
+def test_backend_override_matches_reference(vocab_size, top_k):
+    """Validate the vendor override itself.
+
+    The other tests call the same top-level binding, so they cover the override
+    too. This one exists to make its presence *visible*: it PASSES only when a
+    vendor kernel is actually registered and SKIPS when the generic kernel is in
+    use, so a silently-unregistered override cannot look like a green run.
+    """
+    torch.manual_seed(42)
+    logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
+        vocab_size, top_k
+    )
+    logits_ref = logits.clone()
+    indices_ref = torch.zeros_like(indices)
+
+    flaggems_vllm.top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+    )
+    _torch_topk_ref(logits_ref, next_n, seq_lens, indices_ref, num_rows, s0, s1, k)
 
     vals_tri = _selected_values(logits, indices)
     vals_ref = _selected_values(logits_ref, indices_ref)

@@ -19,29 +19,17 @@ The baseline uses vLLM's CUDA kernel when available,
 falling back to a pure-PyTorch reference (torch.topk).
 """
 
-import inspect
-
 import pytest
 import torch
-import triton.language as tl
 
-from flaggems_vllm.ops import top_k_per_row_decode
+import flaggems_vllm
 
 from . import base
 
 
-def _has_histogram_mask():
-    if not hasattr(tl, "histogram"):
-        return False
-    try:
-        return "mask" in inspect.signature(tl.histogram).parameters
-    except (ValueError, TypeError):
-        return False
-
-
 pytestmark = pytest.mark.skipif(
-    not _has_histogram_mask(),
-    reason="tl.histogram with mask parameter not available",
+    not flaggems_vllm.runtime.torch_device_fn.is_available(),
+    reason="accelerator device required",
 )
 
 # --- vLLM CUDA baseline (preferred) with PyTorch fallback ---
@@ -123,7 +111,7 @@ def test_top_k_per_row_decode():
     bench = TopKPerRowDecodeBenchmark(
         op_name="top_k_per_row_decode",
         torch_op=_baseline_op,
-        gems_op=top_k_per_row_decode,
+        gems_op=flaggems_vllm.top_k_per_row_decode,
         dtypes=[torch.float32],
     )
     bench.run()

@@ -31,15 +31,14 @@ import pytest
 import torch
 
 import flaggems_vllm
-from flaggems_vllm.ops import top_k_per_row_prefill
 
 from . import base
 
 device = flaggems_vllm.device
 
 pytestmark = pytest.mark.skipif(
-    not torch.cuda.is_available(),
-    reason="CUDA device required",
+    not flaggems_vllm.runtime.torch_device_fn.is_available(),
+    reason="accelerator device required",
 )
 
 
@@ -89,7 +88,7 @@ def test_top_k_per_row_prefill():
     bench = TopKPerRowPrefillBenchmark(
         op_name="top_k_per_row_prefill",
         torch_op=_torch_topk_ref,
-        gems_op=top_k_per_row_prefill,
+        gems_op=flaggems_vllm.top_k_per_row_prefill,
         dtypes=[torch.float32],
     )
     bench.run()

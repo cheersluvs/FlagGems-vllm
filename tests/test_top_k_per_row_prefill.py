@@ -28,13 +28,15 @@ import pytest
 import torch
 
 import flaggems_vllm
-from flaggems_vllm.ops import top_k_per_row_prefill
+from flaggems_vllm.ops.top_k_per_row_prefill import (
+    top_k_per_row_prefill as _generic_impl,
+)
 
 device = flaggems_vllm.device
 
 pytestmark = pytest.mark.skipif(
-    not torch.cuda.is_available(),
-    reason="CUDA device required",
+    not flaggems_vllm.runtime.torch_device_fn.is_available(),
+    reason="accelerator device required",
 )
 
 
@@ -115,7 +117,7 @@ def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
     indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
 
     indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
-    top_k_per_row_prefill(
+    flaggems_vllm.top_k_per_row_prefill(
         logits,
         row_starts,
         row_ends,
@@ -161,7 +163,7 @@ def test_top_k_per_row_prefill_variable_lengths(num_rows, vocab_size, top_k):
     indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
 
     indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
-    top_k_per_row_prefill(
+    flaggems_vllm.top_k_per_row_prefill(
         logits,
         row_starts,
         row_ends,
@@ -207,7 +209,7 @@ def test_top_k_per_row_prefill_nonzero_starts(num_rows):
     indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
 
     indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
-    top_k_per_row_prefill(
+    flaggems_vllm.top_k_per_row_prefill(
         logits,
         row_starts,
         row_ends,
@@ -221,3 +223,47 @@ def test_top_k_per_row_prefill_nonzero_starts(num_rows):
     assert check_topk_values_match(
         logits, indices_test, indices_ref, row_starts, top_k
     ), f"FAIL: num_rows={num_rows}, nonzero starts"
+
+
+_OVERRIDE_ACTIVE = flaggems_vllm.top_k_per_row_prefill is not _generic_impl
+
+
+@pytest.mark.top_k_per_row_prefill
+@pytest.mark.skipif(
+    not _OVERRIDE_ACTIVE,
+    reason="No backend override registered; the generic kernel is in use",
+)
+@pytest.mark.parametrize("num_rows", [1, 32])
+@pytest.mark.parametrize("vocab_size", [129280])
+@pytest.mark.parametrize("top_k", [1024])
+def test_backend_override_matches_reference(num_rows, vocab_size, top_k):
+    """Validate the vendor override itself.
+
+    The other tests in this file call the same top-level binding, so they cover
+    the override too. This one exists to make its presence *visible*: it PASSES
+    only when a vendor kernel is actually registered and SKIPS when the generic
+    kernel is in use, so a silently-unregistered override cannot look like a
+    green run.
+    """
+    logits = torch.randn((num_rows, vocab_size), dtype=torch.float32, device=device)
+    row_starts = torch.zeros((num_rows,), dtype=torch.int32, device=device)
+    row_ends = torch.full(
+        (num_rows,), vocab_size, dtype=torch.int32, device=device
+    )
+
+    indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+    indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+    flaggems_vllm.top_k_per_row_prefill(
+        logits,
+        row_starts,
+        row_ends,
+        indices_test,
+        num_rows,
+        logits.stride(0),
+        logits.stride(1),
+        top_k,
+    )
+
+    assert check_topk_values_match(
+        logits, indices_test, indices_ref, row_starts, top_k
+    ), f"FAIL: override, num_rows={num_rows}"
