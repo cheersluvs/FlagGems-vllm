@@ -47,17 +47,32 @@ CEIL = 1332.0
 
 
 def find_baseline():
-    """找机器上已接好的 vLLM XPU 基线。不猜文件名 —— 按内容找。"""
-    cands = []
-    for pat in ("myowncode/*.py", "myowncode/**/*.py"):
-        for f in glob.glob(os.path.join(REPO, pat), recursive=True):
-            try:
-                body = open(f, errors="replace").read()
-            except OSError:
-                continue
-            if "_xpu_qnorm_rope_kernel" in body and "def xpu_qnorm_rope" in body:
-                cands.append(f)
-    return sorted(set(cands))
+    """找机器上已接好的 vLLM XPU 基线,**用 AST,不执行任何东西**。
+
+    上一版按字符串搜,然后直接 exec 第一个命中的文件 —— 而命中的是可运行脚本
+    (包括这个探针自己的副本),exec 把它们整个跑了一遍,于是同一条错误打印了
+    十六次。按内容搜出来的文件不能拿来 exec:它可能是接线脚本、可能有副作用、
+    也可能就是本文件。
+
+    改成先 parse,只有当文件在**顶层定义**了 `xpu_qnorm_rope*` 函数时才算候选,
+    并且把匹配到的函数名一并返回,后面按名字取,不再靠 dir() 猜。
+    """
+    import ast as _ast
+    out = []
+    for f in sorted(set(glob.glob(os.path.join(REPO, "myowncode", "**", "*.py"),
+                                  recursive=True))):
+        if os.path.abspath(f) == os.path.abspath(__file__):
+            continue
+        try:
+            tree = _ast.parse(open(f, errors="replace").read())
+        except (OSError, SyntaxError):
+            continue
+        names = [n.name for n in tree.body
+                 if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef))
+                 and n.name.startswith("xpu_qnorm_rope")]
+        if names:
+            out.append((f, names[0]))
+    return out
 
 
 def main():
@@ -67,29 +82,29 @@ def main():
     print("  device:", DEVFN.get_device_name(0), " count:", DEVFN.device_count())
 
     cands = find_baseline()
-    print("\n找到的候选基线文件:")
-    for c in cands:
-        print("  " + c)
+    print("\n顶层定义了 xpu_qnorm_rope* 的文件(AST 判定,未执行任何文件):")
+    for f, nm in cands:
+        print("  {}   ->  {}()".format(f, nm))
     if not cands:
-        print("  一个都没有 —— 这台机器上没有接好的 vLLM XPU 基线,停止。")
-        print("  (memory 记着它是 local-only 手工接的,不在仓库里)")
+        print("  一个都没有。")
+        print("  参考:含有 _xpu_qnorm_rope_kernel 字样但没有该函数定义的文件 ——")
+        for f in sorted(glob.glob(os.path.join(REPO, "myowncode", "**", "*.py"),
+                                  recursive=True)):
+            try:
+                if "_xpu_qnorm_rope_kernel" in open(f, errors="replace").read():
+                    print("    " + f)
+            except OSError:
+                pass
+        print("\n  这台机器上没有接好的完整 vLLM XPU 基线 —— memory 记着它是")
+        print("  local-only 手工接的,不在仓库里,可能已经不在了。")
         print("\n[RESULT] NO_BASELINE_WIRED")
         return
-    path = cands[0]
+    path, entry = cands[0]
 
     spec = importlib.util.spec_from_file_location("xpu_baseline", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-
-    fn = None
-    for name in dir(mod):
-        if name.startswith("xpu_qnorm_rope"):
-            fn = getattr(mod, name)
-            break
-    if fn is None:
-        print("  文件里没有 xpu_qnorm_rope* 入口,停止。")
-        print("\n[RESULT] NO_ENTRY")
-        return
+    fn = getattr(mod, entry)
 
     src = inspect.getsource(fn)
     print("\n" + "=" * 76)
