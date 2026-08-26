@@ -39,6 +39,8 @@ This is a probe, not a shipping candidate. If it works the mechanism belongs in
 the generic op, where every vendor gets it -- the weakness is not MUSA-specific.
 """
 
+import os
+
 import torch
 import triton
 import triton.language as tl
@@ -222,6 +224,21 @@ def _mtt_multi_block_prefill(
     )
 
 
+def _split_enabled() -> bool:
+    """Escape hatch so both arms can be measured in one session.
+
+    FLAGGEMS_MTT_PREFILL_SPLIT=0 forces the generic path, which makes an A/B at a
+    high iteration count possible without editing code between runs. Present
+    because this is a probe; it would not belong in a shipping override.
+    """
+    return os.environ.get("FLAGGEMS_MTT_PREFILL_SPLIT", "1").lower() not in {
+        "0",
+        "false",
+        "off",
+        "no",
+    }
+
+
 def _should_split(num_rows: int, vocab_size: int) -> bool:
     """Gate, derived from the measured occupancy table rather than guessed.
 
@@ -229,7 +246,7 @@ def _should_split(num_rows: int, vocab_size: int) -> bool:
     per-row span would need a device sync, and over-estimating only costs
     parallelism, never correctness.
     """
-    if not HAS_TLE:
+    if not HAS_TLE or not _split_enabled():
         return False
     if num_rows >= SPLIT_MAX_ROWS:
         return False
