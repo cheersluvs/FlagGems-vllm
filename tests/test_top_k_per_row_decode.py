@@ -51,6 +51,13 @@ else:
 try:
     import vllm._custom_ops  # noqa: F401 — loads torch.ops._C
 
+    # Importing vLLM is NOT proof the op exists: a non-CUDA build (e.g. MUSA)
+    # imports fine but exposes no top_k_per_row_decode, and HAS_VLLM would
+    # then be a lie -- the benchmark would report a SpeedUp against a baseline
+    # that does not exist. Check for the symbol itself, after the import.
+    if not hasattr(torch.ops._C, "top_k_per_row_decode"):
+        raise AttributeError("vLLM build exposes no top_k_per_row_decode")
+
     def _vllm_top_k_per_row_decode(
         logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
     ):
