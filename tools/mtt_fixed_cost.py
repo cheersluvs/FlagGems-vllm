@@ -137,6 +137,65 @@ def sweep_rows(vocab, top_k):
     print("\n  A jump between 60->61 and 120->121 is wave quantisation, not algorithm.")
 
 
+def sweep_distribution(num_rows, vocab, top_k):
+    """Does the refinement depth drive the per-element cost?
+
+    The main path re-scans the whole row inside `tl.static_range(0, 4)`, guarded
+    by `continue_to_next_step` -- so it makes 1 to 4 passes depending on how hard
+    the data is to separate. If pass count is what makes us 1.72x slower per
+    element than vLLM, then feeding distributions that need different refinement
+    depths must move OUR time a lot and vLLM's comparatively little.
+
+    If all three land within a few percent, pass count is NOT the lever and the
+    gap is plain scan throughput.
+    """
+    print("\n" + "=" * 78)
+    print(f"  SWEEP 3: data distribution at ({num_rows}, {vocab}), top_k={top_k}")
+    print("=" * 78)
+    torch.manual_seed(7)
+    starts = torch.zeros((num_rows,), dtype=torch.int32, device=DEV)
+    ends = torch.full((num_rows,), vocab, dtype=torch.int32, device=DEV)
+    idx = torch.empty((num_rows, top_k), dtype=torch.int32, device=DEV)
+
+    cases = {}
+    # 1. well spread -- should separate in few steps
+    cases["randn (spread)"] = torch.randn(
+        (num_rows, vocab), dtype=torch.float32, device=DEV
+    )
+    # 2. only the low 8 mantissa bits differ -> 256 distinct values, maximum
+    #    refinement depth (this is the test_logits_diff_in_8LSBits distribution)
+    bits = torch.randint(
+        0, 2**8, (num_rows, vocab), dtype=torch.int32, device=DEV
+    )
+    cases["8-LSB ties (hard)"] = (0x3F900000 | (bits & 0xFF)).view(torch.float32)
+    # 3. a handful of distinct values -> extreme ties
+    q = torch.randint(0, 4, (num_rows, vocab), dtype=torch.int32, device=DEV)
+    cases["4 distinct (extreme)"] = q.to(torch.float32)
+
+    print(f"  {'distribution':>22}{'gems ms':>11}{'vLLM ms':>11}{'ratio':>8}")
+    base = None
+    for name, logits in cases.items():
+        s0, s1 = logits.stride(0), logits.stride(1)
+        g = _bench(
+            lambda lg=logits, a=s0, b=s1: flaggems_vllm.top_k_per_row_prefill(
+                lg, starts, ends, idx, num_rows, a, b, top_k
+            )
+        )
+        v = float("nan")
+        if HAS_VLLM:
+            v = _bench(
+                lambda lg=logits, a=s0, b=s1: torch.ops._C.top_k_per_row_prefill(
+                    lg, starts, ends, idx, num_rows, a, b, top_k
+                )
+            )
+        rel = "" if base is None else f"   ({g/base:+.2f}x vs randn)"
+        if base is None:
+            base = g
+        print(f"  {name:>22}{g:>11.5f}{v:>11.5f}{v/g:>8.3f}{rel}")
+    print("\n  Big spread across rows -> refinement depth is the lever.")
+    print("  All within a few percent -> it is plain scan throughput, not passes.")
+
+
 def main():
     print("=" * 78)
     print("  MTT prefill fixed-cost probe -- measurement only")
@@ -151,6 +210,7 @@ def main():
 
     sweep_vocab(num_rows=SM, top_k=top_k)
     sweep_rows(vocab=129280, top_k=1024)
+    sweep_distribution(num_rows=60, vocab=131072, top_k=512)
 
 
 if __name__ == "__main__":
