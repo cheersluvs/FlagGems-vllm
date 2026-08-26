@@ -43,7 +43,8 @@ try:
     _RUNTIME.append("torch_musa")
 except ImportError:
     pass
-if not torch.cuda.is_available():
+# 无条件导入:要的是它的设备抽象,不是“torch.cuda 不行才退而求其次”。
+if True:
     _repo = os.environ.get("REPO", os.getcwd())
     sys.path.insert(0, _repo)
     sys.path.insert(0, os.path.join(_repo, "src"))
@@ -55,6 +56,19 @@ if not torch.cuda.is_available():
 
 import triton
 import triton.language as tl
+
+# 设备句柄。torch_musa 与 flaggems_vllm 都导入之后 torch.cuda.device_count() 仍是 0,
+# 而 /dev/mtgpu.0..7 都在 —— 所以这块卡的设备命名空间不是 torch.cuda。
+# 仓库自己用 flaggems_vllm.runtime.torch_device_fn 抽象这一层,照用,顺带保证
+# 和真正跑 benchmark 时是同一条路径。
+DEVFN = torch.cuda
+DEV = "cuda"
+try:
+    import flaggems_vllm as _fg
+    DEVFN = _fg.runtime.torch_device_fn
+    DEV = _fg.device
+except Exception:
+    pass
 
 HEAD_DIM = 512
 ROPE_DIM = 64
@@ -179,11 +193,21 @@ def env():
         print("           (路径 {})".format(llc))
     # 设备信息放在最后,而且不能让它掀翻整个脚本:上一次运行就死在这里,
     # 把已经打印出来的 flagtree / llc 信息之后的一切都丢掉了。
-    n = torch.cuda.device_count()
-    print("  device_count:", n, "  is_available:", torch.cuda.is_available())
+    print("  flaggems_vllm.device =", DEV, "  torch_device_fn =",
+          getattr(DEVFN, "__name__", DEVFN))
+    for name in ("cuda", "musa", "mtgpu"):
+        ns = getattr(torch, name, None)
+        if ns is not None and hasattr(ns, "device_count"):
+            try:
+                print("  torch.{}.device_count() = {}".format(name, ns.device_count()))
+            except Exception as e:
+                print("  torch.{}.device_count() 抛异常: {}".format(
+                    name, str(e).splitlines()[0][:60]))
+    n = DEVFN.device_count()
+    print("  device_count(经 torch_device_fn):", n)
     if n:
         try:
-            print("  设备:", torch.cuda.get_device_name(0))
+            print("  设备:", DEVFN.get_device_name(0))
         except Exception as e:
             print("  设备名取不到:", str(e).splitlines()[0][:80])
     else:
@@ -196,11 +220,11 @@ def env():
 
 def make(n, h):
     torch.manual_seed(0)
-    q = torch.randn(n, h, HEAD_DIM, dtype=torch.float32).to(torch.bfloat16).cuda()
-    kv = torch.randn(n, HEAD_DIM, dtype=torch.float32).to(torch.bfloat16).cuda()
+    q = torch.randn(n, h, HEAD_DIM, dtype=torch.float32).to(torch.bfloat16).to(DEV)
+    kv = torch.randn(n, HEAD_DIM, dtype=torch.float32).to(torch.bfloat16).to(DEV)
     kv_out = torch.empty_like(kv)
-    pos = torch.arange(n, dtype=torch.int64, device="cuda")
-    cs = torch.randn(max(4096, n), ROPE_DIM, dtype=torch.float32).cuda()
+    pos = torch.arange(n, dtype=torch.int64, device=DEV)
+    cs = torch.randn(max(4096, n), ROPE_DIM, dtype=torch.float32).to(DEV)
     return q, kv, kv_out, pos, cs
 
 
@@ -218,27 +242,27 @@ def run(n, h, warps):
 
     try:
         go()
-        torch.cuda.synchronize()
+        DEVFN.synchronize()
     except Exception as e:
         first = str(e).splitlines()[0][:100] if str(e) else type(e).__name__
         del q, kv, kv_out
-        torch.cuda.empty_cache()
+        DEVFN.empty_cache()
         return None, first
 
     for _ in range(5):
         go()
-    torch.cuda.synchronize()
+    DEVFN.synchronize()
     best = None
     for _ in range(3):
-        torch.cuda.synchronize()
+        DEVFN.synchronize()
         t0 = time.perf_counter()
         for _ in range(20):
             go()
-        torch.cuda.synchronize()
+        DEVFN.synchronize()
         t = (time.perf_counter() - t0) / 20
         best = t if best is None else min(best, t)
     del q, kv, kv_out
-    torch.cuda.empty_cache()
+    DEVFN.empty_cache()
     return best * 1e3, None
 
 
