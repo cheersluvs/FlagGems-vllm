@@ -51,7 +51,11 @@ try:
         )
 
     HAS_VLLM = True
-except (ImportError, AttributeError):
+except (ImportError, AttributeError, RuntimeError):
+    # RuntimeError because a misconfigured vLLM should mean "no baseline", not a
+    # collection error: with two platform plugins registered it raises
+    # "Only one platform plugin can be activated, but got: ['musa', 'fl']" at
+    # import, which aborted collection of this whole file on an MTT box.
     HAS_VLLM = False
     _vllm_top_k_per_row_decode = None
 
