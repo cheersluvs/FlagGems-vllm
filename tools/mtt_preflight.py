@@ -266,8 +266,12 @@ def run_kernel(which):
             logits.stride(0), logits.stride(1), top_k,
         )
     else:
-        next_n = torch.zeros((num_rows,), dtype=torch.int32, device=dev)
-        seq_lens = torch.full((num_rows,), vocab, dtype=torch.int32, device=dev)
+        # next_n is a plain Python int -- "number of next tokens (unused, kept for
+        # API compatibility)". It is NOT a tensor: passing one makes it a
+        # pointer<int32>, and the kernel dies at compile time on `row_id // next_n`
+        # with IncompatibleTypeErrorImpl. Only seq_lens is a device tensor.
+        next_n = 1
+        seq_lens = torch.tensor([vocab], dtype=torch.int32, device=dev)
         flaggems_vllm.top_k_per_row_decode(
             logits, next_n, seq_lens, indices, num_rows,
             logits.stride(0), logits.stride(1), top_k,
