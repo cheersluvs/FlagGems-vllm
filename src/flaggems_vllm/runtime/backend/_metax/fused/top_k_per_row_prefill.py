@@ -154,7 +154,9 @@ def _compact_kernel(
 
 
 @triton.jit
-def _sort_cand_kernel(CAND, OUT, K_OUT, stride_cm, stride_om, CAND_PAD: tl.constexpr):
+def _sort_cand_kernel(
+    CAND, OUT, STARTS, ENDS, K_OUT, stride_cm, stride_om, CAND_PAD: tl.constexpr
+):
     pid = tl.program_id(0).to(tl.int64)
     offs = tl.arange(0, CAND_PAD).to(tl.int64)
     pack_i64 = tl.load(CAND + pid * stride_cm + offs)
@@ -164,8 +166,18 @@ def _sort_cand_kernel(CAND, OUT, K_OUT, stride_cm, stride_om, CAND_PAD: tl.const
     mask_low = tl.full([CAND_PAD], 0xFFFFFFFF, tl.uint64)
     low = (sorted_u & mask_low).to(tl.uint32)
     idx_i32 = low.to(tl.int32, bitcast=True)
+
+    # A row shorter than top_k must be padded with -1, matching the reference
+    # contract. CAND is zero-filled, so without this the surplus slots emit
+    # index 0 -- a *valid* index, indistinguishable from a real selection, which
+    # makes the error invisible to any check that does not count valid entries.
+    start = tl.load(STARTS + pid).to(tl.int32)
+    end = tl.load(ENDS + pid).to(tl.int32)
+    k_eff = tl.minimum(K_OUT, end - start)
+    out_val = tl.where(offs < k_eff, idx_i32, -1)
+
     out_mask = offs < K_OUT
-    tl.store(OUT + pid * stride_om + offs, idx_i32, mask=out_mask)
+    tl.store(OUT + pid * stride_om + offs, out_val, mask=out_mask)
 
 
 def top_k_per_row_prefill(
@@ -260,6 +272,8 @@ def top_k_per_row_prefill(
     _sort_cand_kernel[(M,)](
         cand,
         indices,
+        row_starts,
+        row_ends,
         top_k,
         cand.stride(0),
         indices.stride(0),
