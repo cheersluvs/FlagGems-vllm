@@ -32,6 +32,27 @@ import time
 import traceback
 
 import torch
+
+# MUSA 的设备要显式注册才看得到。上一次运行 device_count=0,而 /dev/mtgpu.0..7
+# 明明都在 —— 因为这个探针为了“最小依赖”只 import torch。Ascend 要 torch_npu,
+# MUSA 要 torch_musa,同一类问题。flaggems_vllm 是仓库自己的设备初始化路径,
+# 作为兜底,也保证和真正跑 benchmark 时的初始化一致。
+_RUNTIME = []
+try:
+    import torch_musa  # noqa: F401
+    _RUNTIME.append("torch_musa")
+except ImportError:
+    pass
+if not torch.cuda.is_available():
+    _repo = os.environ.get("REPO", os.getcwd())
+    sys.path.insert(0, _repo)
+    sys.path.insert(0, os.path.join(_repo, "src"))
+    try:
+        import flaggems_vllm  # noqa: F401
+        _RUNTIME.append("flaggems_vllm")
+    except Exception as _e:
+        _RUNTIME.append("flaggems_vllm 导入失败: {}".format(str(_e).splitlines()[0][:60]))
+
 import triton
 import triton.language as tl
 
@@ -143,6 +164,7 @@ def env():
     except Exception:
         print("  flagtree 版本: 取不到")
     print("  triton.__version__:", getattr(triton, "__version__", "?"))
+    print("  设备运行时:", " + ".join(_RUNTIME) or "只有 torch —— 大概率看不到设备")
     # 版本字符串区分不了两个 llc(都自报 LLVM 14.0.0),所以比 md5
     llc = os.path.join(os.path.dirname(triton.__file__), "backends", "mthreads", "bin", "llc")
     if os.path.isfile(llc):
