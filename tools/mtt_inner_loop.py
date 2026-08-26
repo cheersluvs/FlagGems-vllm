@@ -227,6 +227,61 @@ def sweep_concurrency():
     print("  带宽不动          => 访存模式本身受限, 需要向量化/改布局")
 
 
+@triton.jit
+def _k_extract_staged(X, SINK, N, BLOCK: tl.constexpr, STAGES: tl.constexpr):
+    """Extract loop with explicit software pipelining depth."""
+    pid = tl.program_id(0)
+    X += pid * N
+    acc = tl.zeros([BLOCK], dtype=tl.uint32)
+    for off in tl.range(0, N, BLOCK, num_stages=STAGES):
+        idx = off + tl.arange(0, BLOCK)
+        m = idx < N
+        x = tl.load(X + idx, mask=m, other=0.0)
+        bin_idx, _ = _extract_bin_idx(x, m, 0, STEP=0)
+        acc += bin_idx
+    tl.store(SINK + pid, tl.sum(acc))
+
+
+def sweep_stages():
+    """The real kernel never sets num_stages -- on ANY tl.range or launch.
+
+    At 60 rows the load reaches only 19% of peak, i.e. it is memory-latency
+    bound with too few requests in flight per thread. Software pipelining is the
+    cheap way to raise that without adding programs (which multi-block tried, and
+    which multiplied fixed cost 10x instead).
+    """
+    print("\n" + "=" * 78)
+    print("  SWEEP 5: num_stages / BLOCK 对并发受限形状的影响 (60 行)")
+    print("=" * 78)
+    rows, N = 60, 131072
+    torch.manual_seed(1)
+    x = torch.randn((rows, N), device=DEV)
+    sink = torch.empty((rows,), dtype=torch.int32, device=DEV)
+    tot = rows * N
+
+    base = None
+    print(f"  {'BLOCK':>6}{'stages':>8}{'us':>10}{'GB/s':>8}{'%峰值':>8}{'vs 基线':>9}")
+    for blk in (512, 1024):
+        for st in (1, 2, 3, 4, 6, 8):
+            try:
+                t = _bench(
+                    lambda b=blk, k=st: _k_extract_staged[(rows,)](
+                        x, sink, N, BLOCK=b, STAGES=k, num_warps=b // 32
+                    )
+                )
+            except Exception as e:  # noqa: BLE001
+                print(f"  {blk:>6}{st:>8}   失败 {type(e).__name__}: {str(e)[:40]}")
+                continue
+            gb = tot * 4 / (t * 1e-3) / 1e9
+            if base is None:
+                base = t
+            print(
+                f"  {blk:>6}{st:>8}{t*1000:>10.1f}{gb:>8.0f}{gb/13:>7.0f}%"
+                f"{base/t:>8.2f}x"
+            )
+    print("\n  若某档明显快于基线 => 流水深度就是杠杆, 且改动极小")
+
+
 def main():
     print("=" * 78)
     print("  MTT prefill 内层循环拆解 -- 仅测量")
@@ -247,6 +302,7 @@ def main():
     run(num_rows, N, "均匀 bin (对照: 无热点)", u.view(torch.float32))
     print("\n  两者 B 差距大 => 是热点争用; 差距小 => 是原子指令本身的固定成本")
     sweep_concurrency()
+    sweep_stages()
     return 0
 
 
