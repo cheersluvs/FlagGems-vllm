@@ -51,6 +51,18 @@ if has_triton_tle(3, 6, 0):
 
 
 @triton.jit
+def _k_load_only(X, SINK, N, BLOCK: tl.constexpr):
+    """Load only, no bin extract. A - this = the cost of the ~6 extract ops."""
+    pid = tl.program_id(0)
+    X += pid * N
+    acc = tl.zeros([BLOCK], dtype=tl.float32)
+    for off in tl.range(0, N, BLOCK):
+        idx = off + tl.arange(0, BLOCK)
+        acc += tl.load(X + idx, mask=idx < N, other=0.0)
+    tl.store(SINK + pid, tl.sum(acc).to(tl.int32))
+
+
+@triton.jit
 def _k_extract_only(X, SINK, N, BLOCK: tl.constexpr):
     """A: load + bin extract, no atomic. Accumulates so nothing is dead-coded."""
     pid = tl.program_id(0)
@@ -150,8 +162,8 @@ def run(num_rows, N, label, logits):
     )
     print(f"\n  --- {label} ---")
     ns = 1e6 / (num_rows * N)
-    print(f"    A extract only     {a*1000:8.2f} us   {a*ns*1e3:.4f} ns/elem")
-    print(f"    B + atomic (今天)  {b*1000:8.2f} us   {b*ns*1e3:.4f} ns/elem")
+    print(f"    A extract only     {a*1000:8.2f} us   {a*ns:.4f} ns/elem")
+    print(f"    B + atomic (今天)  {b*1000:8.2f} us   {b*ns:.4f} ns/elem")
     print(f"    => atomic 占 {(b-a)/b*100:5.1f}%  ({(b-a)*1000:.2f} us)")
 
     best, bestn = b, 1
@@ -183,6 +195,38 @@ def run(num_rows, N, label, logits):
         print("    => 私有化没有帮助")
 
 
+def sweep_concurrency():
+    """Is the 16%-of-peak read a kernel property, or just too few programs?
+
+    grid=(num_rows,) at num_rows=60 gives one program per SM. Sweep 2 showed
+    concurrent capacity is nearer 120, so a 60-row probe may simply not have
+    enough memory requests in flight to reach peak. Separate the two.
+    """
+    print("\n" + "=" * 78)
+    print("  SWEEP 4: 纯 load 的带宽 vs 并发度 (峰值约 1300 GB/s)")
+    print("=" * 78)
+    N = 131072
+    print(f"  {'rows':>6}{'load us':>10}{'GB/s':>9}{'%峰值':>8}{'+提取 us':>11}{'提取占比':>10}")
+    for rows in (60, 120, 240, 480):
+        torch.manual_seed(1)
+        x = torch.randn((rows, N), device=DEV)
+        sink = torch.empty((rows,), dtype=torch.int32, device=DEV)
+        nw = BLOCK // 32
+        lo = _bench(
+            lambda: _k_load_only[(rows,)](x, sink, N, BLOCK=BLOCK, num_warps=nw)
+        )
+        ex = _bench(
+            lambda: _k_extract_only[(rows,)](x, sink, N, BLOCK=BLOCK, num_warps=nw)
+        )
+        gb = rows * N * 4 / (lo * 1e-3) / 1e9
+        print(
+            f"  {rows:>6}{lo*1000:>10.1f}{gb:>9.0f}{gb/13:>7.0f}%"
+            f"{ex*1000:>11.1f}{(ex-lo)/ex*100:>9.0f}%"
+        )
+    print("\n  带宽随并发上升 => 是并发不足, 不是访存模式")
+    print("  带宽不动          => 访存模式本身受限, 需要向量化/改布局")
+
+
 def main():
     print("=" * 78)
     print("  MTT prefill 内层循环拆解 -- 仅测量")
@@ -202,6 +246,7 @@ def main():
     u = torch.randint(0, 2**31 - 1, (num_rows, N), dtype=torch.int32, device=DEV)
     run(num_rows, N, "均匀 bin (对照: 无热点)", u.view(torch.float32))
     print("\n  两者 B 差距大 => 是热点争用; 差距小 => 是原子指令本身的固定成本")
+    sweep_concurrency()
     return 0
 
 
