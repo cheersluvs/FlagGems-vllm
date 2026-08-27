@@ -143,15 +143,15 @@ def main():
         print("  !! 无 TLE, 退出")
         return 1
 
-    # (num_rows, vocab, top_k, one-pass cost in us, measured op cost in us)
+    # (num_rows, vocab, top_k, note)
     CASES = [
-        (60, 131072, 512, 69.2, 209.4, "sweep 1 的形状"),
-        (64, 129280, 1024, None, 217.8, "最差形状"),
-        (4100, 1025, 512, None, 387.5, "已经赢的形状"),
-        (16383, 4095, 512, None, 2333.2, "赢得最多的形状"),
+        (60, 131072, 512, "sweep 1 的形状"),
+        (64, 129280, 1024, "最差形状"),
+        (4100, 1025, 512, "已经赢的形状"),
+        (16383, 4095, 512, "赢得最多的形状"),
     ]
     print(f"  {'shape':>16}{'平均遍数':>10}{'最少':>7}{'最多':>7}   备注")
-    for rows, vocab, top_k, one_pass, op_us, note in CASES:
+    for rows, vocab, top_k, note in CASES:
         torch.manual_seed(42)
         logits = torch.randn((rows, vocab), dtype=torch.float32, device=DEV)
         starts = torch.zeros((rows,), dtype=torch.int32, device=DEV)
@@ -171,14 +171,56 @@ def main():
             print(f"  {f'({rows},{vocab})':>16}   失败 {type(e).__name__}: {str(e)[:36]}")
             continue
         f = steps.float()
-        extra = ""
-        if one_pass:
-            extra = f"   -> {op_us/one_pass:.1f} 遍的等效耗时"
         print(f"  {f'({rows},{vocab})':>16}{f.mean().item():>10.2f}"
-              f"{int(steps.min()):>7}{int(steps.max()):>7}   {note}{extra}", flush=True)
+              f"{int(steps.min()):>7}{int(steps.max()):>7}   {note}", flush=True)
 
-    print("\n  平均遍数接近 3 => 与按耗时推算的一致, 减少遍数是真杠杆")
-    print("  平均遍数接近 1 => 时间花在别处(final select), 遍数不是杠杆")
+    # --- 直接测量：直方图阶段 vs 整算子 ---
+    print("\n" + "=" * 78)
+    print("  直方图阶段 vs 整算子 -- 两者都实测, final select 由差值得出")
+    print("=" * 78)
+    print(f"  {'shape':>16}{'直方图 us':>11}{'整算子 us':>11}{'之后 us':>10}"
+          f"{'之后占比':>10}{'vLLM us':>10}")
+    for rows, vocab, top_k, _ in CASES:
+        torch.manual_seed(42)
+        logits = torch.randn((rows, vocab), dtype=torch.float32, device=DEV)
+        starts = torch.zeros((rows,), dtype=torch.int32, device=DEV)
+        ends = torch.full((rows,), vocab, dtype=torch.int32, device=DEV)
+        idx = torch.empty((rows, top_k), dtype=torch.int32, device=DEV)
+        steps = torch.zeros((rows,), dtype=torch.int32, device=DEV)
+        nw = _num_warps(NUM_THREADS_PER_BLOCK)
+        try:
+            hist = triton.testing.do_bench(
+                lambda: _count_steps[(rows,)](
+                    logits, idx, starts, ends, steps,
+                    logits.stride(0), logits.stride(1), vocab,
+                    TOPK=top_k, TOPKP=triton.next_power_of_2(top_k),
+                    BLOCK_SIZE=NUM_THREADS_PER_BLOCK, num_warps=nw,
+                ), warmup=25, rep=100, return_mode="median")
+            full = triton.testing.do_bench(
+                lambda: flaggems_vllm.top_k_per_row_prefill(
+                    logits, starts, ends, idx, rows,
+                    logits.stride(0), logits.stride(1), top_k,
+                ), warmup=25, rep=100, return_mode="median")
+        except Exception as e:  # noqa: BLE001
+            print(f"  {f'({rows},{vocab})':>16}   失败 {type(e).__name__}")
+            continue
+        v = float("nan")
+        try:
+            import vllm._custom_ops  # noqa: F401
+
+            if hasattr(torch.ops._C, "top_k_per_row_prefill"):
+                v = triton.testing.do_bench(
+                    lambda: torch.ops._C.top_k_per_row_prefill(
+                        logits, starts, ends, idx, rows,
+                        logits.stride(0), logits.stride(1), top_k,
+                    ), warmup=25, rep=100, return_mode="median") * 1000
+        except Exception:  # noqa: BLE001
+            pass
+        after = (full - hist) * 1000
+        print(f"  {f'({rows},{vocab})':>16}{hist*1000:>11.1f}{full*1000:>11.1f}"
+              f"{after:>10.1f}{after/(full*1000)*100:>9.0f}%{v:>10.1f}", flush=True)
+    print("\n  '之后' 就是阈值扫描 + final select + 输出, 这次是实测差值不是推算")
+    print("  若它超过 vLLM 整个算子的耗时, 那重写它是唯一有意义的方向")
     return 0
 
 
