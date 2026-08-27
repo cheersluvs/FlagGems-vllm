@@ -113,7 +113,7 @@ def sweep_crossover():
     for vocab, top_k, s0 in ((8193, 512, 8456), (129280, 1024, 129280)):
         print(f"\n  vocab={vocab}, top_k={top_k}")
         print(f"    {'rows':>6}{'512 us':>10}{'1024 us':>10}{'1024/512':>10}")
-        for rows in (2, 4, 8, 16, 32, 64, 128):
+        for rows in (2, 4, 8, 16, 32, 48, 60, 61, 64, 128):
             torch.manual_seed(42)
             buf = torch.randn((rows - 1) * s0 + vocab, device=DEV)
             logits = torch.as_strided(buf, (rows, vocab), (s0, 1))
@@ -140,7 +140,8 @@ def sweep_crossover():
                 f"    {rows:>6}{r[512]*1000:>10.1f}{r[1024]*1000:>10.1f}{g:>9.2f}x{mark}",
                 flush=True,
             )
-    print("\n  最后一个带标记的 rows = 门控阈值应该设的位置")
+    print("\n  48/60 是 32 与 64 之间此前未测的区间, 也是新门控(=SM 数)覆盖的范围")
+    print("  若 60 仍为 1.5x 而 61 掉到 0.8x, 则两波悬崖与 SM 数完全对齐")
 
 
 def main():

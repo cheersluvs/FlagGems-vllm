@@ -26,6 +26,8 @@ import torch
 import triton
 import triton.language as tl
 
+from flaggems_vllm import runtime
+
 from flaggems_vllm.utils.triton_version_utils import has_triton_tle
 
 if has_triton_tle(3, 6, 0):
@@ -60,9 +62,8 @@ NUM_THREADS_PER_BLOCK_MERGE = 1024
 # is tiny, and a serious regression otherwise -- hence a narrow gate rather than
 # a new default.
 NUM_THREADS_PER_BLOCK_WIDE = 1024
-PREFILL_WIDE_BLOCK_MAX_ROWS = int(
-    os.environ.get("FLAGGEMS_PREFILL_WIDE_BLOCK_MAX_ROWS", "8")
-)
+
+_WIDE_BLOCK_MAX_ROWS = None
 NUM_FILNAL_ITEMS = 2048
 NUM_BINS = 2048
 RADIX_BITS_FINAL = 8
@@ -70,14 +71,39 @@ RADIX_SIZE_FINAL = 1 << RADIX_BITS_FINAL
 RADIX_FINAL_PREFILL_VOCAB_THRESHOLD = 65536
 
 
+def _wide_block_max_rows():
+    """Largest num_rows for which the wide block still fits in ONE wave.
+
+    The wide block doubles warps per program, which halves how many programs an
+    SM can hold, so the grid stops fitting in one wave at roughly the SM count.
+    Measured on MTT S5000 (60 SMs): rows 2..32 win, rows 64 lose, and the 32->64
+    step costs exactly 1.91x -- a two-wave cliff, not a gradual decline.
+
+    Env-overridable so the crossover can be re-measured per card without a code
+    change; falls back to 32, the largest value measured good, when the device
+    cannot report an SM count.
+    """
+    global _WIDE_BLOCK_MAX_ROWS
+    if _WIDE_BLOCK_MAX_ROWS is None:
+        override = os.environ.get("FLAGGEMS_PREFILL_WIDE_BLOCK_MAX_ROWS")
+        if override is not None:
+            _WIDE_BLOCK_MAX_ROWS = int(override)
+        else:
+            try:
+                props = runtime.torch_device_fn.get_device_properties(0)
+                _WIDE_BLOCK_MAX_ROWS = getattr(props, "multi_processor_count", 0) or 32
+            except Exception:  # noqa: BLE001 - a probe failing must not break dispatch
+                _WIDE_BLOCK_MAX_ROWS = 32
+    return _WIDE_BLOCK_MAX_ROWS
+
+
 def _prefill_block_size(num_rows):
     """Threads per program for the prefill launch.
 
     Widening only helps where the grid itself is too small to fill the device;
-    everywhere else it costs more than it buys. Threshold is env-overridable so
-    the crossover can be re-measured per card without a code change.
+    past one wave it is a serious regression (0.43x on the large shapes).
     """
-    if num_rows <= PREFILL_WIDE_BLOCK_MAX_ROWS:
+    if num_rows <= _wide_block_max_rows():
         return NUM_THREADS_PER_BLOCK_WIDE
     return NUM_THREADS_PER_BLOCK
 
