@@ -79,9 +79,16 @@ def _wide_block_max_rows():
     Measured on MTT S5000 (60 SMs): rows 2..32 win, rows 64 lose, and the 32->64
     step costs exactly 1.91x -- a two-wave cliff, not a gradual decline.
 
+    Returns 0 -- i.e. never widen -- on any device whose warp is not 32 lanes.
+    `num_warps` here is BLOCK_SIZE // 32, so on a 64-lane part BLOCK=1024 asks for
+    32 warps x 64 lanes = 2048 threads, which is past the usual per-block ceiling
+    and in any case is not the configuration the crossover was measured in.
+    MetaX C550 is exactly that case (warp_size 64, 104 SMs). Widening there needs
+    its own measurement, not an extrapolation from a 32-lane card.
+
     Env-overridable so the crossover can be re-measured per card without a code
     change; falls back to 32, the largest value measured good, when the device
-    cannot report an SM count.
+    reports 32-lane warps but no SM count.
     """
     global _WIDE_BLOCK_MAX_ROWS
     if _WIDE_BLOCK_MAX_ROWS is None:
@@ -91,7 +98,13 @@ def _wide_block_max_rows():
         else:
             try:
                 props = runtime.torch_device_fn.get_device_properties(0)
-                _WIDE_BLOCK_MAX_ROWS = getattr(props, "multi_processor_count", 0) or 32
+                warp = getattr(props, "warp_size", 32)
+                if warp != 32:
+                    _WIDE_BLOCK_MAX_ROWS = 0
+                else:
+                    _WIDE_BLOCK_MAX_ROWS = (
+                        getattr(props, "multi_processor_count", 0) or 32
+                    )
             except Exception:  # noqa: BLE001 - a probe failing must not break dispatch
                 _WIDE_BLOCK_MAX_ROWS = 32
     return _WIDE_BLOCK_MAX_ROWS

@@ -166,9 +166,10 @@ def stage_device():
     print()
     check("wide-block gate resolves to", _gate)
     print(
-        "\n  That gate is SM-derived: the wide block uses 32 warps, so it holds one\n"
-        "  program per SM where the narrow block holds two. On MTT the measured\n"
-        "  crossover landed exactly on the SM count (60 wins, 61 loses)."
+        "\n  Gate is SM-derived AND requires a 32-lane warp: num_warps is\n"
+        "  BLOCK_SIZE // 32, so on a 64-lane part BLOCK=1024 would ask for 2048\n"
+        "  threads. A gate of 0 means widening is disabled on this card and its\n"
+        "  own crossover has never been measured."
     )
 
 
