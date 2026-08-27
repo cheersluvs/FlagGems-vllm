@@ -35,6 +35,7 @@ import flaggems_vllm
 from flaggems_vllm.ops.top_k_per_row_prefill import (
     NUM_THREADS_PER_BLOCK,
     _distribute_to_bins,
+    _extract_bin_idx,
     _process_bins,
     _wide_block_max_rows,
     _num_warps,
@@ -90,21 +91,54 @@ def _k_scan_only(
 
 
 @triton.jit
-def _k_passB(
-    X, SINK, N, THR,
-    BLOCK: tl.constexpr, NUM_BINS: tl.constexpr, VEC: tl.constexpr,
-    WRITE_DIRECTLY: tl.constexpr, USE_FINAL: tl.constexpr,
-):
-    """Pass B in stages, using the REAL _process_bins rather than a replica.
+def _k_passB_floor(X, SINK, N, BLOCK: tl.constexpr, VEC: tl.constexpr):
+    """Pass B's floor: the same loads and bin extraction, nothing else.
 
-    Its `write_directly` and `use_final` arguments already gate the two atomic +
-    store paths, so switching them off leaves only load + bin extract + the
-    threshold compares. Three runs price each layer without reimplementing
-    anything and therefore without the risk of the replica drifting from the
-    original.
+    Accumulates bin_idx so the loop cannot be dead-coded -- with both
+    _process_bins flags off there is no store at all, and the compiler deleted
+    the entire loop, which is how the previous version reported 3.4 TB/s against
+    a 1.3 TB/s roof.
     """
     pid = tl.program_id(0)
     X += pid * N
+    lane = tl.arange(0, BLOCK)
+    vec = tl.arange(0, VEC)
+    acc = tl.zeros([BLOCK, VEC], dtype=tl.uint32)
+    n_vec = N // (BLOCK * VEC)
+    for t in tl.range(0, n_vec):
+        base = t * BLOCK * VEC + lane * VEC
+        offs = base[:, None] + vec[None, :]
+        b, _ = _extract_bin_idx(tl.load(X + offs), True, 0, STEP=0)
+        acc += b
+    tail = n_vec * BLOCK * VEC
+    acc1 = tl.zeros([BLOCK], dtype=tl.uint32)
+    for t in tl.range(0, tl.cdiv(N - tail, BLOCK)):
+        offs = tail + t * BLOCK + lane
+        m = offs < N
+        b, _ = _extract_bin_idx(tl.load(X + offs, mask=m, other=0.0), m, 0, STEP=0)
+        acc1 += tl.where(m, b, 0)
+    tl.store(SINK + pid, (tl.sum(tl.sum(acc, axis=1), axis=0) + tl.sum(acc1)))
+
+
+@triton.jit
+def _k_passB(
+    X, SINK, N, THRS,
+    BLOCK: tl.constexpr, NUM_BINS: tl.constexpr, VEC: tl.constexpr,
+    WRITE_DIRECTLY: tl.constexpr, USE_FINAL: tl.constexpr,
+):
+    """Pass B via the REAL _process_bins, with a REAL per-row threshold.
+
+    THRS holds the threshold bin each row would actually reach, computed on the
+    host from the same bin mapping. The previous version passed a made-up 1024,
+    which made take_lt fire for about half the elements instead of the ~0.8% the
+    operator sees, and the atomic cost it reported was that artefact.
+
+    Covers the tail as well: n_vec_full alone leaves 0% of a 1025-wide row and
+    50% of a 4095-wide one, which is why those rows previously came out flat.
+    """
+    pid = tl.program_id(0)
+    X += pid * N
+    thr = tl.load(THRS + pid)
     hist = tle.gpu.alloc(
         [NUM_BINS], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
         nv_mma_shared_layout=False,
@@ -137,22 +171,49 @@ def _k_passB(
     lane = tl.arange(0, BLOCK)
     vec = tl.arange(0, VEC)
     ones2 = tl.full([BLOCK, VEC], 1, tl.int32)
-    zeros2 = tl.zeros([BLOCK, VEC], dtype=tl.int32)
-    found2 = p1 + zeros2
-    cnt2 = p2 + zeros2
+    ones1 = tl.full([BLOCK], 1, tl.int32)
+    z2 = tl.zeros([BLOCK, VEC], dtype=tl.int32)
+    z1 = tl.zeros([BLOCK], dtype=tl.int32)
 
-    n_vec_full = N // (BLOCK * VEC)
-    for t in tl.range(0, n_vec_full):
+    n_vec = N // (BLOCK * VEC)
+    for t in tl.range(0, n_vec):
         base = t * BLOCK * VEC + lane * VEC
         offs = base[:, None] + vec[None, :]
-        x_vec = tl.load(X + offs)
         _process_bins(
-            x_vec, True, ones2, offs, found2, cnt2, 0, THR,
+            tl.load(X + offs), True, ones2, offs, p1 + z2, p2 + z2, 0, thr,
+            WRITE_DIRECTLY, USE_FINAL, 0, None, hp, fp, op, None,
+            STEP=0, TOPK=1024, MULTIPLE_BLOCKS_PER_ROW=False, MERGE_BLOCKS=False,
+        )
+    tail = n_vec * BLOCK * VEC
+    for t in tl.range(0, tl.cdiv(N - tail, BLOCK)):
+        offs = tail + t * BLOCK + lane
+        m = offs < N
+        _process_bins(
+            tl.load(X + offs, mask=m, other=0.0), m, ones1, offs,
+            p1 + z1, p2 + z1, 0, thr,
             WRITE_DIRECTLY, USE_FINAL, 0, None, hp, fp, op, None,
             STEP=0, TOPK=1024, MULTIPLE_BLOCKS_PER_ROW=False, MERGE_BLOCKS=False,
         )
     tl.debug_barrier()
     tl.store(SINK + pid, tl.load(p1) + tl.load(p2))
+
+
+def _real_thresholds(logits, top_k):
+    """The threshold bin each row actually reaches, via the kernel's own mapping.
+
+    STEP 0 maps f32 -> f16 -> monotonic u16 -> >>5, and take_lt selects
+    bin_idx < threshold, so a lower bin is a larger value: the threshold is the
+    smallest b whose prefix count reaches top_k.
+    """
+    h = logits.to(torch.float16).view(torch.int16).to(torch.int32) & 0xFFFF
+    mapped = torch.where(h & 0x8000 != 0, h, (~h) & 0x7FFF)
+    b = (mapped >> 5).clamp_(0, 2047)
+    out = torch.empty(logits.shape[0], dtype=torch.int32, device=logits.device)
+    for i in range(logits.shape[0]):
+        c = torch.bincount(b[i].flatten(), minlength=2048).cumsum(0)
+        idx = torch.nonzero(c >= top_k)
+        out[i] = int(idx[0]) if idx.numel() else 2047
+    return out
 
 
 @triton.jit
@@ -388,10 +449,10 @@ def main():
 
     # --- Pass B 分层：它比 Pass A 慢 1.75x/字节, 慢在哪 ---
     print("\n" + "=" * 78)
-    print("  Pass B 分层 (用真 _process_bins, 靠 write_directly/use_final 关档)")
+    print("  Pass B 分层 (真 _process_bins + 真阈值 + 尾循环 + 防 DCE)")
     print("=" * 78)
-    print(f"  {'shape':>16}{'仅load+提取':>13}{'+直写原子':>12}{'+final原子':>12}"
-          f"{'PassA 参考':>12}")
+    print(f"  {'shape':>16}{'真阈值':>8}{'触发率':>8}{'floor':>9}"
+          f"{'+直写':>9}{'+final':>9}{'PassA':>9}")
     for rows, vocab, top_k, _ in CASES:
         if rows <= _wide_block_max_rows():
             continue
@@ -399,35 +460,40 @@ def main():
         logits = torch.randn((rows, vocab), dtype=torch.float32, device=DEV)
         sink = torch.empty((rows,), dtype=torch.int32, device=DEV)
         nw = _num_warps(NUM_THREADS_PER_BLOCK)
+        try:
+            thrs = _real_thresholds(logits, top_k)
+        except Exception as e:  # noqa: BLE001
+            print(f"  {f'({rows},{vocab})':>16}  阈值计算失败 {type(e).__name__}")
+            continue
+        rate = top_k / vocab * 100
         r = {}
-        for tag, wd, uf in (("none", False, False), ("wd", True, False),
-                            ("both", True, True)):
-            try:
+        try:
+            r["floor"] = triton.testing.do_bench(
+                lambda: _k_passB_floor[(rows,)](
+                    logits, sink, vocab, BLOCK=NUM_THREADS_PER_BLOCK, VEC=4,
+                    num_warps=nw,
+                ), warmup=25, rep=100, return_mode="median") * 1000
+            for tag, wd, uf in (("wd", True, False), ("both", True, True)):
                 r[tag] = triton.testing.do_bench(
                     lambda w=wd, u=uf: _k_passB[(rows,)](
-                        logits, sink, vocab, 1024,
+                        logits, sink, vocab, thrs,
                         BLOCK=NUM_THREADS_PER_BLOCK, NUM_BINS=2048, VEC=4,
                         WRITE_DIRECTLY=w, USE_FINAL=u, num_warps=nw,
                     ), warmup=25, rep=100, return_mode="median") * 1000
-            except Exception as e:  # noqa: BLE001
-                r[tag] = None
-                print(f"  {f'({rows},{vocab})':>16}  {tag} 失败: "
-                      f"{type(e).__name__}: {str(e)[:34]}")
-        try:
             pa = triton.testing.do_bench(
                 lambda: _k_scan_only[(rows,)](
                     logits, sink, vocab, BLOCK=NUM_THREADS_PER_BLOCK,
                     NUM_BINS=2048, VEC=4, num_warps=nw,
                 ), warmup=25, rep=100, return_mode="median") * 1000
-        except Exception:  # noqa: BLE001
-            pa = float("nan")
-        if any(v is None for v in r.values()):
+        except Exception as e:  # noqa: BLE001
+            print(f"  {f'({rows},{vocab})':>16}  失败 {type(e).__name__}: {str(e)[:32]}")
             continue
-        print(f"  {f'({rows},{vocab})':>16}{r['none']:>13.1f}{r['wd']:>12.1f}"
-              f"{r['both']:>12.1f}{pa:>12.1f}", flush=True)
-    print("\n  三档之间跳得最大的那一步 = Pass B 的成本所在")
-    print("  若 '仅load+提取' 就已接近 PassA, 说明贵在两个原子/store")
-    print("  若它本身就远超 PassA, 说明贵在重读数据本身 -> 只能靠减少遍数")
+        print(f"  {f'({rows},{vocab})':>16}{int(thrs[0]):>8}{rate:>7.1f}%"
+              f"{r['floor']:>9.1f}{r['wd']:>9.1f}{r['both']:>9.1f}{pa:>9.1f}",
+              flush=True)
+    print("\n  floor 与 PassA 相近 => 重读本身不比建直方图贵, 差价在原子/store")
+    print("  floor 就远超 PassA   => 贵在重读, 只能减少遍数(算法结构, override 改不动)")
+    print("  健全性: floor 的带宽不得超过 1.3 TB/s, 超了就是又被 DCE 了")
     return 0
 
 
