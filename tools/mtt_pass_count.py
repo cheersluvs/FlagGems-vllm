@@ -35,6 +35,7 @@ import flaggems_vllm
 from flaggems_vllm.ops.top_k_per_row_prefill import (
     NUM_THREADS_PER_BLOCK,
     _distribute_to_bins,
+    _process_bins,
     _wide_block_max_rows,
     _num_warps,
     _process_histogram_step,
@@ -86,6 +87,72 @@ def _k_scan_only(
     for z in tl.range(0, NUM_BINS, BLOCK):
         acc += tl.load(hp + z + tl.arange(0, BLOCK))
     tl.store(SINK + pid, tl.sum(acc))
+
+
+@triton.jit
+def _k_passB(
+    X, SINK, N, THR,
+    BLOCK: tl.constexpr, NUM_BINS: tl.constexpr, VEC: tl.constexpr,
+    WRITE_DIRECTLY: tl.constexpr, USE_FINAL: tl.constexpr,
+):
+    """Pass B in stages, using the REAL _process_bins rather than a replica.
+
+    Its `write_directly` and `use_final` arguments already gate the two atomic +
+    store paths, so switching them off leaves only load + bin extract + the
+    threshold compares. Three runs price each layer without reimplementing
+    anything and therefore without the risk of the replica drifting from the
+    original.
+    """
+    pid = tl.program_id(0)
+    X += pid * N
+    hist = tle.gpu.alloc(
+        [NUM_BINS], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    fin = tle.gpu.alloc(
+        [2048], dtype=tl.float32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    oi = tle.gpu.alloc(
+        [2048], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    c1 = tle.gpu.alloc(
+        [1], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    c2 = tle.gpu.alloc(
+        [1], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    hp = tle.gpu.local_ptr(hist, (0,))
+    fp = tle.gpu.local_ptr(fin, (0,))
+    op = tle.gpu.local_ptr(oi, (0,))
+    p1 = tle.gpu.local_ptr(c1, (0,))
+    p2 = tle.gpu.local_ptr(c2, (0,))
+    tl.store(p1, 0)
+    tl.store(p2, 0)
+    tl.debug_barrier()
+
+    lane = tl.arange(0, BLOCK)
+    vec = tl.arange(0, VEC)
+    ones2 = tl.full([BLOCK, VEC], 1, tl.int32)
+    zeros2 = tl.zeros([BLOCK, VEC], dtype=tl.int32)
+    found2 = p1 + zeros2
+    cnt2 = p2 + zeros2
+
+    n_vec_full = N // (BLOCK * VEC)
+    for t in tl.range(0, n_vec_full):
+        base = t * BLOCK * VEC + lane * VEC
+        offs = base[:, None] + vec[None, :]
+        x_vec = tl.load(X + offs)
+        _process_bins(
+            x_vec, True, ones2, offs, found2, cnt2, 0, THR,
+            WRITE_DIRECTLY, USE_FINAL, 0, None, hp, fp, op, None,
+            STEP=0, TOPK=1024, MULTIPLE_BLOCKS_PER_ROW=False, MERGE_BLOCKS=False,
+        )
+    tl.debug_barrier()
+    tl.store(SINK + pid, tl.load(p1) + tl.load(p2))
 
 
 @triton.jit
@@ -318,6 +385,49 @@ def main():
         print(f"  {f'({rows},{vocab})':>16}{scan:>9.1f}{hist-scan:>14.1f}"
               f"{full-hist:>11.1f}{full:>9.1f}{v:>9.1f}", flush=True)
     print("\n  三段之和 = 整算子。最大的一段就是唯一值得重写的地方。")
+
+    # --- Pass B 分层：它比 Pass A 慢 1.75x/字节, 慢在哪 ---
+    print("\n" + "=" * 78)
+    print("  Pass B 分层 (用真 _process_bins, 靠 write_directly/use_final 关档)")
+    print("=" * 78)
+    print(f"  {'shape':>16}{'仅load+提取':>13}{'+直写原子':>12}{'+final原子':>12}"
+          f"{'PassA 参考':>12}")
+    for rows, vocab, top_k, _ in CASES:
+        if rows <= _wide_block_max_rows():
+            continue
+        torch.manual_seed(42)
+        logits = torch.randn((rows, vocab), dtype=torch.float32, device=DEV)
+        sink = torch.empty((rows,), dtype=torch.int32, device=DEV)
+        nw = _num_warps(NUM_THREADS_PER_BLOCK)
+        r = {}
+        for tag, wd, uf in (("none", False, False), ("wd", True, False),
+                            ("both", True, True)):
+            try:
+                r[tag] = triton.testing.do_bench(
+                    lambda w=wd, u=uf: _k_passB[(rows,)](
+                        logits, sink, vocab, 1024,
+                        BLOCK=NUM_THREADS_PER_BLOCK, NUM_BINS=2048, VEC=4,
+                        WRITE_DIRECTLY=w, USE_FINAL=u, num_warps=nw,
+                    ), warmup=25, rep=100, return_mode="median") * 1000
+            except Exception as e:  # noqa: BLE001
+                r[tag] = None
+                print(f"  {f'({rows},{vocab})':>16}  {tag} 失败: "
+                      f"{type(e).__name__}: {str(e)[:34]}")
+        try:
+            pa = triton.testing.do_bench(
+                lambda: _k_scan_only[(rows,)](
+                    logits, sink, vocab, BLOCK=NUM_THREADS_PER_BLOCK,
+                    NUM_BINS=2048, VEC=4, num_warps=nw,
+                ), warmup=25, rep=100, return_mode="median") * 1000
+        except Exception:  # noqa: BLE001
+            pa = float("nan")
+        if any(v is None for v in r.values()):
+            continue
+        print(f"  {f'({rows},{vocab})':>16}{r['none']:>13.1f}{r['wd']:>12.1f}"
+              f"{r['both']:>12.1f}{pa:>12.1f}", flush=True)
+    print("\n  三档之间跳得最大的那一步 = Pass B 的成本所在")
+    print("  若 '仅load+提取' 就已接近 PassA, 说明贵在两个原子/store")
+    print("  若它本身就远超 PassA, 说明贵在重读数据本身 -> 只能靠减少遍数")
     return 0
 
 
