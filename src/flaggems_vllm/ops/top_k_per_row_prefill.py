@@ -20,6 +20,7 @@ https://github.com/flagos-ai/FlagTree.git, align with vLLM implementation.
 """
 
 import logging
+import os
 
 import torch
 import triton
@@ -49,11 +50,36 @@ SPLIT_WORK_THRESHOLD = 200 * 1000
 NUM_THREADS_PER_BLOCK = 512
 MULTIPLE_BLOCKS_PER_ROW_CONFIG = 10
 NUM_THREADS_PER_BLOCK_MERGE = 1024
+
+# A wider block buys warps per SM, which is what a small num_rows cannot get from
+# the grid: prefill launches grid=(num_rows,), so a handful of rows leaves most of
+# the machine idle no matter how much work each row carries. Measured on MTT
+# S5000 (60 SMs) against vLLM, BLOCK 512 -> 1024 across the seven benchmark
+# shapes: 1.18x at (4, 8193) and 1.06x at (4, 16385), but 0.82x at (64, 129280)
+# and 0.43x on all four large-num_rows shapes. So it is a win only when num_rows
+# is tiny, and a serious regression otherwise -- hence a narrow gate rather than
+# a new default.
+NUM_THREADS_PER_BLOCK_WIDE = 1024
+PREFILL_WIDE_BLOCK_MAX_ROWS = int(
+    os.environ.get("FLAGGEMS_PREFILL_WIDE_BLOCK_MAX_ROWS", "8")
+)
 NUM_FILNAL_ITEMS = 2048
 NUM_BINS = 2048
 RADIX_BITS_FINAL = 8
 RADIX_SIZE_FINAL = 1 << RADIX_BITS_FINAL
 RADIX_FINAL_PREFILL_VOCAB_THRESHOLD = 65536
+
+
+def _prefill_block_size(num_rows):
+    """Threads per program for the prefill launch.
+
+    Widening only helps where the grid itself is too small to fill the device;
+    everywhere else it costs more than it buys. Threshold is env-overridable so
+    the crossover can be re-measured per card without a code change.
+    """
+    if num_rows <= PREFILL_WIDE_BLOCK_MAX_ROWS:
+        return NUM_THREADS_PER_BLOCK_WIDE
+    return NUM_THREADS_PER_BLOCK
 
 
 def _use_radix_final_for_prefill(vocab_size):
@@ -1207,6 +1233,7 @@ def top_k_per_row_prefill(
     assert num_rows == logits.shape[0]
     if HAS_TLE:
         topkp = triton.next_power_of_2(top_k)
+        block_size = _prefill_block_size(num_rows)
         use_radix_final = _use_radix_final_for_prefill(vocab_size)
         num_insert_sort_blocks = (
             0 if use_radix_final else min(num_rows, SORTING_ALGORITHM_THRESHOLD)
@@ -1222,10 +1249,10 @@ def top_k_per_row_prefill(
                 vocab_size,
                 TOPK=top_k,
                 TOPKP=topkp,
-                BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
+                BLOCK_SIZE=block_size,
                 USE_RADIX_FINAL=False,
                 ROW_OFFSET=0,
-                num_warps=NUM_THREADS_PER_BLOCK // 32,
+                num_warps=block_size // 32,
             )
         if num_rows > num_insert_sort_blocks:
             num_radix_sort_blocks = num_rows - num_insert_sort_blocks
@@ -1239,10 +1266,10 @@ def top_k_per_row_prefill(
                 vocab_size,
                 TOPK=top_k,
                 TOPKP=topkp,
-                BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
+                BLOCK_SIZE=block_size,
                 USE_RADIX_FINAL=True,
                 ROW_OFFSET=num_insert_sort_blocks,
-                num_warps=NUM_THREADS_PER_BLOCK // 32,
+                num_warps=block_size // 32,
             )
     else:
         # based on tle version

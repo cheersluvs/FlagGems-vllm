@@ -95,6 +95,54 @@ def _correct(logits, idx, top_k):
     return torch.allclose(a, b, atol=1e-6, rtol=1e-6)
 
 
+def sweep_crossover():
+    """Where does the wide block stop paying? Measure it, do not guess it.
+
+    The gate now shipping in the generic op uses num_rows <= 8, which was picked
+    from two data points at num_rows=4. This walks num_rows across two vocabs so
+    the constant is measured.
+
+    It also probes the open contradiction: BLOCK 512 -> 1024 made the ISOLATED
+    load loop 1.73x faster, yet made the real operator at (64, 129280) 0.82x
+    slower. Something outside the load degrades sharply at 1024, and where the
+    crossover sits says how sharply.
+    """
+    print("\n" + "=" * 78)
+    print("  交叉点扫描: BLOCK=1024 从哪个 num_rows 开始不划算")
+    print("=" * 78)
+    for vocab, top_k, s0 in ((8193, 512, 8456), (129280, 1024, 129280)):
+        print(f"\n  vocab={vocab}, top_k={top_k}")
+        print(f"    {'rows':>6}{'512 us':>10}{'1024 us':>10}{'1024/512':>10}")
+        for rows in (2, 4, 8, 16, 32, 64, 128):
+            torch.manual_seed(42)
+            buf = torch.randn((rows - 1) * s0 + vocab, device=DEV)
+            logits = torch.as_strided(buf, (rows, vocab), (s0, 1))
+            starts = torch.zeros((rows,), dtype=torch.int32, device=DEV)
+            ends = torch.full((rows,), vocab, dtype=torch.int32, device=DEV)
+            idx = torch.empty((rows, top_k), dtype=torch.int32, device=DEV)
+            r = {}
+            for blk in (512, 1024):
+                try:
+                    r[blk] = triton.testing.do_bench(
+                        lambda b=blk: _run(
+                            logits, starts, ends, idx, rows, s0, 1, top_k, b
+                        ),
+                        warmup=25, rep=100, return_mode="median",
+                    )
+                except Exception:  # noqa: BLE001
+                    r[blk] = None
+            if r[512] is None or r[1024] is None:
+                print(f"    {rows:>6}   失败")
+                continue
+            g = r[512] / r[1024]
+            mark = "  <-- 1024 更好" if g > 1.02 else ""
+            print(
+                f"    {rows:>6}{r[512]*1000:>10.1f}{r[1024]*1000:>10.1f}{g:>9.2f}x{mark}",
+                flush=True,
+            )
+    print("\n  最后一个带标记的 rows = 门控阈值应该设的位置")
+
+
 def main():
     print("=" * 78)
     print("  真算子 BLOCK_SIZE 512 vs 1024 -- 七个 benchmark 形状")
@@ -155,6 +203,7 @@ def main():
             flush=True,
         )
     print("\n  只有部分形状受益 => 按 shape 选 BLOCK; 全部受益 => 直接改默认值")
+    sweep_crossover()
     return 0
 
 
