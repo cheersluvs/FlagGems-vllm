@@ -300,6 +300,48 @@ def sweep_stages():
     print("  全平       => MUSA 后端不做软件流水, 需手工展开")
 
 
+def sweep_block():
+    """Bandwidth tracks warps/SM, so raise warps WITHOUT raising program count.
+
+    Sweep 4 showed 16 warps/SM -> 252 GB/s, 32 -> 476, 64 -> 815, i.e. roughly
+    linear. num_stages does not add warps, which is why it did nothing (it made
+    things worse). At num_rows=64 the program count is fixed by the shape, but
+    threads per program is not: BLOCK 512 -> 1024 doubles warps/SM at the same
+    program count and the same fixed cost.
+
+    NUM_BINS is independent of BLOCK, so shared memory does not grow with it.
+    """
+    print("\n" + "=" * 78)
+    print("  SWEEP 6: BLOCK (=每 program 线程数) 对饿着的形状的影响 (60 行)")
+    print("=" * 78)
+    rows, N = 60, 131072
+    torch.manual_seed(1)
+    x = torch.randn((rows, N), device=DEV)
+    sink = torch.empty((rows,), dtype=torch.int32, device=DEV)
+    tot = rows * N
+
+    print(f"  {'BLOCK':>6}{'warps/SM':>10}{'load us':>10}{'GB/s':>8}{'%峰值':>7}{'vs 512':>9}")
+    base = None
+    for blk in (256, 512, 1024):
+        try:
+            t = _bench(
+                lambda b=blk: _k_load_only[(rows,)](
+                    x, sink, N, BLOCK=b, num_warps=b // 32
+                )
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"  {blk:>6}   失败 {type(e).__name__}: {str(e)[:46]}")
+            continue
+        gb = tot * 4 / (t * 1e-3) / 1e9
+        if blk == 512:
+            base = t
+        rel = f"{base/t:>8.2f}x" if base else "        -"
+        print(f"  {blk:>6}{blk//32:>10}{t*1000:>10.1f}{gb:>8.0f}{gb/13:>6.0f}%{rel}",
+              flush=True)
+    print("\n  BLOCK=1024 若接近翻倍 => 最后一个杠杆成立, 预计 speedup ~0.85")
+    print("  若不动或失败         => 这条路到头了")
+
+
 def main():
     print("=" * 78)
     print("  MTT prefill 内层循环拆解 -- 仅测量")
@@ -321,6 +363,7 @@ def main():
     print("\n  两者 B 差距大 => 是热点争用; 差距小 => 是原子指令本身的固定成本")
     sweep_concurrency()
     sweep_stages()
+    sweep_block()
     return 0
 
 
