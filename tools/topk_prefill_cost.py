@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure where prefill's time actually goes on MTT, before optimising anything.
+"""Measure where prefill's time actually goes, on ANY backend.
 
 Two hypotheses are on the table after multi-block failed:
 
@@ -17,10 +17,16 @@ at fixed num_rows and fit
 any fixed-cost optimisation is exactly (a_gems - a_vllm): even a perfect fix
 cannot beat that, and if it is small the whole line of work is not worth starting.
 
-Sweep 2 varies num_rows at fixed vocab to expose wave quantisation: S5000 has 60
-SMs and grid=(num_rows,), so num_rows=64 is 1.07 waves and pays for two.
+Sweep 2 varies num_rows at fixed vocab against the device's SM count, since
+grid=(num_rows,) means a small num_rows cannot fill the machine.
 
-    VLLM_PLUGINS=musa PYTHONPATH=src python tools/mtt_fixed_cost.py
+Run this on NVIDIA to settle whether the 1.72x per-element gap measured on MTT is
+a property of this operator versus vLLM's CUDA kernel, or something MUSA-specific.
+If NVIDIA shows a similar per-element ratio, it is an operator-level issue and
+not a vendor one.
+
+    PYTHONPATH=src python tools/topk_prefill_cost.py
+    VLLM_PLUGINS=musa PYTHONPATH=src python tools/topk_prefill_cost.py   # MTT
 
 Reports numbers only. It changes nothing and proposes nothing.
 """
@@ -34,7 +40,17 @@ import triton
 import flaggems_vllm
 
 DEV = flaggems_vllm.device
-SM = 60
+
+
+def _sm_count():
+    try:
+        p = flaggems_vllm.runtime.torch_device_fn.get_device_properties(0)
+        return getattr(p, "multi_processor_count", 0) or 60
+    except Exception:  # noqa: BLE001
+        return 60
+
+
+SM = _sm_count()
 
 HAS_VLLM = False
 try:

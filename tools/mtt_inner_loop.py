@@ -277,7 +277,7 @@ def sweep_stages():
             _k_extract_staged[(rows,)](
                 x, sink, N, BLOCK=blk, STAGES=st, num_warps=blk // 32
             )
-            torch.musa.synchronize()
+            flaggems_vllm.runtime.torch_device_fn.synchronize()
             compile_s = time.time() - t0
 
             t = _bench(

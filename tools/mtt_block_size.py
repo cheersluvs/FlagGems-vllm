@@ -117,7 +117,7 @@ def main():
             try:
                 idx.fill_(-1)
                 _run(logits, starts, ends, idx, num_rows, s0, 1, top_k, blk)
-                torch.musa.synchronize()
+                flaggems_vllm.runtime.torch_device_fn.synchronize()
                 ok[blk] = _correct(logits, idx, top_k)
                 res[blk] = triton.testing.do_bench(
                     lambda b=blk: _run(
