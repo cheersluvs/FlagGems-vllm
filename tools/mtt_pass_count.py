@@ -34,6 +34,8 @@ import triton.language as tl
 import flaggems_vllm
 from flaggems_vllm.ops.top_k_per_row_prefill import (
     NUM_THREADS_PER_BLOCK,
+    _distribute_to_bins,
+    _wide_block_max_rows,
     _num_warps,
     _process_histogram_step,
 )
@@ -44,6 +46,46 @@ try:
     import triton.experimental.tle.language as tle
 except ImportError:
     tle = None
+
+
+@triton.jit
+def _k_scan_only(
+    X, SINK, N, BLOCK: tl.constexpr, NUM_BINS: tl.constexpr, VEC: tl.constexpr
+):
+    """Histogram clear + the REAL vec4 scan + the atomic. No _process_bins.
+
+    Mirrors the operator's aligned path exactly -- `base = t*BLOCK*VEC +
+    lane*VEC`, a [BLOCK, VEC] tile, `_distribute_to_bins(..., STEP=0)` -- so the
+    difference against the instrumented full histogram step isolates
+    _process_bins, the 2048-bin threshold scan and candidate compaction, which is
+    the last component never measured on its own.
+    """
+    pid = tl.program_id(0)
+    X += pid * N
+    hist = tle.gpu.alloc(
+        [NUM_BINS], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    hp = tle.gpu.local_ptr(hist, (0,))
+    for z in tl.range(0, NUM_BINS, BLOCK):
+        tl.store(hp + z + tl.arange(0, BLOCK), 0)
+    tl.debug_barrier()
+
+    lane = tl.arange(0, BLOCK)
+    vec = tl.arange(0, VEC)
+    ones_vec_2d = tl.full([BLOCK, VEC], 1, tl.int32)
+    n_vec_full = N // (BLOCK * VEC)
+    for t in tl.range(0, n_vec_full):
+        base = t * BLOCK * VEC + lane * VEC
+        offs = base[:, None] + vec[None, :]
+        x_vec = tl.load(X + offs)
+        _distribute_to_bins(x_vec, True, ones_vec_2d, 0, hp, STEP=0)
+    tl.debug_barrier()
+
+    acc = tl.zeros([BLOCK], dtype=tl.int32)
+    for z in tl.range(0, NUM_BINS, BLOCK):
+        acc += tl.load(hp + z + tl.arange(0, BLOCK))
+    tl.store(SINK + pid, tl.sum(acc))
 
 
 @triton.jit
@@ -219,8 +261,63 @@ def main():
         after = (full - hist) * 1000
         print(f"  {f'({rows},{vocab})':>16}{hist*1000:>11.1f}{full*1000:>11.1f}"
               f"{after:>10.1f}{after/(full*1000)*100:>9.0f}%{v:>10.1f}", flush=True)
-    print("\n  '之后' 就是阈值扫描 + final select + 输出, 这次是实测差值不是推算")
-    print("  若它超过 vLLM 整个算子的耗时, 那重写它是唯一有意义的方向")
+    print("\n  注意: rows <= SM 数时 wide-block 门控让算子用 BLOCK=1024 而探针是 512,")
+    print("  那一行的差值无意义。只看 rows > SM 数的行。")
+
+    # --- 完整分解：扫描 vs _process_bins vs final select，全部实测 ---
+    print("\n" + "=" * 78)
+    print("  完整分解 (只取门控不触发的形状, 全部实测)")
+    print("=" * 78)
+    print(f"  {'shape':>16}{'扫描':>9}{'process_bins':>14}{'final sel':>11}"
+          f"{'整算子':>9}{'vLLM':>9}")
+    for rows, vocab, top_k, _ in CASES:
+        if rows <= _wide_block_max_rows():
+            print(f"  {f'({rows},{vocab})':>16}   跳过: 门控触发, 探针与算子 BLOCK 不同")
+            continue
+        torch.manual_seed(42)
+        logits = torch.randn((rows, vocab), dtype=torch.float32, device=DEV)
+        starts = torch.zeros((rows,), dtype=torch.int32, device=DEV)
+        ends = torch.full((rows,), vocab, dtype=torch.int32, device=DEV)
+        idx = torch.empty((rows, top_k), dtype=torch.int32, device=DEV)
+        steps = torch.zeros((rows,), dtype=torch.int32, device=DEV)
+        sink = torch.empty((rows,), dtype=torch.int32, device=DEV)
+        nw = _num_warps(NUM_THREADS_PER_BLOCK)
+        try:
+            scan = triton.testing.do_bench(
+                lambda: _k_scan_only[(rows,)](
+                    logits, sink, vocab, BLOCK=NUM_THREADS_PER_BLOCK,
+                    NUM_BINS=2048, VEC=4, num_warps=nw,
+                ), warmup=25, rep=100, return_mode="median") * 1000
+            hist = triton.testing.do_bench(
+                lambda: _count_steps[(rows,)](
+                    logits, idx, starts, ends, steps,
+                    logits.stride(0), logits.stride(1), vocab,
+                    TOPK=top_k, TOPKP=triton.next_power_of_2(top_k),
+                    BLOCK_SIZE=NUM_THREADS_PER_BLOCK, num_warps=nw,
+                ), warmup=25, rep=100, return_mode="median") * 1000
+            full = triton.testing.do_bench(
+                lambda: flaggems_vllm.top_k_per_row_prefill(
+                    logits, starts, ends, idx, rows,
+                    logits.stride(0), logits.stride(1), top_k,
+                ), warmup=25, rep=100, return_mode="median") * 1000
+        except Exception as e:  # noqa: BLE001
+            print(f"  {f'({rows},{vocab})':>16}   失败 {type(e).__name__}: {str(e)[:34]}")
+            continue
+        v = float("nan")
+        try:
+            import vllm._custom_ops  # noqa: F401
+
+            if hasattr(torch.ops._C, "top_k_per_row_prefill"):
+                v = triton.testing.do_bench(
+                    lambda: torch.ops._C.top_k_per_row_prefill(
+                        logits, starts, ends, idx, rows,
+                        logits.stride(0), logits.stride(1), top_k,
+                    ), warmup=25, rep=100, return_mode="median") * 1000
+        except Exception:  # noqa: BLE001
+            pass
+        print(f"  {f'({rows},{vocab})':>16}{scan:>9.1f}{hist-scan:>14.1f}"
+              f"{full-hist:>11.1f}{full:>9.1f}{v:>9.1f}", flush=True)
+    print("\n  三段之和 = 整算子。最大的一段就是唯一值得重写的地方。")
     return 0
 
 
