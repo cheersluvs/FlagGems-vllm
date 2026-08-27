@@ -67,6 +67,27 @@ def _k_load_only(X, SINK, N, BLOCK: tl.constexpr):
 
 
 @triton.jit
+def _k_load_vec4(X, SINK, N, BLOCK: tl.constexpr, VEC: tl.constexpr):
+    """Load the way the REAL kernel does: a [BLOCK, VEC] tile, 16B per lane.
+
+    _k_load_only issues scalar 4-byte loads, which is NOT what the operator does
+    -- its scan loop builds `base = t*BLOCK*VEC + lane*VEC` and loads a 2-D tile.
+    Any bandwidth ceiling measured with scalar loads therefore says nothing about
+    the kernel's real access pattern.
+    """
+    pid = tl.program_id(0)
+    X += pid * N
+    lane = tl.arange(0, BLOCK)
+    vec = tl.arange(0, VEC)
+    acc = tl.zeros([BLOCK, VEC], dtype=tl.float32)
+    n_full = N // (BLOCK * VEC)
+    for t in tl.range(0, n_full):
+        offs = (t * BLOCK * VEC + lane * VEC)[:, None] + vec[None, :]
+        acc += tl.load(X + offs)
+    tl.store(SINK + pid, tl.sum(tl.sum(acc, axis=1), axis=0).to(tl.int32))
+
+
+@triton.jit
 def _k_extract_only(X, SINK, N, BLOCK: tl.constexpr):
     """A: load + bin extract, no atomic. Accumulates so nothing is dead-coded."""
     pid = tl.program_id(0)
@@ -229,6 +250,28 @@ def sweep_concurrency():
         )
     print("\n  带宽随并发上升 => 是并发不足, 不是访存模式")
     print("  带宽不动          => 访存模式本身受限, 需要向量化/改布局")
+
+    print("\n  --- 标量 load vs 真 kernel 的 vec4 load ---")
+    print(f"  {'rows':>6}{'标量 us':>10}{'GB/s':>8}{'vec4 us':>10}{'GB/s':>8}{'vec4 增益':>11}")
+    for rows in (60, 64, 120, 240):
+        torch.manual_seed(1)
+        x = torch.randn((rows, N), device=DEV)
+        sink = torch.empty((rows,), dtype=torch.int32, device=DEV)
+        nw = BLOCK // 32
+        sc = _bench(
+            lambda: _k_load_only[(rows,)](x, sink, N, BLOCK=BLOCK, num_warps=nw)
+        )
+        v4 = _bench(
+            lambda: _k_load_vec4[(rows,)](
+                x, sink, N, BLOCK=BLOCK, VEC=4, num_warps=nw
+            )
+        )
+        gs = rows * N * 4 / (sc * 1e-3) / 1e9
+        gv = rows * N * 4 / (v4 * 1e-3) / 1e9
+        print(f"  {rows:>6}{sc*1000:>10.1f}{gs:>8.0f}{v4*1000:>10.1f}{gv:>8.0f}"
+              f"{sc/v4:>10.2f}x", flush=True)
+    print("\n  vec4 明显更快 => 我此前的带宽天花板测错了, 真 kernel 本就更接近上限")
+    print("  两者相近       => 访存已到顶, 内层循环没有可重写的余地")
 
 
 @triton.jit
