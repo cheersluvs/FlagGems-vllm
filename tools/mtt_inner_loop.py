@@ -26,7 +26,9 @@ the lever and we know roughly what it buys BEFORE writing an override.
 Measurement only. Writes nothing, proposes nothing.
 """
 
+import os
 import sys
+import time
 
 import torch
 import triton
@@ -39,6 +41,8 @@ from flaggems_vllm.utils.triton_version_utils import has_triton_tle
 DEV = flaggems_vllm.device
 NUM_BINS = 2048
 BLOCK = 512
+# Narrow by default; PROBE_STAGES=1,2,4,8 to widen.
+STAGE_LIST = [int(v) for v in os.environ.get("PROBE_STAGES", "1,2,4").split(",")]
 
 HAS_TLE = False
 if has_triton_tle(3, 6, 0):
@@ -249,37 +253,51 @@ def sweep_stages():
     bound with too few requests in flight per thread. Software pipelining is the
     cheap way to raise that without adding programs (which multi-block tried, and
     which multiplied fixed cost 10x instead).
+
+    Deliberately narrow: deep num_stages makes the pipeliner replicate the loop
+    body, so compile time grows superlinearly and dominates wall clock. Compile
+    and benchmark are timed separately so a slow run is diagnosable rather than
+    just slow.
     """
     print("\n" + "=" * 78)
-    print("  SWEEP 5: num_stages / BLOCK 对并发受限形状的影响 (60 行)")
+    print("  SWEEP 5: num_stages 对并发受限形状的影响 (60 行, BLOCK=512)")
     print("=" * 78)
     rows, N = 60, 131072
     torch.manual_seed(1)
     x = torch.randn((rows, N), device=DEV)
     sink = torch.empty((rows,), dtype=torch.int32, device=DEV)
     tot = rows * N
+    blk = 512
 
     base = None
-    print(f"  {'BLOCK':>6}{'stages':>8}{'us':>10}{'GB/s':>8}{'%峰值':>8}{'vs 基线':>9}")
-    for blk in (512, 1024):
-        for st in (1, 2, 3, 4, 6, 8):
-            try:
-                t = _bench(
-                    lambda b=blk, k=st: _k_extract_staged[(rows,)](
-                        x, sink, N, BLOCK=b, STAGES=k, num_warps=b // 32
-                    )
-                )
-            except Exception as e:  # noqa: BLE001
-                print(f"  {blk:>6}{st:>8}   失败 {type(e).__name__}: {str(e)[:40]}")
-                continue
-            gb = tot * 4 / (t * 1e-3) / 1e9
-            if base is None:
-                base = t
-            print(
-                f"  {blk:>6}{st:>8}{t*1000:>10.1f}{gb:>8.0f}{gb/13:>7.0f}%"
-                f"{base/t:>8.2f}x"
+    print(f"  {'stages':>7}{'编译 s':>9}{'us':>10}{'GB/s':>8}{'%峰值':>7}{'vs 基线':>9}")
+    for st in STAGE_LIST:
+        try:
+            t0 = time.time()
+            _k_extract_staged[(rows,)](
+                x, sink, N, BLOCK=blk, STAGES=st, num_warps=blk // 32
             )
-    print("\n  若某档明显快于基线 => 流水深度就是杠杆, 且改动极小")
+            torch.musa.synchronize()
+            compile_s = time.time() - t0
+
+            t = _bench(
+                lambda k=st: _k_extract_staged[(rows,)](
+                    x, sink, N, BLOCK=blk, STAGES=k, num_warps=blk // 32
+                )
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"  {st:>7}   失败 {type(e).__name__}: {str(e)[:44]}")
+            continue
+        gb = tot * 4 / (t * 1e-3) / 1e9
+        if base is None:
+            base = t
+        print(
+            f"  {st:>7}{compile_s:>9.1f}{t*1000:>10.1f}{gb:>8.0f}"
+            f"{gb/13:>6.0f}%{base/t:>8.2f}x",
+            flush=True,
+        )
+    print("\n  某档明显快 => 流水深度是杠杆, 改动极小")
+    print("  全平       => MUSA 后端不做软件流水, 需手工展开")
 
 
 def main():
