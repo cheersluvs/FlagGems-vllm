@@ -165,6 +165,19 @@ def stage_device():
         return "\n" + "\n".join(f"      {b}" for b in bits)
 
     check("device properties", _props)
+    def _geom():
+        from flaggems_vllm.ops.top_k_per_row_prefill import (
+            _launch_geometry,
+            _num_warps,
+        )
+
+        warp, maxt = _launch_geometry()
+        return (
+            f"warp={warp} max_threads/block={maxt}  ->  BLOCK 512 uses "
+            f"{_num_warps(512)} warps = {_num_warps(512) * warp} threads"
+        )
+
+    check("resolved launch geometry", _geom)
     row("op smem need (TLE path)", "prefill ~21 KB / decode ~25 KB @ top_k=1024")
     row("", "top_k=2048 -> ~29 / ~33 KB. MetaX C550 has only 64 KB: check above.")
 

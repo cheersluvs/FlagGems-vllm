@@ -30,6 +30,42 @@ from flaggems_vllm import runtime
 from flaggems_vllm.utils.triton_version_utils import has_triton_tle
 
 
+
+_LAUNCH_GEOMETRY = None
+
+
+def _launch_geometry():
+    """(warp_size, max_threads_per_block) for this device, cached."""
+    global _LAUNCH_GEOMETRY
+    if _LAUNCH_GEOMETRY is None:
+        warp, maxt = 32, 1024
+        try:
+            props = runtime.torch_device_fn.get_device_properties(0)
+            warp = getattr(props, "warp_size", 0) or 32
+            maxt = getattr(props, "max_threads_per_block", 0) or 1024
+        except Exception:  # noqa: BLE001 - never let detection break dispatch
+            pass
+        _LAUNCH_GEOMETRY = (warp, maxt)
+    return _LAUNCH_GEOMETRY
+
+
+def _num_warps(block_size):
+    """Warps needed to cover a BLOCK_SIZE-wide tile, within the thread ceiling.
+
+    This used to be `block_size // 32`, which silently assumes a 32-lane warp.
+    On MetaX C550 the warp is 64 lanes and the per-block ceiling is 512 threads,
+    so BLOCK_SIZE=512 asked for 16 warps x 64 = 1024 threads and every launch
+    failed with OutOfResources -- the op could not run on that card at all.
+
+    Dividing by the real warp size is an identity on 32-lane parts (512 -> 16
+    warps either way), so NVIDIA and Moore Threads are unchanged. The clamp
+    matters where a tile is wider than the device can staff: the tile stays the
+    same width and each thread simply covers more of it.
+    """
+    warp, maxt = _launch_geometry()
+    return max(1, min(block_size // warp, maxt // warp))
+
+
 def _vendor_tle_enabled() -> bool:
     """Does this backend actually support TLE, per its own VendorDescriptor?
 
@@ -1292,7 +1328,7 @@ def top_k_per_row_decode(
                 MULTIPLE_BLOCKS_PER_ROW=False,
                 MULTIPLE_BLOCKS_NUM=1,
                 MERGE_BLOCKS=False,
-                num_warps=NUM_THREADS_PER_BLOCK // 32,
+                num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
             )
         else:
             device = logits.device
@@ -1328,7 +1364,7 @@ def top_k_per_row_decode(
                 MULTIPLE_BLOCKS_PER_ROW=True,
                 MULTIPLE_BLOCKS_NUM=MULTIPLE_BLOCKS_PER_ROW_CONFIG,
                 MERGE_BLOCKS=False,
-                num_warps=NUM_THREADS_PER_BLOCK // 32,
+                num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
             )
             tle_top_k_per_row_decode[(num_rows,)](
                 out_logits_aux,
@@ -1347,7 +1383,7 @@ def top_k_per_row_decode(
                 MULTIPLE_BLOCKS_PER_ROW=False,
                 MULTIPLE_BLOCKS_NUM=MULTIPLE_BLOCKS_PER_ROW_CONFIG,
                 MERGE_BLOCKS=True,
-                num_warps=NUM_THREADS_PER_BLOCK_MERGE // 32,
+                num_warps=_num_warps(NUM_THREADS_PER_BLOCK_MERGE),
             )
     else:
         # based on tle version
@@ -1384,5 +1420,5 @@ def top_k_per_row_decode(
             s_found_topk_values_ptr,
             TOPK=top_k,
             BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
-            num_warps=NUM_THREADS_PER_BLOCK // 32,
+            num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
         )
