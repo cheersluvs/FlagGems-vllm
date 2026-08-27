@@ -61,11 +61,15 @@ SHAPES = [
 ]
 
 
-def _run(logits, starts, ends, idx, num_rows, s0, s1, top_k, block):
-    """Replicates the generic dispatcher's TLE path with BLOCK_SIZE as a knob."""
+def _run(logits, starts, ends, idx, num_rows, s0, s1, top_k, block, urf=None):
+    """Replicates the generic dispatcher's TLE path with BLOCK_SIZE as a knob.
+
+    `urf` forces USE_RADIX_FINAL instead of taking the dispatcher's choice, so the
+    two final-select implementations can be priced against each other.
+    """
     vocab = logits.shape[1]
     topkp = triton.next_power_of_2(top_k)
-    use_radix_final = _use_radix_final_for_prefill(vocab)
+    use_radix_final = _use_radix_final_for_prefill(vocab) if urf is None else urf
     n_insert = 0 if use_radix_final else min(num_rows, SORTING_ALGORITHM_THRESHOLD)
     nw = block // 32
 
@@ -144,6 +148,64 @@ def sweep_crossover():
     print("  若 60 仍为 1.5x 而 61 掉到 0.8x, 则两波悬崖与 SM 数完全对齐")
 
 
+def sweep_final_select():
+    """Price the two final-select implementations against each other.
+
+    Measured breakdown at (60, 131072), with the scan running exactly ONE pass
+    (counted, not inferred):
+
+        load (vec4)   48.8 us   23%
+        bit extract   14.1       7%
+        atomic        38.1      18%
+        AFTER the histogram  108.4  52%      <- bigger than the whole scan
+        operator     209.4            vLLM 128.6
+
+    So the expensive half is threshold scan + final select + output, not the scan
+    loop. `_use_radix_final_for_prefill` picks radix-final above vocab 65536 and
+    insertion sort below; this forces each so the choice can be priced rather
+    than assumed, and checks correctness of both.
+    """
+    print("\n" + "=" * 78)
+    print("  final select: radix vs 插入排序 (强制 USE_RADIX_FINAL)")
+    print("=" * 78)
+    print(f"  {'shape':>16}{'dispatcher':>12}{'radix us':>10}{'insert us':>11}"
+          f"{'较优':>8}  正确")
+    for num_rows, vocab, top_k, s0 in SHAPES:
+        torch.manual_seed(42)
+        buf = torch.randn((num_rows - 1) * s0 + vocab, device=DEV)
+        logits = torch.as_strided(buf, (num_rows, vocab), (s0, 1))
+        starts = torch.zeros((num_rows,), dtype=torch.int32, device=DEV)
+        ends = torch.full((num_rows,), vocab, dtype=torch.int32, device=DEV)
+        idx = torch.empty((num_rows, top_k), dtype=torch.int32, device=DEV)
+        chose = _use_radix_final_for_prefill(vocab)
+        r = {}
+        ok = {}
+        for urf in (True, False):
+            try:
+                idx.fill_(-1)
+                _run(logits, starts, ends, idx, num_rows, s0, 1, top_k, 512, urf)
+                flaggems_vllm.runtime.torch_device_fn.synchronize()
+                ok[urf] = _correct(logits, idx, top_k)
+                r[urf] = triton.testing.do_bench(
+                    lambda u=urf: _run(
+                        logits, starts, ends, idx, num_rows, s0, 1, top_k, 512, u
+                    ), warmup=25, rep=100, return_mode="median")
+            except Exception as e:  # noqa: BLE001
+                r[urf] = None
+                ok[urf] = False
+        if r[True] is None or r[False] is None:
+            bad = "radix" if r[True] is None else "insert"
+            print(f"  {f'({num_rows},{vocab})':>16}   {bad} 失败")
+            continue
+        best = "radix" if r[True] < r[False] else "insert"
+        flag = "OK" if (ok[True] and ok[False]) else "!! 错误"
+        print(f"  {f'({num_rows},{vocab})':>16}{'radix' if chose else 'insert':>12}"
+              f"{r[True]*1000:>10.1f}{r[False]*1000:>11.1f}{best:>8}  {flag}",
+              flush=True)
+    print("\n  dispatcher 选的那个不是更快的 => 阈值 _use_radix_final_for_prefill 该调")
+    print("  两个都很贵 => final select 本身要重写, 这才是 override 该做的事")
+
+
 def main():
     print("=" * 78)
     print("  真算子 BLOCK_SIZE 512 vs 1024 -- 七个 benchmark 形状")
@@ -204,7 +266,7 @@ def main():
             flush=True,
         )
     print("\n  只有部分形状受益 => 按 shape 选 BLOCK; 全部受益 => 直接改默认值")
-    sweep_crossover()
+    sweep_final_select()
     return 0
 
 
