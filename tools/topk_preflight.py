@@ -112,6 +112,17 @@ def stage_tle():
 
     check("version+import gate", _gate)
 
+    def _vendor():
+        from flaggems_vllm.ops.top_k_per_row_prefill import _vendor_tle_enabled
+
+        return (
+            f"VendorDescriptor.tle_enabled = "
+            f"{getattr(flaggems_vllm.runtime.device.info, 'tle_enabled', '?')}"
+            f"   -> effective {_vendor_tle_enabled()}"
+        )
+
+    check("vendor declares TLE", _vendor)
+
     def _syms():
         import triton.experimental.tle.language as tle
 

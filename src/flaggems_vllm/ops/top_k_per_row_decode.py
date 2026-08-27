@@ -20,14 +20,48 @@ https://github.com/flagos-ai/FlagTree.git, align with vLLM implementation.
 """
 
 import logging
+import os
 
 import torch
 import triton
 import triton.language as tl
 
+from flaggems_vllm import runtime
 from flaggems_vllm.utils.triton_version_utils import has_triton_tle
 
-if has_triton_tle(3, 6, 0):
+
+def _vendor_tle_enabled() -> bool:
+    """Does this backend actually support TLE, per its own VendorDescriptor?
+
+    `has_triton_tle()` only proves the Python module imports. It does not prove
+    the backend can LOWER tle.gpu.alloc. MetaX C550 is exactly that case: every
+    tle symbol resolves, but compilation dies with
+
+        'triton._C.libtriton.ir.builder' object has no attribute
+        'make_swizzled_shared_encoding_attr'
+
+    which took both ops from "slow" to "cannot run at all", when the non-TLE
+    fallback would have worked fine.
+
+    The VendorDescriptor already carries `tle_enabled`, and it is already correct
+    -- nvidia/mthreads/enflame declare True, everyone else defaults False. It was
+    simply never read by anything. Reading it here makes the non-TLE path the
+    default for any backend that has not declared TLE support, which is the safe
+    direction: that path is plain Triton over global scratch and works everywhere.
+
+    FLAGGEMS_FORCE_TLE=1 overrides, so a vendor can test whether its TLE works
+    without editing the descriptor.
+    """
+    override = os.environ.get("FLAGGEMS_FORCE_TLE")
+    if override is not None:
+        return override.lower() not in {"0", "false", "off", "no"}
+    try:
+        return bool(getattr(runtime.device.info, "tle_enabled", False))
+    except Exception:  # noqa: BLE001 - never let detection break the import
+        return False
+
+
+if has_triton_tle(3, 6, 0) and _vendor_tle_enabled():
     try:
         import triton.experimental.tle.language as tle
 
