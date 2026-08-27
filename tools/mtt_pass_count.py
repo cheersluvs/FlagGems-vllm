@@ -198,6 +198,78 @@ def _k_passB(
     tl.store(SINK + pid, tl.load(p1) + tl.load(p2))
 
 
+@triton.jit
+def _k_passB_agg(
+    X, SINK, N, THRS,
+    BLOCK: tl.constexpr, VEC: tl.constexpr, USE_FINAL: tl.constexpr,
+):
+    """Pass B with tile-aggregated atomics instead of per-lane masked ones.
+
+    The operator's two counters are broadcast scalars -- found_ptrs_vec_2d is
+    `s_found_topk_values_ptr + zeros_vec_2d` -- so all BLOCK*VEC lanes contend on
+    one address every tile, even though the mask only lets ~0.8% of them count.
+    Measured cost of the two paths: 73 us, 55% of Pass B and 34% of the operator.
+
+    Here each tile instead sums its hits, takes ONE atomic for the whole tile,
+    and derives per-lane slots from an exclusive prefix sum. 2048 atomics become
+    one, at the cost of a cumsum over the flattened tile.
+    """
+    pid = tl.program_id(0)
+    X += pid * N
+    thr = tl.load(THRS + pid)
+    out = tle.gpu.alloc(
+        [2048], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    fin = tle.gpu.alloc(
+        [2048], dtype=tl.float32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    c1 = tle.gpu.alloc(
+        [1], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    c2 = tle.gpu.alloc(
+        [1], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
+    op_ = tle.gpu.local_ptr(out, (0,))
+    fp = tle.gpu.local_ptr(fin, (0,))
+    p1 = tle.gpu.local_ptr(c1, (0,))
+    p2 = tle.gpu.local_ptr(c2, (0,))
+    tl.store(p1, 0)
+    tl.store(p2, 0)
+    tl.debug_barrier()
+
+    lane = tl.arange(0, BLOCK)
+    vec = tl.arange(0, VEC)
+    W: tl.constexpr = BLOCK * VEC
+    n_vec = N // W
+    for t in tl.range(0, n_vec):
+        base = t * W + lane * VEC
+        offs = base[:, None] + vec[None, :]
+        x = tl.load(X + offs)
+        b, ok = _extract_bin_idx(x, True, 0, STEP=0)
+
+        take = ok & (b < thr)
+        ti = tl.reshape(take.to(tl.int32), [W])
+        cnt = tl.sum(ti)
+        start = tl.atomic_add(p1, cnt, sem="relaxed", scope="cta")
+        pos = tl.reshape(tl.cumsum(ti, axis=0) - ti, [BLOCK, VEC]) + start
+        tl.store(op_ + (pos % 2048), tl.reshape(tl.reshape(offs, [W]), [BLOCK, VEC]),
+                 mask=take)
+
+        if USE_FINAL:
+            takef = ok & (b == thr)
+            tf = tl.reshape(takef.to(tl.int32), [W])
+            cntf = tl.sum(tf)
+            startf = tl.atomic_add(p2, cntf, sem="relaxed", scope="cta")
+            posf = tl.reshape(tl.cumsum(tf, axis=0) - tf, [BLOCK, VEC]) + startf
+            tl.store(fp + (posf % 2048), x, mask=takef)
+    tl.debug_barrier()
+    tl.store(SINK + pid, tl.load(p1) + tl.load(p2))
+
+
 def _real_thresholds(logits, top_k):
     """The threshold bin each row actually reaches, via the kernel's own mapping.
 
@@ -491,6 +563,25 @@ def main():
         print(f"  {f'({rows},{vocab})':>16}{int(thrs[0]):>8}{rate:>7.1f}%"
               f"{r['floor']:>9.1f}{r['wd']:>9.1f}{r['both']:>9.1f}{pa:>9.1f}",
               flush=True)
+        # 聚合版：同样两条路径, 但每 tile 一次原子
+        try:
+            ag = triton.testing.do_bench(
+                lambda: _k_passB_agg[(rows,)](
+                    logits, sink, vocab, thrs,
+                    BLOCK=NUM_THREADS_PER_BLOCK, VEC=4, USE_FINAL=True,
+                    num_warps=nw,
+                ), warmup=25, rep=100, return_mode="median") * 1000
+            atom_now = r["both"] - r["floor"]
+            atom_agg = ag - r["floor"]
+            cut = (1 - atom_agg / atom_now) * 100 if atom_now > 0 else float("nan")
+            newop = 217.5 - (atom_now - atom_agg) if rows == 64 else float("nan")
+            print(f"      聚合版 {ag:>7.1f} us   原子成本 {atom_now:>6.1f} -> "
+                  f"{atom_agg:>6.1f} us ({cut:>5.1f}% 削减)"
+                  + (f"   算子 -> {newop:.1f}us, speedup {141.6/newop:.3f}"
+                     if newop == newop else ""), flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"      聚合版失败: {type(e).__name__}: {str(e)[:52]}")
+
     print("\n  floor 与 PassA 相近 => 重读本身不比建直方图贵, 差价在原子/store")
     print("  floor 就远超 PassA   => 贵在重读, 只能减少遍数(算法结构, override 改不动)")
     print("  健全性: floor 的带宽不得超过 1.3 TB/s, 超了就是又被 DCE 了")
