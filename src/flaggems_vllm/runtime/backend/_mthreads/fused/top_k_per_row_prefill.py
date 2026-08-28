@@ -50,6 +50,18 @@ over-shoot, so the row's collected count is checked against [TOPK,
 NUM_FINAL_ITEMS] and a miss redoes the threshold exactly, from a full histogram,
 before compacting again. That fallback costs about what the generic operator
 costs, so a bad estimate is slow, never wrong.
+
+The collection pass then keeps only the candidate INDEX and re-reads the values
+from global afterwards; see the comment at that pass for the measurement. Both
+changes together, against vLLM:
+
+    (64, 129280)  0.652 -> 0.858 -> 0.906
+    (32,  65536)           0.991 -> 1.041
+    (16,  65536)           0.955 -> 1.006
+
+The two 65536 shapes are not in benchmark/core_shapes.yaml. Nothing there samples
+num_rows between 16 and 60, which is where a row-per-program kernel stops filling
+the 60 SMs, so that range is measured with tools/mtt_store_split.py instead.
 """
 
 import math
@@ -267,7 +279,6 @@ def _sampled_prefill(
                 pos = tl.atomic_add(cp + tl.zeros([BLOCK_SIZE, VEC], tl.int32),
                                     one2, mask=take, sem="relaxed", scope="cta")
                 keep = take & (pos < NFINAL)
-                tl.store(fp + pos, x, mask=keep)
                 tl.store(hp + pos, offs.to(tl.int32), mask=keep)
             tail = n_vec * BLOCK_SIZE * VEC
             for t in tl.range(0, tl.cdiv(span - tail, BLOCK_SIZE)):
@@ -279,9 +290,37 @@ def _sampled_prefill(
                 pos = tl.atomic_add(cp + tl.zeros([BLOCK_SIZE], tl.int32),
                                     one1, mask=take, sem="relaxed", scope="cta")
                 keep = take & (pos < NFINAL)
-                tl.store(fp + pos, x, mask=keep)
                 tl.store(hp + pos, i.to(tl.int32), mask=keep)
             tl.debug_barrier()
+
+    # ---- re-read the candidate values -------------------------------------
+    # The collection loop keeps only the INDEX. Its two scattered shared-memory
+    # stores per hit were the largest remaining cost; re-reading the values
+    # afterwards, from global, in one short fully parallel pass is cheaper.
+    #
+    # Measured on S5000 at (64, 129280), kernel truncated after collection so
+    # the three costs separate (tools/mtt_store_split.py):
+    #
+    #     store value + index   150.5 us
+    #     store index only      141.9        <- this
+    #     store neither         119.8        <- the two stores cost 30.7
+    #
+    # Dropping the value store returns about half of that 30.7 and the gather
+    # spends ~7 of it back, for a net 8.6. Whole operator 166.0 -> 157.2 us
+    # against vLLM's 142.4, i.e. 0.858 -> 0.906.
+    #
+    # A third variant, replacing the atomic with a deterministic pos, came out
+    # 18 us SLOWER and bounds nothing: modulo positions are scattered duplicate
+    # addresses, while the atomic's are dense, so it measured a different store
+    # pattern rather than the absence of an atomic. Recorded so the experiment
+    # is not repeated.
+    c_have = tl.minimum(tl.load(cp), NFINAL)
+    for t in tl.range(0, tl.cdiv(NFINAL, BLOCK_SIZE)):
+        j = t * BLOCK_SIZE + lane
+        m = j < c_have
+        gi = tl.load(hp + j, mask=m, other=0)
+        tl.store(fp + j, tl.load(base + gi * stride1, mask=m, other=0.0), mask=m)
+    tl.debug_barrier()
 
     # ---- select TOPK out of the candidates --------------------------------
     _final_select_radix(
