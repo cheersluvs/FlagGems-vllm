@@ -24,21 +24,26 @@ elements at or above it. Measured on S5000 at (64, 129280):
     operator                    217.2 us      vLLM 141.6   -> 0.651
 
 Pass A exists only to find a threshold. This estimates that threshold from
-1/SSTRIDE of the row instead, which costs a 64th of a pass, and spends the
-saving on a deliberately loose threshold so the single remaining pass collects
-MARGIN x top_k candidates rather than exactly top_k.
+1/SSTRIDE of the row instead and spends the saving on a deliberately loose
+threshold, so the single remaining pass collects several times top_k candidates
+rather than exactly top_k.
 
-Measured with the generic _process_bins driven at the loose threshold:
+Measured by driving the generic _process_bins at a loose threshold:
 
-    MARGIN  trigger   pass    total (sample + pass + final)   speedup
-      2      1.6%    135.7             146.8                   0.965
-      4      3.2%    139.0             150.2                   0.943
-      8      6.3%    141.6             152.7                   0.927
+    rank target   trigger   pass    sample + pass + final   speedup
+      2 x top_k    1.6%    135.7            146.8            0.965
+      4 x top_k    3.2%    139.0            150.2            0.943
+      8 x top_k    6.3%    141.6            152.7            0.927
 
-The reason it pays is that compaction cost barely tracks the trigger rate --
-four times the hits cost 4% more -- because the atomics are per-lane issue
-overhead rather than per-hit traffic. So trading a looser threshold for a whole
-scan is close to free.
+It pays because compaction barely tracks the trigger rate -- four times the hits
+cost 4% more -- so the atomics are per-lane issue overhead, not per-hit traffic,
+and trading a looser threshold for a whole scan is close to free.
+
+Two parameters decide whether that theoretical win survives contact with a real
+sample, and the first version got both wrong (0.383 against the generic 0.652):
+the sample must be large enough that the estimate's error is small compared with
+the acceptance window, and the target must sit in the MIDDLE of that window
+rather than against its edge. See SSTRIDE and TARGET_RANK below.
 
 Correctness does not depend on the estimate being good. A sample can under- or
 over-shoot, so the row's collected count is checked against [TOPK,
@@ -46,6 +51,9 @@ NUM_FINAL_ITEMS] and a miss redoes the threshold exactly, from a full histogram,
 before compacting again. That fallback costs about what the generic operator
 costs, so a bad estimate is slow, never wrong.
 """
+
+import math
+import os
 
 import torch
 import triton
@@ -77,9 +85,18 @@ else:
     HAS_TLE = False
 
 
-# One element in SSTRIDE feeds the estimate. 64 keeps the sample pass near 1% of
-# a full scan while still giving ~2000 samples on a DeepSeek-V4 row.
-SSTRIDE = 64
+# One element in SSTRIDE feeds the estimate.
+#
+# 64 was the first choice and it was wrong: it leaves only ~2000 samples, of
+# which ~32 land in the tail being estimated, for a relative standard deviation
+# near 18%. The collected count then sits 95% inside [1324, 2772] against a
+# buffer of 2048, so the retry fired almost every row and the operator ran
+# sample + collect + full histogram + collect again -- 357 us predicted against
+# 373 measured, worse than the generic two passes it replaced.
+#
+# 8 gives ~16000 samples and ~256 in the tail, cutting the deviation to ~6%,
+# while the sample pass still costs 75.2/8 = 9.4 us against the 75.2 it removes.
+SSTRIDE = int(os.environ.get("FLAGGEMS_MTT_PREFILL_SSTRIDE", "8"))
 
 # Sampling needs enough elements for the estimate to mean anything; below this
 # the sample pass costs more than the scan it replaces anyway.
@@ -99,7 +116,7 @@ def _sampled_prefill(
     BLOCK_SIZE: tl.constexpr,
     VEC: tl.constexpr,
     SSTRIDE: tl.constexpr,
-    MARGIN: tl.constexpr,
+    TARGET_RANK: tl.constexpr,
     NBINS: tl.constexpr,
     NFINAL: tl.constexpr,
 ):
@@ -159,10 +176,12 @@ def _sampled_prefill(
     tl.debug_barrier()
 
     # A lower bin is a larger value, so the prefix count over bins is the count
-    # of the largest elements. Aim at MARGIN x the rank so the true top-K sits
-    # comfortably inside what the next pass collects.
+    # of the largest elements. TARGET_RANK aims at the GEOMETRIC MIDPOINT of the
+    # acceptance window [TOPK, NFINAL] rather than its upper edge, which is what
+    # the first version did -- aiming at the edge meant half the sampling error
+    # pushed the count straight out of the window and into the retry.
     cum = tl.cumsum(tl.load(hp + bins), axis=0)
-    target = (TOPK * MARGIN) // SSTRIDE + 1
+    target = TARGET_RANK // SSTRIDE + 1
     thr = tl.min(tl.where(cum >= target, bins, NBINS - 1), axis=0)
 
     # ---- pass 2: collect everything below the threshold -------------------
@@ -265,7 +284,9 @@ def top_k_per_row_prefill(
             logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
         )
 
-    margin = NUM_FILNAL_ITEMS // top_k
+    # Midpoint of [top_k, NUM_FILNAL_ITEMS] in log space: maximum room on both
+    # sides for the sample's error, instead of hugging one edge.
+    target_rank = int(math.sqrt(top_k * NUM_FILNAL_ITEMS))
     _sampled_prefill[(num_rows,)](
         logits,
         indices,
@@ -278,7 +299,7 @@ def top_k_per_row_prefill(
         BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
         VEC=4,
         SSTRIDE=SSTRIDE,
-        MARGIN=margin,
+        TARGET_RANK=target_rank,
         NBINS=NUM_BINS,
         NFINAL=NUM_FILNAL_ITEMS,
         num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
