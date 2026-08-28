@@ -112,12 +112,23 @@ MIN_SPAN = int(os.environ.get("FLAGGEMS_MTT_PREFILL_MIN_SPAN", "16384"))
 # Bins used for the SAMPLE histogram only; the collection pass and the exact
 # retry still work in the operator's full NUM_BINS space.
 #
-# The threshold scan is a cumsum over this many bins, and a 2048-wide cumsum was
-# measured at about 10 us -- 6% of the operator. Coarsening trades that against
-# precision: a coarse bin spans NUM_BINS/SAMPLE_BINS fine bins, so the collected
-# count can overshoot by up to one coarse bin's population, and overshooting the
-# candidate buffer costs a ~211 us retry. Default stays at the full width until
-# a measurement says otherwise; FLAGGEMS_MTT_PREFILL_SBINS sweeps it.
+# MEASURED, and coarsening loses. The threshold scan is a cumsum over this many
+# bins and a 2048-wide cumsum costs ~10 us, so narrowing it looked like the last
+# 7 us needed to reach 0.9. At (64, 129280) it is catastrophic instead:
+#
+#     SBINS  2048 -> 0.856    512 -> 0.379    256 -> 0.368
+#
+# A coarse bin spans NUM_BINS/SAMPLE_BINS fine ones, so the count overshoots by
+# up to one coarse bin's population. At top_k=1024 the acceptance window is only
+# NFINAL/top_k = 2x wide and the target sits at the 1.1% quantile, deep in the
+# tail where one coarse bin is enough to clear the buffer -- so the ~211 us retry
+# fires on every row and eats the 7 us ten times over. Same failure mode as
+# SSTRIDE=64 had, reached through a different parameter.
+#
+# It does help where the window is wide: at top_k=512 (4x window, 6.25% quantile)
+# SBINS=256 gains about 5% once the baseline drift in that 37 us shape is
+# discounted. Too small a gain, on too noisy a shape, to justify a rule fitted to
+# two points -- so the default stays at the full width.
 SAMPLE_BINS = int(os.environ.get("FLAGGEMS_MTT_PREFILL_SBINS", str(NUM_BINS)))
 
 
