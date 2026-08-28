@@ -74,10 +74,10 @@ import triton.language as tl
 from flaggems_vllm.ops.top_k_per_row_prefill import (
     NUM_BINS,
     NUM_FILNAL_ITEMS,
-    NUM_THREADS_PER_BLOCK,
     _extract_bin_idx,
     _final_select_radix,
     _num_warps,
+    _prefill_block_size,
 )
 from flaggems_vllm.ops.top_k_per_row_prefill import (
     top_k_per_row_prefill as _generic_prefill,
@@ -365,6 +365,25 @@ def top_k_per_row_prefill(
     # Midpoint of [top_k, NUM_FILNAL_ITEMS] in log space: maximum room on both
     # sides for the sample's error, instead of hugging one edge.
     target_rank = int(math.sqrt(top_k * NUM_FILNAL_ITEMS))
+    # One row per program, so a grid smaller than the device leaves SMs idle and
+    # the kernel is latency-bound rather than bandwidth-bound: at 4 rows x 129280
+    # it moves ~18 GB/s against the 645 this card reaches on the same access
+    # pattern. Widening puts twice the threads on each row.
+    #
+    # The generic operator already derives this gate from the SM count and
+    # already refuses to widen on a non-32-lane part; the sampled path simply
+    # never called it. Measured here at top_k=1024, wide/narrow ratio:
+    #
+    #     rows      4     32     60     64     96
+    #   129280  0.718  0.733  0.794  1.246  1.138
+    #
+    # The cliff is exactly at the SM count -- 1024 threads is 32 warps against a
+    # 32-warp SM ceiling, so capacity falls to one program per SM and 64 rows
+    # needs a second wave. Across span at 32 rows the gain grows monotonically,
+    # 0.966 at 16384 to 0.737 at 129280, and never inverts, so no span condition
+    # is added: the sampled path already requires span >= MIN_SPAN, and 16384 is
+    # its weakest point.
+    block = _prefill_block_size(num_rows)
     _sampled_prefill[(num_rows,)](
         logits,
         indices,
@@ -374,7 +393,7 @@ def top_k_per_row_prefill(
         stride1,
         TOPK=top_k,
         TOPKP=triton.next_power_of_2(top_k),
-        BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
+        BLOCK_SIZE=block,
         VEC=4,
         SSTRIDE=SSTRIDE,
         TARGET_RANK=target_rank,
@@ -382,5 +401,5 @@ def top_k_per_row_prefill(
         SSHIFT=(NUM_BINS // SAMPLE_BINS).bit_length() - 1,
         NBINS=NUM_BINS,
         NFINAL=NUM_FILNAL_ITEMS,
-        num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
+        num_warps=_num_warps(block),
     )
