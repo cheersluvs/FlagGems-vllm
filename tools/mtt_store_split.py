@@ -379,7 +379,7 @@ BLOCK_ROWS = (4, 16, 32, 60, 64, 96)
 BLOCK_WIDTHS = (512, 1024)
 
 
-def block_sweep():
+def block_sweep(cases=BLOCK_CASES, rows=BLOCK_ROWS):
     """Does a wider block pay where the grid cannot fill the card?
 
     At num_rows=4 the whole kernel runs at ~18 GB/s against 645 achievable, so
@@ -400,11 +400,11 @@ def block_sweep():
         print(f"  设备几何读取失败: {e}")
     print("  gather 变体, 完整算子。比值 = 1024 耗时 / 512 耗时\n")
 
-    for span, top_k in BLOCK_CASES:
+    for span, top_k in cases:
         print(f"  span={span}  top_k={top_k}")
         print(f"    {'rows':>6}{'512 us':>10}{'1024 us':>10}{'比值':>9}"
               f"{'vLLM us':>10}{'sp@512':>9}{'sp@1024':>10}")
-        for num_rows in BLOCK_ROWS:
+        for num_rows in rows:
             reps = 400 if num_rows <= 8 else 100
             logits, starts, ends, idx = make_inputs(
                 num_rows, span, top_k, span, 1)
@@ -493,10 +493,17 @@ def main():
     print(f"  vLLM 基线: {'有' if HAS_VLLM else '无 (只报相对 base 的比值)'}\n")
 
     ok = compile_check()
-    if "--block" in sys.argv:
+    if "--block" in sys.argv or "--blockspan" in sys.argv:
         if not ok.get((GATHER, False)):
             print("  gather 完整版未编译通过, 扫描无意义。")
             return 1
+        if "--blockspan" in sys.argv:
+            # The row cliff is now measured at exactly 60/64, so sweep span
+            # instead, at two row counts safely below it. top_k is held at 1024
+            # so the only variable is span: widening speeds up the SCAN, and
+            # whether that pays depends on how much of the time the scan is.
+            return block_sweep(cases=tuple((s, 1024) for s in SWEEP_SPANS),
+                               rows=(4, 32))
         return block_sweep()
     if "--sweep" in sys.argv:
         if not ok.get((BASE, False)) or not ok.get((GATHER, False)):
