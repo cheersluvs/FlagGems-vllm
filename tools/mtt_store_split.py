@@ -217,11 +217,19 @@ def _probe(
     if NOFINAL:
         # Consume both candidate buffers, or the stores above have no reader
         # and the compiler may delete the very thing being measured.
+        #
+        # Written as a masked store of a TENSOR over the same output loop the
+        # shipped override already uses, not as a scalar store into out+lane:
+        # this block is the only code here with no counterpart in a kernel
+        # known to compile on this card, so it copies a proven shape.
         acc = tl.zeros([BLOCK_SIZE], tl.int32)
         for t in tl.range(0, tl.cdiv(NFINAL, BLOCK_SIZE)):
             j = t * BLOCK_SIZE + lane
             acc += tl.load(hp + j) + tl.load(fp + j).to(tl.int32)
-        tl.store(out + lane, tl.sum(acc, axis=0) + tl.load(cp), mask=lane < 1)
+        acc += tl.load(cp)
+        for z in tl.range(0, TOPK, BLOCK_SIZE):
+            o = z + lane
+            tl.store(out + o, acc, mask=o < TOPK)
     else:
         _final_select_radix(hp, fp, cp, fvp, op, None, TOPK=TOPK,
                             BLOCK_SIZE=BLOCK_SIZE,
@@ -290,6 +298,36 @@ def correct(logits, idx, num_rows, vocab, top_k):
     return "OK" if torch.equal(a, b) else "不符"
 
 
+def compile_check():
+    """Compile every (mode, nofinal) once and print the FULL error.
+
+    Without this a single compile fault is reported once per shape per variant
+    -- sixteen truncated copies of one message, none of them readable.
+    """
+    print("  编译自检 (最小形状, 每个组合一次)")
+    num_rows, vocab, top_k, s0, s1 = 2, 20480, 512, 20480, 1
+    logits, starts, ends, idx = make_inputs(num_rows, vocab, top_k, s0, s1)
+    ok = {}
+    for nofinal in (True, False):
+        for mode in (BASE, GATHER, NOSTORE, NOATOMIC):
+            if not nofinal and mode not in VALID:
+                continue
+            try:
+                launch(mode, nofinal, logits, starts, ends, idx, num_rows,
+                       vocab, top_k, s0, s1)
+                flaggems_vllm.runtime.torch_device_fn.synchronize()
+                ok[(mode, nofinal)] = True
+            except Exception as e:  # noqa: BLE001
+                ok[(mode, nofinal)] = False
+                tail = "截断" if nofinal else "完整"
+                print(f"\n  ---- {NAMES[mode]} / {tail}: {type(e).__name__} ----")
+                print(str(e))
+                print("  " + "-" * 60)
+    good = sum(1 for v in ok.values() if v)
+    print(f"\n  {good}/{len(ok)} 个组合编译通过\n")
+    return ok
+
+
 def main():
     print("=" * 78)
     print("  候选缓冲: 存值+存索引  vs  只存索引后回读")
@@ -298,6 +336,11 @@ def main():
         print("  !! 无 TLE, 退出")
         return 1
     print(f"  vLLM 基线: {'有' if HAS_VLLM else '无 (只报相对 base 的比值)'}\n")
+
+    ok = compile_check()
+    if not any(ok.values()):
+        print("  编译全数失败, 不进行任何计时。上面第一段完整错误就是原因。")
+        return 1
 
     for num_rows, vocab, top_k, s0, s1 in SHAPES:
         tag = f"({num_rows},{vocab},k={top_k})"
@@ -318,6 +361,9 @@ def main():
 
         base_full = None
         for mode in (BASE, GATHER, NOSTORE, NOATOMIC):
+            if not ok.get((mode, True)):
+                print(f"    {NAMES[mode]:<10}  截断: 编译未通过, 跳过")
+                continue
             try:
                 launch(mode, True, logits, starts, ends, idx, num_rows, vocab,
                        top_k, s0, s1)
@@ -327,30 +373,33 @@ def main():
                     s0, s1))
             except Exception as e:  # noqa: BLE001
                 print(f"    {NAMES[mode]:<10}  截断失败 {type(e).__name__}: "
-                      f"{str(e)[:36]}")
+                      f"{str(e).splitlines()[-1][:60]}")
                 continue
 
-            t_full, ok = None, "—  (无效变体, 仅作上界)"
-            if mode in VALID:
+            t_full = None
+            verdict = ("—  (无效变体, 仅作上界)" if mode not in VALID
+                       else "完整版编译未通过")
+            if mode in VALID and ok.get((mode, False)):
                 try:
                     idx.fill_(-1)
                     launch(mode, False, logits, starts, ends, idx, num_rows,
                            vocab, top_k, s0, s1)
                     flaggems_vllm.runtime.torch_device_fn.synchronize()
-                    ok = correct(logits, idx, num_rows, vocab, top_k)
+                    verdict = correct(logits, idx, num_rows, vocab, top_k)
                     t_full = bench(lambda m=mode: launch(
                         m, False, logits, starts, ends, idx, num_rows, vocab,
                         top_k, s0, s1))
                     if mode == BASE:
                         base_full = t_full
                 except Exception as e:  # noqa: BLE001
-                    ok = f"完整失败 {type(e).__name__}: {str(e)[:26]}"
+                    verdict = (f"完整失败 {type(e).__name__}: "
+                               f"{str(e).splitlines()[-1][:40]}")
 
             rel = f"{t_full / base_full:.3f}" if (t_full and base_full) else ""
             sp = f"{vllm_us / t_full:.3f}" if (t_full and vllm_us) else ""
             fu = f"{t_full:.1f}" if t_full else "—"
             print(f"    {NAMES[mode]:<10}{t_cut:>9.1f}{fu:>9}{rel:>9}{sp:>9}"
-                  f"   {ok}", flush=True)
+                  f"   {verdict}", flush=True)
         print()
 
     print("  读法")
