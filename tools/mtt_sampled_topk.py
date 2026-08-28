@@ -58,7 +58,7 @@ except ImportError:
 
 @triton.jit
 def _sampled_pass(
-    X, OUTC, OVER, N,
+    X, OUTC, OVER, DBG_THR, DBG_SMP, N,
     TOPK: tl.constexpr, BLOCK: tl.constexpr, NUM_BINS: tl.constexpr,
     VEC: tl.constexpr, SSTRIDE: tl.constexpr, MARGIN: tl.constexpr,
     CAP: tl.constexpr,
@@ -107,9 +107,16 @@ def _sampled_pass(
     # --- 2. threshold: smallest bin whose sample prefix reaches MARGIN x rank ---
     bins = tl.arange(0, NUM_BINS)
     h = tl.load(hp + bins)
+    smp_total = tl.sum(h, axis=0)
     cum = tl.cumsum(h, axis=0)
     target = (TOPK * MARGIN) // SSTRIDE + 1
-    thr = tl.min(tl.where(cum >= target, bins, NUM_BINS - 1))
+    # axis=0 explicitly: a bare tl.min was one of two suspects for the threshold
+    # pinning to NUM_BINS-1, the other being the sample histogram never filling.
+    # DBG_SMP separates them -- ~N/SSTRIDE means the histogram is fine and the
+    # reduction was at fault; 0 means the sample pass never landed.
+    thr = tl.min(tl.where(cum >= target, bins, NUM_BINS - 1), axis=0)
+    tl.store(DBG_THR + pid, thr.to(tl.int32))
+    tl.store(DBG_SMP + pid, smp_total)
     tl.debug_barrier()
 
     # --- 3. ONE full pass: filter and compact ---
@@ -158,8 +165,8 @@ def main():
     CASES = [(64, 129280, 1024), (16383, 4095, 512), (12961, 4100, 512)]
     BLOCK = NUM_THREADS_PER_BLOCK
     nw = _num_warps(BLOCK)
-    print(f"  {'shape':>15}{'SSTRIDE':>9}{'MARGIN':>8}{'CAP':>6}{'采样版us':>10}"
-          f"{'现状us':>9}{'候选中位':>10}{'失败行':>8}")
+    print(f"  {'shape':>15}{'SS':>5}{'MG':>4}{'CAP':>6}{'采样us':>9}"
+          f"{'现状us':>9}{'thr':>6}{'样本数':>8}{'期望':>7}{'候选':>9}{'失败':>7}")
     for rows, vocab, top_k in CASES:
         torch.manual_seed(42)
         x = torch.randn((rows, vocab), dtype=torch.float32, device=DEV)
@@ -180,17 +187,20 @@ def main():
                 continue
             c = torch.zeros((rows,), dtype=torch.int32, device=DEV)
             over = torch.zeros((rows,), dtype=torch.int32, device=DEV)
+            dthr = torch.zeros((rows,), dtype=torch.int32, device=DEV)
+            dsmp = torch.zeros((rows,), dtype=torch.int32, device=DEV)
             try:
                 _sampled_pass[(rows,)](
-                    x, c, over, vocab, TOPK=top_k, BLOCK=BLOCK, NUM_BINS=2048,
-                    VEC=4, SSTRIDE=sstride, MARGIN=margin, CAP=cap, num_warps=nw,
+                    x, c, over, dthr, dsmp, vocab, TOPK=top_k, BLOCK=BLOCK,
+                    NUM_BINS=2048, VEC=4, SSTRIDE=sstride, MARGIN=margin,
+                    CAP=cap, num_warps=nw,
                 )
                 flaggems_vllm.runtime.torch_device_fn.synchronize()
                 t = triton.testing.do_bench(
                     lambda: _sampled_pass[(rows,)](
-                        x, c, over, vocab, TOPK=top_k, BLOCK=BLOCK,
-                        NUM_BINS=2048, VEC=4, SSTRIDE=sstride, MARGIN=margin,
-                        CAP=cap, num_warps=nw,
+                        x, c, over, dthr, dsmp, vocab, TOPK=top_k,
+                        BLOCK=BLOCK, NUM_BINS=2048, VEC=4, SSTRIDE=sstride,
+                        MARGIN=margin, CAP=cap, num_warps=nw,
                     ), warmup=25, rep=100, return_mode="median") * 1000
             except Exception as e:  # noqa: BLE001
                 print(f"  {f'({rows},{vocab})':>15}{sstride:>9}{margin:>8}{cap:>6}"
@@ -198,8 +208,13 @@ def main():
                 continue
             med = int(c.median())
             bad = int(over.sum())
-            print(f"  {f'({rows},{vocab})':>15}{sstride:>9}{margin:>8}{cap:>6}"
-                  f"{t:>10.1f}{full:>9.1f}{med:>10}{bad:>8}", flush=True)
+            exp = vocab // sstride
+            print(f"  {f'({rows},{vocab})':>15}{sstride:>5}{margin:>4}{cap:>6}"
+                  f"{t:>9.1f}{full:>9.1f}{int(dthr.median()):>6}"
+                  f"{int(dsmp.median()):>8}{exp:>7}{med:>9}{bad:>7}", flush=True)
+    print("\n  样本数 ~= 期望 而 thr = 2047  => 直方图没问题, 是归约算错")
+    print("  样本数 = 0                    => 采样那一遍根本没写进直方图")
+    print("  thr 合理(几十~几百) 而候选 ~= MARGIN*top_k => 修好了, 看时间")
     print("\n  采样版明显低于现状 且 失败行=0  => 结构成立, 值得写完整 override")
     print("  失败行 > 0                       => 估计太紧, 加大 MARGIN 再看")
     print("  采样版不低于现状                 => 单遍省不出来, 这条也关掉")
