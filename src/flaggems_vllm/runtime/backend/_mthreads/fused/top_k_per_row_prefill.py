@@ -98,9 +98,16 @@ else:
 # while the sample pass still costs 75.2/8 = 9.4 us against the 75.2 it removes.
 SSTRIDE = int(os.environ.get("FLAGGEMS_MTT_PREFILL_SSTRIDE", "8"))
 
-# Sampling needs enough elements for the estimate to mean anything; below this
-# the sample pass costs more than the scan it replaces anyway.
-MIN_SPAN = 8192
+# Below this the sampled path loses. Measured on S5000, generic -> sampled:
+#
+#     vocab   8193   0.875 -> 0.706   loses
+#     vocab  16385   0.765 -> 0.835   wins
+#     vocab 129280   0.652 -> 0.869   wins
+#
+# A short row is dominated by fixed cost, so adding a sample pass and a 2048-bin
+# cumsum on top costs more than the scan they remove. The crossover sits between
+# 8193 and 16385; 16384 is the safe side of it.
+MIN_SPAN = int(os.environ.get("FLAGGEMS_MTT_PREFILL_MIN_SPAN", "16384"))
 
 
 @triton.jit
