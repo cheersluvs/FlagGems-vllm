@@ -70,6 +70,10 @@ try:
 except (ImportError, AttributeError, RuntimeError):
     HAS_VLLM = False
 
+# Host-side names only. Inside the kernel these are written as integer
+# LITERALS: Triton refuses to read a plain-int module global from a jit
+# function ("Cannot access global variable ... only constexpr"), and a
+# tl.constexpr(3) would then not work as a dict key out here.
 BASE, GATHER, NOSTORE, NOATOMIC = 0, 1, 2, 3
 NAMES = {BASE: "base", GATHER: "gather", NOSTORE: "nostore", NOATOMIC: "noatomic"}
 VALID = (BASE, GATHER)
@@ -163,7 +167,7 @@ def _probe(
                 x = tl.load(base + offs * stride1)
                 b, _ = _extract_bin_idx(x, True, 0, STEP=0)
                 take = b.to(tl.int32) < thr
-                if MODE == NOATOMIC:
+                if MODE == 3:  # noatomic
                     # Same store traffic, same mask, no counter contention.
                     pos = offs % NFINAL
                     keep = take
@@ -172,10 +176,10 @@ def _probe(
                         cp + tl.zeros([BLOCK_SIZE, VEC], tl.int32), one2,
                         mask=take, sem="relaxed", scope="cta")
                     keep = take & (pos < NFINAL)
-                if MODE == BASE or MODE == NOATOMIC:
+                if MODE == 0 or MODE == 3:  # base / noatomic
                     tl.store(fp + pos, x, mask=keep)
                     tl.store(hp + pos, offs.to(tl.int32), mask=keep)
-                if MODE == GATHER:
+                if MODE == 1:  # gather
                     tl.store(hp + pos, offs.to(tl.int32), mask=keep)
             tail = n_vec * BLOCK_SIZE * VEC
             for t in tl.range(0, tl.cdiv(span - tail, BLOCK_SIZE)):
@@ -184,7 +188,7 @@ def _probe(
                 x = tl.load(base + i * stride1, mask=m, other=0.0)
                 b, _ = _extract_bin_idx(x, m, 0, STEP=0)
                 take = m & (b.to(tl.int32) < thr)
-                if MODE == NOATOMIC:
+                if MODE == 3:  # noatomic
                     pos = i % NFINAL
                     keep = take
                 else:
@@ -192,19 +196,19 @@ def _probe(
                                         one1, mask=take, sem="relaxed",
                                         scope="cta")
                     keep = take & (pos < NFINAL)
-                if MODE == BASE or MODE == NOATOMIC:
+                if MODE == 0 or MODE == 3:  # base / noatomic
                     tl.store(fp + pos, x, mask=keep)
                     tl.store(hp + pos, i.to(tl.int32), mask=keep)
-                if MODE == GATHER:
+                if MODE == 1:  # gather
                     tl.store(hp + pos, i.to(tl.int32), mask=keep)
-            if MODE == NOATOMIC:
+            if MODE == 3:  # noatomic
                 # No counter was maintained; pin it so the retry does not fire
                 # and the timing stays comparable with the other modes.
                 tl.store(cp, NFINAL)
             tl.debug_barrier()
 
     # ---- the candidate's extra pass: re-read the values ------------------
-    if MODE == GATHER:
+    if MODE == 1:  # gather
         c_have = tl.minimum(tl.load(cp), NFINAL)
         for t in tl.range(0, tl.cdiv(NFINAL, BLOCK_SIZE)):
             j = t * BLOCK_SIZE + lane
