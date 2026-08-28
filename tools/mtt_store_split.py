@@ -273,15 +273,15 @@ def make_inputs(num_rows, vocab, top_k, stride0, stride1):
 
 
 def launch(mode, nofinal, logits, starts, ends, idx, num_rows, vocab, top_k,
-           stride0, stride1):
+           stride0, stride1, block=NUM_THREADS_PER_BLOCK):
     _probe[(num_rows,)](
         logits, idx, starts, ends, stride0, stride1,
         TOPK=top_k, TOPKP=triton.next_power_of_2(top_k),
-        BLOCK_SIZE=NUM_THREADS_PER_BLOCK, VEC=4, SSTRIDE=8,
+        BLOCK_SIZE=block, VEC=4, SSTRIDE=8,
         TARGET_RANK=int(math.sqrt(top_k * NUM_FILNAL_ITEMS)),
         SBINS=NUM_BINS, SSHIFT=0, NBINS=NUM_BINS, NFINAL=NUM_FILNAL_ITEMS,
         MODE=mode, NOFINAL=nofinal,
-        num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
+        num_warps=_num_warps(block),
     )
 
 
@@ -365,6 +365,94 @@ def sweep():
     return 0
 
 
+# The sampled kernel hardcodes BLOCK_SIZE=512 -- the SM-derived wide-block gate
+# lives in the generic operator and never reaches this path. 512 threads is 16
+# warps against this part's 32-warp SM ceiling, so two programs fit per SM and
+# the card holds 120. Below that, SMs sit idle and widening the block is the
+# only way to put more threads on a row.
+BLOCK_CASES = (
+    # span, top_k -- the two benchmark shapes the sampled path actually serves
+    (16384, 512),
+    (129280, 1024),
+)
+BLOCK_ROWS = (4, 16, 32, 60, 64, 96)
+BLOCK_WIDTHS = (512, 1024)
+
+
+def block_sweep():
+    """Does a wider block pay where the grid cannot fill the card?
+
+    At num_rows=4 the whole kernel runs at ~18 GB/s against 645 achievable, so
+    it is latency-bound, not bandwidth-bound, and more threads per row is the
+    obvious lever. 60 SMs x 2 programs means widening should stop paying
+    somewhere above 60 rows -- if it does not, the occupancy model is wrong and
+    the gate should not be derived from it.
+    """
+    warp, maxt = None, None
+    try:
+        from flaggems_vllm.ops.top_k_per_row_prefill import _launch_geometry
+
+        warp, maxt = _launch_geometry()
+        print(f"  warp={warp}  max_threads/block={maxt}  "
+              f"-> BLOCK 512 用 {_num_warps(512)} warp, "
+              f"1024 用 {_num_warps(1024)} warp")
+    except Exception as e:  # noqa: BLE001
+        print(f"  设备几何读取失败: {e}")
+    print("  gather 变体, 完整算子。比值 = 1024 耗时 / 512 耗时\n")
+
+    for span, top_k in BLOCK_CASES:
+        print(f"  span={span}  top_k={top_k}")
+        print(f"    {'rows':>6}{'512 us':>10}{'1024 us':>10}{'比值':>9}"
+              f"{'vLLM us':>10}{'sp@512':>9}{'sp@1024':>10}")
+        for num_rows in BLOCK_ROWS:
+            reps = 400 if num_rows <= 8 else 100
+            logits, starts, ends, idx = make_inputs(
+                num_rows, span, top_k, span, 1)
+            ts, failed = {}, None
+            for blk in BLOCK_WIDTHS:
+                try:
+                    launch(GATHER, False, logits, starts, ends, idx, num_rows,
+                           span, top_k, span, 1, block=blk)
+                    flaggems_vllm.runtime.torch_device_fn.synchronize()
+                    ts[blk] = triton.testing.do_bench(
+                        lambda b=blk: launch(
+                            GATHER, False, logits, starts, ends, idx, num_rows,
+                            span, top_k, span, 1, block=b),
+                        warmup=25, rep=reps, return_mode="median") * 1000
+                except Exception as e:  # noqa: BLE001
+                    failed = f"BLOCK={blk} {type(e).__name__}: " \
+                             f"{str(e).splitlines()[-1][:40]}"
+            if failed and len(ts) < 2:
+                print(f"    {num_rows:>6}   {failed}")
+                continue
+            # Correctness is not incidental here: a wider block changes the
+            # candidate-buffer indexing, so a faster wrong answer is the thing
+            # to watch for.
+            idx.fill_(-1)
+            launch(GATHER, False, logits, starts, ends, idx, num_rows, span,
+                   top_k, span, 1, block=1024)
+            flaggems_vllm.runtime.torch_device_fn.synchronize()
+            verdict = correct(logits, idx, num_rows, span, top_k)
+            v = None
+            if HAS_VLLM:
+                vidx = torch.empty_like(idx)
+                v = triton.testing.do_bench(
+                    lambda: torch.ops._C.top_k_per_row_prefill(
+                        logits, starts, ends, vidx, num_rows, span, 1, top_k),
+                    warmup=25, rep=reps, return_mode="median") * 1000
+            vs = f"{v:.1f}" if v else "—"
+            s5 = f"{v / ts[512]:.3f}" if v else ""
+            s10 = f"{v / ts[1024]:.3f}" if v else ""
+            mark = "" if verdict == "OK" else f"   1024 {verdict}"
+            print(f"    {num_rows:>6}{ts[512]:>10.1f}{ts[1024]:>10.1f}"
+                  f"{ts[1024] / ts[512]:>9.3f}{vs:>10}{s5:>9}{s10:>10}{mark}",
+                  flush=True)
+        print()
+    print("  比值 < 1.000 = 加宽更快。若它在 60 行以上才转正, 占用率模型成立,")
+    print("  门控按 SM 数推导; 若转折点对不上 60, 就不能用那个模型定门控。")
+    return 0
+
+
 def compile_check():
     """Compile every (mode, nofinal) once and print the FULL error.
 
@@ -405,6 +493,11 @@ def main():
     print(f"  vLLM 基线: {'有' if HAS_VLLM else '无 (只报相对 base 的比值)'}\n")
 
     ok = compile_check()
+    if "--block" in sys.argv:
+        if not ok.get((GATHER, False)):
+            print("  gather 完整版未编译通过, 扫描无意义。")
+            return 1
+        return block_sweep()
     if "--sweep" in sys.argv:
         if not ok.get((BASE, False)) or not ok.get((GATHER, False)):
             print("  base/gather 完整版未编译通过, 扫描无意义。")
