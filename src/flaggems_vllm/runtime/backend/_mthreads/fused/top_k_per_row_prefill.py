@@ -109,6 +109,17 @@ SSTRIDE = int(os.environ.get("FLAGGEMS_MTT_PREFILL_SSTRIDE", "8"))
 # 8193 and 16385; 16384 is the safe side of it.
 MIN_SPAN = int(os.environ.get("FLAGGEMS_MTT_PREFILL_MIN_SPAN", "16384"))
 
+# Bins used for the SAMPLE histogram only; the collection pass and the exact
+# retry still work in the operator's full NUM_BINS space.
+#
+# The threshold scan is a cumsum over this many bins, and a 2048-wide cumsum was
+# measured at about 10 us -- 6% of the operator. Coarsening trades that against
+# precision: a coarse bin spans NUM_BINS/SAMPLE_BINS fine bins, so the collected
+# count can overshoot by up to one coarse bin's population, and overshooting the
+# candidate buffer costs a ~211 us retry. Default stays at the full width until
+# a measurement says otherwise; FLAGGEMS_MTT_PREFILL_SBINS sweeps it.
+SAMPLE_BINS = int(os.environ.get("FLAGGEMS_MTT_PREFILL_SBINS", str(NUM_BINS)))
+
 
 @triton.jit
 def _sampled_prefill(
@@ -124,6 +135,8 @@ def _sampled_prefill(
     VEC: tl.constexpr,
     SSTRIDE: tl.constexpr,
     TARGET_RANK: tl.constexpr,
+    SBINS: tl.constexpr,
+    SSHIFT: tl.constexpr,
     NBINS: tl.constexpr,
     NFINAL: tl.constexpr,
 ):
@@ -169,7 +182,8 @@ def _sampled_prefill(
     one2 = tl.full([BLOCK_SIZE, VEC], 1, tl.int32)
 
     # ---- pass 1: histogram of every SSTRIDE-th element -------------------
-    for z in tl.range(0, NBINS, BLOCK_SIZE):
+    # Only the first SBINS entries are used here, so only those need clearing.
+    for z in tl.range(0, SBINS, BLOCK_SIZE):
         tl.store(hp + z + lane, 0)
     tl.debug_barrier()
 
@@ -179,7 +193,8 @@ def _sampled_prefill(
         m = i < span
         b, _ = _extract_bin_idx(tl.load(base + i * stride1, mask=m, other=0.0),
                                 m, 0, STEP=0)
-        tl.atomic_add(hp + b, one1, mask=m, sem="relaxed", scope="cta")
+        tl.atomic_add(hp + (b >> SSHIFT), one1, mask=m, sem="relaxed",
+                      scope="cta")
     tl.debug_barrier()
 
     # A lower bin is a larger value, so the prefix count over bins is the count
@@ -187,9 +202,15 @@ def _sampled_prefill(
     # acceptance window [TOPK, NFINAL] rather than its upper edge, which is what
     # the first version did -- aiming at the edge meant half the sampling error
     # pushed the count straight out of the window and into the retry.
-    cum = tl.cumsum(tl.load(hp + bins), axis=0)
+    sbins = tl.arange(0, SBINS)
+    cum = tl.cumsum(tl.load(hp + sbins), axis=0)
     target = TARGET_RANK // SSTRIDE + 1
-    thr = tl.min(tl.where(cum >= target, bins, NBINS - 1), axis=0)
+    thr_c = tl.min(tl.where(cum >= target, sbins, SBINS - 1), axis=0)
+    # Map back to the full bin space taking the WHOLE boundary coarse bin: at
+    # SSHIFT=0 this is the exact threshold, and coarser settings deliberately
+    # over-collect rather than under-collect, because falling short of TOPK
+    # forces the expensive exact retry while overshooting only wastes buffer.
+    thr = (thr_c + 1) << SSHIFT
 
     # ---- pass 2: collect everything below the threshold -------------------
     # Two attempts. The first uses the sampled threshold; if the count lands
@@ -307,6 +328,8 @@ def top_k_per_row_prefill(
         VEC=4,
         SSTRIDE=SSTRIDE,
         TARGET_RANK=target_rank,
+        SBINS=SAMPLE_BINS,
+        SSHIFT=(NUM_BINS // SAMPLE_BINS).bit_length() - 1,
         NBINS=NUM_BINS,
         NFINAL=NUM_FILNAL_ITEMS,
         num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
