@@ -302,6 +302,69 @@ def correct(logits, idx, num_rows, vocab, top_k):
     return "OK" if torch.equal(a, b) else "不符"
 
 
+SWEEP_SPANS = (16384, 24576, 32768, 49152, 65536, 98304, 129280)
+# (num_rows, top_k). 4 rows is where the benchmark's regressed shape lives and
+# where only 4 of 60 SMs have work, so the gather's latency is fully exposed;
+# 64 rows is the shape that crossed 0.9. Both top_k values matter because the
+# gather reads NFINAL entries regardless of top_k while the saving tracks the
+# trigger rate, which does depend on it.
+SWEEP_CASES = ((4, 512), (64, 512), (64, 1024))
+
+
+def sweep():
+    """Where does re-reading stop paying?
+
+    The gather costs a fixed NFINAL scattered global loads; the store it removes
+    costs in proportion to the span. So there is a crossover, and the shipped
+    gate should sit at a measured one rather than at the lowest span that
+    happened to win.
+    """
+    print("  span 扫描: gather 相对 base 的完整耗时比 (< 1.000 = gather 更快)\n")
+    for num_rows, top_k in SWEEP_CASES:
+        # A 4-row shape runs in tens of microseconds and this box's spread on
+        # those is over 10%, so give it four times the reps.
+        reps = 400 if num_rows <= 8 else 100
+        print(f"  num_rows={num_rows}  top_k={top_k}   (rep={reps})")
+        print(f"    {'span':>8}{'base us':>10}{'gather us':>11}{'比值':>9}"
+              f"{'vLLM us':>10}{'base sp':>9}{'gather sp':>11}")
+        for span in SWEEP_SPANS:
+            logits, starts, ends, idx = make_inputs(
+                num_rows, span, top_k, span, 1)
+            try:
+                ts = {}
+                for mode in (BASE, GATHER):
+                    launch(mode, False, logits, starts, ends, idx, num_rows,
+                           span, top_k, span, 1)
+                    flaggems_vllm.runtime.torch_device_fn.synchronize()
+                    ts[mode] = triton.testing.do_bench(
+                        lambda m=mode: launch(m, False, logits, starts, ends,
+                                              idx, num_rows, span, top_k,
+                                              span, 1),
+                        warmup=25, rep=reps, return_mode="median") * 1000
+                v = None
+                if HAS_VLLM:
+                    vidx = torch.empty_like(idx)
+                    v = triton.testing.do_bench(
+                        lambda: torch.ops._C.top_k_per_row_prefill(
+                            logits, starts, ends, vidx, num_rows, span, 1,
+                            top_k),
+                        warmup=25, rep=reps, return_mode="median") * 1000
+            except Exception as e:  # noqa: BLE001
+                print(f"    {span:>8}   失败 {type(e).__name__}: "
+                      f"{str(e).splitlines()[-1][:44]}")
+                continue
+            vs = f"{v:.1f}" if v else "—"
+            bs = f"{v / ts[BASE]:.3f}" if v else ""
+            gs = f"{v / ts[GATHER]:.3f}" if v else ""
+            print(f"    {span:>8}{ts[BASE]:>10.1f}{ts[GATHER]:>11.1f}"
+                  f"{ts[GATHER] / ts[BASE]:>9.3f}{vs:>10}{bs:>9}{gs:>11}",
+                  flush=True)
+        print()
+    print("  比值第一次降到 1.000 以下的 span = 门控该放的位置。")
+    print("  若三组的交叉点不一致, 门控就不该只看 span -- 说明还有别的变量。")
+    return 0
+
+
 def compile_check():
     """Compile every (mode, nofinal) once and print the FULL error.
 
@@ -342,6 +405,11 @@ def main():
     print(f"  vLLM 基线: {'有' if HAS_VLLM else '无 (只报相对 base 的比值)'}\n")
 
     ok = compile_check()
+    if "--sweep" in sys.argv:
+        if not ok.get((BASE, False)) or not ok.get((GATHER, False)):
+            print("  base/gather 完整版未编译通过, 扫描无意义。")
+            return 1
+        return sweep()
     if not any(ok.values()):
         print("  编译全数失败, 不进行任何计时。上面第一段完整错误就是原因。")
         return 1
