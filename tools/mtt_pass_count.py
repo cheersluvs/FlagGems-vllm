@@ -582,6 +582,27 @@ def main():
         except Exception as e:  # noqa: BLE001
             print(f"      聚合版失败: {type(e).__name__}: {str(e)[:52]}")
 
+        # 采样算法的等价测量: 同一个已验证的 _k_passB, 只把阈值放松 MARGIN 倍。
+        # 采样那一遍本身约 = PassA/SSTRIDE, 单独估不必再测。
+        for margin in (2, 4, 8):
+            try:
+                thr_l = _real_thresholds(logits, top_k * margin)
+                tl_ = triton.testing.do_bench(
+                    lambda: _k_passB[(rows,)](
+                        logits, sink, vocab, thr_l,
+                        BLOCK=NUM_THREADS_PER_BLOCK, NUM_BINS=2048, VEC=4,
+                        WRITE_DIRECTLY=True, USE_FINAL=True, num_warps=nw,
+                    ), warmup=25, rep=100, return_mode="median") * 1000
+            except Exception as e:  # noqa: BLE001
+                print(f"      MARGIN={margin} 失败: {type(e).__name__}")
+                continue
+            samp = r["floor"] / 64.0          # 1/64 采样 ≈ floor 的 1/64
+            total = samp + tl_ + 10.2         # + final select
+            print(f"      MARGIN={margin}: 触发 {top_k*margin/vocab*100:>4.1f}%  "
+                  f"PassB {tl_:>6.1f}us  单遍总计 {total:>6.1f}us"
+                  + (f"  -> speedup {141.6/total:.3f}" if rows == 64 else ""),
+                  flush=True)
+
     print("\n  floor 与 PassA 相近 => 重读本身不比建直方图贵, 差价在原子/store")
     print("  floor 就远超 PassA   => 贵在重读, 只能减少遍数(算法结构, override 改不动)")
     print("  健全性: floor 的带宽不得超过 1.3 TB/s, 超了就是又被 DCE 了")
