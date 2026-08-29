@@ -77,6 +77,7 @@ def _scan_probe(
     TOPK: tl.constexpr, TOPKP: tl.constexpr, BLOCK_SIZE: tl.constexpr,
     VEC: tl.constexpr, SSTRIDE: tl.constexpr, TARGET_RANK: tl.constexpr,
     NBINS: tl.constexpr, NFINAL: tl.constexpr, SCAN_W: tl.constexpr,
+    dbg_ptr, DBG: tl.constexpr,
 ):
     """The shipped sampled kernel, with the threshold scan switchable.
 
@@ -140,6 +141,9 @@ def _scan_probe(
             thr_c = tl.minimum(thr_c, found)
             # counts are non-negative so the prefix sum's maximum IS its total
             carry = tl.full([1], 1, tl.int32) * tl.max(c, axis=0)
+    if DBG:
+        # constexpr, so the timing builds compile this away entirely
+        tl.store(dbg_ptr + row_id, thr_c.to(tl.int32))
     thr = thr_c + 1
 
     for attempt in tl.static_range(0, 2):
@@ -240,7 +244,8 @@ def block_for(num_rows):
     return ov._WIDE_BLOCK if 0 < num_rows <= wide else NUM_THREADS_PER_BLOCK
 
 
-def launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1, scan_w):
+def launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1, scan_w,
+           dbg=None):
     block = block_for(num_rows)
     _scan_probe[(num_rows,)](
         logits, idx, starts, ends, s0, s1,
@@ -248,6 +253,7 @@ def launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1, scan_w):
         VEC=4, SSTRIDE=8,
         TARGET_RANK=int(math.sqrt(top_k * NUM_FILNAL_ITEMS)),
         NBINS=NUM_BINS, NFINAL=NUM_FILNAL_ITEMS, SCAN_W=scan_w,
+        dbg_ptr=dbg, DBG=dbg is not None,
         num_warps=_num_warps(block),
     )
 
@@ -267,6 +273,58 @@ def bench(fn, reps=100):
                                    return_mode="median") * 1000
 
 
+# Fitted from this card's own four widths (2048/1024/512/256 -> 10.0/5.95/3.63/
+# 2.64 us): a fixed ~1.6 us per round -- one cross-thread reduction tree and a
+# barrier -- plus a linear term. Every point lands within 3%.
+def scan_cost_us(width):
+    return 1.6 + 0.0041 * width
+
+
+def thr_distribution():
+    """Where does the threshold bin actually land?
+
+    Rounds lose because each one costs a fixed 1.6 us on top of the linear part,
+    so vLLM's version only pays off through its early exit -- it stops at the
+    round that contains the threshold bin. Whether that helps here is decided
+    entirely by the distribution of thr_c, and nothing about measuring it
+    touches control flow, so there is no compiler risk in finding out.
+    """
+    print("  阈值 bin 的实际分布（决定提前退出有没有意义）\n")
+    for num_rows, vocab, top_k, s0, s1 in SHAPES:
+        logits, starts, ends, idx = make_inputs(num_rows, vocab, top_k, s0, s1)
+        dbg = torch.full((num_rows,), -1, dtype=torch.int32, device=DEV)
+        try:
+            launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1,
+                   0, dbg)
+            flaggems_vllm.runtime.torch_device_fn.synchronize()
+        except Exception as e:  # noqa: BLE001
+            print(f"  ({num_rows},{vocab})  失败 {type(e).__name__}: "
+                  f"{str(e).splitlines()[-1][:44]}")
+            continue
+        ok = correct(logits, idx, vocab, top_k)
+        v = dbg.to(torch.float64)
+        q = [int(torch.quantile(v, x).item()) for x in (0.0, 0.5, 0.9, 1.0)]
+        print(f"  ({num_rows},{vocab},k={top_k})   正确性 {ok}   "
+              f"target_rank={int(math.sqrt(top_k * NUM_FILNAL_ITEMS))}")
+        print(f"    thr_c  min={q[0]}  中位={q[1]}  p90={q[2]}  max={q[3]}")
+        # What each round width would actually cost, given this distribution.
+        print(f"    {'轮宽':>6}{'首轮命中率':>12}{'平均轮数':>10}"
+              f"{'期望代价µs':>12}{'vs 现状10.0':>12}")
+        for w in (1024, 512, 256):
+            rounds = torch.ceil((dbg.to(torch.float64) + 1) / w)
+            hit0 = float((rounds <= 1).float().mean())
+            avg = float(rounds.mean())
+            cost = avg * scan_cost_us(w)
+            print(f"    {w:>6}{hit0:>11.1%}{avg:>10.2f}{cost:>12.2f}"
+                  f"{cost - 10.0:>+12.2f}")
+        print()
+    print("  读法")
+    print("    某个轮宽的期望代价明显低于 10.0  => 提前退出值得试, 省的就是那个差值")
+    print("    都不低于 10.0                    => thr_c 落得太靠后, 这条路死透,")
+    print("      不必冒 Triton 数据依赖 break 的编译风险")
+    print("    注意这只是扫描一段的账。整算子 157.5µs, 所以省 7µs 也只到 0.945。")
+    return 0
+
 def main():
     print("=" * 80)
     print("  阈值扫描：一次 2048 宽 cumsum  vs  分轮 + 进位（vLLM 的写法）")
@@ -276,6 +334,9 @@ def main():
         return 1
     print(f"  vLLM 基线: {'有' if HAS_VLLM else '无'}")
     print(f"  出货绑定: {flaggems_vllm.top_k_per_row_prefill.__module__}\n")
+
+    if "--thr" in sys.argv:
+        return thr_distribution()
 
     for num_rows, vocab, top_k, s0, s1 in SHAPES:
         logits, starts, ends, idx = make_inputs(num_rows, vocab, top_k, s0, s1)
