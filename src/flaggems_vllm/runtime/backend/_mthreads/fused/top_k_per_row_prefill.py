@@ -116,8 +116,8 @@ MIN_SPAN = int(os.environ.get("FLAGGEMS_MTT_PREFILL_MIN_SPAN", "16384"))
 # retry still work in the operator's full NUM_BINS space.
 #
 # MEASURED, and coarsening loses. The threshold scan is a cumsum over this many
-# bins and a 2048-wide cumsum costs ~10 us, so narrowing it looked like the last
-# 7 us needed to reach 0.9. At (64, 129280) it is catastrophic instead:
+# bins, and narrowing it looked like a way to buy the last few us to reach 0.9.
+# At (64, 129280) it is catastrophic instead:
 #
 #     SBINS  2048 -> 0.856    512 -> 0.379    256 -> 0.368
 #
@@ -125,8 +125,15 @@ MIN_SPAN = int(os.environ.get("FLAGGEMS_MTT_PREFILL_MIN_SPAN", "16384"))
 # up to one coarse bin's population. At top_k=1024 the acceptance window is only
 # NFINAL/top_k = 2x wide and the target sits at the 1.1% quantile, deep in the
 # tail where one coarse bin is enough to clear the buffer -- so the ~211 us retry
-# fires on every row and eats the 7 us ten times over. Same failure mode as
+# fires on every row and eats the saving many times over. Same failure mode as
 # SSTRIDE=64 had, reached through a different parameter.
+#
+# The scan was not worth attacking anyway. Timing this kernel at four round
+# widths and solving for the model (R rounds of 2048/R cost R*a + 2048*b) gives
+# a = 1.5 us per round from three independent points, and a conditional
+# single-round variant then pins b, putting the whole 2048-wide scan at ~4.1 us
+# -- 2.6% of the operator, not the ~10 us assumed here earlier. Even deleting it
+# outright would only reach 0.924.
 #
 # It does help where the window is wide: at top_k=512 (4x window, 6.25% quantile)
 # SBINS=256 gains about 5% once the baseline drift in that 37 us shape is
