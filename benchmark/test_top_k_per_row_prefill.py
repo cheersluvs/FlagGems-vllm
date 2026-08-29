@@ -73,8 +73,40 @@ except (ImportError, AttributeError, RuntimeError):
 
 _top_k_per_row_prefill_module = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
 
+# --- PyTorch baseline, for backends where vLLM exposes no kernel ---
+#
+# The previous fallback here was the operator's OWN non-TLE path. On any backend
+# that does not declare TLE -- Ascend, for one -- the operator ALSO takes that
+# path, so the benchmark compared the kernel against itself and reported a
+# SpeedUp of 1.0 that measured nothing while looking like a result. That is the
+# same family of defect as the four this file already fixes.
+#
+# torch.topk over the whole tensor is exactly equivalent for these shapes, and
+# is what a caller would write without the fused operator. It includes the
+# int32 write-back because the fused op fills a caller-allocated int32 buffer,
+# so an alternative that skipped it would not be doing the same work.
+_PREFILL_REF_CHECKED = None
+
+
+def _torch_topk_prefill(
+    logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
+):
+    global _PREFILL_REF_CHECKED
+    key = (tuple(logits.shape), logits.data_ptr())
+    if _PREFILL_REF_CHECKED != key:
+        # Vectorising is only valid while every row is the full [0, vocab).
+        assert int(row_starts.max()) == 0 and int(row_ends.min()) == logits.shape[1], (
+            "torch.topk baseline assumes uniform full rows; this shape has "
+            "per-row [start, end) and needs a different reference"
+        )
+        _PREFILL_REF_CHECKED = key
+    k = min(top_k, logits.shape[1])
+    _, idx = torch.topk(logits, k, dim=1, largest=True, sorted=False)
+    indices[:, :k] = idx.to(torch.int32)
+
 
 def _non_tle_top_k_per_row_prefill(
+
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
     device = logits.device
@@ -151,9 +183,13 @@ class TopKPerRowPrefillBenchmark(base.Benchmark):
 
 @pytest.mark.top_k_per_row_prefill
 def test_top_k_per_row_prefill():
-    baseline_op = (
-        _vllm_top_k_per_row_prefill if HAS_VLLM else _non_tle_top_k_per_row_prefill
-    )
+    baseline_op = _vllm_top_k_per_row_prefill if HAS_VLLM else _torch_topk_prefill
+    # Say which one, every run. A SpeedUp against torch.topk and a SpeedUp
+    # against vLLM's hand-written kernel are different quantities and must never
+    # be put in the same table.
+    which = ("vLLM top_k_per_row_prefill" if HAS_VLLM
+             else "torch.topk  (no vLLM kernel on this backend)")
+    print(f"\n  baseline = {which}")
     bench = TopKPerRowPrefillBenchmark(
         op_name="top_k_per_row_prefill",
         torch_op=baseline_op,

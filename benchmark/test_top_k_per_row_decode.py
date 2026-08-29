@@ -60,6 +60,31 @@ except (ImportError, AttributeError, RuntimeError):
     _vllm_top_k_per_row_decode = None
 
 
+# --- PyTorch baseline, for backends where vLLM exposes no kernel ---
+#
+# This file previously skipped the whole benchmark when vLLM was absent, so a
+# backend without the kernel produced no output and exit code 0 -- indisting-
+# uishable from a clean run. torch.topk is exactly equivalent for these shapes
+# (next_n == 1 and seq_lens == vocab_size, so every row is the full row).
+_DECODE_REF_CHECKED = None
+
+
+def _torch_topk_decode(
+    logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+):
+    global _DECODE_REF_CHECKED
+    key = (tuple(logits.shape), logits.data_ptr())
+    if _DECODE_REF_CHECKED != key:
+        assert next_n == 1 and int(seq_lens.min()) == logits.shape[1], (
+            "torch.topk baseline assumes next_n=1 and full-length rows; this "
+            "shape needs a per-row reference"
+        )
+        _DECODE_REF_CHECKED = key
+    k = min(top_k, logits.shape[1])
+    _, idx = torch.topk(logits, k, dim=1, largest=True, sorted=False)
+    indices[:, :k] = idx.to(torch.int32)
+
+
 class TopKPerRowDecodeBenchmark(base.Benchmark):
     DEFAULT_SHAPE_DESC = "num_rows, vocab_size, next_n, top_k, stride0, stride1"
 
@@ -110,11 +135,13 @@ class TopKPerRowDecodeBenchmark(base.Benchmark):
 
 
 @pytest.mark.top_k_per_row_decode
-@pytest.mark.skipif(not HAS_VLLM, reason="vLLM not installed")
 def test_top_k_per_row_decode():
+    which = ("vLLM top_k_per_row_decode" if HAS_VLLM
+             else "torch.topk  (no vLLM kernel on this backend)")
+    print(f"\n  baseline = {which}")
     bench = TopKPerRowDecodeBenchmark(
         op_name="top_k_per_row_decode",
-        torch_op=_vllm_top_k_per_row_decode,
+        torch_op=_vllm_top_k_per_row_decode if HAS_VLLM else _torch_topk_decode,
         gems_op=flaggems_vllm.top_k_per_row_decode,
         dtypes=[torch.float32],
     )
