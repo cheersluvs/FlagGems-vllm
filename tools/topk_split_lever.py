@@ -87,7 +87,7 @@ def make_inputs(num_rows, vocab, top_k, stride0, stride1):
 
 
 def run_decode_entry(logits, seq_lens, idx, num_rows, vocab, top_k, stride0,
-                     stride1, split):
+                     stride1, split, block=NUM_THREADS_PER_BLOCK):
     """decode's host dispatch, with the split factor as a parameter.
 
     split=1 is the single unsplit launch; anything larger is decode's two-launch
@@ -98,20 +98,20 @@ def run_decode_entry(logits, seq_lens, idx, num_rows, vocab, top_k, stride0,
     if split == 1:
         tle_top_k_per_row_decode[(num_rows,)](
             logits, idx, seq_lens, 1, stride0, stride1, vocab, None, None,
-            TOPK=top_k, TOPKP=topkp, BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
+            TOPK=top_k, TOPKP=topkp, BLOCK_SIZE=block,
             USE_RADIX_FINAL=use_radix_final, MULTIPLE_BLOCKS_PER_ROW=False,
             MULTIPLE_BLOCKS_NUM=1, MERGE_BLOCKS=False,
-            num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
+            num_warps=_num_warps(block),
         )
         return
     ai = torch.empty((num_rows, split, top_k), device=DEV, dtype=torch.int32)
     al = torch.empty((num_rows, split, top_k), device=DEV, dtype=torch.float32)
     tle_top_k_per_row_decode[(num_rows, split)](
         logits, ai, seq_lens, 1, stride0, stride1, vocab, al, None,
-        TOPK=top_k, TOPKP=topkp, BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
+        TOPK=top_k, TOPKP=topkp, BLOCK_SIZE=block,
         USE_RADIX_FINAL=use_radix_final, MULTIPLE_BLOCKS_PER_ROW=True,
         MULTIPLE_BLOCKS_NUM=split, MERGE_BLOCKS=False,
-        num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
+        num_warps=_num_warps(block),
     )
     tle_top_k_per_row_decode[(num_rows,)](
         al, idx, seq_lens, 1, split * top_k, 1, split * top_k, None, ai,
@@ -138,6 +138,83 @@ def bench(fn, reps=100):
                                    return_mode="median") * 1000
 
 
+# Splitting was refuted at 64 rows, where grid=64 was already half the card's
+# ~120-program capacity so the extra parallelism had little left to buy. At 4
+# rows grid is 4, and even SPLIT=15 lands at 60 -- still inside capacity, and
+# inside the HALVED capacity a wide block leaves. That case was never measured,
+# and vLLM cannot reach it at all: topKPerRowPrefill in sampler.cu takes no
+# gridDim.y and no merge, so its prefill is structurally one block per row
+# (4 blocks x 512 threads at 4 rows, ~16 GB/s on a 60-SM part).
+SMALL_SHAPES = [
+    (4, 129280, 1024, 129280, 1),
+    (16, 129280, 1024, 129280, 1),
+    (32, 129280, 1024, 129280, 1),
+    (4, 16385, 512, 16648, 1),
+]
+SMALL_SPLITS = (1, 2, 4, 8, 15)
+SMALL_BLOCKS = (512, 1024)
+
+
+def small_sweep():
+    """Does splitting pay where the grid is genuinely tiny, and does it stack
+    with a wide block?
+
+    Capacity is ~120 programs at BLOCK=512 and ~60 at 1024, so the two levers
+    compete for the same budget: rows x split must stay under it. If splitting
+    wins anywhere it is here, and if it does not, the 0.902 ceiling is not an
+    occupancy problem at all.
+    """
+    print("  小 num_rows 上的拆分 x 块宽。grid = rows x split\n")
+    for num_rows, vocab, top_k, s0, s1 in SMALL_SHAPES:
+        logits, starts, ends, seq_lens, idx = make_inputs(
+            num_rows, vocab, top_k, s0, s1)
+        reps = 400 if num_rows <= 8 else 100
+        v = None
+        if HAS_VLLM:
+            vidx = torch.empty_like(idx)
+            v = bench(lambda: torch.ops._C.top_k_per_row_prefill(
+                logits, starts, ends, vidx, num_rows, s0, s1, top_k), reps)
+
+        idx.fill_(-1)
+        flaggems_vllm.top_k_per_row_prefill(
+            logits, starts, ends, idx, num_rows, s0, s1, top_k)
+        flaggems_vllm.runtime.torch_device_fn.synchronize()
+        ship_ok = correct(logits, idx, vocab, top_k)
+        ship = bench(lambda: flaggems_vllm.top_k_per_row_prefill(
+            logits, starts, ends, idx, num_rows, s0, s1, top_k), reps)
+
+        print(f"  ({num_rows},{vocab},k={top_k})"
+              + (f"   vLLM {v:.1f} µs" if v else ""))
+        print(f"    {'配置':<26}{'grid':>7}{'µs':>9}{'vs 出货':>9}"
+              f"{'speedup':>9}   正确性")
+        print(f"    {'出货 prefill(采样+宽块)':<26}{num_rows:>7}{ship:>9.1f}"
+              f"{1.0:>9.3f}{(v / ship if v else 0):>9.3f}   {ship_ok}")
+        for block in SMALL_BLOCKS:
+            for split in SMALL_SPLITS:
+                name = f"decode BLOCK={block} SPLIT={split}"
+                try:
+                    idx.fill_(-1)
+                    run_decode_entry(logits, seq_lens, idx, num_rows, vocab,
+                                     top_k, s0, s1, split, block)
+                    flaggems_vllm.runtime.torch_device_fn.synchronize()
+                    ok = correct(logits, idx, vocab, top_k)
+                    t = bench(lambda sp=split, b=block: run_decode_entry(
+                        logits, seq_lens, idx, num_rows, vocab, top_k, s0, s1,
+                        sp, b), reps)
+                except Exception as e:  # noqa: BLE001
+                    print(f"    {name:<26}   失败 {type(e).__name__}: "
+                          f"{str(e).splitlines()[-1][:40]}")
+                    continue
+                print(f"    {name:<26}{num_rows * split:>7}{t:>9.1f}"
+                      f"{t / ship:>9.3f}{(v / t if v else 0):>9.3f}   {ok}")
+        print()
+    print("  读法")
+    print("    某个 (BLOCK,SPLIT) 的 speedup 高于出货 => 拆分在小 grid 上成立,")
+    print("      而且能和采样叠加的话还会更高 -- 出货版是采样+宽块, 这里是通用+拆分")
+    print("    全都不如出货 => 0.902 的天花板不是占用率问题, 拆分整条路关掉")
+    print("    最优点的 grid 落在容量线附近(512 档约 120, 1024 档约 60) => 模型成立")
+    return 0
+
 def main():
     print("=" * 82)
     print("  prefill 行拆分：机制已存在，只是入口 kernel 写死关闭")
@@ -145,6 +222,9 @@ def main():
     print(f"  vLLM 基线: {'有' if HAS_VLLM else '无'}")
     bound = flaggems_vllm.top_k_per_row_prefill.__module__
     print(f"  出货算子绑定: {bound}\n")
+
+    if "--small" in sys.argv:
+        return small_sweep()
 
     for num_rows, vocab, top_k, s0, s1 in SHAPES:
         tag = f"({num_rows},{vocab},k={top_k})"
