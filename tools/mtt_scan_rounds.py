@@ -302,18 +302,25 @@ def thr_distribution():
                   f"{str(e).splitlines()[-1][:44]}")
             continue
         ok = correct(logits, idx, vocab, top_k)
-        v = dbg.to(torch.float64)
-        q = [int(torch.quantile(v, x).item()) for x in (0.0, 0.5, 0.9, 1.0)]
+        # Off the device before any statistics: torch.quantile dies on MUSA
+        # ("NOT_SUPPORTED in Sort::Run"), and it is 64 integers.
+        d = sorted(dbg.cpu().tolist())
+        n = len(d)
+
+        def pct(f):
+            return d[min(n - 1, max(0, int(f * (n - 1) + 0.5)))]
+
         print(f"  ({num_rows},{vocab},k={top_k})   正确性 {ok}   "
               f"target_rank={int(math.sqrt(top_k * NUM_FILNAL_ITEMS))}")
-        print(f"    thr_c  min={q[0]}  中位={q[1]}  p90={q[2]}  max={q[3]}")
+        print(f"    thr_c  min={d[0]}  中位={pct(0.5)}  p90={pct(0.9)}  "
+              f"max={d[-1]}")
         # What each round width would actually cost, given this distribution.
         print(f"    {'轮宽':>6}{'首轮命中率':>12}{'平均轮数':>10}"
               f"{'期望代价µs':>12}{'vs 现状10.0':>12}")
         for w in (1024, 512, 256):
-            rounds = torch.ceil((dbg.to(torch.float64) + 1) / w)
-            hit0 = float((rounds <= 1).float().mean())
-            avg = float(rounds.mean())
+            rounds = [-(-(x + 1) // w) for x in d]
+            hit0 = sum(1 for r in rounds if r <= 1) / n
+            avg = sum(rounds) / n
             cost = avg * scan_cost_us(w)
             print(f"    {w:>6}{hit0:>11.1%}{avg:>10.2f}{cost:>12.2f}"
                   f"{cost - 10.0:>+12.2f}")
