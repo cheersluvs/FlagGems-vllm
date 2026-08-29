@@ -77,6 +77,7 @@ def _scan_probe(
     TOPK: tl.constexpr, TOPKP: tl.constexpr, BLOCK_SIZE: tl.constexpr,
     VEC: tl.constexpr, SSTRIDE: tl.constexpr, TARGET_RANK: tl.constexpr,
     NBINS: tl.constexpr, NFINAL: tl.constexpr, SCAN_W: tl.constexpr,
+    CONDW: tl.constexpr,
     dbg_ptr, DBG: tl.constexpr,
 ):
     """The shipped sampled kernel, with the threshold scan switchable.
@@ -128,7 +129,21 @@ def _scan_probe(
 
     # ---- the thing under test -------------------------------------------
     target = TARGET_RANK // SSTRIDE + 1
-    if SCAN_W == 0:
+    if CONDW > 0:
+        # Measured: thr_c is 506-529 across every shape tried, so a first pass
+        # over [0, CONDW) finds it every time and the second is dead code at
+        # run time. The condition is a block-uniform SCALAR, not a break inside
+        # a loop, and the fallback is exact, so a distribution that lands past
+        # CONDW costs 1.6 us and is still right.
+        i0 = tl.arange(0, CONDW)
+        c0 = tl.cumsum(tl.load(hp + i0), axis=0)
+        f0 = tl.min(tl.where(c0 >= target, i0, NBINS), axis=0)
+        thr_c = f0
+        if f0 == NBINS:
+            i1 = CONDW + tl.arange(0, NBINS - CONDW)
+            c1 = tl.cumsum(tl.load(hp + i1), axis=0) + tl.max(c0, axis=0)
+            thr_c = tl.min(tl.where(c1 >= target, i1, NBINS - 1), axis=0)
+    elif SCAN_W == 0:
         cum = tl.cumsum(tl.load(hp + bins), axis=0)
         thr_c = tl.min(tl.where(cum >= target, bins, NBINS - 1), axis=0)
     else:
@@ -218,7 +233,8 @@ SHAPES = [
     (4, 16385, 512, 16648, 1),
     (16, 65536, 1024, 65536, 1),     # the num_rows 16-60 range the suite skips
 ]
-SCANS = (0, 1024, 512, 256)
+# negative entries mean 'conditional two-round, first round this wide'
+SCANS = (0, -1024, 1024, 512, 256)
 
 
 def make_inputs(num_rows, vocab, top_k, stride0, stride1):
@@ -245,7 +261,7 @@ def block_for(num_rows):
 
 
 def launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1, scan_w,
-           dbg=None):
+           dbg=None, condw=0):
     block = block_for(num_rows)
     _scan_probe[(num_rows,)](
         logits, idx, starts, ends, s0, s1,
@@ -253,7 +269,7 @@ def launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1, scan_w,
         VEC=4, SSTRIDE=8,
         TARGET_RANK=int(math.sqrt(top_k * NUM_FILNAL_ITEMS)),
         NBINS=NUM_BINS, NFINAL=NUM_FILNAL_ITEMS, SCAN_W=scan_w,
-        dbg_ptr=dbg, DBG=dbg is not None,
+        CONDW=condw, dbg_ptr=dbg, DBG=dbg is not None,
         num_warps=_num_warps(block),
     )
 
@@ -325,6 +341,25 @@ def thr_distribution():
             print(f"    {w:>6}{hit0:>11.1%}{avg:>10.2f}{cost:>12.2f}"
                   f"{cost - 10.0:>+12.2f}")
         print()
+    print("  全负输入下的 thr_c（真实 log-prob 是负的，bin 会落到正数区之后）")
+    for num_rows, vocab, top_k, s0, s1 in SHAPES[:1]:
+        logits, starts, ends, idx = make_inputs(num_rows, vocab, top_k, s0, s1)
+        # abs() then negate on the HOST-side tensor is a device op but a trivial
+        # elementwise one; quantile was the unsupported call, not this.
+        neg = -torch.abs(logits)
+        dbg = torch.full((num_rows,), -1, dtype=torch.int32, device=DEV)
+        try:
+            launch(neg, starts, ends, idx, num_rows, vocab, top_k, s0, s1, 0,
+                   dbg)
+            flaggems_vllm.runtime.torch_device_fn.synchronize()
+            d = sorted(dbg.cpu().tolist())
+            print(f"    ({num_rows},{vocab}) 全负   thr_c min={d[0]} "
+                  f"中位={d[len(d) // 2]} max={d[-1]}   "
+                  f"{'仍 < 1024 ✓' if d[-1] < 1024 else '>= 1024 ← 条件两轮会每行走第二轮'}")
+        except Exception as e:  # noqa: BLE001
+            print(f"    全负检查失败 {type(e).__name__}: "
+                  f"{str(e).splitlines()[-1][:44]}")
+    print()
     print("  读法")
     print("    某个轮宽的期望代价明显低于 10.0  => 提前退出值得试, 省的就是那个差值")
     print("    都不低于 10.0                    => thr_c 落得太靠后, 这条路死透,")
@@ -370,25 +405,32 @@ def main():
 
         base = None
         for w in SCANS:
-            name = "探针 一次 2048" if w == 0 else f"探针 {NUM_BINS // w} 轮 x {w}"
+            cw = 0
+            if w < 0:
+                cw, w = -w, 0
+                name = f"探针 条件两轮 首轮{cw}"
+            else:
+                name = ("探针 一次 2048" if w == 0
+                        else f"探针 {NUM_BINS // w} 轮 x {w}")
             try:
                 idx.fill_(-1)
                 launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0,
-                       s1, w)
+                       s1, w, condw=cw)
                 flaggems_vllm.runtime.torch_device_fn.synchronize()
                 ok = correct(logits, idx, vocab, top_k)
-                t = bench(lambda ww=w: launch(
+                t = bench(lambda ww=w, cc=cw: launch(
                     logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1,
-                    ww), reps)
+                    ww, condw=cc), reps)
             except Exception as e:  # noqa: BLE001
                 print(f"    {name:<22}   失败 {type(e).__name__}: "
                       f"{str(e).splitlines()[-1][:40]}")
                 continue
-            if w == 0:
+            if w == 0 and cw == 0:
                 base = t
             print(f"    {name:<22}{t:>9.1f}{t / ship:>9.3f}"
                   f"{(v / t if v else 0):>9.3f}   {ok}"
-                  + (f"   (对探针基准 {t / base:.3f})" if base and w else ""))
+                  + (f"   (对探针基准 {t / base:.3f})"
+                     if base and (w or cw) else ""))
         print()
 
     print("  读法")
