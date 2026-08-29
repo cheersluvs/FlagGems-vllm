@@ -20,7 +20,7 @@ every shape a noise floor to compare a claimed optimisation against. The largest
 misjudgement in this operator's optimisation came from not having one: a 2.8%
 "regression" was believed because two low-rep measurements agreed.
 
-    VLLM_PLUGINS=musa PYTHONPATH=src python tools/bench_stability.py
+    VLLM_PLUGINS=musa PYTHONPATH=src:$PYTHONPATH python tools/bench_stability.py
     ... --rounds 8 --burn 5 --interleave        # test the two remedies
     ... --json before.json                      # then diff against after.json
 

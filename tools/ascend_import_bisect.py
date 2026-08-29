@@ -18,7 +18,7 @@ process is trustworthy, which is the same reason the preflight refuses to launch
 two kernels in one run.
 
     source /usr/local/Ascend/cann/set_env.sh
-    PYTHONPATH=src python tools/ascend_import_bisect.py
+    PYTHONPATH=src:$PYTHONPATH python tools/ascend_import_bisect.py
 
 Prints, for each prefix of the chain, whether a device tensor can still be
 allocated afterwards. The first FAIL names the culprit.

@@ -7,9 +7,16 @@ remaining vendors (MetaX, Hygon, T-Head, Ascend) share one tool.
 
 Each probe is isolated, so a hard failure still leaves a useful log above it.
 
-    PYTHONPATH=src python tools/topk_preflight.py
-    PYTHONPATH=src python tools/topk_preflight.py --run prefill   # one launch
-    PYTHONPATH=src python tools/topk_preflight.py --run decode
+    PYTHONPATH=src:$PYTHONPATH python tools/topk_preflight.py
+
+NOTE the `:$PYTHONPATH`. On Ascend, CANN's graph engine imports the Python
+module `tbe` off PYTHONPATH during init, so `PYTHONPATH=src python ...` --
+which REPLACES the variable rather than prepending to it -- makes every NPU
+call die with `AclSetCompileopt(ACL_PRECISION_MODE) ... 500001`, whose real
+cause (`No module named 'tbe'`) appears only in ~/ascend/log/debug/plog/.
+Harmless on NVIDIA and MTT, which is why the shorter form looks fine.
+    PYTHONPATH=src:$PYTHONPATH python tools/topk_preflight.py --run prefill   # one launch
+    PYTHONPATH=src:$PYTHONPATH python tools/topk_preflight.py --run decode
 
 Run the bare form FIRST. Kernel launches are opt-in and one per process, because
 on some backends a failed launch poisons the context and every later result in
