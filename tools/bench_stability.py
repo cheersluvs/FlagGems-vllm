@@ -29,6 +29,7 @@ Measurement only. Registers nothing, changes no shipped file.
 
 import argparse
 import json
+import os
 import statistics
 import subprocess
 import sys
@@ -146,9 +147,11 @@ def main():
     try:
         dfn = flaggems_vllm.runtime.torch_device_fn
         cur = dfn.current_device()
-        print(f"  当前设备: {cur}  ({DEV})")
-        print("  ↑ 对照下表该设备的显存占用：不是 ~20MiB 就说明有别的进程在上面，")
-        print("    小形状的离散度多半来自它。空闲卡可用 MUSA_VISIBLE_DEVICES=<n> 选。")
+        print(f"  当前逻辑设备: {cur}  ({DEV})   "
+              f"MUSA_VISIBLE_DEVICES={os.environ.get('MUSA_VISIBLE_DEVICES', '未设置')}")
+        print("  ↑ 设了 MUSA_VISIBLE_DEVICES 时这里恒为 0：所选卡被重映射成逻辑 0，")
+        print("    所以要看下表哪块卡的显存比平时多了几十 MiB，那块才是真正在用的。")
+        print("    小形状的离散度多半来自共享设备；挑一块 ~20MiB 的空卡再跑一次。")
     except Exception as e:  # noqa: BLE001
         print(f"  当前设备: 读取失败 {type(e).__name__}: {e}")
     tool, state = clock_state()
@@ -218,6 +221,13 @@ def main():
                    ("勉强" if srng < 5 else "不可引用"))
         print(f"  {f'({num_rows},{vocab})':<20}{gmed:>9.1f}{grng:>9.1f}%"
               f"{brng:>9.1f}%{smed:>12.3f}{srng:>7.1f}%{scv:>6.1f}%   {verdict}")
+        if srng >= 5 and HAS_VLLM:
+            # A range over five samples can be one outlier. Print the rounds so
+            # that is visible instead of inferred -- reading a spread off a
+            # handful of points without looking at them is exactly the mistake
+            # this tool exists to prevent.
+            print("      我方 " + " ".join(f"{x:7.1f}" for x in g))
+            print("      基线 " + " ".join(f"{x:7.1f}" for x in b))
         out[f"{num_rows}x{vocab}x{top_k}"] = {
             "gems_us": g, "torch_us": b,
             "speedup_median": smed, "speedup_range_pct": srng,
@@ -232,7 +242,7 @@ def main():
     print("    换一张空闲卡再跑一次（MUSA_VISIBLE_DEVICES=<n>），比较极差 ——")
     print("      共享设备对 ms 级内核影响不大，对 30µs 的内核可能就是主因")
     print("    --interleave 与默认各跑一次，比较极差，就知道分段计时占多少")
-    print("    --burn 5 与不 burn 各跑一次，看第 1 轮是否系统性偏快")
+    print("    --burn 实测无效（把 30µs 形状从 18.5% 恶化到 35.0%），不是冷启动问题")
     if args.json:
         with open(args.json, "w") as f:
             json.dump({"rounds": args.rounds, "ms": args.ms,
