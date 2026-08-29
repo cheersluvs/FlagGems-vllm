@@ -39,11 +39,11 @@ VENDOR = flaggems_vllm.vendor_name
 
 
 def hdr(t):
-    print("\n" + "=" * W + f"\n  {t}\n" + "=" * W)
+    print("\n" + "=" * W + f"\n  {t}\n" + "=" * W, flush=True)
 
 
 def row(k, v):
-    print(f"  {k:<34} {v}")
+    print(f"  {k:<34} {v}", flush=True)
 
 
 def check(label, fn):
@@ -335,7 +335,13 @@ def main():
             run_kernel(args.run)
         except Exception:  # noqa: BLE001
             hdr(f"6. MINIMAL LAUNCH: {args.run} -- FAILED")
-            traceback.print_exc()
+            # to STDOUT, and flushed: print_exc() defaults to stderr, which is
+            # unbuffered while a piped stdout is not, so the traceback overtook
+            # the report and landed above it -- where `| tail` hid the only part
+            # that mattered.
+            sys.stdout.flush()
+            traceback.print_exc(file=sys.stdout)
+            sys.stdout.flush()
             print("\n  Re-run the other op in a FRESH process; this context may be\n"
                   "  poisoned and later results from it cannot be trusted.\n")
             return 1
