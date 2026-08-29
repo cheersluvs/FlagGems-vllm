@@ -138,6 +138,19 @@ def main():
     print("=" * 92)
     print("  benchmark 稳定性：同一份代码跑多轮，量出每个形状的噪声底")
     print("=" * 92)
+    # WHICH device, and is anything else on it? mthreads-gmi shows no clock
+    # fields at all on this part, so frequency can be neither locked nor even
+    # recorded -- but it does show per-device memory, and a device with another
+    # process resident is a far more likely source of drift for a 30 us kernel
+    # than anything this tool can control.
+    try:
+        dfn = flaggems_vllm.runtime.torch_device_fn
+        cur = dfn.current_device()
+        print(f"  当前设备: {cur}  ({DEV})")
+        print("  ↑ 对照下表该设备的显存占用：不是 ~20MiB 就说明有别的进程在上面，")
+        print("    小形状的离散度多半来自它。空闲卡可用 MUSA_VISIBLE_DEVICES=<n> 选。")
+    except Exception as e:  # noqa: BLE001
+        print(f"  当前设备: 读取失败 {type(e).__name__}: {e}")
     tool, state = clock_state()
     if state:
         print(f"  设备状态（{tool}）:\n{state}")
@@ -216,7 +229,8 @@ def main():
     print("    speedup 极差 > 5%              => 只能报区间，不能报单值；任何小于")
     print("      该极差的「收益」都不是收益")
     print("\n  用法")
-    print("    锁频前后各跑一次，比较极差，就知道 DVFS 占多少")
+    print("    换一张空闲卡再跑一次（MUSA_VISIBLE_DEVICES=<n>），比较极差 ——")
+    print("      共享设备对 ms 级内核影响不大，对 30µs 的内核可能就是主因")
     print("    --interleave 与默认各跑一次，比较极差，就知道分段计时占多少")
     print("    --burn 5 与不 burn 各跑一次，看第 1 轮是否系统性偏快")
     if args.json:
