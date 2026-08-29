@@ -165,6 +165,28 @@ def stage_device():
         return "\n" + "\n".join(f"      {b}" for b in bits)
 
     check("device properties", _props)
+
+    def _inventory():
+        """When get_device_properties throws, fall back to the vendor tool.
+
+        On Ascend it raises `SetPrecisionMode ... error code 500001`, so the
+        launch geometry below is a hardcoded fallback rather than anything read
+        off the device -- worth knowing before trusting a num_warps.
+        Also shows whether the device is shared, which decides whether small
+        shapes can be timed at all.
+        """
+        import shutil
+        import subprocess
+
+        for cmd in (["npu-smi", "info"], ["mthreads-gmi"], ["nvidia-smi"]):
+            if not shutil.which(cmd[0]):
+                continue
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+            lines = [ln for ln in out.stdout.splitlines() if ln.strip()]
+            return "\n" + "\n".join(f"      {ln}" for ln in lines[:14])
+        return "no vendor inventory tool on PATH"
+
+    check("device inventory", _inventory)
     def _geom():
         from flaggems_vllm.ops.top_k_per_row_prefill import (
             _launch_geometry,
@@ -182,13 +204,30 @@ def stage_device():
     row("", "top_k=2048 -> ~29 / ~33 KB. MetaX C550 has only 64 KB: check above.")
 
     def _gate():
-        from flaggems_vllm.ops.top_k_per_row_prefill import _wide_block_max_rows
+        """The wide-block gate is not in every build.
 
-        n = _wide_block_max_rows()
-        return f"num_rows <= {n} uses BLOCK=1024, above it BLOCK=512"
+        It lives in the MTT override on the shipping branch and in the generic
+        operator on the working branch, so probing one of them unconditionally
+        reported an ImportError that looked like a finding about the card. It is
+        not: absence here means the generic operator simply never widens.
+        """
+        import importlib
+
+        for mod, fn in (
+            ("flaggems_vllm.ops.top_k_per_row_prefill", "_wide_block_max_rows"),
+            ("flaggems_vllm.runtime.backend._mthreads.fused.top_k_per_row_prefill",
+             "_wide_max_rows"),
+        ):
+            try:
+                f = getattr(importlib.import_module(mod), fn)
+            except (ImportError, AttributeError):
+                continue
+            return (f"{fn}() = {f()}  (from {mod.split('.')[-2]})  -> "
+                    f"num_rows <= that uses the wide block")
+        return "not present in this build -- the generic op never widens"
 
     print()
-    check("wide-block gate resolves to", _gate)
+    check("wide-block gate", _gate)
     print(
         "\n  Gate is SM-derived AND requires a 32-lane warp: num_warps is\n"
         "  BLOCK_SIZE // 32, so on a 64-lane part BLOCK=1024 would ask for 2048\n"
