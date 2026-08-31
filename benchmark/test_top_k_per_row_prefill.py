@@ -22,9 +22,10 @@ Shapes match DeepSeek V4 production config:
     - num_rows=64: larger prefill batch
     - num_rows=2048: max prefill sequence length
 
-The baseline uses vLLM's persistent_topk CUDA kernel when available,
-falling back to FlagGems' non-TLE implementation so the benchmark can run
-in plain Triton-TLE development environments.
+The baseline is vLLM's own top_k_per_row_prefill op. Without it the
+benchmark falls back to FlagGems' non-TLE implementation -- i.e. it would
+compare FlagGems against FlagGems -- so HAS_VLLM below is checked on the
+symbol, not assumed from the import.
 """
 
 from importlib import import_module
@@ -43,14 +44,17 @@ pytestmark = pytest.mark.skipif(
     reason="accelerator device required",
 )
 
-# --- vLLM CUDA baseline (preferred) with PyTorch fallback ---
+# --- vLLM's own kernel as the baseline, non-TLE Triton path as fallback ---
 try:
     import vllm._custom_ops  # noqa: F401 — loads torch.ops._C
 
-    # Importing vLLM is NOT proof the op exists: a non-CUDA build (e.g. MUSA)
-    # imports fine but exposes no top_k_per_row_prefill, and HAS_VLLM would
-    # then be a lie -- the benchmark would report a SpeedUp against a baseline
-    # that does not exist. Check for the symbol itself, after the import.
+    # Importing vLLM is NOT proof the op exists. A build can import fine and
+    # still expose no top_k_per_row_prefill -- and the vendor of the build is not
+    # the test: the MUSA build on the Moore Threads box DOES export it, while
+    # some others do not. HAS_VLLM would then be a lie and the benchmark would
+    # report a SpeedUp against a baseline that is not there. Check the symbol
+    # itself, after the import, with hasattr -- never dir(), since
+    # torch.ops._C is a lazy namespace that lists only what it has resolved.
     if not hasattr(torch.ops._C, "top_k_per_row_prefill"):
         raise AttributeError("vLLM build exposes no top_k_per_row_prefill")
 

@@ -14,7 +14,7 @@
 
 """Accuracy tests for top_k_per_row_decode (DeepSeek V4 decode-phase top-K).
 
-Tests the Triton radix-select kernel against the vLLM CUDA reference.
+Tests the Triton radix-select kernel against vLLM's own kernel.
 Uses value-based comparison (sorted selected values must match) to handle
 non-deterministic tie-breaking between implementations.
 """
@@ -47,12 +47,15 @@ else:
     VOCAB_SIZE_LIST = [4096, 8192, 16384, 32768, 129280, 262144]
     TOP_K_LIST = [64, 128, 256, 512, 1024]
 
-# --- vLLM CUDA reference (optional) ---
+# --- vLLM's own kernel as reference (optional) ---
 try:
     import vllm._custom_ops  # noqa: F401 — loads torch.ops._C
 
-    # Importing vLLM is NOT proof the op exists: a non-CUDA build (e.g. MUSA)
-    # imports fine but exposes no top_k_per_row_decode, and HAS_VLLM would
+    # Importing vLLM is NOT proof the op exists; the vendor of the build
+    # is not the test either -- this box's MUSA build DOES export
+    # top_k_per_row_decode. Check the symbol itself with hasattr, never
+    # dir(): torch.ops._C lists only what it has already resolved.
+    # Without this check HAS_VLLM would
     # then be a lie -- the benchmark would report a SpeedUp against a baseline
     # that does not exist. Check for the symbol itself, after the import.
     if not hasattr(torch.ops._C, "top_k_per_row_decode"):
