@@ -132,6 +132,43 @@ def _use_radix_final_for_prefill(vocab_size):
     return vocab_size >= RADIX_FINAL_PREFILL_VOCAB_THRESHOLD
 
 
+# tl.reduce_or does not exist in every Triton build. It is absent from the
+# Ascend backend's 3.2.0, where its use below made both operators fail to
+# compile at all:
+#
+#     AttributeError: module 'triton.language' has no attribute 'reduce_or'
+#
+# The call is a block-wide "did any lane find it", the same thing vLLM's CUDA
+# does with __syncthreads_or(foundThreshold). A max over the mask as int32 says
+# exactly that and is available everywhere.
+#
+# Defined conditionally rather than replaced outright so that any build which
+# HAS reduce_or keeps emitting it: this is then a no-op on NVIDIA and Moore
+# Threads, where the operator is already validated, and only changes backends
+# that could not run at all.
+#
+# Same shape as the capability flags already used elsewhere in this repo --
+# IS_GATHER_SUPPORTED in FLA/gdn2_native/chunk_intra.py, the
+# make_tensor_descriptor probes in FLA/triton_ops_helper.py -- and the same
+# family of problem as PR #686, which fixed an Ascend import failure caused by
+# triton.language.math losing `pow`. That one was the math/libdevice module and
+# was fixed by picking the right one per Triton version; this one is a core
+# language builtin, so tl_extra_shim does not apply.
+HAS_REDUCE_OR = hasattr(tl, "reduce_or")
+
+if HAS_REDUCE_OR:
+
+    @triton.jit
+    def _block_any(mask):
+        return tl.reduce_or(mask, axis=0)
+
+else:
+
+    @triton.jit
+    def _block_any(mask):
+        return tl.max(mask.to(tl.int32), axis=0) != 0
+
+
 @triton.jit
 def _convert_to_uint32(x):
     bits = x.to(tl.uint32, bitcast=True)
@@ -523,7 +560,7 @@ def _process_histogram_step(
                 tl.store(s_histogram_ptr + bins, prefix_sum)
             tl.store(threshold_bin_ptrs, threshold_bin, mask=threshold_mask)
             tl.store(final_bin_size_ptrs, threshold_bin_size, mask=threshold_mask)
-            found_round = tl.reduce_or(threshold_mask, axis=0)
+            found_round = _block_any(threshold_mask)
             threshold_found = found_round
             last_value = total_sum
 
