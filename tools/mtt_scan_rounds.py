@@ -77,7 +77,7 @@ def _scan_probe(
     TOPK: tl.constexpr, TOPKP: tl.constexpr, BLOCK_SIZE: tl.constexpr,
     VEC: tl.constexpr, SSTRIDE: tl.constexpr, TARGET_RANK: tl.constexpr,
     NBINS: tl.constexpr, NFINAL: tl.constexpr, SCAN_W: tl.constexpr,
-    CONDW: tl.constexpr,
+    CONDW: tl.constexpr, TLEW: tl.constexpr,
     dbg_ptr, DBG: tl.constexpr,
 ):
     """The shipped sampled kernel, with the threshold scan switchable.
@@ -103,11 +103,14 @@ def _scan_probe(
                          scope=tle.gpu.smem, nv_mma_shared_layout=False)
     cfound = tle.gpu.alloc([1], dtype=tl.int32, layout=None,
                            scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    thrs = tle.gpu.alloc([1], dtype=tl.int32, layout=None,
+                         scope=tle.gpu.smem, nv_mma_shared_layout=False)
     hp = tle.gpu.local_ptr(hist, (0,))
     fp = tle.gpu.local_ptr(fin, (0,))
     op = tle.gpu.local_ptr(oidx, (0,))
     cp = tle.gpu.local_ptr(ccnt, (0,))
     fvp = tle.gpu.local_ptr(cfound, (0,))
+    tp = tle.gpu.local_ptr(thrs, (0,))
 
     lane = tl.arange(0, BLOCK_SIZE)
     vec = tl.arange(0, VEC)
@@ -129,7 +132,36 @@ def _scan_probe(
 
     # ---- the thing under test -------------------------------------------
     target = TARGET_RANK // SSTRIDE + 1
-    if CONDW > 0:
+    if TLEW > 0:
+        # Verbatim transcription of the GENERIC operator's own threshold search
+        # (ops/top_k_per_row_prefill.py, the `threshold_found` loop): rounds of
+        # TLEW bins, tle.cumsum carrying the running total, a masked store to
+        # pick out the single hit, and `if not threshold_found` as the early
+        # exit -- a block-uniform scalar, not a data-dependent break.
+        #
+        # tle.cumsum is a DIFFERENT primitive from tl.cumsum: it returns
+        # (prefix_sum, total), and the total is what a carried rounds loop
+        # needs. The earlier rounds experiment used tl.cumsum and measured a
+        # fixed 1.5 us per round; that verdict says nothing about this one.
+        zeros1 = tl.zeros([TLEW], tl.int32)
+        tl.store(tp, NBINS - 1)
+        tl.debug_barrier()
+        last_value = 0
+        threshold_found = tl.full((), False, dtype=tl.int1)
+        for r in tl.static_range(0, NBINS // TLEW):
+            if not threshold_found:
+                b_idx = r * TLEW + tl.arange(0, TLEW)
+                counts = tl.load(hp + b_idx)
+                ps, tot = tle.cumsum(counts, axis=0, reverse=False)
+                ps = ps + last_value
+                nxt = ps + counts
+                tmask = (ps < target) & (nxt >= target)
+                tl.store(tp + zeros1, b_idx, mask=tmask)
+                threshold_found = tl.reduce_or(tmask, axis=0)
+                last_value = last_value + tot
+        tl.debug_barrier()
+        thr_c = tl.load(tp)
+    elif CONDW > 0:
         # Measured: thr_c is 506-529 across every shape tried, so a first pass
         # over [0, CONDW) finds it every time and the second is dead code at
         # run time. The condition is a block-uniform SCALAR, not a break inside
@@ -233,8 +265,15 @@ SHAPES = [
     (4, 16385, 512, 16648, 1),
     (16, 65536, 1024, 65536, 1),     # the num_rows 16-60 range the suite skips
 ]
-# negative entries mean 'conditional two-round, first round this wide'
-SCANS = (0, -1024, 1024, 512, 256)
+# (标签, SCAN_W, CONDW, TLEW) -- 只有一个非零
+SCANS = (
+    ("一次 2048 tl.cumsum",      0,    0,    0),
+    ("通用式 tle 分轮 512",       0,    0,  512),
+    ("通用式 tle 分轮 1024",      0,    0, 1024),
+    ("条件两轮 tl 首轮1024",      0, 1024,    0),
+    ("tl 分轮 2 x 1024",       1024,    0,    0),
+    ("tl 分轮 4 x 512",         512,    0,    0),
+)
 
 
 def make_inputs(num_rows, vocab, top_k, stride0, stride1):
@@ -261,7 +300,7 @@ def block_for(num_rows):
 
 
 def launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1, scan_w,
-           dbg=None, condw=0):
+           dbg=None, condw=0, tlew=0):
     block = block_for(num_rows)
     _scan_probe[(num_rows,)](
         logits, idx, starts, ends, s0, s1,
@@ -269,7 +308,7 @@ def launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1, scan_w,
         VEC=4, SSTRIDE=8,
         TARGET_RANK=int(math.sqrt(top_k * NUM_FILNAL_ITEMS)),
         NBINS=NUM_BINS, NFINAL=NUM_FILNAL_ITEMS, SCAN_W=scan_w,
-        CONDW=condw, dbg_ptr=dbg, DBG=dbg is not None,
+        CONDW=condw, TLEW=tlew, dbg_ptr=dbg, DBG=dbg is not None,
         num_warps=_num_warps(block),
     )
 
@@ -399,38 +438,31 @@ def main():
 
         print(f"  ({num_rows},{vocab},k={top_k})  BLOCK={block_for(num_rows)}"
               + (f"   vLLM {v:.1f} µs" if v else ""))
-        print(f"    {'扫描方式':<22}{'µs':>9}{'vs 出货':>9}{'speedup':>9}   正确性")
-        print(f"    {'出货算子':<22}{ship:>9.1f}{1.0:>9.3f}"
+        print(f"    {'扫描方式':<24}{'µs':>9}{'vs 出货':>9}{'speedup':>9}   正确性")
+        print(f"    {'出货算子':<24}{ship:>9.1f}{1.0:>9.3f}"
               f"{(v / ship if v else 0):>9.3f}   {ship_ok}")
 
         base = None
-        for w in SCANS:
-            cw = 0
-            if w < 0:
-                cw, w = -w, 0
-                name = f"探针 条件两轮 首轮{cw}"
-            else:
-                name = ("探针 一次 2048" if w == 0
-                        else f"探针 {NUM_BINS // w} 轮 x {w}")
+        for name, w, cw, tw in SCANS:
             try:
                 idx.fill_(-1)
                 launch(logits, starts, ends, idx, num_rows, vocab, top_k, s0,
-                       s1, w, condw=cw)
+                       s1, w, condw=cw, tlew=tw)
                 flaggems_vllm.runtime.torch_device_fn.synchronize()
                 ok = correct(logits, idx, vocab, top_k)
-                t = bench(lambda ww=w, cc=cw: launch(
+                t = bench(lambda ww=w, cc=cw, tt=tw: launch(
                     logits, starts, ends, idx, num_rows, vocab, top_k, s0, s1,
-                    ww, condw=cc), reps)
+                    ww, condw=cc, tlew=tt), reps)
             except Exception as e:  # noqa: BLE001
-                print(f"    {name:<22}   失败 {type(e).__name__}: "
+                print(f"    {name:<24}   失败 {type(e).__name__}: "
                       f"{str(e).splitlines()[-1][:40]}")
                 continue
-            if w == 0 and cw == 0:
+            if w == 0 and cw == 0 and tw == 0:
                 base = t
-            print(f"    {name:<22}{t:>9.1f}{t / ship:>9.3f}"
+            print(f"    {name:<24}{t:>9.1f}{t / ship:>9.3f}"
                   f"{(v / t if v else 0):>9.3f}   {ok}"
-                  + (f"   (对探针基准 {t / base:.3f})"
-                     if base and (w or cw) else ""))
+                  + (f"   (对基准 {t / base:.3f})"
+                     if base and (w or cw or tw) else ""))
         print()
 
     print("  读法")
