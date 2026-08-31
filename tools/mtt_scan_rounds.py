@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Is one 2048-wide tl.cumsum worse than rounds of 512, as vLLM does it?
+"""One 2048-wide tl.cumsum, or rounds of tle.cumsum as the generic op does it?
 
-The only structural difference left between the shipped override and vLLM's
-sampler.cu is the threshold scan. vLLM does it in kNumBins/kNumThreadsPerBlock
-rounds of a 512-wide cub::BlockScan, carrying the running total, and breaks out
-of the loop as soon as any thread finds the threshold bin:
+vLLM's sampler.cu scans the 2048 bins in rounds of a 512-wide cub::BlockScan,
+carrying the running total, and breaks as soon as any thread finds the threshold
+bin:
 
     for (int round = 0; round < kNumBins / kNumThreadsPerBlock; round++) {
         Scan(...).ExclusiveSum(binCount, prefixSum, totalSum);
@@ -13,20 +12,33 @@ of the loop as soon as any thread finds the threshold bin:
         lastValue = totalSum;
     }
 
-The override does one tl.cumsum across all 2048 bins, measured at ~10 us of the
-157.4 us the operator takes at (64, 129280) -- 6.4%.
+**That is not a difference against this repository.** The generic operator, in
+ops/top_k_per_row_prefill.py, already transcribes the loop exactly:
+BLOCK_SIZE-wide rounds, `tle.cumsum` carrying the running total, `tl.reduce_or`
+standing in for __syncthreads_or, and `if not threshold_found` as the early
+exit. The MTT override replaced all of it with a single 2048-wide `tl.cumsum` --
+my own deviation, with no stated reason, never measured against what it replaced.
 
-Everything else about the two implementations matches: same shared-memory
-atomics for both the histogram and the compaction (atomicAdd on smem in vLLM,
-tl.atomic_add scope="cta" here), same vectorized reads, same four-step 11-bit
-refinement. So this is the last portable idea; the remaining 4.3x on the
-non-read work is Triton codegen, not a writing style.
+Two things follow that an earlier round of this probe got wrong.
 
-This measures ONLY the rounds, not the early exit. A data-dependent break inside
-a Triton loop is a compiler risk on this backend and is worth attempting only if
-rounds alone already pay -- cumsum cost is usually superlinear in width, so they
-may. The rounds are EXACT: same 2048 bins, same answer, just accumulated in
-pieces, which is why correctness is checked at every point.
+`tle.cumsum` is NOT `tl.cumsum`. It returns (prefix_sum, total), and the total
+is precisely what a carried rounds loop needs; `tl.cumsum` gives only the
+prefix, which is why the generic operator's non-TLE fallback has to spend an
+extra `tl.sum` to recover it. The earlier measurement -- a fixed ~1.5 us per
+round, rounds never pay -- was taken with `tl.cumsum` and says nothing here.
+
+The early exit needs no data-dependent break either. `if not threshold_found` is
+a block-uniform scalar condition, which is how the generic operator already
+writes it, so the compiler risk that stopped the earlier attempt does not exist.
+
+Every variant is EXACT -- same 2048 bins, same threshold, only the order of
+accumulation differs -- so correctness is checked at every point, not assumed.
+
+The ceiling is small regardless. Solving the four measured widths for
+`R rounds of 2048/R = R*a + 2048*b` puts the whole scan at ~4.1 us, 2.6% of the
+157.5 us operator, so even deleting it outright reaches only 0.924. The value of
+this change, if it lands, is mostly that the override stops deviating from the
+operator it is derived from.
 
 An earlier attempt to make this scan cheaper by narrowing the histogram to 512
 or 256 bins was catastrophic (0.856 -> 0.379 / 0.368) because coarse bins
