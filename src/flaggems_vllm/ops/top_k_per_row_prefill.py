@@ -228,9 +228,24 @@ else:
         where the atomic cannot be trusted.
         """
         t = take.to(tl.int32)
-        excl = tl.cumsum(t, axis=0) - t
+        if len(t.shape) == 2:
+            # The vectorised tiles are [BLOCK_SIZE, VEC]. Reducing over axis 0
+            # alone leaves a [VEC] block, and storing that through a scalar
+            # pointer is
+            #   'Value argument cannot be block type if pointer argument is not
+            #    a block'
+            # So do it in two levels: a prefix down each column, plus the total
+            # of all columns to its left. That numbers the tile column-major,
+            # which is an order, and an order is all uniqueness needs.
+            col_tot = tl.sum(t, axis=0)
+            col_excl = tl.cumsum(col_tot, axis=0) - col_tot
+            excl = (tl.cumsum(t, axis=0) - t) + col_excl[None, :]
+            total = tl.sum(col_tot, axis=0)
+        else:
+            excl = tl.cumsum(t, axis=0) - t
+            total = tl.sum(t, axis=0)
         base = tl.load(cnt_scalar_ptr)
-        tl.store(cnt_scalar_ptr, base + tl.sum(t, axis=0))
+        tl.store(cnt_scalar_ptr, base + total)
         return base + excl
 
 
