@@ -28,6 +28,7 @@ as well. Measurement only.
 import os
 import subprocess
 import sys
+import tempfile
 
 HEAD = """
 import torch, triton, triton.language as tl
@@ -158,9 +159,16 @@ def main():
 
     env = dict(os.environ)
     first = None
-    for name, body in PROBES:
-        code = HEAD + body + TAIL
-        r = subprocess.run([sys.executable, "-c", code], capture_output=True,
+    # To a FILE, not `python -c`: Triton's JIT reads a kernel back with
+    # inspect.getsource(), and a -c string has no file to read, so every probe
+    # that defined a @triton.jit function died with
+    # "OSError: could not get source code" before the compiler was ever reached.
+    tmp = tempfile.mkdtemp(prefix="triton_smoke_")
+    for idx, (name, body) in enumerate(PROBES):
+        path = os.path.join(tmp, f"probe_{idx}.py")
+        with open(path, "w") as f:
+            f.write(HEAD + body + TAIL)
+        r = subprocess.run([sys.executable, path], capture_output=True,
                            text=True, env=env, timeout=900)
         if r.returncode == 0 and "OK" in r.stdout:
             verdict = "OK"
