@@ -132,6 +132,49 @@ def _use_radix_final_for_prefill(vocab_size):
     return vocab_size >= RADIX_FINAL_PREFILL_VOCAB_THRESHOLD
 
 
+def _tl_assume_supported() -> bool:
+    """Can this backend round-trip `llvm.intr.assume`?
+
+    `tl.assume` is a pure optimisation hint -- dropping it changes no result.
+    The Ascend backend writes its IR to a file and parses it back, and its build
+    has no custom assembly form for the op, so the round trip fails at
+    ConvertLinalgRToBinary with
+
+        error: custom op 'llvm.intr.assume' has no custom assembly form
+
+    There is nothing to feature-detect: the symbol exists and traces fine, and
+    only the backend's own serialisation rejects it. So this is keyed off the
+    vendor and defaults to ON, leaving every already-validated backend emitting
+    exactly what it emitted before.
+
+    FLAGGEMS_TL_ASSUME=0/1 overrides, so a vendor can retest without editing
+    this list.
+    """
+    override = os.environ.get("FLAGGEMS_TL_ASSUME")
+    if override is not None:
+        return override.lower() not in {"0", "false", "off", "no"}
+    try:
+        return getattr(runtime.device.info, "vendor_name", "") not in ("ascend",)
+    except Exception:  # noqa: BLE001 - detection must never break dispatch
+        return True
+
+
+HAS_TL_ASSUME = _tl_assume_supported()
+
+
+if HAS_TL_ASSUME:
+
+    @triton.jit
+    def _assume(cond):
+        tl.assume(cond)
+
+else:
+
+    @triton.jit
+    def _assume(cond):
+        pass
+
+
 # tl.reduce_or does not exist in every Triton build. It is absent from the
 # Ascend backend's 3.2.0, where its use below made both operators fail to
 # compile at all:
@@ -978,12 +1021,12 @@ def _top_k_per_row_job(
         & ((vocab_size % BLOCK_SIZE) == 0)
     )
     if assume_aligned:
-        tl.assume(row_start == 0)
-        tl.assume(row_end == vocab_size)
-        tl.assume(stride1 == 1)
+        _assume(row_start == 0)
+        _assume(row_end == vocab_size)
+        _assume(stride1 == 1)
         vocab_size = tl.multiple_of(vocab_size, BLOCK_SIZE)
     elif stride1 == 1:
-        tl.assume(stride1 == 1)
+        _assume(stride1 == 1)
 
     lane = tl.arange(0, BLOCK_SIZE)
     row_len = row_end - row_start
