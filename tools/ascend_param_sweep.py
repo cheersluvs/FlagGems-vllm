@@ -37,25 +37,23 @@ import time
 BASE = dict(num_rows=1, vocab=20000, top_k=1024, block=512, warps=16,
             watchdog=180)
 
-# One change off the baseline each. num_warps first: it is the value this card
-# cannot actually report.
-# Cut down while the hang is being located: the full grid is pointless if the
-# first case never finishes. Restore the rest once a case is known to complete.
-# Correctness, not compilability: the kernel now compiles and runs, and gives
-# the wrong answer at vocab=20000. `assume_aligned` requires
-# vocab_size % BLOCK_SIZE == 0, and 20000 % 512 = 32 -- so that launch took the
-# UNALIGNED path, which is where this backend has a recorded defect of masked
-# loads with a runtime row offset silently returning wrong data. These pair
-# aligned and unaligned vocabularies at the same size to test exactly that.
+# UB, now. The scan compaction materialises prefix sums the atomic never
+# needed, and at BLOCK_SIZE=512 with VEC=4 those tiles are [512,4] int32 -- the
+# backend reports needing 2589952 bits against 1572864 available, 316 KB
+# against 192. Tile size falls with BLOCK_SIZE, so sweep it, find the largest
+# that fits, and check the answer is right there too.
 CASES = [
-    ("vocab=2048  对齐 (2048%512=0)   k=64", dict(vocab=2048, top_k=64)),
-    ("vocab=2080  非对齐 (2080%512=32) k=64", dict(vocab=2080, top_k=64)),
-    ("vocab=20480 对齐                 k=64", dict(vocab=20480, top_k=64)),
-    ("vocab=20000 非对齐               k=64", dict(vocab=20000, top_k=64)),
-    ("vocab=20480 对齐                 k=1024", dict(vocab=20480, top_k=1024)),
-    ("vocab=20000 非对齐               k=1024", dict(vocab=20000, top_k=1024)),
-    ("vocab=512   对齐 且 = BLOCK      k=64", dict(vocab=512, top_k=64)),
-    ("num_rows=4  vocab=2048 对齐      k=64", dict(num_rows=4, vocab=2048, top_k=64)),
+    ("BLOCK=512  vocab=2048 k=64  (已知 UB 溢出)", dict(block=512, warps=16)),
+    ("BLOCK=256  vocab=2048 k=64", dict(block=256, warps=8)),
+    ("BLOCK=128  vocab=2048 k=64", dict(block=128, warps=4)),
+    ("BLOCK=64   vocab=2048 k=64", dict(block=64, warps=2)),
+    ("BLOCK=128  vocab=20480 k=64", dict(block=128, warps=4, vocab=20480)),
+    ("BLOCK=128  vocab=20480 k=1024",
+     dict(block=128, warps=4, vocab=20480, top_k=1024)),
+    ("BLOCK=128  vocab=20000 k=1024 非对齐",
+     dict(block=128, warps=4, vocab=20000, top_k=1024)),
+    ("BLOCK=128  num_rows=4 vocab=2048 k=64",
+     dict(block=128, warps=4, num_rows=4)),
 ]
 
 
