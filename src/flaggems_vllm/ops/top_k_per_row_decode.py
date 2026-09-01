@@ -237,8 +237,17 @@ else:
         else:
             excl = tl.cumsum(t, axis=0) - t
             total = tl.sum(t, axis=0)
+        # Barriers around the read-modify-write, or lanes in different warps
+        # read the same base and are handed the same destinations. Triton needs
+        # an explicit barrier for a store-then-load of one address inside a
+        # single program; without it this wrote 511 of 512 entries on a few
+        # percent of rows -- the same under-write signature the broken atomic
+        # produces, reached from the other side.
+        tl.debug_barrier()
         base = tl.load(cnt_scalar_ptr)
+        tl.debug_barrier()
         tl.store(cnt_scalar_ptr, base + total)
+        tl.debug_barrier()
         return base + excl
 
 
