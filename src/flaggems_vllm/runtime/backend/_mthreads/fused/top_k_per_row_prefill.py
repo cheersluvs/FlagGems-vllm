@@ -223,6 +223,26 @@ def _sampled_prefill(
     # acceptance window [TOPK, NFINAL] rather than its upper edge, which is what
     # the first version did -- aiming at the edge meant half the sampling error
     # pushed the count straight out of the window and into the retry.
+    # One wide scan, deliberately, where the generic operator loops in
+    # BLOCK_SIZE-wide rounds with tle.cumsum, a carried total and an early exit.
+    # That structure is not free: each round also pays a carry add, a threshold
+    # mask, two masked stores and a reduce_or. The generic operator needs all of
+    # it, because every round must yield threshold_bin_idx to prefix the next
+    # refinement step and final_bin_size to decide whether to take one -- and it
+    # splits elements three ways. This kernel needs a single cut and nothing
+    # else, so the bookkeeping has no reader and the scan can be one shot.
+    #
+    # Measured, transcribing the generic loop into this kernel verbatim
+    # (tools/mtt_scan_rounds.py), against this one wide scan:
+    #
+    #                    one 2048   tle x512   tle x1024
+    #     (64,129280)      157.1      156.8      157.6
+    #     (4,16385)         38.2       43.0       40.5
+    #     (16,65536)        63.7       65.2       65.6
+    #
+    # tle.cumsum is the right primitive for rounds -- it returns
+    # (prefix, total), and it beats tl.cumsum rounds by 3-6% on two of the three
+    # shapes -- but rounds themselves lose here whichever primitive runs them.
     sbins = tl.arange(0, SBINS)
     cum = tl.cumsum(tl.load(hp + sbins), axis=0)
     target = TARGET_RANK // SSTRIDE + 1
