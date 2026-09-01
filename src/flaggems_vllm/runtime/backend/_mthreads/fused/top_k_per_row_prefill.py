@@ -190,11 +190,16 @@ def _sampled_prefill(
         [1], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
         nv_mma_shared_layout=False,
     )
+    thrs = tle.gpu.alloc(
+        [1], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
     hp = tle.gpu.local_ptr(hist, (0,))
     fp = tle.gpu.local_ptr(fin, (0,))
     op = tle.gpu.local_ptr(oidx, (0,))
     cp = tle.gpu.local_ptr(ccnt, (0,))
     fvp = tle.gpu.local_ptr(cfound, (0,))
+    tp = tle.gpu.local_ptr(thrs, (0,))
 
     lane = tl.arange(0, BLOCK_SIZE)
     vec = tl.arange(0, VEC)
@@ -223,30 +228,33 @@ def _sampled_prefill(
     # acceptance window [TOPK, NFINAL] rather than its upper edge, which is what
     # the first version did -- aiming at the edge meant half the sampling error
     # pushed the count straight out of the window and into the retry.
-    # One wide scan, deliberately, where the generic operator loops in
-    # BLOCK_SIZE-wide rounds with tle.cumsum, a carried total and an early exit.
-    # That structure is not free: each round also pays a carry add, a threshold
-    # mask, two masked stores and a reduce_or. The generic operator needs all of
-    # it, because every round must yield threshold_bin_idx to prefix the next
-    # refinement step and final_bin_size to decide whether to take one -- and it
-    # splits elements three ways. This kernel needs a single cut and nothing
-    # else, so the bookkeeping has no reader and the scan can be one shot.
+    # EXPERIMENT (throwaway branch): the generic operator's own threshold loop,
+    # transcribed here in place of this kernel's single wide tl.cumsum --
+    # BLOCK_SIZE-wide rounds, tle.cumsum carrying the running total, a masked
+    # store to pick the single hit, and a block-uniform early exit.
     #
-    # Measured, transcribing the generic loop into this kernel verbatim
-    # (tools/mtt_scan_rounds.py), against this one wide scan:
-    #
-    #                    one 2048   tle x512   tle x1024
-    #     (64,129280)      157.1      156.8      157.6
-    #     (4,16385)         38.2       43.0       40.5
-    #     (16,65536)        63.7       65.2       65.6
-    #
-    # tle.cumsum is the right primitive for rounds -- it returns
-    # (prefix, total), and it beats tl.cumsum rounds by 3-6% on two of the three
-    # shapes -- but rounds themselves lose here whichever primitive runs them.
-    sbins = tl.arange(0, SBINS)
-    cum = tl.cumsum(tl.load(hp + sbins), axis=0)
+    # tools/mtt_scan_rounds.py says this is neutral at (64,129280) and worse on
+    # two other shapes. Run against the acceptance harness to see whether the
+    # probe and the benchmark agree, as they did for the gather change.
     target = TARGET_RANK // SSTRIDE + 1
-    thr_c = tl.min(tl.where(cum >= target, sbins, SBINS - 1), axis=0)
+    zeros1 = tl.zeros([BLOCK_SIZE], tl.int32)
+    tl.store(tp, SBINS - 1)
+    tl.debug_barrier()
+    last_value = 0
+    threshold_found = tl.full((), False, dtype=tl.int1)
+    for r in tl.static_range(0, SBINS // BLOCK_SIZE):
+        if not threshold_found:
+            b_idx = r * BLOCK_SIZE + lane
+            counts = tl.load(hp + b_idx)
+            ps, tot = tle.cumsum(counts, axis=0, reverse=False)
+            ps = ps + last_value
+            nxt = ps + counts
+            tmask = (ps < target) & (nxt >= target)
+            tl.store(tp + zeros1, b_idx, mask=tmask)
+            threshold_found = tl.reduce_or(tmask, axis=0)
+            last_value = last_value + tot
+    tl.debug_barrier()
+    thr_c = tl.load(tp)
     # Map back to the full bin space taking the WHOLE boundary coarse bin: at
     # SSHIFT=0 this is the exact threshold, and coarser settings deliberately
     # over-collect rather than under-collect, because falling short of TOPK
