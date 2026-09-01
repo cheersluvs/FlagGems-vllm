@@ -112,7 +112,10 @@ else:
         print("OK")
     else:
         same = int((a == b).sum())
-        print(f"COMPILED_BUT_WRONG  {k - same}/{k} 个值不符")
+        # No f-string here: TEMPLATE goes through .format(), which would read
+        # the braces as placeholders. It did, and every case died with
+        # KeyError: 'k - same' before a single kernel ran.
+        print("COMPILED_BUT_WRONG  " + str(k - same) + "/" + str(k) + " 个值不符")
 '''
 
 
