@@ -30,6 +30,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 
 BASE = dict(num_rows=1, vocab=20000, top_k=1024, block=512, warps=16)
 
@@ -111,8 +112,18 @@ def main():
         path = os.path.join(tmp, f"case_{i}.py")
         with open(path, "w") as f:
             f.write(TEMPLATE.format(**cfg))
-        r = subprocess.run([sys.executable, path], capture_output=True,
-                           text=True, env=env, timeout=1800)
+        # Announce BEFORE running. Each case pays a fresh CANN init plus a
+        # bisheng compile of a large kernel, so a case can take minutes and a
+        # silent terminal is indistinguishable from a hang.
+        print(f"  {name:<48}...", end="", flush=True)
+        t0 = time.time()
+        try:
+            r = subprocess.run([sys.executable, path], capture_output=True,
+                               text=True, env=env, timeout=600)
+        except subprocess.TimeoutExpired:
+            print(f"\r  {name:<48}超时 (>600s)", flush=True)
+            continue
+        dt = time.time() - t0
         out = (r.stdout or "").strip()
         if r.returncode == 0 and "OK" in out:
             verdict = "OK  编译且结果正确"
@@ -129,7 +140,7 @@ def main():
             if r.returncode < 0:
                 why = f"信号 {-r.returncode} abort  {why}"
             verdict = "FAIL  " + why
-        print(f"  {name:<48}{verdict}", flush=True)
+        print(f"\r  {name:<48}{verdict}   [{dt:.0f}s]", flush=True)
 
     print()
     print("  读法")
