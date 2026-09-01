@@ -174,7 +174,9 @@ def main():
             verdict = "OK"
         else:
             lines = [ln for ln in (r.stderr or "").strip().splitlines() if ln.strip()]
-            why = lines[-1][:52] if lines else f"exit={r.returncode}"
+            # not truncated: a clipped reason has hidden the answer three
+            # times in this bring-up
+            why = lines[-1] if lines else f"exit={r.returncode}"
             if r.returncode < 0:
                 why = f"信号 {-r.returncode} (abort/crash)  {why}"
             verdict = "FAIL  " + why

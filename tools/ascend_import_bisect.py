@@ -71,7 +71,8 @@ def main():
             verdict = "OK"
         else:
             tail = [ln for ln in r.stderr.strip().splitlines() if ln.strip()]
-            verdict = "FAIL  " + (tail[-1][:60] if tail else "?")
+            # not truncated: see ascend_param_sweep for why
+            verdict = "FAIL  " + (tail[-1] if tail else "?")
             if first_fail is None:
                 first_fail = step
         label = step if len(step) <= 60 else step[:57] + "..."
