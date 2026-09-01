@@ -53,8 +53,14 @@ CASES = [
 
 TEMPLATE = '''
 import torch
+from importlib import import_module
+
 import flaggems_vllm
-from flaggems_vllm.ops import top_k_per_row_prefill as M
+
+# import_module, NOT `from flaggems_vllm.ops import top_k_per_row_prefill as M`:
+# ops/__init__.py re-exports the FUNCTION under that name, so the latter binds a
+# function and every M.NUM_BINS is an AttributeError.
+M = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
 
 DEV = flaggems_vllm.device
 num_rows, vocab, top_k = {num_rows}, {vocab}, {top_k}
@@ -116,7 +122,10 @@ def main():
             verdict = "编译过了但结果不对: " + out.splitlines()[-1]
         else:
             lines = [ln for ln in (r.stderr or "").strip().splitlines() if ln.strip()]
-            why = lines[-1][:44] if lines else f"exit={r.returncode}"
+            # NOT truncated. Three times in this bring-up a clipped diagnostic
+            # hid the answer -- a NameError cut at 36 chars, a find piped
+            # through head -3, a traceback flushed above a tail. Long is fine.
+            why = lines[-1] if lines else f"exit={r.returncode}"
             if r.returncode < 0:
                 why = f"信号 {-r.returncode} abort  {why}"
             verdict = "FAIL  " + why
