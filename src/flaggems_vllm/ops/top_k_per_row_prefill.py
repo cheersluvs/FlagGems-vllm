@@ -1010,103 +1010,109 @@ def _top_k_per_row_job(
             tl.store(out_indices_ptr + pos, -1, mask=take_pad)
             if MULTIPLE_BLOCKS_PER_ROW:
                 tl.store(out_logits_ptr + pos, float("-inf"), mask=take_pad)
-        return
-    tl.store(s_final_cnt_ptr, 0)
-    tl.store(s_found_topk_values_ptr, 0)
-    tl.debug_barrier()
-    logit_pattern = tl.zeros((), dtype=tl.uint32)
-    continue_to_next_step = tl.full((), True, dtype=tl.int1)
-    threshold_bin_idx = tl.full((), -1, dtype=tl.int32)
-    for step_idx in tl.static_range(0, 4):
-        if continue_to_next_step:
-            (
-                continue_to_next_step,
-                logit_pattern,
-                threshold_bin_idx,
-            ) = _process_histogram_step(
-                logits_ptr,
-                row_start,
-                row_end,
-                stride1,
-                vocab_size,
-                skip_elems,
-                indices_ptr,
-                logit_pattern,
-                threshold_bin_idx,
-                assume_aligned,
-                s_histogram_ptr,
-                s_final_logits_ptr,
-                s_final_cnt_ptr,
-                s_threshold_bin_idx_ptr,
-                s_final_bin_size_ptr,
-                s_found_topk_values_ptr,
-                s_out_indices_ptr,
-                s_out_logits_ptr,
-                STEP=step_idx,
-                TOPK=TOPK,
-                BLOCK_SIZE=BLOCK_SIZE,
-                HAS_TLE=HAS_TLE,
-                MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
-                MERGE_BLOCKS=MERGE_BLOCKS,
-            )
+    else:
+        # An early `return` inside this branch is what the Ascend
+        # backend's TritonToLinalgIncubated pass aborts on:
+        #   UseDefLists.h:198 'Cannot destroy a value that still
+        #   has uses!'  with OperandType = BlockOperand.
+        # An if/else is the same computation without the extra
+        # block terminator, so the guard is inverted instead.
+        tl.store(s_final_cnt_ptr, 0)
+        tl.store(s_found_topk_values_ptr, 0)
+        tl.debug_barrier()
+        logit_pattern = tl.zeros((), dtype=tl.uint32)
+        continue_to_next_step = tl.full((), True, dtype=tl.int1)
+        threshold_bin_idx = tl.full((), -1, dtype=tl.int32)
+        for step_idx in tl.static_range(0, 4):
+            if continue_to_next_step:
+                (
+                    continue_to_next_step,
+                    logit_pattern,
+                    threshold_bin_idx,
+                ) = _process_histogram_step(
+                    logits_ptr,
+                    row_start,
+                    row_end,
+                    stride1,
+                    vocab_size,
+                    skip_elems,
+                    indices_ptr,
+                    logit_pattern,
+                    threshold_bin_idx,
+                    assume_aligned,
+                    s_histogram_ptr,
+                    s_final_logits_ptr,
+                    s_final_cnt_ptr,
+                    s_threshold_bin_idx_ptr,
+                    s_final_bin_size_ptr,
+                    s_found_topk_values_ptr,
+                    s_out_indices_ptr,
+                    s_out_logits_ptr,
+                    STEP=step_idx,
+                    TOPK=TOPK,
+                    BLOCK_SIZE=BLOCK_SIZE,
+                    HAS_TLE=HAS_TLE,
+                    MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
+                    MERGE_BLOCKS=MERGE_BLOCKS,
+                )
 
-    if not continue_to_next_step:
-        if USE_RADIX_FINAL and HAS_TLE:
-            _final_select_radix(
-                s_histogram_ptr,
-                s_final_logits_ptr,
-                s_final_cnt_ptr,
-                s_found_topk_values_ptr,
-                s_out_indices_ptr,
-                s_out_logits_ptr,
-                TOPK=TOPK,
-                BLOCK_SIZE=BLOCK_SIZE,
-                MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
-            )
-        else:
-            base_idx = tl.load(s_found_topk_values_ptr)
-            # Guard against stale/oversized counts to avoid out-of-bounds accesses
-            # in the shared-memory final buffers.
-            final_cnt = tl.minimum(tl.load(s_final_cnt_ptr), NUM_FINAL_ITEMS)
-            sort_chunks = tl.cdiv(final_cnt, BLOCK_SIZE)
-            for sort_chunk in tl.range(0, sort_chunks):
-                pos = sort_chunk * BLOCK_SIZE + lane
-                valid = pos < final_cnt
-                logit_i = tl.load(
-                    s_final_logits_ptr + pos,
-                    mask=valid,
-                    other=0,
+        if not continue_to_next_step:
+            if USE_RADIX_FINAL and HAS_TLE:
+                _final_select_radix(
+                    s_histogram_ptr,
+                    s_final_logits_ptr,
+                    s_final_cnt_ptr,
+                    s_found_topk_values_ptr,
+                    s_out_indices_ptr,
+                    s_out_logits_ptr,
+                    TOPK=TOPK,
+                    BLOCK_SIZE=BLOCK_SIZE,
+                    MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
                 )
-                out_rank = tl.zeros([BLOCK_SIZE], dtype=tl.int32)
-                for j in tl.range(0, final_cnt):
-                    logit_j = tl.load(s_final_logits_ptr + j)
-                    better = (logit_i < logit_j) | ((logit_i == logit_j) & (pos < j))
-                    out_rank = out_rank + (valid & better).to(tl.int32)
-                dst_pos = base_idx + out_rank
-                take = valid & (dst_pos < TOPK)
-                idx_i = tl.load(
-                    s_histogram_ptr + pos,
-                    mask=take,
-                    other=0,
-                )
-                tl.store(s_out_indices_ptr + dst_pos, idx_i, mask=take)
+            else:
+                base_idx = tl.load(s_found_topk_values_ptr)
+                # Guard against stale/oversized counts to avoid out-of-bounds accesses
+                # in the shared-memory final buffers.
+                final_cnt = tl.minimum(tl.load(s_final_cnt_ptr), NUM_FINAL_ITEMS)
+                sort_chunks = tl.cdiv(final_cnt, BLOCK_SIZE)
+                for sort_chunk in tl.range(0, sort_chunks):
+                    pos = sort_chunk * BLOCK_SIZE + lane
+                    valid = pos < final_cnt
+                    logit_i = tl.load(
+                        s_final_logits_ptr + pos,
+                        mask=valid,
+                        other=0,
+                    )
+                    out_rank = tl.zeros([BLOCK_SIZE], dtype=tl.int32)
+                    for j in tl.range(0, final_cnt):
+                        logit_j = tl.load(s_final_logits_ptr + j)
+                        better = (logit_i < logit_j) | ((logit_i == logit_j) & (pos < j))
+                        out_rank = out_rank + (valid & better).to(tl.int32)
+                    dst_pos = base_idx + out_rank
+                    take = valid & (dst_pos < TOPK)
+                    idx_i = tl.load(
+                        s_histogram_ptr + pos,
+                        mask=take,
+                        other=0,
+                    )
+                    tl.store(s_out_indices_ptr + dst_pos, idx_i, mask=take)
+                    if MULTIPLE_BLOCKS_PER_ROW:
+                        tl.store(s_out_logits_ptr + dst_pos, logit_i, mask=take)
+                tl.debug_barrier()
+
+        # out_indices_ptr is identical to s_out_indices_ptr for non-tle
+        if HAS_TLE:
+            flush_chunks: tl.constexpr = (TOPK + BLOCK_SIZE - 1) // BLOCK_SIZE
+            for flush_chunk in tl.static_range(flush_chunks):
+                pos = flush_chunk * BLOCK_SIZE + lane
+                mask = pos < TOPK
+                out_vals = tl.load(s_out_indices_ptr + pos, mask=mask, other=-1)
+                tl.store(out_indices_ptr + pos, out_vals, mask=mask)
                 if MULTIPLE_BLOCKS_PER_ROW:
-                    tl.store(s_out_logits_ptr + dst_pos, logit_i, mask=take)
-            tl.debug_barrier()
-
-    # out_indices_ptr is identical to s_out_indices_ptr for non-tle
-    if HAS_TLE:
-        flush_chunks: tl.constexpr = (TOPK + BLOCK_SIZE - 1) // BLOCK_SIZE
-        for flush_chunk in tl.static_range(flush_chunks):
-            pos = flush_chunk * BLOCK_SIZE + lane
-            mask = pos < TOPK
-            out_vals = tl.load(s_out_indices_ptr + pos, mask=mask, other=-1)
-            tl.store(out_indices_ptr + pos, out_vals, mask=mask)
-            if MULTIPLE_BLOCKS_PER_ROW:
-                split_logits = tl.load(
-                    s_out_logits_ptr + pos, mask=mask, other=float("-inf")
-                )
-                tl.store(out_logits_ptr + pos, split_logits, mask=mask)
+                    split_logits = tl.load(
+                        s_out_logits_ptr + pos, mask=mask, other=float("-inf")
+                    )
+                    tl.store(out_logits_ptr + pos, split_logits, mask=mask)
 
 
 # End of shared implementation code for top_k_per_row_decode and top_k_per_row_prefill
