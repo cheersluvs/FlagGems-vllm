@@ -83,11 +83,14 @@ BLOCK, WARPS = {block}, {warps}
 
 torch.manual_seed(0)
 logits = torch.randn((num_rows, vocab), dtype=torch.float32, device=DEV)
-indices = torch.empty((num_rows, top_k), dtype=torch.int32, device=DEV)
+# Sentinel, not torch.empty: 'indices out of range' cannot distinguish a kernel
+# that wrote garbage from one that wrote NOTHING and left uninitialised memory.
+SENT = -987654321
+indices = torch.full((num_rows, top_k), SENT, dtype=torch.int32, device=DEV)
 starts = torch.zeros((num_rows,), dtype=torch.int32, device=DEV)
 ends = torch.full((num_rows,), vocab, dtype=torch.int32, device=DEV)
 
-hist = torch.empty((num_rows, M.NUM_BINS), device=DEV, dtype=torch.int32)
+hist = torch.full((num_rows, M.NUM_BINS), SENT, device=DEV, dtype=torch.int32)
 fin = torch.empty((num_rows, M.NUM_FILNAL_ITEMS), device=DEV, dtype=torch.float32)
 cnt = torch.empty((num_rows,), device=DEV, dtype=torch.int32)
 thr = torch.empty((num_rows,), device=DEV, dtype=torch.int32)
@@ -103,8 +106,15 @@ flaggems_vllm.runtime.torch_device_fn.synchronize()
 
 k = min(top_k, vocab)
 got = indices[0, :k].to(torch.int64)
-if int(got.min()) < 0 or int(got.max()) >= vocab:
-    print("COMPILED_BUT_BAD_INDICES")
+written = int((indices != SENT).sum())
+hist_written = int((hist != SENT).sum())
+total = num_rows * top_k
+if written == 0:
+    print("RAN_BUT_WROTE_NOTHING  直方图被写 " + str(hist_written) + " 项")
+elif int(got.min()) < 0 or int(got.max()) >= vocab:
+    print("BAD_INDICES  写了 " + str(written) + "/" + str(total)
+          + "  范围[" + str(int(got.min())) + "," + str(int(got.max()))
+          + "]  直方图被写 " + str(hist_written))
 else:
     a = torch.sort(logits[0][got]).values
     b = torch.sort(torch.topk(logits[0], k, largest=True, sorted=False).values).values
@@ -176,7 +186,7 @@ def main():
             verdict = "OK  编译且结果正确"
             if first_ok is None:
                 first_ok = name
-        elif "COMPILED_BUT" in out:
+        elif any(s in out for s in ("COMPILED_BUT", "BAD_INDICES", "RAN_BUT")):
             verdict = "编译过了但结果不对: " + out.splitlines()[-1]
         else:
             if "Timeout (0:0" in err or "dump_traceback_later" in err:
