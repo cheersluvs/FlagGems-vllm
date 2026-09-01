@@ -258,6 +258,18 @@ else:
         return base + excl
 
 
+# The scan compaction materialises prefix sums the atomic never needed, so its
+# tiles cost more unified buffer. Measured on Ascend: BLOCK_SIZE=512 with VEC=4
+# asks for 2589952 bits against 1572864 available -- 316 KB against 192 -- and
+# the compile does not finish. 256 and 128 both fit and compile in about 20 s.
+# Only the scan path pays this; where the atomic works the block size is
+# untouched.
+SCAN_BLOCK_SIZE = int(os.environ.get("FLAGGEMS_SCAN_BLOCK_SIZE", "256"))
+
+
+def _compaction_block_size() -> int:
+    return NUM_THREADS_PER_BLOCK if HAS_ATOMIC_RETURN else SCAN_BLOCK_SIZE
+
 # tl.reduce_or does not exist in every Triton build. It is absent from the
 # Ascend backend's 3.2.0, where its use below made both operators fail to
 # compile at all:
@@ -1549,7 +1561,7 @@ def top_k_per_row_prefill(
             s_final_bin_size_ptr,
             s_found_topk_values_ptr,
             TOPK=top_k,
-            BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
+            BLOCK_SIZE=_compaction_block_size(),
             ROW_OFFSET=0,
-            num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
+            num_warps=_num_warps(_compaction_block_size()),
         )
