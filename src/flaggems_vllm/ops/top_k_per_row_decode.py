@@ -168,6 +168,65 @@ else:
         pass
 
 
+def _atomic_return_reliable() -> bool:
+    """Are this backend's per-lane atomic return values trustworthy?
+
+    On Ascend they are not. Ten-line repro (tools/triton_smoke.py probes 12-14):
+    512 lanes each add 1 to one counter, the counter correctly ends at 512, and
+    the RETURNED values hold only 65 distinct numbers instead of 0..511. Used as
+    store addresses those collide, and a masked store with duplicate lane
+    addresses is silently dropped there -- exactly the shape of the failure: the
+    histogram, whose accumulation ignores its return, comes out complete, while
+    the output buffer gets 7 of 64 entries, every one of them valid.
+
+    Not feature-detectable: the call compiles and the count is right, only the
+    returned values are wrong. Vendor-keyed, defaulting to ON so every backend
+    where this operator is already validated keeps the atomic path.
+    FLAGGEMS_ATOMIC_RETURN=0/1 overrides for retesting.
+    """
+    override = os.environ.get("FLAGGEMS_ATOMIC_RETURN")
+    if override is not None:
+        return override.lower() not in {"0", "false", "off", "no"}
+    try:
+        return getattr(runtime.device.info, "vendor_name", "") not in ("ascend",)
+    except Exception:  # noqa: BLE001 - detection must never break dispatch
+        return True
+
+
+HAS_ATOMIC_RETURN = _atomic_return_reliable()
+
+
+if HAS_ATOMIC_RETURN:
+
+    @triton.jit
+    def _compact_pos(cnt_scalar_ptr, cnt_bcast_ptrs, ones, take):
+        return tl.atomic_add(
+            cnt_bcast_ptrs, ones, mask=take, sem="relaxed", scope="cta"
+        )
+
+else:
+
+    @triton.jit
+    def _compact_pos(cnt_scalar_ptr, cnt_bcast_ptrs, ones, take):
+        """Same destinations, from a scan instead of the atomic's return.
+
+        Each counter here is per-row and the grid is one program per row, so
+        there is no cross-program contention to serialise -- the atomic was only
+        ever providing unique offsets within a tile and a running base across
+        tiles. An exclusive prefix sum gives the first, a read-modify-write of
+        the scalar gives the second.
+
+        Measured 5.3x slower than the atomic on Moore Threads, which is why this
+        is gated rather than adopted: correct everywhere, worth paying for only
+        where the atomic cannot be trusted.
+        """
+        t = take.to(tl.int32)
+        excl = tl.cumsum(t, axis=0) - t
+        base = tl.load(cnt_scalar_ptr)
+        tl.store(cnt_scalar_ptr, base + tl.sum(t, axis=0))
+        return base + excl
+
+
 # tl.reduce_or does not exist in every Triton build. It is absent from the
 # Ascend backend's 3.2.0, where its use below made both operators fail to
 # compile at all:
@@ -301,6 +360,8 @@ def _process_bins(
     offs,  # row_start based
     found_topk_values_ptrs,
     final_cnt_ptrs,
+    s_found_topk_values_ptr,
+    s_final_cnt_ptr,
     logit_pattern,
     threshold_bin_idx,
     write_directly,
@@ -325,12 +386,8 @@ def _process_bins(
         STEP=STEP,
     )
     take_lt = is_partial_match & (bin_idx < threshold_bin_idx) & write_directly
-    out_pos_lt = tl.atomic_add(
-        found_topk_values_ptrs,
-        ones,
-        mask=take_lt,
-        sem="relaxed",
-        scope="cta",
+    out_pos_lt = _compact_pos(
+        s_found_topk_values_ptr, found_topk_values_ptrs, ones, take_lt
     )
     if MERGE_BLOCKS:
         indices = tl.load(
@@ -363,12 +420,8 @@ def _process_bins(
     if STEP < 3:
         if use_final:
             take_eq_final = is_partial_match & (bin_idx == threshold_bin_idx)
-            final_pos = tl.atomic_add(
-                final_cnt_ptrs,
-                ones,
-                mask=take_eq_final,
-                sem="relaxed",
-                scope="cta",
+            final_pos = _compact_pos(
+                s_final_cnt_ptr, final_cnt_ptrs, ones, take_eq_final
             )
             tl.store(
                 s_final_logits_ptr + final_pos,
@@ -401,12 +454,14 @@ def _process_bins(
     else:
         take_eq = is_partial_match & (bin_idx == threshold_bin_idx)
         # s_histogram_ptr being used for exclude prefix sum
-        out_pos_eq = tl.atomic_add(
+        # At STEP 3 every taken lane has bin_idx == threshold_bin_idx, so the
+        # per-lane counter address is a single address and the scalar form is
+        # exact.
+        out_pos_eq = _compact_pos(
+            s_histogram_ptr + threshold_bin_idx,
             s_histogram_ptr + bin_idx,
             ones,
-            mask=take_eq,
-            sem="relaxed",
-            scope="cta",
+            take_eq,
         )
         if MERGE_BLOCKS:
             indices = tl.load(
@@ -645,6 +700,8 @@ def _process_histogram_step(
                 offs,
                 found_ptrs_vec_2d,
                 final_cnt_ptrs_vec_2d,
+                s_found_topk_values_ptr,
+                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -670,6 +727,8 @@ def _process_histogram_step(
                 offs,
                 found_ptrs,
                 final_cnt_ptrs,
+                s_found_topk_values_ptr,
+                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -704,6 +763,8 @@ def _process_histogram_step(
                 offs + skip_elems,
                 found_ptrs_vec_2d,
                 final_cnt_ptrs_vec_2d,
+                s_found_topk_values_ptr,
+                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -729,6 +790,8 @@ def _process_histogram_step(
                 offs + skip_elems,
                 found_ptrs,
                 final_cnt_ptrs,
+                s_found_topk_values_ptr,
+                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -757,6 +820,8 @@ def _process_histogram_step(
                 offs,
                 found_ptrs,
                 final_cnt_ptrs,
+                s_found_topk_values_ptr,
+                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -783,6 +848,8 @@ def _process_histogram_step(
                 offs + skip_elems,
                 found_ptrs,
                 final_cnt_ptrs,
+                s_found_topk_values_ptr,
+                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -816,6 +883,8 @@ def _process_histogram_step(
                 offs,
                 found_ptrs,
                 final_cnt_ptrs,
+                s_found_topk_values_ptr,
+                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
