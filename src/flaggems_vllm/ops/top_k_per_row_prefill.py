@@ -243,13 +243,24 @@ def _extract_bin_idx(x, in_range, pattern, STEP: tl.constexpr):
         bin_idx = (mapped >> 5).to(tl.int32)
     else:
         bits = _convert_to_uint32(x)
+        # Every branch lands in int32, matching STEP 0 above. The masks leave 11
+        # or 10 bits, so the range is 0..2047 and the signed type holds it
+        # exactly. The uint32 form is what produced
+        #
+        #   'hivm.hir.vcast' op currently don't support cast
+        #   uint32_t_to_uint64_t_rintmode
+        #
+        # on Ascend: the result is used as `s_histogram_ptr + bin_idx`, and
+        # promoting an unsigned 32-bit offset to the 64-bit one pointer
+        # arithmetic wants is the cast that backend cannot lower. Signed
+        # promotes fine. The bit patterns are identical either way.
         if STEP == 1:
-            bin_idx = bits >> 21
+            bin_idx = (bits >> 21).to(tl.int32)
         elif STEP == 2:
-            bin_idx = (bits >> 10) & 0x7FF
+            bin_idx = ((bits >> 10) & 0x7FF).to(tl.int32)
             is_partial_match &= ((bits ^ pattern) >> 21) == 0
         elif STEP == 3:
-            bin_idx = bits & 0x3FF
+            bin_idx = (bits & 0x3FF).to(tl.int32)
             is_partial_match &= ((bits ^ pattern) >> 10) == 0
     return bin_idx, is_partial_match
 
