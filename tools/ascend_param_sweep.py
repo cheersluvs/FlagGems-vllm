@@ -27,6 +27,8 @@ not allow. Both were learned the hard way here.
 """
 
 import os
+import pathlib
+import signal
 import subprocess
 import sys
 import tempfile
@@ -129,22 +131,47 @@ def main():
         # silent terminal is indistinguishable from a hang.
         print(f"  {name:<48}...", end="", flush=True)
         t0 = time.time()
-        try:
-            r = subprocess.run([sys.executable, path], capture_output=True,
-                               text=True, env=env, timeout=240)
-        except subprocess.TimeoutExpired:
-            print(f"\r  {name:<48}外层超时 (>240s)", flush=True)
-            continue
+        # To FILES, not pipes, and in its own process group.
+        #
+        # capture_output=True waits for the pipes to close, and Triton spawns a
+        # compiler child that inherits them -- so when the in-process watchdog
+        # killed our probe at 180s the grandchild kept the pipes open, run()
+        # blocked to the outer timeout, and TimeoutExpired discarded exactly the
+        # stack dump the watchdog had just written. Thirteen cases reported
+        # "outer timeout" and not one showed where it was stuck.
+        op = os.path.join(tmp, f"case_{i}.out")
+        ep = os.path.join(tmp, f"case_{i}.err")
+        timed_out = False
+        with open(op, "w") as fo, open(ep, "w") as fe:
+            proc = subprocess.Popen([sys.executable, path], stdout=fo, stderr=fe,
+                                    env=env, start_new_session=True)
+            try:
+                proc.wait(timeout=300)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait(timeout=30)
         dt = time.time() - t0
-        out = (r.stdout or "").strip()
-        if r.returncode == 0 and "OK" in out:
+        rc = proc.returncode
+        out = pathlib.Path(op).read_text().strip()
+        err = pathlib.Path(ep).read_text().strip()
+        if timed_out:
+            print(f"\r  {name:<48}外层超时 (>300s)   [{dt:.0f}s]", flush=True)
+            frames = [ln for ln in err.splitlines() if ln.strip().startswith("File ")]
+            for fr in frames[-10:]:
+                print(f"        {fr.strip()}", flush=True)
+            continue
+        r = None
+        if rc == 0 and "OK" in out:
             verdict = "OK  编译且结果正确"
             if first_ok is None:
                 first_ok = name
         elif "COMPILED_BUT" in out:
             verdict = "编译过了但结果不对: " + out.splitlines()[-1]
         else:
-            err = (r.stderr or "").strip()
             if "Timeout (0:0" in err or "dump_traceback_later" in err:
                 # the watchdog fired: show where it was stuck, not just that it was
                 frames = [ln for ln in err.splitlines()
@@ -158,9 +185,9 @@ def main():
             # NOT truncated. Three times in this bring-up a clipped diagnostic
             # hid the answer -- a NameError cut at 36 chars, a find piped
             # through head -3, a traceback flushed above a tail. Long is fine.
-            why = lines[-1] if lines else f"exit={r.returncode}"
-            if r.returncode < 0:
-                why = f"信号 {-r.returncode} abort  {why}"
+            why = lines[-1] if lines else f"exit={rc}"
+            if rc is not None and rc < 0:
+                why = f"信号 {-rc} abort  {why}"
             verdict = "FAIL  " + why
         print(f"\r  {name:<48}{verdict}   [{dt:.0f}s]", flush=True)
 
