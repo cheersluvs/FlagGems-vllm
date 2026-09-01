@@ -41,23 +41,23 @@ BASE = dict(num_rows=1, vocab=20000, top_k=1024, block=512, warps=16,
 # cannot actually report.
 # Cut down while the hang is being located: the full grid is pointless if the
 # first case never finishes. Restore the rest once a case is known to complete.
+# Correctness, not compilability: the kernel now compiles and runs, and gives
+# the wrong answer at vocab=20000. `assume_aligned` requires
+# vocab_size % BLOCK_SIZE == 0, and 20000 % 512 = 32 -- so that launch took the
+# UNALIGNED path, which is where this backend has a recorded defect of masked
+# loads with a runtime row offset silently returning wrong data. These pair
+# aligned and unaligned vocabularies at the same size to test exactly that.
 CASES = [
-    ("最小组合 block=128 warps=1 k=64 vocab=2048",
-     dict(block=128, warps=1, top_k=64, vocab=2048)),
-    ("基线 (block=512 warps=16 k=1024 vocab=20000)", {}),
-    ("num_warps=1", dict(warps=1)),
-    ("num_warps=2", dict(warps=2)),
-    ("num_warps=4", dict(warps=4)),
-    ("num_warps=8", dict(warps=8)),
-    ("BLOCK_SIZE=128 (warps=4)", dict(block=128, warps=4)),
-    ("BLOCK_SIZE=256 (warps=8)", dict(block=256, warps=8)),
-    ("TOPK=64", dict(top_k=64)),
-    ("TOPK=256", dict(top_k=256)),
-    ("vocab=2048", dict(vocab=2048)),
-    ("vocab=2048 且 TOPK=64", dict(vocab=2048, top_k=64)),
-    ("最小组合 block=128 warps=1 k=64 vocab=2048",
-     dict(block=128, warps=1, top_k=64, vocab=2048)),
+    ("vocab=2048  对齐 (2048%512=0)   k=64", dict(vocab=2048, top_k=64)),
+    ("vocab=2080  非对齐 (2080%512=32) k=64", dict(vocab=2080, top_k=64)),
+    ("vocab=20480 对齐                 k=64", dict(vocab=20480, top_k=64)),
+    ("vocab=20000 非对齐               k=64", dict(vocab=20000, top_k=64)),
+    ("vocab=20480 对齐                 k=1024", dict(vocab=20480, top_k=1024)),
+    ("vocab=20000 非对齐               k=1024", dict(vocab=20000, top_k=1024)),
+    ("vocab=512   对齐 且 = BLOCK      k=64", dict(vocab=512, top_k=64)),
+    ("num_rows=4  vocab=2048 对齐      k=64", dict(num_rows=4, vocab=2048, top_k=64)),
 ]
+
 
 TEMPLATE = '''
 import faulthandler
@@ -108,7 +108,11 @@ if int(got.min()) < 0 or int(got.max()) >= vocab:
 else:
     a = torch.sort(logits[0][got]).values
     b = torch.sort(torch.topk(logits[0], k, largest=True, sorted=False).values).values
-    print("OK" if torch.equal(a, b) else "COMPILED_BUT_WRONG")
+    if torch.equal(a, b):
+        print("OK")
+    else:
+        same = int((a == b).sum())
+        print(f"COMPILED_BUT_WRONG  {k - same}/{k} 个值不符")
 '''
 
 
