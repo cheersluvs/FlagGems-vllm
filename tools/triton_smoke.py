@@ -190,6 +190,51 @@ h = torch.randint(0, 4, (2048,), dtype=torch.int32, device=DEV)
 y = torch.zeros(2048, dtype=torch.int32, device=DEV)
 k[(1,)](h, y, BLOCK=512, R=4, TOPK=64)
 """),
+    ("12. atomic_add 的返回值是不是每 lane 唯一", """
+@triton.jit
+def k(CNT, POS, BLOCK: tl.constexpr):
+    lane = tl.arange(0, BLOCK)
+    p = tl.atomic_add(CNT + tl.zeros([BLOCK], tl.int32),
+                      tl.full([BLOCK], 1, tl.int32), sem="relaxed")
+    tl.store(POS + lane, p)          # 直接把返回值存下来，不当地址用
+cnt = torch.zeros(1, dtype=torch.int32, device=DEV)
+pos = torch.full((512,), -1, dtype=torch.int32, device=DEV)
+k[(1,)](cnt, pos, BLOCK=512)
+got = sorted(pos.cpu().tolist())
+assert int(cnt[0]) == 512, "计数错: " + str(int(cnt[0]))
+assert got == list(range(512)), ("返回值不是 0..511 的排列，重复/缺失 "
+                                 + str(512 - len(set(got))) + " 个")
+"""),
+    ("13. 用返回值当地址做 scatter（算子的写法）", """
+@triton.jit
+def k(CNT, OUT, BLOCK: tl.constexpr):
+    lane = tl.arange(0, BLOCK)
+    p = tl.atomic_add(CNT + tl.zeros([BLOCK], tl.int32),
+                      tl.full([BLOCK], 1, tl.int32), sem="relaxed")
+    tl.store(OUT + p, lane.to(tl.int32), mask=p < BLOCK)
+cnt = torch.zeros(1, dtype=torch.int32, device=DEV)
+out = torch.full((512,), -1, dtype=torch.int32, device=DEV)
+k[(1,)](cnt, out, BLOCK=512)
+missing = int((out == -1).sum())
+assert missing == 0, ("scatter 漏写 " + str(missing) + "/512 项"
+                      + "  计数=" + str(int(cnt[0])))
+"""),
+    ("14. 同上但带 mask（只有一半 lane 参与）", """
+@triton.jit
+def k(CNT, OUT, BLOCK: tl.constexpr):
+    lane = tl.arange(0, BLOCK)
+    take = (lane % 2) == 0
+    p = tl.atomic_add(CNT + tl.zeros([BLOCK], tl.int32),
+                      tl.full([BLOCK], 1, tl.int32), mask=take, sem="relaxed")
+    tl.store(OUT + p, lane.to(tl.int32), mask=take & (p < BLOCK))
+cnt = torch.zeros(1, dtype=torch.int32, device=DEV)
+out = torch.full((512,), -1, dtype=torch.int32, device=DEV)
+k[(1,)](cnt, out, BLOCK=512)
+n = int(cnt[0])
+written = int((out != -1).sum())
+assert n == 256, "计数应为 256，实为 " + str(n)
+assert written == 256, ("应写 256 项，实写 " + str(written))
+"""),
 ]
 
 
