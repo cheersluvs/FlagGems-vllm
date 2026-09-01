@@ -141,7 +141,7 @@ def k(X, Y, BLOCK: tl.constexpr, R: tl.constexpr):
 x = torch.rand(N, device=DEV); y = torch.empty_like(x)
 k[(1,)](x, y, BLOCK=N, R=4)
 """),
-    ("9. tl.cumsum(reverse=True)  ← 非 TLE 分支实际用的", """
+    ("9. tl.cumsum(reverse=True)  <- 非 TLE 分支实际用的", """
 @triton.jit
 def k(X, Y, BLOCK: tl.constexpr):
     i = tl.arange(0, BLOCK)
@@ -191,3 +191,57 @@ y = torch.zeros(2048, dtype=torch.int32, device=DEV)
 k[(1,)](h, y, BLOCK=512, R=4, TOPK=64)
 """),
 ]
+
+
+def main():
+    print("=" * 78)
+    print("  Triton 构造冒烟：由简到繁，第一个失败的就是元凶")
+    print("=" * 78)
+    try:
+        import triton
+
+        print(f"  triton {triton.__version__}  @ {os.path.dirname(triton.__file__)}")
+    except ImportError:
+        print("  !! 没有 triton")
+        return 1
+    print(f"  {'探针':<44}结果\n")
+
+    env = dict(os.environ)
+    first = None
+    # To a FILE, not `python -c`: Triton's JIT reads a kernel back with
+    # inspect.getsource(), and a -c string has no file to read, so every probe
+    # that defined a @triton.jit function died with
+    # "OSError: could not get source code" before the compiler was ever reached.
+    tmp = tempfile.mkdtemp(prefix="triton_smoke_")
+    for idx, (name, body) in enumerate(PROBES):
+        path = os.path.join(tmp, f"probe_{idx}.py")
+        with open(path, "w") as f:
+            f.write(HEAD + body + TAIL)
+        r = subprocess.run([sys.executable, path], capture_output=True,
+                           text=True, env=env, timeout=900)
+        if r.returncode == 0 and "OK" in r.stdout:
+            verdict = "OK"
+        else:
+            lines = [ln for ln in (r.stderr or "").strip().splitlines() if ln.strip()]
+            # not truncated: a clipped reason has hidden the answer three
+            # times in this bring-up
+            why = lines[-1] if lines else f"exit={r.returncode}"
+            if r.returncode < 0:
+                why = f"信号 {-r.returncode} (abort/crash)  {why}"
+            verdict = "FAIL  " + why
+            if first is None:
+                first = name
+        print(f"  {name:<44}{verdict}", flush=True)
+
+    print()
+    if first is None:
+        print("  全部通过 —— 编译器能处理算子用到的每一种构造，")
+        print("  崩溃出在它们的组合或规模上，需要在真算子上二分。")
+    else:
+        print(f"  第一个失败: {first}")
+        print("  探针 0 必须 OK；它失败就说明环境没准备好，与 Triton 无关。")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
