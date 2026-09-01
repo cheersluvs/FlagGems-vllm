@@ -32,11 +32,16 @@ import sys
 import tempfile
 import time
 
-BASE = dict(num_rows=1, vocab=20000, top_k=1024, block=512, warps=16)
+BASE = dict(num_rows=1, vocab=20000, top_k=1024, block=512, warps=16,
+            watchdog=180)
 
 # One change off the baseline each. num_warps first: it is the value this card
 # cannot actually report.
+# Cut down while the hang is being located: the full grid is pointless if the
+# first case never finishes. Restore the rest once a case is known to complete.
 CASES = [
+    ("最小组合 block=128 warps=1 k=64 vocab=2048",
+     dict(block=128, warps=1, top_k=64, vocab=2048)),
     ("基线 (block=512 warps=16 k=1024 vocab=20000)", {}),
     ("num_warps=1", dict(warps=1)),
     ("num_warps=2", dict(warps=2)),
@@ -53,6 +58,13 @@ CASES = [
 ]
 
 TEMPLATE = '''
+import faulthandler
+# A hung case is useless without a stack. The Ascend frontend runs its MLIR
+# passes IN PROCESS -- the abort we first saw came from one -- so a case that
+# stops making progress leaves no bisheng child and nothing in the Triton
+# cache, and there is otherwise no way to tell a slow pass from a spin.
+faulthandler.dump_traceback_later({watchdog}, exit=True)
+
 import torch
 from importlib import import_module
 
@@ -119,9 +131,9 @@ def main():
         t0 = time.time()
         try:
             r = subprocess.run([sys.executable, path], capture_output=True,
-                               text=True, env=env, timeout=600)
+                               text=True, env=env, timeout=240)
         except subprocess.TimeoutExpired:
-            print(f"\r  {name:<48}超时 (>600s)", flush=True)
+            print(f"\r  {name:<48}外层超时 (>240s)", flush=True)
             continue
         dt = time.time() - t0
         out = (r.stdout or "").strip()
@@ -132,7 +144,17 @@ def main():
         elif "COMPILED_BUT" in out:
             verdict = "编译过了但结果不对: " + out.splitlines()[-1]
         else:
-            lines = [ln for ln in (r.stderr or "").strip().splitlines() if ln.strip()]
+            err = (r.stderr or "").strip()
+            if "Timeout (0:0" in err or "dump_traceback_later" in err:
+                # the watchdog fired: show where it was stuck, not just that it was
+                frames = [ln for ln in err.splitlines()
+                          if ln.strip().startswith("File ")]
+                print(f"\r  {name:<48}卡死 (>{cfg['watchdog']}s)   [{dt:.0f}s]",
+                      flush=True)
+                for fr in frames[-8:]:
+                    print(f"        {fr.strip()}", flush=True)
+                continue
+            lines = [ln for ln in err.splitlines() if ln.strip()]
             # NOT truncated. Three times in this bring-up a clipped diagnostic
             # hid the answer -- a NameError cut at 36 chars, a find piped
             # through head -3, a traceback flushed above a tail. Long is fine.
