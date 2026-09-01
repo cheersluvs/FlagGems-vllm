@@ -243,6 +243,14 @@ def _sampled_prefill(
     # tle.cumsum is the right primitive for rounds -- it returns
     # (prefix, total), and it beats tl.cumsum rounds by 3-6% on two of the three
     # shapes -- but rounds themselves lose here whichever primitive runs them.
+    #
+    # Cross-checked by wiring the generic loop into this operator for real and
+    # running the acceptance benchmark: (64, 129280) came out 0.903 against the
+    # probe's predicted 0.903 and this kernel's 0.902, the five run-stable
+    # shapes moved by at most 0.4% and their geomean by 0.001, and correctness
+    # held at 20/20. Two independent timing frameworks, one answer. The change
+    # is not worth taking, and the reproducer is the `scan-tle-experiment`
+    # branch.
     sbins = tl.arange(0, SBINS)
     cum = tl.cumsum(tl.load(hp + sbins), axis=0)
     target = TARGET_RANK // SSTRIDE + 1
