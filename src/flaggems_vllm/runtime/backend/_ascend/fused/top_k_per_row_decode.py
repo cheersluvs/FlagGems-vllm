@@ -49,6 +49,8 @@ being mismatched to the backend, not something these rewrites cause.
 import os
 from importlib import import_module
 
+import torch
+
 import triton
 import triton.language as tl
 
@@ -61,7 +63,10 @@ _generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 _convert_to_uint32 = _generic._convert_to_uint32
 _distribute_to_bins = _generic._distribute_to_bins
 _final_select_radix = _generic._final_select_radix
-NUM_THREADS_PER_BLOCK = _generic.NUM_THREADS_PER_BLOCK
+NUM_BINS = _generic.NUM_BINS
+NUM_FILNAL_ITEMS = _generic.NUM_FILNAL_ITEMS
+_num_warps = _generic._num_warps
+non_tle_top_k_per_row_decode = _generic.non_tle_top_k_per_row_decode
 
 # 6. The scan materialises prefix sums the atomic never needed, so its tiles
 # cost more unified buffer: at 512 with VEC=4 the backend wants 2589952 bits
@@ -466,16 +471,59 @@ def _top_k_per_row_job(
 _generic._extract_bin_idx = _extract_bin_idx
 _generic._process_bins = _process_bins
 _generic._top_k_per_row_job = _top_k_per_row_job
-# 6. and the block size the scan path fits in UB. Set once, at import: the host
-# reads this constant at launch time, and mutating it around each call would be
-# both racy and pointless in a process that is only ever this backend.
-_generic.NUM_THREADS_PER_BLOCK = SCAN_BLOCK_SIZE
 
+def top_k_per_row_decode(
+    logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+):
+    """The generic host's non-TLE branch, launched at this backend's block size.
 
-def top_k_per_row_decode(logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k):
-    """The generic host. Only the rebound internals and the block size differ.
+    Delegating to the generic host and mutating its NUM_THREADS_PER_BLOCK would
+    have been shorter, but that writes into the module we are trying to leave
+    alone. This launches the same kernel with the same scratch, only with the
+    block size the scan path fits in unified buffer, so nothing outside this
+    file changes at all.
+
+    Only the non-TLE branch exists here: HAS_TLE is False on this backend --
+    Triton 3.2.0 ships no tle module -- so the other branch is unreachable.
 
     Registering under this name also makes the suite's _OVERRIDE_ACTIVE guard
-    run instead of skip on this backend.
+    run instead of skip.
     """
-    return _generic.top_k_per_row_decode(logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k)
+    assert num_rows == logits.shape[0]
+    vocab_size = logits.shape[1]
+    use_radix_final = vocab_size >= SORTING_ALGORITHM_THRESHOLD
+    device = logits.device
+    s_histogram_ptr = torch.empty(
+        (num_rows, NUM_BINS), device=device, dtype=torch.int32
+    )
+    s_final_logits_ptr = torch.empty(
+        (num_rows, NUM_FILNAL_ITEMS), device=device, dtype=torch.float32
+    )
+    s_final_cnt_ptr = torch.empty((num_rows,), device=device, dtype=torch.int32)
+    s_threshold_bin_idx_ptr = torch.empty(
+        (num_rows,), device=device, dtype=torch.int32
+    )
+    s_final_bin_size_ptr = torch.empty(
+        (num_rows,), device=device, dtype=torch.int32
+    )
+    s_found_topk_values_ptr = torch.empty(
+        (num_rows,), device=device, dtype=torch.int32
+    )
+    non_tle_top_k_per_row_decode[(num_rows,)](
+        logits,
+        indices,
+        seq_lens,
+        next_n,
+        stride0,
+        stride1,
+        vocab_size,
+        s_histogram_ptr,
+        s_final_logits_ptr,
+        s_final_cnt_ptr,
+        s_threshold_bin_idx_ptr,
+        s_final_bin_size_ptr,
+        s_found_topk_values_ptr,
+        TOPK=top_k,
+        BLOCK_SIZE=SCAN_BLOCK_SIZE,
+        num_warps=_num_warps(SCAN_BLOCK_SIZE),
+    )
