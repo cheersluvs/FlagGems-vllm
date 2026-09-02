@@ -11,10 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from flaggems_vllm.runtime.backend._ascend.fused.top_k_per_row_decode import (
+    top_k_per_row_decode,
+)
 from flaggems_vllm.runtime.backend._ascend.fused.top_k_per_row_prefill import (
     top_k_per_row_prefill,
 )
 
 __all__ = [
+    "top_k_per_row_decode",
     "top_k_per_row_prefill",
 ]

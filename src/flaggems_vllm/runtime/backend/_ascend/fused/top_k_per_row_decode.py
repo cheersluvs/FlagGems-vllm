@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Ascend rewrites for top_k_per_row_prefill, kept out of the generic operator.
+"""Ascend rewrites for top_k_per_row_decode, kept out of the generic operator.
 
 Seven defects in this backend stand between the generic operator and a correct
 result. Every rewrite for them lives here, so the generic operator carries
@@ -54,7 +54,7 @@ import triton.language as tl
 
 from flaggems_vllm import runtime
 
-_generic = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
+_generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 
 # Bound into this module so the copied functions below resolve them. These are
 # unchanged; only the ones copied further down needed to differ.
@@ -462,7 +462,7 @@ def _top_k_per_row_job(
 # Rebind BEFORE anything is traced. Callers in the generic module resolve these
 # names through that module's globals, so the assignments are what make the
 # replacements reach _distribute_to_bins, _process_histogram_step and
-# non_tle_top_k_per_row_prefill.
+# non_tle_top_k_per_row_decode.
 _generic._extract_bin_idx = _extract_bin_idx
 _generic._process_bins = _process_bins
 _generic._top_k_per_row_job = _top_k_per_row_job
@@ -472,10 +472,10 @@ _generic._top_k_per_row_job = _top_k_per_row_job
 _generic.NUM_THREADS_PER_BLOCK = SCAN_BLOCK_SIZE
 
 
-def top_k_per_row_prefill(logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k):
+def top_k_per_row_decode(logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k):
     """The generic host. Only the rebound internals and the block size differ.
 
     Registering under this name also makes the suite's _OVERRIDE_ACTIVE guard
     run instead of skip on this backend.
     """
-    return _generic.top_k_per_row_prefill(logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k)
+    return _generic.top_k_per_row_decode(logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k)

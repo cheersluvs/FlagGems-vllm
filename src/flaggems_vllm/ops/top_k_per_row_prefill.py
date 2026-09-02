@@ -132,181 +132,6 @@ def _use_radix_final_for_prefill(vocab_size):
     return vocab_size >= RADIX_FINAL_PREFILL_VOCAB_THRESHOLD
 
 
-def _tl_assume_supported() -> bool:
-    """Can this backend round-trip `llvm.intr.assume`?
-
-    `tl.assume` is a pure optimisation hint -- dropping it changes no result.
-    The Ascend backend writes its IR to a file and parses it back, and its build
-    has no custom assembly form for the op, so the round trip fails at
-    ConvertLinalgRToBinary with
-
-        error: custom op 'llvm.intr.assume' has no custom assembly form
-
-    There is nothing to feature-detect: the symbol exists and traces fine, and
-    only the backend's own serialisation rejects it. So this is keyed off the
-    vendor and defaults to ON, leaving every already-validated backend emitting
-    exactly what it emitted before.
-
-    FLAGGEMS_TL_ASSUME=0/1 overrides, so a vendor can retest without editing
-    this list.
-    """
-    override = os.environ.get("FLAGGEMS_TL_ASSUME")
-    if override is not None:
-        return override.lower() not in {"0", "false", "off", "no"}
-    try:
-        return getattr(runtime.device.info, "vendor_name", "") not in ("ascend",)
-    except Exception:  # noqa: BLE001 - detection must never break dispatch
-        return True
-
-
-HAS_TL_ASSUME = _tl_assume_supported()
-
-
-if HAS_TL_ASSUME:
-
-    @triton.jit
-    def _assume(cond):
-        tl.assume(cond)
-
-else:
-
-    @triton.jit
-    def _assume(cond):
-        pass
-
-
-def _atomic_return_reliable() -> bool:
-    """Are this backend's per-lane atomic return values trustworthy?
-
-    On Ascend they are not. Ten-line repro (tools/triton_smoke.py probes 12-14):
-    512 lanes each add 1 to one counter, the counter correctly ends at 512, and
-    the RETURNED values hold only 65 distinct numbers instead of 0..511. Used as
-    store addresses those collide, and a masked store with duplicate lane
-    addresses is silently dropped there -- exactly the shape of the failure: the
-    histogram, whose accumulation ignores its return, comes out complete, while
-    the output buffer gets 7 of 64 entries, every one of them valid.
-
-    Not feature-detectable: the call compiles and the count is right, only the
-    returned values are wrong. Vendor-keyed, defaulting to ON so every backend
-    where this operator is already validated keeps the atomic path.
-    FLAGGEMS_ATOMIC_RETURN=0/1 overrides for retesting.
-    """
-    override = os.environ.get("FLAGGEMS_ATOMIC_RETURN")
-    if override is not None:
-        return override.lower() not in {"0", "false", "off", "no"}
-    try:
-        return getattr(runtime.device.info, "vendor_name", "") not in ("ascend",)
-    except Exception:  # noqa: BLE001 - detection must never break dispatch
-        return True
-
-
-HAS_ATOMIC_RETURN = _atomic_return_reliable()
-
-
-if HAS_ATOMIC_RETURN:
-
-    @triton.jit
-    def _compact_pos(cnt_scalar_ptr, cnt_bcast_ptrs, ones, take):
-        return tl.atomic_add(
-            cnt_bcast_ptrs, ones, mask=take, sem="relaxed", scope="cta"
-        )
-
-else:
-
-    @triton.jit
-    def _compact_pos(cnt_scalar_ptr, cnt_bcast_ptrs, ones, take):
-        """Same destinations, from a scan instead of the atomic's return.
-
-        Each counter here is per-row and the grid is one program per row, so
-        there is no cross-program contention to serialise -- the atomic was only
-        ever providing unique offsets within a tile and a running base across
-        tiles. An exclusive prefix sum gives the first, a read-modify-write of
-        the scalar gives the second.
-
-        Measured 5.3x slower than the atomic on Moore Threads, which is why this
-        is gated rather than adopted: correct everywhere, worth paying for only
-        where the atomic cannot be trusted.
-        """
-        t = take.to(tl.int32)
-        if len(t.shape) == 2:
-            # The vectorised tiles are [BLOCK_SIZE, VEC]. Reducing over axis 0
-            # alone leaves a [VEC] block, and storing that through a scalar
-            # pointer is
-            #   'Value argument cannot be block type if pointer argument is not
-            #    a block'
-            # So do it in two levels: a prefix down each column, plus the total
-            # of all columns to its left. That numbers the tile column-major,
-            # which is an order, and an order is all uniqueness needs.
-            col_tot = tl.sum(t, axis=0)
-            col_excl = tl.cumsum(col_tot, axis=0) - col_tot
-            excl = (tl.cumsum(t, axis=0) - t) + col_excl[None, :]
-            total = tl.sum(col_tot, axis=0)
-        else:
-            excl = tl.cumsum(t, axis=0) - t
-            total = tl.sum(t, axis=0)
-        # Barriers around the read-modify-write, or lanes in different warps
-        # read the same base and are handed the same destinations. Triton needs
-        # an explicit barrier for a store-then-load of one address inside a
-        # single program; without it this wrote 511 of 512 entries on a few
-        # percent of rows -- the same under-write signature the broken atomic
-        # produces, reached from the other side.
-        tl.debug_barrier()
-        base = tl.load(cnt_scalar_ptr)
-        tl.debug_barrier()
-        tl.store(cnt_scalar_ptr, base + total)
-        tl.debug_barrier()
-        return base + excl
-
-
-# The scan compaction materialises prefix sums the atomic never needed, so its
-# tiles cost more unified buffer. Measured on Ascend: BLOCK_SIZE=512 with VEC=4
-# asks for 2589952 bits against 1572864 available -- 316 KB against 192 -- and
-# the compile does not finish. 256 and 128 both fit and compile in about 20 s.
-# Only the scan path pays this; where the atomic works the block size is
-# untouched.
-SCAN_BLOCK_SIZE = int(os.environ.get("FLAGGEMS_SCAN_BLOCK_SIZE", "256"))
-
-
-def _compaction_block_size() -> int:
-    return NUM_THREADS_PER_BLOCK if HAS_ATOMIC_RETURN else SCAN_BLOCK_SIZE
-
-# tl.reduce_or does not exist in every Triton build. It is absent from the
-# Ascend backend's 3.2.0, where its use below made both operators fail to
-# compile at all:
-#
-#     AttributeError: module 'triton.language' has no attribute 'reduce_or'
-#
-# The call is a block-wide "did any lane find it", the same thing vLLM's CUDA
-# does with __syncthreads_or(foundThreshold). A max over the mask as int32 says
-# exactly that and is available everywhere.
-#
-# Defined conditionally rather than replaced outright so that any build which
-# HAS reduce_or keeps emitting it: this is then a no-op on NVIDIA and Moore
-# Threads, where the operator is already validated, and only changes backends
-# that could not run at all.
-#
-# Same shape as the capability flags already used elsewhere in this repo --
-# IS_GATHER_SUPPORTED in FLA/gdn2_native/chunk_intra.py, the
-# make_tensor_descriptor probes in FLA/triton_ops_helper.py -- and the same
-# family of problem as PR #686, which fixed an Ascend import failure caused by
-# triton.language.math losing `pow`. That one was the math/libdevice module and
-# was fixed by picking the right one per Triton version; this one is a core
-# language builtin, so tl_extra_shim does not apply.
-HAS_REDUCE_OR = hasattr(tl, "reduce_or")
-
-if HAS_REDUCE_OR:
-
-    @triton.jit
-    def _block_any(mask):
-        return tl.reduce_or(mask, axis=0)
-
-else:
-
-    @triton.jit
-    def _block_any(mask):
-        return tl.max(mask.to(tl.int32), axis=0) != 0
-
-
 @triton.jit
 def _convert_to_uint32(x):
     bits = x.to(tl.uint32, bitcast=True)
@@ -348,11 +173,7 @@ def _convert_to_trt_uint16_hi11(x):
     sign_set = (bits & sign_mask) != 0
     inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
     mapped = tl.where(sign_set, bits, inv)
-    # Same shift hazard as _extract_bin_idx's STEP 0: uint16 >> must be logical,
-    # and Ascend lowers it arithmetically, turning every top-bit-set value
-    # negative. Widen and mask first; a no-op where the conversion already
-    # zero-extends.
-    return (mapped.to(tl.int32) & 0xFFFF) >> 5
+    return (mapped >> 5).to(tl.int32)
 
 
 @triton.jit
@@ -387,8 +208,6 @@ def _process_bins(
     offs,  # row_start based
     found_topk_values_ptrs,
     final_cnt_ptrs,
-    s_found_topk_values_ptr,
-    s_final_cnt_ptr,
     logit_pattern,
     threshold_bin_idx,
     write_directly,
@@ -413,8 +232,12 @@ def _process_bins(
         STEP=STEP,
     )
     take_lt = is_partial_match & (bin_idx < threshold_bin_idx) & write_directly
-    out_pos_lt = _compact_pos(
-        s_found_topk_values_ptr, found_topk_values_ptrs, ones, take_lt
+    out_pos_lt = tl.atomic_add(
+        found_topk_values_ptrs,
+        ones,
+        mask=take_lt,
+        sem="relaxed",
+        scope="cta",
     )
     if MERGE_BLOCKS:
         indices = tl.load(
@@ -447,8 +270,12 @@ def _process_bins(
     if STEP < 3:
         if use_final:
             take_eq_final = is_partial_match & (bin_idx == threshold_bin_idx)
-            final_pos = _compact_pos(
-                s_final_cnt_ptr, final_cnt_ptrs, ones, take_eq_final
+            final_pos = tl.atomic_add(
+                final_cnt_ptrs,
+                ones,
+                mask=take_eq_final,
+                sem="relaxed",
+                scope="cta",
             )
             tl.store(
                 s_final_logits_ptr + final_pos,
@@ -481,14 +308,12 @@ def _process_bins(
     else:
         take_eq = is_partial_match & (bin_idx == threshold_bin_idx)
         # s_histogram_ptr being used for exclude prefix sum
-        # At STEP 3 every taken lane has bin_idx == threshold_bin_idx, so the
-        # per-lane counter address is a single address and the scalar form is
-        # exact.
-        out_pos_eq = _compact_pos(
-            s_histogram_ptr + threshold_bin_idx,
+        out_pos_eq = tl.atomic_add(
             s_histogram_ptr + bin_idx,
             ones,
-            take_eq,
+            mask=take_eq,
+            sem="relaxed",
+            scope="cta",
         )
         if MERGE_BLOCKS:
             indices = tl.load(
@@ -698,7 +523,7 @@ def _process_histogram_step(
                 tl.store(s_histogram_ptr + bins, prefix_sum)
             tl.store(threshold_bin_ptrs, threshold_bin, mask=threshold_mask)
             tl.store(final_bin_size_ptrs, threshold_bin_size, mask=threshold_mask)
-            found_round = _block_any(threshold_mask)
+            found_round = tl.reduce_or(threshold_mask, axis=0)
             threshold_found = found_round
             last_value = total_sum
 
@@ -727,8 +552,6 @@ def _process_histogram_step(
                 offs,
                 found_ptrs_vec_2d,
                 final_cnt_ptrs_vec_2d,
-                s_found_topk_values_ptr,
-                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -754,8 +577,6 @@ def _process_histogram_step(
                 offs,
                 found_ptrs,
                 final_cnt_ptrs,
-                s_found_topk_values_ptr,
-                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -790,8 +611,6 @@ def _process_histogram_step(
                 offs + skip_elems,
                 found_ptrs_vec_2d,
                 final_cnt_ptrs_vec_2d,
-                s_found_topk_values_ptr,
-                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -817,8 +636,6 @@ def _process_histogram_step(
                 offs + skip_elems,
                 found_ptrs,
                 final_cnt_ptrs,
-                s_found_topk_values_ptr,
-                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -847,8 +664,6 @@ def _process_histogram_step(
                 offs,
                 found_ptrs,
                 final_cnt_ptrs,
-                s_found_topk_values_ptr,
-                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -875,8 +690,6 @@ def _process_histogram_step(
                 offs + skip_elems,
                 found_ptrs,
                 final_cnt_ptrs,
-                s_found_topk_values_ptr,
-                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -910,8 +723,6 @@ def _process_histogram_step(
                 offs,
                 found_ptrs,
                 final_cnt_ptrs,
-                s_found_topk_values_ptr,
-                s_final_cnt_ptr,
                 logit_pattern,
                 threshold_bin_idx,
                 write_directly,
@@ -1130,12 +941,12 @@ def _top_k_per_row_job(
         & ((vocab_size % BLOCK_SIZE) == 0)
     )
     if assume_aligned:
-        _assume(row_start == 0)
-        _assume(row_end == vocab_size)
-        _assume(stride1 == 1)
+        tl.assume(row_start == 0)
+        tl.assume(row_end == vocab_size)
+        tl.assume(stride1 == 1)
         vocab_size = tl.multiple_of(vocab_size, BLOCK_SIZE)
     elif stride1 == 1:
-        _assume(stride1 == 1)
+        tl.assume(stride1 == 1)
 
     lane = tl.arange(0, BLOCK_SIZE)
     row_len = row_end - row_start
@@ -1162,109 +973,103 @@ def _top_k_per_row_job(
             tl.store(out_indices_ptr + pos, -1, mask=take_pad)
             if MULTIPLE_BLOCKS_PER_ROW:
                 tl.store(out_logits_ptr + pos, float("-inf"), mask=take_pad)
-    else:
-        # An early `return` inside this branch is what the Ascend
-        # backend's TritonToLinalgIncubated pass aborts on:
-        #   UseDefLists.h:198 'Cannot destroy a value that still
-        #   has uses!'  with OperandType = BlockOperand.
-        # An if/else is the same computation without the extra
-        # block terminator, so the guard is inverted instead.
-        tl.store(s_final_cnt_ptr, 0)
-        tl.store(s_found_topk_values_ptr, 0)
-        tl.debug_barrier()
-        logit_pattern = tl.zeros((), dtype=tl.uint32)
-        continue_to_next_step = tl.full((), True, dtype=tl.int1)
-        threshold_bin_idx = tl.full((), -1, dtype=tl.int32)
-        for step_idx in tl.static_range(0, 4):
-            if continue_to_next_step:
-                (
-                    continue_to_next_step,
-                    logit_pattern,
-                    threshold_bin_idx,
-                ) = _process_histogram_step(
-                    logits_ptr,
-                    row_start,
-                    row_end,
-                    stride1,
-                    vocab_size,
-                    skip_elems,
-                    indices_ptr,
-                    logit_pattern,
-                    threshold_bin_idx,
-                    assume_aligned,
-                    s_histogram_ptr,
-                    s_final_logits_ptr,
-                    s_final_cnt_ptr,
-                    s_threshold_bin_idx_ptr,
-                    s_final_bin_size_ptr,
-                    s_found_topk_values_ptr,
-                    s_out_indices_ptr,
-                    s_out_logits_ptr,
-                    STEP=step_idx,
-                    TOPK=TOPK,
-                    BLOCK_SIZE=BLOCK_SIZE,
-                    HAS_TLE=HAS_TLE,
-                    MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
-                    MERGE_BLOCKS=MERGE_BLOCKS,
-                )
+        return
+    tl.store(s_final_cnt_ptr, 0)
+    tl.store(s_found_topk_values_ptr, 0)
+    tl.debug_barrier()
+    logit_pattern = tl.zeros((), dtype=tl.uint32)
+    continue_to_next_step = tl.full((), True, dtype=tl.int1)
+    threshold_bin_idx = tl.full((), -1, dtype=tl.int32)
+    for step_idx in tl.static_range(0, 4):
+        if continue_to_next_step:
+            (
+                continue_to_next_step,
+                logit_pattern,
+                threshold_bin_idx,
+            ) = _process_histogram_step(
+                logits_ptr,
+                row_start,
+                row_end,
+                stride1,
+                vocab_size,
+                skip_elems,
+                indices_ptr,
+                logit_pattern,
+                threshold_bin_idx,
+                assume_aligned,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_final_cnt_ptr,
+                s_threshold_bin_idx_ptr,
+                s_final_bin_size_ptr,
+                s_found_topk_values_ptr,
+                s_out_indices_ptr,
+                s_out_logits_ptr,
+                STEP=step_idx,
+                TOPK=TOPK,
+                BLOCK_SIZE=BLOCK_SIZE,
+                HAS_TLE=HAS_TLE,
+                MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
+                MERGE_BLOCKS=MERGE_BLOCKS,
+            )
 
-        if not continue_to_next_step:
-            if USE_RADIX_FINAL and HAS_TLE:
-                _final_select_radix(
-                    s_histogram_ptr,
-                    s_final_logits_ptr,
-                    s_final_cnt_ptr,
-                    s_found_topk_values_ptr,
-                    s_out_indices_ptr,
-                    s_out_logits_ptr,
-                    TOPK=TOPK,
-                    BLOCK_SIZE=BLOCK_SIZE,
-                    MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
+    if not continue_to_next_step:
+        if USE_RADIX_FINAL and HAS_TLE:
+            _final_select_radix(
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_final_cnt_ptr,
+                s_found_topk_values_ptr,
+                s_out_indices_ptr,
+                s_out_logits_ptr,
+                TOPK=TOPK,
+                BLOCK_SIZE=BLOCK_SIZE,
+                MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
+            )
+        else:
+            base_idx = tl.load(s_found_topk_values_ptr)
+            # Guard against stale/oversized counts to avoid out-of-bounds accesses
+            # in the shared-memory final buffers.
+            final_cnt = tl.minimum(tl.load(s_final_cnt_ptr), NUM_FINAL_ITEMS)
+            sort_chunks = tl.cdiv(final_cnt, BLOCK_SIZE)
+            for sort_chunk in tl.range(0, sort_chunks):
+                pos = sort_chunk * BLOCK_SIZE + lane
+                valid = pos < final_cnt
+                logit_i = tl.load(
+                    s_final_logits_ptr + pos,
+                    mask=valid,
+                    other=0,
                 )
-            else:
-                base_idx = tl.load(s_found_topk_values_ptr)
-                # Guard against stale/oversized counts to avoid out-of-bounds accesses
-                # in the shared-memory final buffers.
-                final_cnt = tl.minimum(tl.load(s_final_cnt_ptr), NUM_FINAL_ITEMS)
-                sort_chunks = tl.cdiv(final_cnt, BLOCK_SIZE)
-                for sort_chunk in tl.range(0, sort_chunks):
-                    pos = sort_chunk * BLOCK_SIZE + lane
-                    valid = pos < final_cnt
-                    logit_i = tl.load(
-                        s_final_logits_ptr + pos,
-                        mask=valid,
-                        other=0,
-                    )
-                    out_rank = tl.zeros([BLOCK_SIZE], dtype=tl.int32)
-                    for j in tl.range(0, final_cnt):
-                        logit_j = tl.load(s_final_logits_ptr + j)
-                        better = (logit_i < logit_j) | ((logit_i == logit_j) & (pos < j))
-                        out_rank = out_rank + (valid & better).to(tl.int32)
-                    dst_pos = base_idx + out_rank
-                    take = valid & (dst_pos < TOPK)
-                    idx_i = tl.load(
-                        s_histogram_ptr + pos,
-                        mask=take,
-                        other=0,
-                    )
-                    tl.store(s_out_indices_ptr + dst_pos, idx_i, mask=take)
-                    if MULTIPLE_BLOCKS_PER_ROW:
-                        tl.store(s_out_logits_ptr + dst_pos, logit_i, mask=take)
-                tl.debug_barrier()
-
-        # out_indices_ptr is identical to s_out_indices_ptr for non-tle
-        if HAS_TLE:
-            flush_chunks: tl.constexpr = (TOPK + BLOCK_SIZE - 1) // BLOCK_SIZE
-            for flush_chunk in tl.static_range(flush_chunks):
-                pos = flush_chunk * BLOCK_SIZE + lane
-                mask = pos < TOPK
-                out_vals = tl.load(s_out_indices_ptr + pos, mask=mask, other=-1)
-                tl.store(out_indices_ptr + pos, out_vals, mask=mask)
+                out_rank = tl.zeros([BLOCK_SIZE], dtype=tl.int32)
+                for j in tl.range(0, final_cnt):
+                    logit_j = tl.load(s_final_logits_ptr + j)
+                    better = (logit_i < logit_j) | ((logit_i == logit_j) & (pos < j))
+                    out_rank = out_rank + (valid & better).to(tl.int32)
+                dst_pos = base_idx + out_rank
+                take = valid & (dst_pos < TOPK)
+                idx_i = tl.load(
+                    s_histogram_ptr + pos,
+                    mask=take,
+                    other=0,
+                )
+                tl.store(s_out_indices_ptr + dst_pos, idx_i, mask=take)
                 if MULTIPLE_BLOCKS_PER_ROW:
-                    split_logits = tl.load(
-                        s_out_logits_ptr + pos, mask=mask, other=float("-inf")
-                    )
-                    tl.store(out_logits_ptr + pos, split_logits, mask=mask)
+                    tl.store(s_out_logits_ptr + dst_pos, logit_i, mask=take)
+            tl.debug_barrier()
+
+    # out_indices_ptr is identical to s_out_indices_ptr for non-tle
+    if HAS_TLE:
+        flush_chunks: tl.constexpr = (TOPK + BLOCK_SIZE - 1) // BLOCK_SIZE
+        for flush_chunk in tl.static_range(flush_chunks):
+            pos = flush_chunk * BLOCK_SIZE + lane
+            mask = pos < TOPK
+            out_vals = tl.load(s_out_indices_ptr + pos, mask=mask, other=-1)
+            tl.store(out_indices_ptr + pos, out_vals, mask=mask)
+            if MULTIPLE_BLOCKS_PER_ROW:
+                split_logits = tl.load(
+                    s_out_logits_ptr + pos, mask=mask, other=float("-inf")
+                )
+                tl.store(out_logits_ptr + pos, split_logits, mask=mask)
 
 
 # End of shared implementation code for top_k_per_row_decode and top_k_per_row_prefill
@@ -1545,7 +1350,7 @@ def top_k_per_row_prefill(
             s_final_bin_size_ptr,
             s_found_topk_values_ptr,
             TOPK=top_k,
-            BLOCK_SIZE=_compaction_block_size(),
+            BLOCK_SIZE=NUM_THREADS_PER_BLOCK,
             ROW_OFFSET=0,
-            num_warps=_num_warps(_compaction_block_size()),
+            num_warps=_num_warps(NUM_THREADS_PER_BLOCK),
         )
