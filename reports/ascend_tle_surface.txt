@@ -1,0 +1,951 @@
+### branch ascend-tle-surface @ cb8b12f
+### 2026-09-02T16:30:36+08:00  host bm-ctyun-wq-910b-64g-0-13
+### PYTHONPATH=src:/usr/local/Ascend/cann-8.5.0/python/site-packages:/usr/local/Ascend/cann-8.5.0/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:
+
+triton 3.2.0 | torch 2.6.0+cpu
+python 3.11.13
+
+========================================================================
+1. every source file of the TLE package
+========================================================================
+package at /usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle
+
+       1  language/dsa/ascend/semantic.py
+       7  language/__init__.py
+       7  language/dsa/ascend/core.py
+      17  language/dsa/ascend/__init__.py
+      44  language/dsa/__init__.py
+      57  language/builder.py
+     101  language/dsa/types.py
+     124  __init__.py
+     193  language/dsa/semantic.py
+     376  language/dsa/core.py
+
+========================================================================
+1.language/dsa/ascend/semantic.py  (1 lines, first 120)
+========================================================================
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+
+========================================================================
+1.language/__init__.py  (7 lines)
+========================================================================
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+    2| 
+    3| from . import dsa
+    4| 
+    5| __all__ = [
+    6|     'dsa',
+    7| ]
+
+========================================================================
+1.language/dsa/ascend/core.py  (7 lines, first 120)
+========================================================================
+    1| from triton.language.extra.cann.extension.core import ascend_address_space
+    2| 
+    3| UB = ascend_address_space.UB
+    4| L1 = ascend_address_space.L1
+    5| L0A = ascend_address_space.L0A
+    6| L0B = ascend_address_space.L0B
+    7| L0C = ascend_address_space.L0C
+
+========================================================================
+1.language/dsa/ascend/__init__.py  (17 lines, first 120)
+========================================================================
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+    2| 
+    3| from .core import (
+    4|     UB,
+    5|     L1,
+    6|     L0A,
+    7|     L0B,
+    8|     L0C,
+    9| )
+   10| 
+   11| __all__ = [
+   12|     "UB",
+   13|     "L1",
+   14|     "L0A",
+   15|     "L0B",
+   16|     "L0C",
+   17| ]
+
+========================================================================
+1.language/dsa/__init__.py  (44 lines, first 120)
+========================================================================
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+    2| 
+    3| from .core import (
+    4|     alloc,
+    5|     copy,
+    6|     pipeline,
+    7|     parallel,
+    8|     to_tensor,
+    9|     to_buffer,
+   10|     add,
+   11|     sub,
+   12|     mul,
+   13|     div,
+   14|     max,
+   15|     min,
+   16|     hint,
+   17|     extract_slice,
+   18|     insert_slice,
+   19|     extract_element,
+   20|     subview,
+   21| )
+   22| 
+   23| from . import ascend
+   24| 
+   25| __all__ = [
+   26|     "alloc",
+   27|     "copy",
+   28|     "pipeline",
+   29|     "parallel",
+   30|     "to_tensor",
+   31|     "to_buffer",
+   32|     "add",
+   33|     "sub",
+   34|     "mul",
+   35|     "div",
+   36|     "max",
+   37|     "min",
+   38|     "hint",
+   39|     "extract_slice",
+   40|     "insert_slice",
+   41|     "extract_element",
+   42|     "subview",
+   43|     "ascend",
+   44| ]
+
+========================================================================
+1.language/builder.py  (57 lines)
+========================================================================
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+    2| 
+    3| 
+    4| def create_dsa_method_wrapper_with_tle_builder(main_builder, delegate_builder, method_name):
+    5|     delegate_method = getattr(delegate_builder, method_name)
+    6| 
+    7|     def wrapper(*args, **kwargs):
+    8|         saved_ip = main_builder.get_insertion_point()
+    9|         saved_loc = main_builder.get_loc()
+   10|         delegate_builder.restore_insertion_point(saved_ip)
+   11|         if saved_loc:
+   12|             delegate_builder.set_loc(saved_loc)
+   13|         result = delegate_method(*args, **kwargs)
+   14|         main_builder.restore_insertion_point(saved_ip)
+   15|         if saved_loc:
+   16|             main_builder.set_loc(saved_loc)
+   17|         return result
+   18| 
+   19|     wrapper.__name__ = method_name
+   20|     wrapper.__doc__ = getattr(delegate_method, '__doc__', None)
+   21|     return wrapper
+   22| 
+   23| 
+   24| def attach_builder_methods_with_tle_builder(main_builder, delegate_builder, method_names):
+   25|     """Attach multiple methods from a delegate builder to the main builder."""
+   26|     for method_name in method_names:
+   27|         wrapper = create_dsa_method_wrapper_with_tle_builder(main_builder, delegate_builder, method_name)
+   28| 
+   29|         if hasattr(main_builder, method_name):
+   30|             raise AttributeError(f"Method '{method_name}' already exists in the main builder.")
+   31|         setattr(main_builder, method_name, wrapper)
+   32| 
+   33| 
+   34| def setup_unified_builder_with_tle_builder(main_builder, buffer_builder):
+   35|     """Set up a unified builder interface by attaching methods from specialized builders."""
+   36|     main_builder._buffer_builder = buffer_builder
+   37|     buffer_methods = [
+   38|         'create_dsa_alloc',
+   39|         'create_dsa_copy',
+   40|         'create_dsa_add',
+   41|         'create_dsa_sub',
+   42|         'create_dsa_mul',
+   43|         'create_dsa_div',
+   44|         'create_dsa_max',
+   45|         'create_dsa_min',
+   46|         # 'create_dsa_dot',
+   47|         'dsa_to_buffer',
+   48|         'dsa_to_tensor',
+   49|         'dsa_get_null_attr',
+   50|         'dsa_get_buffer_type',
+   51|         'dsa_get_buffer_type_with_strides',
+   52|         "create_dsa_extract_scalar",
+   53|         "create_dsa_extract_slice",
+   54|         "create_dsa_insert_slice",
+   55|         "create_dsa_subview",
+   56|     ]
+   57|     attach_builder_methods_with_tle_builder(main_builder, buffer_builder, buffer_methods)
+
+========================================================================
+1.language/dsa/types.py  (101 lines, first 120)
+========================================================================
+    1| from triton._C.libtriton import ir
+    2| 
+    3| from typing import List
+    4| import triton.language.core as tl
+    5| 
+    6| 
+    7| class address_space:
+    8|     """Represents a buffer's address space.
+    9| 
+   10|     The :code:`address_space` of a buffer is a target-specific attribute.
+   11|     """
+   12| 
+   13|     def to_ir(self, builder: ir.builder) -> ir.type:
+   14|         raise NotImplementedError("Abstract address_space cannot be converted to ir")
+   15| 
+   16| 
+   17| class buffer_type(tl.dtype):
+   18| 
+   19|     def __init__(self, element_ty: tl.dtype, shape: List, space: address_space = None, strides: List = None):
+   20|         self.element_ty = element_ty
+   21|         self.shape = shape if isinstance(shape, list) else list(shape)
+   22|         self.space = space
+   23|         self.strides = strides if strides is not None else []
+   24|         self.name = self._make_name()
+   25| 
+   26|     def _make_name(self):
+   27|         res = '<buffer ' + 'x'.join(str(s) for s in self.shape) + 'x' + str(self.element_ty)
+   28|         if self.strides:
+   29|             res += ', strides=[' + ', '.join(str(s) for s in self.strides) + ']'
+   30|         if self.space:
+   31|             res += ', ' + str(self.space)
+   32|         return res + '>'
+   33| 
+   34|     def to_ir(self, builder: ir.builder) -> ir.type:
+   35|         element_ty_ir = self.element_ty.to_ir(builder)
+   36|         addr_space_attr = self.space.to_ir(builder) if self.space else builder.get_null_attr()
+   37| 
+   38|         # use the method with strides if strides is not empty
+   39|         if self.strides:
+   40|             return builder.dsa_get_buffer_type_with_strides(self.shape, element_ty_ir, self.strides, addr_space_attr)
+   41|         else:
+   42|             return builder.dsa_get_buffer_ty(self.shape, element_ty_ir, addr_space_attr)
+   43| 
+   44|     def __str__(self):
+   45|         return self.name
+   46| 
+   47|     def __repr__(self):
+   48|         return self.__str__()
+   49| 
+   50|     def __eq__(self, other) -> bool:
+   51|         if not isinstance(other, buffer_type):
+   52|             return False
+   53|         return (self.element_ty == other.element_ty and self.shape == other.shape and self.space == other.space
+   54|                 and self.strides == other.strides)
+   55| 
+   56|     def __ne__(self, other) -> bool:
+   57|         return not self.__eq__(other)
+   58| 
+   59|     @property
+   60|     def scalar(self):
+   61|         return self.element_ty
+   62| 
+   63| 
+   64| # -----------------------
+   65| # buffer
+   66| # -----------------------
+   67| 
+   68| 
+   69| class buffer(tl._value):
+   70|     """Represents a region of memory.
+   71| 
+   72|     :code:`buffer` is the fundamental data structure for Triton programs using
+   73|     the buffer language extension. Most functions in
+   74|     :py:mod:`triton.extension.buffer.language` operate on and return buffers.
+   75| 
+   76|     Most of the named member functions here are duplicates of the free functions
+   77|     in :code:`triton.language`.  For example, :code:`triton.language.sqrt(x)` is
+   78|     equivalent to :code:`x.sqrt()`.
+   79| 
+   80|     .. rubric:: Constructors
+   81|     ..
+   82|        For some reason Sphinx includes __init__ before printing the full table
+   83|        of methods.  Not what I want, but I can't figure out how to fix it.  Give
+   84|        it its own section so it looks intentional. :)
+   85|     """
+   86| 
+   87|     def __init__(self, handle, buffer_ty: buffer_type):
+   88|         """Not called by user code."""
+   89|         super().__init__(handle)
+   90|         self.type = buffer_ty
+   91|         self.dtype = buffer_ty.element_ty.scalar
+   92|         self.shape = buffer_ty.shape
+   93|         self.space = buffer_ty.space
+   94|         self.strides = buffer_ty.strides
+   95| 
+   96|     def __str__(self) -> str:
+   97|         # ex. "<16x32xfloat32, address_space>"
+   98|         res = '<' + 'x'.join(str(s) for s in self.shape) + 'x' + str(self.dtype)
+   99|         if self.space:
+  100|             res += ', ' + str(self.space)
+  101|         return res + '>'
+
+========================================================================
+1.__init__.py  (124 lines)
+========================================================================
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+    2| 
+    3| from triton._C.libtriton import ir
+    4| from typing import Optional, Dict
+    5| from triton.runtime import JITFunction
+    6| from .language.builder import setup_unified_builder_with_tle_builder
+    7| import importlib
+    8| import ast
+    9| from typing_extensions import override
+   10| 
+   11| try:
+   12|     from triton._C.libtriton import tle as tle_ir
+   13| except ImportError:
+   14|     raise RuntimeError("tle is not available")
+   15| 
+   16| triton_compiler = importlib.import_module("triton.compiler", package=__package__)
+   17| 
+   18| 
+   19| def tle_patch_for_triton_compile():
+   20|     original_compile_fn = triton_compiler.compile
+   21| 
+   22|     def tle_compile(src, target=None, options=None):
+   23|         # ir.context() will return a new MLIRContext each time, here should keep the same context
+   24|         cur_context = ir.context()
+   25|         tle_ir.load_dialects(cur_context)
+   26| 
+   27|         original_context_fn = ir.context
+   28| 
+   29|         def patched_context():
+   30|             return cur_context
+   31| 
+   32|         ir.context = patched_context
+   33| 
+   34|         try:
+   35|             compiled_kernel = original_compile_fn(src, target, options)
+   36|         finally:
+   37|             ir.context = original_context_fn
+   38| 
+   39|         return compiled_kernel
+   40| 
+   41|     return tle_compile
+   42| 
+   43| 
+   44| code_generator = importlib.import_module("triton.compiler.code_generator", package=__package__)
+   45| 
+   46| 
+   47| class TleCodeGenerator(code_generator.CodeGenerator):
+   48| 
+   49|     def __init__(self, context, prototype, gscope, attributes, constants, function_name, jit_fn: JITFunction, options,
+   50|                  codegen_fns, module_map, module=None, is_kernel=False, function_types: Optional[Dict] = None,
+   51|                  noinline=False, file_name: Optional[str] = None, begin_line=0):
+   52|         super().__init__(context, prototype, gscope, attributes, constants, function_name, jit_fn, options, codegen_fns,
+   53|                          module_map, module, is_kernel, function_types, noinline, file_name, begin_line)
+   54|         self.tle_builder = tle_ir.tle_builder(context)
+   55|         self.tle_builder.set_loc(file_name, begin_line, 0)
+   56| 
+   57|         # Stack to keep track of active `with`-hints (e.g., tle.hint(...))
+   58|         # Each entry is a dict mapping hint names to literal values.
+   59|         self.with_hints = []
+   60| 
+   61|         setup_unified_builder_with_tle_builder(self.builder, self.tle_builder)
+   62| 
+   63|     @override
+   64|     def visit_With(self, node):
+   65|         assert len(node.items) == 1
+   66|         context = node.items[0].context_expr
+   67| 
+   68|         # extract tle hints
+   69|         hints = {}
+   70|         if isinstance(context, ast.Call):
+   71|             if isinstance(context.func, ast.Attribute) and context.func.attr == "hint":
+   72|                 for kw in context.keywords:
+   73|                     if not isinstance(kw.value, ast.Constant):
+   74|                         raise self._unsupported(node,
+   75|                                                 "keyword arguments to hint() are only supported for constant values")
+   76|                     hints[kw.arg] = kw.value.value
+   77| 
+   78|         # append hints to with_hints anyway, to indicate that we're in the with scope
+   79|         self.with_hints.append(hints)
+   80| 
+   81|         super().visit_With(node)
+   82| 
+   83|         # pop hints to indicate that we're out of the with scope
+   84|         self.with_hints.pop()
+   85| 
+   86| 
+   87| def extract_tle_hints_scope(generator: TleCodeGenerator):
+   88|     """
+   89|     with tle.hints(inter_no_alias=True):
+   90|         with xxxx:
+   91|             with tle.hints(inter_no_alias=False):
+   92|                 ...
+   93|                 with xxx:
+   94|                     call_fn1(...)
+   95|                 call_fn(...)
+   96| 
+   97|     when visit_Call for call_fn1, we can get the hints scope as follows:
+   98|         [{'inter_no_alias': True}, {xxx}, {'inter_no_alias': False}, {xxx}]
+   99|     should get the parent scope hints 'inter_no_alias': False for call_fn1, after visit call_fn1, pop the scope
+  100| 
+  101|     when visit_Call for call_fn, we can get the hints scope as follows:
+  102|         [{'inter_no_alias': True}, {xxx}, {'inter_no_alias': False}]
+  103|     and now the hint scope is 'inter_no_alias': False' for call_fn, after visit call_fn, pop the scope
+  104|     """
+  105|     if not generator.with_hints:
+  106|         return {}
+  107| 
+  108|     # visit with_hints backward to find inter_no_alias hint
+  109|     for i in range(len(generator.with_hints) - 1, -1, -1):
+  110|         hints = generator.with_hints[i]
+  111|         if "inter_no_alias" in hints:
+  112|             return hints
+  113| 
+  114|     return {}
+  115| 
+  116| 
+  117| triton_compiler.compile = tle_patch_for_triton_compile()
+  118| code_generator.CodeGenerator = TleCodeGenerator
+  119| 
+  120| from .language import dsa
+  121| 
+  122| __all__ = [
+  123|     "dsa",
+  124| ]
+
+========================================================================
+1.language/dsa/semantic.py  (193 lines, first 120)
+========================================================================
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+    2| 
+    3| from typing import List, Union
+    4| from triton.language import core as tl
+    5| from triton.language.semantic import (
+    6|     binary_op_type_checking_impl, )
+    7| from triton._C.libtriton import ir
+    8| from .types import buffer, buffer_type, address_space
+    9| 
+   10| 
+   11| def wrap_tensor(x, scalar_ty, ret_shape):
+   12|     if ret_shape:
+   13|         res_ty = tl.block_type(scalar_ty, ret_shape)
+   14|     else:
+   15|         # 0d-tensor -> scalar
+   16|         res_ty = scalar_ty
+   17|     return tl.tensor(x, res_ty)
+   18| 
+   19| 
+   20| def scalar_constant(value, dtype: tl.dtype, builder: ir.builder) -> tl.tensor:
+   21|     # assert value.numel.value == 1, "only accepts size-1 tensor"
+   22|     if isinstance(value, tl.constexpr):
+   23|         value = builder.get_int32(value)
+   24|         return tl.tensor(value, dtype)
+   25| 
+   26|     if value.dtype.is_int():
+   27|         return tl.tensor(value.handle, dtype)
+   28| 
+   29| 
+   30| def copy(src, dst, shape: List[Union[tl.constexpr, int]], inter_no_alias: bool, builder: ir.builder):
+   31|     """
+   32|     Generate tt.copy(src, dst, shape) and return dst-like tensor.
+   33|     Lowering to hivm.load/hivm.store is done in MLIR pass.
+   34|     """
+   35|     shape = [scalar_constant(x, tl.int32, builder) for x in shape]
+   36|     builder.create_dsa_copy(src.handle, dst.handle, [s.handle for s in shape], inter_no_alias)
+   37| 
+   38| 
+   39| def add(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   40|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   41|     builder.create_dsa_add(input.handle, other.handle, result.handle)
+   42| 
+   43| 
+   44| def sub(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   45|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   46|     builder.create_dsa_sub(input.handle, other.handle, result.handle)
+   47| 
+   48| 
+   49| def mul(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   50|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   51|     builder.create_dsa_mul(input.handle, other.handle, result.handle)
+   52| 
+   53| 
+   54| def div(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   55|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   56|     builder.create_dsa_div(input.handle, other.handle, result.handle)
+   57| 
+   58| 
+   59| def max(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   60|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   61|     builder.create_dsa_max(input.handle, result.handle)
+   62| 
+   63| 
+   64| def min(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   65|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   66|     builder.create_dsa_min(input.handle, other.handle, result.handle)
+   67| 
+   68| 
+   69| def alloc(etype: tl.dtype, shape: List[tl.constexpr], address_space: address_space, builder: ir.builder) -> buffer:
+   70|     shape = tl._unwrap_shape(shape)
+   71|     if not isinstance(shape, (tuple, list)):
+   72|         raise TypeError("shape must be list/tuple")
+   73|     etype = tl._constexpr_to_value(etype)
+   74|     address_space = tl._constexpr_to_value(address_space)
+   75|     element_ty_ir = etype.to_ir(builder)
+   76|     addr_space_attr = (address_space.to_ir(builder) if address_space else builder.dsa_get_null_attr())
+   77|     memref_ty = builder.dsa_get_buffer_type(shape, element_ty_ir, addr_space_attr)
+   78|     handle = builder.create_dsa_alloc(memref_ty)
+   79|     buffer_ty = buffer_type(element_ty=etype, shape=shape, space=address_space)
+   80|     return buffer(handle, buffer_ty)
+   81| 
+   82| 
+   83| def to_buffer(
+   84|     tensor: tl.tensor,
+   85|     address_space: address_space,
+   86|     bind_buffer: buffer,
+   87|     builder: ir.builder,
+   88| ) -> buffer:
+   89|     if not isinstance(tensor.shape, (tuple, list)) or not tensor.shape:
+   90|         raise TypeError("scalar type cannot be converted to buffer")
+   91|     # if isinstance(bind_buffer, buffer):
+   92|     #     builder.create_bind_buffer(tensor.handle, bind_buffer.handle)
+   93|     #     return bind_buffer
+   94|     if bind_buffer is not None:
+   95|         raise ValueError("bind_buffer must be a buffer or None")
+   96|     address_space = tl._constexpr_to_value(address_space)
+   97|     addr_space_attr = (address_space.to_ir(builder) if address_space else builder.dsa_get_null_attr())
+   98|     handle = builder.dsa_to_buffer(tensor.handle, addr_space_attr)
+   99|     buffer_ty = buffer_type(element_ty=tensor.dtype, shape=tensor.shape, space=address_space)
+  100|     return buffer(handle, buffer_ty)
+  101| 
+  102| 
+  103| def to_tensor(memref: buffer, writable: bool, builder: ir.builder, target_shape=None) -> tl.tensor:
+  104|     if not isinstance(memref, buffer):
+  105|         raise TypeError("memref must be buffer")
+  106| 
+  107|     need_convert_layout = False
+  108|     shape = memref.shape
+  109|     if target_shape:
+  110|         need_convert_layout = True
+  111|         shape = tl._unwrap_shape(target_shape)
+  112|         assert shape != memref.shape, "target shape is the same as source shape"
+  113|     if not isinstance(shape, (tuple, list)):
+  114|         raise TypeError("shape must be list/tuple")
+  115|     tensor_type = tl.block_type(memref.dtype, shape)
+  116| 
+  117|     memref_value = memref.handle
+  118|     if need_convert_layout:
+  119|         buffer_ty = buffer_type(
+  120|             element_ty=memref.dtype,
+    ... 73 more lines
+
+========================================================================
+1.language/dsa/core.py  (376 lines, first 120)
+========================================================================
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+    2| 
+    3| import triton.language.core as tl
+    4| from triton.language import semantic as tl_semantic
+    5| from triton.language.core import (_constexpr_to_value, tensor, constexpr)
+    6| 
+    7| from typing import List, TypeVar
+    8| from functools import wraps
+    9| 
+   10| from . import semantic as tle_semantic
+   11| from .types import address_space, buffer
+   12| 
+   13| T = TypeVar("T")
+   14| 
+   15| TRITON_BUILTIN = "__triton_builtin__"
+   16| TLE_BUILTIN = "__tle_builtin__"
+   17| 
+   18| 
+   19| def builtin(fn: T) -> T:
+   20|     """
+   21|     Decorator for builtin functions to mark a function as a tle language builtin function.
+   22|     """
+   23|     assert callable
+   24| 
+   25|     @wraps(fn)
+   26|     def wrapper(*args, **kwargs):
+   27|         if "_builder" not in kwargs or kwargs["_builder"] is None:
+   28|             raise ValueError("Did you forget to add @triton.jit ? "
+   29|                              "(`_builder` argument must be provided outside of JIT functions.)")
+   30|         return fn(*args, **kwargs)
+   31| 
+   32|     setattr(wrapper, TRITON_BUILTIN, True)
+   33|     setattr(wrapper, TLE_BUILTIN, True)
+   34| 
+   35|     return wrapper
+   36| 
+   37| 
+   38| def is_builtin(fn) -> bool:
+   39|     """
+   40|     Returns whether a function is a builtin function.
+   41|     """
+   42|     return getattr(fn, TLE_BUILTIN, False)
+   43| 
+   44| 
+   45| class range():
+   46|     """
+   47|     Iterator that counts upward forever.
+   48| 
+   49|     .. highlight:: python
+   50|     .. code-block:: python
+   51| 
+   52|         @triton.jit
+   53|         def kernel(...):
+   54|             for i in tl.range(10, num_stages=3):
+   55|                 ...
+   56|     :note: This is a special iterator used to implement similar semantics to Python's :code:`range` in the context of
+   57|         :code:`triton.jit` functions. In addition, it allows user to pass extra attributes to the compiler.
+   58|     :param arg1: the start value.
+   59|     :param arg2: the end value.
+   60|     :param step: the step value.
+   61|     :param num_stages: pipeline the loop into this many stages (so there are
+   62|         :code:`num_stages` iterations of the loop in flight at once).
+   63| 
+   64|         Note this is subtly different than passing :code:`num_stages` as a
+   65|         kernel argument.  The kernel argument only pipelines loads that feed
+   66|         into :code:`dot` operations, while this attribute tries to pipeline most
+   67|         (though not all) loads in this loop.
+   68|     :param loop_unroll_factor: Tells the Triton IR level loop unroller how many
+   69|         times to unroll a for loop that this range is used with. Less than 2 for
+   70|         this value implies no unrolling.
+   71|     :param disallow_acc_multi_buffer: If true, prevent the accumulator of the dot
+   72|         operation in the loop to be multi-buffered, if applicable.
+   73|     :param flatten: automatically flatten the loop nest starting at this loop to
+   74|         create a single flattened loop. The compiler will try to pipeline the
+   75|         flattened loop which can avoid stage stalling.
+   76|     :param warp_specialize: Enable automatic warp specialization on the loop.
+   77|         The compiler will attempt to partition memory, MMA, and vector
+   78|         operations in the loop into separate async partitions. This will
+   79|         increase the total number of warps required by the kernel.
+   80|     :param disable_licm: Tells the compiler it shouldn't hoist loop invariant
+   81|         code outside the loop. This is often useful to avoid creating long liveranges
+   82|         within a loop.
+   83| 
+   84|         Note that warp specialization is only supported on Blackwell GPUs and
+   85|         only works on simple matmul loops. Support for arbitrary loops will be
+   86|         expanded over time.
+   87|     """
+   88| 
+   89|     def __init__(self, arg1, arg2=None, step=None, num_stages=None, loop_unroll_factor=None,
+   90|                  disallow_acc_multi_buffer=False, flatten=False, warp_specialize=False, disable_licm=False):
+   91|         if step is None:
+   92|             self.step = constexpr(1)
+   93|         else:
+   94|             self.step = step
+   95|         if arg2 is None:
+   96|             self.start = constexpr(0)
+   97|             self.end = arg1
+   98|         else:
+   99|             self.start = arg1
+  100|             self.end = arg2
+  101|         self.num_stages = num_stages
+  102|         self.loop_unroll_factor = loop_unroll_factor
+  103|         self.disallow_acc_multi_buffer = disallow_acc_multi_buffer
+  104|         self.flatten = flatten
+  105|         self.warp_specialize = warp_specialize
+  106|         self.disable_licm = disable_licm
+  107| 
+  108|     def __iter__(self):
+  109|         raise RuntimeError("tl.range can only be used in @triton.jit'd functions")
+  110| 
+  111|     def __next__(self):
+  112|         raise RuntimeError("tl.range can only be used in @triton.jit'd functions")
+  113| 
+  114| 
+  115| class pipeline(range):
+  116|     """
+  117|     Iterator that counts upward forever, with software pipeline semantics.
+  118| 
+  119|     This is a special iterator used to implement similar semantics to Python's :code:`range` in the context of
+  120|     :code:`triton.jit` functions. In addition, it allows user to pass extra attributes to the compiler.
+    ... 256 more lines
+
+========================================================================
+2. callable surface, with signatures
+========================================================================
+
+  triton.experimental.tle
+      Dict(*args, **kwargs)   <_SpecialGenericAlias>
+          | A generic version of dict.
+      JITFunction(fn, version=None, do_not_specialize=None, do_not_specialize_on_alignment=None, debug=None, noinline=None, repr=None, launch_metadata=None)   <type>
+          | Abstract base class for generic types.
+          | 
+          | A generic type is typically declared by inheriting from
+          | this class parameterized with one or more type variables.
+          | For example, a generic mapping type might be defined as::
+          | 
+      Optional(*args, **kwds)   <_SpecialForm>
+          | Optional[X] is equivalent to Union[X, None].
+      TleCodeGenerator(context, prototype, gscope, attributes, constants, function_name, jit_fn: triton.runtime.jit.JITFunction, options, codegen_fns, module_map, module=None, is_kernel=False, function_types: Optional[Dict] = None, noinline=False, file_name: Optional[str] = None, begin_line=0)   <type>
+          | A node visitor base class that walks the abstract syntax tree and calls a
+          | visitor function for every node found.  This function may return a value
+          | which is forwarded by the `visit` method.
+          | 
+          | This class is meant to be subclassed, with the subclass adding visitor
+          | methods.
+      ast   <module>
+          | ast
+          | ~~~
+          | 
+          | The `ast` module helps Python applications to process trees of the Python
+          | abstract syntax grammar.  The abstract syntax itself might change with
+          | each Python release; this module helps to find out programmatically what
+      code_generator   <module>
+      dsa   <module>
+      extract_tle_hints_scope(generator: triton.experimental.tle.TleCodeGenerator)   <function>
+          | with tle.hints(inter_no_alias=True):
+          |     with xxxx:
+          |         with tle.hints(inter_no_alias=False):
+          |             ...
+          |             with xxx:
+          |                 call_fn1(...)
+      importlib   <module>
+          | A pure Python implementation of import.
+      ir   <module>
+      language   <module>
+      override(arg: ~_F, /) -> ~_F   <function>
+          | Indicate that a method is intended to override a method in a base class.
+          | 
+          | Usage:
+          | 
+          |     class Base:
+          |         def method(self) -> None:
+      setup_unified_builder_with_tle_builder(main_builder, buffer_builder)   <function>
+          | Set up a unified builder interface by attaching methods from specialized builders.
+      tle_ir   <module>
+      tle_patch_for_triton_compile()   <function>
+      triton_compiler   <module>
+
+  triton.experimental.tle.language
+      builder   <module>
+      dsa   <module>
+
+  triton.experimental.tle.language.dsa
+      add(input, other, result, _builder=None)   <function>
+      alloc(shape: List[triton.language.core.constexpr], dtype: triton.language.core.dtype, mem_addr_space: triton.experimental.tle.language.dsa.types.address_space, _builder=None) -> triton.experimental.tle.language.dsa.types.buffer   <function>
+          | Allocates a region of local memory with the specified shape and type.
+          | 
+          | :param etype: the element type of the buffer.
+          | :type etype: tl.dtype
+          | :param shape: A list of non-negative integers representing the shape of the buffer.
+          | :type shape: List[tl.constexpr]
+      ascend   <module>
+      copy(src, dst, shape, inter_no_alias=False, _builder=None)   <function>
+          | Copy data from `src` to `dst` shaped by `shape`.
+          | 
+          | :param inter_no_alias: If True, the copy is annotated as no aliasing between different iterations.
+      core   <module>
+      div(input, other, result, _builder=None)   <function>
+      extract_element(src, indice, _builder=None, _generator=None)   <function>
+          | get_element op reads a ranked tensor and returns one element as specified by the given indices.
+          | The result of the op is a value with the same type as the elements of the tensor.
+          | The arity of indices must match the rank of the accessed value.
+          | 
+          | :param src: The tensor to be accessed.
+          | :type src: Tensor
+      extract_slice(ful, offsets, sizes, strides, _builder=None, _generator=None) -> triton.language.core.tensor   <function>
+          | Extract a tensor from another tensor as specified by the operation’s offsets, sizes and strides arguments.
+          | 
+          | :param ful: The tensor to split.
+          | :type ful: Tensor
+          | :param offsets:
+          | :type offsets: tuple of ints
+      hint(**kwargs)   <function>
+          | Dummy function for AST parsing. Not executed during JIT compilation.
+      insert_slice(ful: triton.language.core.tensor, sub: triton.language.core.tensor, offsets: List[triton.language.core.tensor], sizes: List[int], strides: List[int], _builder=None) -> triton.language.core.tensor   <function>
+          | Insert a tensor to another tensor as specified by the operation’s offsets, sizes and strides arguments.
+          | 
+          | :param ful: The tensor to receive tensor.
+          | :type ful: Tensor
+          | :param sub: The tensor to be inserted.
+          | :type sub: Tensor
+      max(input, other, result, _builder=None)   <function>
+      min(input, other, result, _builder=None)   <function>
+      mul(input, other, result, _builder=None)   <function>
+      parallel(arg1, arg2=None, step=None, num_stages=None, loop_unroll_factor=None)   <type>
+          | Iterator that counts upward forever, with parallel execution semantics.
+          | 
+          | This is a special iterator used to implement similar semantics to Python's :code:`range` in the context of
+          | :code:`triton.jit` functions. In addition, it indicates that there are no dependencies between loop iterations,
+          |  allowing them to be executed in parallel.
+      pipeline(arg1, arg2=None, step=None, num_stages=None, loop_unroll_factor=None)   <type>
+          | Iterator that counts upward forever, with software pipeline semantics.
+          | 
+          | This is a special iterator used to implement similar semantics to Python's :code:`range` in the context of
+          | :code:`triton.jit` functions. In addition, it allows user to pass extra attributes to the compiler.
+      semantic   <module>
+      sub(input, other, result, _builder=None)   <function>
+      subview(src: triton.experimental.tle.language.dsa.types.buffer, offsets: List[triton.language.core.constexpr], sizes: List[triton.language.core.constexpr], strides: List[triton.language.core.constexpr], _builder=None) -> triton.experimental.tle.language.dsa.types.buffer   <function>
+          | Creates a subview of the source buffer with the specified offsets, sizes, and strides.
+          | 
+          | :param src: The source buffer to create a subview from.
+          | :type src: buffer
+          | :param offsets: A list of non-negative integers representing the offsets in each dimension.
+          | :type offsets: List[tl.constexpr]
+      to_buffer(tensor: triton.language.core.tensor, space: triton.experimental.tle.language.dsa.types.address_space = None, bind_buffer: triton.experimental.tle.language.dsa.types.buffer = None, _builder=None) -> triton.experimental.tle.language.dsa.types.buffer   <function>
+          | Convert a tensor to a buffer.
+          | 
+          | :param tensor: the tensor to convert.
+          | :type tensor: tl.tensor
+          | :param space: the address space for the buffer (optional).
+          | :type space: address_space
+      to_tensor(memref: triton.experimental.tle.language.dsa.types.buffer, writable: bool = True, target_shape=None, _builder=None) -> triton.language.core.tensor   <function>
+          | Create a tl.tensor from a bl.buffer.
+          | 
+          | :param memref: the input bl.buffer object.
+          | :memref type: bl.buffer
+          | :param writable: If set true, the resultant tensor is considered "writable" during bufferization.
+          | :type writable: bool
+      types   <module>
+
+  triton.experimental.tle.language.builder
+      attach_builder_methods_with_tle_builder(main_builder, delegate_builder, method_names)   <function>
+          | Attach multiple methods from a delegate builder to the main builder.
+      create_dsa_method_wrapper_with_tle_builder(main_builder, delegate_builder, method_name)   <function>
+      setup_unified_builder_with_tle_builder(main_builder, buffer_builder)   <function>
+          | Set up a unified builder interface by attaching methods from specialized builders.
+
+  triton.experimental.tle.dsa: import failed ModuleNotFoundError: No module named 'triton.experimental.tle.dsa'
+
+========================================================================
+3. does a kernel using dsa.alloc compile and run?
+========================================================================
+  dsa.alloc signature: (shape: List[triton.language.core.constexpr], dtype: triton.language.core.dtype, mem_addr_space: triton.experimental.tle.language.dsa.types.address_space, _builder=None) -> triton.experimental.tle.language.dsa.types.buffer
+  dsa.alloc doc:
+Allocates a region of local memory with the specified shape and type.
+
+:param etype: the element type of the buffer.
+:type etype: tl.dtype
+:param shape: A list of non-negative integers representing the shape of the buffer.
+:type shape: List[tl.constexpr]
+:param _address_space: (Optional) backend-specific local memory address space
+:type _address_space: bl.address_space
+  [alloc as pointer] FAILED
+Traceback (most recent call last):
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle/language/dsa/core.py", line 30, in wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+TypeError: alloc() missing 1 required positional argument: 'mem_addr_space'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 132, in <module>
+    k_alloc[(1,)](out, BLOCK=B)
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 330, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 623, in run
+    kernel = self.compile(
+             ^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle/__init__.py", line 35, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 278, in compile
+    module = src.make_ir(options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/__init__.py", line 38, in _patched_make_ir
+    module = _original_make_ir(self, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 2:10:
+def k_alloc(out_ptr, BLOCK: tl.constexpr):
+    buf = dsa.alloc((BLOCK,), tl.int32)
+          ^
+TypeError("alloc() missing 1 required positional argument: 'mem_addr_space'")
+
+========================================================================
+4. the gates the operator actually evaluates
+========================================================================
+  [has_triton_tle] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 144, in <module>
+    from flaggems_vllm.utils.triton_version_utils import has_triton_tle
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/__init__.py", line 21, in <module>
+    import flaggems_vllm.ops as _ops_module
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/__init__.py", line 21, in <module>
+    from flaggems_vllm.ops.chunk_gated_delta_rule import chunk_gated_delta_rule
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/chunk_gated_delta_rule.py", line 21, in <module>
+    from flaggems_vllm.ops.FLA import chunk_gated_delta_rule_fwd
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/__init__.py", line 7, in <module>
+    from flaggems_vllm.ops.FLA.chunk_gdn2 import chunk_gdn2
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/chunk_gdn2.py", line 35, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.chunk_fwd import chunk_gdn2_fwd
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/chunk_fwd.py", line 15, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.chunk_intra import chunk_gdn2_fwd_intra
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/chunk_intra.py", line 30, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.wy_fast import recompute_w_u_fwd_gdn2
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/wy_fast.py", line 41, in <module>
+    @triton.autotune(
+     ^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 523, in decorator
+    return AutoTilingTuner(fn, fn.arg_names, configs, key, reset_to_zero, restore_value, pre_hook=pre_hook,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 91, in __init__
+    self._init_axis_params(key, split_params, tiling_params, low_dim_axes, reduction_axes)
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 111, in _init_axis_params
+    raise ValueError("Number of parameters exceeds the number of available axes.")
+ValueError: Number of parameters exceeds the number of available axes.
+  [vendor descriptor] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 152, in <module>
+    from flaggems_vllm import runtime
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/__init__.py", line 21, in <module>
+    import flaggems_vllm.ops as _ops_module
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/__init__.py", line 21, in <module>
+    from flaggems_vllm.ops.chunk_gated_delta_rule import chunk_gated_delta_rule
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/chunk_gated_delta_rule.py", line 21, in <module>
+    from flaggems_vllm.ops.FLA import chunk_gated_delta_rule_fwd
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/__init__.py", line 7, in <module>
+    from flaggems_vllm.ops.FLA.chunk_gdn2 import chunk_gdn2
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/chunk_gdn2.py", line 35, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.chunk_fwd import chunk_gdn2_fwd
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/chunk_fwd.py", line 15, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.chunk_intra import chunk_gdn2_fwd_intra
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/chunk_intra.py", line 30, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.wy_fast import recompute_w_u_fwd_gdn2
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/wy_fast.py", line 41, in <module>
+    @triton.autotune(
+     ^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 523, in decorator
+    return AutoTilingTuner(fn, fn.arg_names, configs, key, reset_to_zero, restore_value, pre_hook=pre_hook,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 91, in __init__
+    self._init_axis_params(key, split_params, tiling_params, low_dim_axes, reduction_axes)
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 111, in _init_axis_params
+    raise ValueError("Number of parameters exceeds the number of available axes.")
+ValueError: Number of parameters exceeds the number of available axes.
+  [operator HAS_TLE] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 161, in <module>
+    import flaggems_vllm.ops.top_k_per_row_prefill as _m
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/__init__.py", line 21, in <module>
+    import flaggems_vllm.ops as _ops_module
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/__init__.py", line 21, in <module>
+    from flaggems_vllm.ops.chunk_gated_delta_rule import chunk_gated_delta_rule
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/chunk_gated_delta_rule.py", line 21, in <module>
+    from flaggems_vllm.ops.FLA import chunk_gated_delta_rule_fwd
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/__init__.py", line 7, in <module>
+    from flaggems_vllm.ops.FLA.chunk_gdn2 import chunk_gdn2
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/chunk_gdn2.py", line 35, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.chunk_fwd import chunk_gdn2_fwd
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/chunk_fwd.py", line 15, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.chunk_intra import chunk_gdn2_fwd_intra
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/chunk_intra.py", line 30, in <module>
+    from flaggems_vllm.ops.FLA.gdn2_native.wy_fast import recompute_w_u_fwd_gdn2
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/FLA/gdn2_native/wy_fast.py", line 41, in <module>
+    @triton.autotune(
+     ^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 523, in decorator
+    return AutoTilingTuner(fn, fn.arg_names, configs, key, reset_to_zero, restore_value, pre_hook=pre_hook,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 91, in __init__
+    self._init_axis_params(key, split_params, tiling_params, low_dim_axes, reduction_axes)
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/runtime/autotuner.py", line 111, in _init_axis_params
+    raise ValueError("Number of parameters exceeds the number of available axes.")
+ValueError: Number of parameters exceeds the number of available axes.
+
+done.
