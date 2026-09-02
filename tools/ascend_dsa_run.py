@@ -26,8 +26,12 @@ CASES = [
     "copy",         # GM -> UB -> GM staging, the Ascend idiom
     "ptr_store",    # is there any pointer to a UB buffer
     "atomic",       # can a histogram scatter reach UB at all
-    "cap2048",      # 8 KB   -- the histogram's own size
-    "cap8192",      # 32 KB  -- near the measured ~36 KB ceiling
+    "atomic2",      # same question, with the shape bug removed
+    "capcopy2048",  # 8 KB   -- the histogram's own size
+    "capcopy8192",  # 32 KB  -- near the measured ~36 KB ceiling
+    "capcopy16384", # 64 KB  -- past it, to find the real wall
+    "hist",         # is tl.histogram lowered at all
+    "hist_accum",   # accumulate a row, flush bins once: the shape we would ship
 ]
 
 
