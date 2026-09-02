@@ -34,7 +34,17 @@ M = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
 DEV = flaggems_vllm.device
 
 VOCAB, TOPK = 20000, 1024
-BLOCK = M._compaction_block_size()
+# The block size may live in a vendor override now, not the generic module.
+BLOCK = getattr(M, "NUM_THREADS_PER_BLOCK", 512)
+try:
+    _ov = import_module(
+        "flaggems_vllm.runtime.backend._"
+        + flaggems_vllm.vendor_name
+        + ".fused.top_k_per_row_prefill"
+    )
+    BLOCK = getattr(_ov, "SCAN_BLOCK_SIZE", BLOCK)
+except ImportError:
+    _ov = None
 
 
 def host_bins(x):
@@ -112,7 +122,8 @@ def main():
     print("  逐阶段比对：第一处和主机参照不符的地方")
     print("=" * 84)
     print(f"  vendor={flaggems_vllm.vendor_name}  BLOCK={BLOCK}  "
-          f"HAS_ATOMIC_RETURN={M.HAS_ATOMIC_RETURN}")
+          f"override={'有' if _ov else '无'}  "
+          f"绑定={flaggems_vllm.top_k_per_row_prefill.__module__.split('.')[-2]}")
     print(f"  vocab={VOCAB}  top_k={TOPK}\n")
 
     torch.manual_seed(0)
