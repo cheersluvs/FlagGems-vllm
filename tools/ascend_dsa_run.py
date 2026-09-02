@@ -60,8 +60,10 @@ def plog_tail(n=40):
     return f"  newest plog {newest}\n{body}"
 
 
+if len(sys.argv) > 1:                     # run only the named cases
+    CASES = sys.argv[1:]
+
 os.makedirs(LOGDIR, exist_ok=True)
-env = dict(os.environ, ASCEND_LAUNCH_BLOCKING="1")
 first_failure_reported = False
 
 for case in CASES:
@@ -72,7 +74,11 @@ for case in CASES:
     with open(log, "w") as fh:
         p = subprocess.Popen(
             [sys.executable, os.path.join(ROOT, "tools", "ascend_dsa_case.py"), case],
-            stdout=fh, stderr=subprocess.STDOUT, cwd=ROOT, env=env,
+            # Blocking launches make a fault attributable, but they also
+            # serialise the very thing a timing case measures.
+            stdout=fh, stderr=subprocess.STDOUT, cwd=ROOT,
+            env=dict(os.environ) if case.startswith("time_")
+            else dict(os.environ, ASCEND_LAUNCH_BLOCKING="1"),
             start_new_session=True,
         )
         try:

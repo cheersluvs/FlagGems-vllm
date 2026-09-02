@@ -119,7 +119,77 @@ def k_hist_accum(in_ptr, out_ptr, N: tl.constexpr, BLOCK: tl.constexpr,
     tl.store(out_ptr + tl.arange(0, NBINS), acc)
 
 
+# --- timing: is tl.histogram actually faster than the per-element atomic? ---
+# Correct is not fast.  The histogram pass is where this operator loses ~100x,
+# so the only number that matters is how these two lower against each other.
+# N is a power of two near the real 129280 vocab so the tile loop divides.
+
+@triton.jit
+def k_time_atomic(in_ptr, out_ptr, N: tl.constexpr, BLOCK: tl.constexpr,
+                  NBINS: tl.constexpr):
+    row = tl.program_id(0)
+    base = in_ptr + row * N
+    hp = out_ptr + row * NBINS
+    for off in tl.range(0, N, BLOCK):
+        b = tl.load(base + off + tl.arange(0, BLOCK))
+        tl.atomic_add(hp + b, 1)
+
+
+@triton.jit
+def k_time_hist(in_ptr, out_ptr, N: tl.constexpr, BLOCK: tl.constexpr,
+                NBINS: tl.constexpr):
+    row = tl.program_id(0)
+    base = in_ptr + row * N
+    acc = tl.zeros([NBINS], tl.int32)
+    for off in tl.range(0, N, BLOCK):
+        acc += tl.histogram(tl.load(base + off + tl.arange(0, BLOCK)), NBINS)
+    tl.store(out_ptr + row * NBINS + tl.arange(0, NBINS), acc)
+
+
+@triton.jit
+def k_time_read(in_ptr, out_ptr, N: tl.constexpr, BLOCK: tl.constexpr,
+                NBINS: tl.constexpr):
+    """Control: same traffic, no binning.  Without it a ratio means nothing."""
+    row = tl.program_id(0)
+    base = in_ptr + row * N
+    s = tl.zeros([BLOCK], tl.int32)
+    for off in tl.range(0, N, BLOCK):
+        s += tl.load(base + off + tl.arange(0, BLOCK))
+    tl.store(out_ptr + row * NBINS + tl.arange(0, BLOCK), s)
+
+
 def run():
+    if CASE.startswith("time_"):
+        import time
+        ROWS, N, NB, BLK = 64, 131072, 2048, 512
+        x = torch.randint(0, NB, (ROWS, N), dtype=torch.int32, device="npu")
+        out = torch.zeros(ROWS, NB, dtype=torch.int32, device="npu")
+        fn = {"time_atomic": k_time_atomic, "time_hist": k_time_hist,
+              "time_read": k_time_read}[CASE]
+
+        def once():
+            out.zero_()
+            fn[(ROWS,)](x, out, N=N, BLOCK=BLK, NBINS=NB)
+
+        for _ in range(3):
+            once()
+        torch.npu.synchronize()
+        ts = []
+        for _ in range(10):
+            t0 = time.perf_counter()
+            once()
+            torch.npu.synchronize()
+            ts.append((time.perf_counter() - t0) * 1e3)
+        ts.sort()
+        chk = ""
+        if CASE in ("time_atomic", "time_hist"):
+            ref = torch.zeros(ROWS, NB, dtype=torch.int32)
+            for r in range(ROWS):
+                ref[r] = torch.bincount(x[r].cpu().long(), minlength=NB)
+            chk = " | " + ("CORRECT" if torch.equal(out.cpu(), ref) else "WRONG")
+        return (f"{ROWS}x{N} into {NB} bins | min {ts[0]:.2f} med "
+                f"{ts[len(ts) // 2]:.2f} max {ts[-1]:.2f} ms{chk}")
+
     if CASE == "atomic2":
         N = 128
         idx = torch.randint(0, N, (N,), dtype=torch.int32, device="npu")
