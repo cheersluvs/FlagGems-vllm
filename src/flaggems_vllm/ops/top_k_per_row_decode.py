@@ -319,7 +319,19 @@ def _extract_bin_idx(x, in_range, pattern, STEP: tl.constexpr):
         sign_set = (bits & sign_mask) != 0
         inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
         mapped = tl.where(sign_set, bits, inv)
-        # int32, not uint32. `mapped` is uint16 and the shift leaves 11 bits, so
+        # Widen and mask BEFORE shifting. `mapped` is uint16, so >> must be a
+        # LOGICAL shift -- but Ascend lowers it as an arithmetic one, and every
+        # value with the top bit set (which under this mapping is every negative
+        # input) comes out negative: -533 where 1515 was meant. The store then
+        # lands outside the histogram and is dropped, losing exactly half the
+        # elements. Measured there: positives 9986/9986 correct, negatives
+        # 0/10014, kernel bin range [-894, 922] against [487, 1570].
+        #
+        # `& 0xFFFF` after widening is a no-op wherever the conversion is
+        # already zero-extending, so this is an identity on Moore Threads and
+        # NVIDIA and a repair where it is not.
+        m32 = mapped.to(tl.int32) & 0xFFFF
+        # int32, not uint32. The shift leaves 11 bits, so
         # the value range is 0..2047 either way -- but the Ascend backend cannot
         # lower the cast this produced:
         #
@@ -328,7 +340,7 @@ def _extract_bin_idx(x, in_range, pattern, STEP: tl.constexpr):
         #
         # and every consumer treats the result as an index or compares it after
         # an explicit .to(tl.int32) anyway, so the unsigned type bought nothing.
-        bin_idx = (mapped >> 5).to(tl.int32)
+        bin_idx = m32 >> 5
     else:
         bits = _convert_to_uint32(x)
         # Every branch lands in int32, matching STEP 0 above. The masks leave 11
