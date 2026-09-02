@@ -162,7 +162,40 @@ def main():
         thr_val = float(ref_vals.min())
         n_true = int((vals >= thr_val).sum())
         print(f"      写进去的值里真正属于 top-{TOPK} 的: {n_true}/{int(vals.numel())}")
+    # ---- D. 成本拆分 ----
+    # The scan turned out 6x FASTER than the atomic on this backend, the
+    # opposite of Moore Threads, because without TLE the scratch lives in
+    # GLOBAL memory and the compaction's per-lane atomics were global ones.
+    # What the scan does NOT touch is the histogram: _distribute_to_bins still
+    # issues one global atomic per input element per refinement step. Time that
+    # alone against the whole operator and see how much of it that is.
+    def ms(fn):
+        return triton.testing.do_bench(fn, warmup=10, rep=200,
+                                       return_mode="median")
+
+    big_rows, big_vocab = 4096, 4100
+    lg = torch.randn((big_rows, big_vocab), dtype=torch.float32, device=DEV)
+    st = torch.zeros(big_rows, dtype=torch.int32, device=DEV)
+    en = torch.full((big_rows,), big_vocab, dtype=torch.int32, device=DEV)
+    oi = torch.empty((big_rows, 512), dtype=torch.int32, device=DEV)
+    hh = torch.zeros((big_rows, 2048), dtype=torch.int32, device=DEV)
+
+    t_hist = ms(lambda: _hist_only[(big_rows,)](
+        lg, hh, big_vocab, BLOCK_SIZE=BLOCK, num_warps=M._num_warps(BLOCK)))
+    t_full = ms(lambda: M.top_k_per_row_prefill(
+        lg, st, en, oi, big_rows, lg.stride(0), lg.stride(1), 512))
+    t_torch = ms(lambda: torch.topk(lg, 512, dim=1, largest=True, sorted=False))
+
+    print(f"\n  D 成本拆分  形状 ({big_rows}, {big_vocab})  top_k=512")
+    print(f"      只建直方图（一遍）  {t_hist:9.2f} ms")
+    print(f"      整算子              {t_full:9.2f} ms   "
+          f"直方图占 {100 * t_hist / t_full:.0f}%")
+    print(f"      torch.topk          {t_torch:9.2f} ms")
+
     print("\n  读法")
+    print("    D 里直方图占大头 => 瓶颈是每元素一次全局原子，非 TLE 路径的结构问题，")
+    print("      和我们的绕法无关；要提速得让 scratch 上片，而这块卡没有 TLE")
+    print("    D 里直方图是零头 => 瓶颈在别处（最终定序那段是 O(n^2) 的插入排序）")
     print("    A 不符            => 分 bin / 直方图，最早")
     print("    A 对、C 写入数不足 => 压缩仍在丢，scan 也没救回来")
     print("    A 对、写满但值错   => 选择或定序那一段")
