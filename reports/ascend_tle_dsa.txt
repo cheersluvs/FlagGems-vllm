@@ -1,0 +1,1026 @@
+### branch ascend-tle-surface @ fa1a7de
+### 2026-09-02T16:46:58+08:00  host bm-ctyun-wq-910b-64g-0-13
+### PYTHONPATH=src:/usr/local/Ascend/cann-8.5.0/python/site-packages:/usr/local/Ascend/cann-8.5.0/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:
+
+triton 3.2.0 | torch 2.6.0+cpu
+
+========================================================================
+A. dsa/core.py from line 113, dsa/semantic.py, and the CANN address space
+========================================================================
+  /usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle/language/dsa/core.py  (376 lines, showing 113..376)
+  113| 
+  114| 
+  115| class pipeline(range):
+  116|     """
+  117|     Iterator that counts upward forever, with software pipeline semantics.
+  118| 
+  119|     This is a special iterator used to implement similar semantics to Python's :code:`range` in the context of
+  120|     :code:`triton.jit` functions. In addition, it allows user to pass extra attributes to the compiler.
+  121|     """
+  122| 
+  123|     def __init__(self, arg1, arg2=None, step=None, num_stages=None, loop_unroll_factor=None):
+  124|         super().__init__(arg1, arg2, step, num_stages, loop_unroll_factor)
+  125| 
+  126| 
+  127| class parallel(range):
+  128|     """
+  129|     Iterator that counts upward forever, with parallel execution semantics.
+  130| 
+  131|     This is a special iterator used to implement similar semantics to Python's :code:`range` in the context of
+  132|     :code:`triton.jit` functions. In addition, it indicates that there are no dependencies between loop iterations,
+  133|      allowing them to be executed in parallel.
+  134|     """
+  135| 
+  136|     def __init__(self, arg1, arg2=None, step=None, num_stages=None, loop_unroll_factor=None):
+  137|         super().__init__(arg1, arg2, step, num_stages, loop_unroll_factor)
+  138| 
+  139| 
+  140| @builtin
+  141| def from_buffer_to_tensor_pointer(src: buffer, _builder=None) -> tl.tensor:
+  142|     buffer_ty = src.type
+  143|     ele_type = buffer_ty.element_ty
+  144|     shape = buffer_ty.shape
+  145|     block_type = tl.block_type(ele_type, shape)
+  146|     return tl.tensor(src.handle, block_type)
+  147| 
+  148| 
+  149| @builtin
+  150| def copy(src, dst, shape, inter_no_alias=False, _builder=None):
+  151|     """Copy data from `src` to `dst` shaped by `shape`.
+  152| 
+  153|     :param inter_no_alias: If True, the copy is annotated as no aliasing between different iterations.
+  154|     """
+  155|     assert len(shape) != 0, "Can't deduce copy extents from args"
+  156| 
+  157|     shape = _constexpr_to_value(shape)
+  158|     inter_no_alias = _constexpr_to_value(inter_no_alias)
+  159|     tle_semantic.copy(src, dst, shape, inter_no_alias, _builder)
+  160| 
+  161| 
+  162| @builtin
+  163| def add(input, other, result, _builder=None):
+  164|     input = from_buffer_to_tensor_pointer(input, _builder=_builder)
+  165|     other = from_buffer_to_tensor_pointer(other, _builder=_builder)
+  166|     result = from_buffer_to_tensor_pointer(result, _builder=_builder)
+  167|     tle_semantic.add(input, other, result, _builder)
+  168| 
+  169| 
+  170| @builtin
+  171| def sub(input, other, result, _builder=None):
+  172|     input = from_buffer_to_tensor_pointer(input, _builder=_builder)
+  173|     other = from_buffer_to_tensor_pointer(other, _builder=_builder)
+  174|     result = from_buffer_to_tensor_pointer(result, _builder=_builder)
+  175|     tle_semantic.sub(input, other, result, _builder)
+  176| 
+  177| 
+  178| @builtin
+  179| def mul(input, other, result, _builder=None):
+  180|     input = from_buffer_to_tensor_pointer(input, _builder=_builder)
+  181|     other = from_buffer_to_tensor_pointer(other, _builder=_builder)
+  182|     result = from_buffer_to_tensor_pointer(result, _builder=_builder)
+  183|     tle_semantic.mul(input, other, result, _builder)
+  184| 
+  185| 
+  186| @builtin
+  187| def div(input, other, result, _builder=None):
+  188|     input = from_buffer_to_tensor_pointer(input, _builder=_builder)
+  189|     other = from_buffer_to_tensor_pointer(other, _builder=_builder)
+  190|     result = from_buffer_to_tensor_pointer(result, _builder=_builder)
+  191|     tle_semantic.div(input, other, result, _builder)
+  192| 
+  193| 
+  194| @builtin
+  195| def max(input, other, result, _builder=None):
+  196|     # elementwise binary vector maximum op
+  197|     input = from_buffer_to_tensor_pointer(input, _builder=_builder)
+  198|     other = from_buffer_to_tensor_pointer(other, _builder=_builder)
+  199|     result = from_buffer_to_tensor_pointer(result, _builder=_builder)
+  200|     tle_semantic.max(input, other, result, _builder)
+  201| 
+  202| 
+  203| @builtin
+  204| def min(input, other, result, _builder=None):
+  205|     # elementwise binary vector minimum op
+  206|     input = from_buffer_to_tensor_pointer(input, _builder=_builder)
+  207|     other = from_buffer_to_tensor_pointer(other, _builder=_builder)
+  208|     result = from_buffer_to_tensor_pointer(result, _builder=_builder)
+  209|     tle_semantic.min(input, other, result, _builder)
+  210| 
+  211| 
+  212| @builtin
+  213| def alloc(shape: List[tl.constexpr], dtype: tl.dtype, mem_addr_space: address_space, _builder=None) -> buffer:
+  214|     """
+  215|     Allocates a region of local memory with the specified shape and type.
+  216| 
+  217|     :param etype: the element type of the buffer.
+  218|     :type etype: tl.dtype
+  219|     :param shape: A list of non-negative integers representing the shape of the buffer.
+  220|     :type shape: List[tl.constexpr]
+  221|     :param _address_space: (Optional) backend-specific local memory address space
+  222|     :type _address_space: bl.address_space
+  223|     """
+  224|     assert (mem_addr_space is not None)
+  225|     return tle_semantic.alloc(dtype, shape, mem_addr_space, _builder)
+  226| 
+  227| 
+  228| @builtin
+  229| def to_buffer(tensor: tl.tensor, space: address_space = None, bind_buffer: buffer = None, _builder=None) -> buffer:
+  230|     """
+  231|     Convert a tensor to a buffer.
+  232| 
+  233|     :param tensor: the tensor to convert.
+  234|     :type tensor: tl.tensor
+  235|     :param space: the address space for the buffer (optional).
+  236|     :type space: address_space
+  237|     """
+  238|     return tle_semantic.to_buffer(tensor, space, bind_buffer, _builder)
+  239| 
+  240| 
+  241| @builtin
+  242| def to_tensor(memref: buffer, writable: bool = True, target_shape=None, _builder=None) -> tl.tensor:
+  243|     """
+  244|     Create a tl.tensor from a bl.buffer.
+  245| 
+  246|     :param memref: the input bl.buffer object.
+  247|     :memref type: bl.buffer
+  248|     :param writable: If set true, the resultant tensor is considered "writable" during bufferization.
+  249|     :type writable: bool
+  250|     """
+  251|     return tle_semantic.to_tensor(memref, writable, _builder, target_shape=target_shape)
+  252| 
+  253| 
+  254| @builtin
+  255| def subview(src: buffer, offsets: List[tl.constexpr], sizes: List[tl.constexpr], strides: List[tl.constexpr],
+  256|             _builder=None) -> buffer:
+  257|     '''
+  258|     Creates a subview of the source buffer with the specified offsets, sizes, and strides.
+  259| 
+  260|     :param src: The source buffer to create a subview from.
+  261|     :type src: buffer
+  262|     :param offsets: A list of non-negative integers representing the offsets in each dimension.
+  263|     :type offsets: List[tl.constexpr]
+  264|     :param sizes: A list of non-negative integers representing the sizes in each dimension.
+  265|     :type sizes: List[tl.constexpr]
+  266|     :param strides: A list of non-negative integers representing the strides in each dimension.
+  267|     :type strides: List[tl.constexpr]
+  268|     :return: A new buffer representing the subview of the source buffer.
+  269|     :rtype: buffer
+  270|     '''
+  271|     # Validate that sizes and strides contain only constexpr values
+  272|     new_sizes = []
+  273|     for i, size in enumerate(sizes):
+  274|         if isinstance(size, int):
+  275|             # Convert regular integers to constexpr
+  276|             new_sizes.append(tl.constexpr(size))
+  277|         elif isinstance(size, tl.constexpr):
+  278|             new_sizes.append(size)
+  279|         else:
+  280|             raise TypeError(f"sizes[{i}] must be constexpr, got {type(size).__name__}")
+  281| 
+  282|     new_strides = []
+  283|     for i, stride in enumerate(strides):
+  284|         if isinstance(stride, int):
+  285|             # Convert regular integers to constexpr
+  286|             new_strides.append(tl.constexpr(stride))
+  287|         elif isinstance(stride, tl.constexpr):
+  288|             new_strides.append(stride)
+  289|         else:
+  290|             raise TypeError(f"strides[{i}] must be constexpr, got {type(stride).__name__}")
+  291| 
+  292|     new_offsets = []
+  293|     for offset in offsets:
+  294|         if isinstance(offset, tl.constexpr):
+  295|             # Check that constexpr offset values cannot be negative
+  296|             if offset < 0:
+  297|                 raise ValueError(f"Offset value must be non-negative, got {offset}")
+  298|             new_offsets.append(tl_semantic.to_tensor(offset, _builder))
+  299|         elif isinstance(offset, int):
+  300|             # Convert regular integers to constexpr and then to tensor
+  301|             if offset < 0:
+  302|                 raise ValueError(f"Offset value must be non-negative, got {offset}")
+  303|             new_offsets.append(tl_semantic.to_tensor(tl.constexpr(offset), _builder))
+  304|         else:
+  305|             # Assume it's already a tensor
+  306|             new_offsets.append(offset)
+  307| 
+  308|     return tle_semantic.subview(src, new_offsets, new_sizes, new_strides, _builder)
+  309| 
+  310| 
+  311| def hint(**kwargs):
+  312|     """Dummy function for AST parsing. Not executed during JIT compilation."""
+  313|     raise RuntimeError("tle.hint() cannot be called directly.")
+  314| 
+  315| 
+  316| @builtin
+  317| def insert_slice(ful: tensor, sub: tensor, offsets: List[tensor], sizes: List[int], strides: List[int],
+  318|                  _builder=None) -> tensor:
+  319|     """
+  320|     Insert a tensor to another tensor as specified by the operation’s offsets, sizes and strides arguments.
+  321| 
+  322|     :param ful: The tensor to receive tensor.
+  323|     :type ful: Tensor
+  324|     :param sub: The tensor to be inserted.
+  325|     :type sub: Tensor
+  326|     :param offsets:
+  327|     :type offsets: tuple of ints
+  328|     :param sizes:
+  329|     :type sizes: tuple of ints
+  330|     :param strides:
+  331|     :type strides: tuple of ints
+  332|     """
+  333|     assert len(ful.shape) > 0
+  334|     assert len(ful.shape) == len(sub.shape)
+  335|     assert (len(ful.shape) == len(sizes))
+  336|     assert (len(ful.shape) == len(strides))
+  337|     new_offsets = [tl_semantic.to_tensor(o, _builder) if isinstance(o, constexpr) else o for o in offsets]
+  338|     out = tle_semantic.insert_slice(ful, sub, new_offsets, sizes, strides, _builder)
+  339|     return out
+  340| 
+  341| 
+  342| @builtin
+  343| def extract_slice(ful, offsets, sizes, strides, _builder=None, _generator=None) -> tensor:
+  344|     """
+  345|     Extract a tensor from another tensor as specified by the operation’s offsets, sizes and strides arguments.
+  346| 
+  347|     :param ful: The tensor to split.
+  348|     :type ful: Tensor
+  349|     :param offsets:
+  350|     :type offsets: tuple of ints
+  351|     :param sizes:
+  352|     :type sizes: tuple of ints
+  353|     :param strides:
+  354|     :type strides: tuple of ints
+  355|     """
+  356|     assert len(ful.shape) > 0
+  357|     new_offsets = [tl_semantic.to_tensor(o, _builder) if isinstance(o, constexpr) else o for o in offsets]
+  358|     sub = tle_semantic.extract_slice(ful, new_offsets, sizes, strides, _builder)
+  359|     return sub
+  360| 
+  361| 
+  362| @builtin
+  363| def extract_element(src, indice, _builder=None, _generator=None):
+  364|     """
+  365|     get_element op reads a ranked tensor and returns one element as specified by the given indices.
+  366|     The result of the op is a value with the same type as the elements of the tensor.
+  367|     The arity of indices must match the rank of the accessed value.
+  368| 
+  369|     :param src: The tensor to be accessed.
+  370|     :type src: Tensor
+  371|     :param indice:
+  372|     :type indice: tuple of ints
+  373|     """
+  374|     assert len(src.shape) > 0
+  375|     new_indice = [tl_semantic.to_tensor(i, _builder) if isinstance(i, constexpr) else i for i in indice]
+  376|     return tle_semantic.extract_element(src, new_indice, _builder)
+
+  /usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle/language/dsa/semantic.py  (193 lines, showing 1..193)
+    1| # Copyright 2026- Xcoresigma Technology Co., Ltd
+    2| 
+    3| from typing import List, Union
+    4| from triton.language import core as tl
+    5| from triton.language.semantic import (
+    6|     binary_op_type_checking_impl, )
+    7| from triton._C.libtriton import ir
+    8| from .types import buffer, buffer_type, address_space
+    9| 
+   10| 
+   11| def wrap_tensor(x, scalar_ty, ret_shape):
+   12|     if ret_shape:
+   13|         res_ty = tl.block_type(scalar_ty, ret_shape)
+   14|     else:
+   15|         # 0d-tensor -> scalar
+   16|         res_ty = scalar_ty
+   17|     return tl.tensor(x, res_ty)
+   18| 
+   19| 
+   20| def scalar_constant(value, dtype: tl.dtype, builder: ir.builder) -> tl.tensor:
+   21|     # assert value.numel.value == 1, "only accepts size-1 tensor"
+   22|     if isinstance(value, tl.constexpr):
+   23|         value = builder.get_int32(value)
+   24|         return tl.tensor(value, dtype)
+   25| 
+   26|     if value.dtype.is_int():
+   27|         return tl.tensor(value.handle, dtype)
+   28| 
+   29| 
+   30| def copy(src, dst, shape: List[Union[tl.constexpr, int]], inter_no_alias: bool, builder: ir.builder):
+   31|     """
+   32|     Generate tt.copy(src, dst, shape) and return dst-like tensor.
+   33|     Lowering to hivm.load/hivm.store is done in MLIR pass.
+   34|     """
+   35|     shape = [scalar_constant(x, tl.int32, builder) for x in shape]
+   36|     builder.create_dsa_copy(src.handle, dst.handle, [s.handle for s in shape], inter_no_alias)
+   37| 
+   38| 
+   39| def add(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   40|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   41|     builder.create_dsa_add(input.handle, other.handle, result.handle)
+   42| 
+   43| 
+   44| def sub(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   45|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   46|     builder.create_dsa_sub(input.handle, other.handle, result.handle)
+   47| 
+   48| 
+   49| def mul(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   50|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   51|     builder.create_dsa_mul(input.handle, other.handle, result.handle)
+   52| 
+   53| 
+   54| def div(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   55|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   56|     builder.create_dsa_div(input.handle, other.handle, result.handle)
+   57| 
+   58| 
+   59| def max(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   60|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   61|     builder.create_dsa_max(input.handle, result.handle)
+   62| 
+   63| 
+   64| def min(input: tl.tensor, other: tl.tensor, result: tl.tensor, builder: ir.builder):
+   65|     input, other = binary_op_type_checking_impl(input, other, builder, True, True)
+   66|     builder.create_dsa_min(input.handle, other.handle, result.handle)
+   67| 
+   68| 
+   69| def alloc(etype: tl.dtype, shape: List[tl.constexpr], address_space: address_space, builder: ir.builder) -> buffer:
+   70|     shape = tl._unwrap_shape(shape)
+   71|     if not isinstance(shape, (tuple, list)):
+   72|         raise TypeError("shape must be list/tuple")
+   73|     etype = tl._constexpr_to_value(etype)
+   74|     address_space = tl._constexpr_to_value(address_space)
+   75|     element_ty_ir = etype.to_ir(builder)
+   76|     addr_space_attr = (address_space.to_ir(builder) if address_space else builder.dsa_get_null_attr())
+   77|     memref_ty = builder.dsa_get_buffer_type(shape, element_ty_ir, addr_space_attr)
+   78|     handle = builder.create_dsa_alloc(memref_ty)
+   79|     buffer_ty = buffer_type(element_ty=etype, shape=shape, space=address_space)
+   80|     return buffer(handle, buffer_ty)
+   81| 
+   82| 
+   83| def to_buffer(
+   84|     tensor: tl.tensor,
+   85|     address_space: address_space,
+   86|     bind_buffer: buffer,
+   87|     builder: ir.builder,
+   88| ) -> buffer:
+   89|     if not isinstance(tensor.shape, (tuple, list)) or not tensor.shape:
+   90|         raise TypeError("scalar type cannot be converted to buffer")
+   91|     # if isinstance(bind_buffer, buffer):
+   92|     #     builder.create_bind_buffer(tensor.handle, bind_buffer.handle)
+   93|     #     return bind_buffer
+   94|     if bind_buffer is not None:
+   95|         raise ValueError("bind_buffer must be a buffer or None")
+   96|     address_space = tl._constexpr_to_value(address_space)
+   97|     addr_space_attr = (address_space.to_ir(builder) if address_space else builder.dsa_get_null_attr())
+   98|     handle = builder.dsa_to_buffer(tensor.handle, addr_space_attr)
+   99|     buffer_ty = buffer_type(element_ty=tensor.dtype, shape=tensor.shape, space=address_space)
+  100|     return buffer(handle, buffer_ty)
+  101| 
+  102| 
+  103| def to_tensor(memref: buffer, writable: bool, builder: ir.builder, target_shape=None) -> tl.tensor:
+  104|     if not isinstance(memref, buffer):
+  105|         raise TypeError("memref must be buffer")
+  106| 
+  107|     need_convert_layout = False
+  108|     shape = memref.shape
+  109|     if target_shape:
+  110|         need_convert_layout = True
+  111|         shape = tl._unwrap_shape(target_shape)
+  112|         assert shape != memref.shape, "target shape is the same as source shape"
+  113|     if not isinstance(shape, (tuple, list)):
+  114|         raise TypeError("shape must be list/tuple")
+  115|     tensor_type = tl.block_type(memref.dtype, shape)
+  116| 
+  117|     memref_value = memref.handle
+  118|     if need_convert_layout:
+  119|         buffer_ty = buffer_type(
+  120|             element_ty=memref.dtype,
+  121|             shape=shape,
+  122|             space=memref.space,
+  123|         )
+  124|         memref_value = builder.create_convert_layout(memref_value, buffer_ty.to_ir(builder))
+  125| 
+  126|     return tl.tensor(builder.dsa_to_tensor(memref_value, writable), tensor_type)
+  127| 
+  128| 
+  129| def insert_slice(ful: tl.tensor, sub: tl.tensor, offsets: List[tl.tensor], sizes: List[int], strides: List[int],
+  130|                  builder: ir.builder) -> tl.tensor:
+  131|     assert (len(ful.shape) == len(offsets))
+  132|     assert (len(ful.shape) == len(sizes))
+  133|     assert (len(ful.shape) == len(strides))
+  134|     assert (all([s >= 1 for s in sizes]))
+  135|     assert (all([s >= 0 for s in strides]))
+  136|     new_offsets = [o.handle for o in offsets]
+  137|     ret_type = tl.block_type(ful.type.scalar, ful.shape)
+  138|     out = builder.create_dsa_insert_slice(ful.handle, sub.handle, new_offsets, sizes, strides)
+  139|     return tl.tensor(out, ret_type)
+  140| 
+  141| 
+  142| def extract_slice(ful: tl.tensor, offsets: List[tl.tensor], sizes: List[int], strides: List[int],
+  143|                   builder: ir.builder) -> tl.tensor:
+  144|     assert (len(ful.shape) == len(offsets))
+  145|     assert (len(ful.shape) == len(sizes))
+  146|     assert (len(ful.shape) == len(strides))
+  147|     assert (all([s >= 1 for s in sizes]))
+  148|     assert (all([s >= 0 for s in strides]))
+  149|     new_offsets = [o.handle for o in offsets]
+  150|     ret_type = tl.block_type(ful.type.scalar, sizes)
+  151|     out = builder.create_dsa_extract_slice(ful.handle, new_offsets, sizes, strides)
+  152|     return tl.tensor(out, ret_type)
+  153| 
+  154| 
+  155| def extract_element(src: tl.tensor, indice: List[tl.tensor], builder: ir.builder):
+  156|     if len(src.shape) != len(indice):
+  157|         raise ValueError("Indice's rank must be equal to src tensor's rank")
+  158| 
+  159|     new_indice = [i.handle for i in indice]
+  160|     result = builder.create_dsa_extract_scalar(src.handle, new_indice)
+  161|     return wrap_tensor(result, src.type.scalar, None)
+  162| 
+  163| 
+  164| def subview(src: buffer, offsets: List[tl.tensor], sizes: List[tl.constexpr], strides: List[tl.constexpr],
+  165|             builder: ir.builder) -> buffer:
+  166| 
+  167|     new_offsets = [offset.handle for offset in offsets]
+  168|     sizes_int = tl._unwrap_shape(sizes)
+  169|     strides_int = tl._unwrap_shape(strides)
+  170| 
+  171|     result_handle = builder.create_dsa_subview(src.handle, new_offsets, sizes_int, strides_int)
+  172| 
+  173|     # calculate the memory layout strides of the source buffer
+  174|     if src.strides:
+  175|         # use the strides of the source buffer
+  176|         src_memory_strides = src.strides
+  177|     else:
+  178|         # calculate the default row-major strides
+  179|         src_memory_strides = []
+  180|         stride = 1
+  181|         for dim_size in reversed(src.shape):
+  182|             if dim_size < 0:
+  183|                 raise ValueError("Cannot compute strides for buffer with dynamic dimensions")
+  184|             src_memory_strides.insert(0, stride)
+  185|             stride *= dim_size
+  186| 
+  187|     result_memory_strides = []
+  188|     for src_stride, subview_stride in zip(src_memory_strides, strides_int):
+  189|         result_memory_strides.append(src_stride * subview_stride)
+  190| 
+  191|     # create buffer_type with strides
+  192|     buffer_ty = buffer_type(element_ty=src.dtype, shape=sizes_int, space=src.space, strides=result_memory_strides)
+  193|     return buffer(result_handle, buffer_ty)
+
+  /usr/local/python3.11.13/lib/python3.11/site-packages/triton/language/extra/cann/extension/core.py  (312 lines, showing 1..312)
+    1| # Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+    2| # Copyright 2018-2020 Philippe Tillet
+    3| # Copyright 2020-2022 OpenAI
+    4| #
+    5| # Permission is hereby granted, free of charge, to any person obtaining a copy
+    6| # of this software and associated documentation files (the "Software"), to deal
+    7| # in the Software without restriction, including without limitation the rights
+    8| # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    9| # copies of the Software, and to permit persons to whom the Software is
+   10| # furnished to do so, subject to the following conditions:
+   11| #
+   12| # The above copyright notice and this permission notice shall be included in
+   13| # all copies or substantial portions of the Software.
+   14| #
+   15| # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   16| # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   17| # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   18| # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   19| # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   20| # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   21| # THE SOFTWARE.
+   22| 
+   23| __all__ = [
+   24|     "ascend_address_space", "builtin", "CORE", "copy_from_ub_to_l1", "debug_barrier", "fixpipe", "FixpipeDMAMode",
+   25|     "FixpipeDualDstMode", "FixpipePreQuantMode", "FixpipePreReluMode", "int64", "is_builtin", "MODE", "PIPE",
+   26|     "sub_vec_id", "sub_vec_num", "sync_block_all", "sync_block_set", "sync_block_wait", "SYNC_IN_VF"
+   27| ]
+   28| 
+   29| import enum
+   30| from typing import TypeVar, List, Union
+   31| from functools import wraps
+   32| 
+   33| from triton._C.libtriton import ir
+   34| from triton._C.libtriton.ascend import ir as ascend_ir
+   35| import triton.language.core as tl
+   36| 
+   37| import triton.extension.buffer.language as bl
+   38| from triton.language.core import _constexpr_to_value
+   39| from triton.backends.ascend.driver import NPUUtils
+   40| 
+   41| from . import semantic as semantic
+   42| 
+   43| PIPE = semantic.PIPE
+   44| 
+   45| T = TypeVar("T")
+   46| 
+   47| TRITON_BUILTIN = "__triton_builtin__"
+   48| ASCEND_BUILTIN = "__ascend_builtin__"
+   49| 
+   50| 
+   51| def builtin(fn: T) -> T:
+   52|     """Mark a function as a buffer language builtin."""
+   53|     assert callable(fn)
+   54| 
+   55|     @wraps(fn)
+   56|     def wrapper(*args, **kwargs):
+   57|         if "_builder" not in kwargs or kwargs["_builder"] is None:
+   58|             raise ValueError("Did you forget to add @triton.jit ? "
+   59|                              "(`_builder` argument must be provided outside of JIT functions.)")
+   60|         return fn(*args, **kwargs)
+   61| 
+   62|     # also set triton_builtin to true so that CodeGenerator will recognize this function
+   63|     setattr(wrapper, TRITON_BUILTIN, True)
+   64|     setattr(wrapper, ASCEND_BUILTIN, True)
+   65| 
+   66|     return wrapper
+   67| 
+   68| 
+   69| def is_builtin(fn) -> bool:
+   70|     """Is this a registered ascend language builtin function?"""
+   71|     return getattr(fn, ASCEND_BUILTIN, False)
+   72| 
+   73| 
+   74| class int64(int):
+   75|     """
+   76|     For custom op, python int argument will be converted to int32 by default,
+   77|     if a device-side int64 is required, you can pass an al.int64(x) to it.
+   78|     """
+   79| 
+   80|     def __new__(cls, value):
+   81|         obj = int.__new__(cls, value)
+   82|         obj.type = tl.int64
+   83|         return obj
+   84| 
+   85| 
+   86| class CORE(enum.Enum):
+   87|     VECTOR = ascend_ir.CoreType.VECTOR
+   88|     CUBE = ascend_ir.CoreType.CUBE
+   89|     CUBE_OR_VECTOR = ascend_ir.CoreType.CUBE_OR_VECTOR
+   90|     CUBE_AND_VECTOR = ascend_ir.CoreType.CUBE_AND_VECTOR
+   91| 
+   92| 
+   93| class PIPE(enum.Enum):
+   94|     PIPE_S = ascend_ir.PIPE.PIPE_S
+   95|     PIPE_V = ascend_ir.PIPE.PIPE_V
+   96|     PIPE_M = ascend_ir.PIPE.PIPE_M
+   97|     PIPE_MTE1 = ascend_ir.PIPE.PIPE_MTE1
+   98|     PIPE_MTE2 = ascend_ir.PIPE.PIPE_MTE2
+   99|     PIPE_MTE3 = ascend_ir.PIPE.PIPE_MTE3
+  100|     PIPE_ALL = ascend_ir.PIPE.PIPE_ALL
+  101|     PIPE_FIX = ascend_ir.PIPE.PIPE_FIX
+  102| 
+  103| 
+  104| class MODE(enum.Enum):
+  105|     SIMD = ascend_ir.MODE.SIMD
+  106|     SIMT = ascend_ir.MODE.SIMT
+  107|     MIX = ascend_ir.MODE.MIX
+  108| 
+  109| 
+  110| class ascend_address_space_base(bl.address_space):
+  111| 
+  112|     def __init__(self, address_space_value: ascend_ir.AddressSpace) -> None:
+  113|         super().__init__()
+  114|         self.real_address_space = address_space_value
+  115| 
+  116|     def to_ir(self, builder: ir.builder) -> ir.attribute:
+  117|         return builder.get_target_attribute(self.real_address_space)
+  118| 
+  119| 
+  120| class ascend_address_space_group:
+  121| 
+  122|     def __init__(self):
+  123|         for k, v in {k: v
+  124|                      for k, v in ascend_ir.AddressSpace.__dict__.items()
+  125|                      if isinstance(v, ascend_ir.AddressSpace)}.items():
+  126|             setattr(self, k, ascend_address_space_base(v))
+  127| 
+  128| 
+  129| ascend_address_space = ascend_address_space_group()
+  130| 
+  131| 
+  132| @builtin
+  133| def sub_vec_id(_builder=None) -> tl.tensor:
+  134|     """
+  135|     Get the Vector Core index on the AI Core.
+  136|     """
+  137|     return semantic.sub_vec_id(_builder)
+  138| 
+  139| 
+  140| @builtin
+  141| def copy_from_ub_to_l1(src: Union[tl.tensor, bl.buffer], dst: Union[tl.tensor, bl.buffer], _builder: None) -> None:
+  142|     """
+  143|     Copies data from the Unified Buffer (UB) to the L1 Buffer.
+  144| 
+  145|     :param src: The source data located in the Unified Buffer.
+  146|     :type src: tl.tensor | bl.buffer
+  147|     :param dst: The destination buffer located in L1 memory.
+  148|     :type dst: tl.tensor | bl.buffer
+  149|     """
+  150|     return semantic.copy_from_ub_to_l1(src, dst, _builder)
+  151| 
+  152| 
+  153| def create_sync_block(sender, receiver, event_id, is_set: bool, sender_pipe=None, receiver_pipe=None, _builder=None):
+  154|     sender = _constexpr_to_value(sender)
+  155|     receiver = _constexpr_to_value(receiver)
+  156|     assert isinstance(sender, str) and (sender == "cube"
+  157|                                         or sender == "vector"), f"ERROR: sender = {sender}, only supports cube/vector"
+  158|     assert isinstance(receiver, str) and (receiver == "cube" or receiver
+  159|                                           == "vector"), f"ERROR: receiver = {receiver}, only supports cube/vector"
+  160|     if isinstance(event_id, int):
+  161|         assert (event_id >= 0) and (event_id < 16), f"event_id: {event_id} should be 0 ~ 15"
+  162|     if sender == receiver:
+  163|         raise ValueError(f'Unexpected pair: {sender} -> {receiver}, only supports cube -> vector or vector -> cube')
+  164|     if sender_pipe is None and receiver_pipe is None:
+  165|         if sender == "cube":
+  166|             sender_pipe = PIPE.PIPE_FIX
+  167|             receiver_pipe = PIPE.PIPE_MTE2
+  168|         if sender == "vector":
+  169|             sender_pipe = PIPE.PIPE_MTE3
+  170|             receiver_pipe = PIPE.PIPE_MTE2
+  171|     if not isinstance(sender_pipe, PIPE) or not isinstance(receiver_pipe, PIPE):
+  172|         raise TypeError("sender_pipe and receiver_pipe must be instances of PIPE enum")
+  173|     if is_set:
+  174|         return semantic.create_sync_block_set(sender, receiver, event_id, sender_pipe, receiver_pipe, _builder)
+  175|     return semantic.create_sync_block_wait(sender, receiver, event_id, sender_pipe, receiver_pipe, _builder)
+  176| 
+  177| 
+  178| @builtin
+  179| def sync_block_set(sender, receiver, event_id, sender_pipe=None, receiver_pipe=None, _builder=None):
+  180|     return create_sync_block(sender, receiver, event_id, True, sender_pipe, receiver_pipe, _builder)
+  181| 
+  182| 
+  183| @builtin
+  184| def sync_block_wait(sender, receiver, event_id, sender_pipe=None, receiver_pipe=None, _builder=None):
+  185|     return create_sync_block(sender, receiver, event_id, False, sender_pipe, receiver_pipe, _builder)
+  186| 
+  187| 
+  188| @builtin
+  189| def sync_block_all(mode, event_id, _builder=None):
+  190|     mode = _constexpr_to_value(mode)
+  191|     event_id = _constexpr_to_value(event_id)
+  192|     assert isinstance(mode, str), f"mode: {mode} is not string"
+  193|     assert isinstance(event_id, int) and (event_id >= 0) and (event_id < 16), f"event_id: {event_id} should be 0 ~ 15"
+  194|     assert mode in ("all_cube", "all_vector", "all",
+  195|                     "all_sub_vector"), f"ERROR: mode = {mode}, only supports all_cube/all_vector/all/all_sub_vector"
+  196|     _builder.sync_block_all(mode, event_id)
+  197| 
+  198| 
+  199| class FixpipeDMAMode(enum.Enum):
+  200|     NZ2DN = ascend_ir.FixpipeDMAMode.NZ2DN
+  201|     NZ2ND = ascend_ir.FixpipeDMAMode.NZ2ND
+  202|     NZ2NZ = ascend_ir.FixpipeDMAMode.NZ2NZ
+  203| 
+  204| 
+  205| class FixpipeDualDstMode(enum.Enum):
+  206|     NO_DUAL = ascend_ir.FixpipeDualDstMode.NO_DUAL
+  207|     COLUMN_SPLIT = ascend_ir.FixpipeDualDstMode.COLUMN_SPLIT
+  208|     ROW_SPLIT = ascend_ir.FixpipeDualDstMode.ROW_SPLIT
+  209| 
+  210| 
+  211| class FixpipePreQuantMode(enum.Enum):
+  212|     NO_QUANT = ascend_ir.FixpipePreQuantMode.NO_QUANT
+  213|     F322BF16 = ascend_ir.FixpipePreQuantMode.F322BF16
+  214|     F322F16 = ascend_ir.FixpipePreQuantMode.F322F16
+  215|     S322I8 = ascend_ir.FixpipePreQuantMode.S322I8
+  216| 
+  217| 
+  218| class FixpipePreReluMode(enum.Enum):
+  219|     LEAKY_RELU = ascend_ir.FixpipePreReluMode.LEAKY_RELU
+  220|     NO_RELU = ascend_ir.FixpipePreReluMode.NO_RELU
+  221|     NORMAL_RELU = ascend_ir.FixpipePreReluMode.NORMAL_RELU
+  222|     P_RELU = ascend_ir.FixpipePreReluMode.P_RELU
+  223| 
+  224| 
+  225| @builtin
+  226| def fixpipe(
+  227|     src: tl.tensor,
+  228|     dst: bl.buffer,
+  229|     dma_mode: FixpipeDMAMode = FixpipeDMAMode.NZ2ND,
+  230|     dual_dst_mode: FixpipeDualDstMode = FixpipeDualDstMode.NO_DUAL,
+  231|     _builder=None,
+  232| ) -> None:
+  233|     """
+  234|     Directly store a tensor on L0C to a local buffer via fixpipe.
+  235|     Fixpipe is pipeline that performing data movement from L0C to other memory hierarchies.
+  236|     Currently support:
+  237|         - L0C to UB (for Ascend910_95 sereies)
+  238| 
+  239|     :param src: the source tensor, Must be located in the l0C memory region.
+  240|     :type src: tl.tensor
+  241|     :param dst: The destination buffer, Must be located in the UB memory region.
+  242|     :type dst: bl.buffer
+  243|     :param dma_mode: DMA transfer mode, "nz2nd" enables NZ to ND layout transformation
+  244|     :type dma_mode: str
+  245|     """
+  246|     if not _builder.is_910_95():
+  247|         raise RuntimeError("this feature is only supported on Ascend910_95")
+  248|     if not isinstance(src, tl.tensor):
+  249|         raise TypeError("src is not of tensor type")
+  250|     elif not isinstance(dst, bl.buffer):
+  251|         raise TypeError("dst is not of buffer type")
+  252|     if dst.space != ascend_address_space.UB:
+  253|         raise TypeError("dst must be located in the UB memory region")
+  254| 
+  255|     if len(dst.shape) == 2 and (dst.type.element_ty == tl.float32 or dst.type.element_ty == tl.int32):
+  256|         N = dst.shape[1]
+  257|         if N % 8 != 0:
+  258|             raise ValueError("32b Fixpipe last dim must be aligned to 8")
+  259|         if (dma_mode != FixpipeDMAMode.NZ2ND) and (N % 16 != 0):
+  260|             raise ValueError("32b non-NZ2ND Fixpipe last dim must be aligned to 16")
+  261|         if (dual_dst_mode == FixpipeDualDstMode.COLUMN_SPLIT) and (N % 32 != 0):
+  262|             raise ValueError("32b Column split dual Fixpipe last dim must be aligned to 32")
+  263|         M = dst.shape[0]
+  264|         if (dma_mode == FixpipeDMAMode.NZ2DN) and (M % 8 != 0):
+  265|             raise ValueError("32b NZ2DN Fixpipe first dim must be aligned to 8")
+  266|     dst16bits = (dst.type.element_ty == tl.float16 or dst.type.element_ty == tl.int16
+  267|                  or dst.type.element_ty == tl.bfloat16)
+  268|     if len(dst.shape) == 2 and dst16bits:
+  269|         N = dst.shape[1]
+  270|         if N % 16 != 0:
+  271|             raise ValueError("16b Fixpipe last dim must be aligned to 16")
+  272|         M = dst.shape[0]
+  273|         if (dma_mode == FixpipeDMAMode.NZ2DN) and (M % 16 != 0):
+  274|             raise ValueError("16b NZ2DN Fixpipe first dim must be aligned to 16")
+  275| 
+  276|     return semantic.fixpipe(src, dst, dma_mode, dual_dst_mode, FixpipePreQuantMode.NO_QUANT, FixpipePreReluMode.NO_RELU,
+  277|                             _builder)
+  278| 
+  279| 
+  280| class SYNC_IN_VF(enum.Enum):
+  281|     VV_ALL = enum.auto()
+  282|     VST_VLD = enum.auto()
+  283|     VLD_VST = enum.auto()
+  284|     VST_VST = enum.auto()
+  285|     VS_ALL = enum.auto()
+  286|     VST_LD = enum.auto()
+  287|     VLD_ST = enum.auto()
+  288|     VST_ST = enum.auto()
+  289|     SV_ALL = enum.auto()
+  290|     ST_VLD = enum.auto()
+  291|     LD_VST = enum.auto()
+  292|     ST_VST = enum.auto()
+  293| 
+  294| 
+  295| @builtin
+  296| def debug_barrier(
+  297|     sync_mode: SYNC_IN_VF,
+  298|     _builder=None,
+  299| ) -> None:
+  300|     return semantic.debug_barrier(sync_mode.name, _builder)
+  301| 
+  302| 
+  303| @builtin
+  304| def sub_vec_num(_builder=None) -> tl.constexpr:
+  305|     """
+  306|     Get the Vector Core Num on one AI Core.
+  307|     """
+  308|     npuUtils = NPUUtils()
+  309|     cube_num = npuUtils.get_aivector_core_num()
+  310|     vector_num = npuUtils.get_aicore_num()
+  311|     const_val = cube_num // vector_num
+  312|     return tl.constexpr(const_val)
+
+========================================================================
+B. does flaggems_vllm still import on this box?
+========================================================================
+/usr/local/python3.11.13/lib/python3.11/site-packages/torch_npu/npu/utils.py:121: UserWarning: torch.npu.get_device_capability isn't implemented!
+  warnings.warn("torch.npu.get_device_capability isn't implemented!")
+/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+  import flaggems_vllm OK
+  has_triton_tle(0, 0, 0) = True
+  has_triton_tle(3, 2, 0) = True
+  has_triton_tle(3, 6, 0) = False
+  vendor ? tle_enabled=False
+
+========================================================================
+C. alloc/to_tensor/copy/subview against dsa.ascend.UB
+========================================================================
+  address spaces: ['L0A', 'L0B', 'L0C', 'L1', 'UB', 'core']
+  UB = <triton.language.extra.cann.extension.core.ascend_address_space_base object at 0xfffdbb6a2210>
+  [A alloc+to_tensor] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_dsa.py", line 160, in <module>
+    torch.npu.synchronize()
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/torch_npu/npu/utils.py", line 60, in synchronize
+    return torch_npu._C._npu_synchronize()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: npuSynchronizeDevice:build/CMakeFiles/torch_npu.dir/compiler_depend.ts:506 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507034
+[ERROR] 2026-09-02-16:56:31 (PID:1889017, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EZ9999: Inner Error!
+EZ9999[PID: 1889017] 2026-09-02-16:56:31.217.535 (EZ9999):  The error from device(chipId:0, dieId:0), serial number is 482, there is an exception of aivec error, core id is 47, error code = 0, dump info: pc start: 0x124000002000, current: 0x12400000205c, vec error info: 0xc4000000e9, mte error info: 0x21060000d9, ifu error info: 0x212c2bfffffc0, ccu error info: 0xbc74b6ca00000000, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100401000.[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:347]
+        TraceBack (most recent call last):
+       The extend info: errcode:(0, 0, 0) errorStr: timeout or trap error. fixp_error0 info: 0x60000d9, fixp_error1 info: 0x21, fsmId:0, tslot:2, thread:0, ctxid:0, blk:0, sublk:0, subErrType:4.[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:360]
+       Kernel task happen error, retCode=0x30, [vector core timeout].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1493]
+       rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+
+  [B to_buffer+copy] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_dsa.py", line 160, in <module>
+    torch.npu.synchronize()
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/torch_npu/npu/utils.py", line 60, in synchronize
+    return torch_npu._C._npu_synchronize()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: The Inner error is reported as above. The process exits for this inner error, and the current working operator name is kB.
+Since the operator is called asynchronously, the stacktrace may be inaccurate. If you want to get the accurate stacktrace, pleace set the environment variable ASCEND_LAUNCH_BLOCKING=1.
+Note: ASCEND_LAUNCH_BLOCKING=1 will force ops to run in synchronous mode, resulting in performance degradation. Please unset ASCEND_LAUNCH_BLOCKING in time after debugging.
+[ERROR] 2026-09-02-16:56:32 (PID:1889017, Device:0, RankID:-1) ERR00100 PTA call acl api failed.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:32.481.976 (EE9999):  Failed to submit kernel task, retCode=0x715005d.[FUNC:LaunchKernelSubmit][FILE:context.cc][LINE:1189]
+        TraceBack (most recent call last):
+       kernel launch submit failed.[FUNC:LaunchKernel][FILE:context.cc][LINE:1319]
+       rtKernelLaunch execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+
+  [C subview] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_dsa.py", line 160, in <module>
+    torch.npu.synchronize()
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/torch_npu/npu/utils.py", line 60, in synchronize
+    return torch_npu._C._npu_synchronize()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: npuSynchronizeDevice:build/CMakeFiles/torch_npu.dir/compiler_depend.ts:506 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507034
+[ERROR] 2026-09-02-16:56:33 (PID:1889017, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.737.711 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+
+
+========================================================================
+D. usable UB capacity (int32 elements) -- LAST, it may hang
+========================================================================
+  N=  2048 (  8 KB) failed:
+  [cap 2048] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_dsa.py", line 180, in <module>
+    kCap[(1,)](out, N=n)
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 330, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 623, in run
+    kernel = self.compile(
+             ^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle/__init__.py", line 35, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 278, in compile
+    module = src.make_ir(options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/__init__.py", line 38, in _patched_make_ir
+    module = _original_make_ir(self, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 4:42:
+def kCap(out_ptr, N: tl.constexpr):
+    buf = dsa.alloc([N], tl.int32, dsa.ascend.UB)
+    t = dsa.to_tensor(buf)
+    tl.store(out_ptr + tl.arange(0, 128), tl.reshape(t, (N // 128, 128))[0, :])
+                                          ^
+ValueError('unsupported tensor index: constexpr[0]')
+
+done.
+[W902 16:56:33.197083862 compiler_depend.ts:526] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.762.820 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeUsedDevices)
+[W902 16:56:33.197687668 compiler_depend.ts:508] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.769.076 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeDevice)
+[W902 16:56:33.198101072 compiler_depend.ts:151] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.769.579 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function empty_cache)
+[W902 16:56:33.198350444 compiler_depend.ts:508] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.769.996 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeDevice)
+[W902 16:56:33.198605506 compiler_depend.ts:151] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.770.235 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function empty_cache)
+[W902 16:56:33.198881259 compiler_depend.ts:508] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.770.537 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeDevice)
+[W902 16:56:33.199137571 compiler_depend.ts:151] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.770.766 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function empty_cache)
+[W902 16:56:33.199363723 compiler_depend.ts:508] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.771.022 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeDevice)
+[W902 16:56:33.199607956 compiler_depend.ts:151] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.771.246 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function empty_cache)
+[W902 16:56:33.199826448 compiler_depend.ts:508] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.771.492 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeDevice)
+[W902 16:56:33.200152571 compiler_depend.ts:151] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.771.709 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function empty_cache)
+[W902 16:56:33.200386303 compiler_depend.ts:508] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.772.040 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeDevice)
+[W902 16:56:33.200638295 compiler_depend.ts:151] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.772.271 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function empty_cache)
+[W902 16:56:33.200856887 compiler_depend.ts:508] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.772.522 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeDevice)
+[W902 16:56:33.201098380 compiler_depend.ts:151] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.772.739 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function empty_cache)
+[W902 16:56:33.201321012 compiler_depend.ts:508] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.772.983 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function npuSynchronizeDevice)
+[W902 16:56:33.201576324 compiler_depend.ts:151] Warning: NPU warning, error code is 507034[Error]: 
+[Error]: Vector core execution timed out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 1889017] 2026-09-02-16:56:33.773.203 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=vector core timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:61]
+        TraceBack (most recent call last):
+       wait for compute device to finish failed, runtime result = 507034.[FUNC:ReportCallError][FILE:log_inner.cpp][LINE:148]
+ (function empty_cache)
