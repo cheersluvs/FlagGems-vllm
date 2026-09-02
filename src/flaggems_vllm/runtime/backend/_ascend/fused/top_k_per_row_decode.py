@@ -150,6 +150,31 @@ def _compact_pos(cnt_ptrs, ones, take):
     return base + excl
 
 
+# Site 3 needs this variant: there the counter address is `s_histogram_ptr +
+# bin_idx`, which is per-lane, not broadcast. Only the taken lanes have
+# bin_idx == threshold_bin_idx; the rest point at other bins, so reducing a load
+# across all lanes would fold in histogram entries that are not the counter and
+# the single-lane write-back could land on the wrong bin. The caller knows the
+# scalar address, so it passes it.
+@triton.jit
+def _compact_pos_scalar(cnt_scalar_ptr, ones, take):
+    t = take.to(tl.int32)
+    if len(t.shape) == 2:
+        col_tot = tl.sum(t, axis=0)
+        col_excl = tl.cumsum(col_tot, axis=0) - col_tot
+        excl = (tl.cumsum(t, axis=0) - t) + col_excl[None, :]
+        total = tl.sum(col_tot, axis=0)
+    else:
+        excl = tl.cumsum(t, axis=0) - t
+        total = tl.sum(t, axis=0)
+    tl.debug_barrier()
+    base = tl.load(cnt_scalar_ptr)
+    tl.debug_barrier()
+    tl.store(cnt_scalar_ptr, base + total)
+    tl.debug_barrier()
+    return base + excl
+
+
 @triton.jit
 def _extract_bin_idx(x, in_range, pattern, STEP: tl.constexpr):
     is_partial_match = in_range
@@ -270,7 +295,9 @@ def _process_bins(
     else:
         take_eq = is_partial_match & (bin_idx == threshold_bin_idx)
         # s_histogram_ptr being used for exclude prefix sum
-        out_pos_eq = _compact_pos(s_histogram_ptr + bin_idx, ones, take_eq)
+        out_pos_eq = _compact_pos_scalar(
+            s_histogram_ptr + threshold_bin_idx, ones, take_eq
+        )
         if MERGE_BLOCKS:
             indices = tl.load(
                 indices_ptr + offs,
