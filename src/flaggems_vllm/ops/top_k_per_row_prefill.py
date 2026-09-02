@@ -380,7 +380,11 @@ def _convert_to_trt_uint16_hi11(x):
     sign_set = (bits & sign_mask) != 0
     inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
     mapped = tl.where(sign_set, bits, inv)
-    return (mapped >> 5).to(tl.int32)
+    # Same shift hazard as _extract_bin_idx's STEP 0: uint16 >> must be logical,
+    # and Ascend lowers it arithmetically, turning every top-bit-set value
+    # negative. Widen and mask first; a no-op where the conversion already
+    # zero-extends.
+    return (mapped.to(tl.int32) & 0xFFFF) >> 5
 
 
 @triton.jit
