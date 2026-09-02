@@ -40,6 +40,16 @@ at 395 lines, deliberately is NOT: _compact_pos derives the scalar counter from
 the broadcast pointer it is already given, so _process_bins keeps its signature
 and its caller needs no change.
 
+A consequence of rebinding worth knowing: with this module imported, the generic
+module's own host no longer works standalone on this backend. It launches at its
+NUM_THREADS_PER_BLOCK of 512, and _process_bins is now the scan compaction,
+whose tiles overflow unified buffer at that size (2656000 bits against
+1572864). Production always goes through the registered binding
+`flaggems_vllm.top_k_per_row_prefill`, which is this file's host at
+SCAN_BLOCK_SIZE, so nothing real is affected -- but a probe or a test that
+reaches past the registry into the generic module will fail to compile, and the
+error names unified buffer rather than the substitution that caused it.
+
 Correct but slow. One histogram pass costs 76 ms against torch.topk's 0.78 ms
 for the whole operation, because without TLE the 2048-bin histogram lives in
 global memory and every element pays a global atomic. That is the algorithm

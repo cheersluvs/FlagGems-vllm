@@ -184,8 +184,13 @@ def main():
     idx = torch.full((1, TOPK), SENT, dtype=torch.int32, device=DEV)
     starts = torch.zeros(1, dtype=torch.int32, device=DEV)
     ends = torch.full((1,), VOCAB, dtype=torch.int32, device=DEV)
-    M.top_k_per_row_prefill(logits, starts, ends, idx, 1,
-                            logits.stride(0), logits.stride(1), TOPK)
+    # The BOUND operator, not M's own host. Where a vendor override is
+    # registered, the generic host is not what production calls -- and on Ascend
+    # it no longer works standalone: _process_bins is rebound to the scan
+    # compaction, whose tiles overflow unified buffer at that host's default
+    # BLOCK of 512.
+    flaggems_vllm.top_k_per_row_prefill(logits, starts, ends, idx, 1,
+                                        logits.stride(0), logits.stride(1), TOPK)
     flaggems_vllm.runtime.torch_device_fn.synchronize()
 
     written = int((idx != SENT).sum())
@@ -223,7 +228,7 @@ def main():
     t_hist = ms(lambda: _hist_vec[(big_rows,)](
         lg, hh, big_vocab, BLOCK_SIZE=BLOCK, VEC=4, NBINS=2048,
         num_warps=M._num_warps(BLOCK)))
-    t_full = ms(lambda: M.top_k_per_row_prefill(
+    t_full = ms(lambda: flaggems_vllm.top_k_per_row_prefill(
         lg, st, en, oi, big_rows, lg.stride(0), lg.stride(1), 512))
     t_torch = ms(lambda: torch.topk(lg, 512, dim=1, largest=True, sorted=False))
 
