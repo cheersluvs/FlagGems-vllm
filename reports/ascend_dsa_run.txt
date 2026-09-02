@@ -1,0 +1,136 @@
+### branch ascend-tle-surface @ b9c9437
+### 2026-09-02T17:06:27+08:00  host bm-ctyun-wq-910b-64g-0-13
+### PYTHONPATH=src:/usr/local/Ascend/cann-8.5.0/python/site-packages:/usr/local/Ascend/cann-8.5.0/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:
+
+
+========================================================================
+=== alloc_only
+========================================================================
+--- case alloc_only | ASCEND_LAUNCH_BLOCKING=1
+RESULT alloc_only: ran, unrelated store correct
+--- alloc_only: exit 0, 20.0s
+
+========================================================================
+=== to_tensor
+========================================================================
+--- case to_tensor | ASCEND_LAUNCH_BLOCKING=1
+--- to_tensor: TIMED OUT after 420s (killed), 420.2s
+--- plog after the FIRST failure:
+  newest plog /root/ascend/log/run/plog/plog-2059562_20260902170650483.log
+      (no ERROR lines)
+
+========================================================================
+=== copy
+========================================================================
+--- case copy | ASCEND_LAUNCH_BLOCKING=1
+RESULT copy: ran, CORRECT out[:8]=[0, 2, 4, 6, 8, 10, 12, 14]
+--- copy: exit 0, 21.2s
+
+========================================================================
+=== ptr_store
+========================================================================
+--- case ptr_store | ASCEND_LAUNCH_BLOCKING=1
+RESULT ptr_store: FAILED
+Traceback (most recent call last):
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/core.py", line 35, in wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/core.py", line 1727, in store
+    return semantic.store(pointer, value, mask, boundary_check, cache_modifier, eviction_policy, _builder)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/semantic.py", line 1331, in store
+    return _store_legacy(ptr, val, mask, boundary_check, cache, eviction, builder)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/semantic.py", line 1276, in _store_legacy
+    raise ValueError(f"Unsupported ptr type {ptr.type.__repr__()} in `tl.store`")
+ValueError: Unsupported ptr type <[128], int32> in `tl.store`
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 138, in <module>
+    print(f"RESULT {CASE}: {run()}")
+                            ^^^^^
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 108, in run
+    k_ptr_store[(1,)](out, BLOCK=B)
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 330, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 623, in run
+    kernel = self.compile(
+             ^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle/__init__.py", line 35, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 278, in compile
+    module = src.make_ir(options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/__init__.py", line 38, in _patched_make_ir
+    module = _original_make_ir(self, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 5:4:
+def k_ptr_store(out_ptr, BLOCK: tl.constexpr):
+    buf = dsa.alloc([BLOCK], tl.int32, dsa.ascend.UB)
+    p = dsa.core.from_buffer_to_tensor_pointer(buf)
+    lane = tl.arange(0, BLOCK)
+    tl.store(p + lane, lane * 3)
+    ^
+ValueError('Unsupported ptr type <[128], int32> in `tl.store`')
+--- ptr_store: exit 0, 14.9s
+
+========================================================================
+=== atomic
+========================================================================
+--- case atomic | ASCEND_LAUNCH_BLOCKING=1
+RESULT atomic: FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 138, in <module>
+    print(f"RESULT {CASE}: {run()}")
+                            ^^^^^
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 117, in run
+    k_atomic[(1,)](idx, out, BLOCK=B, NBIN=NBIN)
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 330, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 623, in run
+    kernel = self.compile(
+             ^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle/__init__.py", line 35, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 278, in compile
+    module = src.make_ir(options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/__init__.py", line 38, in _patched_make_ir
+    module = _original_make_ir(self, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 6:18:
+def k_atomic(idx_ptr, out_ptr, BLOCK: tl.constexpr, NBIN: tl.constexpr):
+    buf = dsa.alloc([NBIN], tl.int32, dsa.ascend.UB)
+    p = dsa.core.from_buffer_to_tensor_pointer(buf)
+    lane = tl.arange(0, BLOCK)
+    idx = tl.load(idx_ptr + lane)
+    tl.atomic_add(p + idx, 1)
+                  ^
+ValueError('Cannot make_shape_compatible: incompatible dimensions at index 0: 64 and 128')
+--- atomic: exit 0, 14.8s
+
+========================================================================
+=== cap2048
+========================================================================
+--- case cap2048 | ASCEND_LAUNCH_BLOCKING=1
+--- cap2048: TIMED OUT after 420s (killed), 420.2s
+
+========================================================================
+=== cap8192
+========================================================================
+--- case cap8192 | ASCEND_LAUNCH_BLOCKING=1
+--- cap8192: TIMED OUT after 420s (killed), 420.2s
+
+done.

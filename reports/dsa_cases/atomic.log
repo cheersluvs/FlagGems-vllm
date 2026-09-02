@@ -1,0 +1,35 @@
+--- case atomic | ASCEND_LAUNCH_BLOCKING=1
+RESULT atomic: FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 138, in <module>
+    print(f"RESULT {CASE}: {run()}")
+                            ^^^^^
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 117, in run
+    k_atomic[(1,)](idx, out, BLOCK=B, NBIN=NBIN)
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 330, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 623, in run
+    kernel = self.compile(
+             ^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/experimental/tle/__init__.py", line 35, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 278, in compile
+    module = src.make_ir(options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/__init__.py", line 38, in _patched_make_ir
+    module = _original_make_ir(self, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 6:18:
+def k_atomic(idx_ptr, out_ptr, BLOCK: tl.constexpr, NBIN: tl.constexpr):
+    buf = dsa.alloc([NBIN], tl.int32, dsa.ascend.UB)
+    p = dsa.core.from_buffer_to_tensor_pointer(buf)
+    lane = tl.arange(0, BLOCK)
+    idx = tl.load(idx_ptr + lane)
+    tl.atomic_add(p + idx, 1)
+                  ^
+ValueError('Cannot make_shape_compatible: incompatible dimensions at index 0: 64 and 128')
