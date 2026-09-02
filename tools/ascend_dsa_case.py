@@ -158,7 +158,36 @@ def k_time_read(in_ptr, out_ptr, N: tl.constexpr, BLOCK: tl.constexpr,
     tl.store(out_ptr + row * NBINS + tl.arange(0, BLOCK), s)
 
 
+@triton.jit
+def k_hist_oob(in_ptr, msk_ptr, out_ptr, BLOCK: tl.constexpr, NBINS: tl.constexpr):
+    """There is no masked tl.histogram.  Does parking dead lanes out of range work?
+
+    The operator's count is masked by is_partial_match.  If out-of-range values
+    are simply dropped, tl.where(mask, bin, NBINS) is an exact replacement; if
+    they are clamped into the last bin instead, it silently corrupts that bin.
+    """
+    lane = tl.arange(0, BLOCK)
+    b = tl.load(in_ptr + lane)
+    m = tl.load(msk_ptr + lane) != 0
+    tl.store(out_ptr + tl.arange(0, NBINS),
+             tl.histogram(tl.where(m, b, NBINS), NBINS))
+
+
 def run():
+    if CASE == "hist_oob":
+        NB, BLK = 64, 512
+        b = torch.randint(0, NB, (BLK,), dtype=torch.int32, device="npu")
+        m = (torch.rand(BLK, device="npu") > 0.5).to(torch.int32)
+        out = torch.zeros(NB, dtype=torch.int32, device="npu")
+        k_hist_oob[(1,)](b, m, out, BLOCK=BLK, NBINS=NB)
+        torch.npu.synchronize()
+        kept = b.cpu()[m.cpu().bool()].long()
+        ref = torch.bincount(kept, minlength=NB).to(torch.int32)
+        ok = torch.equal(out.cpu(), ref)
+        return (f"masked {int(m.sum())}/{BLK} kept | "
+                f"{'DROPPED out-of-range, exact' if ok else 'NOT a drop'} "
+                f"| sum={int(out.sum())} expected {int(m.sum())}")
+
     if CASE.startswith("time_"):
         import time
         # time_hist_b4096 -> BLOCK 4096.  The tile width is the knob that
@@ -166,11 +195,14 @@ def run():
         # many elements it carries, so at BLOCK 512 the accumulator does 4x
         # more adds than there are elements to bin.
         ROWS, N, NB, BLK = 64, 131072, 2048, 512
-        if "_b" in CASE:
-            BLK = int(CASE.split("_b")[-1])
+        for tok in CASE.split("_")[2:]:
+            if tok.startswith("b"):
+                BLK = int(tok[1:])
+            elif tok.startswith("nb"):
+                NB = int(tok[2:])
         x = torch.randint(0, NB, (ROWS, N), dtype=torch.int32, device="npu")
         out = torch.zeros(ROWS, NB, dtype=torch.int32, device="npu")
-        stem = CASE.split("_b")[0]
+        stem = "_".join(CASE.split("_")[:2])
         fn = {"time_atomic": k_time_atomic, "time_hist": k_time_hist,
               "time_read": k_time_read}[stem]
 
