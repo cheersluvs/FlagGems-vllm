@@ -1,0 +1,93 @@
+"""Run each DSA/UB case in its own process, so one device fault cannot hide the next.
+
+A timed-out vector core leaves the device in an error state on this card, and
+every subsequent launch in the same process then reports "Failed to submit
+kernel task" -- which reads like a second failure but is only contamination.
+One process per case is the only way the results mean anything.
+
+Output goes to files, never pipes: a Triton compiler grandchild holds inherited
+pipes open, so capture_output loses the very stack dump a timeout produces.
+Each child gets its own session so a timeout can kill the whole group.
+"""
+
+import os
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOGDIR = os.path.join(ROOT, "reports", "dsa_cases")
+TIMEOUT = int(os.environ.get("DSA_CASE_TIMEOUT", "420"))
+
+CASES = [
+    "alloc_only",   # does allocation alone execute
+    "to_tensor",    # can UB be read as a tensor           (hung in probe 2)
+    "copy",         # GM -> UB -> GM staging, the Ascend idiom
+    "ptr_store",    # is there any pointer to a UB buffer
+    "atomic",       # can a histogram scatter reach UB at all
+    "cap2048",      # 8 KB   -- the histogram's own size
+    "cap8192",      # 32 KB  -- near the measured ~36 KB ceiling
+]
+
+
+def plog_tail(n=40):
+    """The first failure is the one whose plog is worth reading."""
+    roots = [os.path.expanduser("~/ascend/log"), "/root/ascend/log",
+             os.path.expanduser("~/var/log/npu"), "/var/log/npu"]
+    newest, newest_t = None, 0
+    for r in roots:
+        for dirpath, _d, names in os.walk(r) if os.path.isdir(r) else ():
+            for nm in names:
+                if not nm.startswith("plog"):
+                    continue
+                p = os.path.join(dirpath, nm)
+                try:
+                    t = os.path.getmtime(p)
+                except OSError:
+                    continue
+                if t > newest_t:
+                    newest, newest_t = p, t
+    if newest is None:
+        return "  (no plog found)"
+    with open(newest, errors="replace") as fh:
+        lines = [l.rstrip() for l in fh if "ERROR" in l or "EZ9999" in l]
+    body = "\n".join(f"      {l}" for l in lines[-n:]) or "      (no ERROR lines)"
+    return f"  newest plog {newest}\n{body}"
+
+
+os.makedirs(LOGDIR, exist_ok=True)
+env = dict(os.environ, ASCEND_LAUNCH_BLOCKING="1")
+first_failure_reported = False
+
+for case in CASES:
+    log = os.path.join(LOGDIR, f"{case}.log")
+    print(f"\n{'=' * 72}\n=== {case}\n{'=' * 72}")
+    sys.stdout.flush()
+    t0 = time.time()
+    with open(log, "w") as fh:
+        p = subprocess.Popen(
+            [sys.executable, os.path.join(ROOT, "tools", "ascend_dsa_case.py"), case],
+            stdout=fh, stderr=subprocess.STDOUT, cwd=ROOT, env=env,
+            start_new_session=True,
+        )
+        try:
+            rc = p.wait(timeout=TIMEOUT)
+            verdict = f"exit {rc}"
+        except subprocess.TimeoutExpired:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+            p.wait()
+            verdict = f"TIMED OUT after {TIMEOUT}s (killed)"
+    dt = time.time() - t0
+    with open(log, errors="replace") as fh:
+        body = fh.read()
+    print(body.rstrip())
+    print(f"--- {case}: {verdict}, {dt:.1f}s")
+    failed = ("FAILED" in body) or verdict.startswith("TIMED")
+    if failed and not first_failure_reported:
+        first_failure_reported = True
+        print("--- plog after the FIRST failure:")
+        print(plog_tail())
+    sys.stdout.flush()
+
+print("\ndone.")
