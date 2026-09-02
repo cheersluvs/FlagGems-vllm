@@ -161,11 +161,18 @@ def k_time_read(in_ptr, out_ptr, N: tl.constexpr, BLOCK: tl.constexpr,
 def run():
     if CASE.startswith("time_"):
         import time
+        # time_hist_b4096 -> BLOCK 4096.  The tile width is the knob that
+        # matters: each tile pays one NBINS-wide accumulate regardless of how
+        # many elements it carries, so at BLOCK 512 the accumulator does 4x
+        # more adds than there are elements to bin.
         ROWS, N, NB, BLK = 64, 131072, 2048, 512
+        if "_b" in CASE:
+            BLK = int(CASE.split("_b")[-1])
         x = torch.randint(0, NB, (ROWS, N), dtype=torch.int32, device="npu")
         out = torch.zeros(ROWS, NB, dtype=torch.int32, device="npu")
+        stem = CASE.split("_b")[0]
         fn = {"time_atomic": k_time_atomic, "time_hist": k_time_hist,
-              "time_read": k_time_read}[CASE]
+              "time_read": k_time_read}[stem]
 
         def once():
             out.zero_()
@@ -182,12 +189,12 @@ def run():
             ts.append((time.perf_counter() - t0) * 1e3)
         ts.sort()
         chk = ""
-        if CASE in ("time_atomic", "time_hist"):
+        if stem in ("time_atomic", "time_hist"):
             ref = torch.zeros(ROWS, NB, dtype=torch.int32)
             for r in range(ROWS):
                 ref[r] = torch.bincount(x[r].cpu().long(), minlength=NB)
             chk = " | " + ("CORRECT" if torch.equal(out.cpu(), ref) else "WRONG")
-        return (f"{ROWS}x{N} into {NB} bins | min {ts[0]:.2f} med "
+        return (f"{ROWS}x{N} into {NB} bins, BLOCK {BLK} | min {ts[0]:.2f} med "
                 f"{ts[len(ts) // 2]:.2f} max {ts[-1]:.2f} ms{chk}")
 
     if CASE == "atomic2":
