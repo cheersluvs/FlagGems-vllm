@@ -53,6 +53,7 @@ def host_bins(x):
 
 @triton.jit
 def _hist_only(logits_ptr, hist_ptr, N, BLOCK_SIZE: tl.constexpr):
+    """One row, masked scalar loop. For the CORRECTNESS check only (grid 1)."""
     lane = tl.arange(0, BLOCK_SIZE)
     ones = tl.full([BLOCK_SIZE], 1, tl.int32)
     for t in tl.range(0, tl.cdiv(N, BLOCK_SIZE)):
@@ -60,6 +61,30 @@ def _hist_only(logits_ptr, hist_ptr, N, BLOCK_SIZE: tl.constexpr):
         in_range = offs < N
         x = tl.load(logits_ptr + offs, mask=in_range, other=float("-inf"))
         M_distribute(x, in_range, ones, 0, hist_ptr, STEP=0)
+
+
+@triton.jit
+def _hist_vec(logits_ptr, hist_ptr, N, BLOCK_SIZE: tl.constexpr,
+              VEC: tl.constexpr, NBINS: tl.constexpr):
+    """One row PER PROGRAM, vectorised, for the COST split.
+
+    Both halves of that matter. Without the program_id advance every program
+    reads row 0 and hammers one set of counters, which measured slower than the
+    whole operator -- 191% of it. And the operator's own distribute loop is
+    vectorised, so a scalar masked loop here would overstate the histogram's
+    share even after the first bug was fixed.
+    """
+    row = tl.program_id(0)
+    logits_ptr += row * N
+    hist_ptr += row * NBINS
+    lane = tl.arange(0, BLOCK_SIZE)
+    vec = tl.arange(0, VEC)
+    ones2 = tl.full([BLOCK_SIZE, VEC], 1, tl.int32)
+    for t in tl.range(0, N // (BLOCK_SIZE * VEC)):
+        base = t * BLOCK_SIZE * VEC + lane * VEC
+        offs = base[:, None] + vec[None, :]
+        x = tl.load(logits_ptr + offs)
+        M_distribute(x, True, ones2, 0, hist_ptr, STEP=0)
 
 
 M_distribute = M._distribute_to_bins
@@ -173,20 +198,28 @@ def main():
         return triton.testing.do_bench(fn, warmup=10, rep=200,
                                        return_mode="median")
 
-    big_rows, big_vocab = 4096, 4100
+    # vocab a multiple of BLOCK*VEC so the probe's loop needs no tail and the
+    # operator itself takes its aligned vectorised path -- otherwise the two are
+    # not doing comparable work.
+    big_rows, big_vocab = 4096, 4096
     lg = torch.randn((big_rows, big_vocab), dtype=torch.float32, device=DEV)
     st = torch.zeros(big_rows, dtype=torch.int32, device=DEV)
     en = torch.full((big_rows,), big_vocab, dtype=torch.int32, device=DEV)
     oi = torch.empty((big_rows, 512), dtype=torch.int32, device=DEV)
     hh = torch.zeros((big_rows, 2048), dtype=torch.int32, device=DEV)
 
-    t_hist = ms(lambda: _hist_only[(big_rows,)](
-        lg, hh, big_vocab, BLOCK_SIZE=BLOCK, num_warps=M._num_warps(BLOCK)))
+    assert big_vocab % (BLOCK * 4) == 0, (big_vocab, BLOCK)
+    t_hist = ms(lambda: _hist_vec[(big_rows,)](
+        lg, hh, big_vocab, BLOCK_SIZE=BLOCK, VEC=4, NBINS=2048,
+        num_warps=M._num_warps(BLOCK)))
     t_full = ms(lambda: M.top_k_per_row_prefill(
         lg, st, en, oi, big_rows, lg.stride(0), lg.stride(1), 512))
     t_torch = ms(lambda: torch.topk(lg, 512, dim=1, largest=True, sorted=False))
 
-    print(f"\n  D 成本拆分  形状 ({big_rows}, {big_vocab})  top_k=512")
+    print(f"\n  D 成本拆分  形状 ({big_rows}, {big_vocab})  top_k=512  "
+          f"BLOCK={BLOCK} VEC=4")
+    if t_hist > t_full:
+        print("      !! 直方图比整算子还慢 —— 探针本身有问题，下面的占比无意义")
     print(f"      只建直方图（一遍）  {t_hist:9.2f} ms")
     print(f"      整算子              {t_full:9.2f} ms   "
           f"直方图占 {100 * t_hist / t_full:.0f}%")
