@@ -11,8 +11,11 @@ set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
-PROBE=${1:?usage: tools/ascend_probe.sh <probe.py> [report-name]}
-NAME=${2:-$(basename "$PROBE" .py)}
+# usage: tools/ascend_probe.sh <probe.py> [report-name] [args passed to the probe...]
+PROBE=${1:?usage: tools/ascend_probe.sh <probe.py> [report-name] [probe args...]}
+shift
+NAME=${1:-$(basename "$PROBE" .py)}
+[ $# -gt 0 ] && shift
 OUT="reports/${NAME}.txt"
 mkdir -p reports
 
@@ -29,7 +32,7 @@ echo "### $(date -Is)  host $(hostname)" | tee -a "$OUT"
 echo "### PYTHONPATH=$PYTHONPATH" | tee -a "$OUT"
 echo | tee -a "$OUT"
 
-python "$PROBE" 2>&1 | tee -a "$OUT"
+python "$PROBE" "$@" 2>&1 | tee -a "$OUT"
 echo
 echo "=== report written to $OUT ($(wc -l < "$OUT") lines) ==="
 
