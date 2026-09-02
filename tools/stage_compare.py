@@ -63,6 +63,23 @@ def _hist_only(logits_ptr, hist_ptr, N, BLOCK_SIZE: tl.constexpr):
 
 
 M_distribute = M._distribute_to_bins
+M_extract = M._extract_bin_idx
+
+
+@triton.jit
+def _bins_only(logits_ptr, out_ptr, N, BLOCK_SIZE: tl.constexpr):
+    """Store bin_idx itself, before any atomic touches it.
+
+    Separates 'the bin is computed wrong' from 'the histogram write is
+    dropped'. Both look identical in a histogram comparison.
+    """
+    lane = tl.arange(0, BLOCK_SIZE)
+    for t in tl.range(0, tl.cdiv(N, BLOCK_SIZE)):
+        offs = t * BLOCK_SIZE + lane
+        in_range = offs < N
+        x = tl.load(logits_ptr + offs, mask=in_range, other=float("-inf"))
+        b, _ = M_extract(x, in_range, 0, STEP=0)
+        tl.store(out_ptr + offs, b.to(tl.int32), mask=in_range)
 
 
 def main():
@@ -86,6 +103,28 @@ def main():
     print(f"  主机参照: 阈值 bin={thr_bin}  bin 之前有 {n_below} 个  "
           f"bin 内 {n_in_bin} 个")
 
+    # ---- A0. bin_idx 本身 ----
+    bins_dev = torch.full((VOCAB,), -12345, dtype=torch.int32, device=DEV)
+    _bins_only[(1,)](logits, bins_dev, VOCAB, BLOCK_SIZE=BLOCK,
+                     num_warps=M._num_warps(BLOCK))
+    flaggems_vllm.runtime.torch_device_fn.synchronize()
+    ref_b = b.to(torch.int32)
+    eq = int((bins_dev == ref_b).sum())
+    neg_mask = logits[0] < 0
+    eq_pos = int((bins_dev[~neg_mask] == ref_b[~neg_mask]).sum())
+    eq_neg = int((bins_dev[neg_mask] == ref_b[neg_mask]).sum())
+    n_pos, n_neg = int((~neg_mask).sum()), int(neg_mask.sum())
+    print(f"\n  A0 bin_idx: 一致 {eq}/{VOCAB}   "
+          f"正值 {eq_pos}/{n_pos}   负值 {eq_neg}/{n_neg}")
+    if eq != VOCAB:
+        bad = (bins_dev != ref_b).nonzero().flatten()[:5].tolist()
+        for i in bad:
+            print(f"      元素 {i}: 值 {float(logits[0][i]):+.4f}  "
+                  f"内核 bin {int(bins_dev[i])}  参照 {int(ref_b[i])}")
+        print("      范围: 内核 [" + str(int(bins_dev.min())) + ","
+              + str(int(bins_dev.max())) + "]  参照 ["
+              + str(int(ref_b.min())) + "," + str(int(ref_b.max())) + "]")
+
     # ---- A. 直方图 ----
     hist = torch.zeros(2048, dtype=torch.int32, device=DEV)
     _hist_only[(1,)](logits, hist, VOCAB, BLOCK_SIZE=BLOCK,
@@ -100,7 +139,8 @@ def main():
         d = (hist != ref_hist.to(torch.int32)).nonzero().flatten()[:6].tolist()
         for i in d:
             print(f"      bin {i}: 内核 {int(hist[i])}  参照 {int(ref_hist[i])}")
-        print("\n  A 不符 => 问题在分 bin 或直方图累加，比压缩更早。后面两级不必看。")
+        print("\n  A 不符。对照 A0：A0 也错 => 分 bin 本身错；")
+        print("  A0 对而 A 错 => bin 对但直方图写入被丢。")
         return 0
 
     # ---- B/C. 整算子 ----
