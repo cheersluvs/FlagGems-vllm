@@ -1,18 +1,18 @@
---- case ptr_store | ASCEND_LAUNCH_BLOCKING=1
-RESULT ptr_store: FAILED
+--- case atomic2 | ASCEND_LAUNCH_BLOCKING=1
+RESULT atomic2: FAILED
 Traceback (most recent call last):
   File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/core.py", line 35, in wrapper
     return fn(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/core.py", line 1727, in store
-    return semantic.store(pointer, value, mask, boundary_check, cache_modifier, eviction_policy, _builder)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/semantic.py", line 1331, in store
-    return _store_legacy(ptr, val, mask, boundary_check, cache, eviction, builder)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/semantic.py", line 1276, in _store_legacy
-    raise ValueError(f"Unsupported ptr type {ptr.type.__repr__()} in `tl.store`")
-ValueError: Unsupported ptr type <[128], int32> in `tl.store`
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/core.py", line 1823, in atomic_add
+    return semantic.atomic_add(pointer, val, mask, sem, scope, _builder)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/semantic.py", line 1496, in atomic_add
+    ptr, val, mask = atom_red_typechecking_impl(ptr, val, mask, 'add', builder)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/language/semantic.py", line 1361, in atom_red_typechecking_impl
+    raise ValueError("Pointer argument of store instruction is " + ptr.type.__repr__())
+ValueError: Pointer argument of store instruction is <[128], int32>
 
 The above exception was the direct cause of the following exception:
 
@@ -20,8 +20,8 @@ Traceback (most recent call last):
   File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 214, in <module>
     print(f"RESULT {CASE}: {run()}")
                             ^^^^^
-  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 184, in run
-    k_ptr_store[(1,)](out, BLOCK=B)
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_dsa_case.py", line 127, in run
+    k_atomic2[(1,)](idx, out, N=N)
   File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/runtime/jit.py", line 330, in <lambda>
     return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -40,11 +40,12 @@ Traceback (most recent call last):
   File "/usr/local/python3.11.13/lib/python3.11/site-packages/triton/backends/ascend/spec/triton/compiler/compiler.py", line 102, in make_ir
     return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-triton.compiler.errors.CompilationError: at 5:4:
-def k_ptr_store(out_ptr, BLOCK: tl.constexpr):
-    buf = dsa.alloc([BLOCK], tl.int32, dsa.ascend.UB)
+triton.compiler.errors.CompilationError: at 6:4:
+def k_atomic2(idx_ptr, out_ptr, N: tl.constexpr):
+    """Close the pointer question the shape mismatch left open."""
+    buf = dsa.alloc([N], tl.int32, dsa.ascend.UB)
     p = dsa.core.from_buffer_to_tensor_pointer(buf)
-    lane = tl.arange(0, BLOCK)
-    tl.store(p + lane, lane * 3)
+    lane = tl.arange(0, N)
+    tl.atomic_add(p + tl.load(idx_ptr + lane), 1)
     ^
-ValueError('Unsupported ptr type <[128], int32> in `tl.store`')
+ValueError('Pointer argument of store instruction is <[128], int32>')
