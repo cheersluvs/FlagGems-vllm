@@ -50,7 +50,7 @@ except Exception:  # only the Ascend build has it; timing cases do not need it
 
 CASE = sys.argv[1]
 B = 128
-UB = dsa.ascend.UB
+UB = dsa.ascend.UB if dsa is not None else None
 
 
 @triton.jit
