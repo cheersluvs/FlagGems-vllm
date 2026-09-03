@@ -40,6 +40,13 @@ PY="$VENV/bin/python"
 "$VENV/bin/pip" install -q --upgrade pip setuptools wheel || exit 1
 echo "=== installing torch"
 "$VENV/bin/pip" install -q "torch==${TORCH_VER}" || { echo "!! torch install failed"; exit 1; }
+# A venv with no system packages has none of torch_npu's own runtime imports.
+# It declares few of them, so they arrive only as an ImportError deep inside
+# torch's backend autoload -- yaml was the first, and stopping there would have
+# read as an incompatibility rather than a missing package.
+echo "=== installing the runtime imports torch_npu does not declare"
+"$VENV/bin/pip" install -q pyyaml numpy scipy attrs decorator psutil pytest \
+    || { echo "!! dependency install failed"; exit 1; }
 echo "=== installing torch_npu"
 "$VENV/bin/pip" install -q "torch_npu==${NPU_VER}" || { echo "!! torch_npu install failed"; exit 1; }
 echo "=== installing the flagtree wheel"
