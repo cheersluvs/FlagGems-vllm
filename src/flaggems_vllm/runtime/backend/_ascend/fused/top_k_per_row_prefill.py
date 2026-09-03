@@ -510,30 +510,30 @@ def _hist_counts(
     STEP: tl.constexpr,
     NBINS: tl.constexpr,
     NELEM: tl.constexpr,
-    IS_2D: tl.constexpr,
-    BLOCK_SIZE: tl.constexpr,
-    VEC: tl.constexpr,
 ):
-    """Count one tile with tl.histogram instead of one global atomic per element.
+    """Count one 1-D tile with tl.histogram instead of one global atomic per element.
 
-    Two measured facts force this exact shape.  There is no masked tl.histogram;
-    and parking dead lanes on an out-of-range value does NOT discard them on this
-    backend -- 511 were counted where only 259 lanes were live, i.e. they fold
-    into a real bin and silently corrupt it.  So dead lanes are parked in bin 0
-    and bin 0 is then corrected by how many were parked, which is exact and needs
-    no extra bin (NBINS + 1 would not be a power of two).
+    Every tile reaching here is 1-D by construction.  Reshaping the vectorised
+    [BLOCK_SIZE, VEC] tile instead would be the obvious route and does not
+    compile: a [256, 4] i32 buffer has a 16-byte row stride, the UB allocator
+    wants 32, and BiShengIR rejects it with "cannot align 0 axis".  Those loads
+    address a contiguous run anyway, so the counting loops read them as one wide
+    1-D tile and no reshape is needed.  The loops that feed _process_bins keep
+    their 2-D tiles -- they need offs to build indices.
+
+    Two more measured facts shape this.  There is no masked tl.histogram; and
+    parking dead lanes on an out-of-range value does NOT discard them here --
+    511 were counted where only 259 lanes were live, i.e. they fold into a real
+    bin and silently corrupt it.  So dead lanes are parked in bin 0 and bin 0 is
+    corrected by how many were parked: exact, and every shape stays a power of
+    two (NBINS + 1 would not be).
 
     in_range is a plain Python True at five of the seven call sites, so the mask
     is broadcast to a tensor before it can be summed.
     """
     bin_idx, ok = _extract_bin_idx(x, in_range, logit_pattern, STEP=STEP)
-    if IS_2D:
-        b = tl.reshape(bin_idx, [NELEM])
-        m = tl.reshape(tl.full([BLOCK_SIZE, VEC], 1, tl.int1) & ok, [NELEM])
-    else:
-        b = bin_idx
-        m = tl.full([BLOCK_SIZE], 1, tl.int1) & ok
-    counts = tl.histogram(tl.where(m, b, 0), NBINS)
+    m = tl.full([NELEM], 1, tl.int1) & ok
+    counts = tl.histogram(tl.where(m, bin_idx, 0), NBINS)
     parked = NELEM - tl.sum(m.to(tl.int32), axis=0)
     return counts - tl.where(tl.arange(0, NBINS) == 0, parked, 0)
 
@@ -572,6 +572,11 @@ def _process_histogram_step(
     RADIX10_SIZE: tl.constexpr = 1024
 
     lane = tl.arange(0, BLOCK_SIZE)
+    # The two counting loops address a contiguous run, so they read one wide
+    # 1-D tile: a [BLOCK_SIZE, VEC] tile cannot be reshaped on this backend
+    # (the UB allocator rejects the 16-byte row stride).  The loops feeding
+    # _process_bins keep their 2-D tiles, which they need for offs.
+    wide = tl.arange(0, BLOCK_SIZE * VEC)
     vec = tl.arange(0, VEC)
     ones = tl.full([BLOCK_SIZE], 1, tl.int32)
     ones_vec_2d = tl.full([BLOCK_SIZE, VEC], 1, tl.int32)
@@ -604,8 +609,7 @@ def _process_histogram_step(
         n_vec_full = vocab_size // (BLOCK_SIZE * VEC)
         rem_tiles = (vocab_size - n_vec_full * BLOCK_SIZE * VEC) // BLOCK_SIZE
         for t in tl.range(0, n_vec_full):
-            base = t * BLOCK_SIZE * VEC + lane * VEC
-            offs = base[:, None] + vec[None, :]
+            offs = t * BLOCK_SIZE * VEC + wide
             x_vec = tl.load(logits_ptr + offs)
             acc += _hist_counts(
                 x_vec,
@@ -614,9 +618,6 @@ def _process_histogram_step(
                 STEP=STEP,
                 NBINS=NBINS,
                 NELEM=BLOCK_SIZE * VEC,
-                IS_2D=True,
-                BLOCK_SIZE=BLOCK_SIZE,
-                VEC=VEC,
             )
         for t in tl.range(0, rem_tiles):
             offs = (n_vec_full * VEC + t) * BLOCK_SIZE + lane
@@ -628,9 +629,6 @@ def _process_histogram_step(
                 STEP=STEP,
                 NBINS=NBINS,
                 NELEM=BLOCK_SIZE,
-                IS_2D=False,
-                BLOCK_SIZE=BLOCK_SIZE,
-                VEC=VEC,
             )
     elif stride1 == 1:
         aligned_row_ptr = tl.multiple_of(logits_ptr + row_start + skip_elems, VEC * 4)
@@ -639,8 +637,7 @@ def _process_histogram_step(
         rem_tiles = (row_len - n_vec_full * BLOCK_SIZE * VEC) // BLOCK_SIZE
         rem_elems = row_len % BLOCK_SIZE
         for t in tl.range(0, n_vec_full):
-            base = t * BLOCK_SIZE * VEC + lane * VEC
-            offs = base[:, None] + vec[None, :]
+            offs = t * BLOCK_SIZE * VEC + wide
             x_vec = tl.load(aligned_row_ptr + offs)
             acc += _hist_counts(
                 x_vec,
@@ -649,9 +646,6 @@ def _process_histogram_step(
                 STEP=STEP,
                 NBINS=NBINS,
                 NELEM=BLOCK_SIZE * VEC,
-                IS_2D=True,
-                BLOCK_SIZE=BLOCK_SIZE,
-                VEC=VEC,
             )
         for t in tl.range(0, rem_tiles):
             offs = (n_vec_full * VEC + t) * BLOCK_SIZE + lane
@@ -663,9 +657,6 @@ def _process_histogram_step(
                 STEP=STEP,
                 NBINS=NBINS,
                 NELEM=BLOCK_SIZE,
-                IS_2D=False,
-                BLOCK_SIZE=BLOCK_SIZE,
-                VEC=VEC,
             )
         if skip_elems > 0:
             offs = lane
@@ -680,9 +671,6 @@ def _process_histogram_step(
                 STEP=STEP,
                 NBINS=NBINS,
                 NELEM=BLOCK_SIZE,
-                IS_2D=False,
-                BLOCK_SIZE=BLOCK_SIZE,
-                VEC=VEC,
             )
         if rem_elems > 0:
             offs = (n_vec_full * VEC + rem_tiles) * BLOCK_SIZE + lane
@@ -695,9 +683,6 @@ def _process_histogram_step(
                 STEP=STEP,
                 NBINS=NBINS,
                 NELEM=BLOCK_SIZE,
-                IS_2D=False,
-                BLOCK_SIZE=BLOCK_SIZE,
-                VEC=VEC,
             )
     else:
         row_len = row_end - row_start
@@ -717,9 +702,6 @@ def _process_histogram_step(
                 STEP=STEP,
                 NBINS=NBINS,
                 NELEM=BLOCK_SIZE,
-                IS_2D=False,
-                BLOCK_SIZE=BLOCK_SIZE,
-                VEC=VEC,
             )
     # The one write the whole distribution phase costs.  Still atomic: with
     # MULTIPLE_BLOCKS_PER_ROW several programs share this histogram.
