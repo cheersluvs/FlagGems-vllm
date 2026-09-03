@@ -45,7 +45,15 @@ echo "=== installing torch"
 # torch's backend autoload -- yaml was the first, and stopping there would have
 # read as an incompatibility rather than a missing package.
 echo "=== installing the runtime imports torch_npu does not declare"
-"$VENV/bin/pip" install -q pyyaml numpy scipy attrs decorator psutil pytest \
+# Two groups, both undeclared, both surfacing one at a time from deep inside an
+# import chain where they read as incompatibilities rather than absences:
+#   * torch_npu's own (yaml, ...) and triton's ascend backend (pybind11);
+#   * CANN's python packages, which arrive through PYTHONPATH from set_env.sh
+#     rather than pip, so their dependencies must be present here anyway
+#     (te wants cloudpickle/ml-dtypes/tornado, schedule-search wants absl-py).
+"$VENV/bin/pip" install -q \
+    pyyaml pybind11 numpy scipy attrs decorator psutil pytest \
+    absl-py cloudpickle ml-dtypes tornado protobuf filelock packaging \
     || { echo "!! dependency install failed"; exit 1; }
 echo "=== installing torch_npu"
 "$VENV/bin/pip" install -q "torch_npu==${NPU_VER}" || { echo "!! torch_npu install failed"; exit 1; }
