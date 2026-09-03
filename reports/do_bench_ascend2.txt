@@ -1,0 +1,92 @@
+### branch ascend-tle-surface @ 1655e12
+### 2026-09-03T09:08:12+08:00  host bm-ctyun-wq-910b-64g-0-13
+### PYTHONPATH=src:/usr/local/Ascend/cann-8.5.0/python/site-packages:/usr/local/Ascend/cann-8.5.0/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:
+
+device npu | triton 3.2.0
+do_bench from /usr/local/python3.11.13/lib/python3.11/site-packages/triton/testing.py
+--- do_bench source (64 lines) ---
+def do_bench(fn, warmup=25, rep=100, grad_to_none=None, quantiles=None, return_mode="mean"):
+    """
+    Benchmark the runtime of the provided function. By default, return the median runtime of :code:`fn` along with
+    the 20-th and 80-th performance percentile.
+
+    :param fn: Function to benchmark
+    :type fn: Callable
+    :param warmup: Warmup time (in ms)
+    :type warmup: int
+    :param rep: Repetition time (in ms)
+    :type rep: int
+    :param grad_to_none: Reset the gradient of the provided tensor to None
+    :type grad_to_none: torch.tensor, optional
+    :param quantiles: Performance percentile to return in addition to the median.
+    :type quantiles: list[float], optional
+    :param return_mode: The statistical measure to return. Options are "min", "max", "mean", "median", or "all" Default is "mean".    :type return_mode: str
+    """
+    assert return_mode in ["min", "max", "mean", "median", "all"]
+    import torch
+
+    di = runtime.driver.active.get_device_interface()
+
+    fn()
+    di.synchronize()
+
+    cache = runtime.driver.active.get_empty_cache_for_benchmark()
+
+    # Estimate the runtime of the function
+    start_event = di.Event(enable_timing=True)
+    end_event = di.Event(enable_timing=True)
+    start_event.record()
+    for _ in range(5):
+        cache.zero_()
+        fn()
+    end_event.record()
+    di.synchronize()
+    estimate_ms = start_event.elapsed_time(end_event) / 5
+
+    # compute number of warmup and repeat
+    n_warmup = max(1, int(warmup / estimate_ms))
+    n_repeat = max(1, int(rep / estimate_ms))
+    start_event = [di.Event(enable_timing=True) for i in range(n_repeat)]
+    end_event = [di.Event(enable_timing=True) for i in range(n_repeat)]
+    # Warm-up
+    for _ in range(n_warmup):
+        fn()
+    # Benchmark
+    for i in range(n_repeat):
+        # we don't want `fn` to accumulate gradient values
+        # if it contains a backward pass. So we clear the
+        # provided gradients
+        if grad_to_none is not None:
+            for x in grad_to_none:
+                x.grad = None
+        # we clear the L2 cache before each run
+        cache.zero_()
+        # record time of `fn`
+        start_event[i].record()
+        fn()
+        end_event[i].record()
+    # Record clocks
+    di.synchronize()
+    times = torch.tensor([s.elapsed_time(e) for s, e in zip(start_event, end_event)], dtype=torch.float)
+    return _summarize_statistics(times, quantiles, return_mode)
+
+
+=== launches per callable vs reported time ===
+ launches |  manual ms |  do_bench ms | manual/1x |  bench/1x
+        1 |      1.038 |        0.512 |     1.00x |     1.00x
+        2 |      1.619 |        1.219 |     1.56x |     2.38x
+        4 |      2.817 |        2.387 |     2.71x |     4.66x
+        8 |      5.264 |        4.681 |     5.07x |     9.15x
+
+=== four DIFFERENT kernels vs the same kernel four times ===
+  4 distinct kernels : manual    2.895 ms | do_bench    2.397 ms
+  1 kernel x4        : manual    2.802 ms | do_bench    2.382 ms
+  do_bench/manual    : distinct 0.83  same 0.85   (a much smaller ratio for distinct kernels = attribution bug)
+
+=== the actual baseline: torch.topk ===
+  torch.topk 64x131072: manual    0.514 ms | do_bench    0.471 ms | ratio 0.92
+  torch.topk 4x8192: manual    0.071 ms | do_bench    0.010 ms | ratio 0.14
+
+Manual includes ~0.5 ms of launch+sync per call, so do_bench reading a
+little lower is expected.  A do_bench/manual ratio far below the others
+is what would betray a baseline being under-counted.
