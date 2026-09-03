@@ -38,7 +38,6 @@ import triton
 import triton.language as tl
 
 import inspect
-import os
 import sys
 import traceback
 
