@@ -17,7 +17,11 @@ import sys
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOGDIR = os.path.join(ROOT, "reports", "dsa_cases")
+# Outside the repo by default.  Writing per-case logs into a tracked reports/
+# directory dirtied the work tree on every run, and the next `git pull` then
+# refused with "please commit or stash them" -- three times before this moved.
+LOGDIR = os.environ.get(
+    "DSA_LOGDIR", os.path.join(os.path.expanduser("~"), "ft-reports", "dsa_cases"))
 TIMEOUT = int(os.environ.get("DSA_CASE_TIMEOUT", "420"))
 # Which per-case script to fork.  The defect matrix reuses this driver, since
 # isolation matters there for the same reason: one fault poisons the process.
