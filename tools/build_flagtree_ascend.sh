@@ -24,16 +24,33 @@ if pgrep -af "pytest.*benchmark|pytest.*test_top_k" | grep -v $$ | grep -q .; th
     exit 1
 fi
 
-# Domestic hosts (the LLVM tarball on ksyuncs) are reachable ONLY without the
-# proxy; the proxy is the way out to GitHub.  Nothing here needs GitHub.
-unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY || true
-
 echo "=== $(date -Is) building FlagTree $TAG"
 echo "=== source $SRC   output $OUT   MAX_JOBS $JOBS"
 mkdir -p "$OUT/wheels"
 cd "$SRC"
 git checkout -q "$TAG"
 echo "=== checked out $(git describe --tags --always) $(git log -1 --format=%h)"
+
+# Submodules FIRST, and while the proxy is still set: third_party/ascend/
+# AscendNPU-IR is a submodule, and without it CMake stops at
+#   add_subdirectory: .../AscendNPU-IR does not contain a CMakeLists.txt
+# after the whole 2.15 GB LLVM download has already succeeded.  Their remotes
+# may be domestic or on GitHub, so try with the proxy and fall back without it.
+echo "=== initialising submodules"
+if ! git submodule update --init --recursive --depth 1 2>&1 | tail -5; then
+    echo "=== retrying submodules without the proxy"
+    env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
+        -u all_proxy -u ALL_PROXY \
+        git submodule update --init --recursive --depth 1 2>&1 | tail -5
+fi
+for D in third_party/ascend/AscendNPU-IR; do
+    [ -f "$D/CMakeLists.txt" ] && echo "=== $D ok" \
+        || { echo "!! $D still empty -- build would fail at CMake"; exit 1; }
+done
+
+# Only now drop the proxy: the LLVM tarball on ksyuncs and the Huawei mirrors
+# answer ONLY without it, while github.com answers only with it.
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY || true
 
 export FLAGTREE_BACKEND=ascend
 export MAX_JOBS="$JOBS"
