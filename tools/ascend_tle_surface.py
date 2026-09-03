@@ -13,6 +13,30 @@ Everything is dumped: nothing here is truncated to a fixed width, because four
 separate times on this operator a truncated error hid the actual cause.
 """
 
+# torch_npu must be imported explicitly, before triton.  On FlagTree 0.6.1 the
+# import graph is circular under torch's automatic backend loading: triton pulls
+# in torch, torch auto-loads torch_npu, torch_npu re-enters triton, and triton
+# dies with "cannot import name 'backends' from partially initialized module".
+# TORCH_DEVICE_BACKEND_AUTOLOAD=0 (set by the verify script) disables the
+# autoload; this import is what replaces it.
+import os
+
+os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
+
+import torch
+
+try:
+    import torch_npu  # noqa: F401
+except Exception:
+    pass
+try:
+    import torch_musa  # noqa: F401
+except Exception:
+    pass
+
+import triton
+import triton.language as tl
+
 import inspect
 import os
 import sys
@@ -31,15 +55,6 @@ def rule(title):
     print(title)
     print("=" * 72)
 
-
-import torch
-import triton
-import triton.language as tl
-
-try:
-    import torch_npu  # noqa: F401
-except Exception:
-    pass
 
 print(f"triton {triton.__version__} | torch {torch.__version__}")
 print(f"python {sys.version.split()[0]}")

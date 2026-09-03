@@ -29,6 +29,10 @@ python -m venv --system-site-packages "$VENV"
 env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
     "$VENV/bin/pip" install -q "$WHL" || { echo "!! install failed"; exit 1; }
 
+# torch's automatic backend loading makes FlagTree 0.6.1's import graph
+# circular: triton -> torch -> torch_npu -> triton, which fails halfway through
+# triton.backends.  The probes import torch_npu explicitly instead.
+export TORCH_DEVICE_BACKEND_AUTOLOAD=0
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 PY="$VENV/bin/python"
 

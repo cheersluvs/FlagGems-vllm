@@ -12,13 +12,17 @@ That last one decides whether the operator's radix histogram can live on chip,
 because DSA exposes copy/to_tensor/insert_slice and no scatter primitive.
 """
 
+# torch_npu must be imported explicitly, before triton.  On FlagTree 0.6.1 the
+# import graph is circular under torch's automatic backend loading: triton pulls
+# in torch, torch auto-loads torch_npu, torch_npu re-enters triton, and triton
+# dies with "cannot import name 'backends' from partially initialized module".
+# TORCH_DEVICE_BACKEND_AUTOLOAD=0 (set by the verify script) disables the
+# autoload; this import is what replaces it.
 import os
-import sys
-import traceback
+
+os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
 
 import torch
-import triton
-import triton.language as tl
 
 try:
     import torch_npu  # noqa: F401
@@ -28,6 +32,13 @@ try:
     import torch_musa  # noqa: F401
 except Exception:
     pass
+
+import triton
+import triton.language as tl
+
+import os
+import sys
+import traceback
 
 
 def _device():
