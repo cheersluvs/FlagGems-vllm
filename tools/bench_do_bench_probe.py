@@ -36,8 +36,14 @@ def _device():
 
 
 DEV, DEVMOD = _device()
-do_bench = (triton.musa_testing.do_bench if DEV == "musa"
-            else triton.testing.do_bench)
+if DEV == "musa":
+    try:
+        import triton.musa_testing  # noqa: F401  (attribute only exists once imported)
+        do_bench = triton.musa_testing.do_bench
+    except Exception:
+        do_bench = triton.testing.do_bench
+else:
+    do_bench = triton.testing.do_bench
 
 print(f"device {DEV} | triton {triton.__version__}")
 try:
@@ -95,5 +101,64 @@ for k in (1, 2, 4, 8):
         base_m, base_b = m, b
     print(f"{k:>9} | {m:>10.3f} | {b:>12.3f} | {m / base_m:>8.2f}x | {b / base_b:>8.2f}x")
 
-print("\nIf manual scales ~linearly and do_bench stays flat, do_bench is timing")
-print("only the first launch, and every --mode kernel number is unusable.")
+# The claim is about the BASELINE's first kernel, and a baseline launches
+# several DIFFERENT kernels.  Repeating one kernel would not expose an
+# attribution bug that keys on the kernel itself, so compare like for like:
+# four distinct kernels once each, against one kernel four times.
+
+
+@triton.jit
+def k_a(x_ptr, out_ptr, N, BLOCK: tl.constexpr):
+    off = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    m = off < N
+    tl.store(out_ptr + off, tl.load(x_ptr + off, mask=m) * 2, mask=m)
+
+
+@triton.jit
+def k_b(x_ptr, out_ptr, N, BLOCK: tl.constexpr):
+    off = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    m = off < N
+    tl.store(out_ptr + off, tl.load(x_ptr + off, mask=m) * 3, mask=m)
+
+
+@triton.jit
+def k_c(x_ptr, out_ptr, N, BLOCK: tl.constexpr):
+    off = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    m = off < N
+    tl.store(out_ptr + off, tl.load(x_ptr + off, mask=m) * 4, mask=m)
+
+
+@triton.jit
+def k_d(x_ptr, out_ptr, N, BLOCK: tl.constexpr):
+    off = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    m = off < N
+    tl.store(out_ptr + off, tl.load(x_ptr + off, mask=m) * 5, mask=m)
+
+
+def hetero():
+    for kf in (k_a, k_b, k_c, k_d):
+        kf[grid](x, out, N, BLOCK=BLOCK)
+
+
+print("\n=== four DIFFERENT kernels vs the same kernel four times ===")
+hm, hb = manual(hetero), do_bench(hetero, warmup=25, rep=100, return_mode="median")
+sm, sb = manual(make(4)), do_bench(make(4), warmup=25, rep=100, return_mode="median")
+print(f"  4 distinct kernels : manual {hm:8.3f} ms | do_bench {hb:8.3f} ms")
+print(f"  1 kernel x4        : manual {sm:8.3f} ms | do_bench {sb:8.3f} ms")
+print(f"  do_bench/manual    : distinct {hb / hm:.2f}  same {sb / sm:.2f}"
+      "   (a much smaller ratio for distinct kernels = attribution bug)")
+
+print("\n=== the actual baseline: torch.topk ===")
+for rows, vocab in ((64, 131072), (4, 8192)):
+    t = torch.randn(rows, vocab, dtype=torch.float32, device=DEV)
+
+    def tk():
+        torch.topk(t, 64, dim=-1)
+
+    tm, tb = manual(tk), do_bench(tk, warmup=25, rep=100, return_mode="median")
+    print(f"  torch.topk {rows}x{vocab}: manual {tm:8.3f} ms | do_bench {tb:8.3f} ms"
+          f" | ratio {tb / tm:.2f}")
+
+print("\nManual includes ~0.5 ms of launch+sync per call, so do_bench reading a")
+print("little lower is expected.  A do_bench/manual ratio far below the others")
+print("is what would betray a baseline being under-counted.")
