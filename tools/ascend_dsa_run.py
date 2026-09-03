@@ -19,6 +19,10 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGDIR = os.path.join(ROOT, "reports", "dsa_cases")
 TIMEOUT = int(os.environ.get("DSA_CASE_TIMEOUT", "420"))
+# Which per-case script to fork.  The defect matrix reuses this driver, since
+# isolation matters there for the same reason: one fault poisons the process.
+CASE_SCRIPT = os.environ.get(
+    "DSA_CASE_SCRIPT", os.path.join(ROOT, "tools", "ascend_dsa_case.py"))
 
 CASES = [
     "alloc_only",   # does allocation alone execute
@@ -73,7 +77,7 @@ for case in CASES:
     t0 = time.time()
     with open(log, "w") as fh:
         p = subprocess.Popen(
-            [sys.executable, os.path.join(ROOT, "tools", "ascend_dsa_case.py"), case],
+            [sys.executable, CASE_SCRIPT, case],
             # Blocking launches make a fault attributable, but they also
             # serialise the very thing a timing case measures.
             stdout=fh, stderr=subprocess.STDOUT, cwd=ROOT,
