@@ -54,27 +54,25 @@ if [ -n "$PROXY_SAVED" ]; then
     echo "=== git will reach github.com through the proxy; everything else direct"
 fi
 
-# AscendNPU-IR is pinned to a different commit by each FlagTree tag, and a
-# checkout left over from another tag fails much later and much less clearly --
-# 0.6.1 against 0.6.1rc1's checkout dies on a missing bishengir/InitAllDialects.h
-# only once compilation reaches it.  A half-finished clone is worse still: it
-# looks present to any existence check and empty to CMake.  So drop the
-# directory unless it is exactly the commit this tag asks for, and let setup
-# re-clone it.
-IR_DIR="$SRC/third_party/ascend/AscendNPU-IR"
-WANT=$(grep -oE 'commit_id="[0-9a-f]+"' python/setup_tools/utils/ascend.py 2>/dev/null \
-       | head -1 | cut -d'"' -f2)
-echo "=== $TAG pins AscendNPU-IR at ${WANT:-<unknown>}"
-if [ -d "$IR_DIR" ]; then
-    HAVE=$(git -C "$IR_DIR" rev-parse --short=8 HEAD 2>/dev/null || echo none)
-    if [ ! -f "$IR_DIR/CMakeLists.txt" ] || [ -z "$WANT" ] \
-       || [ "${HAVE:0:8}" != "${WANT:0:8}" ]; then
-        echo "=== AscendNPU-IR is at ${HAVE} but ${WANT:-?} is wanted -- removing"
-        rm -rf "$IR_DIR"
-    else
-        echo "=== AscendNPU-IR already at $HAVE"
-    fi
+# Anything left from a previous tag has to go.  Three separate failures came
+# from stale state, each surfacing later and less clearly than the last:
+#   * a build/ tree configured for another tag makes CMake fail to regenerate
+#     build.ninja ("ninja: error: rebuilding 'build.ninja'"), with no CMake
+#     error of its own to read;
+#   * that same stale tree is why 0.6.1 could not find a generated
+#     bishengir/InitAllDialects.h -- not, as it looked, a wrong AscendNPU-IR
+#     commit: 0.6.1 and 0.6.1rc1 pin the identical 4c304921.
+# setup deletes the .git of its AscendNPU-IR clone, so its commit cannot be
+# read back and a stamp file is the only reliable record of what is there.
+STAMP="$SRC/.flagtree_built_tag"
+LAST=$(cat "$STAMP" 2>/dev/null || true)
+if [ "${LAST:-}" != "$TAG" ]; then
+    echo "=== tag changed (${LAST:-none} -> $TAG): wiping build tree and AscendNPU-IR"
+    rm -rf "$SRC/build" "$SRC/third_party/ascend/AscendNPU-IR"
+else
+    echo "=== same tag as the last build, keeping the build tree"
 fi
+printf '%s' "$TAG" > "$STAMP"
 
 export FLAGTREE_BACKEND=ascend
 export MAX_JOBS="$JOBS"
