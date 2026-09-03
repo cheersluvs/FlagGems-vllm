@@ -27,6 +27,14 @@ import triton
 import triton.language as tl
 import triton.experimental.tle.language as tle
 
+# TLE_PATCH=1 loads the TLE dialect into the Ascend context first, so the same
+# kernels can be run with and without it and the difference attributed.
+if os.environ.get("TLE_PATCH") == "1":
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import tle_dialect_patch
+
+    print(f"--- tle dialect patch: {tle_dialect_patch.apply()}")
+
 CASE = sys.argv[1]
 NBINS = 256
 BLOCK = 128
