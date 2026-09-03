@@ -31,26 +31,36 @@ cd "$SRC"
 git checkout -q "$TAG"
 echo "=== checked out $(git describe --tags --always) $(git log -1 --format=%h)"
 
-# Submodules FIRST, and while the proxy is still set: third_party/ascend/
-# AscendNPU-IR is a submodule, and without it CMake stops at
-#   add_subdirectory: .../AscendNPU-IR does not contain a CMakeLists.txt
-# after the whole 2.15 GB LLVM download has already succeeded.  Their remotes
-# may be domestic or on GitHub, so try with the proxy and fall back without it.
-echo "=== initialising submodules"
-if ! git submodule update --init --recursive --depth 1 2>&1 | tail -5; then
-    echo "=== retrying submodules without the proxy"
-    env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY \
-        -u all_proxy -u ALL_PROXY \
-        git submodule update --init --recursive --depth 1 2>&1 | tail -5
-fi
-for D in third_party/ascend/AscendNPU-IR; do
-    [ -f "$D/CMakeLists.txt" ] && echo "=== $D ok" \
-        || { echo "!! $D still empty -- build would fail at CMake"; exit 1; }
-done
-
-# Only now drop the proxy: the LLVM tarball on ksyuncs and the Huawei mirrors
-# answer ONLY without it, while github.com answers only with it.
+# This build needs BOTH network directions at once, which no single proxy
+# setting gives:
+#   * the 2.15 GB LLVM tarball (ksyuncs) and the Huawei mirrors answer ONLY
+#     with the proxy unset;
+#   * setup fetches third_party/ascend/AscendNPU-IR by cloning
+#     github.com/Ascend/AscendNPU-IR at 4c304921 (python/setup_tools/utils/
+#     ascend.py) -- and github.com answers ONLY through the proxy.
+# It is not a git submodule, so `git submodule update` is a silent no-op; the
+# first attempt left an empty directory with a bare .git in it and CMake then
+# stopped at add_subdirectory, after the whole download had succeeded.
+#
+# So: drop the proxy from the environment, and hand git a github.com-only proxy
+# through GIT_CONFIG_* -- which git reads without writing ~/.gitconfig, so the
+# credentials in that URL are not persisted to disk.
+PROXY_SAVED="${https_proxy:-${http_proxy:-}}"
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY || true
+if [ -n "$PROXY_SAVED" ]; then
+    export GIT_CONFIG_COUNT=1
+    export GIT_CONFIG_KEY_0="http.https://github.com/.proxy"
+    export GIT_CONFIG_VALUE_0="$PROXY_SAVED"
+    echo "=== git will reach github.com through the proxy; everything else direct"
+fi
+
+# A half-finished clone from an earlier run is worse than none: it looks
+# present to any existence check and empty to CMake.
+IR_DIR="$SRC/third_party/ascend/AscendNPU-IR"
+if [ -d "$IR_DIR" ] && [ ! -f "$IR_DIR/CMakeLists.txt" ]; then
+    echo "=== removing a partial AscendNPU-IR checkout"
+    rm -rf "$IR_DIR"
+fi
 
 export FLAGTREE_BACKEND=ascend
 export MAX_JOBS="$JOBS"
