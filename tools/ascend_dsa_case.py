@@ -24,8 +24,29 @@ try:
     import torch_npu  # noqa: F401
 except Exception:
     pass
+try:
+    import torch_musa  # noqa: F401
+except Exception:
+    pass
 
-import triton.experimental.tle.language.dsa as dsa
+
+def _device():
+    """The timing cases are the only ones that are not Ascend-specific:
+    tl.histogram is a generic Triton primitive, so the same comparison has to
+    be runnable on the other cards before it can be called a generic win."""
+    for name in ("npu", "musa", "cuda"):
+        mod = getattr(torch, name, None)
+        if mod is not None and mod.is_available():
+            return name, mod
+    raise RuntimeError("no accelerator found")
+
+
+DEV, DEVMOD = _device()
+
+try:
+    import triton.experimental.tle.language.dsa as dsa
+except Exception:  # only the Ascend build has it; timing cases do not need it
+    dsa = None
 
 CASE = sys.argv[1]
 B = 128
@@ -176,11 +197,11 @@ def k_hist_oob(in_ptr, msk_ptr, out_ptr, BLOCK: tl.constexpr, NBINS: tl.constexp
 def run():
     if CASE == "hist_oob":
         NB, BLK = 64, 512
-        b = torch.randint(0, NB, (BLK,), dtype=torch.int32, device="npu")
-        m = (torch.rand(BLK, device="npu") > 0.5).to(torch.int32)
-        out = torch.zeros(NB, dtype=torch.int32, device="npu")
+        b = torch.randint(0, NB, (BLK,), dtype=torch.int32, device=DEV)
+        m = (torch.rand(BLK, device=DEV) > 0.5).to(torch.int32)
+        out = torch.zeros(NB, dtype=torch.int32, device=DEV)
         k_hist_oob[(1,)](b, m, out, BLOCK=BLK, NBINS=NB)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         kept = b.cpu()[m.cpu().bool()].long()
         ref = torch.bincount(kept, minlength=NB).to(torch.int32)
         ok = torch.equal(out.cpu(), ref)
@@ -200,8 +221,8 @@ def run():
                 BLK = int(tok[1:])
             elif tok.startswith("nb"):
                 NB = int(tok[2:])
-        x = torch.randint(0, NB, (ROWS, N), dtype=torch.int32, device="npu")
-        out = torch.zeros(ROWS, NB, dtype=torch.int32, device="npu")
+        x = torch.randint(0, NB, (ROWS, N), dtype=torch.int32, device=DEV)
+        out = torch.zeros(ROWS, NB, dtype=torch.int32, device=DEV)
         stem = "_".join(CASE.split("_")[:2])
         fn = {"time_atomic": k_time_atomic, "time_hist": k_time_hist,
               "time_read": k_time_read}[stem]
@@ -212,12 +233,12 @@ def run():
 
         for _ in range(3):
             once()
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         ts = []
         for _ in range(10):
             t0 = time.perf_counter()
             once()
-            torch.npu.synchronize()
+            DEVMOD.synchronize()
             ts.append((time.perf_counter() - t0) * 1e3)
         ts.sort()
         chk = ""
@@ -231,76 +252,76 @@ def run():
 
     if CASE == "atomic2":
         N = 128
-        idx = torch.randint(0, N, (N,), dtype=torch.int32, device="npu")
-        out = torch.zeros(N, dtype=torch.int32, device="npu")
+        idx = torch.randint(0, N, (N,), dtype=torch.int32, device=DEV)
+        out = torch.zeros(N, dtype=torch.int32, device=DEV)
         k_atomic2[(1,)](idx, out, N=N)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         ref = torch.bincount(idx.cpu().long(), minlength=N).to(torch.int32)
         return f"ran, {'CORRECT' if torch.equal(out.cpu(), ref) else 'WRONG'}"
 
     if CASE.startswith("capcopy"):
         n = int(CASE[7:])
-        src_t = torch.arange(n, dtype=torch.int32, device="npu")
-        out = torch.zeros(n, dtype=torch.int32, device="npu")
+        src_t = torch.arange(n, dtype=torch.int32, device=DEV)
+        out = torch.zeros(n, dtype=torch.int32, device=DEV)
         k_cap_copy[(1,)](src_t, out, N=n)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         ok = torch.equal(out, src_t)
         return f"N={n} ({n * 4 // 1024} KB) ran, {'CORRECT' if ok else 'WRONG'}"
 
     if CASE == "hist":
         NB, BLK = 2048, 512
-        x = torch.randint(0, NB, (BLK,), dtype=torch.int32, device="npu")
-        out = torch.zeros(NB, dtype=torch.int32, device="npu")
+        x = torch.randint(0, NB, (BLK,), dtype=torch.int32, device=DEV)
+        out = torch.zeros(NB, dtype=torch.int32, device=DEV)
         k_hist[(1,)](x, out, BLOCK=BLK, NBINS=NB)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         ref = torch.bincount(x.cpu().long(), minlength=NB).to(torch.int32)
         return (f"ran, {'CORRECT' if torch.equal(out.cpu(), ref) else 'WRONG'} "
                 f"| sum={int(out.sum())} expected {BLK}")
 
     if CASE == "hist_accum":
         NB, BLK, N = 2048, 512, 512 * 32
-        x = torch.randint(0, NB, (N,), dtype=torch.int32, device="npu")
-        out = torch.zeros(NB, dtype=torch.int32, device="npu")
+        x = torch.randint(0, NB, (N,), dtype=torch.int32, device=DEV)
+        out = torch.zeros(NB, dtype=torch.int32, device=DEV)
         k_hist_accum[(1,)](x, out, N=N, BLOCK=BLK, NBINS=NB)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         ref = torch.bincount(x.cpu().long(), minlength=NB).to(torch.int32)
         return (f"ran, {'CORRECT' if torch.equal(out.cpu(), ref) else 'WRONG'} "
                 f"| sum={int(out.sum())} expected {N}")
 
     if CASE == "alloc_only":
-        out = torch.zeros(B, dtype=torch.int32, device="npu")
+        out = torch.zeros(B, dtype=torch.int32, device=DEV)
         k_alloc_only[(1,)](out, BLOCK=B)
-        torch.npu.synchronize()
-        ok = torch.equal(out, torch.arange(B, dtype=torch.int32, device="npu"))
+        DEVMOD.synchronize()
+        ok = torch.equal(out, torch.arange(B, dtype=torch.int32, device=DEV))
         return f"ran, unrelated store {'correct' if ok else 'WRONG'}"
 
     if CASE == "to_tensor":
-        out = torch.zeros(B, dtype=torch.int32, device="npu")
+        out = torch.zeros(B, dtype=torch.int32, device=DEV)
         k_to_tensor[(1,)](out, BLOCK=B)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         return f"ran, out[:8]={out[:8].tolist()} (UB is uninitialised, value is not the point)"
 
     if CASE == "copy":
-        src = torch.arange(B, dtype=torch.int32, device="npu")
-        out = torch.zeros(B, dtype=torch.int32, device="npu")
+        src = torch.arange(B, dtype=torch.int32, device=DEV)
+        out = torch.zeros(B, dtype=torch.int32, device=DEV)
         k_copy[(1,)](src, out, BLOCK=B)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         ok = torch.equal(out, src * 2)
         return f"ran, {'CORRECT' if ok else 'WRONG'} out[:8]={out[:8].tolist()}"
 
     if CASE == "ptr_store":
-        out = torch.zeros(B, dtype=torch.int32, device="npu")
+        out = torch.zeros(B, dtype=torch.int32, device=DEV)
         k_ptr_store[(1,)](out, BLOCK=B)
-        torch.npu.synchronize()
-        ok = torch.equal(out, torch.arange(B, dtype=torch.int32, device="npu") * 3)
+        DEVMOD.synchronize()
+        ok = torch.equal(out, torch.arange(B, dtype=torch.int32, device=DEV) * 3)
         return f"ran, {'CORRECT' if ok else 'WRONG'} out[:8]={out[:8].tolist()}"
 
     if CASE == "atomic":
         NBIN = 64
-        idx = torch.randint(0, NBIN, (B,), dtype=torch.int32, device="npu")
-        out = torch.zeros(NBIN, dtype=torch.int32, device="npu")
+        idx = torch.randint(0, NBIN, (B,), dtype=torch.int32, device=DEV)
+        out = torch.zeros(NBIN, dtype=torch.int32, device=DEV)
         k_atomic[(1,)](idx, out, BLOCK=B, NBIN=NBIN)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         ref = torch.bincount(idx.cpu().long(), minlength=NBIN).to(torch.int32)
         ok = torch.equal(out.cpu(), ref)
         return (f"ran, histogram {'CORRECT' if ok else 'WRONG'} "
@@ -308,9 +329,9 @@ def run():
 
     if CASE.startswith("cap"):
         n = int(CASE[3:])
-        out = torch.zeros(n, dtype=torch.int32, device="npu")
+        out = torch.zeros(n, dtype=torch.int32, device=DEV)
         k_cap[(1,)](out, N=n)
-        torch.npu.synchronize()
+        DEVMOD.synchronize()
         return f"ran at N={n} ({n * 4 // 1024} KB)"
 
     return f"!! unknown case {CASE}"
