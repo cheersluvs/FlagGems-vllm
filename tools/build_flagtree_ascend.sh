@@ -54,12 +54,26 @@ if [ -n "$PROXY_SAVED" ]; then
     echo "=== git will reach github.com through the proxy; everything else direct"
 fi
 
-# A half-finished clone from an earlier run is worse than none: it looks
-# present to any existence check and empty to CMake.
+# AscendNPU-IR is pinned to a different commit by each FlagTree tag, and a
+# checkout left over from another tag fails much later and much less clearly --
+# 0.6.1 against 0.6.1rc1's checkout dies on a missing bishengir/InitAllDialects.h
+# only once compilation reaches it.  A half-finished clone is worse still: it
+# looks present to any existence check and empty to CMake.  So drop the
+# directory unless it is exactly the commit this tag asks for, and let setup
+# re-clone it.
 IR_DIR="$SRC/third_party/ascend/AscendNPU-IR"
-if [ -d "$IR_DIR" ] && [ ! -f "$IR_DIR/CMakeLists.txt" ]; then
-    echo "=== removing a partial AscendNPU-IR checkout"
-    rm -rf "$IR_DIR"
+WANT=$(grep -oE 'commit_id="[0-9a-f]+"' python/setup_tools/utils/ascend.py 2>/dev/null \
+       | head -1 | cut -d'"' -f2)
+echo "=== $TAG pins AscendNPU-IR at ${WANT:-<unknown>}"
+if [ -d "$IR_DIR" ]; then
+    HAVE=$(git -C "$IR_DIR" rev-parse --short=8 HEAD 2>/dev/null || echo none)
+    if [ ! -f "$IR_DIR/CMakeLists.txt" ] || [ -z "$WANT" ] \
+       || [ "${HAVE:0:8}" != "${WANT:0:8}" ]; then
+        echo "=== AscendNPU-IR is at ${HAVE} but ${WANT:-?} is wanted -- removing"
+        rm -rf "$IR_DIR"
+    else
+        echo "=== AscendNPU-IR already at $HAVE"
+    fi
 fi
 
 export FLAGTREE_BACKEND=ascend
