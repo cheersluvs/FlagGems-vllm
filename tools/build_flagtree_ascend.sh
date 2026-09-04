@@ -55,7 +55,33 @@ if command -v clang++ >/dev/null; then
 else
     export CC=${CC:-gcc} CXX=${CXX:-g++}
 fi
+# clang picks the newest GCC installation it finds on its own search path,
+# which in a CANN container is the distro's old one -- openEuler 22.03 ships
+# gcc 10.3.1, while the prebuilt LLVM was built against a newer libstdc++ and
+# references std::__throw_bad_array_new_length, added in GCC 11.  Linking then
+# fails after ~300 objects have already compiled.  If a newer GCC is installed
+# elsewhere, point clang at it.
+if [ "${CXX%%*/}" != "${CXX}" ] || command -v clang++ >/dev/null; then
+    if ! nm -D /usr/lib64/libstdc++.so.6 2>/dev/null \
+         | grep -q __throw_bad_array_new_length; then
+        GCC_BIN=$(command -v gcc || true)
+        if [ -n "$GCC_BIN" ]; then
+            GCC_PREFIX=$(dirname "$(dirname "$GCC_BIN")")
+            for LIBDIR in "$GCC_PREFIX/lib64" "$GCC_PREFIX/lib"; do
+                if [ -e "$LIBDIR/libstdc++.so" ]; then
+                    echo "=== default libstdc++ predates GCC 11; using $GCC_PREFIX"
+                    export CFLAGS="--gcc-toolchain=$GCC_PREFIX ${CFLAGS:-}"
+                    export CXXFLAGS="--gcc-toolchain=$GCC_PREFIX ${CXXFLAGS:-}"
+                    export LDFLAGS="-L$LIBDIR -Wl,-rpath,$LIBDIR ${LDFLAGS:-}"
+                    break
+                fi
+            done
+        fi
+    fi
+fi
 echo "=== compiler: ${CXX_FOUND:-?}  (CC=$CC CXX=$CXX)"
+[ -n "${CXXFLAGS:-}" ] && echo "=== CXXFLAGS=$CXXFLAGS"
+[ -n "${LDFLAGS:-}" ] && echo "=== LDFLAGS=$LDFLAGS"
 echo "=== cmake: $(cmake --version | head -1)"
 
 mkdir -p "$OUT/wheels"
