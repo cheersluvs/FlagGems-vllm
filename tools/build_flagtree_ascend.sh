@@ -30,14 +30,24 @@ echo "=== source $SRC   output $OUT   MAX_JOBS $JOBS"
 
 # Fail on a missing tool now, not forty minutes into a CMake configure.
 MISSING=""
-for T in cmake ninja clang clang++ git python; do
+for T in cmake ninja git python; do
     command -v "$T" >/dev/null || MISSING="$MISSING $T"
 done
+# Either compiler will do: LLVM arrives prebuilt, so only Triton and BiShengIR
+# are compiled here.  A CANN container typically has gcc and no clang.
+if command -v clang++ >/dev/null; then
+    CXX_FOUND="clang++ $(clang++ --version | head -1)"
+elif command -v g++ >/dev/null; then
+    CXX_FOUND="g++ $(g++ --version | head -1)"
+else
+    MISSING="$MISSING clang++/g++"
+fi
 if [ -n "$MISSING" ]; then
     echo "!! missing build tools:$MISSING"
-    echo "   (a CANN container often ships none of them; install before retrying)"
     exit 1
 fi
+echo "=== compiler: ${CXX_FOUND:-?}"
+echo "=== cmake: $(cmake --version | head -1)"
 
 mkdir -p "$OUT/wheels"
 if [ ! -d "$SRC/.git" ]; then
