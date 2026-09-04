@@ -70,8 +70,13 @@ if [ "${CXX%%*/}" != "${CXX}" ] || command -v clang++ >/dev/null; then
             for LIBDIR in "$GCC_PREFIX/lib64" "$GCC_PREFIX/lib"; do
                 if [ -e "$LIBDIR/libstdc++.so" ]; then
                     echo "=== default libstdc++ predates GCC 11; using $GCC_PREFIX"
-                    export CFLAGS="--gcc-toolchain=$GCC_PREFIX ${CFLAGS:-}"
-                    export CXXFLAGS="--gcc-toolchain=$GCC_PREFIX ${CXXFLAGS:-}"
+                    # GCC 13's libstdc++ stopped including <cstdint>
+                    # transitively, and FlagPrism's headers use uint64_t without
+                    # including it -- 33 errors in Data/Metric.h alone.  There is
+                    # no switch to skip FlagPrism (unlike TRITON_BUILD_PROTON),
+                    # so force-include the header instead of editing upstream.
+                    export CFLAGS="--gcc-toolchain=$GCC_PREFIX -include stdint.h ${CFLAGS:-}"
+                    export CXXFLAGS="--gcc-toolchain=$GCC_PREFIX -include cstdint ${CXXFLAGS:-}"
                     export LDFLAGS="-L$LIBDIR -Wl,-rpath,$LIBDIR ${LDFLAGS:-}"
                     break
                 fi
