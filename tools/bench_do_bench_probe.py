@@ -36,6 +36,17 @@ def _device():
 
 
 DEV, DEVMOD = _device()
+# Ascend ships its own do_bench_npu, and FlagGems switched the ascend
+# benchmark over to it (FlagGems#4857, #5451) -- but FlagGems-vllm's
+# performance_utils.py still special-cases only musa, so --mode kernel on
+# Ascend uses the generic do_bench.  Comparing the two is the point.
+do_bench_npu = None
+if DEV == "npu":
+    try:
+        from triton.backends.ascend.testing import do_bench_npu
+    except Exception as e:
+        print(f"  (do_bench_npu unavailable: {type(e).__name__}: {e})")
+
 if DEV == "musa":
     try:
         import triton.musa_testing  # noqa: F401  (attribute only exists once imported)
@@ -91,15 +102,28 @@ def manual(f, reps=20):
 
 
 print("\n=== launches per callable vs reported time ===")
-print(f"{'launches':>9} | {'manual ms':>10} | {'do_bench ms':>12} | {'manual/1x':>9} | {'bench/1x':>9}")
-base_m = base_b = None
+print(f"{'launches':>9} | {'manual ms':>10} | {'do_bench ms':>12} | "
+      f"{'do_bench_npu':>12} | {'manual/1x':>9} | {'bench/1x':>9} | {'npu/1x':>7}")
+base_m = base_b = base_n = None
 for k in (1, 2, 4, 8):
     f = make(k)
     m = manual(f)
     b = do_bench(f, warmup=25, rep=100, return_mode="median")
+    n = None
+    if do_bench_npu is not None:
+        try:
+            n = do_bench_npu(f, warmup=25, rep=100, return_mode="median")
+        except TypeError:
+            try:
+                n = do_bench_npu(f)
+            except Exception as e:
+                print(f"    (do_bench_npu failed: {type(e).__name__}: {e})")
     if base_m is None:
-        base_m, base_b = m, b
-    print(f"{k:>9} | {m:>10.3f} | {b:>12.3f} | {m / base_m:>8.2f}x | {b / base_b:>8.2f}x")
+        base_m, base_b, base_n = m, b, n
+    fn_ = lambda v: f"{v:12.3f}" if isinstance(v, float) else f"{'-':>12}"
+    rn = f"{n / base_n:6.2f}x" if isinstance(n, float) and base_n else f"{'-':>7}"
+    print(f"{k:>9} | {m:>10.3f} | {b:>12.3f} | {fn_(n)} | "
+          f"{m / base_m:>8.2f}x | {b / base_b:>8.2f}x | {rn}")
 
 # The claim is about the BASELINE's first kernel, and a baseline launches
 # several DIFFERENT kernels.  Repeating one kernel would not expose an
