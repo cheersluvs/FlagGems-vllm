@@ -12,6 +12,7 @@ set -euo pipefail
 
 TAG=${1:-0.6.1rc1+ascend3.5}
 SRC=${FT_SRC:-$HOME/flagtree-src}
+FT_REPO=${FT_REPO:-https://github.com/flagos-ai/FlagTree.git}
 OUT=${FT_OUT:-$HOME/flagtree-build}
 JOBS=${MAX_JOBS:-64}
 
@@ -26,9 +27,27 @@ fi
 
 echo "=== $(date -Is) building FlagTree $TAG"
 echo "=== source $SRC   output $OUT   MAX_JOBS $JOBS"
+
+# Fail on a missing tool now, not forty minutes into a CMake configure.
+MISSING=""
+for T in cmake ninja clang clang++ git python; do
+    command -v "$T" >/dev/null || MISSING="$MISSING $T"
+done
+if [ -n "$MISSING" ]; then
+    echo "!! missing build tools:$MISSING"
+    echo "   (a CANN container often ships none of them; install before retrying)"
+    exit 1
+fi
+
 mkdir -p "$OUT/wheels"
+if [ ! -d "$SRC/.git" ]; then
+    echo "=== cloning FlagTree into $SRC (GitHub needs the proxy, still set here)"
+    git clone -q --filter=blob:none "$FT_REPO" "$SRC" || {
+        echo "!! clone failed"; exit 1; }
+fi
 cd "$SRC"
-git checkout -q "$TAG"
+git fetch -q --tags origin 2>/dev/null || true
+git checkout -q "$TAG" || { echo "!! no such tag: $TAG"; exit 1; }
 echo "=== checked out $(git describe --tags --always) $(git log -1 --format=%h)"
 
 # This build needs BOTH network directions at once, which no single proxy
@@ -73,6 +92,21 @@ else
     echo "=== same tag as the last build, keeping the build tree"
 fi
 printf '%s' "$TAG" > "$STAMP"
+
+# LLVM_SYSPATH short-circuits the 2.15 GB download and uses a local LLVM
+# instead -- setup_helper's ascend entry has `pre_hock=check_env('LLVM_SYSPATH')`.
+# That is almost certainly how the vendor's container build was matched to
+# CANN's own bishengir-opt: FlagTree's default pin produces MLIR 22 bytecode,
+# which a bishengir-opt built on an older MLIR refuses outright.
+if [ -n "${LLVM_SYSPATH:-}" ]; then
+    echo "=== LLVM_SYSPATH=$LLVM_SYSPATH (skipping the LLVM download)"
+    export LLVM_SYSPATH
+else
+    echo "=== no LLVM_SYSPATH: FlagTree will download its pinned LLVM (MLIR 22)."
+    echo "===   If the resulting wheel dies in bishengir-opt with"
+    echo "===   'bytecode version N produced by MLIR22', rebuild with LLVM_SYSPATH"
+    echo "===   pointing at an LLVM matching this CANN's bishengir-opt."
+fi
 
 export FLAGTREE_BACKEND=ascend
 export MAX_JOBS="$JOBS"
