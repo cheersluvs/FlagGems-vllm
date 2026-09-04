@@ -281,14 +281,29 @@ class Benchmark:
             end = time.time()
             latency = (end - start) / Config.repetition * 1000
         elif Config.mode == consts.BenchMode.KERNEL:
-            do_bench = triton.testing.do_bench
-            latency = do_bench(
-                fn,
-                warmup=Config.warm_up,
-                rep=Config.repetition,
-                return_mode="median",
-                grad_to_none=xs if self.is_backward else None,
-            )
+            if device == "npu":
+                # Ascend's own timer profiles device time.  It matters because
+                # the host launch path costs ~0.5 ms for a Triton kernel against
+                # ~0.05 ms for a torch one -- measured -- so wall-clock timing
+                # flatters whichever side dispatches from C++.
+                #
+                # It takes iteration counts rather than durations, and reports
+                # the MEAN TIME PER KERNEL rather than per call, so a callable
+                # launching one kernel is not comparable with a baseline
+                # launching several.  --mode operator stays the end-to-end
+                # measure.  Called bare, so its warmup=5 / active=30 apply.
+                from triton.backends.ascend.testing import do_bench_npu
+
+                latency = do_bench_npu(fn)
+            else:
+                do_bench = triton.testing.do_bench
+                latency = do_bench(
+                    fn,
+                    warmup=Config.warm_up,
+                    rep=Config.repetition,
+                    return_mode="median",
+                    grad_to_none=xs if self.is_backward else None,
+                )
         elif Config.mode == consts.BenchMode.WRAPPER:
             for i in range(Config.warm_up):
                 fn()
