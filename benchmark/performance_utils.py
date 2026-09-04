@@ -345,18 +345,34 @@ class Benchmark:
             end = time.time()
             latency = (end - start) / Config.repetition * 1000
         elif Config.mode == BenchMode.KERNEL:
-            do_bench = (
-                triton.musa_testing.do_bench
-                if device == "musa"
-                else triton.testing.do_bench
-            )
-            latency = do_bench(
-                fn,
-                warmup=Config.warm_up,
-                rep=Config.repetition,
-                return_mode="median",
-                grad_to_none=xs if self.is_backward else None,
-            )
+            if device == "npu":
+                # Ascend's own timer profiles device time, which matters here
+                # because the host launch path costs ~0.5 ms for a Triton kernel
+                # and ~0.05 ms for a torch one -- wall-clock timing is asymmetric
+                # in favour of whichever side dispatches from C++.
+                #
+                # It takes iteration counts, not durations, and reports the MEAN
+                # TIME PER KERNEL rather than per call: a callable launching one
+                # kernel is therefore not comparable with a baseline launching
+                # several (torch.topk launches several).  Use --mode operator for
+                # end-to-end ratios.  Called bare, so its own warmup=5 and
+                # active=30 apply.
+                from triton.backends.ascend.testing import do_bench_npu
+
+                latency = do_bench_npu(fn)
+            else:
+                do_bench = (
+                    triton.musa_testing.do_bench
+                    if device == "musa"
+                    else triton.testing.do_bench
+                )
+                latency = do_bench(
+                    fn,
+                    warmup=Config.warm_up,
+                    rep=Config.repetition,
+                    return_mode="median",
+                    grad_to_none=xs if self.is_backward else None,
+                )
         elif Config.mode == BenchMode.WRAPPER:
             for i in range(Config.warm_up):
                 fn()
