@@ -46,7 +46,16 @@ if [ -n "$MISSING" ]; then
     echo "!! missing build tools:$MISSING"
     exit 1
 fi
-echo "=== compiler: ${CXX_FOUND:-?}"
+# FlagTree's setup defaults CC/CXX to clang; CMake then dies with
+#   "clang is not a full path and was not found in the PATH"
+# in under two seconds, long before anything is compiled.  Pin them to whatever
+# this machine actually has.
+if command -v clang++ >/dev/null; then
+    export CC=${CC:-clang} CXX=${CXX:-clang++}
+else
+    export CC=${CC:-gcc} CXX=${CXX:-g++}
+fi
+echo "=== compiler: ${CXX_FOUND:-?}  (CC=$CC CXX=$CXX)"
 echo "=== cmake: $(cmake --version | head -1)"
 
 mkdir -p "$OUT/wheels"
