@@ -74,6 +74,27 @@ echo "=== checked out $(git describe --tags --always) $(git log -1 --format=%h)"
 # So: drop the proxy from the environment, and hand git a github.com-only proxy
 # through GIT_CONFIG_* -- which git reads without writing ~/.gitconfig, so the
 # credentials in that URL are not persisted to disk.
+# Fetch the GitHub-hosted dependencies while the proxy is still in the
+# environment.  setup downloads nlohmann/json from github.com with urllib, which
+# ignores the git-only proxy configured below, so with the proxy gone it times
+# out -- after the 2.15 GB LLVM and six CUDA archives have already succeeded.
+JSON_DIR=${JSON_DIR:-$HOME/.triton/json}
+if [ ! -d "$JSON_DIR/include" ]; then
+    echo "=== prefetching nlohmann/json into $JSON_DIR (needs the proxy)"
+    mkdir -p "$JSON_DIR"
+    python - "$JSON_DIR" <<'PYEOF' || echo "!! json prefetch failed; the build will try on its own"
+import io, sys, urllib.request, zipfile
+url = "https://github.com/nlohmann/json/releases/download/v3.11.3/include.zip"
+with urllib.request.urlopen(url, timeout=120) as r:
+    data = r.read()
+zipfile.ZipFile(io.BytesIO(data)).extractall(sys.argv[1])
+print(f"    extracted {len(data)} bytes")
+PYEOF
+    ls -d "$JSON_DIR/include" >/dev/null 2>&1 && echo "=== json ok" || echo "!! json still missing"
+else
+    echo "=== nlohmann/json already present at $JSON_DIR"
+fi
+
 PROXY_SAVED="${https_proxy:-${http_proxy:-}}"
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY || true
 if [ -n "$PROXY_SAVED" ]; then
