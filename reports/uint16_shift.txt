@@ -1,0 +1,28 @@
+triton 3.5.1 | torch 2.8.0+cpu
+
+dtype          input          got      logical        arith   verdict
+------------------------------------------------------------------------------
+uint8           0xfe            7            7           -1   LOGICAL (correct)
+uint16        0xfffe           -1         2047           -1   ARITHMETIC (defect)
+uint32    0xfffffffe           -1    134217727           -1   ARITHMETIC (defect)
+
+workaround  (bits.to(tl.int32) & 0xFFFF) >> 5 : got 2047, expected 2047 -> OK
+
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/repro_uint16_shift.py", line 108, in <module>
+    main()
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/repro_uint16_shift.py", line 100, in main
+    got = run(k_fp16_bucket, xf, sh=5)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/repro_uint16_shift.py", line 61, in run
+    kernel[(1,)](x, out, SH=sh, BLOCK=B)
+  File "/usr/local/lib/python3.11/site-packages/triton/spec/ascend/runtime/jit.py", line 419, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/triton/spec/ascend/runtime/jit.py", line 730, in run
+    options, signature, constexprs, attrs = self._pack_args(backend, kwargs, bound_args, specialization,
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/triton/spec/ascend/runtime/jit.py", line 698, in _pack_args
+    raise KeyError("Keyword argument %s was specified but unrecognised" % k)
+KeyError: 'Keyword argument SH was specified but unrecognised'
+[ERROR] 2026-09-07-16:39:32 (PID:176930, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception

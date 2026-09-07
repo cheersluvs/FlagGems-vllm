@@ -1,0 +1,161 @@
+triton 3.5.1 | torch 2.6.0+cpu
+python 3.11.13
+
+========================================================================
+1. every source file of the TLE package
+========================================================================
+  [sources] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 65, in <module>
+    import triton.experimental.tle as T
+  File "/root/ft-verify/lib/python3.11/site-packages/triton/experimental/tle/__init__.py", line 1, in <module>
+    from . import backends
+  File "/root/ft-verify/lib/python3.11/site-packages/triton/experimental/tle/backends.py", line 79, in <module>
+    IMPL = _build_ascend_impl() if BACKEND == "ascend" else _build_nvidia_impl()
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/root/ft-verify/lib/python3.11/site-packages/triton/experimental/tle/backends.py", line 13, in _build_ascend_impl
+    from triton.experimental.tle.language.dsa.ascend.communication import (
+  File "/root/ft-verify/lib/python3.11/site-packages/triton/experimental/tle/language/dsa/ascend/communication.py", line 6, in <module>
+    import shmem as ash
+ModuleNotFoundError: No module named 'shmem'
+
+========================================================================
+2. callable surface, with signatures
+========================================================================
+
+  triton.experimental.tle: import failed ModuleNotFoundError: No module named 'shmem'
+
+  triton.experimental.tle.language
+      core   <module>
+      dsa   <module>
+      gpu   <module>
+      import_module(name, package=None)   <function>
+          | Import a module.
+          | 
+          | The 'package' argument is required when performing a relative import. It
+          | specifies the package to use as the anchor point from which to resolve the
+          | relative import to an absolute import.
+      load(pointer, mask=None, other=None, boundary_check=(), padding_option='', cache_modifier='', eviction_policy='', volatile=False, is_async=False, _semantic=None)   <function>
+          | Return a tensor of data whose values are loaded from memory at location defined by `pointer`:
+          | 
+          |     (1) If `pointer` is a single element pointer, a scalar is be loaded.  In
+          |         this case:
+          | 
+          |         - `mask` and `other` must also be scalars,
+      raw   <module>
+
+  triton.experimental.tle.language.dsa
+      add(input, other, result, _semantic=None)   <function>
+      alloc(shape: List[triton.language.core.constexpr], dtype: triton.language.core.dtype, mem_addr_space: triton.experimental.tle.language.dsa.types.address_space, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer   <function>
+          | Allocates a region of local memory with the specified shape and type.
+      ascend   <module>
+      copy(src, dst, shape, inter_no_alias=False, _semantic=None)   <function>
+          | Copy data from `src` to `dst` shaped by `shape`.
+          | 
+          | :param inter_no_alias: If True, the copy is annotated as no aliasing between different iterations.
+      core   <module>
+      div(input, other, result, _semantic=None)   <function>
+      extract_element(src, indice, _semantic=None, _generator=None)   <function>
+          | get_element op reads a ranked tensor and returns one element as specified by the given indices.
+      extract_slice(ful, offsets, sizes, strides, _semantic=None, _generator=None) -> triton.language.core.tensor   <function>
+          | Extract a tensor from another tensor as specified by the operation’s offsets, sizes and strides arguments.
+      hint(**kwargs)   <function>
+          | Dummy function for AST parsing. Not executed during JIT compilation.
+      insert_slice(ful: triton.language.core.tensor, sub: triton.language.core.tensor, offsets: List[triton.language.core.tensor], sizes: List[int], strides: List[int], _semantic=None) -> triton.language.core.tensor   <function>
+          | Insert a tensor to another tensor as specified by the operation’s offsets, sizes and strides arguments.
+      max(input, other, result, _semantic=None)   <function>
+      min(input, other, result, _semantic=None)   <function>
+      mul(input, other, result, _semantic=None)   <function>
+      parallel(arg1, arg2=None, step=None, num_stages=None, loop_unroll_factor=None)   <type>
+          | Iterator that counts upward forever, with parallel execution semantics.
+      pipeline(arg1, arg2=None, step=None, num_stages=None, loop_unroll_factor=None)   <type>
+          | Iterator that counts upward forever, with software pipeline semantics.
+      semantic   <module>
+      sub(input, other, result, _semantic=None)   <function>
+      subview(src: triton.experimental.tle.language.dsa.types.buffer, offsets: List[triton.language.core.constexpr], sizes: List[triton.language.core.constexpr], strides: List[triton.language.core.constexpr], _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer   <function>
+          | Creates a subview of the source buffer with the specified offsets, sizes, and strides.
+      to_buffer(tensor: triton.language.core.tensor, space: triton.experimental.tle.language.dsa.types.address_space = None, bind_buffer: triton.experimental.tle.language.dsa.types.buffer = None, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer   <function>
+          | Convert a tensor to a buffer.
+      to_tensor(memref: triton.experimental.tle.language.dsa.types.buffer, writable: bool = True, target_shape=None, _semantic=None) -> triton.language.core.tensor   <function>
+          | Create a tl.tensor from a bl.buffer.
+      types   <module>
+
+  triton.experimental.tle.language.builder
+      attach_builder_methods_with_tle_builder(main_builder, delegate_builder, method_names)   <function>
+          | Attach multiple methods from a delegate builder to the main builder.
+      create_dsa_method_wrapper_with_tle_builder(main_builder, delegate_builder, method_name)   <function>
+      setup_unified_builder_with_tle_builder(main_builder, buffer_builder)   <function>
+          | Set up a unified builder interface by attaching methods from specialized builders.
+
+  triton.experimental.tle.dsa: import failed ModuleNotFoundError: No module named 'shmem'
+
+========================================================================
+3. does a kernel using dsa.alloc compile and run?
+========================================================================
+  [dsa import] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 125, in <module>
+    import triton.experimental.tle.language.dsa as dsa
+ImportError: cannot import name 'tle' from 'triton.experimental' (/root/ft-verify/lib/python3.11/site-packages/triton/experimental/__init__.py)
+
+========================================================================
+4. the gates the operator actually evaluates
+========================================================================
+  [has_triton_tle] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 158, in <module>
+    from flaggems_vllm.utils.triton_version_utils import has_triton_tle
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/__init__.py", line 21, in <module>
+    import flaggems_vllm.ops as _ops_module
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/__init__.py", line 17, in <module>
+    from flaggems_vllm.ops.add_rms_norm import add_rms_norm
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/add_rms_norm.py", line 23, in <module>
+    from flaggems_vllm import runtime
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/runtime/__init__.py", line 23, in <module>
+    config_loader = ConfigLoader()
+                    ^^^^^^^^^^^^^^
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/runtime/configloader.py", line 37, in __init__
+    self.device = DeviceDetector()
+                  ^^^^^^^^^^^^^^^^
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/runtime/backend/device_finder.py", line 43, in __init__
+    self.info = self.get_vendor(vendor_name)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/runtime/backend/device_finder.py", line 66, in get_vendor
+    vendor_name = self._get_vendor_from_quick_cmd()
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/runtime/backend/device_finder.py", line 77, in _get_vendor_from_quick_cmd
+    import torch_npu
+  File "/usr/local/python3.11.13/lib/python3.11/site-packages/torch_npu/__init__.py", line 28, in <module>
+    raise RuntimeError(f"Two accelerators cannot be used at the same time "
+RuntimeError: Two accelerators cannot be used at the same time in PyTorch: npu and npu. You can install the cpu version of PyTorch to use your npu device, or use the npu device with 'export TORCH_DEVICE_BACKEND_AUTOLOAD=0'.
+[ERROR] 2026-09-03-14:17:20 (PID:1252549, Device:-1, RankID:-1) ERR00007 PTA feature not supported
+  [vendor descriptor] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 166, in <module>
+    from flaggems_vllm import runtime
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/__init__.py", line 21, in <module>
+    import flaggems_vllm.ops as _ops_module
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/__init__.py", line 17, in <module>
+    from flaggems_vllm.ops.add_rms_norm import add_rms_norm
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/add_rms_norm.py", line 23, in <module>
+    from flaggems_vllm import runtime
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/runtime/__init__.py", line 32, in <module>
+    backend.set_torch_backend_device_fn(device.vendor_name)
+                                        ^^^^^^^^^^^^^^^^^^
+AttributeError: 'DeviceDetector' object has no attribute 'vendor_name'
+  [operator HAS_TLE] FAILED
+Traceback (most recent call last):
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/ascend_tle_surface.py", line 175, in <module>
+    import flaggems_vllm.ops.top_k_per_row_prefill as _m
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/__init__.py", line 21, in <module>
+    import flaggems_vllm.ops as _ops_module
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/__init__.py", line 17, in <module>
+    from flaggems_vllm.ops.add_rms_norm import add_rms_norm
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/add_rms_norm.py", line 23, in <module>
+    from flaggems_vllm import runtime
+  File "/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/runtime/__init__.py", line 32, in <module>
+    backend.set_torch_backend_device_fn(device.vendor_name)
+                                        ^^^^^^^^^^^^^^^^^^
+AttributeError: 'DeviceDetector' object has no attribute 'vendor_name'
+
+done.

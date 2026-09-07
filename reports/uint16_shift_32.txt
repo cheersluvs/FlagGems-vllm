@@ -1,0 +1,24 @@
+### branch ascend-tle-surface @ 7a7132e
+### 2026-09-07T17:00:15+08:00  host bm-ctyun-wq-910b-64g-0-13
+### PYTHONPATH=src:/usr/local/Ascend/cann-8.5.0/python/site-packages:/usr/local/Ascend/cann-8.5.0/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:
+
+triton 3.2.0  at /usr/local/python3.11.13/lib/python3.11/site-packages/triton
+torch  2.6.0+cpu | torch_npu 2.6.0rc1
+device Ascend910B4-1
+
+top bit SET -- this is where the two shifts differ
+dtype          input          got      logical        arith   verdict
+------------------------------------------------------------------------------
+uint8           0xfe            7            7           -1   LOGICAL (correct)
+uint16        0xfffe           -1         2047           -1   ARITHMETIC (defect)
+uint32    0xfffffffe           -1    134217727           -1   ARITHMETIC (defect)
+
+top bit CLEAR -- control, every line must read correct
+dtype          input          got     expected   verdict
+--------------------------------------------------------------
+uint8           0x7e            3            3   correct
+uint16        0x7ffe         1023         1023   correct
+uint32    0x7ffffffe     67108863     67108863   correct
+
+workaround  (bits.to(tl.int32) & 0xFFFF) >> 5 : got 2047, expected 2047 -> OK
+fp16 radix bucket of -1.5 (bits 0xbe00)  : got -528, expected 1520 -> WRONG -- every negative logit collapses
