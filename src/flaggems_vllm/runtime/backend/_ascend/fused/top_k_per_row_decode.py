@@ -25,7 +25,7 @@ validating on NVIDIA, which cannot be done from here.
     4  uint32 as a pointer offset                 BiShengHIR abort
     5  atomic returns non-unique per-lane values  silent wrong results
     6  the scan needs more UB than BLOCK=512 fits ub overflow
-    7  tl.uint16 >> lowered as an ARITHMETIC shift silent, half the input lost
+    7  tl.uint16/uint32 >> is an ARITHMETIC shift  silent, every negative lost
 
 The substitution works by REBINDING onto the generic module rather than by
 redefining here. A Triton jit function resolves the jit functions it calls
@@ -198,7 +198,22 @@ def _extract_bin_idx(x, in_range, pattern, STEP: tl.constexpr):
     else:
         bits = _convert_to_uint32(x)
         if STEP == 1:
-            bin_idx = (bits >> 21).to(tl.int32)
+            # `>>` on tl.uint32 is an ARITHMETIC shift on this backend
+            # (FlagTree #1121), and _convert_to_uint32 leaves bit 31 set for
+            # every negative logit -- so the sign floods the bin index and each
+            # negative value lands in the wrong bucket. Shift the low 31 bits,
+            # where the shift is measurably correct, and add bit 31's own
+            # contribution (2**(31-21)) back by hand.
+            #
+            # Only this line needs it. STEP 2 masks with 0x7FF, keeping only
+            # bits the sign fill never reaches, and the two
+            # `(bits ^ pattern) >> n == 0` tests compare against zero, which
+            # both shifts agree on. Verified by tools/probe_force_step1.py --
+            # the suite cannot see any of it, because STEP 1 only runs when a
+            # single fp16 bucket holds more than NUM_FINAL_ITEMS candidates.
+            sign_set = (bits & tl.full(bits.shape, 0x80000000, tl.uint32)) != 0
+            low31 = bits & tl.full(bits.shape, 0x7FFFFFFF, tl.uint32)
+            bin_idx = (low31 >> 21).to(tl.int32) + tl.where(sign_set, 1 << 10, 0)
         elif STEP == 2:
             bin_idx = ((bits >> 10) & 0x7FF).to(tl.int32)
             is_partial_match &= ((bits ^ pattern) >> 21) == 0
