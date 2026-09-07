@@ -108,8 +108,10 @@ def main():
         print("wrong for negative ones -- the uint32 arithmetic shift is live in")
         print("our own STEP 1-3 and needs the same widen-and-mask workaround.")
     elif results["pos"][1] and results["neg"][1]:
-        print("STEP 1 ran and both passed -- the shift defect does NOT reach it.")
-        print("Find what protects it before claiming anything upstream.")
+        print("STEP 1 ran and both passed. On a kernel that still has the raw")
+        print("`bits >> 21` this would mean the defect does not reach STEP 1 --")
+        print("check that before concluding. With the widen-and-mask fix in")
+        print("_extract_bin_idx already applied, this is the expected result.")
     else:
         print("Both concentrated cases failed -- that is not the sign-dependent")
         print("signature of the shift defect. Investigate STEP 1 generally.")

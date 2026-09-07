@@ -374,3 +374,51 @@ def test_backend_override_matches_reference(num_rows):
     assert check_topk_values_match(
         logits, indices_test, indices_ref, row_starts, top_k
     ), f"FAIL: override, num_rows={num_rows}"
+
+
+@pytest.mark.top_k_per_row_prefill
+@pytest.mark.parametrize("centre", [1.51, -1.51], ids=["positive", "negative"])
+def test_top_k_per_row_prefill_concentrated_bucket(centre):
+    """Values packed into one fp16 bucket, which is what drives the radix pass
+    past its first step.
+
+    STEP 0 bins the fp16 bits into 2048 buckets and stops there unless the
+    threshold bucket holds more than NUM_FINAL_ITEMS=2048 candidates. Every
+    other test here uses randn, which leaves about 200 in that bucket -- so
+    STEP 1-3 never execute and nothing in the suite covers them.
+
+    Packing the values into a single bucket forces those steps to run. Both
+    signs are tested because STEP 1 buckets by the top bits of a uint32 whose
+    bit 31 is set for negative inputs only: a backend that lowers `>>` on
+    uint32 as an arithmetic shift is correct here for positive values and
+    wrong for negative ones (Ascend does; see FlagTree issue #1121).
+    """
+    torch.manual_seed(42)
+    num_rows, vocab_size, top_k = 2, 129280, 1024
+
+    # A single fp16 bucket near |1.5| is about 1.5/32 wide; stay inside it so
+    # the whole row lands in one bucket, but keep enough spread that a wrong
+    # selection is separated by far more than the comparison tolerance.
+    spread = 0.04
+    u = torch.rand(num_rows, vocab_size, dtype=torch.float32, device=device)
+    logits = (centre + (u - 0.5) * spread).contiguous()
+
+    row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+    row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+
+    indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+    indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+    flaggems_vllm.top_k_per_row_prefill(
+        logits,
+        row_starts,
+        row_ends,
+        indices_test,
+        num_rows,
+        logits.stride(0),
+        logits.stride(1),
+        top_k,
+    )
+
+    assert check_topk_values_match(
+        logits, indices_test, indices_ref, row_starts, top_k
+    ), f"FAIL: concentrated bucket, centre={centre}"
