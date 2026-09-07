@@ -13,9 +13,16 @@ survives.
 """
 
 import torch
+
+try:  # torch.npu only exists once torch_npu is imported
+    import torch_npu  # noqa: F401
+except ImportError:
+    pass
+
 import flaggems_vllm
 
-DEV = "npu" if torch.npu.is_available() else "cuda"
+DEV = "npu" if hasattr(torch, "npu") and torch.npu.is_available() else "cuda"
+SYNC = torch.npu.synchronize if DEV == "npu" else torch.cuda.synchronize
 VOCAB, TOPK = 129280, 1024
 
 
@@ -40,7 +47,7 @@ def case(name, logits):
         logits, row_starts, row_ends, out, num_rows,
         logits.stride(0), logits.stride(1), TOPK,
     )
-    torch.npu.synchronize() if DEV == "npu" else torch.cuda.synchronize()
+    SYNC()
 
     ref = reference(logits, TOPK)
     ok = values_match(logits, out, ref, TOPK)
