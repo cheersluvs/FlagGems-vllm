@@ -1,5 +1,17 @@
-### branch ascend-tle-surface @ 6152f87
-### 2026-09-07T17:12:34+08:00  host bm-ctyun-wq-910b-64g-0-13
+### branch ascend-tle-surface @ 7e09dea
+### 2026-09-07T17:15:43+08:00  host bm-ctyun-wq-910b-64g-0-13
 ### PYTHONPATH=src:/usr/local/Ascend/cann-8.5.0/python/site-packages:/usr/local/Ascend/cann-8.5.0/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:
 
-python: can't open file '/home/secure/wuyuqing/workspace/FlagGems-vllm/tools/probe_negative_logits.py': [Errno 2] No such file or directory
+/usr/local/python3.11.13/lib/python3.11/site-packages/torch_npu/npu/utils.py:121: UserWarning: torch.npu.get_device_capability isn't implemented!
+  warnings.warn("torch.npu.get_device_capability isn't implemented!")
+/home/secure/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+vocab 129280, top_k 1024, 4 rows, device npu
+the threshold column is the k-th largest value -- the sign that matters
+
+randn (what the suite runs)        threshold  +2.3984 ..  +2.4195 |  50.0% negative | PASS
+randn - 3.0 (threshold negative)   threshold  -0.6024 ..  -0.5751 |  99.9% negative | PASS
+all negative                       threshold  -1.0855 ..  -1.0775 | 100.0% negative | PASS
+
+All pass -- the defect does NOT reach this operator; something
+else protects STEP 1-3.  Do not claim the shift is logical here.
