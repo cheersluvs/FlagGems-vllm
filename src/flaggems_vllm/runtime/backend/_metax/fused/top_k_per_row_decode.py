@@ -75,6 +75,18 @@ MIN_CHUNK = 8192
 WAVES = 1
 
 
+@functools.lru_cache(maxsize=32)
+def _chunk_starts(split, chunk, device, dtype):
+    """First index of each chunk. Rebuilding this per call showed up in the
+    profile as a device-to-device Memcpy on every single decode."""
+    return torch.arange(split, device=device, dtype=dtype) * chunk
+
+
+@functools.lru_cache(maxsize=32)
+def _merge_lens(num_rows, width, device):
+    return torch.full((num_rows,), width, dtype=torch.int32, device=device)
+
+
 @functools.lru_cache(maxsize=1)
 def _sm_count():
     try:
@@ -91,7 +103,14 @@ def _split_factor(num_rows, vocab_size):
     inexact split would make the last chunk shorter than the strided view
     claims, and that view would then read past the end of its row.
     """
+    # Only split when the card is genuinely starved. The first measured build
+    # was a net LOSS from 24 rows up, because the host-side bookkeeping between
+    # the two passes grew with the candidate count while the work saved did
+    # not. This bound is conservative on purpose and should be re-measured
+    # whenever that bookkeeping changes.
     if num_rows < 1 or vocab_size < 2 * MIN_CHUNK:
+        return 1
+    if num_rows * 8 > _sm_count():
         return 1
     want = -(-_sm_count() * WAVES // num_rows)  # ceil
     split = 1
@@ -128,7 +147,7 @@ def top_k_per_row_decode(
     dev = logits.device
     chunk = vocab_size // split
     n_virtual = num_rows * split
-    starts = torch.arange(split, device=dev, dtype=torch.int32) * chunk
+    starts = _chunk_starts(split, chunk, dev, torch.int32)
 
     # --- stage 1: every chunk of every row, in one launch -------------------
     # A chunk that starts past this row's seq_len gets length 0, which the
@@ -145,32 +164,29 @@ def top_k_per_row_decode(
     )
 
     # --- candidates, in this row's own index space --------------------------
-    # Keep one shape for the whole block. Mixing (rows, split, top_k) with
-    # (rows, split * top_k) here does not broadcast, it raises.
-    per_chunk = cand_idx.reshape(num_rows, split, top_k)
-    keep = (per_chunk >= 0).reshape(num_rows, split * top_k)
-    global_idx = torch.where(
-        per_chunk >= 0,
-        per_chunk + starts.reshape(1, split, 1),
-        torch.full_like(per_chunk, -1),
-    ).reshape(num_rows, split * top_k)
+    # Every op here is a launch, and the profile showed the bookkeeping costing
+    # 2.2x the two kernels it joins -- so do it in as few as possible. Padding
+    # is marked once, as a mask, and reused for both the values and the indices.
+    pad = cand_idx < 0
+    gather_at = cand_idx.masked_fill(pad, 0).to(torch.int64)
+    vals = torch.gather(view, 1, gather_at).reshape(num_rows, split * top_k)
+    # finfo.min rather than -inf: the radix pass reads these as bits, and a
+    # finite floor needs no special case anywhere downstream.
+    vals.masked_fill_(pad.reshape(num_rows, split * top_k), torch.finfo(vals.dtype).min)
 
-    # Padding slots must lose the merge outright. finfo.min rather than -inf:
-    # the radix pass reads these as bits, and a finite floor needs no special
-    # case anywhere downstream.
-    vals = torch.gather(view, 1, cand_idx.clamp_min(0).long()).reshape(
-        num_rows, split * top_k
-    )
-    vals = torch.where(keep, vals, torch.finfo(vals.dtype).min).contiguous()
+    # Chunk-local -> row-local. Padding keeps its -1 by being masked after the
+    # add rather than selected around it.
+    global_idx = (
+        cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1)
+    ).reshape(num_rows, split * top_k)
+    global_idx.masked_fill_(pad.reshape(num_rows, split * top_k), -1)
 
     # --- stage 2: the same kernel again, over the candidates -----------------
-    merge_lens = torch.full(
-        (num_rows,), split * top_k, dtype=torch.int32, device=dev
-    )
+    merge_lens = _merge_lens(num_rows, split * top_k, dev)
     merged = torch.empty((num_rows, top_k), dtype=torch.int32, device=dev)
     _generic.top_k_per_row_decode(
         vals, 1, merge_lens, merged, num_rows, split * top_k, 1, top_k
     )
 
-    indices.copy_(torch.gather(global_idx, 1, merged.long()).to(torch.int32))
+    torch.gather(global_idx, 1, merged.to(torch.int64), out=indices)
     return indices
