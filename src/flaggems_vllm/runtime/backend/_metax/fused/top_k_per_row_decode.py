@@ -149,11 +149,20 @@ def _split_factor(num_rows, vocab_size):
     if num_rows >= _sm_count():
         return 1
 
-    # Below that, split down to TARGET_CHUNK and stop.
+    # Below that, split down to TARGET_CHUNK.
     split = 1
+    while vocab_size % (split * 2) == 0 and vocab_size // (split * 2) >= TARGET_CHUNK:
+        split *= 2
+
+    # TARGET_CHUNK alone leaves a one-row call on 8 programs of 104, and that
+    # costs real ratio: holding chunk at 32768 there measured 0.921 against
+    # vLLM where splitting on down to MIN_CHUNK measured 1.042. So once the
+    # card is still not full at the target chunk, keep going to MIN_CHUNK.
+    # Chunk governs everywhere else; program count governs only here.
     while (
-        vocab_size % (split * 2) == 0
-        and vocab_size // (split * 2) >= TARGET_CHUNK
+        split * num_rows < _sm_count()
+        and vocab_size % (split * 2) == 0
+        and vocab_size // (split * 2) >= MIN_CHUNK
     ):
         split *= 2
     return split
