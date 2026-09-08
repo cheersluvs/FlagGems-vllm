@@ -1,0 +1,102 @@
+### branch topk-metax @ 37f2597
+### 2026-09-08T08:06:40+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+
+==============================================================================
+=== pass 1 of 2
+==============================================================================
+============================= test session starts ==============================
+collecting ... INFO 09-08 08:07:02 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-08 08:07:02 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-08 08:07:02 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-08 08:07:02 [__init__.py:238] Platform plugin metax is activated
+INFO 09-08 08:07:02 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-08 08:07:02 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-08 08:07:02 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+collected 2 items
+
+benchmark/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill 
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=operator,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.154672            0.286882               0.539          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.024827            0.042431               0.585          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               2.347074            2.868743               0.818          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.029800            0.044813               0.665          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               1.224840            2.319961               0.528          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               2.522025            3.117933               0.809          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.222092            0.553904               0.401          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+PASSED
+benchmark/test_top_k_per_row_decode.py::test_top_k_per_row_decode 
+Operator: top_k_per_row_decode  Performance Test (dtype=torch.float32, mode=operator,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.096002            0.163589               0.587          [torch.Size([1, 262144]), 1, torch.Size([1]), torch.Size([1, 512]), 1, 262144, 1, 512]
+SUCCESS               2.874033            2.293227               1.253          [torch.Size([496, 262144]), 1, torch.Size([496]), torch.Size([496, 512]), 496, 262144, 1, 512]
+SUCCESS               2.960188            2.333376               1.269          [torch.Size([512, 262144]), 1, torch.Size([512]), torch.Size([512, 512]), 512, 262144, 1, 512]
+SUCCESS               0.165515            0.389621               0.425          [torch.Size([16, 262144]), 1, torch.Size([16]), torch.Size([16, 512]), 16, 262144, 1, 512]
+SUCCESS               0.273619            0.465097               0.588          [torch.Size([32, 262144]), 1, torch.Size([32]), torch.Size([32, 512]), 32, 262144, 1, 512]
+SUCCESS               0.337343            0.464551               0.726          [torch.Size([48, 262144]), 1, torch.Size([48]), torch.Size([48, 512]), 48, 262144, 1, 512]
+SUCCESS               0.282931            0.481846               0.587          [torch.Size([40, 262144]), 1, torch.Size([40]), torch.Size([40, 512]), 40, 262144, 1, 512]
+SUCCESS               0.391307            0.496087               0.789          [torch.Size([56, 262144]), 1, torch.Size([56]), torch.Size([56, 512]), 56, 262144, 1, 512]
+SUCCESS               0.099685            0.165658               0.602          [torch.Size([4, 262144]), 1, torch.Size([4]), torch.Size([4, 512]), 4, 262144, 1, 512]
+SUCCESS               0.110316            0.166457               0.663          [torch.Size([8, 262144]), 1, torch.Size([8]), torch.Size([8, 512]), 8, 262144, 1, 512]
+SUCCESS               0.219350            0.425689               0.515          [torch.Size([24, 262144]), 1, torch.Size([24]), torch.Size([24, 512]), 24, 262144, 1, 512]
+
+PASSED
+
+============================== 2 passed in 36.69s ==============================
+
+==============================================================================
+=== pass 2 of 2
+==============================================================================
+============================= test session starts ==============================
+collecting ... collected 2 items
+
+benchmark/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill 
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=operator,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.155618            0.287008               0.542          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.025392            0.042274               0.601          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               2.345819            2.865179               0.819          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.029957            0.044973               0.666          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               1.224582            2.315335               0.529          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               2.519240            3.097670               0.813          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.222616            0.555928               0.400          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+PASSED
+benchmark/test_top_k_per_row_decode.py::test_top_k_per_row_decode 
+Operator: top_k_per_row_decode  Performance Test (dtype=torch.float32, mode=operator,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.095081            0.163412               0.582          [torch.Size([1, 262144]), 1, torch.Size([1]), torch.Size([1, 512]), 1, 262144, 1, 512]
+SUCCESS               2.873933            2.259974               1.272          [torch.Size([496, 262144]), 1, torch.Size([496]), torch.Size([496, 512]), 496, 262144, 1, 512]
+SUCCESS               2.959774            2.359200               1.255          [torch.Size([512, 262144]), 1, torch.Size([512]), torch.Size([512, 512]), 512, 262144, 1, 512]
+SUCCESS               0.165966            0.386832               0.429          [torch.Size([16, 262144]), 1, torch.Size([16]), torch.Size([16, 512]), 16, 262144, 1, 512]
+SUCCESS               0.273442            0.483291               0.566          [torch.Size([32, 262144]), 1, torch.Size([32]), torch.Size([32, 512]), 32, 262144, 1, 512]
+SUCCESS               0.338137            0.482881               0.700          [torch.Size([48, 262144]), 1, torch.Size([48]), torch.Size([48, 512]), 48, 262144, 1, 512]
+SUCCESS               0.283175            0.460055               0.616          [torch.Size([40, 262144]), 1, torch.Size([40]), torch.Size([40, 512]), 40, 262144, 1, 512]
+SUCCESS               0.391459            0.518041               0.756          [torch.Size([56, 262144]), 1, torch.Size([56]), torch.Size([56, 512]), 56, 262144, 1, 512]
+SUCCESS               0.099523            0.165019               0.603          [torch.Size([4, 262144]), 1, torch.Size([4]), torch.Size([4, 512]), 4, 262144, 1, 512]
+SUCCESS               0.111964            0.165045               0.678          [torch.Size([8, 262144]), 1, torch.Size([8]), torch.Size([8, 512]), 8, 262144, 1, 512]
+SUCCESS               0.221126            0.440264               0.502          [torch.Size([24, 262144]), 1, torch.Size([24]), torch.Size([24, 512]), 24, 262144, 1, 512]
+
+PASSED
+
+============================== 2 passed in 35.64s ==============================
