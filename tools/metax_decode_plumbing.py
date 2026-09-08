@@ -15,9 +15,14 @@ it fails loudly on exactly the class of bug that shape errors belong to.
 
 import sys
 
+from importlib import import_module
+
 import torch
 
-import flaggems_vllm.runtime.backend._metax.fused.top_k_per_row_decode as ov
+# NOT `import ...top_k_per_row_decode as ov`: that resolves by attribute lookup
+# on the parent package, and _metax/fused/__init__.py exports a FUNCTION under
+# that same name, which shadows the module.
+ov = import_module("flaggems_vllm.runtime.backend._metax.fused.top_k_per_row_decode")
 
 
 def fake_kernel(logits, next_n, seq_lens, indices, num_rows, s0, s1, top_k):
