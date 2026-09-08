@@ -43,7 +43,7 @@ def fake_kernel(logits, next_n, seq_lens, indices, num_rows, s0, s1, top_k):
 
 def reference(logits, seq_lens, top_k):
     rows = logits.shape[0]
-    out = torch.full((rows, top_k), -1, dtype=torch.int32)
+    out = torch.full((rows, top_k), -1, dtype=torch.int32, device=logits.device)
     for r in range(rows):
         n = int(seq_lens[r])
         k = min(top_k, n)
@@ -66,6 +66,14 @@ def main():
     torch.manual_seed(0)
     ov._sm_count.cache_clear()
     ov._sm_count = lambda: 104          # pin the geometry the card reports
+
+    # The index arithmetic now lives in two Triton kernels, so on a card this
+    # runs them for real -- only the selection is stubbed, which is exactly the
+    # isolation we want: a failure here is the override's, not the kernel's.
+    dev = "cuda" if torch.cuda.is_available() else (
+        "npu" if hasattr(torch, "npu") and torch.npu.is_available() else "cpu")
+    if dev == "cpu":
+        print("no device: cannot exercise the merge kernels, checking dispatch only\n")
     real, ov._generic.top_k_per_row_decode = ov._generic.top_k_per_row_decode, fake_kernel
 
     cases = [
@@ -80,10 +88,14 @@ def main():
 
     bad = 0
     for rows, vocab, top_k, sl in cases:
-        logits = torch.randn(rows, vocab, dtype=torch.float32)
-        seq_lens = (torch.full((rows,), vocab, dtype=torch.int32)
-                    if sl is None else torch.tensor(sl, dtype=torch.int32))
-        out = torch.empty((rows, top_k), dtype=torch.int32)
+        if dev == "cpu" and ov._split_factor(rows, vocab) > 1:
+            print(f"  rows={rows:<3} vocab={vocab:<7} top_k={top_k:<6} "
+                  f"split={ov._split_factor(rows, vocab):<4} skipped (needs a device)")
+            continue
+        logits = torch.randn(rows, vocab, dtype=torch.float32, device=dev)
+        seq_lens = (torch.full((rows,), vocab, dtype=torch.int32, device=dev)
+                    if sl is None else torch.tensor(sl, dtype=torch.int32, device=dev))
+        out = torch.empty((rows, top_k), dtype=torch.int32, device=dev)
         split = ov._split_factor(rows, vocab)
         try:
             ov.top_k_per_row_decode(logits, 1, seq_lens, out,

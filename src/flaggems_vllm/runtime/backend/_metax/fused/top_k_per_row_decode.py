@@ -60,6 +60,8 @@ import functools
 from importlib import import_module
 
 import torch
+import triton
+import triton.language as tl
 
 from flaggems_vllm import runtime
 
@@ -123,6 +125,83 @@ def _split_factor(num_rows, vocab_size):
     return split
 
 
+@triton.jit
+def _gather_candidates(
+    logits_ptr,
+    cand_ptr,
+    out_ptr,
+    stride0,
+    stride1,
+    floor,
+    SPLIT: tl.constexpr,
+    TOPK: tl.constexpr,
+    CHUNK: tl.constexpr,
+    NCAND: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """Candidate values for one row, in one launch.
+
+    Stage one leaves chunk-local indices; the merge wants values. Doing that in
+    torch cost a compare, a masked_fill, a dtype cast, a gather and a second
+    masked_fill -- five launches whose combined device time exceeded the two
+    real kernels they sat between.
+
+    Position p in the candidate array is chunk p // TOPK, slot p % TOPK. A
+    padding index (-1, written by stage one for chunks past this row's
+    seq_len) becomes `floor` so it cannot survive the merge.
+    """
+    row = tl.program_id(0)
+    p = tl.program_id(1) * BLOCK + tl.arange(0, BLOCK)
+    m = p < NCAND
+
+    chunk_id = p // TOPK
+    local = tl.load(
+        cand_ptr + (row * SPLIT + chunk_id) * TOPK + (p % TOPK), mask=m, other=-1
+    )
+    ok = m & (local >= 0)
+    val = tl.load(
+        logits_ptr + row * stride0 + (chunk_id * CHUNK + local) * stride1,
+        mask=ok,
+        other=floor,
+    )
+    tl.store(out_ptr + row * NCAND + p, tl.where(ok, val, floor), mask=m)
+
+
+@triton.jit
+def _remap_indices(
+    cand_ptr,
+    merged_ptr,
+    out_ptr,
+    SPLIT: tl.constexpr,
+    TOPK: tl.constexpr,
+    CHUNK: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """Candidate positions back to this row's own index space.
+
+    Recomputed from cand_ptr rather than read from a materialised global-index
+    array: the array would be another NCAND-wide write and another gather, and
+    the arithmetic is two integer ops.
+    """
+    row = tl.program_id(0)
+    j = tl.arange(0, BLOCK)
+    m = j < TOPK
+
+    pos = tl.load(merged_ptr + row * TOPK + j, mask=m, other=0)
+    live = m & (pos >= 0)
+    chunk_id = pos // TOPK
+    local = tl.load(
+        cand_ptr + (row * SPLIT + chunk_id) * TOPK + (pos % TOPK),
+        mask=live,
+        other=-1,
+    )
+    tl.store(
+        out_ptr + row * TOPK + j,
+        tl.where(live & (local >= 0), chunk_id * CHUNK + local, -1),
+        mask=m,
+    )
+
+
 def top_k_per_row_decode(
     logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
 ):
@@ -147,11 +226,11 @@ def top_k_per_row_decode(
     dev = logits.device
     chunk = vocab_size // split
     n_virtual = num_rows * split
-    starts = _chunk_starts(split, chunk, dev, torch.int32)
 
     # --- stage 1: every chunk of every row, in one launch -------------------
     # A chunk that starts past this row's seq_len gets length 0, which the
     # kernel answers with all -1 padding (its row_len <= TOPK branch).
+    starts = _chunk_starts(split, chunk, dev, torch.int32)
     sub_lens = (
         (seq_lens.reshape(-1, 1).to(torch.int32) - starts.reshape(1, -1))
         .clamp_(0, chunk)
@@ -163,30 +242,37 @@ def top_k_per_row_decode(
         view, 1, sub_lens, cand_idx, n_virtual, chunk, 1, top_k
     )
 
-    # --- candidates, in this row's own index space --------------------------
-    # Every op here is a launch, and the profile showed the bookkeeping costing
-    # 2.2x the two kernels it joins -- so do it in as few as possible. Padding
-    # is marked once, as a mask, and reused for both the values and the indices.
-    pad = cand_idx < 0
-    gather_at = cand_idx.masked_fill(pad, 0).to(torch.int64)
-    vals = torch.gather(view, 1, gather_at).reshape(num_rows, split * top_k)
-    # finfo.min rather than -inf: the radix pass reads these as bits, and a
-    # finite floor needs no special case anywhere downstream.
-    vals.masked_fill_(pad.reshape(num_rows, split * top_k), torch.finfo(vals.dtype).min)
-
-    # Chunk-local -> row-local. Padding keeps its -1 by being masked after the
-    # add rather than selected around it.
-    global_idx = (
-        cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1)
-    ).reshape(num_rows, split * top_k)
-    global_idx.masked_fill_(pad.reshape(num_rows, split * top_k), -1)
-
-    # --- stage 2: the same kernel again, over the candidates -----------------
-    merge_lens = _merge_lens(num_rows, split * top_k, dev)
-    merged = torch.empty((num_rows, top_k), dtype=torch.int32, device=dev)
-    _generic.top_k_per_row_decode(
-        vals, 1, merge_lens, merged, num_rows, split * top_k, 1, top_k
+    # --- candidates -> values, one launch ------------------------------------
+    ncand = split * top_k
+    vals = torch.empty((num_rows, ncand), dtype=logits.dtype, device=dev)
+    block = min(1024, triton.next_power_of_2(ncand))
+    _gather_candidates[(num_rows, triton.cdiv(ncand, block))](
+        logits,
+        cand_idx,
+        vals,
+        stride0,
+        stride1,
+        torch.finfo(logits.dtype).min,
+        SPLIT=split,
+        TOPK=top_k,
+        CHUNK=chunk,
+        NCAND=ncand,
+        BLOCK=block,
     )
 
-    torch.gather(global_idx, 1, merged.to(torch.int64), out=indices)
+    # --- stage 2: the same kernel again, over the candidates -----------------
+    merged = torch.empty((num_rows, top_k), dtype=torch.int32, device=dev)
+    _generic.top_k_per_row_decode(
+        vals, 1, _merge_lens(num_rows, ncand, dev), merged, num_rows, ncand, 1, top_k
+    )
+
+    _remap_indices[(num_rows,)](
+        cand_idx,
+        merged,
+        indices,
+        SPLIT=split,
+        TOPK=top_k,
+        CHUNK=chunk,
+        BLOCK=triton.next_power_of_2(top_k),
+    )
     return indices
