@@ -3,10 +3,14 @@
     tools/vendor_probe.sh tools/run_topk_bench.py metax_bench
     tools/vendor_probe.sh tools/run_topk_bench.py metax_bench --repeat 3
 
-`--mode operator` is the ACCEPTANCE basis for every card except Ascend, so it
-is the default and you should not need to pass it. It times the whole op call,
-launch overhead included, which is the only number that means the same thing
-across these backends. Anything else is passed through to pytest.
+`--mode kernel` is the ACCEPTANCE basis for every card except Ascend, so it is
+the default and you should not need to pass it. Anything else is passed through
+to pytest.
+
+What kernel mode cannot see is host-side cost an override adds, so track that
+separately rather than assuming it away: on this card the fused decode reaches
+device-time parity with vLLM while operator mode reads 0.53, the difference
+being Python sitting outside the kernels.
 
 Two passes by default, because one pass has no spread and without a spread a
 1.1x and a 0.9x are the same measurement. On this MetaX box the unchanged
@@ -33,7 +37,7 @@ if __name__ == "__main__":
         del extra[i : i + 2]
 
     if not any(a.startswith("--mode") or a.startswith("--fg_mode") for a in extra):
-        extra = ["--mode", "operator"] + extra
+        extra = ["--mode", "kernel"] + extra
 
     rc = 0
     for run in range(1, repeat + 1):

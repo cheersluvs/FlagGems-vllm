@@ -57,6 +57,7 @@ a prediction: the real figure for this file is whatever
 """
 
 import functools
+import os
 from importlib import import_module
 
 import torch
@@ -98,6 +99,18 @@ def _sm_count():
         return 1
 
 
+def _split_disabled():
+    """Bypass, so one benchmark run can measure both arms.
+
+    Between-run drift on this box reached 10-18% on shapes whose code did not
+    change, which is larger than most of what an override buys. Comparing an
+    "after" run to a "before" run taken minutes earlier therefore measures the
+    box as much as the change. With this set, the same process can time the
+    generic path and the override back to back.
+    """
+    return os.environ.get("FLAGGEMS_METAX_TOPK_SPLIT") == "0"
+
+
 def _split_factor(num_rows, vocab_size):
     """Chunks per row: fill the card, but keep each chunk worth a histogram.
 
@@ -110,7 +123,7 @@ def _split_factor(num_rows, vocab_size):
     # the two passes grew with the candidate count while the work saved did
     # not. This bound is conservative on purpose and should be re-measured
     # whenever that bookkeeping changes.
-    if num_rows < 1 or vocab_size < 2 * MIN_CHUNK:
+    if _split_disabled() or num_rows < 1 or vocab_size < 2 * MIN_CHUNK:
         return 1
     if num_rows * 8 > _sm_count():
         return 1
