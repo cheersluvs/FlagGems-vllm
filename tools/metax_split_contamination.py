@@ -70,29 +70,43 @@ def main():
     print(f"  4. victim AFTER the split path        {after:8.4f} ms"
           f"   ({after / again:.3f}x of step 2)")
 
-    # And with splitting disabled, so step 3 runs the generic path instead.
-    os.environ["FLAGGEMS_METAX_TOPK_SPLIT"] = "0"
-    if ov is not None:
-        ov._split_factor.__globals__  # noqa: B018 - _split_disabled reads os.environ
-    gen = timed(splitter)
-    print(f"  5. same shape, split DISABLED         {gen:8.4f} ms")
-    after2 = timed(victim)
-    print(f"  6. victim after the un-split version  {after2:8.4f} ms"
-          f"   ({after2 / again:.3f}x of step 2)")
+    # The benchmark's order is 1, 496, 512, 16, 32, ... -- the two big shapes
+    # allocate about 512 MB each, and in the override arm the split path's
+    # temporaries are allocated BEFORE them. Step 4 above never modelled that,
+    # so replay it here: the suspicion is now the allocator's layout, not the
+    # split path on its own.
+    print()
+    big = [call(r) for r in (496, 512)]
+    for f in big:
+        f()
+    torch.cuda.synchronize()
+    after_big = timed(victim)
+    print(f"  5. victim after 496 and 512 rows too  {after_big:8.4f} ms"
+          f"   ({after_big / again:.3f}x of step 2)")
+
+    print(f"     allocator: {torch.cuda.memory_allocated() / 2**20:8.1f} MiB live, "
+          f"{torch.cuda.memory_reserved() / 2**20:.1f} MiB reserved")
+
+    del big
+    import gc
+
+    gc.collect()
+    torch.cuda.empty_cache()
+    freed = timed(victim)
+    print(f"  6. victim after empty_cache()         {freed:8.4f} ms"
+          f"   ({freed / again:.3f}x of step 2)")
 
     print()
-    drift = abs(again - cold) / cold * 100
-    hit = (after - again) / again * 100
+    drift = max(abs(again - cold) / cold * 100, 0.1)
+    hit_split = (after - again) / again * 100
+    hit_big = (after_big - again) / again * 100
     print(f"  repeat-to-repeat drift on the victim: {drift:.1f}%")
-    print(f"  change after the split path ran:      {hit:+.1f}%")
-    if hit > 3 * max(drift, 1.0):
-        print("\n  CONFIRMED: executing the split path slows later un-split calls.")
-        print("  Compare step 6 -- if that one is fast, it is the split path's own")
-        print("  allocations, not merely calling the override.")
-    else:
-        print("\n  NOT reproduced here. The benchmark regression comes from")
-        print("  something this probe does not model -- do not blame the split path.")
-
-
-if __name__ == "__main__":
-    main()
+    print(f"  after the split path alone:           {hit_split:+.1f}%")
+    print(f"  after the split path AND the big rows:{hit_big:+.1f}%")
+    print(f"  after releasing them:                 {(freed - again) / again * 100:+.1f}%")
+    if hit_big > 3 * drift and hit_split <= 3 * drift:
+        print("\n  It is the SEQUENCE, not the split: the regression needs the big")
+        print("  allocations that follow. If step 6 recovers, it is allocator layout.")
+    elif hit_big <= 3 * drift:
+        print("\n  Still not reproduced. The benchmark regression is not modelled by")
+        print("  this sequence either -- look at the harness before the operator.")
