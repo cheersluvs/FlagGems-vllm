@@ -1,0 +1,170 @@
+### branch topk-metax @ 9b248ef
+### 2026-09-08T09:10:56+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+INFO 09-08 09:11:18 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-08 09:11:18 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-08 09:11:18 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-08 09:11:18 [__init__.py:238] Platform plugin metax is activated
+INFO 09-08 09:11:18 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-08 09:11:18 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-08 09:11:18 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+device cuda | vocab 262144 top_k 512 | 104 SMs
+ratio is vLLM / gems, so >= 1.00 means we are ahead. Target 0.95.
+
+==========================================================================
+=== 1 rows   vLLM 0.0908 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144      1    0.3375   0.269  yes
+       2   131072      2    0.2197   0.413  yes
+       4    65536      4    0.1656   0.548  yes
+       8    32768      8    0.1653   0.549  yes
+      16    16384     16    0.1643   0.552  yes
+      32     8192     32    0.1628   0.558  yes
+      64     4096     64    0.3373   0.269  yes
+    auto                    0.1620   0.560
+  -> best split 32: 0.1628 ms, ratio 0.558  (auto already there)
+
+==========================================================================
+=== 4 rows   vLLM 0.0951 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144      4    0.3440   0.277  yes
+       2   131072      8    0.2672   0.356  yes
+       4    65536     16    0.1628   0.584  yes
+       8    32768     32    0.1599   0.595  yes
+      16    16384     64    0.1599   0.595  yes
+      32     8192    128    0.1616   0.589  yes
+      64     4096    256    0.3429   0.277  yes
+    auto                    0.1662   0.573
+  -> best split 16: 0.1599 ms, ratio 0.595  AUTO IS OFF
+
+==========================================================================
+=== 8 rows   vLLM 0.1052 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144      8    0.3765   0.280  yes
+       2   131072     16    0.2461   0.428  yes
+       4    65536     32    0.1702   0.618  yes
+       8    32768     64    0.1616   0.651  yes
+      16    16384    128    0.1618   0.650  yes
+      32     8192    256    0.1615   0.652  yes
+      64     4096    512    0.3766   0.279  yes
+    auto                    0.1646   0.639
+  -> best split 32: 0.1615 ms, ratio 0.652  (auto already there)
+
+==========================================================================
+=== 16 rows   vLLM 0.1618 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144     16    0.3836   0.422  yes
+       2   131072     32    0.2810   0.576  yes
+       4    65536     64    0.2006   0.807  yes
+       8    32768    128    0.1969   0.822  yes
+      16    16384    256    0.1931   0.838  yes
+      32     8192    512    0.2338   0.692  yes
+      64     4096   1024    0.3842   0.421  yes
+    auto                    0.1944   0.832
+  -> best split 16: 0.1931 ms, ratio 0.838  (auto already there)
+
+==========================================================================
+=== 24 rows   vLLM 0.2144 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144     24    0.3872   0.554  yes
+       2   131072     48    0.3076   0.697  yes
+       4    65536     96    0.2280   0.940  yes
+       8    32768    192    0.2267   0.946  yes
+      16    16384    384    0.2391   0.897  yes
+      32     8192    768    0.3054   0.702  yes
+      64     4096   1536    0.3870   0.554  yes
+    auto                    0.2295   0.934
+  -> best split 8: 0.2267 ms, ratio 0.946  (auto already there)
+
+==========================================================================
+=== 32 rows   vLLM 0.2685 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144     32    0.4294   0.625  yes
+       2   131072     64    0.3467   0.775  yes
+       4    65536    128    0.3106   0.864  yes
+       8    32768    256    0.2944   0.912  yes
+      16    16384    512    0.2972   0.904  yes
+      32     8192   1024    0.3771   0.712  yes
+      64     4096   2048    0.4353   0.617  yes
+    auto                    0.3118   0.861
+  -> best split 8: 0.2944 ms, ratio 0.912  AUTO IS OFF
+
+==========================================================================
+=== 40 rows   vLLM 0.2785 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144     40    0.4548   0.612  yes
+       2   131072     80    0.3505   0.794  yes
+       4    65536    160    0.3333   0.835  yes
+       8    32768    320    0.3221   0.865  yes
+      16    16384    640    0.3451   0.807  yes
+      32     8192   1280    0.4469   0.623  yes
+      64     4096   2560    0.4502   0.619  yes
+    auto                    0.3375   0.825
+  -> best split 8: 0.3221 ms, ratio 0.865  AUTO IS OFF
+
+==========================================================================
+=== 48 rows   vLLM 0.3324 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144     48    0.4764   0.698  yes
+       2   131072     96    0.4060   0.819  yes
+       4    65536    192    0.3736   0.890  yes
+       8    32768    384    0.3552   0.936  yes
+      16    16384    768    0.4012   0.828  yes
+      32     8192   1536    0.5181   0.641  yes
+      64     4096   3072    0.4483   0.741  yes
+    auto                    0.3767   0.882
+  -> best split 8: 0.3552 ms, ratio 0.936  AUTO IS OFF
+
+==========================================================================
+=== 56 rows   vLLM 0.3865 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144     56    0.5120   0.755  yes
+       2   131072    112    0.4980   0.776  yes
+       4    65536    224    0.4479   0.863  yes
+       8    32768    448    0.4046   0.955  yes
+      16    16384    896    0.4542   0.851  yes
+      32     8192   1792    0.5798   0.666  yes
+      64     4096   3584    0.5086   0.760  yes
+    auto                    0.4865   0.794
+  -> best split 8: 0.4046 ms, ratio 0.955  AUTO IS OFF
+
+==========================================================================
+=== 496 rows   vLLM 2.8610 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144    496    2.2837   1.253  yes
+       2   131072    992    2.3018   1.243  yes
+       4    65536   1984    2.3736   1.205  yes
+       8    32768   3968    2.6107   1.096  yes
+      16    16384   7936    3.1369   0.912  yes
+      32     8192  15872    4.2579   0.672  yes
+      64     4096  31744    2.2595   1.266  yes
+    auto                    2.2745   1.258
+  -> best split 64: 2.2595 ms, ratio 1.266  (auto already there)
+
+==========================================================================
+=== 512 rows   vLLM 2.9493 ms
+   split    chunk   prog        ms   ratio  ok
+       1   262144    512    2.3352   1.263  yes
+       2   131072   1024    2.3723   1.243  yes
+       4    65536   2048    2.4445   1.206  yes
+       8    32768   4096    2.6925   1.095  yes
+      16    16384   8192    3.2468   0.908  yes
+      32     8192  16384    4.3947   0.671  yes
+      64     4096  32768    2.3125   1.275  yes
+    auto                    2.3722   1.243
+  -> best split 64: 2.3125 ms, ratio 1.275  AUTO IS OFF
+
