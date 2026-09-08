@@ -99,16 +99,26 @@ def _sm_count():
         return 1
 
 
-def _split_disabled():
-    """Bypass, so one benchmark run can measure both arms.
+def _split_forced():
+    """FLAGGEMS_METAX_TOPK_SPLIT: 0 disables splitting, n>1 forces that factor.
 
-    Between-run drift on this box reached 10-18% on shapes whose code did not
-    change, which is larger than most of what an override buys. Comparing an
-    "after" run to a "before" run taken minutes earlier therefore measures the
-    box as much as the change. With this set, the same process can time the
-    generic path and the override back to back.
+    0 exists so one benchmark run can measure both arms: between-run drift on
+    this box reached 10-18% on shapes whose code did not change, so an "after"
+    compared with a "before" from minutes earlier measures the box as much as
+    the change.
+
+    A forced factor exists because the automatic rule has never been tuned
+    against the fused kernels -- it was fitted when the bookkeeping between the
+    two passes still cost more than the passes. `tools/metax_split_sweep.py`
+    uses this to measure the real surface before the rule is set from it.
     """
-    return os.environ.get("FLAGGEMS_METAX_TOPK_SPLIT") == "0"
+    raw = os.environ.get("FLAGGEMS_METAX_TOPK_SPLIT")
+    if raw is None:
+        return None
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return None
 
 
 def _split_factor(num_rows, vocab_size):
@@ -118,19 +128,27 @@ def _split_factor(num_rows, vocab_size):
     inexact split would make the last chunk shorter than the strided view
     claims, and that view would then read past the end of its row.
     """
-    # Only split when the card is genuinely starved. The first measured build
-    # was a net LOSS from 24 rows up, because the host-side bookkeeping between
-    # the two passes grew with the candidate count while the work saved did
-    # not. This bound is conservative on purpose and should be re-measured
-    # whenever that bookkeeping changes.
-    if _split_disabled() or num_rows < 1 or vocab_size < 2 * MIN_CHUNK:
+    forced = _split_forced()
+    if forced == 0:
         return 1
-    if num_rows * 8 > _sm_count():
+    if num_rows < 1 or vocab_size < 2 * MIN_CHUNK:
         return 1
-    want = -(-_sm_count() * WAVES // num_rows)  # ceil
+
+    if forced:
+        # Still refuse a factor the view cannot express or the histogram cannot
+        # pay for -- a sweep should explore the real surface, not a broken one.
+        if vocab_size % forced or vocab_size // forced < MIN_CHUNK:
+            return 1
+        return forced
+
+    # Aim at roughly one wave of programs. Round the target UP to a power of
+    # two: the binding constraint at low row counts is MIN_CHUNK, not the
+    # program count, and rounding down left 16 rows at 64 programs on a 104-SM
+    # card. Verified by sweep rather than assumed -- see the note above.
+    want = _sm_count() * WAVES
     split = 1
     while (
-        split * 2 <= want
+        split * num_rows < want
         and vocab_size % (split * 2) == 0
         and vocab_size // (split * 2) >= MIN_CHUNK
     ):
