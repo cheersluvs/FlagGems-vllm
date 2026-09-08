@@ -41,7 +41,7 @@ export PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}"
 
 {
     echo "### branch ${BRANCH} @ $(git rev-parse --short HEAD)"
-    echo "### $(date -Is)  host $(hostname)"
+    echo "### $(date -Is)  host $(uname -n)"
     echo "### PYTHONPATH=$PYTHONPATH"
     echo
 } | tee "$OUT"
@@ -64,7 +64,7 @@ IDENT=()
 if [ -z "$(git config user.email || true)" ]; then
     IDENT=(-c user.name=cheersluvs -c user.email=yuqingwu51@gmail.com)
 fi
-if ! git "${IDENT[@]+"${IDENT[@]}"}" commit -q -m "reports: ${NAME} from $(hostname -s)"; then
+if ! git "${IDENT[@]+"${IDENT[@]}"}" commit -q -m "reports: ${NAME} from $(uname -n)"; then
     echo "=== COMMIT FAILED -- the report is on disk at $OUT but is NOT committed."
     echo "=== Set an identity, then commit by hand:"
     echo "===   git config --global user.name cheersluvs"
@@ -73,6 +73,7 @@ if ! git "${IDENT[@]+"${IDENT[@]}"}" commit -q -m "reports: ${NAME} from $(hostn
 fi
 
 # These links drop connections; one refusal is not a verdict.
+export GIT_TERMINAL_PROMPT=0
 for attempt in 1 2 3; do
     if git push -q origin "HEAD:refs/heads/${BRANCH}"; then
         echo "=== pushed to origin/${BRANCH} (attempt ${attempt}) ==="
