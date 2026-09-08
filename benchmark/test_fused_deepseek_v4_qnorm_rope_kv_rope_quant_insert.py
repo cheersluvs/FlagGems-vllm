@@ -96,9 +96,8 @@ def _skip_if_unrunnable(ref, op_name):
         wheel existed.
 
     The kernel itself is fine: rebuilt from MetaX's own 0.4.6 source with their
-    own 0.4.9 launch fix, it runs on C550 and reaches 96.3% of the card's copy
-    ceiling, matching what it scored when forced to run under an LD_PRELOAD
-    shim. Only the published binary is unusable.
+    own 0.4.9 launch fix, it runs on C550 and scores what it did when forced to
+    run under an LD_PRELOAD shim. Only the published binary is unusable.
     """
     checked = False
 
