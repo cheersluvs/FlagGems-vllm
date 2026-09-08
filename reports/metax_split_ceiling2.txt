@@ -1,0 +1,62 @@
+### branch topk-metax @ 5d67b0d
+### 2026-09-08T03:35:17+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+INFO 09-08 03:35:39 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-08 03:35:39 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-08 03:35:39 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-08 03:35:39 [__init__.py:238] Platform plugin metax is activated
+INFO 09-08 03:35:39 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-08 03:35:39 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-08 03:35:39 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+decode split ceiling | vocab=262144 top_k=512 | device cuda
+stage 1 reuses the existing kernel on a reshaped view; only the
+merge would be new work.
+
+============================================================================
+=== num_rows = 1   (grid today = 1 programs, card has 104 SMs)
+============================================================================
+  today, unsplit                         0.3393 ms
+  vLLM mcoplib                           0.0910 ms
+
+   split    chunk    stage1   gather   t.topk   ourkern    total  vs now  correct
+       1   262144    0.3382   0.0174   0.0487    0.0396   0.3952    0.86x  yes
+       8    32768    0.0655   0.0177   0.0782    0.0416   0.1249    2.72x  yes
+      16    16384    0.0420   0.0177   0.1094    0.0412   0.1009    3.36x  yes
+      32     8192    0.0413   0.0179   0.1739    0.0419   0.1010    3.36x  yes
+      64     4096    0.0474   0.0189   0.1643    0.0611   0.1275    2.66x  yes
+     128     2048    0.0552   0.0222   0.1998    0.1099   0.1874    1.81x  yes
+     256     1024    0.0614   0.0217   0.2423    0.1722   0.2553    1.33x  yes
+
+============================================================================
+=== num_rows = 8   (grid today = 8 programs, card has 104 SMs)
+============================================================================
+  today, unsplit                         0.3789 ms
+  vLLM mcoplib                           0.1055 ms
+
+   split    chunk    stage1   gather   t.topk   ourkern    total  vs now  correct
+       1   262144    0.3782   0.0179   0.0507    0.0398   0.4359    0.87x  yes
+       8    32768    0.0917   0.0198   0.0825    0.0409   0.1524    2.49x  yes
+      16    16384    0.0937   0.0264   0.1161    0.0409   0.1611    2.35x  yes
+      32     8192    0.0952   0.0277   0.1838    0.0438   0.1667    2.27x  yes
+      64     4096    0.1351   0.0309   0.2354    0.0661   0.2321    1.63x  yes
+     128     2048    0.2001   0.0341   0.2801    0.1137   0.3479    1.09x  yes
+     256     1024    0.3039   0.0402   0.3896    0.1937   0.5378    0.70x  yes
+
+total = stage1 + gather + ourkern, i.e. a two-pass merge built from the
+kernel we already have. t.topk is torch's selector on the same candidates,
+shown only for contrast. A fused merge would do the gather inside the
+kernel, so `total` is still an upper bound -- but a much tighter one.
