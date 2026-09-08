@@ -80,6 +80,12 @@ MIN_CHUNK = 8192
 # what this file assumed before the sweep, is simply the wrong model.
 TARGET_CHUNK = 32768
 
+# Below this many programs the card is empty enough that more, smaller chunks
+# still pay -- above it they stop. Both 1 row and 4 rows measure best at
+# exactly 32 programs, by different splits (32 and 8), which is what fixes this
+# as a program-count floor rather than a second chunk size.
+MIN_PROGRAMS = 32
+
 
 @functools.lru_cache(maxsize=32)
 def _chunk_starts(split, chunk, device, dtype):
@@ -154,13 +160,15 @@ def _split_factor(num_rows, vocab_size):
     while vocab_size % (split * 2) == 0 and vocab_size // (split * 2) >= TARGET_CHUNK:
         split *= 2
 
-    # TARGET_CHUNK alone leaves a one-row call on 8 programs of 104, and that
-    # costs real ratio: holding chunk at 32768 there measured 0.921 against
-    # vLLM where splitting on down to MIN_CHUNK measured 1.042. So once the
-    # card is still not full at the target chunk, keep going to MIN_CHUNK.
-    # Chunk governs everywhere else; program count governs only here.
+    # TARGET_CHUNK alone leaves a one-row call on 8 programs, and that costs
+    # real ratio: 0.921 against vLLM there, where splitting on down to
+    # MIN_CHUNK measured 1.048. But this floor is NOT the SM count -- taking it
+    # that far pushed 4 rows to 128 programs and cost 11% (0.923 -> 0.817), and
+    # 8 rows to 128 and cost 6%. Measured, the best point for both 1 row and
+    # 4 rows sits at 32 programs, reached by different splits; so 32 is the
+    # floor, and above it TARGET_CHUNK decides.
     while (
-        split * num_rows < _sm_count()
+        split * num_rows < MIN_PROGRAMS
         and vocab_size % (split * 2) == 0
         and vocab_size // (split * 2) >= MIN_CHUNK
     ):
