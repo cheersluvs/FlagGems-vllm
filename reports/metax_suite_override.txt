@@ -1,0 +1,583 @@
+### branch topk-metax @ d6cba79
+### 2026-09-08T06:27:05+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+============================= test session starts ==============================
+collecting ... collected 32 items
+
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_radix_final_config_prefers_large_vocab PASSED [  3%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_full_vocab[1024-129280-1] PASSED [  6%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_full_vocab[1024-129280-32] PASSED [  9%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_full_vocab[1024-129280-64] PASSED [ 12%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_full_vocab[1024-129280-2048] PASSED [ 15%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_large_vocab_partial_nonzero_range SKIPPED [ 18%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_variable_lengths[512-4095-4] PASSED [ 21%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_variable_lengths[512-4095-16383] PASSED [ 25%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_variable_lengths[512-8193-4] PASSED [ 28%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_variable_lengths[512-8193-16383] PASSED [ 31%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_nonzero_starts[1] PASSED [ 34%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_nonzero_starts[16] PASSED [ 37%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_vs_vllm[1] PASSED [ 40%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_vs_vllm[32] PASSED [ 43%]
+tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_vs_vllm[64] PASSED [ 46%]
+tests/test_top_k_per_row_prefill.py::test_topk_greater_than_row_len PASSED [ 50%]
+tests/test_top_k_per_row_prefill.py::test_backend_override_matches_reference[1] SKIPPED [ 53%]
+tests/test_top_k_per_row_prefill.py::test_backend_override_matches_reference[32] SKIPPED [ 56%]
+tests/test_top_k_per_row_prefill.py::test_backend_override_matches_reference[64] SKIPPED [ 59%]
+tests/test_top_k_per_row_prefill.py::test_backend_override_matches_reference[2048] SKIPPED [ 62%]
+tests/test_top_k_per_row_decode.py::test_top_k_per_row_decode[B1_V4096_K64] PASSED [ 65%]
+tests/test_top_k_per_row_decode.py::test_top_k_per_row_decode[B496_V8192_K128] PASSED [ 68%]
+tests/test_top_k_per_row_decode.py::test_top_k_per_row_decode_partial_seqlen[V129280_K1024_S100000] FAILED [ 71%]
+tests/test_top_k_per_row_decode.py::test_top_k_per_row_decode_partial_seqlen[V32768_K256_S16384] FAILED [ 75%]
+tests/test_top_k_per_row_decode.py::test_top_k_per_row_decode_partial_seqlen[V8192_K64_S4096] PASSED [ 78%]
+tests/test_top_k_per_row_decode.py::test_topk_greater_than_row_len FAILED [ 81%]
+tests/test_top_k_per_row_decode.py::test_logits_diff_in_8LSBits FAILED   [ 84%]
+tests/test_top_k_per_row_decode.py::test_top_k_per_row_decode_vs_vllm[129280-1024] FAILED [ 87%]
+tests/test_top_k_per_row_decode.py::test_top_k_per_row_decode_vs_vllm[32768-512] FAILED [ 90%]
+tests/test_top_k_per_row_decode.py::test_top_k_per_row_decode_vs_vllm[4096-64] PASSED [ 93%]
+tests/test_top_k_per_row_decode.py::test_backend_override_matches_reference[1-4096-64] PASSED [ 96%]
+tests/test_top_k_per_row_decode.py::test_backend_override_matches_reference[496-8192-128] PASSED [100%]
+
+=================================== FAILURES ===================================
+_______ test_top_k_per_row_decode_partial_seqlen[V129280_K1024_S100000] ________
+
+vocab_size = 129280, top_k = 1024, seq_len = 100000
+
+    @pytest.mark.top_k_per_row_decode
+    @pytest.mark.parametrize(
+        "vocab_size, top_k, seq_len",
+        [
+            (129280, 1024, 100000),
+            (32768, 256, 16384),
+            (8192, 64, 4096),
+        ],
+        ids=["V129280_K1024_S100000", "V32768_K256_S16384", "V8192_K64_S4096"],
+    )
+    def test_top_k_per_row_decode_partial_seqlen(vocab_size, top_k, seq_len):
+        """Test with seq_len < vocab_size (partial valid range)."""
+        torch.manual_seed(123)
+        batch_size = 1
+        ref_fn = _torch_topk_ref
+    
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
+            batch_size, vocab_size, top_k, seq_len=seq_len
+        )
+        logits_ref = logits.clone()
+        indices_ref = torch.zeros_like(indices)
+    
+>       flaggems_vllm.top_k_per_row_decode(
+            logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+        )
+
+tests/test_top_k_per_row_decode.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+logits = tensor([[ 1.3391, -1.9011,  0.7087,  ..., -1.3681, -0.8914,  2.0981]],
+       device='cuda:0')
+next_n = 1, seq_lens = tensor([100000], device='cuda:0', dtype=torch.int32)
+indices = tensor([[0, 0, 0,  ..., 0, 0, 0]], device='cuda:0', dtype=torch.int32)
+num_rows = 1, stride0 = 129280, stride1 = 1, top_k = 1024
+
+    def top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+    ):
+        """Two passes over the existing kernel when one program per row wastes the card."""
+        vocab_size = logits.shape[1]
+        split = _split_factor(num_rows, vocab_size)
+    
+        # next_n != 1 gives each row its own length offset, which the chunked view
+        # cannot express. A non-contiguous row layout cannot be re-strided into
+        # chunks at all. Either way the generic path is still correct, just slower.
+        if (
+            split == 1
+            or next_n != 1
+            or stride1 != 1
+            or stride0 != vocab_size
+            or top_k > MIN_CHUNK
+        ):
+            return _generic.top_k_per_row_decode(
+                logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+            )
+    
+        dev = logits.device
+        chunk = vocab_size // split
+        n_virtual = num_rows * split
+        starts = torch.arange(split, device=dev, dtype=torch.int32) * chunk
+    
+        # --- stage 1: every chunk of every row, in one launch -------------------
+        # A chunk that starts past this row's seq_len gets length 0, which the
+        # kernel answers with all -1 padding (its row_len <= TOPK branch).
+        sub_lens = (
+            (seq_lens.reshape(-1, 1).to(torch.int32) - starts.reshape(1, -1))
+            .clamp_(0, chunk)
+            .reshape(-1)
+        )
+        view = logits.as_strided((n_virtual, chunk), (chunk, 1))
+        cand_idx = torch.empty((n_virtual, top_k), dtype=torch.int32, device=dev)
+        _generic.top_k_per_row_decode(
+            view, 1, sub_lens, cand_idx, n_virtual, chunk, 1, top_k
+        )
+    
+        # --- candidates, in this row's own index space --------------------------
+        flat = cand_idx.reshape(num_rows, split * top_k)
+        keep = flat >= 0
+>       global_idx = torch.where(
+            keep,
+            cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1),
+            torch.full_like(flat, -1).reshape(num_rows, split, top_k),
+        ).reshape(num_rows, split * top_k)
+E       RuntimeError: The size of tensor a (8192) must match the size of tensor b (1024) at non-singleton dimension 2
+
+src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_decode.py:150: RuntimeError
+_________ test_top_k_per_row_decode_partial_seqlen[V32768_K256_S16384] _________
+
+vocab_size = 32768, top_k = 256, seq_len = 16384
+
+    @pytest.mark.top_k_per_row_decode
+    @pytest.mark.parametrize(
+        "vocab_size, top_k, seq_len",
+        [
+            (129280, 1024, 100000),
+            (32768, 256, 16384),
+            (8192, 64, 4096),
+        ],
+        ids=["V129280_K1024_S100000", "V32768_K256_S16384", "V8192_K64_S4096"],
+    )
+    def test_top_k_per_row_decode_partial_seqlen(vocab_size, top_k, seq_len):
+        """Test with seq_len < vocab_size (partial valid range)."""
+        torch.manual_seed(123)
+        batch_size = 1
+        ref_fn = _torch_topk_ref
+    
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
+            batch_size, vocab_size, top_k, seq_len=seq_len
+        )
+        logits_ref = logits.clone()
+        indices_ref = torch.zeros_like(indices)
+    
+>       flaggems_vllm.top_k_per_row_decode(
+            logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+        )
+
+tests/test_top_k_per_row_decode.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+logits = tensor([[ 1.3391, -1.9011,  0.7087,  ...,  1.1494, -0.6905,  0.0459]],
+       device='cuda:0')
+next_n = 1, seq_lens = tensor([16384], device='cuda:0', dtype=torch.int32)
+indices = tensor([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0...0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], device='cuda:0',
+       dtype=torch.int32)
+num_rows = 1, stride0 = 32768, stride1 = 1, top_k = 256
+
+    def top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+    ):
+        """Two passes over the existing kernel when one program per row wastes the card."""
+        vocab_size = logits.shape[1]
+        split = _split_factor(num_rows, vocab_size)
+    
+        # next_n != 1 gives each row its own length offset, which the chunked view
+        # cannot express. A non-contiguous row layout cannot be re-strided into
+        # chunks at all. Either way the generic path is still correct, just slower.
+        if (
+            split == 1
+            or next_n != 1
+            or stride1 != 1
+            or stride0 != vocab_size
+            or top_k > MIN_CHUNK
+        ):
+            return _generic.top_k_per_row_decode(
+                logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+            )
+    
+        dev = logits.device
+        chunk = vocab_size // split
+        n_virtual = num_rows * split
+        starts = torch.arange(split, device=dev, dtype=torch.int32) * chunk
+    
+        # --- stage 1: every chunk of every row, in one launch -------------------
+        # A chunk that starts past this row's seq_len gets length 0, which the
+        # kernel answers with all -1 padding (its row_len <= TOPK branch).
+        sub_lens = (
+            (seq_lens.reshape(-1, 1).to(torch.int32) - starts.reshape(1, -1))
+            .clamp_(0, chunk)
+            .reshape(-1)
+        )
+        view = logits.as_strided((n_virtual, chunk), (chunk, 1))
+        cand_idx = torch.empty((n_virtual, top_k), dtype=torch.int32, device=dev)
+        _generic.top_k_per_row_decode(
+            view, 1, sub_lens, cand_idx, n_virtual, chunk, 1, top_k
+        )
+    
+        # --- candidates, in this row's own index space --------------------------
+        flat = cand_idx.reshape(num_rows, split * top_k)
+        keep = flat >= 0
+>       global_idx = torch.where(
+            keep,
+            cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1),
+            torch.full_like(flat, -1).reshape(num_rows, split, top_k),
+        ).reshape(num_rows, split * top_k)
+E       RuntimeError: The size of tensor a (1024) must match the size of tensor b (256) at non-singleton dimension 2
+
+src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_decode.py:150: RuntimeError
+________________________ test_topk_greater_than_row_len ________________________
+
+    @pytest.mark.top_k_per_row_decode
+    def test_topk_greater_than_row_len():
+        torch.manual_seed(456)
+        batch_size = 1
+        vocab_size = 262144
+        top_k = 512
+        seq_len = 496
+        ref_fn = _torch_topk_ref
+    
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
+            batch_size, vocab_size, top_k, seq_len=seq_len
+        )
+        logits_ref = logits.clone()
+        indices_ref = torch.zeros_like(indices)
+    
+>       flaggems_vllm.top_k_per_row_decode(
+            logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+        )
+
+tests/test_top_k_per_row_decode.py:205: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+logits = tensor([[-0.3963,  0.5122, -0.1820,  ...,  1.2888, -0.0528, -1.3829]],
+       device='cuda:0')
+next_n = 1, seq_lens = tensor([496], device='cuda:0', dtype=torch.int32)
+indices = tensor([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0... 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0]], device='cuda:0', dtype=torch.int32)
+num_rows = 1, stride0 = 262144, stride1 = 1, top_k = 512
+
+    def top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+    ):
+        """Two passes over the existing kernel when one program per row wastes the card."""
+        vocab_size = logits.shape[1]
+        split = _split_factor(num_rows, vocab_size)
+    
+        # next_n != 1 gives each row its own length offset, which the chunked view
+        # cannot express. A non-contiguous row layout cannot be re-strided into
+        # chunks at all. Either way the generic path is still correct, just slower.
+        if (
+            split == 1
+            or next_n != 1
+            or stride1 != 1
+            or stride0 != vocab_size
+            or top_k > MIN_CHUNK
+        ):
+            return _generic.top_k_per_row_decode(
+                logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+            )
+    
+        dev = logits.device
+        chunk = vocab_size // split
+        n_virtual = num_rows * split
+        starts = torch.arange(split, device=dev, dtype=torch.int32) * chunk
+    
+        # --- stage 1: every chunk of every row, in one launch -------------------
+        # A chunk that starts past this row's seq_len gets length 0, which the
+        # kernel answers with all -1 padding (its row_len <= TOPK branch).
+        sub_lens = (
+            (seq_lens.reshape(-1, 1).to(torch.int32) - starts.reshape(1, -1))
+            .clamp_(0, chunk)
+            .reshape(-1)
+        )
+        view = logits.as_strided((n_virtual, chunk), (chunk, 1))
+        cand_idx = torch.empty((n_virtual, top_k), dtype=torch.int32, device=dev)
+        _generic.top_k_per_row_decode(
+            view, 1, sub_lens, cand_idx, n_virtual, chunk, 1, top_k
+        )
+    
+        # --- candidates, in this row's own index space --------------------------
+        flat = cand_idx.reshape(num_rows, split * top_k)
+        keep = flat >= 0
+>       global_idx = torch.where(
+            keep,
+            cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1),
+            torch.full_like(flat, -1).reshape(num_rows, split, top_k),
+        ).reshape(num_rows, split * top_k)
+E       RuntimeError: The size of tensor a (16384) must match the size of tensor b (512) at non-singleton dimension 2
+
+src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_decode.py:150: RuntimeError
+_________________________ test_logits_diff_in_8LSBits __________________________
+
+    @pytest.mark.top_k_per_row_decode
+    def test_logits_diff_in_8LSBits():
+        num_rows = 1
+        next_n = 1
+        vocab_size = 262144
+        top_k = 512
+        seq_len = vocab_size
+        ref_fn = _torch_topk_ref
+    
+        random_8bit = torch.randint(
+            0,
+            2**8,
+            (num_rows, vocab_size),
+            dtype=torch.int32,
+            device=device,
+        )
+        logits_bits = 0x3F900000 | (random_8bit & 0xFF)
+        logits = logits_bits.view(torch.float32)
+        seq_lens = torch.full((num_rows,), seq_len, dtype=torch.int32, device=device)
+        indices = torch.zeros(num_rows, top_k, dtype=torch.int32, device=device)
+        s0 = logits.stride(0)
+        s1 = logits.stride(1)
+    
+        logits_ref = logits.clone()
+        indices_ref = torch.zeros_like(indices)
+    
+>       flaggems_vllm.top_k_per_row_decode(
+            logits, next_n, seq_lens, indices, num_rows, s0, s1, top_k
+        )
+
+tests/test_top_k_per_row_decode.py:239: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+logits = tensor([[1.1250, 1.1250, 1.1250,  ..., 1.1250, 1.1250, 1.1250]],
+       device='cuda:0')
+next_n = 1, seq_lens = tensor([262144], device='cuda:0', dtype=torch.int32)
+indices = tensor([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0... 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0]], device='cuda:0', dtype=torch.int32)
+num_rows = 1, stride0 = 262144, stride1 = 1, top_k = 512
+
+    def top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+    ):
+        """Two passes over the existing kernel when one program per row wastes the card."""
+        vocab_size = logits.shape[1]
+        split = _split_factor(num_rows, vocab_size)
+    
+        # next_n != 1 gives each row its own length offset, which the chunked view
+        # cannot express. A non-contiguous row layout cannot be re-strided into
+        # chunks at all. Either way the generic path is still correct, just slower.
+        if (
+            split == 1
+            or next_n != 1
+            or stride1 != 1
+            or stride0 != vocab_size
+            or top_k > MIN_CHUNK
+        ):
+            return _generic.top_k_per_row_decode(
+                logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+            )
+    
+        dev = logits.device
+        chunk = vocab_size // split
+        n_virtual = num_rows * split
+        starts = torch.arange(split, device=dev, dtype=torch.int32) * chunk
+    
+        # --- stage 1: every chunk of every row, in one launch -------------------
+        # A chunk that starts past this row's seq_len gets length 0, which the
+        # kernel answers with all -1 padding (its row_len <= TOPK branch).
+        sub_lens = (
+            (seq_lens.reshape(-1, 1).to(torch.int32) - starts.reshape(1, -1))
+            .clamp_(0, chunk)
+            .reshape(-1)
+        )
+        view = logits.as_strided((n_virtual, chunk), (chunk, 1))
+        cand_idx = torch.empty((n_virtual, top_k), dtype=torch.int32, device=dev)
+        _generic.top_k_per_row_decode(
+            view, 1, sub_lens, cand_idx, n_virtual, chunk, 1, top_k
+        )
+    
+        # --- candidates, in this row's own index space --------------------------
+        flat = cand_idx.reshape(num_rows, split * top_k)
+        keep = flat >= 0
+>       global_idx = torch.where(
+            keep,
+            cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1),
+            torch.full_like(flat, -1).reshape(num_rows, split, top_k),
+        ).reshape(num_rows, split * top_k)
+E       RuntimeError: The size of tensor a (16384) must match the size of tensor b (512) at non-singleton dimension 2
+
+src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_decode.py:150: RuntimeError
+________________ test_top_k_per_row_decode_vs_vllm[129280-1024] ________________
+
+vocab_size = 129280, top_k = 1024
+
+    @pytest.mark.top_k_per_row_decode
+    @pytest.mark.skipif(not HAS_VLLM, reason="vLLM is not installed")
+    @pytest.mark.parametrize(
+        "vocab_size, top_k", [(129280, 1024), (32768, 512), (4096, 64)]
+    )
+    def test_top_k_per_row_decode_vs_vllm(vocab_size, top_k):
+        """Compare against vLLM's own kernel.
+    
+        Kept separate from the accuracy tests on purpose: those pin their oracle to
+        the torch reference, so that a full-suite run and a single-file run cannot
+        silently disagree about what "correct" means depending on whether vLLM
+        happened to be importable.
+        """
+        torch.manual_seed(2024)
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
+            1, vocab_size, top_k
+        )
+        logits_ref = logits.clone()
+        indices_ref = torch.zeros_like(indices)
+    
+>       flaggems_vllm.top_k_per_row_decode(
+            logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+        )
+
+tests/test_top_k_per_row_decode.py:267: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+logits = tensor([[ 0.9979, -0.1169,  0.0883,  ..., -0.2700,  0.2959,  0.2825]],
+       device='cuda:0')
+next_n = 1, seq_lens = tensor([129280], device='cuda:0', dtype=torch.int32)
+indices = tensor([[0, 0, 0,  ..., 0, 0, 0]], device='cuda:0', dtype=torch.int32)
+num_rows = 1, stride0 = 129280, stride1 = 1, top_k = 1024
+
+    def top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+    ):
+        """Two passes over the existing kernel when one program per row wastes the card."""
+        vocab_size = logits.shape[1]
+        split = _split_factor(num_rows, vocab_size)
+    
+        # next_n != 1 gives each row its own length offset, which the chunked view
+        # cannot express. A non-contiguous row layout cannot be re-strided into
+        # chunks at all. Either way the generic path is still correct, just slower.
+        if (
+            split == 1
+            or next_n != 1
+            or stride1 != 1
+            or stride0 != vocab_size
+            or top_k > MIN_CHUNK
+        ):
+            return _generic.top_k_per_row_decode(
+                logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+            )
+    
+        dev = logits.device
+        chunk = vocab_size // split
+        n_virtual = num_rows * split
+        starts = torch.arange(split, device=dev, dtype=torch.int32) * chunk
+    
+        # --- stage 1: every chunk of every row, in one launch -------------------
+        # A chunk that starts past this row's seq_len gets length 0, which the
+        # kernel answers with all -1 padding (its row_len <= TOPK branch).
+        sub_lens = (
+            (seq_lens.reshape(-1, 1).to(torch.int32) - starts.reshape(1, -1))
+            .clamp_(0, chunk)
+            .reshape(-1)
+        )
+        view = logits.as_strided((n_virtual, chunk), (chunk, 1))
+        cand_idx = torch.empty((n_virtual, top_k), dtype=torch.int32, device=dev)
+        _generic.top_k_per_row_decode(
+            view, 1, sub_lens, cand_idx, n_virtual, chunk, 1, top_k
+        )
+    
+        # --- candidates, in this row's own index space --------------------------
+        flat = cand_idx.reshape(num_rows, split * top_k)
+        keep = flat >= 0
+>       global_idx = torch.where(
+            keep,
+            cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1),
+            torch.full_like(flat, -1).reshape(num_rows, split, top_k),
+        ).reshape(num_rows, split * top_k)
+E       RuntimeError: The size of tensor a (8192) must match the size of tensor b (1024) at non-singleton dimension 2
+
+src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_decode.py:150: RuntimeError
+_________________ test_top_k_per_row_decode_vs_vllm[32768-512] _________________
+
+vocab_size = 32768, top_k = 512
+
+    @pytest.mark.top_k_per_row_decode
+    @pytest.mark.skipif(not HAS_VLLM, reason="vLLM is not installed")
+    @pytest.mark.parametrize(
+        "vocab_size, top_k", [(129280, 1024), (32768, 512), (4096, 64)]
+    )
+    def test_top_k_per_row_decode_vs_vllm(vocab_size, top_k):
+        """Compare against vLLM's own kernel.
+    
+        Kept separate from the accuracy tests on purpose: those pin their oracle to
+        the torch reference, so that a full-suite run and a single-file run cannot
+        silently disagree about what "correct" means depending on whether vLLM
+        happened to be importable.
+        """
+        torch.manual_seed(2024)
+        logits, next_n, seq_lens, indices, num_rows, s0, s1, k = _make_inputs(
+            1, vocab_size, top_k
+        )
+        logits_ref = logits.clone()
+        indices_ref = torch.zeros_like(indices)
+    
+>       flaggems_vllm.top_k_per_row_decode(
+            logits, next_n, seq_lens, indices, num_rows, s0, s1, k
+        )
+
+tests/test_top_k_per_row_decode.py:267: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+logits = tensor([[ 0.9979, -0.1169,  0.0883,  ...,  0.2401,  1.1652,  0.4136]],
+       device='cuda:0')
+next_n = 1, seq_lens = tensor([32768], device='cuda:0', dtype=torch.int32)
+indices = tensor([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0... 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0]], device='cuda:0', dtype=torch.int32)
+num_rows = 1, stride0 = 32768, stride1 = 1, top_k = 512
+
+    def top_k_per_row_decode(
+        logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+    ):
+        """Two passes over the existing kernel when one program per row wastes the card."""
+        vocab_size = logits.shape[1]
+        split = _split_factor(num_rows, vocab_size)
+    
+        # next_n != 1 gives each row its own length offset, which the chunked view
+        # cannot express. A non-contiguous row layout cannot be re-strided into
+        # chunks at all. Either way the generic path is still correct, just slower.
+        if (
+            split == 1
+            or next_n != 1
+            or stride1 != 1
+            or stride0 != vocab_size
+            or top_k > MIN_CHUNK
+        ):
+            return _generic.top_k_per_row_decode(
+                logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+            )
+    
+        dev = logits.device
+        chunk = vocab_size // split
+        n_virtual = num_rows * split
+        starts = torch.arange(split, device=dev, dtype=torch.int32) * chunk
+    
+        # --- stage 1: every chunk of every row, in one launch -------------------
+        # A chunk that starts past this row's seq_len gets length 0, which the
+        # kernel answers with all -1 padding (its row_len <= TOPK branch).
+        sub_lens = (
+            (seq_lens.reshape(-1, 1).to(torch.int32) - starts.reshape(1, -1))
+            .clamp_(0, chunk)
+            .reshape(-1)
+        )
+        view = logits.as_strided((n_virtual, chunk), (chunk, 1))
+        cand_idx = torch.empty((n_virtual, top_k), dtype=torch.int32, device=dev)
+        _generic.top_k_per_row_decode(
+            view, 1, sub_lens, cand_idx, n_virtual, chunk, 1, top_k
+        )
+    
+        # --- candidates, in this row's own index space --------------------------
+        flat = cand_idx.reshape(num_rows, split * top_k)
+        keep = flat >= 0
+>       global_idx = torch.where(
+            keep,
+            cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1),
+            torch.full_like(flat, -1).reshape(num_rows, split, top_k),
+        ).reshape(num_rows, split * top_k)
+E       RuntimeError: The size of tensor a (2048) must match the size of tensor b (512) at non-singleton dimension 2
+
+src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_decode.py:150: RuntimeError
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_top_k_per_row_prefill.py:179: TLE top_k_per_row_prefill path is unavailable
+SKIPPED [4] tests/test_top_k_per_row_prefill.py:344: No backend override registered; the generic kernel is in use
+============== 6 failed, 21 passed, 5 skipped in 61.49s (0:01:01) ==============
