@@ -110,3 +110,7 @@ def main():
     elif hit_big <= 3 * drift:
         print("\n  Still not reproduced. The benchmark regression is not modelled by")
         print("  this sequence either -- look at the harness before the operator.")
+
+
+if __name__ == "__main__":
+    main()
