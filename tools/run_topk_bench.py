@@ -1,16 +1,17 @@
 """Benchmark top_k_per_row_{prefill,decode} against the vendor baseline.
 
     tools/vendor_probe.sh tools/run_topk_bench.py metax_bench
-    tools/vendor_probe.sh tools/run_topk_bench.py metax_bench_k --mode kernel
+    tools/vendor_probe.sh tools/run_topk_bench.py metax_bench --repeat 3
 
-Defaults to `--mode operator`, which times the whole op call including launch
-overhead -- the only mode whose number means the same thing on every card. Pass
-anything else through as extra arguments.
+`--mode operator` is the ACCEPTANCE basis for every card except Ascend, so it
+is the default and you should not need to pass it. It times the whole op call,
+launch overhead included, which is the only number that means the same thing
+across these backends. Anything else is passed through to pytest.
 
-Run it TWICE before quoting any ratio. A single pass gives no spread, and
-without a spread a 1.1x and a 0.9x are the same measurement
-([[benchmark-noise-floor-protocol]]: two low-rep measurements agreeing is not
-evidence).
+Two passes by default, because one pass has no spread and without a spread a
+1.1x and a 0.9x are the same measurement. On this MetaX box the unchanged
+shapes drifted 7-14% between runs, so treat anything under about 15% as
+unresolved rather than as a result.
 """
 
 import sys
@@ -23,7 +24,19 @@ BENCHES = [
 ]
 
 if __name__ == "__main__":
-    extra = sys.argv[1:]
+    extra = list(sys.argv[1:])
+
+    repeat = 2
+    if "--repeat" in extra:
+        i = extra.index("--repeat")
+        repeat = int(extra[i + 1])
+        del extra[i : i + 2]
+
     if not any(a.startswith("--mode") or a.startswith("--fg_mode") for a in extra):
         extra = ["--mode", "operator"] + extra
-    sys.exit(pytest.main(BENCHES + ["-v", "-s", "--no-header"] + extra))
+
+    rc = 0
+    for run in range(1, repeat + 1):
+        print(f"\n{'=' * 78}\n=== pass {run} of {repeat}\n{'=' * 78}", flush=True)
+        rc |= pytest.main(BENCHES + ["-v", "-s", "--no-header"] + extra)
+    sys.exit(rc)
