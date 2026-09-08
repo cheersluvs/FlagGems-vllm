@@ -1,0 +1,101 @@
+### branch topk-metax @ f7912d0
+### 2026-09-08T07:22:34+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+INFO 09-08 07:22:56 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-08 07:22:56 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-08 07:22:56 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-08 07:22:56 [__init__.py:238] Platform plugin metax is activated
+INFO 09-08 07:22:56 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-08 07:22:56 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-08 07:22:56 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+decode floor profile | vocab=262144 top_k=512 | device cuda
+vLLM baseline available: True
+
+==========================================================================
+=== num_rows = 1
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.2492 ms
+      kernel launches          60.0
+      alloc-ish calls          23.0
+        0.0769 ms  x 2.0  non_tle_top_k_per_row_decode
+        0.0231 ms  x 3.0  aten::copy_
+        0.0142 ms  x 2.0  aten::gather
+        0.0142 ms  x 2.0  void at::native::_scatter_gather_elementwise_kernel<256, 8
+        0.0111 ms  x 1.0  Memcpy HtoA (Device -> Device)
+        0.0107 ms  x 1.0  aten::add
+
+  --- vLLM mcoplib
+      device time / call     0.1790 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.0895 ms  x 1.0  _C::top_k_per_row_decode
+        0.0515 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0380 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 0.718
+
+==========================================================================
+=== num_rows = 8
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.3056 ms
+      kernel launches          40.0
+      alloc-ish calls          23.0
+        0.1171 ms  x 2.0  non_tle_top_k_per_row_decode
+        0.0266 ms  x 3.0  aten::copy_
+        0.0202 ms  x 2.0  aten::gather
+        0.0202 ms  x 2.0  void at::native::_scatter_gather_elementwise_kernel<256, 8
+        0.0142 ms  x 2.0  void at::native::unrolled_elementwise_kernel_copy_cast<at:
+        0.0127 ms  x 1.0  aten::add
+
+  --- vLLM mcoplib
+      device time / call     0.2081 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.1040 ms  x 1.0  _C::top_k_per_row_decode
+        0.0657 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0383 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 0.681
+
+==========================================================================
+=== num_rows = 56
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.7185 ms
+      kernel launches          40.0
+      alloc-ish calls          23.0
+        0.4764 ms  x 2.0  non_tle_top_k_per_row_decode
+        0.0514 ms  x 3.0  aten::copy_
+        0.0286 ms  x 1.0  Memcpy HtoA (Device -> Device)
+        0.0230 ms  x 2.0  aten::gather
+        0.0230 ms  x 2.0  void at::native::_scatter_gather_elementwise_kernel<256, 8
+        0.0228 ms  x 2.0  void at::native::unrolled_elementwise_kernel_copy_cast<at:
+
+  --- vLLM mcoplib
+      device time / call     0.7665 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.3833 ms  x 1.0  _C::top_k_per_row_decode
+        0.3440 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0392 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 1.067
