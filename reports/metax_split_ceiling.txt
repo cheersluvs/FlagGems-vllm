@@ -1,0 +1,60 @@
+### branch topk-metax @ d0b212e
+### 2026-09-08T03:20:28+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+INFO 09-08 03:20:50 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-08 03:20:50 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-08 03:20:50 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-08 03:20:50 [__init__.py:238] Platform plugin metax is activated
+INFO 09-08 03:20:50 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-08 03:20:50 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-08 03:20:50 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+decode split ceiling | vocab=262144 top_k=512 | device cuda
+stage 1 reuses the existing kernel on a reshaped view; only the
+merge would be new work.
+
+============================================================================
+=== num_rows = 1   (grid today = 1 programs, card has 104 SMs)
+============================================================================
+  today, unsplit                         0.3379 ms
+  vLLM mcoplib                           0.0908 ms
+
+   split    chunk    stage1     merge     total  vs today  correct
+       1   262144    0.3376    0.0574    0.3950     0.86x  yes
+       8    32768    0.0636    0.0965    0.1601     2.11x  yes
+      16    16384    0.0423    0.1312    0.1735     1.95x  yes
+      32     8192    0.0407    0.2036    0.2443     1.38x  yes
+      64     4096    0.0475    0.1875    0.2350     1.44x  yes
+     128     2048    0.0561    0.2298    0.2859     1.18x  yes
+     256     1024    0.0613    0.2734    0.3346     1.01x  yes
+
+============================================================================
+=== num_rows = 8   (grid today = 8 programs, card has 104 SMs)
+============================================================================
+  today, unsplit                         0.3778 ms
+  vLLM mcoplib                           0.1056 ms
+
+   split    chunk    stage1     merge     total  vs today  correct
+       1   262144    0.3778    0.0661    0.4440     0.85x  yes
+       8    32768    0.0900    0.1061    0.1960     1.93x  yes
+      16    16384    0.0914    0.1496    0.2410     1.57x  yes
+      32     8192    0.0999    0.2247    0.3246     1.16x  yes
+      64     4096    0.1318    0.2705    0.4023     0.94x  yes
+     128     2048    0.1973    0.3196    0.5169     0.73x  yes
+     256     1024    0.3037    0.4349    0.7386     0.51x  yes
+
+The merge column is a torch.topk stand-in, so it is an UPPER bound on
+what a real merge kernel would cost, not the cost of one.
