@@ -145,12 +145,14 @@ def top_k_per_row_decode(
     )
 
     # --- candidates, in this row's own index space --------------------------
-    flat = cand_idx.reshape(num_rows, split * top_k)
-    keep = flat >= 0
+    # Keep one shape for the whole block. Mixing (rows, split, top_k) with
+    # (rows, split * top_k) here does not broadcast, it raises.
+    per_chunk = cand_idx.reshape(num_rows, split, top_k)
+    keep = (per_chunk >= 0).reshape(num_rows, split * top_k)
     global_idx = torch.where(
-        keep,
-        cand_idx.reshape(num_rows, split, top_k) + starts.reshape(1, split, 1),
-        torch.full_like(flat, -1).reshape(num_rows, split, top_k),
+        per_chunk >= 0,
+        per_chunk + starts.reshape(1, split, 1),
+        torch.full_like(per_chunk, -1),
     ).reshape(num_rows, split * top_k)
 
     # Padding slots must lose the merge outright. finfo.min rather than -inf:

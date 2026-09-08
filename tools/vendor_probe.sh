@@ -86,42 +86,36 @@ WHY=""
 if [ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]; then
     CRED=(-c "credential.helper=!f(){ echo username=cheersluvs; echo \"password=${GH_TOKEN:-$GITHUB_TOKEN}\"; };f")
     WHY="token from the environment"
-elif [ -n "$(git config --get credential.helper || true)" ]; then
-    WHY="credential.helper=$(git config --get credential.helper)"
-elif [ -f "$HOME/.git-credentials" ]; then
-    WHY="stored credentials"
 fi
 
-if [ -z "$WHY" ]; then
-    cat <<'MSG'
-=== NOT PUSHING: this box has no git credentials, so a push can only fail.
-=== The report IS committed locally; paste it, or set one of these up once:
-===
-===   A. gh, if it is installed and logged in:
-===        gh auth login && gh auth setup-git
-===
-===   B. a fine-grained PAT (Contents: Read and write on this repo):
-===        git config --global credential.helper store
-===        git push origin HEAD          # username: cheersluvs, password: the PAT
-===      NOTE this writes the token to ~/.git-credentials in PLAIN TEXT.
-===      On a shared box prefer:  git config --global credential.helper 'cache --timeout=3600'
-===
-===   C. per-shell, nothing written to disk:
-===        export GH_TOKEN=<the token>   # this script picks it up automatically
-===
-=== Never paste the token into this conversation -- it is not needed here.
-MSG
-    exit 0
-fi
-
-echo "=== pushing with ${WHY} ==="
-# One dropped connection is not a verdict; an auth refusal is, so stop on it.
+# Attempt 1 allows a terminal prompt: `credential.helper store` needs exactly
+# one interactive answer before it has anything stored, and refusing that is
+# how the setup path gets blocked. Retries then go quiet, so a box with no
+# credentials costs one prompt rather than three.
+pushed=0
 for attempt in 1 2 3; do
+    if [ "$attempt" -gt 1 ]; then export GIT_TERMINAL_PROMPT=0; fi
     if git "${CRED[@]+"${CRED[@]}"}" push -q origin "HEAD:refs/heads/${BRANCH}"; then
-        echo "=== pushed to origin/${BRANCH} (attempt ${attempt}) ==="
-        exit 0
+        echo "=== pushed to origin/${BRANCH} (attempt ${attempt})${WHY:+, ${WHY}} ==="
+        pushed=1
+        break
     fi
     sleep 4
 done
-echo "=== PUSH FAILED after 3 attempts -- the report IS committed locally at"
-echo "=== $OUT ; paste it, or push again once the link is back."
+
+if [ "$pushed" -eq 0 ]; then
+    echo "=== PUSH FAILED -- the report IS committed locally at $OUT ."
+    echo "=== Paste it, or set up credentials once and re-push:"
+    cat <<'MSG'
+===
+===   A. gh, if installed:  gh auth login && gh auth setup-git
+===   B. a fine-grained PAT (Contents: Read and write on this repo):
+===        git config --global credential.helper store
+===        git push origin HEAD        # username: cheersluvs, password: the PAT
+===      That writes the token to ~/.git-credentials in PLAIN TEXT; on a shared
+===      box prefer  credential.helper 'cache --timeout=3600'
+===   C. per-shell, nothing on disk:  export GH_TOKEN=<token>
+===
+=== Never paste the token into the conversation -- it is not needed there.
+MSG
+fi
