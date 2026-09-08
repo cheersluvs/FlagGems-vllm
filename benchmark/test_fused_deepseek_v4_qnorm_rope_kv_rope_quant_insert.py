@@ -55,49 +55,38 @@ except (ImportError, AttributeError, RuntimeError):
 def _skip_if_unrunnable(ref, op_name):
     """Wrap the reference so a registered-but-unlaunchable kernel skips.
 
-    A vendor can register the op and still not be able to run it: MetaX's build
-    returns `mcErrorInvalidValue` from every launch on C550. Failing the
-    benchmark there blames FlagGems for someone else's defect, while the old
-    `hasattr` gate hid the situation entirely by skipping as "not installed".
-    Skip, but with the launch error as the reason.
+    A vendor can register the op and still not run it: MetaX's build returns
+    `mcErrorInvalidValue` from every launch on C550. Failing there blames FlagGems
+    for someone else's defect, while the old `hasattr` gate hid it entirely by
+    skipping as "not installed". Skip, with the launch error as the reason.
 
-    The first call forces the error to surface. A failed launch is reported
-    asynchronously, so left alone it lands on whatever call comes next -- for
-    MetaX that is `do_bench`'s 256 MB L2-flush allocation, which makes the
-    failure both unattributable and too late to convert. Surfacing it takes a
-    *new kernel launch*: on that backend `synchronize()` on its own is silent,
-    and so is a device-to-host copy, while any launch (or an allocation large
-    enough to reach the driver) raises. Hence the throwaway reduction below.
-    Only the first call pays for it.
+    Only the first call pays. A failed launch is reported asynchronously, so left
+    alone it lands on whatever comes next -- here `do_bench`'s 256 MB L2-flush
+    allocation, too late to convert and pointing at the wrong frame. Surfacing it
+    takes a *new kernel launch*: on this backend `synchronize()` and a
+    device-to-host copy are both silent, while any launch raises. Hence the
+    throwaway reduction below. `pytest.skip` then raises `Skipped`, which derives
+    from `BaseException` and so passes through the harness's
+    `except (RuntimeError, Exception)` intact.
 
-    `pytest.skip` raises `Skipped`, which derives from `BaseException` and so
-    passes through the harness's `except (RuntimeError, Exception)` intact.
+    The sibling `torch.ops._C` benchmarks (`top_k_per_row_decode`,
+    `persistent_topk`, `cutlass_scaled_mm`) gate on the import alone; this is the
+    one deliberate deviation, since none of them has met a build that registers the
+    op but cannot launch it.
 
-    This is the one deliberate deviation from how the sibling `torch.ops._C`
-    benchmarks are written (`top_k_per_row_decode`, `persistent_topk`,
-    `cutlass_scaled_mm`): they gate on the import alone, which is enough because
-    none of them has met a vendor build that registers the op but cannot launch
-    it.
+    KEEP THIS WRAPPER even though mcoplib 0.4.9 fixes the defect in source (it drops
+    the `cudaLaunchKernelEx` path 0.4.6 calls with an uninitialised
+    `cudaLaunchConfig_t`), because no wheel carrying that fix is reachable -- MetaX
+    publishes none on GitHub (every release has zero assets) and the C550 image
+    installs mcoplib from a local file, not an index, so whoever runs this still
+    has 0.4.6 -- and because 0.4.9 is a different operator:
+    vLLM changed the schema at v0.22.0 (`q` read-only, `q_head_padded` added, the
+    result returned rather than written in place) and 0.4.9 follows it, while this
+    file targets the v0.21.0 contract the repo pins.
 
-    KEEP THIS WRAPPER. MetaX has fixed the defect in source -- mcoplib 0.4.9
-    drops the `cudaLaunchKernelEx` path that 0.4.6 calls with an uninitialised
-    `cudaLaunchConfig_t` -- but that does not retire the wrapper, for two
-    reasons:
-
-      * No wheel carrying the fix is published anywhere reachable. MetaX ships
-        no wheels on GitHub (every release has zero assets) and the C550 image
-        installs mcoplib from a local file, not an index. Whoever runs this
-        still has 0.4.6.
-      * 0.4.9 is a different operator. Upstream vLLM changed this op's schema at
-        v0.22.0 -- `q` became read-only, a `q_head_padded` argument appeared and
-        the result is returned rather than written in place -- and 0.4.9 follows
-        it. This file targets the v0.21.0 contract, matching the vLLM version
-        the repo pins, so a 0.4.9 baseline would not be comparable even if a
-        wheel existed.
-
-    The kernel itself is fine: rebuilt from MetaX's own 0.4.6 source with their
-    own 0.4.9 launch fix, it runs on C550 and scores what it did when forced to
-    run under an LD_PRELOAD shim. Only the published binary is unusable.
+    Rebuilt from 0.4.6 source with MetaX's own 0.4.9 launch fix the kernel runs on
+    C550 and scores what it did under an LD_PRELOAD shim, so only the published
+    binary is unusable.
     """
     checked = False
 
