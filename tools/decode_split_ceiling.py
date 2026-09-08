@@ -80,8 +80,8 @@ def main():
                 logits, 1, sl, o2, rows, logits.stride(0), logits.stride(1), TOPK))
             print(f"  vLLM mcoplib                         {v:8.4f} ms")
 
-        print(f"\n  {'split':>6} {'chunk':>8} {'stage1':>9} {'merge':>9} {'total':>9} "
-              f"{'vs today':>9}  correct")
+        print(f"\n  {'split':>6} {'chunk':>8} {'stage1':>9} {'gather':>8} {'t.topk':>8} "
+              f"{'ourkern':>9} {'total':>8} {'vs now':>7}  correct")
         for s in SPLITS:
             if VOCAB % s or (VOCAB // s) < TOPK:
                 continue
@@ -93,20 +93,36 @@ def main():
 
             stage1 = timed(lambda: decode(view, sl2, out2, n2))
 
-            def merge():
-                vals = torch.gather(view, 1, out2.long())          # [rows*s, TOPK]
-                return torch.topk(vals.reshape(rows, s * TOPK), TOPK, dim=-1)
-            m = timed(merge)
+            def gather():
+                return torch.gather(view, 1, out2.long())          # [rows*s, TOPK]
+            g = timed(gather)
+            cand = gather().reshape(rows, s * TOPK).contiguous()
 
-            got = merge().values.sort(dim=-1, descending=True).values
+            def select():
+                return torch.topk(cand, TOPK, dim=-1)
+            sel = timed(select)
+
+            # What the SAME kernel costs on the candidate array -- this is the
+            # merge a real second pass would run, rather than torch.topk.
+            if cand.shape[1] >= TOPK:
+                sl3 = torch.full((rows,), cand.shape[1], dtype=torch.int32, device=DEV)
+                out3 = torch.empty((rows, TOPK), dtype=torch.int32, device=DEV)
+                k2 = timed(lambda: decode(cand, sl3, out3, rows))
+            else:
+                k2 = float("nan")
+
+            got = select().values.sort(dim=-1, descending=True).values
             ok = torch.allclose(got, ref, atol=1e-6, rtol=1e-6)
-            print(f"  {s:>6} {chunk:>8} {stage1:>9.4f} {m:>9.4f} "
-                  f"{stage1 + m:>9.4f} {base / (stage1 + m):>8.2f}x  "
+            tot = stage1 + g + k2
+            print(f"  {s:>6} {chunk:>8} {stage1:>9.4f} {g:>8.4f} {sel:>8.4f} "
+                  f"{k2:>9.4f} {tot:>8.4f} {base / tot:>7.2f}x  "
                   f"{'yes' if ok else 'NO'}")
         print()
 
-    print("The merge column is a torch.topk stand-in, so it is an UPPER bound on")
-    print("what a real merge kernel would cost, not the cost of one.")
+    print("total = stage1 + gather + ourkern, i.e. a two-pass merge built from the")
+    print("kernel we already have. t.topk is torch's selector on the same candidates,")
+    print("shown only for contrast. A fused merge would do the gather inside the")
+    print("kernel, so `total` is still an upper bound -- but a much tighter one.")
 
 
 if __name__ == "__main__":
