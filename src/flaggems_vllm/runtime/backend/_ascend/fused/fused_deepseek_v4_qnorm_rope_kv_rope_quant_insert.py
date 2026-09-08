@@ -46,20 +46,14 @@ MAX_PROGRAMS_PER_LAUNCH = 65535
 
 # Most heads of one token that a Q program may take, as an [H, HEAD_DIM] tile.
 # A single head moves only a kilobyte, far too little to cover this backend's
-# per-program cost. Measured at 4096 tokens, ns per (token, head) unit:
-#
-#     H = 16 -> 5.24      H = 32 -> 4.15     at 64 heads
-#     H = 16 -> 5.14      H = 32 -> 3.99     at 128 heads
-#
-# 64 will not compile:
+# per-program cost, and 32 measures better than 16. 64 will not compile:
 #
 #     ub overflow, requires 3215360 bits while 1572864 bits available
 #
 # that is 392.5 KB wanted against 192 KB of Unified Buffer -- three times what
 # the tile itself occupies, [64, HEAD_DIM] in float32 being 128 KB, because
 # several intermediates are live at once and multi-buffering asks for more
-# again, as the message says. Size a tile by measuring it, not by multiplying
-# out its dimensions.
+# again, as the message says.
 Q_MAX_HEADS_PER_PROGRAM = 32
 
 
@@ -78,8 +72,7 @@ def _f32_to_e4m3_bits(x):
     encoder carries are gone, each unreachable here and worth measuring:
     saturation, since |x| <= 448 means e_n reaches 15 only with mantissa 6,
     never the 15/7 NaN encoding; and the x == 0 case, which takes the subnormal
-    path where |x| * 512 rounds to zero anyway. Removing both took the
-    quantisation from 0.679 to 0.470 us per token.
+    path where |x| * 512 rounds to zero anyway.
 
     Verified bit-identical to `torch.float8_e4m3fn` on the card at block widths
     256 through 2048; the operator uses 512. It cannot be widened far: roughly
@@ -104,12 +97,9 @@ def _f32_to_e4m3_bits(x):
     # rounded to nearest even. Adding 2^23 and taking it away again forces that
     # rounding with no intrinsic and, more to the point, no shifting.
     #
-    # This replaces three shifts by a PER-LANE amount, which is what the
-    # arithmetic form of this used to need. Those three were half of the whole
-    # operator's KV time on this backend -- evidently scalarised, there being no
-    # vector variable-shift instruction. Measured: 1.276 -> 0.627 us per token
-    # for the quantisation, which is the same as deleting the subnormal path
-    # altogether, at no cost in accuracy.
+    # This replaces three shifts by a PER-LANE amount, which the arithmetic
+    # form of this used to need and which this backend scalarises, there being
+    # no vector variable-shift instruction. Costs no accuracy.
     magic: tl.constexpr = 8388608.0  # 2^23
     m_s = ((tl.abs(x) * 512.0 + magic) - magic).to(tl.int32)
 
@@ -189,14 +179,8 @@ def fused_qnorm_rope_kv_insert_kernel(
     WHY ONE LAUNCH. A launch costs ~450 us here, which is not overhead worth
     chasing when there is work to hide it behind, but below roughly 256 tokens
     there is not: two launches put a ~0.95 ms floor under every shape, and the
-    kernels themselves finish long before it. Measured against the same code in
-    two launches, bit-identical output either way:
-
-        1 token,    64 heads   0.990 -> 0.510 ms   1.94x
-        64 tokens,  64 heads   0.971 -> 0.495      1.96x
-        256 tokens, 64 heads   0.983 -> 0.510      1.93x
-        1024 tokens, 128 heads 1.046 -> 1.028      1.02x
-        2048 tokens, 64 heads  1.546 -> 1.522      1.02x
+    kernels themselves finish long before it. One launch is ~1.9x below 256
+    tokens and ~1.02x from 1024 up, bit-identical either way.
 
     The gain stops once the work outgrows the dispatch, because dispatch and
     execution overlap: what one launch removes is the part that could not be
@@ -242,11 +226,7 @@ def fused_qnorm_rope_kv_insert_kernel(
         # index is what makes `position_id` -- and with it cos and sin --
         # SCALAR. Every head of a token shares one position, so the flat form
         # gathered the same 256 bytes of cos/sin once per head, 64 or 128 times
-        # over, on the unstructured pointer path. Measured at 4096 tokens:
-        # 11.43 -> 4.15 ns per unit at 64 heads and 16.81 -> 3.99 at 128. It
-        # also explains why the flat form was markedly slower at 128 heads than
-        # at 64 -- more heads, more repeats of the same gather -- and that gap
-        # is gone.
+        # over, on the unstructured pointer path.
         #
         # Built from nothing but wider vectors: no loop, no device function, no
         # early return. All three abort ttir_to_linalg on this backend with no
@@ -341,9 +321,7 @@ def fused_qnorm_rope_kv_insert_kernel(
             # comment citing load co-issue -- an NVIDIA consideration. On this
             # vector unit 64 lanes do not fill the machine and 448 do: one
             # [8, QUANT_BLOCK] tile, one axis=1 reduction giving all seven
-            # scales at once, one encoder pass over 448 lanes. Measured 0.688 vs
-            # 0.923 us per token on its own, and 0.470 once the dead branches
-            # below go too.
+            # scales at once, one encoder pass over 448 lanes.
             #
             # Triton wants a power-of-two block, hence eight rows. The eighth
             # covers the token's RoPE segment -- a token is 512 elements, 448
@@ -439,10 +417,7 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     # issued in chunks and each program adds its chunk's offset to its id. A
     # chunk boundary may fall inside either region -- each program classifies
     # itself from its global id, so nothing here has to align to it.
-    #
-    # num_stages=1 is what was measured. The two-launch form used 2 for KV and
-    # the default for Q, and a merged kernel can only have one value; 2 has not
-    # been timed against 1 for this kernel.
+
     heads_per_program = q_heads_per_program(num_heads)
     tiles_per_token = num_heads // heads_per_program
     q_programs = num_tokens * tiles_per_token
