@@ -1,0 +1,86 @@
+### branch topk-metax @ d1452e1
+### 2026-09-08T03:02:53+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+INFO 09-08 03:03:16 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-08 03:03:16 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-08 03:03:16 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-08 03:03:16 [__init__.py:238] Platform plugin metax is activated
+INFO 09-08 03:03:16 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-08 03:03:16 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-08 03:03:16 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+decode floor profile | vocab=262144 top_k=512 | device cuda
+vLLM baseline available: True
+
+==========================================================================
+=== num_rows = 1
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.3347 ms
+      kernel launches           1.0
+      alloc-ish calls           6.0
+        0.3347 ms  x 1.0  non_tle_top_k_per_row_decode
+
+  --- vLLM mcoplib
+      device time / call     0.1754 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.0877 ms  x 1.0  _C::top_k_per_row_decode
+        0.0502 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0375 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 0.524
+
+==========================================================================
+=== num_rows = 8
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.3766 ms
+      kernel launches           1.0
+      alloc-ish calls           6.0
+        0.3766 ms  x 1.0  non_tle_top_k_per_row_decode
+
+  --- vLLM mcoplib
+      device time / call     0.1966 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.0983 ms  x 1.0  _C::top_k_per_row_decode
+        0.0602 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0381 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 0.522
+
+==========================================================================
+=== num_rows = 56
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.5308 ms
+      kernel launches           1.0
+      alloc-ish calls           6.0
+        0.5308 ms  x 1.0  non_tle_top_k_per_row_decode
+
+  --- vLLM mcoplib
+      device time / call     0.7582 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.3791 ms  x 1.0  _C::top_k_per_row_decode
+        0.3402 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0389 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 1.428
