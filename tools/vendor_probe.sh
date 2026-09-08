@@ -5,15 +5,23 @@
 #   tools/vendor_probe.sh tools/topk_preflight.py preflight_run --run prefill
 #
 # Writes reports/<name>.txt, commits it on the current branch, pushes to origin.
-# If the push fails (no credentials on the box), the report is still committed
-# locally and the path is printed -- paste it as a fallback.
+# Every step that can fail says so; nothing is reported as done that was not.
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
-# usage: tools/ascend_probe.sh <probe.py> [report-name] [args passed to the probe...]
-PROBE=${1:?usage: tools/ascend_probe.sh <probe.py> [report-name] [probe args...]}
+# A detached HEAD makes `git rev-parse --abbrev-ref HEAD` return the literal
+# string "HEAD", so the push at the end would create a branch called HEAD on
+# the fork. Refuse up front rather than after a long probe.
+if ! BRANCH=$(git symbolic-ref --quiet --short HEAD); then
+    echo "!! detached HEAD -- check out the working branch first:"
+    echo "     git fetch origin <branch> && git checkout -B <branch> origin/<branch>"
+    exit 2
+fi
+
+# usage: tools/vendor_probe.sh <probe.py> [report-name] [args passed to the probe...]
+PROBE=${1:?usage: tools/vendor_probe.sh <probe.py> [report-name] [probe args...]}
 shift
 NAME=${1:-$(basename "$PROBE" .py)}
 [ $# -gt 0 ] && shift
@@ -31,30 +39,46 @@ if [ -f /usr/local/Ascend/cann/set_env.sh ]; then
 fi
 export PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}"
 
-echo "### branch $(git rev-parse --abbrev-ref HEAD) @ $(git rev-parse --short HEAD)" | tee "$OUT"
-echo "### $(date -Is)  host $(hostname)" | tee -a "$OUT"
-echo "### PYTHONPATH=$PYTHONPATH" | tee -a "$OUT"
-echo | tee -a "$OUT"
+{
+    echo "### branch ${BRANCH} @ $(git rev-parse --short HEAD)"
+    echo "### $(date -Is)  host $(hostname)"
+    echo "### PYTHONPATH=$PYTHONPATH"
+    echo
+} | tee "$OUT"
 
 python "$PROBE" "$@" 2>&1 | tee -a "$OUT"
 echo
 echo "=== report written to $OUT ($(wc -l < "$OUT") lines) ==="
 
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git add -A reports/
 if git diff --cached --quiet; then
     echo "=== report unchanged, nothing to commit ==="
     exit 0
 fi
-# Use whatever identity this box has; fall back only if it has none, because
-# a commit with no mappable email is one GitHub cannot attribute.
+
+# Use whatever identity this box has; fall back only if it has none, because a
+# commit with no mappable email is one GitHub cannot attribute. NOTE the -c
+# form covers only THIS commit -- `git pull --rebase` replays commits and reads
+# the config, so a box with no identity still needs it set globally.
 IDENT=()
 if [ -z "$(git config user.email || true)" ]; then
     IDENT=(-c user.name=cheersluvs -c user.email=yuqingwu51@gmail.com)
 fi
-git "${IDENT[@]+"${IDENT[@]}"}" commit -q -m "reports: ${NAME} from the Ascend box"
-if git push -q origin "HEAD:refs/heads/${BRANCH}"; then
-    echo "=== pushed to origin/${BRANCH} ==="
-else
-    echo "=== PUSH FAILED -- report is committed locally at $OUT; paste it instead ==="
+if ! git "${IDENT[@]+"${IDENT[@]}"}" commit -q -m "reports: ${NAME} from $(hostname -s)"; then
+    echo "=== COMMIT FAILED -- the report is on disk at $OUT but is NOT committed."
+    echo "=== Set an identity, then commit by hand:"
+    echo "===   git config --global user.name cheersluvs"
+    echo "===   git config --global user.email <the github email>"
+    exit 1
 fi
+
+# These links drop connections; one refusal is not a verdict.
+for attempt in 1 2 3; do
+    if git push -q origin "HEAD:refs/heads/${BRANCH}"; then
+        echo "=== pushed to origin/${BRANCH} (attempt ${attempt}) ==="
+        exit 0
+    fi
+    sleep 4
+done
+echo "=== PUSH FAILED after 3 attempts -- the report IS committed locally at"
+echo "=== $OUT ; paste it, or push again once the link is back."
