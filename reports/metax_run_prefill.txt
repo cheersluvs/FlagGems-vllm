@@ -1,0 +1,100 @@
+### branch topk-metax @ bb9e045
+### 2026-09-08T01:50:20+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+==============================================================================
+  top_k_per_row preflight -- vendor=metax
+==============================================================================
+
+==============================================================================
+  1. INTERPRETER / FRAMEWORKS
+==============================================================================
+  python                             3.12.11
+  vendor / device                    metax  /  cuda
+  torch                              2.8.0+metax3.7.1.4
+  device available                   True
+  device count                       1
+  triton / flagtree                  3.6.0   @ /opt/conda/lib/python3.12/site-packages/triton
+
+==============================================================================
+  2. TLE AVAILABILITY -- decides which code path each op takes
+==============================================================================
+  has_triton_tle() only checks the IMPORT resolves. It does NOT check the
+  backend can lower tle.gpu.alloc / local_ptr to shared memory. If the
+  import works but lowering does not, the op takes the TLE path and fails
+  where the non-TLE fallback would have worked.
+
+  version+import gate                has_triton_tle(3,6,0) = True
+  vendor declares TLE                VendorDescriptor.tle_enabled = False   -> effective False
+  tle symbols                        gpu.alloc=yes  gpu.local_ptr=yes  gpu.smem=yes  cumsum=yes
+  top_k_per_row_prefill branch       HAS_TLE=False -> non-TLE (global)
+  top_k_per_row_decode branch        HAS_TLE=False -> non-TLE (global)
+
+==============================================================================
+  3. DEVICE GEOMETRY vs WHAT THE OP NEEDS
+==============================================================================
+  device properties                  
+      name=MetaX C550
+      multi_processor_count=104
+      warp_size=64
+      shared_memory_per_block=65536
+      regs_per_multiprocessor=131072
+      major=8
+      minor=0
+  device inventory                   no vendor inventory tool on PATH
+  resolved launch geometry           warp=64 max_threads/block=1024  ->  BLOCK 512 uses 8 warps = 512 threads
+  op smem need (TLE path)            prefill ~21 KB / decode ~25 KB @ top_k=1024
+                                     top_k=2048 -> ~29 / ~33 KB. MetaX C550 has only 64 KB: check above.
+
+  wide-block gate                    _wide_max_rows() = 0  (from fused)  -> num_rows <= that uses the wide block
+
+  Gate is SM-derived AND requires a 32-lane warp: num_warps is
+  BLOCK_SIZE // 32, so on a 64-lane part BLOCK=1024 would ask for 2048
+  threads. A gate of 0 means widening is disabled on this card and its
+  own crossover has never been measured.
+
+==============================================================================
+  4. BINDING: generic or vendor override?
+==============================================================================
+  top_k_per_row_prefill              generic   from flaggems_vllm.ops.top_k_per_row_prefill
+  top_k_per_row_decode               generic   from flaggems_vllm.ops.top_k_per_row_decode
+
+  Expect 'generic' for both: no vendor override ships for either op.
+
+==============================================================================
+  5. vLLM BASELINE
+==============================================================================
+  Importing vLLM is NOT proof the op exists -- check the symbol itself,
+  AFTER the import, with hasattr. Never dir(): torch.ops._C is a lazy
+  namespace and dir() lists only what has already been resolved.
+
+INFO 09-08 01:50:42 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-08 01:50:42 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-08 01:50:42 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-08 01:50:42 [__init__.py:238] Platform plugin metax is activated
+INFO 09-08 01:50:42 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-08 01:50:42 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-08 01:50:42 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+  torch.ops._C has                   prefill=True  decode=True
+
+  Both False -> no baseline on this card; benchmarks measure nothing.
+
+==============================================================================
+  6. MINIMAL LAUNCH: prefill
+==============================================================================
+  shape                              num_rows=1 vocab=20000 top_k=1024
+  launch                             OK
+  selected values match torch        YES
