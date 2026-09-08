@@ -31,12 +31,11 @@ tuning does NOT transfer because those parts have 64-lane warps while this one
 has 32, so the generic launch here already delivers 16 elements per lane, the
 value the other two need TPP=8/num_warps=4 to reach.
 
-**Head count.** Tiling helps only at 64 heads. Measured against a 1332 GB/s
-ceiling at 32768 tokens, the generic kernel reaches 87.4% at 64 heads but 93.6%
-at 128, and a full TPP x num_warps sweep at 128 heads finds nothing above
-0.94x -- there is simply no headroom left there. The operator's own tests and
-benchmark use 64 and 128 heads only, so this is an exhaustive two-case rule, not
-a fitted threshold. At 64 heads the best cell is TPP=4/num_warps=4 at 91.6%.
+**Head count.** Tiling helps only at 64 heads: a full TPP x num_warps sweep at
+128 heads finds nothing above 0.94x, because the generic kernel already leaves no
+headroom there. The operator's own tests and benchmark use 64 and 128 heads only,
+so this is an exhaustive two-case rule, not a fitted threshold. At 64 heads the
+best cell is TPP=4/num_warps=4.
 
 **Token count.** Below 192 tokens the measurement itself is unusable: three
 round-robin repetitions spread 12-34%, so the apparent 0.82x at 64 tokens and
@@ -47,8 +46,8 @@ region entirely.
 
 The gain is modest and worth stating plainly: about 1.04-1.05x at 64 heads on
 large shapes, nothing at 128 heads. It is not the 2x that tiling buys on Hygon,
-because there the generic kernel starts at 45% of achievable and here it starts
-at 87%.
+because the generic kernel starts far closer to this part's limit here than it
+does there.
 
 Output is bit-identical to the generic kernel in the FP8 cache at every shape
 measured; q differs by at most one bf16 ULP, from the RMSNorm reduction order.
@@ -221,8 +220,8 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     num_tokens, num_heads, head_dims = q.shape
 
     if num_heads > _TILED_MAX_HEADS or num_tokens < _TILED_MIN_TOKENS:
-        # 128 heads: the generic kernel is already at 93.6% of achievable and no
-        # tiling configuration beats it. Small shapes: launch-bound, and the
+        # 128 heads: no tiling configuration beats the generic kernel, which
+        # already leaves no headroom there. Small shapes: launch-bound, and the
         # region is too noisy to claim a win in.
         from flaggems_vllm.ops.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert import (
             fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert as _generic,

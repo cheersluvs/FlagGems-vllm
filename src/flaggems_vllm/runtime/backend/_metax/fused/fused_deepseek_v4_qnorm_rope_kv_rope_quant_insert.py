@@ -14,22 +14,16 @@
 """MetaX override: token-tiled fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert.
 
 The generic kernel runs one program per (token, head) slot with num_warps=1 --
-64 threads for 512 elements. On C550 that leaves bandwidth on the table two
-ways: the KV slot does ~7 quant blocks against a Q slot's normalize+rotate, so
-one-slot-per-program makes it a straggler (1-in-65 at 64 heads vs 1-in-129 at
+64 threads for 512 elements. On C550 that costs two ways: the KV slot does ~7
+quant blocks against a Q slot's normalize+rotate, so one-slot-per-program makes
+it a straggler (1-in-65 at 64 heads vs 1-in-129 at
 128, which is why the shortfall is worse at the lower head count); and
 64-thread blocks under-fill the SM.
 
 Raising num_warps alone makes it worse -- work per program stays at 512
-elements, so each lane gets less to do (measured 1134 -> 691 -> 398 -> 199
-GB/s). Work and width have to rise together. Here each program handles TPP
-tokens of ONE slot, so every program is uniformly all-Q or all-KV.
-
-Measured on C550 against a 1388 GB/s ceiling (512 MiB device-to-device copy):
-
-    shape              generic          tiled       vs MetaX mcoplib
-    131072 x 64     1164 (83.9%)   1339 (96.5%)     1336 (96.3%)
-     32768 x 128    1224 (88.2%)   1354 (97.5%)     1298 (93.5%)
+elements, so each lane gets less to do. Work and width have to rise together.
+Here each program handles TPP tokens of ONE slot, so every program is uniformly
+all-Q or all-KV.
 
 Output is bit-identical to the generic kernel (FP8 cache exact, q exact) across
 shapes including non-multiples of TPP.

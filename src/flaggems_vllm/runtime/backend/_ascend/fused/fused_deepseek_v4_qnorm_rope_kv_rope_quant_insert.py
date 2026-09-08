@@ -68,8 +68,8 @@ MAX_PROGRAMS_PER_LAUNCH = 65535
 # A single head moves only a kilobyte, far too little to cover this backend's
 # per-program cost. Measured at 4096 tokens, ns per (token, head) unit:
 #
-#     H = 16 -> 5.24 (391 GB/s)      H = 32 -> 4.15 (493 GB/s)   at 64 heads
-#     H = 16 -> 5.14 (398 GB/s)      H = 32 -> 3.99 (513 GB/s)   at 128 heads
+#     H = 16 -> 5.24      H = 32 -> 4.15     at 64 heads
+#     H = 16 -> 5.14      H = 32 -> 3.99     at 128 heads
 #
 # 64 will not compile:
 #
@@ -256,10 +256,10 @@ def fused_qnorm_rope_kv_insert_kernel(
         # SCALAR. Every head of a token shares one position, so the flat form
         # gathered the same 256 bytes of cos/sin once per head, 64 or 128 times
         # over, on the unstructured pointer path. Measured at 4096 tokens:
-        # 11.43 -> 4.15 ns per unit at 64 heads and 16.81 -> 3.99 at 128, i.e.
-        # 179 -> 493 GB/s and 122 -> 513. It also explains why the flat form was
-        # markedly slower at 128 heads than at 64 -- more heads, more repeats of
-        # the same gather -- and that gap is gone.
+        # 11.43 -> 4.15 ns per unit at 64 heads and 16.81 -> 3.99 at 128. It
+        # also explains why the flat form was markedly slower at 128 heads than
+        # at 64 -- more heads, more repeats of the same gather -- and that gap
+        # is gone.
         #
         # Built from nothing but wider vectors: no loop, no device function, no
         # early return. All three abort ttir_to_linalg on this backend with no

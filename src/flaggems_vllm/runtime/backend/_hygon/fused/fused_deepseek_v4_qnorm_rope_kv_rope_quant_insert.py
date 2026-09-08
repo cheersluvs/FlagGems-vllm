@@ -15,24 +15,16 @@
 
 The generic kernel runs one program per (token, head) slot at num_warps=1 -- 64
 threads for 512 elements, which on BW1000's 64-lane warp is 8 elements per lane.
-That leaves more than half the bandwidth unused: measured 604.8 GB/s at
-32768x64 against a 1340.3 GB/s ceiling (512 MiB device-to-device copy), i.e.
-45.1%.
+That leaves most of the part's throughput unused.
 
 Giving each program TPP tokens of ONE slot raises elements per lane to 16 and the
-block to 256 threads:
-
-    shape           generic            tiled          of ceiling
-    32768 x 64    604.8 GB/s      1182.9 GB/s     45.1% -> 88.3%
-    32768 x 128   609.2 GB/s      1201.4 GB/s     45.5% -> 89.6%
+block to 256 threads.
 
 Two axes matter and neither is visible on its own. A full TPP x num_warps sweep
 puts every optimum at TPP/num_warps = 2, which is two tokens per warp and so 16
-elements per lane; bandwidth by elements per lane is 237 / 408 / 604 / 906 /
-**1183** / 1077 / 1050 for 1 / 2 / 4 / 8 / 16 / 32 / 64. But elements per lane
-does not explain everything: TPP=1/warps=1 and TPP=2/warps=2 are both 8 elements
-per lane and differ by 50% (604 vs 906 GB/s), because the second has a wider
-program. Sweeping num_warps alone at TPP=1 shows 8 and 4 elements per lane tied,
+elements per lane. But elements per lane does not explain everything:
+TPP=1/warps=1 and TPP=2/warps=2 are both 8 elements per lane and differ by 50%,
+because the second has a wider program. Sweeping num_warps alone at TPP=1 shows 8 and 4 elements per lane tied,
 which invites the wrong conclusion that access width does not matter -- at TPP=1
 the block is only 512 elements and there is nothing to widen into. Do not tune
 these two parameters separately.
