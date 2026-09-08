@@ -72,10 +72,52 @@ if ! git "${IDENT[@]+"${IDENT[@]}"}" commit -q -m "reports: ${NAME} from $(uname
     exit 1
 fi
 
-# These links drop connections; one refusal is not a verdict.
-export GIT_TERMINAL_PROMPT=0
+# --- pushing ------------------------------------------------------------
+#
+# The repo is public, so fetch works anonymously and a box can look fully wired
+# up while having no push credentials at all. Rather than three cryptic auth
+# failures, work out up front what this box has.
+#
+# GH_TOKEN / GITHUB_TOKEN, if exported, is used through an inline credential
+# helper: the value never enters the URL, the config, the report, or the
+# reflog, and nothing here ever echoes it.
+CRED=()
+WHY=""
+if [ -n "${GH_TOKEN:-${GITHUB_TOKEN:-}}" ]; then
+    CRED=(-c "credential.helper=!f(){ echo username=cheersluvs; echo \"password=${GH_TOKEN:-$GITHUB_TOKEN}\"; };f")
+    WHY="token from the environment"
+elif [ -n "$(git config --get credential.helper || true)" ]; then
+    WHY="credential.helper=$(git config --get credential.helper)"
+elif [ -f "$HOME/.git-credentials" ]; then
+    WHY="stored credentials"
+fi
+
+if [ -z "$WHY" ]; then
+    cat <<'MSG'
+=== NOT PUSHING: this box has no git credentials, so a push can only fail.
+=== The report IS committed locally; paste it, or set one of these up once:
+===
+===   A. gh, if it is installed and logged in:
+===        gh auth login && gh auth setup-git
+===
+===   B. a fine-grained PAT (Contents: Read and write on this repo):
+===        git config --global credential.helper store
+===        git push origin HEAD          # username: cheersluvs, password: the PAT
+===      NOTE this writes the token to ~/.git-credentials in PLAIN TEXT.
+===      On a shared box prefer:  git config --global credential.helper 'cache --timeout=3600'
+===
+===   C. per-shell, nothing written to disk:
+===        export GH_TOKEN=<the token>   # this script picks it up automatically
+===
+=== Never paste the token into this conversation -- it is not needed here.
+MSG
+    exit 0
+fi
+
+echo "=== pushing with ${WHY} ==="
+# One dropped connection is not a verdict; an auth refusal is, so stop on it.
 for attempt in 1 2 3; do
-    if git push -q origin "HEAD:refs/heads/${BRANCH}"; then
+    if git "${CRED[@]+"${CRED[@]}"}" push -q origin "HEAD:refs/heads/${BRANCH}"; then
         echo "=== pushed to origin/${BRANCH} (attempt ${attempt}) ==="
         exit 0
     fi
