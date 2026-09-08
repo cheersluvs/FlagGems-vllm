@@ -284,9 +284,7 @@ def fused_qnorm_rope_kv_insert_kernel(
         position_id = tl.load(position_ids + token_idx)  # scalar: one per token
         half = tl.arange(0, HALF_ROPE_DIM)
         cos_blk = tl.load(cos_sin_cache + position_id * ROPE_DIM + half)
-        sin_blk = tl.load(
-            cos_sin_cache + position_id * ROPE_DIM + HALF_ROPE_DIM + half
-        )
+        sin_blk = tl.load(cos_sin_cache + position_id * ROPE_DIM + HALF_ROPE_DIM + half)
 
         # [H, HALF_ROPE_DIM, 2]: the pair axis is broadcast into existence, as
         # on the KV path, so no reshape is needed.
@@ -340,9 +338,7 @@ def fused_qnorm_rope_kv_insert_kernel(
             # Every byte offset here is even (block stride 37376, 576 per token,
             # 448 NoPE), so halving them is exact.
             token_bf16_idx = (
-                block_idx * kv_block_stride
-                + pos_in_block * TOKEN_DATA_BYTES
-                + NOPE_DIM
+                block_idx * kv_block_stride + pos_in_block * TOKEN_DATA_BYTES + NOPE_DIM
             ) // 2
             token_scale_ptr = (
                 block_base
@@ -389,9 +385,7 @@ def fused_qnorm_rope_kv_insert_kernel(
                 mask=keep_group[:, None],
             )
             # store scale: stored_value = exponent + 127 (bias)
-            tl.store(
-                token_scale_ptr + gidx, scale_code.to(tl.uint8), mask=keep_group
-            )
+            tl.store(token_scale_ptr + gidx, scale_code.to(tl.uint8), mask=keep_group)
             tl.store(token_scale_ptr + NUM_QUANT_BLOCKS, tl.zeros((), dtype=tl.uint8))
 
 
