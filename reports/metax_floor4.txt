@@ -1,0 +1,96 @@
+### branch topk-metax @ 27d59e5
+### 2026-09-08T07:56:38+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+INFO 09-08 07:57:00 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-08 07:57:00 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-08 07:57:00 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-08 07:57:00 [__init__.py:238] Platform plugin metax is activated
+INFO 09-08 07:57:00 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-08 07:57:00 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-08 07:57:00 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+decode floor profile | vocab=262144 top_k=512 | device cuda
+vLLM baseline available: True
+
+==========================================================================
+=== num_rows = 1
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.0929 ms
+      kernel launches          36.0
+      alloc-ish calls          15.0
+        0.0752 ms  x 2.0  non_tle_top_k_per_row_decode
+        0.0034 ms  x 1.0  _gather_candidates
+        0.0031 ms  x 1.0  aten::clamp_
+        0.0031 ms  x 1.0  void at::native::vectorized_elementwise_kernel<4, at::nati
+        0.0024 ms  x 1.0  _remap_indices
+        0.0020 ms  x 1.0  aten::sub
+
+  --- vLLM mcoplib
+      device time / call     0.1798 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.0899 ms  x 1.0  _C::top_k_per_row_decode
+        0.0520 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0379 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 1.936
+
+==========================================================================
+=== num_rows = 8
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.1375 ms
+      kernel launches           8.0
+      alloc-ish calls          15.0
+        0.1170 ms  x 2.0  non_tle_top_k_per_row_decode
+        0.0040 ms  x 1.0  _gather_candidates
+        0.0038 ms  x 1.0  aten::clamp_
+        0.0038 ms  x 1.0  void at::native::vectorized_elementwise_kernel<4, at::nati
+        0.0031 ms  x 1.0  aten::sub
+        0.0031 ms  x 1.0  void at::native::elementwise_kernel_2_2_template<128, 4, 1
+
+  --- vLLM mcoplib
+      device time / call     0.2080 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.1040 ms  x 1.0  _C::top_k_per_row_decode
+        0.0657 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0382 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 1.513
+
+==========================================================================
+=== num_rows = 56
+==========================================================================
+
+  --- flaggems_vllm (generic)
+      device time / call     0.4909 ms
+      kernel launches           1.0
+      alloc-ish calls           6.0
+        0.4909 ms  x 1.0  non_tle_top_k_per_row_decode
+
+  --- vLLM mcoplib
+      device time / call     0.7678 ms
+      kernel launches           3.0
+      alloc-ish calls           2.0
+        0.3839 ms  x 1.0  _C::top_k_per_row_decode
+        0.3448 ms  x 1.0  void vllm::topKPerRowDecode<512, true, true, false>(float 
+        0.0391 ms  x 1.0  void vllm::topKPerRowDecode<512, true, false, true>(float 
+
+      device-time ratio vllm/gems = 1.564
