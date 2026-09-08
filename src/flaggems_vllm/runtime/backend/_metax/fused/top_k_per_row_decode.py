@@ -72,10 +72,13 @@ _generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 # summarises; measured as the point where the split curve turns back upward.
 MIN_CHUNK = 8192
 
-# Programs to aim for, as a multiple of the SM count. One wave is enough: the
-# measured optimum at num_rows=1 was 16-32 programs, and pushing to 128 was
-# slower, so there is nothing to gain from oversubscribing.
-WAVES = 1
+# What the sweep actually says to hold constant. Chunk size, not program count,
+# is the variable: 32768 lands within 2% of the measured optimum at every row
+# count from 1 to 56, while the best program count ranged from 32 to 448 and
+# tracked nothing. 56 rows at 448 programs on a 104-SM card is optimal, and 24
+# rows is better at 192 programs than at 96 -- so "fill one wave", which is
+# what this file assumed before the sweep, is simply the wrong model.
+TARGET_CHUNK = 32768
 
 
 @functools.lru_cache(maxsize=32)
@@ -141,16 +144,16 @@ def _split_factor(num_rows, vocab_size):
             return 1
         return forced
 
-    # Aim at roughly one wave of programs. Round the target UP to a power of
-    # two: the binding constraint at low row counts is MIN_CHUNK, not the
-    # program count, and rounding down left 16 rows at 64 programs on a 104-SM
-    # card. Verified by sweep rather than assumed -- see the note above.
-    want = _sm_count() * WAVES
+    # Past one row per SM the card is already full and splitting only adds
+    # passes: measured, 496 rows is fastest unsplit and every split is worse.
+    if num_rows >= _sm_count():
+        return 1
+
+    # Below that, split down to TARGET_CHUNK and stop.
     split = 1
     while (
-        split * num_rows < want
-        and vocab_size % (split * 2) == 0
-        and vocab_size // (split * 2) >= MIN_CHUNK
+        vocab_size % (split * 2) == 0
+        and vocab_size // (split * 2) >= TARGET_CHUNK
     ):
         split *= 2
     return split
