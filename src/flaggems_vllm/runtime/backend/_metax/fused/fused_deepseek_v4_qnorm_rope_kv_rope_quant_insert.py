@@ -11,27 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""MetaX override: token-tiled fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert.
+"""MetaX C550 override: token-tiled fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert.
 
-The generic kernel runs one program per (token, head) slot with num_warps=1 --
-64 threads for 512 elements. On C550 that costs two ways: the KV slot does ~7
-quant blocks against a Q slot's normalize+rotate, so one-slot-per-program makes
-it a straggler (1-in-65 at 64 heads vs 1-in-129 at
-128, which is why the shortfall is worse at the lower head count); and
-64-thread blocks under-fill the SM.
+The generic kernel gives each (token, head) slot its own program at num_warps=1,
+so the KV slot's ~7 quant blocks straggle behind a Q slot's normalize+rotate and
+64-thread blocks under-fill the SM. Here each program takes TPP tokens of ONE
+slot, uniformly all-Q or all-KV; work and width must rise together, since raising
+num_warps alone only leaves each lane less to do.
 
-Raising num_warps alone makes it worse -- work per program stays at 512
-elements, so each lane gets less to do. Work and width have to rise together.
-Here each program handles TPP tokens of ONE slot, so every program is uniformly
-all-Q or all-KV.
-
-Output is bit-identical to the generic kernel (FP8 cache exact, q exact) across
-shapes including non-multiples of TPP.
-
-Below 512 tokens the generic kernel wins -- a TPP=8 launch masks off 7/8 of
-every program and the wider blocks raise the launch floor from ~26us to ~32us
--- so this dispatches to it. Crossover measured at 512 on both head counts
-(256: 0.96x/0.99x, 512: 1.03x/1.04x).
+Below 512 tokens this dispatches to the generic kernel: TPP=8 masks off 7/8 of
+every program and the wider block raises the launch floor from ~26us to ~32us.
+Crossover measured at 512 on both head counts; output is bit-identical.
 """
 
 import torch

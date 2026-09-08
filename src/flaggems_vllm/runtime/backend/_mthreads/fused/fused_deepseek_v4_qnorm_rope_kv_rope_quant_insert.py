@@ -11,46 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Moore Threads override: token-tiled, and only at 64 heads.
+"""Moore Threads S5000 override: token-tiled, and only at 64 heads.
 
 REQUIRES FLAGTREE >= 0.6.1+mthreads3.6, which bundles a working `llc` at
-`triton/backends/mthreads/bin/llc` (md5 cec9ff66714e311670b9412ec760e4aa). On
-older builds -- 0.6.0rc3+mthreads3.6 among them -- there is no `bin/` and Triton
-falls back to the `llc` shipped with MUSA toolkit 4.3.5, where this kernel does
-not compile in ANY configuration: five were tried, including TPP=1/num_warps=1
-whose 16 elements per lane match the generic launch that works fine, and all five
-abort with `llc` code -6. The 2-D tile trips an instruction-selection defect
-there (`MTGPU DAG->DAG Pattern Instruction Selection`,
-`SelectionDAGISel::CannotYetSelect` on a v8bf16 `LSU_LD_CACHE_HINT`); the same
-five pass under the bundled one. On a build without it the dispatch below still
-routes to the generic kernel, so nothing here is reached and nothing breaks.
+`triton/backends/mthreads/bin/llc` (md5 cec9ff66714e311670b9412ec760e4aa). Older
+wheels ship no `bin/`, so Triton falls back to the `llc` in MUSA toolkit 4.3.5,
+where the 2-D tile trips an instruction-selection defect and NO configuration
+compiles. On such a build the dispatch below routes to the generic kernel, so
+nothing here is reached and nothing breaks.
 
-Two conditions gate the tiled path, and both were measured on S5000 rather than
-carried over -- the MetaX and Hygon overrides use different rules, and their
-tuning does NOT transfer because those parts have 64-lane warps while this one
-has 32, so the generic launch here already delivers 16 elements per lane, the
-value the other two need TPP=8/num_warps=4 to reach.
+Both gates were measured on this part rather than carried over: it has a 32-lane
+warp where MetaX and Hygon have 64, so its generic launch already delivers the 16
+elements per lane those two need TPP=8/num_warps=4 to reach.
 
-**Head count.** Tiling helps only at 64 heads: a full TPP x num_warps sweep at
-128 heads finds nothing above 0.94x, because the generic kernel already leaves no
-headroom there. The operator's own tests and benchmark use 64 and 128 heads only,
-so this is an exhaustive two-case rule, not a fitted threshold. At 64 heads the
-best cell is TPP=4/num_warps=4.
-
-**Token count.** Below 192 tokens the measurement itself is unusable: three
-round-robin repetitions spread 12-34%, so the apparent 0.82x at 64 tokens and
-1.02x at 96 are both noise. From 192 upward the spread falls to <= 3%, and the
-crossover sits between 256 (1.00x) and 512 (1.03x). The threshold is 512, which
-is conservative: it forfeits nothing measurable and stays clear of the unstable
-region entirely.
-
-The gain is modest and worth stating plainly: about 1.04-1.05x at 64 heads on
-large shapes, nothing at 128 heads. It is not the 2x that tiling buys on Hygon,
-because the generic kernel starts far closer to this part's limit here than it
-does there.
-
-Output is bit-identical to the generic kernel in the FP8 cache at every shape
-measured; q differs by at most one bf16 ULP, from the RMSNorm reduction order.
+Heads: a full TPP x num_warps sweep at 128 heads finds nothing above 0.94x, and
+the tests and benchmark use 64 and 128 only, so the two-case rule is exhaustive
+rather than fitted. Tokens: below 192 the measurement spreads 12-34% across
+repetitions and is unusable, and the crossover sits between 256 (1.00x) and 512
+(1.03x), so 512 also stays clear of that region. The FP8 cache is bit-identical
+to the generic kernel; q differs by at most one bf16 ULP, from the RMSNorm
+reduction order.
 """
 
 import torch

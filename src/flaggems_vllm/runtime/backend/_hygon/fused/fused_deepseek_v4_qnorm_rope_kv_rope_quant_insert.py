@@ -11,39 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Hygon override: token-tiled fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert.
+"""Hygon BW1000 override: token-tiled fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert.
 
-The generic kernel runs one program per (token, head) slot at num_warps=1 -- 64
-threads for 512 elements, which on BW1000's 64-lane warp is 8 elements per lane.
-That leaves most of the part's throughput unused.
-
-Giving each program TPP tokens of ONE slot raises elements per lane to 16 and the
-block to 256 threads.
-
-Two axes matter and neither is visible on its own. A full TPP x num_warps sweep
-puts every optimum at TPP/num_warps = 2, which is two tokens per warp and so 16
-elements per lane. But elements per lane does not explain everything:
+The generic kernel gives each (token, head) slot its own program at num_warps=1,
+which on BW1000's 64-lane warp is 8 elements per lane and leaves most of the
+part's throughput unused. TPP tokens of ONE slot per program raises that to 16
+and the block to 256 threads. TPP=8/num_warps=4 is what the MetaX C550 override
+uses too -- both parts have 64-lane warps -- but do not tune the two separately:
 TPP=1/warps=1 and TPP=2/warps=2 are both 8 elements per lane and differ by 50%,
-because the second has a wider program. Sweeping num_warps alone at TPP=1 shows 8 and 4 elements per lane tied,
-which invites the wrong conclusion that access width does not matter -- at TPP=1
-the block is only 512 elements and there is nothing to widen into. Do not tune
-these two parameters separately.
+because the second has a wider program.
 
-TPP=8 with num_warps=4 is one of the optimal points and is also what the MetaX
-C550 override uses; both parts have 64-lane warps, so the tuning transfers.
-
-Below a threshold the generic kernel wins, because a 256-thread block costs about
-10 us more to launch here (measured at one token: 80.5 us versus 90.2 us) and
-TPP=8 masks off most of every program when there are fewer than 8 tokens to fill
-it. The crossover was measured at 256 tokens for 64 heads and 128 tokens for 128
-heads -- which are 16640 and 16512 programs respectively, so the real quantity is
-the program count, not the token count. Dispatching on the grid size covers both
-head counts; a flat token threshold would forfeit the 1.16x-1.32x available
-between 128 and 256 tokens at 128 heads.
-
-Output is bit-identical to the generic kernel: the FP8 cache matches byte for
-byte and q matches exactly, including at token counts that are not multiples of
-TPP.
+Dispatch is on the PROGRAM count, num_tokens * (num_heads + 1) < 16384, not on
+tokens: the crossover is 256 tokens at 64 heads and 128 at 128 heads, which are
+16640 and 16512 programs. A flat token threshold would forfeit the 1.16x-1.32x
+available between 128 and 256 tokens at 128 heads. Output is bit-identical.
 """
 
 import torch

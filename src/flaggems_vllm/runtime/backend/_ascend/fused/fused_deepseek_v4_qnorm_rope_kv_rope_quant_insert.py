@@ -11,45 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Ascend override for the fused DeepSeek-V4 qnorm/RoPE/quant/insert kernel.
+"""Ascend 910B override for the fused DeepSeek-V4 qnorm/RoPE/quant/insert kernel.
 
 The arithmetic is the generic implementation's throughout. Five things are
 expressed differently, the first four because the toolchain rejects the generic
 form and the fifth because of what this backend charges for a launch:
 
-1. FP8 conversion goes through `_f32_to_e4m3_bits`, not `.to(tl.float8e4nv)`.
+1. FP8 conversion goes through `_f32_to_e4m3_bits`, not `.to(tl.float8e4nv)`:
+   BiShengIR does not know `f8E4M3FN` at all, so there is no gate to argue with.
 2. The UE8M0 scale is read off the exponent bits by `_ue8m0_scale`, not built
    with log2/ceil/exp2 and a float-to-integer conversion.
 3. The bf16 half of each cache token is reached through a bfloat16 view passed
    in by the wrapper, not by casting a pointer's element type.
 4. RoPE pairs are addressed with a 2-D offset, so they need no reshape.
 5. The Q and KV halves share one kernel and one launch, branching on the program
-   id, because a launch costs ~450 us here and two of them put a ~0.95 ms floor
-   under every shape below a few hundred tokens.
+   id, because a launch costs ~450 us here.
 
-Each is explained at its definition or use site. Points 2, 3 and 4 also each
+Each is explained at its definition or use site, and points 2, 3 and 4 each
 surfaced as a compiler failure that reports the wrong thing -- a missing output
 file, or nothing at all -- so read those notes before reformulating any of them.
-Point 5 has its own trap, recorded in the kernel's docstring: a `return` nested
-inside an arm of the branch aborts the compiler with an MLIR use-list assertion
-that says nothing about control flow.
-
-`tl.float8e4nv` cannot be compiled for this card, but for a different reason than
-on T-Head. There is no capability gate to argue with — BiShengIR does not know the
-type at all:
-
-    error: 'hivm.hir.vcast' op currently don't support cast float_to_UNKNOWN_rintmode
-    error: unrecognized float type: 'f8E4M3FN'
-
-So the conversion is done with integer operations, which the backend compiles
-without complaint. Verified bit-identical to `torch.float8_e4m3fn` on the card at
-block widths 256 through 2048; the operator uses 512.
-
-Ascend's Unified Buffer is the constraint to watch when changing this: the encoder
-keeps roughly fifteen live intermediates, so a 4096-wide block asks for 240 KB
-against the 192 KB available and fails to compile with `ub overflow, requires
-1966080 bits while 1572864 bits available`. That is a loud compile-time failure
-rather than a silent one, but it caps how much this kernel can be widened.
 
 This file can go away once BiShengIR lowers `f8E4M3FN`, AICore can select a
 scalar float-to-integer conversion, Triton can bitcast a pointer's element type
@@ -100,6 +80,13 @@ def _f32_to_e4m3_bits(x):
     never the 15/7 NaN encoding; and the x == 0 case, which takes the subnormal
     path where |x| * 512 rounds to zero anyway. Removing both took the
     quantisation from 0.679 to 0.470 us per token.
+
+    Verified bit-identical to `torch.float8_e4m3fn` on the card at block widths
+    256 through 2048; the operator uses 512. It cannot be widened far: roughly
+    fifteen intermediates are live at once, so a 4096-wide block asks 240 KB of
+    the 192 KB Unified Buffer and fails to compile with `ub overflow, requires
+    1966080 bits while 1572864 bits available`. That is a loud failure rather
+    than a silent one, but it does cap the width.
     """
     b = x.to(tl.int32, bitcast=True)
     sign = (b >> 24) & 0x80
