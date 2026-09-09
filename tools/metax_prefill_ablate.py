@@ -71,6 +71,14 @@ ABLATIONS = [
         "process_bins_only",
     ),
     (
+        "no_pos_atomic",
+        "    out_pos_lt = tl.atomic_add(\n        found_topk_values_ptrs,\n        ones,\n"
+        "        mask=take_lt,",
+        "    out_pos_lt = tl.atomic_add(\n        found_topk_values_ptrs,\n        ones,\n"
+        "        mask=take_lt & (ones < 0),",
+        "the single-address atomic that allocates each output slot",
+    ),
+    (
         "no_cumsum",
         "                prefix_sum = counts_total - tl.cumsum(counts, axis=0, reverse=True)",
         "                prefix_sum = counts * 0",
