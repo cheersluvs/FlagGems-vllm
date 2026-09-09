@@ -21,12 +21,20 @@ Both halves here run the identical kernel. Only the launch is split.
 """
 
 import sys
+from importlib import import_module
+from types import ModuleType
 
 import torch
 import triton
 
 import flaggems_vllm
-from flaggems_vllm.ops import top_k_per_row_prefill as G
+
+# NOT `from flaggems_vllm.ops import top_k_per_row_prefill as G`: ops/__init__
+# re-exports the FUNCTION under that name, which shadows the module. Third time
+# in this campaign; the assert makes the next one fail at the import instead of
+# at the first attribute.
+G = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
+assert isinstance(G, ModuleType), "got the function, not the module"
 
 DEV = flaggems_vllm.device
 SMS = 104
