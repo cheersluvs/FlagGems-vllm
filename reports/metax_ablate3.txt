@@ -1,0 +1,21 @@
+### branch topk-metax @ 9b307d8
+### 2026-09-09T06:49:30+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+device cuda | rows 4160 vocab 4096 top_k 512
+per-program microseconds. Ablated rows are WRONG by construction;
+read the deltas, not the answers.
+
+  the shipped operator         19.360
+
+  ablation                    us/prog    delta   removes
+  none                         19.435            harness OK
+  no_atomic                    50.790  -31.355   same atomic count, all to ONE address: isolates address spread
+  no_clear                     18.801   +0.634   the 2048-counter zeroing
+  no_scan                       8.346  +11.089   everything downstream of the counts: scan, threshold, compaction
+  no_bin_stores                19.536   -0.101   _process_bins' output stores, keeping all of its compute
+  no_pos_atomic                11.681   +7.754   the single-address atomic that allocates each output slot
+  no_cumsum                    19.563   -0.128   the threshold scan's cumsum, keeping the loads and the loop
+
+  A delta near 8.7 us is the k term. If none of them is, the term
+  lives in _process_bins and that is where the next cut goes.
