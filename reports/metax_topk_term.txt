@@ -1,0 +1,20 @@
+### branch topk-metax @ 4658ff1
+### 2026-09-09T03:14:58+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+device cuda | rows 4160 vocab 4096
+
+Concentration is a multiplier on a normal sample: 1.0 is the usual
+input, 1e-3 packs every value into a handful of radix buckets, which
+is what makes the threshold bin -- and the sort's loop -- large.
+
+     spread  buckets/row    k=128    k=512   k=1024      ns/k
+      1e+00           89    12.02    19.29    27.47      17.3
+      1e-01           88    12.10    18.93    27.79      17.5
+      1e-02           88    12.31    19.10    27.12      16.5
+      1e-03           88    12.07    19.35    27.16      16.8
+      1e-04           88    11.55    17.82    26.58      16.8
+
+  Cost rising as buckets/row falls  -> it IS the rank sort.
+  Cost flat while buckets/row falls -> the sort is exonerated and
+  the k term is somewhere else; do not rewrite that loop.
