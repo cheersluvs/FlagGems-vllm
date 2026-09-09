@@ -60,7 +60,21 @@ ABLATIONS = [
         "no_scan",
         "            counts = tl.load(s_histogram_ptr + bins)",
         "            counts = tl.load(s_histogram_ptr + bins) * 0",
-        "makes the prefix sum trivial, keeping its loads and stores",
+        "everything downstream of the counts: scan, threshold, compaction",
+    ),
+    # The first round put 11.2 us downstream of the counts. These split it.
+    (
+        "no_bin_stores",
+        "out_pos_eq < TOPK",
+        "out_pos_eq < 0",
+        "_process_bins' output stores, keeping all of its compute",
+        "process_bins_only",
+    ),
+    (
+        "no_cumsum",
+        "                prefix_sum = counts_total - tl.cumsum(counts, axis=0, reverse=True)",
+        "                prefix_sum = counts * 0",
+        "the threshold scan's cumsum, keeping the loads and the loop",
     ),
 ]
 
@@ -69,9 +83,10 @@ def build(name, old, new):
     """Write a patched copy of the operator and import it as its own module."""
     src = SRC.read_text()
     if old is not None:
-        if old not in src:
-            return None, f"pattern not found -- source moved"
-        src = src.replace(old, new, 1)
+        n = src.count(old)
+        if n == 0:
+            return None, "pattern not found -- source moved"
+        src = src.replace(old, new)      # every occurrence; count is reported
     d = pathlib.Path(tempfile.mkdtemp(prefix=f"ablate_{name}_"))
     f = d / f"ablated_{name}.py"
     f.write_text(src)
@@ -115,7 +130,7 @@ def main():
     print(f"  {'ablation':<26} {'us/prog':>8} {'delta':>8}   removes")
 
     base = None
-    for name, old, new, what in ABLATIONS:
+    for name, old, new, what, *_ in ABLATIONS:
         built, err = build(name, old, new)
         if err:
             print(f"  {name:<26} {'--':>8} {'':>8}   {err}")
