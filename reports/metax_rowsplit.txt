@@ -1,0 +1,18 @@
+### branch topk-metax @ cf86fb4
+### 2026-09-09T08:10:59+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+device cuda | 104 SMs | both halves run the SAME kernel
+
+             shape  one launch  split@12288  even split  best vs one
+Traceback (most recent call last):
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/metax_prefill_rowsplit.py", line 111, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/metax_prefill_rowsplit.py", line 87, in main
+    s = scratch(rows, DEV)
+        ^^^^^^^^^^^^^^^^^^
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/metax_prefill_rowsplit.py", line 39, in scratch
+    torch.empty((num_rows, G.NUM_BINS), device=device, dtype=torch.int32),
+                           ^^^^^^^^^^
+AttributeError: 'function' object has no attribute 'NUM_BINS'
