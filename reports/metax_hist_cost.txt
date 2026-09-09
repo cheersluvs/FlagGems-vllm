@@ -1,0 +1,29 @@
+### branch topk-metax @ 36f101b
+### 2026-09-09T03:44:38+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+device cuda | 4160 rows = 40 waves | per-program microseconds
+
+The scatter hypothesis is dead: 1.8 ns/k against the 17.1 the fit
+wants. But a 2048-bin histogram measured 8.0 us flat, and prefill's
+k increments are +2.33, +4.97, +8.01 us -- the last one being exactly
+one histogram. So the k term is the STEP COUNT, and the question is
+whether that 8 us is proportional to the bin count or fixed.
+
+    bins  hist+scan  hist only  scan only  us/1k bins
+      64      0.496      0.422      0.387       7.931
+     128      0.607      0.500      0.390       4.859
+     256      0.732      0.611      0.379       2.929
+     512      0.982      0.844      0.431       1.964
+    1024      2.376      1.806      0.388       2.376
+    2048      8.018      7.836      0.644       4.009
+    4096     15.722     15.507      1.228       3.930
+
+  A flat us/1k-bins column means the cost is proportional to bins,
+  so 2048 -> 256 buys 8x and more steps are affordable. A rising one
+  means most of it is fixed per call, and only fewer STEPS help.
+
+       K    contig   scatter    cumsum   (stores, for the record)
+     128     0.395     0.386     0.619
+     512     0.397     0.797     0.618
+    1024     0.390     1.939     1.302
