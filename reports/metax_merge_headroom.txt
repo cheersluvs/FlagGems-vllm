@@ -1,0 +1,28 @@
+### branch topk-metax @ dce24b6
+### 2026-09-09T00:35:38+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+device cuda | top_k 512
+
+========================================================================
+=== 1. is the op's top-k output ordered by value?
+========================================================================
+  rows=4   width=32768   exactly ordered: no   | ordered by 11-bit bucket: no   | worst rise +1.8291
+  rows=8   width=65536   exactly ordered: no   | ordered by 11-bit bucket: no   | worst rise +2.1011
+  rows=2   width=262144  exactly ordered: no   | ordered by 11-bit bucket: no   | worst rise +1.7042
+
+========================================================================
+=== 2. does the merge cost scale with candidates, or with the bins?
+========================================================================
+     ncand        ms   ms/1k cand
+      1024    0.0500       0.0500
+      2048    0.0479       0.0239
+      4096    0.0480       0.0120
+      8192    0.0477       0.0060
+     16384    0.1659       0.0104
+     32768    0.1649       0.0052
+
+  A flat first column means the 2048-bin pass dominates and the
+  candidates are nearly free -- so a selection without those bins
+  is where the merge's cost actually is.
+
