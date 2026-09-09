@@ -31,6 +31,7 @@ rule that came out of that is to measure the split first and explain second.
     cd <repo> && PYTHONPATH=src:$PYTHONPATH python3 bench-scripts/probe_chunked_launch.py
 """
 
+import importlib
 import os
 import sys
 import traceback
@@ -46,9 +47,16 @@ HEAD_DIM, ROPE_DIM, HEAD_BYTES = 512, 64, 584
 
 def main():
     import flaggems_vllm
-    from flaggems_vllm.runtime.backend._ascend.fused import (
-        fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert as mod,
+
+    # import_module, NOT `from ... import X as mod`. The package's __init__
+    # re-exports the FUNCTION under the module's own name, so the `from` form
+    # binds a callable and every module attribute below -- the chunk cap this
+    # probe exists to move -- raises AttributeError.
+    mod = importlib.import_module(
+        "flaggems_vllm.runtime.backend._ascend.fused"
+        ".fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert"
     )
+    impl = mod.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert
 
     dev = flaggems_vllm.device
     sync = flaggems_vllm.runtime.torch_device_fn.synchronize
@@ -76,8 +84,7 @@ def main():
         q2, kc2 = q.clone(), kc.clone()
         mod.MAX_PROGRAMS_PER_LAUNCH = cap
         try:
-            mod.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
-                q2, kv, kc2, slot, pos, cs, 1e-6, bs)
+            impl(q2, kv, kc2, slot, pos, cs, 1e-6, bs)
             sync()
         finally:
             mod.MAX_PROGRAMS_PER_LAUNCH = real_cap
