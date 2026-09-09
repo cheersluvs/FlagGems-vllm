@@ -1,0 +1,14 @@
+### branch topk-metax @ 8342a84
+### 2026-09-09T08:15:00+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+device cuda | 104 SMs | both halves run the SAME kernel
+
+             shape  one launch  split@12288  even split  best vs one
+      (16383,4095)      2.8656       2.9137      2.9151       1.000x
+      (12961,4100)      2.3090       2.3468      2.3643       1.000x
+      (16380,5115)      3.1288       3.1738      3.1750       1.000x
+       (4100,1025)      0.5552       0.5502      0.5969       1.009x
+
+  Near 1.000x means the split buys nothing by itself, and vLLM's
+  advantage is entirely in what its second kernel DOES differently.
