@@ -94,11 +94,6 @@ def _chunk_starts(split, chunk, device, dtype):
     return torch.arange(split, device=device, dtype=dtype) * chunk
 
 
-@functools.lru_cache(maxsize=32)
-def _merge_lens(num_rows, width, device):
-    return torch.full((num_rows,), width, dtype=torch.int32, device=device)
-
-
 @functools.lru_cache(maxsize=1)
 def _sm_count():
     try:
@@ -253,6 +248,65 @@ def _remap_indices(
     )
 
 
+@triton.jit
+def _merge_topk(
+    vals_ptr,
+    out_ptr,
+    NCAND: tl.constexpr,
+    TOPK: tl.constexpr,
+    TILE: tl.constexpr,
+):
+    """Top-k of one row of candidates, without a histogram.
+
+    Stage two used to be the full decode op, and that op costs a flat 0.048 ms
+    from 1024 candidates to 8192 -- eight times the data for the same time, so
+    none of it was the data. It is the 2048-bin pass, the four-step radix
+    scaffolding and the 2048-wide final buffer, all sized for a 262144-element
+    row and all still paid for 4096 candidates. The launch itself is not the
+    cost: the two glue kernels next door measure 3.4 and 2.4 microseconds.
+
+    Here the whole row fits in one tile, so the k-th largest is found by
+    building its key one bit at a time from the top -- 32 counts over a
+    resident tile, no bins, no passes over memory. Ties at the boundary are
+    resolved by ranking the equal group, which is what makes the result exact
+    rather than merely close.
+
+    Keys are the standard order-preserving map of float32 to int32:
+    non-negative values keep their bits, negative ones have their magnitude
+    bits inverted, so integer order matches float order. Kept in int64 only so
+    the bit-building can treat the sign bit like any other.
+    """
+    row = tl.program_id(0)
+    off = tl.arange(0, TILE)
+    live = off < NCAND
+
+    v = tl.load(vals_ptr + row * NCAND + off, mask=live, other=float("-inf"))
+    b = v.to(tl.int32, bitcast=True)
+    key = (b ^ ((b >> 31) & 0x7FFFFFFF)).to(tl.int64) + 0x80000000
+    key = tl.where(live, key, 0)
+
+    # Largest T with count(key >= T) >= TOPK, built MSB first.
+    thresh = tl.zeros([], tl.int64)
+    for i in tl.static_range(32):
+        bit = tl.full([], 1, tl.int64) << (31 - i)
+        cand = thresh | bit
+        cnt = tl.sum((key >= cand).to(tl.int32), axis=0)
+        thresh = tl.where(cnt >= TOPK, cand, thresh)
+
+    above = live & (key > thresh)
+    n_above = tl.sum(above.to(tl.int32), axis=0)
+    # Everything strictly above is in; the equal group fills the remainder.
+    # Any (TOPK - n_above) of them carry the same value, so ranking them by
+    # position is as correct as any other tie-break.
+    equal = live & (key == thresh)
+    rank = tl.cumsum(equal.to(tl.int32), axis=0) - 1
+    take = above | (equal & (rank < (TOPK - n_above)))
+
+    slot = tl.cumsum(take.to(tl.int32), axis=0) - 1
+    tl.store(out_ptr + row * TOPK + slot, off.to(tl.int32),
+             mask=take & (slot < TOPK))
+
+
 def top_k_per_row_decode(
     logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
 ):
@@ -311,10 +365,14 @@ def top_k_per_row_decode(
         BLOCK=block,
     )
 
-    # --- stage 2: the same kernel again, over the candidates -----------------
+    # --- stage 2: select, without paying for a 262144-row kernel -------------
     merged = torch.empty((num_rows, top_k), dtype=torch.int32, device=dev)
-    _generic.top_k_per_row_decode(
-        vals, 1, _merge_lens(num_rows, ncand, dev), merged, num_rows, ncand, 1, top_k
+    _merge_topk[(num_rows,)](
+        vals,
+        merged,
+        NCAND=ncand,
+        TOPK=top_k,
+        TILE=triton.next_power_of_2(ncand),
     )
 
     _remap_indices[(num_rows,)](
