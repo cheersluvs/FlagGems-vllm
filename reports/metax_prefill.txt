@@ -1,0 +1,50 @@
+### branch topk-metax @ a63c19c
+### 2026-09-09T01:59:55+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+INFO 09-09 02:00:17 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-09 02:00:17 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-09 02:00:17 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-09 02:00:17 [__init__.py:238] Platform plugin metax is activated
+INFO 09-09 02:00:17 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-09 02:00:17 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-09 02:00:17 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+device cuda | 104 SMs
+
+==============================================================================
+=== every benchmark shape, as achieved bandwidth
+==============================================================================
+             shape     k  rows/SM        ms     GB/s   vLLM ms  vLLM GB/s   ratio
+       (64,129280)  1024     0.62    0.2828    117.0    0.1508      219.5   0.533
+          (4,8193)   512     0.04    0.0426      3.1    0.0197        6.7   0.463
+      (16383,4095)   512   157.53    2.8591     93.9    2.3370      114.8   0.817
+         (4,16385)   512     0.04    0.0423      6.2    0.0257       10.2   0.607
+      (12961,4100)   512   124.62    2.3060     92.2    1.2190      174.4   0.529
+      (16380,5115)   512   157.50    3.0958    108.3    2.5100      133.5   0.811
+       (4100,1025)   512    39.42    0.5510     30.5    0.2180       77.1   0.396
+
+==============================================================================
+=== does splitting the production shape help? (stage one only)
+==============================================================================
+  unsplit: 0.2851 ms, 64 programs, 116.1 GB/s
+   split    chunk   prog  stage1 ms  vs unsplit
+       2    64640    128     0.2831       1.01x
+       4    32320    256     0.2481       1.15x
+       8    16160    512     0.2890       0.99x
+      16     8080   1024     0.3993       0.71x
+      32     4040   2048     0.5854       0.49x
+
+  A split that does not beat 1.00x here cannot pay for a merge on top.
