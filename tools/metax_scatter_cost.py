@@ -68,15 +68,35 @@ def k_scatter_cumsum(out_ptr, src_ptr, K: tl.constexpr, BLOCK: tl.constexpr):
 @triton.jit
 def k_hist(out_ptr, src_ptr, NB: tl.constexpr, K: tl.constexpr,
            BLOCK: tl.constexpr):
-    """A 2048-bin zero, fill and scan -- the cost I wrongly blamed earlier."""
+    """Histogram then scan -- both, as the operator does it."""
     row = tl.program_id(0)
-    bins = tl.arange(0, NB)
     h = tl.zeros([NB], tl.int32)
     for c in tl.static_range((K + BLOCK - 1) // BLOCK):
         pos = c * BLOCK + tl.arange(0, BLOCK)
         v = tl.load(src_ptr + pos, mask=pos < K, other=0)
         h += tl.histogram(v % NB, NB)
-    tl.store(out_ptr + row * NB + bins, tl.cumsum(h, axis=0))
+    tl.store(out_ptr + row * NB + tl.arange(0, NB), tl.cumsum(h, axis=0))
+
+
+@triton.jit
+def k_hist_only(out_ptr, src_ptr, NB: tl.constexpr, K: tl.constexpr,
+                BLOCK: tl.constexpr):
+    """Histogram without the scan."""
+    row = tl.program_id(0)
+    h = tl.zeros([NB], tl.int32)
+    for c in tl.static_range((K + BLOCK - 1) // BLOCK):
+        pos = c * BLOCK + tl.arange(0, BLOCK)
+        v = tl.load(src_ptr + pos, mask=pos < K, other=0)
+        h += tl.histogram(v % NB, NB)
+    tl.store(out_ptr + row * NB + tl.arange(0, NB), h)
+
+
+@triton.jit
+def k_scan_only(out_ptr, NB: tl.constexpr):
+    """The scan without the histogram."""
+    row = tl.program_id(0)
+    bins = tl.arange(0, NB)
+    tl.store(out_ptr + row * NB + bins, tl.cumsum(bins.to(tl.int32), axis=0))
 
 
 def timed(fn, iters=20, warmup=5):
@@ -94,29 +114,37 @@ def timed(fn, iters=20, warmup=5):
 
 def main():
     print(f"device {DEV} | {ROWS} rows = 40 waves | per-program microseconds\n")
-    print("prefill's k term is 17.1 ns per unit of k. Whichever line below has")
-    print("that slope is the mechanism.\n")
-    print(f"  {'K':>6} {'contig':>9} {'scatter':>9} {'cumsum':>9} {'2048-hist':>10}")
+    print("The scatter hypothesis is dead: 1.8 ns/k against the 17.1 the fit")
+    print("wants. But a 2048-bin histogram measured 8.0 us flat, and prefill's")
+    print("k increments are +2.33, +4.97, +8.01 us -- the last one being exactly")
+    print("one histogram. So the k term is the STEP COUNT, and the question is")
+    print("whether that 8 us is proportional to the bin count or fixed.\n")
 
-    prev = {}
-    for K in (128, 256, 512, 1024):
-        out = torch.zeros(ROWS * max(K, 2048), dtype=torch.int32, device=DEV)
-        perm = torch.randperm(K, device=DEV).to(torch.int32)
-        src = torch.randint(0, 4, (K,), dtype=torch.int32, device=DEV)
-        t1 = timed(lambda: k_contig[(ROWS,)](out, K=K, BLOCK=BLOCK))
-        t2 = timed(lambda: k_scatter_perm[(ROWS,)](out, perm, K=K, BLOCK=BLOCK))
-        t3 = timed(lambda: k_scatter_cumsum[(ROWS,)](out, src, K=K, BLOCK=BLOCK))
-        t4 = timed(lambda: k_hist[(ROWS,)](out, src, NB=2048, K=K, BLOCK=BLOCK))
-        prev[K] = (t1, t2, t3, t4)
-        print(f"  {K:>6} {t1:>9.3f} {t2:>9.3f} {t3:>9.3f} {t4:>10.3f}")
+    K = 512
+    src = torch.randint(0, 4096, (K,), dtype=torch.int32, device=DEV)
+    print(f"  {'bins':>6} {'hist+scan':>10} {'hist only':>10} {'scan only':>10}"
+          f" {'us/1k bins':>11}")
+    for NB in (64, 128, 256, 512, 1024, 2048, 4096):
+        out = torch.zeros(ROWS * NB, dtype=torch.int32, device=DEV)
+        t_both = timed(lambda: k_hist[(ROWS,)](out, src, NB=NB, K=K, BLOCK=BLOCK))
+        t_hist = timed(lambda: k_hist_only[(ROWS,)](out, src, NB=NB, K=K, BLOCK=BLOCK))
+        t_scan = timed(lambda: k_scan_only[(ROWS,)](out, NB=NB))
+        print(f"  {NB:>6} {t_both:>10.3f} {t_hist:>10.3f} {t_scan:>10.3f}"
+              f" {t_both / (NB / 1024):>11.3f}")
 
-    print(f"\n  {'slope ns/k':>12}", end="")
-    for i, name in enumerate(("contig", "scatter", "cumsum", "hist")):
-        s = (prev[1024][i] - prev[128][i]) / (1024 - 128) * 1000
-        print(f" {name}={s:.1f}", end="")
-    print("\n\n  prefill wants 17.1 ns/k. A microbenchmark that reaches it names")
-    print("  the mechanism; one that stays far below says the term is not a")
-    print("  store at all and the ablation has to run on the real kernel.")
+    print("\n  A flat us/1k-bins column means the cost is proportional to bins,")
+    print("  so 2048 -> 256 buys 8x and more steps are affordable. A rising one")
+    print("  means most of it is fixed per call, and only fewer STEPS help.")
+    print()
+    print(f"  {'K':>6} {'contig':>9} {'scatter':>9} {'cumsum':>9}   (stores, for the record)")
+    for K2 in (128, 512, 1024):
+        out = torch.zeros(ROWS * max(K2, 64), dtype=torch.int32, device=DEV)
+        perm = torch.randperm(K2, device=DEV).to(torch.int32)
+        s2 = torch.randint(0, 4, (K2,), dtype=torch.int32, device=DEV)
+        print(f"  {K2:>6} "
+              f"{timed(lambda: k_contig[(ROWS,)](out, K=K2, BLOCK=BLOCK)):>9.3f} "
+              f"{timed(lambda: k_scatter_perm[(ROWS,)](out, perm, K=K2, BLOCK=BLOCK)):>9.3f} "
+              f"{timed(lambda: k_scatter_cumsum[(ROWS,)](out, s2, K=K2, BLOCK=BLOCK)):>9.3f}")
 
 
 if __name__ == "__main__":
