@@ -1,0 +1,85 @@
+### branch topk-metax @ 0b07f3e
+### 2026-09-09T07:54:35+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+INFO 09-09 07:54:57 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-09 07:54:57 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-09 07:54:57 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-09 07:54:57 [__init__.py:238] Platform plugin metax is activated
+INFO 09-09 07:54:57 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-09 07:54:57 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-09 07:54:57 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+device cuda | 104 SMs
+
+==============================================================================
+=== (64, 129280) top_k=1024 stride0=129280 | 0.62 waves
+==============================================================================
+    vLLM : 0.2395 ms in 1.0 kernels
+           0.2395 ms x 1.0  void vllm::topKPerRowPrefill<512, false>(float const*, int const*,
+    gems : 0.2825 ms in 1.0 kernels
+           0.2825 ms x 1.0  non_tle_top_k_per_row_prefill
+
+==============================================================================
+=== (4, 8193) top_k=512 stride0=8456 | 0.04 waves
+==============================================================================
+    vLLM : 0.0185 ms in 1.0 kernels
+           0.0185 ms x 1.0  void vllm::topKPerRowPrefill<512, false>(float const*, int const*,
+    gems : 0.0285 ms in 1.0 kernels
+           0.0285 ms x 1.0  non_tle_top_k_per_row_prefill
+
+==============================================================================
+=== (16383, 4095) top_k=512 stride0=4352 | 157.53 waves
+==============================================================================
+    vLLM : 2.3362 ms in 2.0 kernels
+           1.4081 ms x 1.0  void vllm::topKPerRowPrefill<512, true>(float const*, int const*, 
+           0.9281 ms x 1.0  void vllm::topKPerRowPrefill<512, false>(float const*, int const*,
+    gems : 2.8522 ms in 1.0 kernels
+           2.8522 ms x 1.0  non_tle_top_k_per_row_prefill
+
+==============================================================================
+=== (4, 16385) top_k=512 stride0=16648 | 0.04 waves
+==============================================================================
+    vLLM : 0.0256 ms in 1.0 kernels
+           0.0256 ms x 1.0  void vllm::topKPerRowPrefill<512, false>(float const*, int const*,
+    gems : 0.0398 ms in 1.0 kernels
+           0.0398 ms x 1.0  non_tle_top_k_per_row_prefill
+
+==============================================================================
+=== (12961, 4100) top_k=512 stride0=4360 | 124.62 waves
+==============================================================================
+    vLLM : 1.2165 ms in 2.0 kernels
+           0.9625 ms x 1.0  void vllm::topKPerRowPrefill<512, false>(float const*, int const*,
+           0.2541 ms x 1.0  void vllm::topKPerRowPrefill<512, true>(float const*, int const*, 
+    gems : 2.3111 ms in 1.0 kernels
+           2.3111 ms x 1.0  non_tle_top_k_per_row_prefill
+
+==============================================================================
+=== (16380, 5115) top_k=512 stride0=5376 | 157.50 waves
+==============================================================================
+    vLLM : 2.5104 ms in 2.0 kernels
+           1.4638 ms x 1.0  void vllm::topKPerRowPrefill<512, true>(float const*, int const*, 
+           1.0466 ms x 1.0  void vllm::topKPerRowPrefill<512, false>(float const*, int const*,
+    gems : 3.0984 ms in 1.0 kernels
+           3.0984 ms x 1.0  non_tle_top_k_per_row_prefill
+
+==============================================================================
+=== (4100, 1025) top_k=512 stride0=1288 | 39.42 waves
+==============================================================================
+    vLLM : 0.2173 ms in 1.0 kernels
+           0.2173 ms x 1.0  void vllm::topKPerRowPrefill<512, false>(float const*, int const*,
+    gems : 0.5495 ms in 1.0 kernels
+           0.5495 ms x 1.0  non_tle_top_k_per_row_prefill
+
