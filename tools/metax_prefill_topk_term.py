@@ -21,7 +21,14 @@ bin large without changing k, the row length, or anything else. If the cost
 tracks concentration, it is the sort. If it tracks only k, it is elsewhere and
 the sort is exonerated.
 
-    python tools/metax_prefill_topk_term.py
+Two attempts at concentrating did nothing, both because the top 11 bits of a
+float32 are sign, exponent and only TWO mantissa bits. Scaling by a constant
+shifts every exponent equally and left the bucket count at 88; adding a large
+offset collapses everything onto one exponent, where only 4 buckets exist, and
+went straight to 1. Bucket count is governed by EXPONENT SPAN, so the control
+here is 2**U(0,E): E from 16 to 1 walks 64 buckets down to 4 and the largest
+bucket from 96 elements to 1287 -- a 13x range on the sort's loop bound, with
+k, row length and row count all fixed.
 """
 
 import sys
@@ -71,20 +78,24 @@ def bucket_spread(logits):
 def main():
     vocab = 4096
     print(f"device {DEV} | rows {ROWS} vocab {vocab}\n")
-    print("Concentration is a multiplier on a normal sample: 1.0 is the usual")
-    print("input, 1e-3 packs every value into a handful of radix buckets, which")
-    print("is what makes the threshold bin -- and the sort's loop -- large.\n")
-    print(f"  {'spread':>9} {'buckets/row':>12} {'k=128':>8} {'k=512':>8} "
+    print("Exponent span controls the bucket count, and the bucket count sets")
+    print("the threshold bin -- which is the sort's inner loop bound. k, row")
+    print("length and row count are identical on every line.\n")
+    print(f"  {'input':>9} {'buckets/row':>12} {'k=128':>8} {'k=512':>8} "
           f"{'k=1024':>8}   {'ns/k':>7}")
 
-    for spread in (1.0, 1e-1, 1e-2, 1e-3, 1e-4):
+    for spread in (None, 16, 8, 4, 2, 1):
         torch.manual_seed(0)
-        logits = (torch.randn(ROWS, vocab, device=DEV, dtype=torch.float32)
-                  * spread).contiguous()
+        if spread is None:      # the ordinary input, for reference
+            logits = torch.randn(ROWS, vocab, device=DEV, dtype=torch.float32)
+        else:
+            logits = torch.exp2(
+                torch.rand(ROWS, vocab, device=DEV, dtype=torch.float32) * spread)
+        logits = logits.contiguous()
         nb = bucket_spread(logits)
         ts = {k: run(logits, k) for k in (128, 512, 1024)}
         slope = (ts[1024] - ts[128]) / (1024 - 128) * 1000
-        print(f"  {spread:>9.0e} {nb:>12.0f} {ts[128]:>8.2f} {ts[512]:>8.2f} "
+        print(f"  {('randn' if spread is None else f'2^U(0,{spread})'):>9} {nb:>12.0f} {ts[128]:>8.2f} {ts[512]:>8.2f} "
               f"{ts[1024]:>8.2f}   {slope:>7.1f}")
 
     print()
