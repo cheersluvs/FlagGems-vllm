@@ -1,0 +1,21 @@
+### branch topk-metax @ 3b1dac0
+### 2026-09-09T03:23:11+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+device cuda | rows 4160 vocab 4096
+
+Exponent span controls the bucket count, and the bucket count sets
+the threshold bin -- which is the sort's inner loop bound. k, row
+length and row count are identical on every line.
+
+      input  buckets/row    k=128    k=512   k=1024      ns/k
+      randn           89    11.99    19.30    27.08      16.8
+  2^U(0,16)           64    11.62    18.19    26.46      16.6
+   2^U(0,8)           32    11.05    17.41    25.61      16.2
+   2^U(0,4)           16    11.29    17.91    26.25      16.7
+   2^U(0,2)            8    11.59    18.26    27.61      17.9
+   2^U(0,1)            4    15.24    21.32    30.73      17.3
+
+  Cost rising as buckets/row falls  -> it IS the rank sort.
+  Cost flat while buckets/row falls -> the sort is exonerated and
+  the k term is somewhere else; do not rewrite that loop.
