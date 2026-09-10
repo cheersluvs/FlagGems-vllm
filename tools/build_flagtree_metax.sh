@@ -193,9 +193,13 @@ echo "  MAX_JOBS=$MAX_JOBS"
 # set_target_properties with a dependency that does not exist. conda usually
 # ships both; cmake just does not look there by default.
 find_lib() {   # find_lib <name> <header>  ->  echoes "<root>|<lib>|<incdir>"
+    # lib64 matters: this is a RHEL-family box, where /usr/lib64 is the real
+    # library directory and /usr/lib holds almost nothing.
     local n="$1" h="$2" root lib inc
     for root in "${CONDA_PREFIX:-/opt/conda}" /usr /usr/local; do
-        lib=$(ls "$root"/lib/lib${n}.so "$root"/lib/x86_64-linux-gnu/lib${n}.so 2>/dev/null | head -1)
+        lib=$(ls "$root"/lib64/lib${n}.so "$root"/lib/lib${n}.so \
+                 "$root"/lib/x86_64-linux-gnu/lib${n}.so \
+                 "$root"/lib64/lib${n}.so.1 "$root"/lib/lib${n}.so.1 2>/dev/null | head -1)
         inc=$(ls "$root"/include/"$h" 2>/dev/null | head -1)
         if [ -n "$lib" ] && [ -n "$inc" ]; then
             printf '%s|%s|%s' "$root" "$lib" "$(dirname "$inc")"
