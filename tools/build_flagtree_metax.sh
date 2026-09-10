@@ -241,9 +241,23 @@ if [ -n "$ZLIB_LIB" ] && [ -z "$ZLIB_INC" ]; then
 fi
 
 if [ -n "$ZLIB_LIB" ] && [ -n "$ZLIB_INC" ]; then
-    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -DZLIB_LIBRARY=$ZLIB_LIB -DZLIB_INCLUDE_DIR=$(dirname "$ZLIB_INC")"
+    # LLVM's exports name zlib as the bare `z`, which the linker expands to
+    # -lz and then looks for an unversioned libz.so. This box has only
+    # libz.so.1.2.13 -- the usual state without a -devel package -- so ld
+    # fails with "cannot find -lz" even though the library is right there.
+    #
+    # Make the name resolvable without touching /usr/lib64: a symlink in a
+    # private directory, added to the link search path.
+    ZSTUB="$SRC/.zlib-stub"
+    mkdir -p "$ZSTUB"
+    [ -e "$ZSTUB/libz.so" ] || ln -sf "$ZLIB_LIB" "$ZSTUB/libz.so"
+    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -DZLIB_LIBRARY=$ZSTUB/libz.so -DZLIB_INCLUDE_DIR=$(dirname "$ZLIB_INC")"
+    for f in CMAKE_SHARED_LINKER_FLAGS CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS; do
+        TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -D$f=-L$ZSTUB"
+    done
     echo "  zlib: lib=$ZLIB_LIB"
     echo "        inc=$(dirname "$ZLIB_INC")"
+    echo "        -lz resolved via $ZSTUB/libz.so"
 else
     echo "  !! zlib unresolved (lib='${ZLIB_LIB:-none}' header='${ZLIB_INC:-none}')"
     echo "     LLVMExports.cmake will fail. Either add the conda mirror to"
@@ -288,8 +302,9 @@ if [ "$RC" != 0 ]; then
     # is the only line that says what is actually wrong.
     echo "  --- CMake errors ---"
     grep -nE -A 8 "CMake Error|Could NOT find" "$LOG" | head -50 | sed 's/^/    /'
-    echo "  --- last compiler errors ---"
-    grep -nE "error:|Error [0-9]|FAILED:" "$LOG" | tail -15 | sed 's/^/    /'
+    echo "  --- build failures (with the lines that explain them) ---"
+    grep -nE -A 6 "FAILED:|error:|cannot find|undefined reference" "$LOG" \
+        | tail -40 | sed 's/^/    /'
     echo "  --- tail ---"
     tail -12 "$LOG" | sed 's/^/    /'
 fi
