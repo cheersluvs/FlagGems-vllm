@@ -79,6 +79,39 @@ avail=$(df -Pm "$(dirname "$SRC")" | awk 'NR==2{print $4}')
 echo "  free space at $(dirname "$SRC"): ${avail} MB"
 [ "${avail:-0}" -lt 20000 ] && echo "  !! under 20 GB free; the build may not fit"
 
+# The two prebuilt artifacts are DOWNLOADED by setup. If that host is
+# unreachable, both can be supplied locally instead -- the cache skips a
+# download whose file is already present, and LLVM_SYSPATH short-circuits the
+# LLVM one. Report what this box already has.
+say "deps: can the two prebuilt artifacts come from this box?"
+INSTALLED_SO=$(python -c 'import os,triton;p=os.path.join(os.path.dirname(triton.__file__),"_C","metaxTritonPlugin.so");print(p if os.path.exists(p) else "")' 2>/dev/null)
+if [ -n "$INSTALLED_SO" ]; then
+    MD5=$(md5sum "$INSTALLED_SO" | cut -c1-8)
+    printf '  installed plugin  %s\n' "$INSTALLED_SO"
+    printf '  its md5[:8]       %s   (setup expects afb7ab8f for v0.6.1)\n' "$MD5"
+    if [ "$MD5" = afb7ab8f ]; then
+        echo "  -> MATCHES: seeding the cache with it skips that download"
+    else
+        echo "  -> differs (this is the 0.6.1a2 plugin); the cache will still want v0.6.1"
+    fi
+else
+    echo "  no installed metaxTritonPlugin.so found"
+fi
+
+echo "  existing flagtree caches:"
+for d in "$HOME/.flagtree" "$SRC/.flagtree"; do
+    if [ -d "$d" ]; then find "$d" -maxdepth 2 | sed 's/^/    /' | head -12; else echo "    $d: absent"; fi
+done
+
+echo "  LLVM candidates (MLIR is what matters, not just clang):"
+for d in "${LLVM_SYSPATH:-}" /opt/maca/mxgpu_llvm /opt/maca/llvm; do
+    if [ -n "$d" ] && [ -d "$d" ]; then
+        m=$(find "$d" -maxdepth 4 -name MLIRConfig.cmake 2>/dev/null | head -1)
+        v=$("$d/bin/llvm-config" --version 2>/dev/null)
+        printf '    %-28s version=%-10s MLIRConfig=%s\n' "$d" "${v:-?}" "${m:-NO}"
+    fi
+done
+
 [ "$STAGE" = check ] && exit 0
 
 # ---------------------------------------------------------------- fetch
