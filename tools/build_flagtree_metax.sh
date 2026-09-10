@@ -47,6 +47,13 @@
 set -uo pipefail
 
 TAG="${FLAGTREE_TAG:-0.6.1+metax3.6}"
+# 0.6.1+metax3.6 is dated 2026-08-13 and #971, "[Metax][TLE] Metax TLE support
+# local pointer", landed 2026-08-20 -- a week after it. Without that commit
+# mctle.local_pointers exists as an op but its LLVM lowering emits llvm.bitcast
+# across address spaces, which the verifier rejects with "use
+# 'llvm.addrspacecast' instead". Cherry-pick it rather than moving to main,
+# which is a moving target whose metax backend may expect a newer plugin.
+PICK="${FLAGTREE_PICK:-52678a8b}"
 SRC="${FLAGTREE_SRC:-$HOME/flagtree}"
 STAGE="${1:-build}"
 WANT_SYMS="make_swizzled_shared_encoding_attr create_local_pointers
@@ -135,14 +142,29 @@ git -C "$SRC" fetch --tags -q origin || die "fetch failed"
 git -C "$SRC" checkout -q "refs/tags/$TAG" || die "no such tag: $TAG"
 echo "  at $(git -C "$SRC" rev-parse --short HEAD)  ($TAG)"
 
+if [ -n "$PICK" ]; then
+    git -C "$SRC" fetch -q origin main || die "cannot fetch main for the pick"
+    for c in $PICK; do
+        if git -C "$SRC" merge-base --is-ancestor "$c" HEAD 2>/dev/null; then
+            echo "  $c already in $TAG"
+        elif git -C "$SRC" cherry-pick -n "$c" 2>/dev/null; then
+            echo "  picked $c  $(git -C "$SRC" log -1 --format=%s "$c" | cut -c1-58)"
+        else
+            git -C "$SRC" cherry-pick --abort 2>/dev/null
+            die "cherry-pick of $c failed -- resolve by hand or set FLAGTREE_PICK="
+        fi
+    done
+fi
+
 # A stale build/ from another tag silently reuses the wrong CMake cache, which
 # is exactly how a BUILD_MCTLE=ON run can produce a wheel without mctle.
 STAMP="$SRC/.built-from"
-if [ -f "$STAMP" ] && [ "$(cat "$STAMP")" != "$TAG" ]; then
+WANT_STAMP="$TAG${PICK:++$PICK}"
+if [ -f "$STAMP" ] && [ "$(cat "$STAMP")" != "$WANT_STAMP" ]; then
     echo "  previous build was $(cat "$STAMP"); wiping build/"
     rm -rf "$SRC/python/build" "$SRC/build"
 fi
-echo "$TAG" > "$STAMP"
+echo "$WANT_STAMP" > "$STAMP"
 
 for f in third_party/metax/plugin/mctle/triton_mctle.cc third_party/metax/CMakeLists.txt; do
     [ -f "$SRC/$f" ] || die "$f missing at $TAG -- wrong tag"
