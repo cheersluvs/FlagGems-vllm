@@ -188,6 +188,42 @@ echo "  FLAGTREE_BACKEND=$FLAGTREE_BACKEND"
 echo "  TRITON_APPEND_CMAKE_ARGS=$TRITON_APPEND_CMAKE_ARGS"
 echo "  MAX_JOBS=$MAX_JOBS"
 
+# The prebuilt LLVM 19 exports targets that reference ZLIB::ZLIB (and often
+# zstd), so cmake must be able to find them or LLVMExports.cmake fails at
+# set_target_properties with a dependency that does not exist. conda usually
+# ships both; cmake just does not look there by default.
+find_lib() {   # find_lib <name> <header>  ->  echoes "<root>|<lib>|<incdir>"
+    local n="$1" h="$2" root lib inc
+    for root in "${CONDA_PREFIX:-/opt/conda}" /usr /usr/local; do
+        lib=$(ls "$root"/lib/lib${n}.so "$root"/lib/x86_64-linux-gnu/lib${n}.so 2>/dev/null | head -1)
+        inc=$(ls "$root"/include/"$h" 2>/dev/null | head -1)
+        if [ -n "$lib" ] && [ -n "$inc" ]; then
+            printf '%s|%s|%s' "$root" "$lib" "$(dirname "$inc")"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if z=$(find_lib z zlib.h); then
+    ZR=${z%%|*}; rest=${z#*|}; ZL=${rest%%|*}; ZI=${rest#*|}
+    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -DZLIB_ROOT=$ZR -DZLIB_LIBRARY=$ZL -DZLIB_INCLUDE_DIR=$ZI"
+    echo "  zlib: $ZL"
+else
+    echo "  !! no zlib with headers found -- LLVMExports.cmake will fail."
+    echo "     Install one, e.g.  conda install -y zlib   (or apt-get install zlib1g-dev)"
+fi
+
+if zs=$(find_lib zstd zstd.h); then
+    ZSR=${zs%%|*}
+    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -Dzstd_ROOT=$ZSR"
+    echo "  zstd: ${zs#*|}" | cut -d'|' -f1
+else
+    echo "  zstd: not found (only a problem if LLVM's exports ask for it)"
+fi
+export TRITON_APPEND_CMAKE_ARGS
+echo "  cmake args: $TRITON_APPEND_CMAKE_ARGS"
+
 [ "$STAGE" = fetch ] && exit 0
 
 # ---------------------------------------------------------------- probe
@@ -216,8 +252,7 @@ if [ "$RC" != 0 ]; then
     # A python traceback around a failed cmake hides cmake's own message, which
     # is the only line that says what is actually wrong.
     echo "  --- CMake errors ---"
-    grep -nE "CMake Error|CMake Warning \(dev\)|Could NOT find|No such file" "$LOG" \
-        | head -20 | sed 's/^/    /'
+    grep -nE -A 8 "CMake Error|Could NOT find" "$LOG" | head -50 | sed 's/^/    /'
     echo "  --- last compiler errors ---"
     grep -nE "error:|Error [0-9]|FAILED:" "$LOG" | tail -15 | sed 's/^/    /'
     echo "  --- tail ---"
