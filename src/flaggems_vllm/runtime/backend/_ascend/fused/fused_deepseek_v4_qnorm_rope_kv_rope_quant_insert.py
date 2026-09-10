@@ -40,9 +40,12 @@ import torch
 import triton
 import triton.language as tl
 
-# The runtime rejects a launch whose program count exceeds this, reporting it as
-# an invalid `coreDim`. It is a launch-API limit, not a hardware occupancy one.
-MAX_PROGRAMS_PER_LAUNCH = 65535
+# The runtime rejects a grid whose FIRST dimension exceeds this, reporting it as
+# an invalid `coreDim`. It is a launch-API limit, not a hardware occupancy one,
+# and it applies per dimension: a 2-D grid of (65535, ceil(n / 65535)) issues
+# any n in a single launch. Measured at the largest benchmark shape, 655360
+# programs as (65535, 11), covering every id exactly once, five runs identical.
+MAX_GRID_DIM_0 = 65535
 
 # Most heads of one token that a Q program may take, as an [H, HEAD_DIM] tile.
 # A single head moves only a kilobyte, far too little to cover this backend's
@@ -164,8 +167,9 @@ def fused_qnorm_rope_kv_insert_kernel(
     cache_block_size: tl.constexpr,
     num_heads,
     kv_block_stride,
-    pid_offset,
+    grid_dim_0,
     q_programs,
+    total_programs,
     tiles_per_token,
     H: tl.constexpr,
 ):
@@ -215,9 +219,21 @@ def fused_qnorm_rope_kv_insert_kernel(
     TOKEN_DATA_BYTES: tl.constexpr = NOPE_DIM + 2 * ROPE_DIM  # 576
     FP8_MAX: tl.constexpr = 448.0
 
-    # The work is issued in chunks of at most MAX_PROGRAMS_PER_LAUNCH, hence the
-    # offset. The grid is exact, so neither arm needs a bounds guard.
-    pid = tl.program_id(0).to(tl.int64) + pid_offset
+    # ONE launch, over a 2-D grid, because splitting this work across several
+    # launches corrupted it. With the grid chunked along dimension 0 and each
+    # program adding its chunk's offset, exactly one program per launch after
+    # the first came out wrong, in the Q arm only, non-deterministically: five
+    # runs of one shape differed from each other by 2043, 2043, 35 and 0
+    # elements while the same shape in a single launch was identical five times
+    # over. Six candidate mechanisms were measured and none held, so this does
+    # not fix that -- it removes the need for it. The single-launch path is the
+    # one that has always measured clean.
+    #
+    # The grid is now (min(n, MAX_GRID_DIM_0), ceil(n / dim0)), which can exceed
+    # total_programs when dim0 does not divide it, hence the upper guard below.
+    # It is an `elif`, not an early return: a return nested in either arm aborts
+    # ttir_to_linalg on this backend with no message.
+    pid = tl.program_id(0).to(tl.int64) + tl.program_id(1).to(tl.int64) * grid_dim_0
     if pid < q_programs:
         # ---- Q: RMSNorm without weight, then GPT-J RoPE, for H heads of ONE
         # token.
@@ -268,7 +284,7 @@ def fused_qnorm_rope_kv_insert_kernel(
         new_even_blk = even_blk * cos_blk[None, :] - odd_blk * sin_blk[None, :]
         new_odd_blk = even_blk * sin_blk[None, :] + odd_blk * cos_blk[None, :]
         tl.store(q + pair_off, tl.join(new_even_blk, new_odd_blk).to(tl.bfloat16))
-    else:
+    elif pid < total_programs:
         # ---- KV: GPT-J RoPE on the last 64, then UE8M0 FP8 quantisation of the
         # NoPE region and the paged-cache insert.
         kv_token = pid - q_programs
@@ -408,38 +424,40 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     # num_heads, so every tile is full -- no masks, and nothing can address past
     # the end of q, which this backend faults on rather than honouring a mask.
     #
-    # The runtime refuses a launch wider than MAX_PROGRAMS_PER_LAUNCH:
+    # The runtime refuses a grid whose first dimension is too wide:
     #
     #   KernelLaunch failed because value 532480 for parameter coreDim is
     #   invalid. Expected value: less than or equal to 65535.
     #
-    # which 8192 tokens at 64 heads already exceeds eightfold, so the work is
-    # issued in chunks and each program adds its chunk's offset to its id. A
-    # chunk boundary may fall inside either region -- each program classifies
-    # itself from its global id, so nothing here has to align to it.
+    # which 8192 tokens at 64 heads already exceeds eightfold. The limit is per
+    # dimension, so a 2-D grid carries the whole thing in ONE launch. Chunking
+    # it into several launches instead is what the earlier version did, and that
+    # corrupted one program per launch; see the kernel's own note on why this is
+    # a removal of the problem rather than a fix for it.
 
     heads_per_program = q_heads_per_program(num_heads)
     tiles_per_token = num_heads // heads_per_program
     q_programs = num_tokens * tiles_per_token
     total_programs = q_programs + num_tokens_insert
-    for pid_offset in range(0, total_programs, MAX_PROGRAMS_PER_LAUNCH):
-        grid = min(MAX_PROGRAMS_PER_LAUNCH, total_programs - pid_offset)
-        fused_qnorm_rope_kv_insert_kernel[(grid,)](
-            q,
-            kv,
-            k_cache,
-            k_cache_bf16,
-            slot_mapping,
-            position_ids,
-            cos_sin_cache,
-            eps,
-            cache_block_size,
-            num_heads,
-            k_cache.stride(0),
-            pid_offset,
-            q_programs,
-            tiles_per_token,
-            heads_per_program,
-            num_warps=1,
-            num_stages=1,
-        )
+    grid_dim_0 = min(total_programs, MAX_GRID_DIM_0)
+    grid_dim_1 = -(-total_programs // grid_dim_0)
+    fused_qnorm_rope_kv_insert_kernel[(grid_dim_0, grid_dim_1)](
+        q,
+        kv,
+        k_cache,
+        k_cache_bf16,
+        slot_mapping,
+        position_ids,
+        cos_sin_cache,
+        eps,
+        cache_block_size,
+        num_heads,
+        k_cache.stride(0),
+        grid_dim_0,
+        q_programs,
+        total_programs,
+        tiles_per_token,
+        heads_per_program,
+        num_warps=1,
+        num_stages=1,
+    )
