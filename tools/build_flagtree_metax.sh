@@ -162,12 +162,17 @@ export TRITON_APPEND_CMAKE_ARGS="-DBUILD_MCTLE=ON"
 # setting each one skips its download outright. The value is never read; it is
 # checked for presence only. Pointing them at /bin/true keeps them from looking
 # like real paths that something might later try to run as a compiler.
+# NOT the two CUPTI ones: TRITON_CUPTI_INCLUDE_PATH is read back as a real
+# directory and handed to cmake as -DCUPTI_INCLUDE_DIR, so a placeholder there
+# poisons the configure. CUPTI exists only for the proton profiler, which a
+# metax build has no use for, so turn proton off instead and the need goes away.
 for v in TRITON_PTXAS_PATH TRITON_PTXAS_BLACKWELL_PATH TRITON_CUOBJDUMP_PATH \
-         TRITON_NVDISASM_PATH TRITON_CUDACRT_PATH TRITON_CUDART_PATH \
-         TRITON_CUPTI_INCLUDE_PATH TRITON_CUPTI_LIB_PATH; do
+         TRITON_NVDISASM_PATH TRITON_CUDACRT_PATH TRITON_CUDART_PATH; do
     export "$v=/bin/true"
 done
-echo "  NVIDIA toolkit downloads: skipped via TRITON_*_PATH (8 vars)"
+export TRITON_BUILD_PROTON=OFF
+echo "  NVIDIA toolkit downloads: skipped via 6 TRITON_*_PATH vars"
+echo "  proton: OFF (removes the CUPTI dependency entirely)"
 export MAX_JOBS="${MAX_JOBS:-$(nproc)}"
 echo "  FLAGTREE_BACKEND=$FLAGTREE_BACKEND"
 echo "  TRITON_APPEND_CMAKE_ARGS=$TRITON_APPEND_CMAKE_ARGS"
@@ -193,7 +198,21 @@ fi
 
 # ---------------------------------------------------------------- build
 say "build wheel (this is the long part; LLVM and the plugin are downloaded, not compiled)"
-pip wheel . -w "$SRC/dist-mctle" --no-build-isolation --no-deps 2>&1 | tail -25
+LOG="$SRC/build-mctle.log"
+pip wheel . -w "$SRC/dist-mctle" --no-build-isolation --no-deps > "$LOG" 2>&1
+RC=$?
+echo "  full log: $LOG ($(wc -l < "$LOG") lines)"
+if [ "$RC" != 0 ]; then
+    # A python traceback around a failed cmake hides cmake's own message, which
+    # is the only line that says what is actually wrong.
+    echo "  --- CMake errors ---"
+    grep -nE "CMake Error|CMake Warning \(dev\)|Could NOT find|No such file" "$LOG" \
+        | head -20 | sed 's/^/    /'
+    echo "  --- last compiler errors ---"
+    grep -nE "error:|Error [0-9]|FAILED:" "$LOG" | tail -15 | sed 's/^/    /'
+    echo "  --- tail ---"
+    tail -12 "$LOG" | sed 's/^/    /'
+fi
 WHL=$(ls -t "$SRC/dist-mctle"/*.whl 2>/dev/null | head -1)
 [ -n "$WHL" ] || die "no wheel produced"
 echo "  wheel: $WHL"
