@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 CASES = ("scalar_store", "scalar_roundtrip", "view_store", "view_roundtrip",
-         "atomic_view_plain", "atomic_scalar_arange",
+         "atomic_view_plain", "atomic_scalar_arange", "atomic_masked_operator_form",
          "atomic_scatter_view_read", "atomic_scatter_scalar_read")
 
 if len(sys.argv) == 1:
@@ -168,6 +168,31 @@ def k_atomic_scalar_arange(out_ptr, NB: tl.constexpr):
     tl.store(out_ptr + bins, tl.load(view))
 
 
+@triton.jit
+def k_atomic_masked_operator_form(idx_ptr, out_ptr, NB: tl.constexpr):
+    """Exactly what _distribute_to_bins writes, mask and all.
+
+    The four unmasked cases all failed the tt.atomic_rmw verifier, and the
+    generic operator uses this same construction on NVIDIA, where it verifies.
+    A mask should not enter a ptr-vs-value type check -- but "should not" is
+    the reason to test it rather than assert it.
+    """
+    buf = tle.gpu.alloc([NB], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    view = tle.gpu.local_ptr(buf)
+    scalar = tle.gpu.local_ptr(buf, (0,))
+    bins = tl.arange(0, NB)
+    ones = tl.full([NB], 1, tl.int32)
+    tl.store(view, tl.zeros([NB], tl.int32))
+    tl.debug_barrier()
+    bin_idx = tl.load(idx_ptr + bins)
+    in_range = bin_idx >= 0
+    tl.atomic_add(scalar + bin_idx, ones, mask=in_range,
+                  sem="relaxed", scope="cta")
+    tl.debug_barrier()
+    tl.store(out_ptr + bins, tl.load(view))
+
+
 KERNELS = {
     "scalar_store": k_scalar_store,
     "scalar_roundtrip": k_scalar_roundtrip,
@@ -175,6 +200,7 @@ KERNELS = {
     "view_roundtrip": k_view_roundtrip,
     "atomic_view_plain": k_atomic_view_plain,
     "atomic_scalar_arange": k_atomic_scalar_arange,
+    "atomic_masked_operator_form": k_atomic_masked_operator_form,
     "atomic_scatter_view_read": k_atomic_scatter_view_read,
     "atomic_scatter_scalar_read": k_atomic_scatter_scalar_read,
 }
