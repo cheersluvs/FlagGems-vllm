@@ -209,19 +209,50 @@ find_lib() {   # find_lib <name> <header>  ->  echoes "<root>|<lib>|<incdir>"
     return 1
 }
 
-if z=$(find_lib z zlib.h); then
-    ZR=${z%%|*}; rest=${z#*|}; ZL=${rest%%|*}; ZI=${rest#*|}
-    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -DZLIB_ROOT=$ZR -DZLIB_LIBRARY=$ZL -DZLIB_INCLUDE_DIR=$ZI"
-    echo "  zlib: $ZL"
+# The prebuilt LLVM 19 exports targets referencing ZLIB::ZLIB, so cmake must
+# resolve zlib or LLVMExports.cmake fails at set_target_properties. This box
+# has the RUNTIME only -- /usr/lib64/libz.so.1.2.13 and no zlib.h anywhere --
+# and conda cannot install the headers because its mirror goes through the same
+# proxy that refuses to tunnel.
+#
+# GitHub is reachable, and zlib's headers are two checked-in files (zconf.h is
+# committed, not generated). Fetch the pair matching the installed runtime and
+# point cmake at them: find_package(ZLIB) needs a header and a library, and
+# nothing here actually compiles against zlib -- the imported target just has
+# to resolve.
+ZLIB_LIB=$(ls /usr/lib64/libz.so /usr/lib64/libz.so.1.* "${CONDA_PREFIX:-/opt/conda}"/lib/libz.so \
+              "${CONDA_PREFIX:-/opt/conda}"/lib/libz.so.1.* /usr/lib/libz.so 2>/dev/null | head -1)
+ZLIB_INC=$(ls /usr/include/zlib.h "${CONDA_PREFIX:-/opt/conda}"/include/zlib.h 2>/dev/null | head -1)
+
+if [ -n "$ZLIB_LIB" ] && [ -z "$ZLIB_INC" ]; then
+    ZV=$(printf '%s' "$ZLIB_LIB" | sed -nE 's/.*libz\.so\.1\.([0-9]+\.[0-9]+).*/1.\1/p')
+    ZV=${ZV:-1.2.13}
+    ZDIR="$SRC/.zlib-headers"
+    if [ ! -f "$ZDIR/zlib.h" ]; then
+        echo "  zlib: runtime only ($ZLIB_LIB); fetching v$ZV headers from GitHub"
+        mkdir -p "$ZDIR"
+        for h in zlib.h zconf.h; do
+            curl -sSf -m 60 -o "$ZDIR/$h" \
+                 "https://raw.githubusercontent.com/madler/zlib/v$ZV/$h" \
+              || { echo "  !! could not fetch $h for v$ZV"; rm -f "$ZDIR/$h"; }
+        done
+    fi
+    [ -f "$ZDIR/zlib.h" ] && [ -f "$ZDIR/zconf.h" ] && ZLIB_INC="$ZDIR/zlib.h"
+fi
+
+if [ -n "$ZLIB_LIB" ] && [ -n "$ZLIB_INC" ]; then
+    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -DZLIB_LIBRARY=$ZLIB_LIB -DZLIB_INCLUDE_DIR=$(dirname "$ZLIB_INC")"
+    echo "  zlib: lib=$ZLIB_LIB"
+    echo "        inc=$(dirname "$ZLIB_INC")"
 else
-    echo "  !! no zlib with headers found -- LLVMExports.cmake will fail."
-    echo "     Install one, e.g.  conda install -y zlib   (or apt-get install zlib1g-dev)"
+    echo "  !! zlib unresolved (lib='${ZLIB_LIB:-none}' header='${ZLIB_INC:-none}')"
+    echo "     LLVMExports.cmake will fail. Either add the conda mirror to"
+    echo "     no_proxy and 'conda install -y zlib', or place zlib.h+zconf.h by hand."
 fi
 
 if zs=$(find_lib zstd zstd.h); then
-    ZSR=${zs%%|*}
-    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -Dzstd_ROOT=$ZSR"
-    echo "  zstd: ${zs#*|}" | cut -d'|' -f1
+    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -Dzstd_ROOT=${zs%%|*}"
+    echo "  zstd: ${zs%%|*}"
 else
     echo "  zstd: not found (only a problem if LLVM's exports ask for it)"
 fi
