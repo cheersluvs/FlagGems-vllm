@@ -1,0 +1,25 @@
+### branch topk-metax @ 4aea51a
+### 2026-09-10T09:29:42+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+device cuda | 104 SMs | BLOCK_SIZE=512 is 8 warps here, 1024 is 16
+
+             shape  waves   shipped    cached  blk=1024      both    best  ok
+      blk1024 failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+      both failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+          (4,8193)   0.04    0.0400    0.0311       nan       nan   1.29x  yes
+      blk1024 failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+      both failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+         (4,16385)   0.04    0.0430    0.0408       nan       nan   1.05x  yes
+      blk1024 failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+      both failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+       (64,129280)   0.62    0.2893    0.2836       nan       nan   1.02x  yes
+      blk1024 failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+      both failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+       (4100,1025)  39.42    0.5470    0.5516       nan       nan   1.00x  yes
+      blk1024 failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+      both failed: OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducin
+      (16383,4095) 157.53    2.8631    2.8510       nan       nan   1.00x  yes
+
+  Allocation shows up only where the call is short enough for a few
+  microseconds to matter; a wide block only where the card is empty.
