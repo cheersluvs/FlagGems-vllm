@@ -52,6 +52,15 @@ STAGE="${1:-build}"
 WANT_SYMS="make_swizzled_shared_encoding_attr create_local_pointers
            create_local_alloc create_local_load create_local_store"
 
+# The box's proxy refuses a CONNECT tunnel to the artifact host -- "CONNECT
+# tunnel failed, response 500" -- while a direct request to it returns 206. So
+# exempt that ONE host and leave every other route on the proxy, which is what
+# github and pypi are reaching through. Both spellings, because Python's
+# urllib reads no_proxy and some tools read NO_PROXY.
+ARTIFACT_HOST="baai-cp-web.ks3-cn-beijing.ksyuncs.com"
+export no_proxy="${no_proxy:+$no_proxy,}$ARTIFACT_HOST"
+export NO_PROXY="$no_proxy"
+
 say() { printf '\n=== %s\n' "$*"; }
 die() { printf '!!! %s\n' "$*" >&2; exit 1; }
 
@@ -67,13 +76,15 @@ printf '  %-8s %s\n' "MACA" "${MACA_PATH:-/opt/maca}"
 
 # The prebuilt plugin and LLVM are DOWNLOADED by setup, so the box needs to
 # reach that host. Check it now rather than after a long configure.
-if ! curl -sSf -m 20 -o /dev/null -r 0-0 \
-     "https://baai-cp-web.ks3-cn-beijing.ksyuncs.com/trans/metaxTritonPlugin-cpython3.12-x86_64_v0.6.1.tar.gz" 2>/dev/null; then
-    echo "  !! cannot reach the prebuilt-artifact host; setup will fail at download"
-    echo "     (if a proxy is needed, export it for THIS shell only and never"
-    echo "      paste its credentials anywhere)"
+printf '  %-8s %s\n' "no_proxy" "$(printf '%s' "$no_proxy" | sed -E 's#://[^@/]*@#://***:***@#')"
+ART_URL="https://$ARTIFACT_HOST/trans/metaxTritonPlugin-cpython3.12-x86_64_v0.6.1.tar.gz"
+ART_CODE=$(curl -sS -o /dev/null -w '%{http_code}' -m 25 -r 0-0 "$ART_URL" 2>/dev/null)
+if [ "$ART_CODE" = 206 ] || [ "$ART_CODE" = 200 ]; then
+    echo "  artifact host reachable (HTTP $ART_CODE, proxy bypassed)"
 else
-    echo "  artifact host reachable"
+    echo "  !! artifact host still unreachable (HTTP ${ART_CODE:-000})"
+    echo "     Direct access worked when tested by hand, so check that no_proxy"
+    echo "     took effect here; without it setup fails at the download."
 fi
 avail=$(df -Pm "$(dirname "$SRC")" | awk 'NR==2{print $4}')
 echo "  free space at $(dirname "$SRC"): ${avail} MB"
