@@ -22,6 +22,7 @@ import subprocess
 import sys
 
 CASES = ("scalar_store", "scalar_roundtrip", "view_store", "view_roundtrip",
+         "atomic_view_plain", "atomic_scalar_arange",
          "atomic_scatter_view_read", "atomic_scatter_scalar_read")
 
 if len(sys.argv) == 1:
@@ -134,18 +135,59 @@ def k_atomic_scatter_scalar_read(idx_ptr, out_ptr, NB: tl.constexpr):
     tl.store(out_ptr + bins, tl.load(scalar + bins))
 
 
+@triton.jit
+def k_atomic_view_plain(out_ptr, NB: tl.constexpr):
+    """The simplest possible atomic on shared memory: a full-view pointer, no
+    arithmetic, no mask. If even this fails to verify then atomics on an
+    address-space-3 pointer are rejected outright, and no indexing scheme
+    rescues them."""
+    buf = tle.gpu.alloc([NB], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    view = tle.gpu.local_ptr(buf)
+    bins = tl.arange(0, NB)
+    tl.store(view, tl.zeros([NB], tl.int32))
+    tl.debug_barrier()
+    tl.atomic_add(view, tl.full([NB], 2, tl.int32))
+    tl.debug_barrier()
+    tl.store(out_ptr + bins, tl.load(view))
+
+
+@triton.jit
+def k_atomic_scalar_arange(out_ptr, NB: tl.constexpr):
+    """Scalar pointer plus a contiguous range -- the same construction the
+    operator uses, minus the data-dependent indices."""
+    buf = tle.gpu.alloc([NB], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    view = tle.gpu.local_ptr(buf)
+    scalar = tle.gpu.local_ptr(buf, (0,))
+    bins = tl.arange(0, NB)
+    tl.store(view, tl.zeros([NB], tl.int32))
+    tl.debug_barrier()
+    tl.atomic_add(scalar + bins, tl.full([NB], 2, tl.int32))
+    tl.debug_barrier()
+    tl.store(out_ptr + bins, tl.load(view))
+
+
 KERNELS = {
     "scalar_store": k_scalar_store,
     "scalar_roundtrip": k_scalar_roundtrip,
     "view_store": k_view_store,
     "view_roundtrip": k_view_roundtrip,
+    "atomic_view_plain": k_atomic_view_plain,
+    "atomic_scalar_arange": k_atomic_scalar_arange,
     "atomic_scatter_view_read": k_atomic_scatter_view_read,
     "atomic_scatter_scalar_read": k_atomic_scatter_scalar_read,
 }
 
 print(f"--- {CASE} | triton {triton.__version__}", flush=True)
 out = torch.zeros(NB, dtype=torch.int32, device="cuda")
-if CASE.startswith("atomic_"):
+if CASE in ("atomic_view_plain", "atomic_scalar_arange"):
+    KERNELS[CASE][(1,)](out, NB=NB)
+    torch.cuda.synchronize()
+    exp = torch.full((NB,), 2, dtype=torch.int32, device="cuda")
+    ok = torch.equal(out, exp)
+    extra = f" | first={out[:4].tolist()} expected all 2"
+elif CASE.startswith("atomic_"):
     torch.manual_seed(0)
     idx = torch.randint(0, NB, (NB,), dtype=torch.int32, device="cuda")
     KERNELS[CASE][(1,)](idx, out, NB=NB)
