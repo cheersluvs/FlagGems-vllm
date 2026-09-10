@@ -46,7 +46,13 @@ export PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}"
     echo
 } | tee "$OUT"
 
-python "$PROBE" "$@" 2>&1 | tee -a "$OUT"
+# Dispatch on extension: a .sh probe handed to python fails with a syntax
+# error on `set -uo pipefail`, which reads as a broken probe rather than as a
+# wrong interpreter.
+case "$PROBE" in
+    *.sh) bash "$PROBE" "$@" 2>&1 | tee -a "$OUT" ;;
+    *)    python "$PROBE" "$@" 2>&1 | tee -a "$OUT" ;;
+esac
 echo
 echo "=== report written to $OUT ($(wc -l < "$OUT") lines) ==="
 
