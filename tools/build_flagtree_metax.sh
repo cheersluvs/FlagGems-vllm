@@ -153,6 +153,21 @@ echo "  mctle source and BUILD_MCTLE wiring both present"
 
 export FLAGTREE_BACKEND=metax
 export TRITON_APPEND_CMAKE_ARGS="-DBUILD_MCTLE=ON"
+
+# setup.py downloads NVIDIA's ptxas, cuobjdump, nvdisasm, cudacrt, cudart and
+# cupti unconditionally -- from developer.download.nvidia.com, which the proxy
+# also refuses to tunnel to. None of them is used by a metax build.
+#
+# download_and_copy() opens with `if variable in os.environ: return`, so
+# setting each one skips its download outright. The value is never read; it is
+# checked for presence only. Pointing them at /bin/true keeps them from looking
+# like real paths that something might later try to run as a compiler.
+for v in TRITON_PTXAS_PATH TRITON_PTXAS_BLACKWELL_PATH TRITON_CUOBJDUMP_PATH \
+         TRITON_NVDISASM_PATH TRITON_CUDACRT_PATH TRITON_CUDART_PATH \
+         TRITON_CUPTI_INCLUDE_PATH TRITON_CUPTI_LIB_PATH; do
+    export "$v=/bin/true"
+done
+echo "  NVIDIA toolkit downloads: skipped via TRITON_*_PATH (8 vars)"
 export MAX_JOBS="${MAX_JOBS:-$(nproc)}"
 echo "  FLAGTREE_BACKEND=$FLAGTREE_BACKEND"
 echo "  TRITON_APPEND_CMAKE_ARGS=$TRITON_APPEND_CMAKE_ARGS"
@@ -164,7 +179,9 @@ echo "  MAX_JOBS=$MAX_JOBS"
 say "probe: does BUILD_MCTLE reach the cache?"
 cd "$SRC" || die "cannot cd $SRC"
 ( python setup.py build_ext --dry-run 2>&1 || true ) | tail -5
-CACHE=$(find "$SRC" -name CMakeCache.txt -newermt '-1 hour' 2>/dev/null | head -1)
+# Look only where a build would put one. The repo ships a file of the same
+# name under third_party/hcu/..., and the first run matched that instead.
+CACHE=$(find "$SRC/python/build" "$SRC/build" -name CMakeCache.txt 2>/dev/null | head -1)
 if [ -n "$CACHE" ]; then
     echo "  cache: $CACHE"
     grep -E "^BUILD_MCTLE" "$CACHE" || echo "  !! BUILD_MCTLE absent from the cache"
