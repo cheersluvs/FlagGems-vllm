@@ -21,7 +21,8 @@ import os
 import subprocess
 import sys
 
-CASES = ("scalar_store", "scalar_roundtrip", "view_store", "view_roundtrip")
+CASES = ("scalar_store", "scalar_roundtrip", "view_store", "view_roundtrip",
+         "atomic_scatter_view_read", "atomic_scatter_scalar_read")
 
 if len(sys.argv) == 1:
     print("Each case in its own process: an assert failure aborts the "
@@ -95,17 +96,67 @@ def k_view_roundtrip(out_ptr, NB: tl.constexpr):
     tl.store(out_ptr + lane, tl.load(p))
 
 
+@triton.jit
+def k_atomic_scatter_view_read(idx_ptr, out_ptr, NB: tl.constexpr):
+    """The shape top_k_per_row actually needs.
+
+    Scatter with atomic_add through a scalar pointer plus computed indices --
+    a different conversion from the one that asserts, AtomicRMWOpConversion
+    rather than LoadOpConversion -- and read the whole buffer back through the
+    full-view pointer, which is the form measured to work for loads.
+    """
+    buf = tle.gpu.alloc([NB], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    view = tle.gpu.local_ptr(buf)
+    scalar = tle.gpu.local_ptr(buf, (0,))
+    bins = tl.arange(0, NB)
+    tl.store(view, tl.zeros([NB], tl.int32))
+    tl.debug_barrier()
+    tl.atomic_add(scalar + tl.load(idx_ptr + bins), tl.full([NB], 1, tl.int32),
+                  sem="relaxed", scope="cta")
+    tl.debug_barrier()
+    tl.store(out_ptr + bins, tl.load(view))
+
+
+@triton.jit
+def k_atomic_scatter_scalar_read(idx_ptr, out_ptr, NB: tl.constexpr):
+    """Same scatter, read back the way that asserts -- to confirm the read is
+    what breaks and the atomic is not."""
+    buf = tle.gpu.alloc([NB], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    scalar = tle.gpu.local_ptr(buf, (0,))
+    bins = tl.arange(0, NB)
+    tl.store(scalar + bins, tl.zeros([NB], tl.int32))
+    tl.debug_barrier()
+    tl.atomic_add(scalar + tl.load(idx_ptr + bins), tl.full([NB], 1, tl.int32),
+                  sem="relaxed", scope="cta")
+    tl.debug_barrier()
+    tl.store(out_ptr + bins, tl.load(scalar + bins))
+
+
 KERNELS = {
     "scalar_store": k_scalar_store,
     "scalar_roundtrip": k_scalar_roundtrip,
     "view_store": k_view_store,
     "view_roundtrip": k_view_roundtrip,
+    "atomic_scatter_view_read": k_atomic_scatter_view_read,
+    "atomic_scatter_scalar_read": k_atomic_scatter_scalar_read,
 }
 
 print(f"--- {CASE} | triton {triton.__version__}", flush=True)
 out = torch.zeros(NB, dtype=torch.int32, device="cuda")
-KERNELS[CASE][(1,)](out, NB=NB)
-torch.cuda.synchronize()
-exp = torch.arange(NB, dtype=torch.int32, device="cuda") * 2
-ok = torch.equal(out, exp)
-print(f"RESULT {CASE}: {'CORRECT' if ok else 'WRONG ' + str(out[:6].tolist())}")
+if CASE.startswith("atomic_"):
+    torch.manual_seed(0)
+    idx = torch.randint(0, NB, (NB,), dtype=torch.int32, device="cuda")
+    KERNELS[CASE][(1,)](idx, out, NB=NB)
+    torch.cuda.synchronize()
+    exp = torch.bincount(idx.cpu().long(), minlength=NB).to(torch.int32)
+    ok = torch.equal(out.cpu(), exp)
+    extra = f" | sum={int(out.sum())} expected {NB}"
+else:
+    KERNELS[CASE][(1,)](out, NB=NB)
+    torch.cuda.synchronize()
+    exp = torch.arange(NB, dtype=torch.int32, device="cuda") * 2
+    ok = torch.equal(out, exp)
+    extra = ""
+print(f"RESULT {CASE}: {'CORRECT' if ok else 'WRONG ' + str(out[:6].tolist())}{extra}")
