@@ -242,11 +242,6 @@ def fused_qnorm_rope_kv_insert_kernel(
         variance = tl.sum(blk * blk, axis=1) / HEAD_DIM
         rsqrt = tl.rsqrt(variance + eps)
         blk = blk * rsqrt[:, None]
-        tl.store(
-            q + rows[:, None] * HEAD_DIM + col[None, :],
-            blk.to(tl.bfloat16),
-            mask=col[None, :] < NOPE_DIM,
-        )
 
         position_id = tl.load(position_ids + token_idx)  # scalar: one per token
         half = tl.arange(0, HALF_ROPE_DIM)
@@ -261,12 +256,27 @@ def fused_qnorm_rope_kv_insert_kernel(
             + half[None, :, None] * 2
             + tl.arange(0, 2)[None, None, :]
         )
+        # BOTH reads of q precede EITHER write to it, and that ordering is load
+        # bearing. With the masked NoPE store above this load, the RoPE region of
+        # the first program of every launch after the first came out wrong, and
+        # not the same way twice: five runs of one chunked shape differed by
+        # 2043, 2043, 35 and 0 elements, while the same shape issued as a single
+        # launch was identical five times over. The two column ranges are
+        # disjoint -- 0..447 written, 448..511 read -- so ordering the accesses
+        # this way costs nothing and removes the store-then-load relation, rather
+        # than leaving it in place and hoping a barrier survives the lowering.
         pair = tl.load(q + pair_off).to(tl.float32)
         even_blk, odd_blk = tl.split(pair)
         even_blk = even_blk * rsqrt[:, None]
         odd_blk = odd_blk * rsqrt[:, None]
         new_even_blk = even_blk * cos_blk[None, :] - odd_blk * sin_blk[None, :]
         new_odd_blk = even_blk * sin_blk[None, :] + odd_blk * cos_blk[None, :]
+
+        tl.store(
+            q + rows[:, None] * HEAD_DIM + col[None, :],
+            blk.to(tl.bfloat16),
+            mask=col[None, :] < NOPE_DIM,
+        )
         tl.store(q + pair_off, tl.join(new_even_blk, new_odd_blk).to(tl.bfloat16))
     else:
         # ---- KV: GPT-J RoPE on the last 64, then UE8M0 FP8 quantisation of the
