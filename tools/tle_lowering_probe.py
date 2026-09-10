@@ -25,7 +25,7 @@ import subprocess
 import sys
 import traceback
 
-CASES = ("alloc", "atomic", "cumsum", "smem_budget")
+CASES = ("alloc_default", "alloc", "atomic", "cumsum", "smem_budget")
 
 
 def _spawn_all():
@@ -66,8 +66,25 @@ BLOCK = 128
 
 
 @triton.jit
-def k_alloc(out_ptr, NB: tl.constexpr):
+def k_alloc_default(out_ptr, NB: tl.constexpr):
+    """As first probed -- and WRONG: nv_mma_shared_layout defaults to True, so
+    this asks for the NVIDIA MMA layout that no other vendor implements. The
+    operator does not call it this way."""
     buf = tle.gpu.alloc((NB,), tl.int32, scope=tle.gpu.smem)
+    p = tle.gpu.local_ptr(buf, (0,))
+    lane = tl.arange(0, NB)
+    tl.store(p + lane, lane * 2)
+    tl.debug_barrier()
+    tl.store(out_ptr + lane, tl.load(p + lane))
+
+
+@triton.jit
+def k_alloc(out_ptr, NB: tl.constexpr):
+    """How top_k_per_row actually allocates: swizzled, not MMA."""
+    buf = tle.gpu.alloc(
+        [NB], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
     p = tle.gpu.local_ptr(buf, (0,))
     lane = tl.arange(0, NB)
     tl.store(p + lane, lane * 2)
@@ -78,7 +95,10 @@ def k_alloc(out_ptr, NB: tl.constexpr):
 @triton.jit
 def k_atomic(idx_ptr, out_ptr, BLK: tl.constexpr, NB: tl.constexpr):
     """The histogram scatter, which is the whole reason to want smem."""
-    buf = tle.gpu.alloc((NB,), tl.int32, scope=tle.gpu.smem)
+    buf = tle.gpu.alloc(
+        [NB], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
     p = tle.gpu.local_ptr(buf, (0,))
     bins = tl.arange(0, NB)
     tl.store(p + bins, 0)
@@ -98,7 +118,10 @@ def k_cumsum(in_ptr, pre_ptr, tot_ptr, NB: tl.constexpr):
 
 @triton.jit
 def k_budget(out_ptr, NB: tl.constexpr):
-    buf = tle.gpu.alloc((NB,), tl.int32, scope=tle.gpu.smem)
+    buf = tle.gpu.alloc(
+        [NB], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
     p = tle.gpu.local_ptr(buf, (0,))
     lane = tl.arange(0, NB)
     tl.store(p + lane, lane)
@@ -107,6 +130,14 @@ def k_budget(out_ptr, NB: tl.constexpr):
 
 
 def run():
+    if CASE == "alloc_default":
+        out = torch.zeros(NBINS, dtype=torch.int32, device=DEV)
+        k_alloc_default[(1,)](out, NB=NBINS)
+        SYNC()
+        exp = torch.arange(NBINS, dtype=torch.int32, device=DEV) * 2
+        return ("nv_mma layout lowers (unexpected), value "
+                f"{'CORRECT' if torch.equal(out, exp) else 'WRONG'}")
+
     if CASE == "alloc":
         out = torch.zeros(NBINS, dtype=torch.int32, device=DEV)
         k_alloc[(1,)](out, NB=NBINS)
