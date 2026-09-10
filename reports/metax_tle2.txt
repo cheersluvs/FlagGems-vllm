@@ -1,0 +1,211 @@
+### branch topk-metax @ 33aa97f
+### 2026-09-10T02:47:11+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+--- tle lowering probe | python 3.12.11
+
+======================================================================
+=== alloc_default
+======================================================================
+--- alloc_default | triton 3.6.0 | torch 2.8.0+metax3.7.1.4 | device cuda
+RESULT alloc_default: FAILED
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.12/site-packages/triton/experimental/tle/language/gpu/core.py", line 270, in alloc
+    layout_handle = _semantic.builder.make_nv_mma_shared_encoding_attr(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'triton._C.libtriton.ir.builder' object has no attribute 'make_nv_mma_shared_encoding_attr'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.12/site-packages/triton/language/core.py", line 377, in wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/experimental/tle/language/gpu/core.py", line 306, in alloc
+    raise RuntimeError(f"Memory allocation failed: {str(e)}") from e
+RuntimeError: Memory allocation failed: 'triton._C.libtriton.ir.builder' object has no attribute 'make_nv_mma_shared_encoding_attr'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/tle_lowering_probe.py", line 198, in <module>
+    print(f"RESULT {CASE}: {run()}")
+                            ^^^^^
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/tle_lowering_probe.py", line 135, in run
+    k_alloc_default[(1,)](out, NB=NBINS)
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 370, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 729, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 858, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 304, in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 80, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 5:10:
+def k_alloc_default(out_ptr, NB: tl.constexpr):
+    """As first probed -- and WRONG: nv_mma_shared_layout defaults to True, so
+    this asks for the NVIDIA MMA layout that no other vendor implements. The
+    operator does not call it this way."""
+    buf = tle.gpu.alloc((NB,), tl.int32, scope=tle.gpu.smem)
+          ^
+Memory allocation failed: 'triton._C.libtriton.ir.builder' object has no attribute 'make_nv_mma_shared_encoding_attr'
+
+======================================================================
+=== alloc
+======================================================================
+--- alloc | triton 3.6.0 | torch 2.8.0+metax3.7.1.4 | device cuda
+RESULT alloc: FAILED
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.12/site-packages/triton/experimental/tle/language/gpu/core.py", line 259, in alloc
+    layout_handle = _semantic.builder.make_swizzled_shared_encoding_attr(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'triton._C.libtriton.ir.builder' object has no attribute 'make_swizzled_shared_encoding_attr'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.12/site-packages/triton/language/core.py", line 377, in wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/experimental/tle/language/gpu/core.py", line 306, in alloc
+    raise RuntimeError(f"Memory allocation failed: {str(e)}") from e
+RuntimeError: Memory allocation failed: 'triton._C.libtriton.ir.builder' object has no attribute 'make_swizzled_shared_encoding_attr'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/tle_lowering_probe.py", line 198, in <module>
+    print(f"RESULT {CASE}: {run()}")
+                            ^^^^^
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/tle_lowering_probe.py", line 143, in run
+    k_alloc[(1,)](out, NB=NBINS)
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 370, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 729, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 858, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 304, in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 80, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 3:10:
+def k_alloc(out_ptr, NB: tl.constexpr):
+    """How top_k_per_row actually allocates: swizzled, not MMA."""
+    buf = tle.gpu.alloc(
+          ^
+Memory allocation failed: 'triton._C.libtriton.ir.builder' object has no attribute 'make_swizzled_shared_encoding_attr'
+
+======================================================================
+=== atomic
+======================================================================
+--- atomic | triton 3.6.0 | torch 2.8.0+metax3.7.1.4 | device cuda
+RESULT atomic: FAILED
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.12/site-packages/triton/experimental/tle/language/gpu/core.py", line 259, in alloc
+    layout_handle = _semantic.builder.make_swizzled_shared_encoding_attr(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'triton._C.libtriton.ir.builder' object has no attribute 'make_swizzled_shared_encoding_attr'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.12/site-packages/triton/language/core.py", line 377, in wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/experimental/tle/language/gpu/core.py", line 306, in alloc
+    raise RuntimeError(f"Memory allocation failed: {str(e)}") from e
+RuntimeError: Memory allocation failed: 'triton._C.libtriton.ir.builder' object has no attribute 'make_swizzled_shared_encoding_attr'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/tle_lowering_probe.py", line 198, in <module>
+    print(f"RESULT {CASE}: {run()}")
+                            ^^^^^
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/tle_lowering_probe.py", line 153, in run
+    k_atomic[(1,)](idx, out, BLK=BLOCK, NB=NBINS)
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 370, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 729, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 858, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 304, in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 80, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 3:10:
+def k_atomic(idx_ptr, out_ptr, BLK: tl.constexpr, NB: tl.constexpr):
+    """The histogram scatter, which is the whole reason to want smem."""
+    buf = tle.gpu.alloc(
+          ^
+Memory allocation failed: 'triton._C.libtriton.ir.builder' object has no attribute 'make_swizzled_shared_encoding_attr'
+
+======================================================================
+=== cumsum
+======================================================================
+--- cumsum | triton 3.6.0 | torch 2.8.0+metax3.7.1.4 | device cuda
+RESULT cumsum: FAILED
+Traceback (most recent call last):
+  File "/opt/conda/lib/python3.12/site-packages/triton/language/core.py", line 377, in wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/experimental/tle/language/core.py", line 103, in cumsum
+    cumsum_op = _semantic.builder.create_exclusive_cumsum(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'triton._C.libtriton.ir.builder' object has no attribute 'create_exclusive_cumsum'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/tle_lowering_probe.py", line 198, in <module>
+    print(f"RESULT {CASE}: {run()}")
+                            ^^^^^
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/tle_lowering_probe.py", line 164, in run
+    k_cumsum[(1,)](src, pre, tot, NB=NBINS)
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 370, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 729, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 858, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 304, in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 80, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 3:20:
+def k_cumsum(in_ptr, pre_ptr, tot_ptr, NB: tl.constexpr):
+    bins = tl.arange(0, NB)
+    prefix, total = tle.cumsum(tl.load(in_ptr + bins), axis=0, reverse=False)
+                    ^
+'triton._C.libtriton.ir.builder' object has no attribute 'create_exclusive_cumsum'
+
+======================================================================
+=== smem_budget
+======================================================================
+--- smem_budget | triton 3.6.0 | torch 2.8.0+metax3.7.1.4 | device cuda
+RESULT smem_budget: smem ceiling walk
+    4 KB (  1024 int32)  FAILED: at 2:10:
