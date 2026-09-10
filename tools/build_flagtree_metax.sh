@@ -336,32 +336,53 @@ echo "  wheel: $WHL"
 
 # ---------------------------------------------------------------- verify
 say "verify: are the bindings actually in it?"
-TMP=$(mktemp -d)
-# python rather than unzip: this image has no unzip, and a wheel is a zip.
-python -c "import sys,zipfile;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" \
-       "$WHL" "$TMP" || die "cannot unpack the wheel"
-found=0
-for so in "$TMP"/triton/_C/*.so; do
-    [ -e "$so" ] || continue
-    hits=""
-    for w in $WANT_SYMS; do
-        strings -a "$so" 2>/dev/null | grep -qF "$w" && hits="$hits $w"
-    done
-    printf '  %-46s %s\n' "$(basename "$so")" "${hits:- none}"
-    [ -n "$hits" ] && found=1
-done
-printf '  %-46s %s\n' "backends/metax/tle_supported.py" \
-    "$([ -f "$TMP/triton/backends/metax/tle_supported.py" ] && echo present || echo absent)"
-rm -rf "$TMP"
+# In python, not with strings+grep. This image has no unzip and very likely no
+# binutils either, and `strings ... 2>/dev/null | grep -q` on a missing binary
+# yields nothing -- which reads as "no bindings" rather than as "no strings".
+# That silent negative already cost one round trip here.
+python - "$WHL" <<'PYV'
+import sys, zipfile
+
+WANT = [
+    "make_swizzled_shared_encoding_attr",   # tle.gpu.alloc, non-MMA layout
+    "create_local_pointers",                # tle.gpu.local_ptr
+    "create_local_alloc", "create_local_load", "create_local_store",
+    "make_nv_mma_shared_encoding_attr",     # NVIDIA-only, absence expected
+    "create_exclusive_cumsum",              # tle.cumsum, absent on metax
+]
+whl = sys.argv[1]
+z = zipfile.ZipFile(whl)
+sos = [n for n in z.namelist() if n.endswith(".so") and "/_C/" in n]
+if not sos:
+    print("  !! no .so under triton/_C in the wheel")
+    sys.exit(2)
+hit_any = False
+for n in sos:
+    data = z.read(n)
+    hits = [w for w in WANT if w.encode() in data]
+    print(f"  {n.split('/')[-1]:<28} {len(data)//1048576:>4} MB")
+    for w in WANT:
+        mark = "HIT " if w in hits else "  - "
+        print(f"      {mark}{w}")
+    if any(w in hits for w in ("make_swizzled_shared_encoding_attr",
+                               "create_local_pointers")):
+        hit_any = True
+ts = any("backends/metax/tle_supported.py" in n for n in z.namelist())
+print(f"  tle_supported.py present: {ts}  (absent is expected before main)")
+sys.exit(0 if hit_any else 1)
+PYV
+VRC=$?
 
 echo
-if [ "$found" = 1 ]; then
-    echo "=== bindings ARE in the wheel. Install into a THROWAWAY env first:"
-    echo "===   python -m venv ~/mctle-test && ~/mctle-test/bin/pip install $WHL"
-    echo "=== then re-run tools/tle_lowering_probe.py there. Do not replace the"
-    echo "=== working triton until that probe passes."
+if [ "$VRC" = 0 ]; then
+    echo "=== the two bindings the operator needs ARE in the wheel."
+    echo "=== Install into a THROWAWAY env, never over the working triton:"
+    echo "===   python -m venv --system-site-packages ~/mctle-test"
+    echo "===   ~/mctle-test/bin/pip install --no-deps --force-reinstall $WHL"
+    echo "=== then, in that venv:"
+    echo "===   PYTHONPATH=src:\$PYTHONPATH ~/mctle-test/bin/python tools/tle_lowering_probe.py"
 else
-    echo "=== NO bindings in the wheel. BUILD_MCTLE did not take effect."
-    echo "=== Check the configure log for 'BUILD_MCTLE' and whether"
-    echo "=== add_subdirectory(plugin/mctle) ran; do not install this."
+    echo "=== The bindings are NOT in the wheel (exit $VRC)."
+    echo "=== Check whether add_subdirectory(plugin/mctle) ran; BUILD_MCTLE being"
+    echo "=== in the cache is not the same as the target having been built."
 fi
