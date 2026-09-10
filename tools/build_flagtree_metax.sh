@@ -315,7 +315,9 @@ echo "  wheel: $WHL"
 # ---------------------------------------------------------------- verify
 say "verify: are the bindings actually in it?"
 TMP=$(mktemp -d)
-( cd "$TMP" && unzip -q "$WHL" ) || die "cannot unpack the wheel"
+# python rather than unzip: this image has no unzip, and a wheel is a zip.
+python -c "import sys,zipfile;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" \
+       "$WHL" "$TMP" || die "cannot unpack the wheel"
 found=0
 for so in "$TMP"/triton/_C/*.so; do
     [ -e "$so" ] || continue
