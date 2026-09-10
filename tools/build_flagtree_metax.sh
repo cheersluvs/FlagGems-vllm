@@ -162,17 +162,27 @@ export TRITON_APPEND_CMAKE_ARGS="-DBUILD_MCTLE=ON"
 # setting each one skips its download outright. The value is never read; it is
 # checked for presence only. Pointing them at /bin/true keeps them from looking
 # like real paths that something might later try to run as a compiler.
-# NOT the two CUPTI ones: TRITON_CUPTI_INCLUDE_PATH is read back as a real
-# directory and handed to cmake as -DCUPTI_INCLUDE_DIR, so a placeholder there
-# poisons the configure. CUPTI exists only for the proton profiler, which a
-# metax build has no use for, so turn proton off instead and the need goes away.
+# Two things are needed together, and each alone fails.
+#
+# download_and_copy_dependencies() is called unconditionally, independent of
+# proton, and every entry skips only via `if variable in os.environ: return`.
+# So ALL eight names must be set, CUPTI included, or that one downloads.
+#
+# But TRITON_CUPTI_INCLUDE_PATH is also read back as a directory and passed as
+# -DCUPTI_INCLUDE_DIR, which is how /bin/true broke the configure. Point them
+# at a real (empty) directory so that path is at least valid, and turn proton
+# off so it is never consulted at all: with TRITON_BUILD_PROTON=OFF,
+# get_proton_cmake_args() is not called and the flag is never passed.
+NVSTUB="$SRC/.nvidia-skip"
+mkdir -p "$NVSTUB"
 for v in TRITON_PTXAS_PATH TRITON_PTXAS_BLACKWELL_PATH TRITON_CUOBJDUMP_PATH \
-         TRITON_NVDISASM_PATH TRITON_CUDACRT_PATH TRITON_CUDART_PATH; do
-    export "$v=/bin/true"
+         TRITON_NVDISASM_PATH TRITON_CUDACRT_PATH TRITON_CUDART_PATH \
+         TRITON_CUPTI_INCLUDE_PATH TRITON_CUPTI_LIB_PATH; do
+    export "$v=$NVSTUB"
 done
 export TRITON_BUILD_PROTON=OFF
-echo "  NVIDIA toolkit downloads: skipped via 6 TRITON_*_PATH vars"
-echo "  proton: OFF (removes the CUPTI dependency entirely)"
+echo "  NVIDIA toolkit downloads: skipped via 8 TRITON_*_PATH -> $NVSTUB"
+echo "  proton: OFF (so CUPTI_INCLUDE_DIR is never passed to cmake)"
 export MAX_JOBS="${MAX_JOBS:-$(nproc)}"
 echo "  FLAGTREE_BACKEND=$FLAGTREE_BACKEND"
 echo "  TRITON_APPEND_CMAKE_ARGS=$TRITON_APPEND_CMAKE_ARGS"
