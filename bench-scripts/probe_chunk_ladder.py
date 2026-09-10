@@ -120,14 +120,6 @@ def main():
     table = torch.randn(TOKENS * 8, VEC, dtype=torch.float32, device=dev)
     q0 = torch.randn(TOKENS * TILES * H, WIDTH, dtype=torch.float32, device=dev)
 
-    def launch(fn, out, caps, extra, q=None):
-        for off in range(0, total, caps):
-            grid = min(caps, total - off)
-            if q is None:
-                fn[(grid,)](out, *extra[:0], **{}) if False else None
-            # explicit per-rung dispatch below; this helper only loops
-        return out
-
     def go(rung, cap):
         if rung == 1:
             out = torch.zeros(total, dtype=torch.int64, device=dev)
