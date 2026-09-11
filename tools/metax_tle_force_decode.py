@@ -85,9 +85,17 @@ _REAL_GPU = dec.tle.gpu
 # but that AxisInfo cannot see through. pid >> 31 is 0 for every valid program
 # id, and its divisibility is 1, so ptr divisibility drops to the element size,
 # alignmentBound to 1, and vec stays at the clamped value.
-@triton.jit
-def _local_ptr_opaque(buf, indices):
-    return _REAL_GPU.local_ptr(buf, indices) + (tl.program_id(0) >> 31)
+#
+# A BUILTIN, not @triton.jit: round 3 showed that passing a tle buffer INTO a
+# jit function makes Triton rebuild its type through builder.get_memdesc_type,
+# which metax's libtriton does not have. A builtin runs at trace time with the
+# caller's _semantic, so the buffer never crosses a call boundary -- and the
+# real local_ptr is itself a builtin with this exact signature.
+@tl.core.builtin
+def _local_ptr_opaque(buffer, indices=None, _semantic=None, _generator=None):
+    p = _REAL_GPU.local_ptr(buffer, indices, _semantic=_semantic, _generator=_generator)
+    zero = tl.program_id(0, _semantic=_semantic).__rshift__(31, _semantic=_semantic)
+    return p.__add__(zero, _semantic=_semantic)
 
 
 if os.environ.get("SHIM", "1") != "0":
