@@ -27,10 +27,11 @@
 # WHAT THIS COSTS
 #
 # Much less than the Ascend build. python/setup_tools/utils/metax.py downloads
-# a PREBUILT LLVM 19 and a PREBUILT metaxTritonPlugin.so, so neither is
-# compiled here; mctle links against that plugin rather than replacing it
-# (see its CMakeLists' non-FLAGTREE_PLUGIN branch), so MetaX's own backend is
-# left alone. Only Triton and mctle are built.
+# a PREBUILT LLVM 19, so LLVM is never compiled here. The metaxTritonPlugin.so
+# is ALSO prebuilt by default -- but that prebuilt one cannot carry __MCTLE__
+# (see "BUILD_MCTLE=ON compiles mctle in" below), so this script now compiles
+# the plugin from source as well. MCTLE_PLUGIN_SRC=0 restores the download;
+# MCTLE_DEFINE=0 builds without the macro, i.e. the first, broken wheel.
 #
 # STAGES
 #
@@ -176,7 +177,9 @@ fi
 # A stale build/ from another tag silently reuses the wrong CMake cache, which
 # is exactly how a BUILD_MCTLE=ON run can produce a wheel without mctle.
 STAMP="$SRC/.built-from"
-WANT_STAMP="$TAG${PICK:++$PICK}"
+# The macro and plugin mode are in the stamp too: tablegen output generated
+# without -D__MCTLE__ would otherwise be reused, and that is the defect itself.
+WANT_STAMP="$TAG${PICK:++$PICK}+def${MCTLE_DEFINE:-1}+plugsrc${MCTLE_PLUGIN_SRC:-1}"
 if [ -f "$STAMP" ] && [ "$(cat "$STAMP")" != "$WANT_STAMP" ]; then
     echo "  previous build was $(cat "$STAMP"); wiping build/"
     rm -rf "$SRC/python/build" "$SRC/build"
@@ -192,6 +195,50 @@ echo "  mctle source and BUILD_MCTLE wiring both present"
 
 export FLAGTREE_BACKEND=metax
 export TRITON_APPEND_CMAKE_ARGS="-DBUILD_MCTLE=ON"
+
+# BUILD_MCTLE=ON compiles mctle in, but #971's fixes are ALSO wrapped in
+# `#ifdef __MCTLE__` -- in metax's own TritonOps.td (atomic_rmw/atomic_cas
+# constraints, shared-memory effects), Dialect.h, and seven blocks of the
+# plugin's LoadStoreOpToLLVM.cpp -- and NOTHING defines that macro: not a
+# CMakeLists, not the tablegen rule. The first mctle wheel proved it: its
+# verifier rejected tt.atomic_rmw on a !tt.ptr<i32, 3> with "ptr type matches
+# value type", the #else constraint, whose getPointerTypeSameShape hardcodes
+# address space 1.
+#
+# Two consumers need it, and they read different flags:
+#   C++       CMAKE_CXX_FLAGS -- the top CMakeLists only appends to it
+#   TableGen  LLVM_TABLEGEN_FLAGS -- TableGen.cmake splices it into every
+#             tablegen command, and mlir-tblgen honours -D for .td #ifdef
+if [ "${MCTLE_DEFINE:-1}" != 0 ]; then
+    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -DCMAKE_CXX_FLAGS=-D__MCTLE__ -DLLVM_TABLEGEN_FLAGS=-D__MCTLE__"
+fi
+
+# And the macro is useless to the PLUGIN unless the plugin is compiled here.
+# By default setup downloads a prebuilt metaxTritonPlugin.so (v0.6.2) --
+# LoadStoreOpToLLVM.cpp, the shared-pointer load/store/atomic lowering, lives
+# in it, and whatever macros MetaX built it with are baked in. FLAGTREE_PLUGIN
+# does two things and needs both spellings:
+#   env    skips the prebuilt download and the copy of it into triton/_C
+#   -D     makes third_party/metax/CMakeLists.txt add_subdirectory(plugin)
+# The plugin links MLIRMACADialect and MLIRGPUToMACATransforms, which are not
+# in the FlagTree source; they must come from the prebuilt metax LLVM.
+if [ "${MCTLE_PLUGIN_SRC:-1}" != 0 ]; then
+    export FLAGTREE_PLUGIN=1
+    TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -DFLAGTREE_PLUGIN=ON"
+    MACA_LIBS=$(find "$PERSIST/.flagtree-cache" -maxdepth 6 \
+                  \( -name 'libMLIRMACADialect*' -o -name 'libMLIRGPUToMACATransforms*' \) 2>/dev/null)
+    if [ -n "$MACA_LIBS" ]; then
+        echo "  plugin deps found in the prebuilt LLVM:"
+        printf '%s\n' "$MACA_LIBS" | sed 's/^/    /'
+    else
+        echo "  !! MLIRMACADialect / MLIRGPUToMACATransforms not found under"
+        echo "     $PERSIST/.flagtree-cache -- a plugin source build will fail at link."
+        echo "     Retry with MCTLE_PLUGIN_SRC=0 to keep the prebuilt plugin (then only"
+        echo "     the libtriton half of __MCTLE__ applies)."
+    fi
+else
+    unset FLAGTREE_PLUGIN
+fi
 
 # setup.py downloads NVIDIA's ptxas, cuobjdump, nvdisasm, cudacrt, cudart and
 # cupti unconditionally -- from developer.download.nvidia.com, which the proxy
@@ -386,6 +433,19 @@ for n in sos:
         hit_any = True
 ts = any("backends/metax/tle_supported.py" in n for n in z.namelist())
 print(f"  tle_supported.py present: {ts}  (absent is expected before main)")
+
+# Did __MCTLE__ reach TableGen? The atomic_rmw/atomic_cas type constraint's
+# description is compiled into the verifier's error text, one string per branch.
+blob = b"".join(z.read(n) for n in sos)
+new = b"value type matches ptr type" in blob     # #ifdef __MCTLE__
+old = b"ptr type matches value type" in blob     # #else
+print(f"  atomic constraint, __MCTLE__ branch: {'HIT' if new else 'absent'}")
+print(f"  atomic constraint, #else branch:     {'HIT' if old else 'absent'}"
+      "  (may remain from the non-metax TritonOps.td)")
+if not new:
+    print("  !! __MCTLE__ did not reach TableGen -- atomics on local_ptr will still fail")
+plug = [n for n in z.namelist() if n.endswith("metaxTritonPlugin.so")]
+print(f"  metaxTritonPlugin.so in wheel: {plug or 'NO (plugin compiled into libtriton?)'}")
 sys.exit(0 if hit_any else 1)
 PYV
 VRC=$?
@@ -397,7 +457,7 @@ if [ "$VRC" = 0 ]; then
     echo "===   python -m venv --system-site-packages $VENV"
     echo "===   $VENV/bin/pip install --no-deps --force-reinstall $WHL"
     echo "=== then, in that venv:"
-    echo "===   PYTHONPATH=src:\$PYTHONPATH ~/mctle-test/bin/python tools/tle_lowering_probe.py"
+    echo "===   PYTHONPATH=src:\$PYTHONPATH $VENV/bin/python tools/metax_tle_ptr_forms.py"
 else
     echo "=== The bindings are NOT in the wheel (exit $VRC)."
     echo "=== Check whether add_subdirectory(plugin/mctle) ran; BUILD_MCTLE being"
