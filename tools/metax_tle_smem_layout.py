@@ -93,4 +93,25 @@ for ck in kernels:
         print("  (no local_alloc lines found; first lines mentioning shared:)")
         for line in [l for l in ttgir.splitlines() if "shared" in l][:6]:
             print(f"    {line.strip()[:120]}")
+
+    # Round 1: the saved TTGIR predates allocate-shared-memory, so every
+    # offset read None -- "0 overlaps" meant nothing. But the multi-block
+    # variant declares an extra 512xf32 (s_out_logits, 2048 B) and still
+    # reports shared=18484, the same as the single-block one whose buffers
+    # sum to exactly that. The real placement only survives in the LLVM IR,
+    # as constant offsets from @global_smem.
+    need = sum(s for _, s, _, _ in bufs)
+    print(f"  buffers sum to {need} B; metadata.shared = {getattr(md, 'shared', '?')} B"
+          f"{'   <-- SHORT by ' + str(need - md.shared) + ' B' if need > md.shared else ''}")
+    ms = re.search(r'"?ttg\.shared"?\s*=\s*(\d+)', ttgir)
+    print(f"  ttgir module ttg.shared = {ms.group(1) if ms else 'absent'}")
+    llir = ck.asm.get("llir", "")
+    offs = sorted({int(m.group(1)) for m in re.finditer(
+        r"@global_smem\s*,\s*i(?:32|64)\s+(-?\d+)", llir)})
+    print(f"  llir: constant offsets from @global_smem ({len(offs)}): {offs[:40]}")
+    if not offs:
+        sample = [l.strip()[:140] for l in llir.splitlines() if "global_smem" in l][:5]
+        print("  llir lines mentioning global_smem:")
+        for l in sample:
+            print(f"    {l}")
     print()
