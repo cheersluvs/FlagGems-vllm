@@ -65,6 +65,7 @@ import triton
 import triton.language as tl
 
 from flaggems_vllm import runtime
+from flaggems_vllm.runtime.backend._metax.fused import top_k_per_row_tle as _tle
 
 _generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 
@@ -257,6 +258,9 @@ def top_k_per_row_decode(
     logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
 ):
     """Two passes over the existing kernel when one program per row wastes the card."""
+    # Both passes run the generic kernel, on its TLE path when this FlagTree
+    # build passes the self-test (see top_k_per_row_tle).
+    _tle.ensure_tle(logits.device)
     vocab_size = logits.shape[1]
     split = _split_factor(num_rows, vocab_size)
 
