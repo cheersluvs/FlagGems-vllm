@@ -263,6 +263,41 @@ def main():
         print(f"\n  MISMATCH single 1/{dens}: global {'OK' if okg else 'BAD'}"
               f" {g3}  smem {'OK' if oks else 'BAD'} {s3}  want {want}")
 
+    # One program is a perfect permutation, 4160 are not: suspect CTAs sharing
+    # smem. If mctle's alloc is not counted in metadata.shared, the driver
+    # packs more CTAs per SM than the smem allows and their buffers overlap.
+    print("\n  multi-program smem single, which rows go wrong:")
+    for dens in (1, 4):
+        n = int(((src.cpu() % dens) == 0).sum())
+        want = n * (n - 1) // 2
+        for rep in range(3):
+            out_s.zero_()
+            k_single_smem[(ROWS,)](src, out_s, DENS=dens, **kw)
+            torch.cuda.synchronize()
+            o = out_s.cpu()
+            badrows = (o != want).nonzero().flatten()
+            print(f"  1/{dens} rep{rep}: bad rows {badrows.numel()}/{ROWS}"
+                  f"  first={badrows[:8].tolist()}"
+                  f"  values={o[badrows[:4]].tolist()} want {want}")
+        for grid in (104, 208, 416):
+            out_s.zero_()
+            k_single_smem[(grid,)](src, out_s, DENS=dens, **kw)
+            torch.cuda.synchronize()
+            nb = int((out_s[:grid].cpu() != want).sum())
+            print(f"  1/{dens} grid={grid:<4} bad {nb}")
+
+    def smem_of(k, *a, **kk):
+        ck = k[(1,)](*a, **kk)
+        md = getattr(ck, "metadata", None)
+        return getattr(md, "shared", "?"), getattr(ck, "n_regs", "?")
+    print("\n  compiled kernel shared-memory size (bytes) and regs:")
+    print(f"  single_smem  alloc 256 B   -> shared, regs = "
+          f"{smem_of(k_single_smem, src, out_s, DENS=1, **kw)}")
+    print(f"  hist_smem    alloc 8192 B  -> shared, regs = "
+          f"{smem_of(k_hist_smem, src, out_s, NB=NB, DENS=1, **kw)}")
+    print(f"  single_global (no alloc)   -> shared, regs = "
+          f"{smem_of(k_single_global, scr, src, out_g, DENS=1, **kw)}")
+
     # The operator USES the returned value (out_pos_lt is a write position),
     # so a masked atomic that returns wrong old values is a correctness bug,
     # not a timing footnote. Look at the values themselves.
