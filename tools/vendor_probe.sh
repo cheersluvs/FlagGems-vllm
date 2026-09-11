@@ -51,7 +51,10 @@ export PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}"
 # wrong interpreter.
 case "$PROBE" in
     *.sh) bash "$PROBE" "$@" 2>&1 | tee -a "$OUT" ;;
-    *)    python "$PROBE" "$@" 2>&1 | tee -a "$OUT" ;;
+    # PY picks the interpreter: on MetaX the mctle FlagTree build lives in a
+    # separate venv, and PATH's python would silently measure the other triton.
+    *)    echo "### python: ${PY:-python} -> $(command -v "${PY:-python}")" | tee -a "$OUT"
+          "${PY:-python}" "$PROBE" "$@" 2>&1 | tee -a "$OUT" ;;
 esac
 echo
 echo "=== report written to $OUT ($(wc -l < "$OUT") lines) ==="
