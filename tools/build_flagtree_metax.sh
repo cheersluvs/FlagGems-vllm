@@ -174,12 +174,34 @@ if [ -n "$PICK" ]; then
     done
 fi
 
+# Local patches on top of the tag + pick. Each is something the metax port of
+# a FlagTree TLE feature left out; see the patch header for the evidence.
+#   flagtree-metax-alias-local-pointers.patch
+#       metax's own lib/Analysis/Alias.cpp never learned mctle.local_pointers,
+#       so smem buffers reached only through local_ptr looked dead to the
+#       allocator and their bytes were reused (scratch at offsets 1..7 over a
+#       histogram; a 512xf32 buffer with no offset at all).
+PATCH_DIR="$(cd "$(dirname "$0")" && pwd)/patches"
+PATCH_SUM=""
+for p in "$PATCH_DIR"/flagtree-metax-*.patch; do
+    [ -f "$p" ] || continue
+    if git -C "$SRC" apply --reverse --check "$p" 2>/dev/null; then
+        echo "  patch $(basename "$p"): already applied"
+    elif git -C "$SRC" apply --check "$p" 2>/dev/null; then
+        git -C "$SRC" apply "$p" || die "applying $(basename "$p") failed"
+        echo "  patch $(basename "$p"): applied"
+    else
+        die "patch $(basename "$p") does not apply to $TAG${PICK:++$PICK}"
+    fi
+    PATCH_SUM="$PATCH_SUM$(md5sum "$p" | cut -c1-8)"
+done
+
 # A stale build/ from another tag silently reuses the wrong CMake cache, which
 # is exactly how a BUILD_MCTLE=ON run can produce a wheel without mctle.
 STAMP="$SRC/.built-from"
 # The macro and plugin mode are in the stamp too: tablegen output generated
 # without -D__MCTLE__ would otherwise be reused, and that is the defect itself.
-WANT_STAMP="$TAG${PICK:++$PICK}+def${MCTLE_DEFINE:-1}+plugsrc${MCTLE_PLUGIN_SRC:-0}"
+WANT_STAMP="$TAG${PICK:++$PICK}+def${MCTLE_DEFINE:-1}+plugsrc${MCTLE_PLUGIN_SRC:-0}${PATCH_SUM:++p$PATCH_SUM}"
 if [ -f "$STAMP" ] && [ "$(cat "$STAMP")" != "$WANT_STAMP" ]; then
     echo "  previous build was $(cat "$STAMP"); wiping build/"
     rm -rf "$SRC/python/build" "$SRC/build"
