@@ -32,8 +32,10 @@ only if that passes:
 
   1. mctle compiled in (BUILD_MCTLE=ON): the tle.gpu bindings exist and the
      metax backend reports enable_mctle.
-  2. __MCTLE__ defined for libtriton: without it tt.atomic_rmw on a shared
-     pointer fails the TTIR verifier. Surfaces as a compile error, caught.
+  2. __MCTLE__ reaching TableGen: FlagTree defines it for C++ only, so
+     metax's TritonOps.td keeps the #else tt.atomic_rmw constraint and an
+     atomic on a shared pointer fails the TTIR verifier. Surfaces as a
+     compile error, caught.
   3. metax's own lib/Analysis/Alias.cpp taught about mctle.local_pointers:
      without it every buffer reached only through local_ptr looks dead to the
      shared-memory allocator after local_pointers, and its bytes are handed to

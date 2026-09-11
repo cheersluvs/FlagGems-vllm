@@ -21,8 +21,9 @@
 #       add_subdirectory(plugin/mctle)
 #     endif()
 #
-# off by default, which is why MetaX's published wheel has no bindings even
-# where the source has them.
+# BUILD_MCTLE is an option in cmake/FlagTreeOptions.cmake that defaults to ON
+# for the metax backend at 0.6.1+metax3.6; the installed 0.6.1a2 wheel simply
+# predates mctle. This script still passes it explicitly.
 #
 # WHAT THIS COSTS
 #
@@ -157,7 +158,21 @@ if [ ! -e "$SRC/.git" ]; then
         || die "clone failed"
 fi
 git -C "$SRC" fetch --tags -q origin || die "fetch failed"
-git -C "$SRC" checkout -q "refs/tags/$TAG" || die "no such tag: $TAG"
+# FLAGTREE_REPO + FLAGTREE_REF build a branch that already carries the fixes,
+# e.g. to check that it needs nothing from this script:
+#   FLAGTREE_REPO=https://github.com/cheersluvs/FlagTree.git \
+#   FLAGTREE_REF=metax-mctle-tle-fixes MCTLE_DEFINE=0 tools/build_flagtree_metax.sh
+# Such a branch has #971 cherry-picked under another sha, so no pick by default.
+# -f: a previous run leaves the local patches applied in the worktree.
+REF="${FLAGTREE_REF:-}"
+if [ -n "$REF" ]; then
+    git -C "$SRC" fetch -q "${FLAGTREE_REPO:-origin}" "$REF" || die "cannot fetch $REF"
+    git -C "$SRC" checkout -q -f FETCH_HEAD || die "cannot check out $REF"
+    [ -z "${FLAGTREE_PICK+x}" ] && PICK=""
+    TAG="$REF@$(git -C "$SRC" rev-parse --short HEAD)"
+else
+    git -C "$SRC" checkout -q -f "refs/tags/$TAG" || die "no such tag: $TAG"
+fi
 echo "  at $(git -C "$SRC" rev-parse --short HEAD)  ($TAG)"
 
 if [ -n "$PICK" ]; then
@@ -218,19 +233,21 @@ echo "  mctle source and BUILD_MCTLE wiring both present"
 export FLAGTREE_BACKEND=metax
 export TRITON_APPEND_CMAKE_ARGS="-DBUILD_MCTLE=ON"
 
-# BUILD_MCTLE=ON compiles mctle in, but #971's fixes are ALSO wrapped in
-# `#ifdef __MCTLE__` -- in metax's own TritonOps.td (atomic_rmw/atomic_cas
-# constraints, shared-memory effects), Dialect.h, and seven blocks of the
-# plugin's LoadStoreOpToLLVM.cpp -- and NOTHING defines that macro: not a
-# CMakeLists, not the tablegen rule. The first mctle wheel proved it: its
-# verifier rejected tt.atomic_rmw on a !tt.ptr<i32, 3> with "ptr type matches
-# value type", the #else constraint, whose getPointerTypeSameShape hardcodes
-# address space 1.
+# #971's fixes are wrapped in `#ifdef __MCTLE__` -- in metax's own
+# TritonOps.td (atomic_rmw/atomic_cas constraints, shared-memory effects),
+# Dialect.h, and seven blocks of the plugin's LoadStoreOpToLLVM.cpp.
+# cmake/FlagTreeOptions.cmake does define it, but only for C++
+# (add_definitions), which never reaches mlir-tblgen. So the generated
+# verifier kept the #else constraint: the first mctle wheel rejected
+# tt.atomic_rmw on a !tt.ptr<i32, 3> with "ptr type matches value type"
+# (getPointerTypeSameShape hardcodes address space 1).
 #
-# Two consumers need it, and they read different flags:
-#   C++       CMAKE_CXX_FLAGS -- the top CMakeLists only appends to it
+# The TableGen flag is the fix; the C++ one is redundant but harmless:
 #   TableGen  LLVM_TABLEGEN_FLAGS -- TableGen.cmake splices it into every
 #             tablegen command, and mlir-tblgen honours -D for .td #ifdef
+#   C++       CMAKE_CXX_FLAGS -- already defined via add_definitions
+# The same one-line fix is on github.com/cheersluvs/FlagTree branch
+# metax-mctle-tle-fixes, in FlagTreeOptions.cmake.
 if [ "${MCTLE_DEFINE:-1}" != 0 ]; then
     TRITON_APPEND_CMAKE_ARGS="$TRITON_APPEND_CMAKE_ARGS -DCMAKE_CXX_FLAGS=-D__MCTLE__ -DLLVM_TABLEGEN_FLAGS=-D__MCTLE__"
 fi
