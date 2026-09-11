@@ -53,7 +53,11 @@ if len(sys.argv) == 1:
         print(f"{res}\n    {desc}")
     sys.exit(0)
 
-os.environ["FLAGGEMS_FORCE_TLE"] = "1"
+# NOTLE=1 runs the same inputs through the generic NON-TLE path (global
+# scratch, one kernel, no multi-block): if those are all CORRECT, the failures
+# are TLE-path-specific rather than the algorithm's.
+NOTLE = os.environ.get("NOTLE") == "1"
+os.environ["FLAGGEMS_FORCE_TLE"] = "0" if NOTLE else "1"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from importlib import import_module  # noqa: E402
 
@@ -62,11 +66,15 @@ import torch  # noqa: E402
 import flaggems_vllm  # noqa: E402,F401
 import metax_tle_shim  # noqa: E402
 
-ok, msg = metax_tle_shim.install()
-if not ok:
-    print(f"RESULT {sys.argv[1]}: SKIP {msg}")
-    sys.exit(3)
+if not NOTLE:
+    ok, msg = metax_tle_shim.install()
+    if not ok:
+        print(f"RESULT {sys.argv[1]}: SKIP {msg}")
+        sys.exit(3)
 gen = import_module("flaggems_vllm.ops.top_k_per_row_decode")
+if NOTLE and gen.HAS_TLE:
+    print(f"RESULT {sys.argv[1]}: SKIP NOTLE requested but HAS_TLE is on")
+    sys.exit(3)
 
 name = sys.argv[1]
 torch.manual_seed(0)
