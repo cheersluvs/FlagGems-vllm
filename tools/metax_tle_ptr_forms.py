@@ -265,7 +265,7 @@ def k_load_0d(out_ptr, NB: tl.constexpr):
     tl.debug_barrier()
     v = tl.load(tle.gpu.local_ptr(buf, (0,)))          # element 0 == 0
     v1 = tl.load(tle.gpu.local_ptr(buf, (1,)))         # element 1 == 2
-    tl.store(out_ptr + lane, lane * (v1 // 2) + v)     # == lane*2 iff both right
+    tl.store(out_ptr + lane, lane * v1 + v)            # == lane*2 iff both right
 
 
 @triton.jit
