@@ -25,7 +25,40 @@ CASES = ("scalar_store", "scalar_roundtrip", "view_store", "view_roundtrip",
          "atomic_view_plain", "atomic_scalar_arange", "atomic_masked_operator_form",
          "atomic_scatter_view_read", "atomic_scatter_scalar_read")
 
+def _whoami():
+    """Say which build this is, before any result is read.
+
+    Every verdict here depends on WHICH libtriton is loaded, and on this box
+    that silently changed under us once: $HOME was wiped, the throwaway venv
+    with the mctle wheel went with it, and the metadata still reported a
+    flagtree version. A result is only meaningful next to the build it came
+    from, so print the loaded library and whether mctle is live, and refuse
+    to run the cases at all if it is not -- a run on the wrong build produces
+    plausible-looking failures that mean nothing.
+    """
+    import triton
+    from triton._C import libtriton as L
+    has_mctle = hasattr(L, "mctle")
+    has_swz = hasattr(L.ir.builder, "make_swizzled_shared_encoding_attr")
+    try:
+        import triton.backends.metax.compiler as c
+        enabled = getattr(c, "enable_mctle", None)
+    except Exception:  # noqa: BLE001
+        enabled = None
+    print(f"python     {sys.executable}")
+    print(f"libtriton  {L.__file__}")
+    print(f"mctle      module={has_mctle}  swizzled_binding={has_swz}  "
+          f"enable_mctle={enabled}")
+    return has_mctle and has_swz and enabled is True
+
+
 if len(sys.argv) == 1:
+    if not _whoami():
+        print("\n!! this is NOT an mctle build -- every case would fail for "
+              "that reason alone. Install the mctle wheel into this python "
+              "first; refusing to run.")
+        raise SystemExit(3)
+    print()
     print("Each case in its own process: an assert failure aborts the "
           "interpreter, so one case cannot be allowed to take the rest.\n")
     for c in CASES:

@@ -46,6 +46,12 @@
 #
 set -uo pipefail
 
+# Everything under a PERSISTENT directory. On the C550 box $HOME is not
+# persistent: between sessions it lost the built wheel, the throwaway venv, the
+# FlagTree clone AND the 1.35 GB of downloaded LLVM and plugin in ~/.flagtree --
+# all at once, silently, which surfaced as "No such file or directory" on the
+# venv's python. The repo lives under /data and survives; so does its parent.
+PERSIST="${FLAGTREE_PERSIST:-$(cd "$(dirname "$0")/../.." && pwd)}"
 TAG="${FLAGTREE_TAG:-0.6.1+metax3.6}"
 # 0.6.1+metax3.6 is dated 2026-08-13 and #971, "[Metax][TLE] Metax TLE support
 # local pointer", landed 2026-08-20 -- a week after it. Without that commit
@@ -54,7 +60,7 @@ TAG="${FLAGTREE_TAG:-0.6.1+metax3.6}"
 # 'llvm.addrspacecast' instead". Cherry-pick it rather than moving to main,
 # which is a moving target whose metax backend may expect a newer plugin.
 PICK="${FLAGTREE_PICK:-52678a8b}"
-SRC="${FLAGTREE_SRC:-$HOME/flagtree}"
+SRC="${FLAGTREE_SRC:-$PERSIST/flagtree}"
 STAGE="${1:-build}"
 WANT_SYMS="make_swizzled_shared_encoding_attr create_local_pointers
            create_local_alloc create_local_load create_local_store"
@@ -69,6 +75,17 @@ export no_proxy="${no_proxy:+$no_proxy,}$ARTIFACT_HOST"
 export NO_PROXY="$no_proxy"
 
 say() { printf '\n=== %s\n' "$*"; }
+
+# FlagTree caches its downloads in $HOME/.flagtree and offers no knob to move
+# them. Point that name at persistent storage instead, so a lost $HOME costs a
+# symlink rather than 1.35 GB of downloads.
+mkdir -p "$PERSIST/.flagtree-cache"
+if [ -d "$HOME/.flagtree" ] && [ ! -L "$HOME/.flagtree" ]; then
+    cp -a "$HOME/.flagtree/." "$PERSIST/.flagtree-cache/" 2>/dev/null
+    rm -rf "$HOME/.flagtree"
+fi
+ln -sfn "$PERSIST/.flagtree-cache" "$HOME/.flagtree"
+VENV="${MCTLE_VENV:-$PERSIST/mctle-test}"
 die() { printf '!!! %s\n' "$*" >&2; exit 1; }
 
 # ---------------------------------------------------------------- check
@@ -377,8 +394,8 @@ echo
 if [ "$VRC" = 0 ]; then
     echo "=== the two bindings the operator needs ARE in the wheel."
     echo "=== Install into a THROWAWAY env, never over the working triton:"
-    echo "===   python -m venv --system-site-packages ~/mctle-test"
-    echo "===   ~/mctle-test/bin/pip install --no-deps --force-reinstall $WHL"
+    echo "===   python -m venv --system-site-packages $VENV"
+    echo "===   $VENV/bin/pip install --no-deps --force-reinstall $WHL"
     echo "=== then, in that venv:"
     echo "===   PYTHONPATH=src:\$PYTHONPATH ~/mctle-test/bin/python tools/tle_lowering_probe.py"
 else
