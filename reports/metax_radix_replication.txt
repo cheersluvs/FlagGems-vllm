@@ -1,0 +1,21 @@
+### branch topk-metax @ bc7ef0b
+### 2026-09-11T03:34:17+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+### python: /data/wuyuqing/workspace/mctle-test/bin/python -> /data/wuyuqing/workspace/mctle-test/bin/python
+NB=256; 8 random count vectors per config
+
+  warps threads src           load  scan reduce
+      4     256 global           0     0      0
+      4     256 smem-view        0     0      0
+      4     256 smem-scalar      0     0      0
+      8     512 global           0     0      0
+      8     512 smem-view        0     0      0
+      8     512 smem-scalar      0     0      0
+     16    1024 global       FAILED OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducing block sizes or `nu
+     16    1024 smem-view    FAILED OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducing block sizes or `nu
+     16    1024 smem-scalar  FAILED OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducing block sizes or `nu
+
+  counts are wrong trials out of 8. 4 warps = 256 threads is the
+  no-replication control; a column that is 0 there and not at 8/16
+  is the step that breaks under replication.
