@@ -66,4 +66,18 @@ def install(radix_final=False, opaque=True):
     if not radix_final:
         dec.SORTING_ALGORITHM_THRESHOLD = 1 << 40
         pre._use_radix_final_for_prefill = lambda vocab_size: False
-    return True, f"TLE shims installed (opaque={opaque} radix_final={radix_final})"
+    # threads: Triton's limit on the C550 is 512 threads per block ("Hardware
+    # limit: 512"), but _launch_geometry reads torch's max_threads_per_block,
+    # which says more -- so the TLE-only multi-block MERGE launch at
+    # NUM_THREADS_PER_BLOCK_MERGE=1024 asked for 16 warps and died with
+    # OutOfResources on every vocab >= SPLIT_WORK_THRESHOLD shape that the
+    # MetaX split does not take (rows >= SMs). Shrink the TILE, not just the
+    # warps: 1024 lanes on 8 warps is 2 elements/thread, which is exactly
+    # where the masked single-address smem atomic writes wrong byte offsets.
+    for m in (dec, pre):
+        if hasattr(m, "NUM_THREADS_PER_BLOCK_MERGE"):
+            m.NUM_THREADS_PER_BLOCK_MERGE = 512
+        if hasattr(m, "_LAUNCH_GEOMETRY"):
+            m._LAUNCH_GEOMETRY = (64, 512)
+    return True, (f"TLE shims installed (opaque={opaque} radix_final={radix_final} "
+                  f"merge_threads=512)")
