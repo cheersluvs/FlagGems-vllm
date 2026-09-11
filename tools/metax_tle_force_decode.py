@@ -36,9 +36,27 @@ CASES = (
     ("prefill", 64, 131072, 2048),
 )
 
+# Round 4: shims in, every case compiles and runs; decode 32768 and prefill
+# 32768 CORRECT, the three large-vocab cases return duplicate indices (prefill
+# 131072: all 64 rows). Large vocab switches on two things small vocab lacks:
+#   radix  USE_RADIX_FINAL -- runs ONLY when HAS_TLE, so never exercised on
+#          MetaX before; prefill turns it on at vocab >= 65536
+#   split  the MetaX decode override's chunk split + merge
+# Bisect: each wrong case under each knob, the right one as a control.
+BISECT = (
+    ("decode", 1, 262144, 512),
+    ("decode", 64, 129280, 512),
+    ("prefill", 64, 131072, 2048),
+    ("decode", 8, 32768, 2048),          # control: CORRECT in round 4
+)
+VARIANTS = ("base", "radix0", "split0", "radix0+split0")
+
 if len(sys.argv) == 1:
     print(f"SHIM={os.environ.get('SHIM', '1')}  (each case in its own process)")
-    for c in CASES:
+    runs = ([(*c, "base") for c in CASES] if os.environ.get("BISECT", "1") == "0"
+            else [(*c, v) for c in BISECT for v in VARIANTS
+                  if not (c[0] == "prefill" and "split" in v)])
+    for c in runs:
         r = subprocess.run([sys.executable, os.path.abspath(__file__), *map(str, c)],
                            capture_output=True, text=True, timeout=900)
         out = (r.stdout + r.stderr).rstrip().splitlines()
@@ -50,6 +68,9 @@ if len(sys.argv) == 1:
     sys.exit(0)
 
 os.environ["FLAGGEMS_FORCE_TLE"] = "1"
+VARIANT = sys.argv[5] if len(sys.argv) > 5 else "base"
+if "split0" in VARIANT:
+    os.environ["FLAGGEMS_METAX_TOPK_SPLIT"] = "0"     # read by the override per call
 
 import torch  # noqa: E402
 import triton  # noqa: E402
@@ -112,6 +133,13 @@ if os.environ.get("SHIM", "1") != "0":
     dec.tle = shim
     pre.tle = shim
 
+if "radix0" in VARIANT:
+    # decode: use_radix_final = vocab_size >= SORTING_ALGORITHM_THRESHOLD, read
+    # from the module at call time and used for nothing else in decode.
+    # prefill: its own predicate, called by global name.
+    dec.SORTING_ALGORITHM_THRESHOLD = 1 << 40
+    pre._use_radix_final_for_prefill = lambda vocab_size: False
+
 
 def chain(e):
     seen, links = set(), []
@@ -123,7 +151,7 @@ def chain(e):
 
 
 op, B, V, K = sys.argv[1], *map(int, sys.argv[2:5])
-tag = f"{op} B={B} V={V} K={K}"
+tag = f"{op} B={B} V={V} K={K} [{VARIANT}]"
 torch.manual_seed(0)
 logits = torch.randn(B, V, dtype=torch.float32, device="cuda")
 idx = torch.zeros(B, K, dtype=torch.int32, device="cuda")
@@ -152,5 +180,13 @@ want = torch.topk(logits, K, dim=1).values.sort(dim=1).values
 dup = sum(int(idx[r].unique().numel()) != K for r in range(B))
 oob = int(((idx < 0) | (idx >= V)).sum())
 ok = torch.allclose(got, want) and dup == 0 and oob == 0
+ref = torch.topk(logits, K, dim=1).indices
+bad_rows = [r for r in range(B) if int(idx[r].unique().numel()) != K]
+first = ""
+if bad_rows:
+    r = bad_rows[0]
+    mine = set(idx[r].tolist())
+    miss = len(set(ref[r].tolist()) - mine)
+    first = f"  row{r}: distinct={len(mine)} missing_from_ref={miss}"
 print(f"RESULT {tag}: {'CORRECT' if ok else 'WRONG'}  rows_with_dup={dup}  "
-      f"out_of_range={oob}  max|diff|={float((got - want).abs().max()):.3g}")
+      f"out_of_range={oob}  max|diff|={float((got - want).abs().max()):.3g}{first}")
