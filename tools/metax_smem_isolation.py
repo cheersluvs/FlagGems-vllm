@@ -34,7 +34,7 @@ import triton.language as tl
 
 BLOCK = 512
 CHUNKS = 8
-BIG = 1 << 30
+BIG = tl.constexpr(1 << 30)     # a plain int global is rejected inside @jit
 REC = 8
 
 
