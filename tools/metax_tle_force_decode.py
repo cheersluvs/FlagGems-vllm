@@ -70,9 +70,36 @@ def _cumsum_shim(x, axis: tl.constexpr = 0, reverse: tl.constexpr = False):
     return tl.cumsum(x, axis=axis) - x, tl.sum(x, axis=axis)
 
 
+_REAL_GPU = dec.tle.gpu
+
+
+# Round 2 wall: every case asserted in LoadOpConversion. The plugin computes
+# vec = min(4, getContiguity(ptr)) -- already clamped to elements per thread,
+# so 1 at BLOCK=512 on 8 warps -- and then, in its #ifdef __MCTLE__ block, for
+# an UNMASKED shared pointer, vec = max(vec, alignmentBound), where
+# alignmentBound comes from pointer divisibility alone and is NOT clamped.
+# That fits every probe: masked gather passed, an unprovable stride passed,
+# unmasked arange at < 4 elements/thread asserted.
+#
+# So make the pointer's alignment unprovable: add an offset that is always 0
+# but that AxisInfo cannot see through. pid >> 31 is 0 for every valid program
+# id, and its divisibility is 1, so ptr divisibility drops to the element size,
+# alignmentBound to 1, and vec stays at the clamped value.
+@triton.jit
+def _local_ptr_opaque(buf, indices):
+    return _REAL_GPU.local_ptr(buf, indices) + (tl.program_id(0) >> 31)
+
+
 if os.environ.get("SHIM", "1") != "0":
+    gpu = _REAL_GPU
+    if os.environ.get("OPAQUE", "1") != "0":
+        gpu = types.ModuleType("tle_gpu_metax_shim")
+        for k, v in vars(_REAL_GPU).items():
+            if not k.startswith("__"):
+                setattr(gpu, k, v)
+        gpu.local_ptr = _local_ptr_opaque
     shim = types.ModuleType("tle_metax_shim")
-    shim.gpu = dec.tle.gpu
+    shim.gpu = gpu
     shim.cumsum = _cumsum_shim
     dec.tle = shim
     pre.tle = shim
