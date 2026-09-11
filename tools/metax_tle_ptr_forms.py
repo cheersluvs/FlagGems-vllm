@@ -23,7 +23,22 @@ import sys
 
 CASES = ("scalar_store", "scalar_roundtrip", "view_store", "view_roundtrip",
          "atomic_view_plain", "atomic_scalar_arange", "atomic_masked_operator_form",
-         "atomic_scatter_view_read", "atomic_scatter_scalar_read")
+         "atomic_scatter_view_read", "atomic_scatter_scalar_read",
+         # --- why does scalar+offs LOAD assert? ------------------------------
+         # Hypothesis: AxisInfo proves the arange contiguous, so vec=4, but
+         # NB=256 over 4 warps x 64 lanes is ONE element per thread, and
+         # numVecs = 1/4 = 0 fails `wordNElems*nWords*numVecs == numElems`.
+         # The full view works because its contiguity is unknown -> vec=1.
+         # If that is right: >=4 elems/thread passes, an unprovable stride
+         # passes, and the operator's shapes can be predicted from geometry.
+         "load_nb256_w1",      # 4 elems/thread          -> predict CORRECT
+         "load_nb1024_w4",     # 4 elems/thread          -> predict CORRECT
+         "load_nb2048_w8",     # operator's histogram: 2048 bins, 8 warps
+         "load_nb256_w8",      # operator's radix: 256 bins, 8 warps (0.5/thr)
+         "load_nb512_w4",      # 2 elems/thread          -> predict CRASH
+         "load_opaque_stride", # NB=256 w4, stride unprovable -> predict CORRECT
+         "load_0d",            # tl.load(scalar_ptr): s_found_topk_values etc.
+         "gather_masked")      # tl.load(scalar + idx, mask) with random idx
 
 def _whoami():
     """Say which build this is, before any result is read.
@@ -226,6 +241,57 @@ def k_atomic_masked_operator_form(idx_ptr, out_ptr, NB: tl.constexpr):
     tl.store(out_ptr + bins, tl.load(view))
 
 
+@triton.jit(do_not_specialize=["one"])
+def k_load_opaque_stride(out_ptr, one, NB: tl.constexpr):
+    """scalar + offs load where AxisInfo cannot prove contiguity: `one` is a
+    runtime 1 (do_not_specialize, else Triton folds 1 into a constant)."""
+    buf = tle.gpu.alloc([NB], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    p = tle.gpu.local_ptr(buf, (0,))
+    lane = tl.arange(0, NB)
+    tl.store(tle.gpu.local_ptr(buf), lane * 2)
+    tl.debug_barrier()
+    tl.store(out_ptr + lane, tl.load(p + lane * one))
+
+
+@triton.jit
+def k_load_0d(out_ptr, NB: tl.constexpr):
+    """A 0-d load through the scalar pointer, broadcast to the output --
+    the form of every tl.load(s_found_topk_values_ptr) in the operator."""
+    buf = tle.gpu.alloc([NB], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    lane = tl.arange(0, NB)
+    tl.store(tle.gpu.local_ptr(buf), lane * 2)
+    tl.debug_barrier()
+    v = tl.load(tle.gpu.local_ptr(buf, (0,)))          # element 0 == 0
+    v1 = tl.load(tle.gpu.local_ptr(buf, (1,)))         # element 1 == 2
+    tl.store(out_ptr + lane, lane * (v1 // 2) + v)     # == lane*2 iff both right
+
+
+@triton.jit
+def k_gather_masked(idx_ptr, out_ptr, NB: tl.constexpr):
+    """What _final_select_radix does: tl.load(s_histogram_ptr + pos, mask)."""
+    buf = tle.gpu.alloc([NB], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    scalar = tle.gpu.local_ptr(buf, (0,))
+    lane = tl.arange(0, NB)
+    tl.store(tle.gpu.local_ptr(buf), lane * 2)
+    tl.debug_barrier()
+    idx = tl.load(idx_ptr + lane)
+    tl.store(out_ptr + lane, tl.load(scalar + idx, mask=idx >= 0, other=-1))
+
+
+# case -> (kernel, NB, num_warps) for the load sweep; all expect lane*2
+LOAD_SWEEP = {
+    "load_nb256_w1": (k_scalar_roundtrip, 256, 1),
+    "load_nb1024_w4": (k_scalar_roundtrip, 1024, 4),
+    "load_nb2048_w8": (k_scalar_roundtrip, 2048, 8),
+    "load_nb256_w8": (k_scalar_roundtrip, 256, 8),
+    "load_nb512_w4": (k_scalar_roundtrip, 512, 4),
+    "load_opaque_stride": (k_load_opaque_stride, 256, 4),
+    "load_0d": (k_load_0d, 256, 4),
+}
+
 KERNELS = {
     "scalar_store": k_scalar_store,
     "scalar_roundtrip": k_scalar_roundtrip,
@@ -240,7 +306,24 @@ KERNELS = {
 
 print(f"--- {CASE} | triton {triton.__version__}", flush=True)
 out = torch.zeros(NB, dtype=torch.int32, device="cuda")
-if CASE in ("atomic_view_plain", "atomic_scalar_arange"):
+if CASE in LOAD_SWEEP:
+    kern, nb, nw = LOAD_SWEEP[CASE]
+    out = torch.zeros(nb, dtype=torch.int32, device="cuda")
+    if kern is k_load_opaque_stride:
+        kern[(1,)](out, 1, NB=nb, num_warps=nw)
+    else:
+        kern[(1,)](out, NB=nb, num_warps=nw)
+    torch.cuda.synchronize()
+    ok = torch.equal(out, torch.arange(nb, dtype=torch.int32, device="cuda") * 2)
+    extra = f" | NB={nb} warps={nw} elems/thread={nb / (nw * 64):g}"
+elif CASE == "gather_masked":
+    torch.manual_seed(0)
+    idx = torch.randint(0, NB, (NB,), dtype=torch.int32, device="cuda")
+    k_gather_masked[(1,)](idx, out, NB=NB)
+    torch.cuda.synchronize()
+    ok = torch.equal(out, idx * 2)
+    extra = ""
+elif CASE in ("atomic_view_plain", "atomic_scalar_arange"):
     KERNELS[CASE][(1,)](out, NB=NB)
     torch.cuda.synchronize()
     exp = torch.full((NB,), 2, dtype=torch.int32, device="cuda")
