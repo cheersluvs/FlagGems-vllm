@@ -1,0 +1,443 @@
+### branch topk-metax @ 7b4ec8c
+### 2026-09-11T03:31:38+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+### python: /data/wuyuqing/workspace/mctle-test/bin/python -> /data/wuyuqing/workspace/mctle-test/bin/python
+=== TLE shims installed (opaque=True radix_final=False)
+
+==============================================================================
+=== pass 1 of 2
+==============================================================================
+============================= test session starts ==============================
+collecting ... INFO 09-11 03:32:01 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-11 03:32:01 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-11 03:32:01 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-11 03:32:01 [__init__.py:238] Platform plugin metax is activated
+INFO 09-11 03:32:01 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-11 03:32:01 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-11 03:32:01 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+collected 2 items
+
+benchmark/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill 
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.160768            0.157184               1.023          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.032256            0.033536               0.962          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               2.348544            1.413888               1.661          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.038144            0.039424               0.968          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               1.228288            0.933632               1.316          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               2.522112            1.448704               1.741          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.230656            0.213248               1.082          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+PASSED
+benchmark/test_top_k_per_row_decode.py::test_top_k_per_row_decode FAILED
+
+=================================== FAILURES ===================================
+__________________________ test_top_k_per_row_decode ___________________________
+
+self = <benchmark.test_top_k_per_row_decode.TopKPerRowDecodeBenchmark object at 0x7f96f6c47c80>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if "latency_base" in self.to_bench_metrics:
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+>                           metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+
+benchmark/base.py:403: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+benchmark/base.py:285: in get_latency
+    latency = do_bench(
+../mctle-test/lib/python3.12/site-packages/triton/testing.py:208: in do_bench
+    fn()
+benchmark/base.py:264: in <lambda>
+    fn = lambda: op(*args, **kwargs)
+                 ^^^^^^^^^^^^^^^^^^^
+src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_decode.py:273: in top_k_per_row_decode
+    return _generic.top_k_per_row_decode(
+src/flaggems_vllm/ops/top_k_per_row_decode.py:1369: in top_k_per_row_decode
+    tle_top_k_per_row_decode[(num_rows,)](
+../mctle-test/lib/python3.12/site-packages/triton/runtime/jit.py:399: in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../mctle-test/lib/python3.12/site-packages/triton/runtime/jit.py:786: in run
+    launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../mctle-test/lib/python3.12/site-packages/triton/compiler/compiler.py:514: in launch_metadata
+    self._init_handles()
+../mctle-test/lib/python3.12/site-packages/triton/compiler/compiler.py:501: in _init_handles
+    raise_(OutOfResources(self.metadata.num_warps * warp_size, self.n_max_threads, "threads"))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+err = OutOfResources(1024, 512, 'threads')
+
+    def raise_(err):
+        # clone the exception object so that the one saved in the closure
+        # of the partial function below doesn't get assigned a stack trace
+        # after the subsequent raise. otherwise, the CompiledKernel instance
+        # saved in the (global) kernel cache will keep references to all the
+        # locals in the traceback via the exception instance in the closure.
+        cloned_err = copy.deepcopy(err)
+        self._run = functools.partial(_raise_error, cloned_err)
+>       raise err
+E       triton.runtime.errors.OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducing block sizes or `num_stages` may help.
+
+../mctle-test/lib/python3.12/site-packages/triton/compiler/compiler.py:479: OutOfResources
+
+During handling of the above exception, another exception occurred:
+
+    @pytest.mark.top_k_per_row_decode
+    @pytest.mark.skipif(not HAS_VLLM, reason="vLLM not installed")
+    def test_top_k_per_row_decode():
+        bench = TopKPerRowDecodeBenchmark(
+            op_name="top_k_per_row_decode",
+            torch_op=_vllm_top_k_per_row_decode,
+            gems_op=flaggems_vllm.top_k_per_row_decode,
+            dtypes=[torch.float32],
+        )
+>       bench.run()
+
+benchmark/test_top_k_per_row_decode.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <benchmark.test_top_k_per_row_decode.TopKPerRowDecodeBenchmark object at 0x7f96f6c47c80>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if "latency_base" in self.to_bench_metrics:
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+                            metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+                        else:
+                            if self.op_name == "zero_":
+                                with flaggems_vllm.use_gems():
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                            else:
+                                # exclude flaggems' zero_ to avoid the overhead of zero_
+                                # in do_bench's clear_cache
+                                with flaggems_vllm.use_gems(exclude=["zero_"]):
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                    if "speedup" in self.to_bench_metrics:
+                        metric.speedup = metric.latency_base / metric.latency
+    
+                    if "gbps" in self.to_bench_metrics:
+                        metric.gbps_base = self.get_gbps(
+                            args, latency=metric.latency_base
+                        )
+                        metric.gbps = self.get_gbps(args, latency=metric.latency)
+    
+                    if "tflops" in self.to_bench_metrics:
+                        metric.tflops = (
+                            self.get_tflops(self.torch_op, *args, **kwargs)
+                            / metric.latency
+                            / 1e12
+                            * 1e3
+                        )
+                        # utilization = metric.tflops / metric.latency / 1e12 * 1e3
+                except (RuntimeError, Exception) as e:
+                    metric.error_msg = str(e)
+>                   pytest.fail(str(e))  # raise exception again
+                    ^^^^^^^^^^^^^^^^^^^
+E                   Failed: out of resource: threads, Required: 1024, Hardware limit: 512. Reducing block sizes or `num_stages` may help.
+
+benchmark/base.py:438: Failed
+=========================== short test summary info ============================
+FAILED benchmark/test_top_k_per_row_decode.py::test_top_k_per_row_decode - Fa...
+==================== 1 failed, 1 passed in 67.12s (0:01:07) ====================
+
+==============================================================================
+=== pass 2 of 2
+==============================================================================
+============================= test session starts ==============================
+collecting ... collected 2 items
+
+benchmark/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill 
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.160768            0.157184               1.023          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.032768            0.033536               0.977          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               2.349824            1.414656               1.661          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.038144            0.039936               0.955          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               1.229056            0.934016               1.316          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               2.523904            1.449088               1.742          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.230912            0.213504               1.082          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+PASSED
+benchmark/test_top_k_per_row_decode.py::test_top_k_per_row_decode FAILED
+
+=================================== FAILURES ===================================
+__________________________ test_top_k_per_row_decode ___________________________
+
+self = <benchmark.test_top_k_per_row_decode.TopKPerRowDecodeBenchmark object at 0x7f96f6cbd940>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if "latency_base" in self.to_bench_metrics:
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+>                           metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+
+benchmark/base.py:403: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+benchmark/base.py:285: in get_latency
+    latency = do_bench(
+../mctle-test/lib/python3.12/site-packages/triton/testing.py:208: in do_bench
+    fn()
+benchmark/base.py:264: in <lambda>
+    fn = lambda: op(*args, **kwargs)
+                 ^^^^^^^^^^^^^^^^^^^
+src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_decode.py:273: in top_k_per_row_decode
+    return _generic.top_k_per_row_decode(
+src/flaggems_vllm/ops/top_k_per_row_decode.py:1369: in top_k_per_row_decode
+    tle_top_k_per_row_decode[(num_rows,)](
+../mctle-test/lib/python3.12/site-packages/triton/runtime/jit.py:399: in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../mctle-test/lib/python3.12/site-packages/triton/runtime/jit.py:792: in run
+    kernel.run(grid_0, grid_1, grid_2, stream, kernel.function, kernel.packed_metadata,
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+err = OutOfResources(1024, 512, 'threads')
+args = (496, 1, 1, 0, 94086009075840, (16, 1, 18484, 1, 1, 1), ...), kwargs = {}
+
+    def _raise_error(err, *args, **kwargs):
+>       raise copy.deepcopy(err)
+E       triton.runtime.errors.OutOfResources: out of resource: threads, Required: 1024, Hardware limit: 512. Reducing block sizes or `num_stages` may help.
+
+../mctle-test/lib/python3.12/site-packages/triton/compiler/compiler.py:419: OutOfResources
+
+During handling of the above exception, another exception occurred:
+
+    @pytest.mark.top_k_per_row_decode
+    @pytest.mark.skipif(not HAS_VLLM, reason="vLLM not installed")
+    def test_top_k_per_row_decode():
+        bench = TopKPerRowDecodeBenchmark(
+            op_name="top_k_per_row_decode",
+            torch_op=_vllm_top_k_per_row_decode,
+            gems_op=flaggems_vllm.top_k_per_row_decode,
+            dtypes=[torch.float32],
+        )
+>       bench.run()
+
+benchmark/test_top_k_per_row_decode.py:124: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <benchmark.test_top_k_per_row_decode.TopKPerRowDecodeBenchmark object at 0x7f96f6cbd940>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if "latency_base" in self.to_bench_metrics:
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+                            metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+                        else:
+                            if self.op_name == "zero_":
+                                with flaggems_vllm.use_gems():
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                            else:
+                                # exclude flaggems' zero_ to avoid the overhead of zero_
+                                # in do_bench's clear_cache
+                                with flaggems_vllm.use_gems(exclude=["zero_"]):
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                    if "speedup" in self.to_bench_metrics:
+                        metric.speedup = metric.latency_base / metric.latency
+    
+                    if "gbps" in self.to_bench_metrics:
+                        metric.gbps_base = self.get_gbps(
+                            args, latency=metric.latency_base
+                        )
+                        metric.gbps = self.get_gbps(args, latency=metric.latency)
+    
+                    if "tflops" in self.to_bench_metrics:
+                        metric.tflops = (
+                            self.get_tflops(self.torch_op, *args, **kwargs)
+                            / metric.latency
+                            / 1e12
+                            * 1e3
+                        )
+                        # utilization = metric.tflops / metric.latency / 1e12 * 1e3
+                except (RuntimeError, Exception) as e:
+                    metric.error_msg = str(e)
+>                   pytest.fail(str(e))  # raise exception again
+                    ^^^^^^^^^^^^^^^^^^^
+E                   Failed: out of resource: threads, Required: 1024, Hardware limit: 512. Reducing block sizes or `num_stages` may help.
+
+benchmark/base.py:438: Failed
+=========================== short test summary info ============================
+FAILED benchmark/test_top_k_per_row_decode.py::test_top_k_per_row_decode - Fa...
+========================= 1 failed, 1 passed in 12.36s =========================
