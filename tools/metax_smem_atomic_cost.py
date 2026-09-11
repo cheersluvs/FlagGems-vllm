@@ -155,6 +155,59 @@ def k_hist_smem(src_ptr, out_ptr, NB: tl.constexpr, DENS: tl.constexpr,
     tl.store(out_ptr + row, tl.sum(h * tl.arange(0, NB)))
 
 
+@triton.jit
+def k_dump_global(scr_ptr, src_ptr, r_ptr, DENS: tl.constexpr, CHUNKS: tl.constexpr,
+                  BLOCK: tl.constexpr):
+    """One program; every lane's returned old value, -1 where not taken."""
+    lane = tl.arange(0, BLOCK)
+    zeros = tl.zeros([BLOCK], tl.int32)
+    tl.store(scr_ptr, 0)
+    tl.debug_barrier()
+    p = scr_ptr + zeros
+    for c in range(CHUNKS):
+        v = tl.load(src_ptr + c * BLOCK + lane)
+        take = (v % DENS) == 0
+        r = tl.atomic_add(p, zeros + 1, mask=take, sem="relaxed", scope="cta")
+        tl.store(r_ptr + c * BLOCK + lane, tl.where(take, r, -1))
+
+
+@triton.jit
+def k_dump_smem(src_ptr, r_ptr, DENS: tl.constexpr, CHUNKS: tl.constexpr,
+                BLOCK: tl.constexpr):
+    lane = tl.arange(0, BLOCK)
+    zeros = tl.zeros([BLOCK], tl.int32)
+    buf = tle.gpu.alloc([64], dtype=tl.int32, layout=None,
+                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    tl.store(tle.gpu.local_ptr(buf), tl.zeros([64], tl.int32))
+    tl.debug_barrier()
+    p = tle.gpu.local_ptr(buf, (0,)) + zeros
+    for c in range(CHUNKS):
+        v = tl.load(src_ptr + c * BLOCK + lane)
+        take = (v % DENS) == 0
+        r = tl.atomic_add(p, zeros + 1, mask=take, sem="relaxed", scope="cta")
+        tl.store(r_ptr + c * BLOCK + lane, tl.where(take, r, -1))
+
+
+def dump_check(name, r, take):
+    """Returned old values of the taken lanes must be exactly 0..n-1."""
+    r, take = r.cpu(), take.cpu()
+    got = r[take]
+    n = int(take.sum())
+    uniq = int(got.unique().numel())
+    perm = bool(torch.equal(got.sort().values, torch.arange(n, dtype=got.dtype)))
+    stray = int((r[~take] != -1).sum())
+    print(f"  {name:<7} taken={n:<5} unique={uniq:<5} permutation={perm}  "
+          f"untaken!=-1: {stray}  min={int(got.min())} max={int(got.max())}")
+    if not perm:
+        # per-warp view of the first chunk: a warp-aggregated atomic that hands
+        # every lane the same old value shows up as unique << taken here
+        for w in range(min(4, BLOCK // 64)):
+            seg_r, seg_t = r[w * 64:(w + 1) * 64], take[w * 64:(w + 1) * 64]
+            vals = seg_r[seg_t]
+            print(f"      warp {w}: taken={int(seg_t.sum()):<3} "
+                  f"unique={int(vals.unique().numel()):<3} first={vals[:6].tolist()}")
+
+
 def timed(fn, iters=20, warmup=5):
     for _ in range(warmup):
         fn()
@@ -177,6 +230,7 @@ def main():
     scr = torch.zeros(ROWS, dtype=torch.int32, device=dev)
     hist = torch.zeros(ROWS * NB, dtype=torch.int32, device=dev)
     kw = dict(CHUNKS=CHUNKS, BLOCK=BLOCK, num_warps=WARPS)
+    bad = []
 
     print(f"{ROWS} rows = {ROWS // SMS} waves | BLOCK={BLOCK} x {WARPS} warps | "
           f"{CHUNKS * BLOCK} items/program | per-program microseconds\n")
@@ -190,7 +244,11 @@ def main():
                 t_s = timed(lambda: k_single_smem[(ROWS,)](src, out_s, DENS=dens, **kw))
                 n = int(((src.cpu() % dens) == 0).sum())
                 want = n * (n - 1) // 2          # sum of old values, any order
-                ok = bool((out_g.cpu() == want).all() and (out_s.cpu() == want).all())
+                okg = bool((out_g.cpu() == want).all())
+                oks = bool((out_s.cpu() == want).all())
+                ok = okg and oks
+                if not ok:
+                    bad.append((dens, okg, oks, want, out_g[:3].tolist(), out_s[:3].tolist()))
             else:
                 t_g = timed(lambda: k_hist_global[(ROWS,)](hist, src, out_g, NB=NB, DENS=dens, **kw))
                 t_s = timed(lambda: k_hist_smem[(ROWS,)](src, out_s, NB=NB, DENS=dens, **kw))
@@ -200,6 +258,25 @@ def main():
             print(f"  {pattern:<8} {'1/' + str(dens):>5} {t_loop:>7.2f} {t_g:>8.2f}"
                   f" {t_s:>8.2f} {ag:>9.2f} {as_:>9.2f} {ratio:>6.1f}  "
                   f"{'OK' if ok else 'MISMATCH'}")
+
+    for dens, okg, oks, want, g3, s3 in bad:
+        print(f"\n  MISMATCH single 1/{dens}: global {'OK' if okg else 'BAD'}"
+              f" {g3}  smem {'OK' if oks else 'BAD'} {s3}  want {want}")
+
+    # The operator USES the returned value (out_pos_lt is a write position),
+    # so a masked atomic that returns wrong old values is a correctness bug,
+    # not a timing footnote. Look at the values themselves.
+    print("\n  masked single-address atomic, returned old values (one program):")
+    r = torch.empty(CHUNKS * BLOCK, dtype=torch.int32, device=dev)
+    for dens in (1, 4):
+        take = (src % dens) == 0
+        print(f"  take 1/{dens}")
+        k_dump_global[(1,)](scr, src, r, DENS=dens, **kw)
+        torch.cuda.synchronize()
+        dump_check("global", r, take)
+        k_dump_smem[(1,)](src, r, DENS=dens, **kw)
+        torch.cuda.synchronize()
+        dump_check("smem", r, take)
 
     print("\n  'atomic g/s' = kernel minus the atomic-free loop. prefill's single-")
     print("  address term is ~7.75 us of 19.4 per program; if 'single' shows most")
