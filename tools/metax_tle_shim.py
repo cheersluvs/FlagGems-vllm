@@ -64,7 +64,13 @@ def install(radix_final=False, opaque=True):
     dec.tle = shim
     pre.tle = shim
     if not radix_final:
+        # Two switches, not one. prefill ALSO launches a second kernel with a
+        # hard-coded USE_RADIX_FINAL=True for every row past
+        # SORTING_ALGORITHM_THRESHOLD (12288) -- which is how 16383-row tests
+        # failed with the vocab switch alone. (A test asserting
+        # _use_radix_final_for_prefill's own policy fails by construction.)
         dec.SORTING_ALGORITHM_THRESHOLD = 1 << 40
+        pre.SORTING_ALGORITHM_THRESHOLD = 1 << 40
         pre._use_radix_final_for_prefill = lambda vocab_size: False
     # threads: Triton's limit on the C550 is 512 threads per block ("Hardware
     # limit: 512"), but _launch_geometry reads torch's max_threads_per_block,
