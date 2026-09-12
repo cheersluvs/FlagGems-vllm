@@ -45,9 +45,16 @@ def k_slots(
     MODE: tl.constexpr,
     TILES: tl.constexpr,
     BLOCK: tl.constexpr,
+    THRESH: tl.constexpr,
 ):
     """MODE 0 atomic per selected lane, 1 cumsum + register carry,
-    2 cumsum + one atomic per tile, 3 no allocation at all (the floor)."""
+    2 cumsum + one atomic per tile, 3 no allocation at all (the floor),
+    4 adaptive: the tile's own count picks the branch.
+
+    Mode 4 exists because the choice cannot be made per shape from the host:
+    Triton resolves module globals at COMPILE time and caches the kernel, so
+    rebinding a helper between calls silently keeps the first variant. The
+    count is free in the cumsum path anyway."""
     row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
     zeros = tl.zeros([BLOCK], tl.int32)
@@ -70,6 +77,14 @@ def k_slots(
             total = tl.sum(ti, axis=0)
             start = tl.atomic_add(scr_ptr + row, total, sem="relaxed", scope="cta")
             pos = start + tl.cumsum(ti, axis=0) - ti
+        elif MODE == 4:
+            ti = take.to(tl.int32)
+            total = tl.sum(ti, axis=0)
+            if total >= THRESH:
+                start = tl.atomic_add(scr_ptr + row, total, sem="relaxed", scope="cta")
+                pos = start + tl.cumsum(ti, axis=0) - ti
+            else:
+                pos = tl.atomic_add(p, zeros + 1, mask=take, sem="relaxed", scope="cta")
         else:
             pos = lane
         # consume pos the way the operator does: a masked scatter store
@@ -128,9 +143,11 @@ def main():
             f"  {sel:>13} {t[0]:>9.2f} {t[1]:>9.2f} {t[2]:>12.2f} {t[3]:>9.2f} "
             f"{gain:>14.2f}x"
         )
-    print("\n  'best vs atomic' compares the allocation's own cost (each column")
-    print("  minus the no-alloc floor). The operator's tiles select about")
-    print("  top_k/tiles lanes each: 64 at vocab 4096 with k=512.")
+    print("\n  Costs are per program; 'adaptive vs best' divides the adaptive")
+    print("  column's own cost (minus the floor) by the best fixed strategy's,")
+    print("  so 1.0x means the branch is free and picks right. The operator's")
+    print("  tiles select about top_k*BLOCK/vocab lanes each: 64 at vocab 4096")
+    print("  with k=512, 4 at the (64,129280) production shape.")
 
 
 if __name__ == "__main__":
