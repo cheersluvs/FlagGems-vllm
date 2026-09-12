@@ -1,0 +1,20 @@
+### branch topk-metax @ ee82773
+### 2026-09-12T16:47:09+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+3200 programs = 40 waves on 80 SMs | BLOCK=512 x 8 warps | 2048 counters per program | microseconds per program
+
+  piece                        us/prog  minus noop
+  noop                           0.805       0.000
+  barriers x8                    0.812       0.007
+  clear_tiles x1 step            0.838       0.032
+  clear_tiles x4 steps           1.277       0.471
+  clear_wide x4 steps            1.276       0.470
+  scan_global x1 step            2.270       1.464
+  clear_smem x4 steps            0.805      -0.000
+  scan_smem x1 step              2.194       1.389
+
+  The ablation attributed 11.6 us/program to the clear and 7.55 to the
+  slot atomic, out of 18.07 for the whole operator. Compare the
+  clear_tiles x4 row against that 11.6 before believing either.
