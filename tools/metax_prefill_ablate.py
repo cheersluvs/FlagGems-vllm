@@ -35,7 +35,10 @@ import torch
 import flaggems_vllm
 
 DEV = flaggems_vllm.device
-ROWS, VOCAB, TOPK = 4160, 4096, 512
+SMS = int(
+    getattr(torch.cuda.get_device_properties(0), "multi_processor_count", 104)
+)  # C550 104, BW1000 80
+ROWS, VOCAB, TOPK = 40 * SMS, 4096, 512
 
 SRC = pathlib.Path(flaggems_vllm.__file__).parent / "ops" / "top_k_per_row_prefill.py"
 
@@ -45,9 +48,9 @@ ABLATIONS = [
     (
         "no_atomic",
         "    tl.atomic_add(\n        s_histogram_ptr + bin_idx,\n        ones,\n"
-        "        mask=is_partial_match,\n        sem=\"relaxed\",\n        scope=\"cta\",\n    )",
+        '        mask=is_partial_match,\n        sem="relaxed",\n        scope="cta",\n    )',
         "    tl.atomic_add(\n        s_histogram_ptr + bin_idx * 0,\n        ones,\n"
-        "        mask=is_partial_match,\n        sem=\"relaxed\",\n        scope=\"cta\",\n    )",
+        '        mask=is_partial_match,\n        sem="relaxed",\n        scope="cta",\n    )',
         "same atomic count, all to ONE address: isolates address spread",
     ),
     (
@@ -94,7 +97,7 @@ def build(name, old, new):
         n = src.count(old)
         if n == 0:
             return None, "pattern not found -- source moved"
-        src = src.replace(old, new)      # every occurrence; count is reported
+        src = src.replace(old, new)  # every occurrence; count is reported
     d = pathlib.Path(tempfile.mkdtemp(prefix=f"ablate_{name}_"))
     f = d / f"ablated_{name}.py"
     f.write_text(src)
@@ -119,7 +122,7 @@ def timed(fn, iters=20, warmup=5):
         fn()
     b.record()
     torch.cuda.synchronize()
-    return a.elapsed_time(b) / iters * 1000 / (ROWS / 104)
+    return a.elapsed_time(b) / iters * 1000 / (ROWS / SMS)
 
 
 def main():
@@ -132,8 +135,11 @@ def main():
     ends = torch.full((ROWS,), VOCAB, dtype=torch.int32, device=DEV)
     out = torch.empty((ROWS, TOPK), dtype=torch.int32, device=DEV)
 
-    real = timed(lambda: flaggems_vllm.top_k_per_row_prefill(
-        logits, starts, ends, out, ROWS, logits.stride(0), logits.stride(1), TOPK))
+    real = timed(
+        lambda: flaggems_vllm.top_k_per_row_prefill(
+            logits, starts, ends, out, ROWS, logits.stride(0), logits.stride(1), TOPK
+        )
+    )
     print(f"  {'the shipped operator':<26} {real:8.3f}\n")
     print(f"  {'ablation':<26} {'us/prog':>8} {'delta':>8}   removes")
 
@@ -145,9 +151,18 @@ def main():
             continue
         mod, d = built
         try:
-            t = timed(lambda: mod.top_k_per_row_prefill(
-                logits, starts, ends, out, ROWS,
-                logits.stride(0), logits.stride(1), TOPK))
+            t = timed(
+                lambda: mod.top_k_per_row_prefill(
+                    logits,
+                    starts,
+                    ends,
+                    out,
+                    ROWS,
+                    logits.stride(0),
+                    logits.stride(1),
+                    TOPK,
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"  {name:<26} {'FAILED':>8} {'':>8}   {type(exc).__name__}: {exc}")
             shutil.rmtree(d, ignore_errors=True)

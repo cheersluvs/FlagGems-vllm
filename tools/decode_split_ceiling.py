@@ -33,6 +33,7 @@ ROWS = (1, 8)
 
 try:
     import vllm._custom_ops  # noqa: F401
+
     HAS_VLLM = hasattr(torch.ops._C, "top_k_per_row_decode")
 except Exception:  # noqa: BLE001
     HAS_VLLM = False
@@ -53,8 +54,8 @@ def timed(fn, iters=20):
 
 def decode(logits, seq_lens, out, rows):
     flaggems_vllm.top_k_per_row_decode(
-        logits, 1, seq_lens, out, rows,
-        logits.stride(0), logits.stride(1), TOPK)
+        logits, 1, seq_lens, out, rows, logits.stride(0), logits.stride(1), TOPK
+    )
 
 
 def main():
@@ -65,23 +66,35 @@ def main():
     for rows in ROWS:
         logits = torch.randn(rows, VOCAB, device=DEV, dtype=torch.float32)
         print("=" * 76)
-        print(f"=== num_rows = {rows}   (grid today = {rows} programs, card has 104 SMs)")
+        sms = int(
+            getattr(torch.cuda.get_device_properties(0), "multi_processor_count", 104)
+        )
+        print(
+            f"=== num_rows = {rows}   (grid today = {rows} programs, card has {sms} SMs)"
+        )
         print("=" * 76)
 
         sl = torch.full((rows,), VOCAB, dtype=torch.int32, device=DEV)
         out = torch.empty((rows, TOPK), dtype=torch.int32, device=DEV)
         base = timed(lambda: decode(logits, sl, out, rows))
-        ref = torch.topk(logits, TOPK, dim=-1).values.sort(dim=-1, descending=True).values
+        ref = (
+            torch.topk(logits, TOPK, dim=-1).values.sort(dim=-1, descending=True).values
+        )
         print(f"  today, unsplit                       {base:8.4f} ms")
 
         if HAS_VLLM:
             o2 = torch.empty((rows, TOPK), dtype=torch.int32, device=DEV)
-            v = timed(lambda: torch.ops._C.top_k_per_row_decode(
-                logits, 1, sl, o2, rows, logits.stride(0), logits.stride(1), TOPK))
+            v = timed(
+                lambda: torch.ops._C.top_k_per_row_decode(
+                    logits, 1, sl, o2, rows, logits.stride(0), logits.stride(1), TOPK
+                )
+            )
             print(f"  vLLM mcoplib                         {v:8.4f} ms")
 
-        print(f"\n  {'split':>6} {'chunk':>8} {'stage1':>9} {'gather':>8} {'t.topk':>8} "
-              f"{'ourkern':>9} {'total':>8} {'vs now':>7}  correct")
+        print(
+            f"\n  {'split':>6} {'chunk':>8} {'stage1':>9} {'gather':>8} {'t.topk':>8} "
+            f"{'ourkern':>9} {'total':>8} {'vs now':>7}  correct"
+        )
         for s in SPLITS:
             if VOCAB % s or (VOCAB // s) < TOPK:
                 continue
@@ -94,12 +107,14 @@ def main():
             stage1 = timed(lambda: decode(view, sl2, out2, n2))
 
             def gather():
-                return torch.gather(view, 1, out2.long())          # [rows*s, TOPK]
+                return torch.gather(view, 1, out2.long())  # [rows*s, TOPK]
+
             g = timed(gather)
             cand = gather().reshape(rows, s * TOPK).contiguous()
 
             def select():
                 return torch.topk(cand, TOPK, dim=-1)
+
             sel = timed(select)
 
             # What the SAME kernel costs on the candidate array -- this is the
@@ -114,9 +129,11 @@ def main():
             got = select().values.sort(dim=-1, descending=True).values
             ok = torch.allclose(got, ref, atol=1e-6, rtol=1e-6)
             tot = stage1 + g + k2
-            print(f"  {s:>6} {chunk:>8} {stage1:>9.4f} {g:>8.4f} {sel:>8.4f} "
-                  f"{k2:>9.4f} {tot:>8.4f} {base / tot:>7.2f}x  "
-                  f"{'yes' if ok else 'NO'}")
+            print(
+                f"  {s:>6} {chunk:>8} {stage1:>9.4f} {g:>8.4f} {sel:>8.4f} "
+                f"{k2:>9.4f} {tot:>8.4f} {base / tot:>7.2f}x  "
+                f"{'yes' if ok else 'NO'}"
+            )
         print()
 
     print("total = stage1 + gather + ourkern, i.e. a two-pass merge built from the")

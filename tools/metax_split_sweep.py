@@ -26,6 +26,7 @@ ROWS = (1, 4, 8, 16, 24, 32, 40, 48, 56, 496, 512)
 
 try:
     import vllm._custom_ops  # noqa: F401
+
     HAS_VLLM = hasattr(torch.ops._C, "top_k_per_row_decode")
 except Exception:  # noqa: BLE001
     HAS_VLLM = False
@@ -59,7 +60,10 @@ def legal_splits(vocab, top_k):
 
 def main():
     wanted = [int(a) for a in sys.argv[1:]] or list(ROWS)
-    print(f"device {DEV} | vocab {VOCAB} top_k {TOPK} | 104 SMs")
+    sms = int(
+        getattr(torch.cuda.get_device_properties(0), "multi_processor_count", 104)
+    )
+    print(f"device {DEV} | vocab {VOCAB} top_k {TOPK} | {sms} SMs")
     print("ratio is vLLM / gems, so >= 1.00 means we are ahead. Target 0.95.\n")
 
     for rows in wanted:
@@ -72,8 +76,11 @@ def main():
         base = None
         if HAS_VLLM:
             o2 = torch.empty((rows, TOPK), dtype=torch.int32, device=DEV)
-            base = timed(lambda: torch.ops._C.top_k_per_row_decode(
-                logits, 1, sl, o2, rows, logits.stride(0), logits.stride(1), TOPK))
+            base = timed(
+                lambda: torch.ops._C.top_k_per_row_decode(
+                    logits, 1, sl, o2, rows, logits.stride(0), logits.stride(1), TOPK
+                )
+            )
 
         print("=" * 74)
         print(f"=== {rows} rows" + (f"   vLLM {base:.4f} ms" if base else ""))
@@ -83,24 +90,32 @@ def main():
             os.environ["FLAGGEMS_METAX_TOPK_SPLIT"] = str(s)
             try:
                 t = timed(lambda: flaggems_vllm.top_k_per_row_decode(*args))
-                got = torch.gather(logits, 1, out.long()).sort(-1, descending=True).values
+                got = (
+                    torch.gather(logits, 1, out.long()).sort(-1, descending=True).values
+                )
                 ok = torch.allclose(got, ref, atol=1e-6, rtol=1e-6)
             except Exception as exc:  # noqa: BLE001 - a failing split is a result
-                print(f"  {s:>6} {VOCAB // s:>8} {rows * s:>6} "
-                      f"{'FAILED':>9}  {type(exc).__name__}")
+                print(
+                    f"  {s:>6} {VOCAB // s:>8} {rows * s:>6} "
+                    f"{'FAILED':>9}  {type(exc).__name__}"
+                )
                 continue
             r = (base / t) if base else float("nan")
             if ok and (best is None or t < best[1]):
                 best = (s, t, r)
-            print(f"  {s:>6} {VOCAB // s:>8} {rows * s:>6} {t:>9.4f} {r:>7.3f}  "
-                  f"{'yes' if ok else 'WRONG'}")
+            print(
+                f"  {s:>6} {VOCAB // s:>8} {rows * s:>6} {t:>9.4f} {r:>7.3f}  "
+                f"{'yes' if ok else 'WRONG'}"
+            )
         os.environ.pop("FLAGGEMS_METAX_TOPK_SPLIT", None)
         auto = timed(lambda: flaggems_vllm.top_k_per_row_decode(*args))
         ar = (base / auto) if base else float("nan")
         print(f"  {'auto':>6} {'':>8} {'':>6} {auto:>9.4f} {ar:>7.3f}")
         if best:
-            print(f"  -> best split {best[0]}: {best[1]:.4f} ms, ratio {best[2]:.3f}"
-                  f"{'  (auto already there)' if abs(best[1] - auto) / auto < 0.02 else '  AUTO IS OFF'}")
+            print(
+                f"  -> best split {best[0]}: {best[1]:.4f} ms, ratio {best[2]:.3f}"
+                f"{'  (auto already there)' if abs(best[1] - auto) / auto < 0.02 else '  AUTO IS OFF'}"
+            )
         print()
 
 
