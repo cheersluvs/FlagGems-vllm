@@ -1,0 +1,44 @@
+### branch topk-metax @ 049d8a0
+### 2026-09-12T15:15:46+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+libtriton /usr/local/lib/python3.10/dist-packages/triton/_C/libtriton.so  local_ptr bindings=yes
+3200 rows = 40 waves | BLOCK=512 x 8 warps | 4096 items/program | per-program microseconds
+
+  pattern   take    loop   global     smem  atomic g  atomic s  ratio  check
+  single     1/1    0.90     1.11     0.86      0.21     -0.04    inf  OK
+  single     1/4    0.81    13.37     0.96     12.56      0.14   88.7  OK
+  hist       1/1    0.81     7.47    17.15      6.66     16.34    0.4  OK
+  hist       1/4    0.81     2.63     6.92      1.82      6.12    0.3  OK
+
+  multi-program smem single, which rows go wrong:
+  1/1 rep0: bad rows 0/3200  first=[]  values=[] want 8386560
+  1/1 rep1: bad rows 0/3200  first=[]  values=[] want 8386560
+  1/1 rep2: bad rows 0/3200  first=[]  values=[] want 8386560
+  1/1 grid=104  bad 0
+  1/1 grid=208  bad 0
+  1/1 grid=416  bad 0
+  1/4 rep0: bad rows 0/3200  first=[]  values=[] want 528906
+  1/4 rep1: bad rows 0/3200  first=[]  values=[] want 528906
+  1/4 rep2: bad rows 0/3200  first=[]  values=[] want 528906
+  1/4 grid=104  bad 0
+  1/4 grid=208  bad 0
+  1/4 grid=416  bad 0
+
+  compiled kernel shared-memory size (bytes) and regs:
+  single_smem  alloc 256 B   -> shared, regs = (256, 11)
+  hist_smem    alloc 8192 B  -> shared, regs = (8192, 14)
+  single_global (no alloc)   -> shared, regs = (32, 11)
+
+  masked single-address atomic, returned old values (one program):
+  take 1/1
+  global  taken=4096  unique=4096  permutation=True  untaken!=-1: 0  min=0 max=4095
+  smem    taken=4096  unique=4096  permutation=True  untaken!=-1: 0  min=0 max=4095
+  take 1/4
+  global  taken=1029  unique=1029  permutation=True  untaken!=-1: 0  min=0 max=1028
+  smem    taken=1029  unique=1029  permutation=True  untaken!=-1: 0  min=0 max=1028
+
+  'atomic g/s' = kernel minus the atomic-free loop. prefill's single-
+  address term is ~7.75 us of 19.4 per program; if 'single' shows most
+  of that vanishing in smem, the TLE path is worth its two fixes.
