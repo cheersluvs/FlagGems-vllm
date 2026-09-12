@@ -1,0 +1,15 @@
+### branch topk-metax @ 4ca0665
+### 2026-09-12T15:30:53+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+python /usr/bin/python
+
+RESULT A: PASS (sum=512, want 512)
+    smem atomic_add verifies and counts correctly
+RESULT B: PASS (mismatching values=0, shared=4128 B for 4096 B of buffers + reduction scratch)
+    two smem buffers written through local_ptr keep their own bytes
+RESULT C: PASS (0 of 4096 values corrupted by the histogram's scratch)
+    smem round-trip with tl.histogram in between (issue #1152 L7)
+RESULT D: PASS (N=512, 1 elements/thread)
+    scalar local_ptr + offsets, 1 element/thread (plugin assert)
