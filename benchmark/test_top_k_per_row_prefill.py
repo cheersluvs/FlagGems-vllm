@@ -119,6 +119,19 @@ def _non_tle_top_k_per_row_prefill(
     )
 
 
+def _torch_top_k_per_row_prefill(
+    logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
+):
+    """The baseline on cards with no vendor kernel and no TLE path.
+
+    This benchmark builds row_starts=0 and row_ends=vocab_size, so one batched
+    torch.topk does exactly the operator's work. The non-TLE kernel below is a
+    meaningful baseline only where the operator itself takes the TLE path
+    (Moore Threads); where it does not, it IS the operator.
+    """
+    torch.topk(logits, top_k, dim=1)
+
+
 class TopKPerRowPrefillBenchmark(base.Benchmark):
     DEFAULT_SHAPE_DESC = "num_rows, vocab_size, top_k, stride0, stride1"
 
@@ -155,9 +168,13 @@ class TopKPerRowPrefillBenchmark(base.Benchmark):
 
 @pytest.mark.top_k_per_row_prefill
 def test_top_k_per_row_prefill():
-    baseline_op = (
-        _vllm_top_k_per_row_prefill if HAS_VLLM else _non_tle_top_k_per_row_prefill
-    )
+    if HAS_VLLM:
+        baseline_op, which = _vllm_top_k_per_row_prefill, "vLLM"
+    elif _top_k_per_row_prefill_module.HAS_TLE:
+        baseline_op, which = _non_tle_top_k_per_row_prefill, "generic non-TLE kernel"
+    else:
+        baseline_op, which = _torch_top_k_per_row_prefill, "torch.topk"
+    print(f"\nbaseline: {which}")
     bench = TopKPerRowPrefillBenchmark(
         op_name="top_k_per_row_prefill",
         torch_op=baseline_op,

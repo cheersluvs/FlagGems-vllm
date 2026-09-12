@@ -26,7 +26,6 @@ import flaggems_vllm
 
 from . import base
 
-
 pytestmark = pytest.mark.skipif(
     not flaggems_vllm.runtime.torch_device_fn.is_available(),
     reason="accelerator device required",
@@ -61,6 +60,21 @@ except (ImportError, AttributeError, RuntimeError):
     # collection of this whole file on an MTT box.
     HAS_VLLM = False
     _vllm_top_k_per_row_decode = None
+
+
+def _torch_top_k_per_row_decode(
+    logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
+):
+    """The baseline on cards with no vendor kernel.
+
+    Every row's valid range here is the whole vocabulary (seq_lens ==
+    vocab_size, next_n == 1), so one batched torch.topk does exactly the
+    operator's work. It is the same choice test_grouped_topk.py makes for
+    mthreads/hygon/ascend, and the honest one: the alternative on those cards
+    is the generic non-TLE kernel, which on a backend that never takes the TLE
+    path IS the operator -- a ratio of 1.0 by construction.
+    """
+    torch.topk(logits, top_k, dim=1)
 
 
 class TopKPerRowDecodeBenchmark(base.Benchmark):
@@ -113,11 +127,14 @@ class TopKPerRowDecodeBenchmark(base.Benchmark):
 
 
 @pytest.mark.top_k_per_row_decode
-@pytest.mark.skipif(not HAS_VLLM, reason="vLLM not installed")
 def test_top_k_per_row_decode():
+    baseline_op = (
+        _vllm_top_k_per_row_decode if HAS_VLLM else _torch_top_k_per_row_decode
+    )
+    print(f"\nbaseline: {'vLLM' if HAS_VLLM else 'torch.topk'}")
     bench = TopKPerRowDecodeBenchmark(
         op_name="top_k_per_row_decode",
-        torch_op=_vllm_top_k_per_row_decode,
+        torch_op=baseline_op,
         gems_op=flaggems_vllm.top_k_per_row_decode,
         dtypes=[torch.float32],
     )
