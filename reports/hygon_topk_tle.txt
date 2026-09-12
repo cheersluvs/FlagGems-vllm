@@ -1,0 +1,31 @@
+### branch topk-metax @ e7d55a4
+### 2026-09-12T15:07:28+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+=== part 1: any vendor kernel for this op?
+INFO 09-12 15:07:30 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-12 15:07:30 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-12 15:07:30 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-12 15:07:30 [__init__.py:239] Platform plugin hcu is activated
+  vllm._custom_ops     164 names, topk-ish: ['grouped_topk', 'topk_sigmoid', 'topk_softmax']
+  vllm_hcu             17 names, topk-ish: none
+  lightop              190 names, topk-ish: ['fast_topk_transform_fused', 'fast_topk_transform_ragged_fused', 'fuse_topk_transform', 'topk']
+  hgai                 absent (ModuleNotFoundError)
+  torch.ops._C           topk-ish: none
+  torch.ops._C_utils     topk-ish: none
+  torch.ops.vllm_hcu     topk-ish: none
+  torch.ops.hcu          topk-ish: none
+
+=== part 2: generic path vs TLE path (own process each)
+  FLAGGEMS_FORCE_TLE=0: HAS_TLE decode=False prefill=False
+  FLAGGEMS_FORCE_TLE=1: HAS_TLE decode=True prefill=True
+
+  shape                                         generic                TLE  speedup
+  decode B=1 V=262144 K=512                  OK 0.284ms      WRONG 2.295ms    0.12x
+  decode B=8 V=262144 K=512                  OK 0.340ms      WRONG 2.325ms    0.15x
+  decode B=64 V=262144 K=512                 OK 0.551ms      WRONG 3.359ms    0.16x
+  prefill B=64 V=129280 K=1024               OK 0.243ms         OK 1.144ms    0.21x
+  prefill B=4100 V=1025 K=512                OK 0.692ms         OK 0.388ms    1.79x
+
+  TLE needs both columns CORRECT before any speedup counts.
