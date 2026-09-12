@@ -1,0 +1,26 @@
+### branch topk-metax @ 0705288
+### 2026-09-12T16:36:19+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+=== packages
+  vllm                         0.18.1  /usr/local/lib/python3.10/dist-packages/vllm/__init__.py
+  vllm_hcu                     ?  /usr/local/lib/python3.10/dist-packages/vllm_hcu-0.18.1+das.95f5786.dtk2604-py3.10-linux-x86_64.egg/vllm_hcu/__init__.py
+INFO 09-12 16:36:22 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-12 16:36:22 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-12 16:36:22 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-12 16:36:22 [__init__.py:239] Platform plugin hcu is activated
+
+=== the ops
+  top_k_per_row_prefill        resolved
+    schema                     _C::top_k_per_row_prefill(Tensor logits, Tensor rowStarts, Tensor rowEnds, Tensor($0! -> ) indices, int numRows, int stride0, int stride1, int topK) -> ()
+    kernel                     CUDA: registered at /work/vllm/csrc/torch_bindings.cpp:19 :: (Tensor _0, Tensor _1, Tensor _2, Tensor _3, int 
+  top_k_per_row_decode         resolved
+    schema                     _C::top_k_per_row_decode(Tensor logits, int next_n, Tensor seq_lens, Tensor($0! -> ) indices, int numRows, int stride0, int stride1, int topK) -> ()
+    kernel                     CUDA: registered at /work/vllm/csrc/torch_bindings.cpp:19 :: (Tensor _0, int _1, Tensor _2, Tensor _3, int _4,
+
+=== which library registered it
+  shared objects found         4
+  DEFINES top_k_per_row        _C.abi3.so
+      0000000009ee0e40 T top_k_per_row_decode(at::Tensor const&, long, at::Tensor const&, at::Tensor&, long, long, long, long)
+      0000000009ee1c00 T top_k_per_row_prefill(at::Tensor const&, at::Tensor const&, at::Tensor const&, at::Tensor&, long, long, long, long)
