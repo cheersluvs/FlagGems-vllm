@@ -110,12 +110,16 @@ def main():
                 )
             )
             if mode == 0:
-                first = out.clone()
+                masked_sums = out.clone()
             elif mode == 1:
-                same = bool(torch.equal(out, first))
+                # compare the two ATOMIC modes; mode 2 does no atomic at all,
+                # so reading `out` after the loop (as this did) always differed
+                maskless_sums = out.clone()
         n = int(((src.cpu() % dens) == 0).sum())
         want = n * (n - 1) // 2
-        ok = bool((out.cpu() == want).all()) and same
+        ok = bool((masked_sums.cpu() == want).all()) and bool(
+            torch.equal(masked_sums, maskless_sums)
+        )
         sp = (t[0] - t[2]) / (t[1] - t[2]) if t[1] > t[2] else float("inf")
         print(
             f"  {'1/' + str(dens):>6} {t[0]:>9.2f} {t[1]:>14.2f} {t[2]:>10.2f} "
