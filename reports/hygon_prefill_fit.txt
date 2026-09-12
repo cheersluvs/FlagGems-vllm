@@ -1,0 +1,54 @@
+### branch topk-metax @ 96f330d
+### 2026-09-12T16:59:47+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0912 17:00:09.755803 55697 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+device cuda | 80 SMs
+
+============================================================================
+=== 1. is it really all one kernel?
+============================================================================
+  (4160,1024) k=512: device 0.6612 ms over 1.0 launches
+        0.6612 ms  x 1.0  non_tle_top_k_per_row_prefill
+  (4160,4096) k=512: device 0.9192 ms over 1.0 launches
+        0.9192 ms  x 1.0  non_tle_top_k_per_row_prefill
+  (208,131072) k=1024: device 0.6144 ms over 1.0 launches
+        0.6144 ms  x 1.0  non_tle_top_k_per_row_prefill
+
+============================================================================
+=== 2. vocab sweep at top_k=512 -- fixed cost and the 65536 gate
+============================================================================
+     vocab   rows        ms   us/prog    model     diff
+      1024   4160    0.6724     12.93    13.98    -1.05
+      2048   4160    0.7654     14.72    15.40    -0.68
+      4096   4160    0.9314     17.91    18.25    -0.34
+      8192   4160    1.1496     22.11    23.94    -1.83
+     16384   4080    1.5849     31.08    35.32    -4.24
+     32768   2000    1.3549     54.20    58.07    -3.88
+     65536    960    1.1577     96.48   103.59    -7.11
+    131072    480    1.1169    186.15   194.62    -8.47
+  A jump at 65536 is the insertion-sort -> radix-final switch.
+
+============================================================================
+=== 3. top_k sweep -- how much of the production shape is k=1024?
+============================================================================
+     vocab  top_k   us/prog  vs k=512
+      4096    128      9.48
+      4096    256     12.26
+      4096    512     17.88
+      4096   1024     26.78  +1.50x
+
+     32768    128     44.40
+     32768    256     47.90
+     32768    512     53.97
+     32768   1024     61.95  +1.15x
+
+    131072    128    174.29
+    131072    256    179.15
+    131072    512    185.55
+    131072   1024    205.15  +1.11x
+
