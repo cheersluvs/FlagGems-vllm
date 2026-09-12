@@ -1,0 +1,17 @@
+### branch topk-metax @ bd90260
+### 2026-09-12T16:07:15+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+3200 rows = 40 waves on 80 SMs | BLOCK=512 x 8 warps | 4096 atomics/program to one address | microseconds per program
+
+   taken    masked  maskless+take  no atomic  masked-none  maskless-none  speedup  check
+     1/1      1.11           1.10       0.91         0.20           0.19      1.1  MISMATCH
+     1/2     25.98          17.85       0.90        25.08          16.95      1.5  MISMATCH
+     1/4     13.49          17.87       0.90        12.58          16.97      0.7  MISMATCH
+     1/8      6.81          17.87       0.90         5.91          16.98      0.3  MISMATCH
+    1/32      1.90          17.87       0.90         1.00          16.97      0.1  MISMATCH
+
+  'masked-none' and 'maskless-none' are the atomic's own share.
+  A large speedup column means _process_bins should drop its mask on
+  this card; 'same sums' is the semantics check (identical slot sums).
