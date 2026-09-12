@@ -1,0 +1,56 @@
+### branch topk-metax @ 0de86e4
+### 2026-09-12T15:00:25+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/data/wuyuqing/workspace/FlagGems/src/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+=== stack
+  python                     /usr/bin/python
+  torch                      2.10.0
+  triton                     3.6.0
+  flag_gems                  0.0.post1.dev3198+gf7d4ed1f5+gf7d4ed1f5
+  flaggems_vllm              0.1.0
+  vllm                       0.18.1
+  vendor                     hygon
+  device name                cuda
+  tle_enabled (descriptor)   False
+  device                     BW
+  multi_processor_count      80
+  warp_size                  64
+  max_threads_per_block      1024
+  shared_memory_per_block    65536
+  total_memory               68702699520
+  triton max_shared_mem      65536
+
+=== baseline: is there a vendor kernel for this op?
+  torch.ops._C.top_k_per_row_prefill False
+  torch.ops._C.top_k_per_row_decode False
+INFO 09-12 15:00:49 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-12 15:00:49 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-12 15:00:49 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-12 15:00:49 [__init__.py:239] Platform plugin hcu is activated
+  vllm._custom_ops           148 names
+
+=== TLE
+  has_triton_tle(3,6,0)      True
+  import tle                 ok
+  binding make_swizzled_shared_encoding_attr True
+  binding create_local_pointers True
+  binding create_exclusive_cumsum True
+  binding get_memdesc_type   True
+  tle.gpu.alloc lowers       yes, round-trip correct
+
+=== does the generic operator run, and is it right?
+  HAS_TLE                    decode=False prefill=False
+  launch geometry            (64, 1024) (warp, max threads)
+  decode B=1 V=262144 K=512  OK
+  prefill B=1 V=262144 K=512 OK
+  decode B=8 V=32768 K=512   OK
+  prefill B=8 V=32768 K=512  OK
+  decode B=64 V=129280 K=1024 OK
+  prefill B=64 V=129280 K=1024 OK
+
+=== rough timing vs torch.topk (ms, 8 iters after 3 warmups)
+  decode B=1 V=262144        gems 0.349  torch.topk 0.201  ratio 0.58x
+  decode B=64 V=129280       gems 0.254  torch.topk 0.436  ratio 1.72x
