@@ -1,0 +1,47 @@
+### branch topk-metax @ 8c4778c
+### 2026-09-12T16:22:44+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-12 16:23:03 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-12 16:23:03 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-12 16:23:03 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-12 16:23:03 [__init__.py:239] Platform plugin hcu is activated
+decode split ceiling | vocab=262144 top_k=512 | device cuda
+stage 1 reuses the existing kernel on a reshaped view; only the
+merge would be new work.
+
+============================================================================
+=== num_rows = 1   (grid today = 1 programs, card has 80 SMs)
+============================================================================
+  today, unsplit                         0.3350 ms
+  vLLM mcoplib                           0.0716 ms
+
+   split    chunk    stage1   gather   t.topk   ourkern    total  vs now  correct
+       1   262144    0.3018   0.0239   0.0703    0.1567   0.4824    0.69x  yes
+       8    32768    0.1587   0.0235   0.1026    0.1570   0.3391    0.99x  yes
+      16    16384    0.1549   0.0238   0.1414    0.1564   0.3351    1.00x  yes
+      32     8192    0.1556   0.0239   0.0613    0.1568   0.3364    1.00x  yes
+      64     4096    0.1559   0.0240   0.0692    0.1564   0.3363    1.00x  yes
+     128     2048    0.1552   0.0240   0.0744    0.1593   0.3384    0.99x  yes
+     256     1024    0.1572   0.0243   0.1172    0.1635   0.3450    0.97x  yes
+
+============================================================================
+=== num_rows = 8   (grid today = 8 programs, card has 80 SMs)
+============================================================================
+  today, unsplit                         0.3691 ms
+  vLLM mcoplib                           0.0812 ms
+
+   split    chunk    stage1   gather   t.topk   ourkern    total  vs now  correct
+       1   262144    0.3696   0.0249   0.0692    0.1560   0.5506    0.67x  yes
+       8    32768    0.1571   0.0239   0.1017    0.1554   0.3363    1.10x  yes
+      16    16384    0.1573   0.0238   0.1364    0.1549   0.3360    1.10x  yes
+      32     8192    0.1575   0.0239   0.1970    0.1542   0.3355    1.10x  yes
+      64     4096    0.1602   0.0238   0.1410    0.1556   0.3397    1.09x  yes
+     128     2048    0.2128   0.0273   0.1558    0.1579   0.3979    0.93x  yes
+     256     1024    0.3446   0.0383   0.1878    0.1721   0.5550    0.67x  yes
+
+total = stage1 + gather + ourkern, i.e. a two-pass merge built from the
+kernel we already have. t.topk is torch's selector on the same candidates,
+shown only for contrast. A fused merge would do the gather inside the
+kernel, so `total` is still an upper bound -- but a much tighter one.
