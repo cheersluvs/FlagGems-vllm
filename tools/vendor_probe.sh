@@ -109,6 +109,19 @@ for attempt in 1 2 3; do
         pushed=1
         break
     fi
+    # More than one session pushes to the same branch (reports from several
+    # boxes), so a rejection is usually "fetch first", not credentials. Replay
+    # this report commit on top of the remote and try again. The fetch is
+    # anonymous (public repo); the replay needs an identity, hence IDENT.
+    if git fetch -q origin "$BRANCH" 2>/dev/null \
+        && ! git merge-base --is-ancestor "origin/${BRANCH}" HEAD 2>/dev/null; then
+        if git "${IDENT[@]+"${IDENT[@]}"}" rebase -q "origin/${BRANCH}"; then
+            echo "=== remote had moved; rebased the report onto origin/${BRANCH} ==="
+        else
+            git rebase --abort 2>/dev/null
+            echo "=== rebase onto origin/${BRANCH} failed; leaving the commit as it was ==="
+        fi
+    fi
     sleep 4
 done
 
