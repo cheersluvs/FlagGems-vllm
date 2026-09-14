@@ -1,0 +1,22 @@
+### branch topk-metax @ a5e9c28
+### 2026-09-14T12:25:00+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+800 programs = 10 waves on 80 SMs | 65536 elements/program in [512,4] tiles | 2048 bins
+
+  mode                 us/prog  minus load  ns/element
+  load                   30.09        0.00       0.000
+  extract                28.91       -1.18      -0.018
+  atomic                 69.55       39.46       0.602
+  histogram             372.48      342.40       5.225
+  atomic_masked          50.33       20.25       0.309
+  histogram_masked      372.81      342.72       5.230
+  pass2_sparse           21.81       -8.28      -0.126
+
+  atomic vs histogram: counts IDENTICAL; histogram's own cost 40.64 vs 343.57 us -> 0.12x
+  atomic_masked vs histogram_masked: counts IDENTICAL; histogram's own cost 21.42 vs 343.90 us -> 0.06x
+
+  Reference: the operator's whole vocab term is ~1.3-1.9 ns/element.
+  'extract' is what every pass over the row pays; the operator makes
+  at least two passes per step (histogram, then _process_bins).
