@@ -45,6 +45,11 @@ PREFILL_SHAPES = [
     (64, 129280, 1024, 129280),
     (4100, 1025, 512, 1288),
 ]
+PREFILL_ALL = PREFILL_SHAPES + [
+    (16383, 4095, 512, 4352),
+    (12961, 4100, 512, 4360),
+    (16380, 5115, 512, 5376),
+]
 CONTROL = {"decode": 56, "prefill": (4100, 1025, 512, 1288)}
 
 dec = import_module("flaggems_vllm.ops.top_k_per_row_decode")
@@ -137,8 +142,11 @@ def label(shape):
     )
 
 
-def sweep(op, blocks, bprs):
-    shapes = DECODE_SHAPES if op == "decode" else PREFILL_SHAPES
+def sweep(op, blocks, bprs, rows=None, prefill_all=False):
+    if op == "decode":
+        shapes = rows or DECODE_SHAPES
+    else:
+        shapes = PREFILL_ALL if prefill_all else PREFILL_SHAPES
     configs = [(b, k) for b in blocks for k in (bprs if op == "decode" else [None])]
     default = (512, 10 if op == "decode" else None)
     base = {s: vllm_ms(op, s) for s in shapes}
@@ -194,7 +202,7 @@ def sweep(op, blocks, bprs):
                 continue
             rs = {s: base[s] / res[c][s][0] for s in shapes}
             g_all = math.exp(sum(map(math.log, rs.values())) / len(rs))
-            no_ctl = [v for s, v in rs.items() if s != CONTROL[op]]
+            no_ctl = [v for s, v in rs.items() if s != CONTROL[op]] or list(rs.values())
             g_low = math.exp(sum(map(math.log, no_ctl)) / len(no_ctl))
             rows.append((c, g_low, g_all))
         for c, g_low, g_all in sorted(rows, key=lambda r: -(r[1] or 0)):
@@ -212,6 +220,8 @@ def main():
     ap.add_argument("--op", choices=["decode", "prefill", "both"], default="both")
     ap.add_argument("--blocks", default="128,256,512,1024")
     ap.add_argument("--bpr", default="1,2,4,8,10,16,32")
+    ap.add_argument("--rows", default="", help="decode rows, e.g. 1,4,8,16,24,56,496")
+    ap.add_argument("--prefill-all", action="store_true", help="all 7 prefill shapes")
     a = ap.parse_args()
     blocks = [int(x) for x in a.blocks.split(",")]
     bprs = [int(x) for x in a.bpr.split(",")]
@@ -231,7 +241,8 @@ def main():
         f"merge tile: {dec.NUM_THREADS_PER_BLOCK_MERGE}"
     )
     for op in (["decode", "prefill"] if a.op == "both" else [a.op]):
-        sweep(op, blocks, bprs)
+        rows = [int(x) for x in a.rows.split(",")] if a.rows else None
+        sweep(op, blocks, bprs, rows, a.prefill_all)
     return 0
 
 

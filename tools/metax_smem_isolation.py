@@ -34,18 +34,22 @@ import triton.language as tl
 
 BLOCK = 512
 CHUNKS = 8
-BIG = tl.constexpr(1 << 30)     # a plain int global is rejected inside @jit
+BIG = tl.constexpr(1 << 30)  # a plain int global is rejected inside @jit
 REC = 8
 
 
 def _mctle_ok():
     from triton._C import libtriton as L
+
     try:
         import triton.backends.metax.compiler as c
+
         enabled = getattr(c, "enable_mctle", None)
     except Exception:  # noqa: BLE001
         enabled = None
-    return hasattr(L.ir.builder, "make_swizzled_shared_encoding_attr") and enabled is True
+    return (
+        hasattr(L.ir.builder, "make_swizzled_shared_encoding_attr") and enabled is True
+    )
 
 
 if not _mctle_ok():
@@ -56,9 +60,18 @@ import triton.experimental.tle.language as tle  # noqa: E402
 
 
 @triton.jit
-def k_diag(src_ptr, rec_ptr, DENS: tl.constexpr, CHUNKS: tl.constexpr,
-           BLOCK: tl.constexpr, NBUF: tl.constexpr, BARRIERS: tl.constexpr,
-           PROBE: tl.constexpr, SIGPOS: tl.constexpr):
+def k_diag(
+    src_ptr,
+    rec_ptr,
+    DENS: tl.constexpr,
+    CHUNKS: tl.constexpr,
+    BLOCK: tl.constexpr,
+    NBUF: tl.constexpr,
+    BARRIERS: tl.constexpr,
+    PROBE: tl.constexpr,
+    SIGPOS: tl.constexpr,
+    OPAQUE: tl.constexpr,
+):
     """PROBE=False is the OPERATOR's shape: fill, one barrier, atomics -- no
     read-back and no second barrier in between, which round 1 suspected of
     hiding an ordering bug (the cost tool, written that way, had bad rows at
@@ -67,8 +80,13 @@ def k_diag(src_ptr, rec_ptr, DENS: tl.constexpr, CHUNKS: tl.constexpr,
     row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
     zeros = tl.zeros([BLOCK], tl.int32)
-    buf = tle.gpu.alloc([NBUF], dtype=tl.int32, layout=None,
-                        scope=tle.gpu.smem, nv_mma_shared_layout=False)
+    buf = tle.gpu.alloc(
+        [NBUF],
+        dtype=tl.int32,
+        layout=None,
+        scope=tle.gpu.smem,
+        nv_mma_shared_layout=False,
+    )
     cells = tl.arange(0, NBUF)
     tl.store(tle.gpu.local_ptr(buf), tl.where(cells == SIGPOS, row, 0))
     for _ in tl.static_range(BARRIERS):
@@ -82,7 +100,12 @@ def k_diag(src_ptr, rec_ptr, DENS: tl.constexpr, CHUNKS: tl.constexpr,
     else:
         init0 = tl.full((), -5, tl.int32)
         sig0 = row
-    p = c0 + zeros
+    if OPAQUE:
+        # The operator's shim: an always-zero offset whose divisibility is 1,
+        # so the pointer's alignment is unprovable and the plugin keeps vec=1.
+        p = c0 + (tl.program_id(0) >> 31) + zeros
+    else:
+        p = c0 + zeros
     acc = zeros
     mn = zeros + BIG
     for c in range(CHUNKS):
@@ -103,10 +126,23 @@ def k_diag(src_ptr, rec_ptr, DENS: tl.constexpr, CHUNKS: tl.constexpr,
     tl.store(base + 5, tl.min(mn))
 
 
-def run(src, grid, dens, nbuf, warps, barriers, probe, sigpos):
+def run(
+    src, grid, dens, nbuf, warps, barriers, probe, sigpos, block=BLOCK, opaque=False
+):
     rec = torch.full((grid * REC,), -7, dtype=torch.int32, device="cuda")
-    k_diag[(grid,)](src, rec, DENS=dens, CHUNKS=CHUNKS, BLOCK=BLOCK, NBUF=nbuf,
-                    BARRIERS=barriers, PROBE=probe, SIGPOS=sigpos, num_warps=warps)
+    k_diag[(grid,)](
+        src,
+        rec,
+        DENS=dens,
+        CHUNKS=CHUNKS,
+        BLOCK=block,
+        NBUF=nbuf,
+        BARRIERS=barriers,
+        PROBE=probe,
+        SIGPOS=sigpos,
+        OPAQUE=opaque,
+        num_warps=warps,
+    )
     torch.cuda.synchronize()
     r = rec.view(grid, REC).cpu()
     rows = torch.arange(grid, dtype=torch.int32)
@@ -115,15 +151,24 @@ def run(src, grid, dens, nbuf, warps, barriers, probe, sigpos):
     # Round 2 showed the "other CTA" reading was wrong: the only failing
     # config broke EVERY row, with its own signature zeroed at the end -- the
     # CTA clobbering itself. So name the columns by what they observe.
-    sig = (r[:, 1] != rows) | (r[:, 3] != rows)       # signature cell clobbered
-    init = (r[:, 5] != 0) | ((r[:, 0] != 0) & (r[:, 0] != -5))   # counter not 0 at start
-    count = (r[:, 2] != n)                            # final count wrong
-    sumbad = (r[:, 4] != want_sum)
+    sig = (r[:, 1] != rows) | (r[:, 3] != rows)  # signature cell clobbered
+    init = (r[:, 5] != 0) | ((r[:, 0] != 0) & (r[:, 0] != -5))  # counter not 0 at start
+    count = r[:, 2] != n  # final count wrong
+    sumbad = r[:, 4] != want_sum
     ex = sumbad.nonzero().flatten()[:2].tolist()
-    detail = "; ".join(f"row{i}: init0={int(r[i,0])} fin={int(r[i,2])} "
-                       f"sig1={int(r[i,3])} min={int(r[i,5])}" for i in ex)
-    return (int(sig.sum()), int(init.sum()), int(count.sum()), int(sumbad.sum()),
-            n, detail)
+    detail = "; ".join(
+        f"row{i}: init0={int(r[i,0])} fin={int(r[i,2])} "
+        f"sig1={int(r[i,3])} min={int(r[i,5])}"
+        for i in ex
+    )
+    return (
+        int(sig.sum()),
+        int(init.sum()),
+        int(count.sum()),
+        int(sumbad.sum()),
+        n,
+        detail,
+    )
 
 
 # (nbuf, warps, barriers, probe, sigpos, why)
@@ -139,13 +184,65 @@ CONFIGS = (
 )
 
 
+# (nbuf, warps, block, opaque, why) -- all in the operator's shape (PROBE off)
+# Question: is the 2-elements-per-thread byte-offset corruption a VECTORISED
+# atomic miscomputing offsets, which the operator's pid>>31 shim sidesteps by
+# forcing vec=1? The TLE geometry sweep found BLOCK_SIZE=1024 on 8 warps
+# (2 elems/thread) CORRECT inside the operator, where every smem pointer
+# carries that shim, while this probe's plain pointer broke at 2/thread.
+OPAQUE_CONFIGS = (
+    (64, 4, 512, False, "2/thread, 4w x B512, plain ptr (known broken)"),
+    (64, 4, 512, True, "2/thread, 4w x B512, opaque ptr"),
+    (64, 8, 1024, False, "2/thread, 8w x B1024, plain ptr"),
+    (64, 8, 1024, True, "2/thread, 8w x B1024, opaque ptr (what BLOCK_SIZE=1024 runs)"),
+    (64, 8, 512, True, "1/thread control, opaque ptr"),
+)
+
+
+def main_opaque():
+    torch.manual_seed(0)
+    srcs = {
+        b: torch.randint(0, 1 << 20, (CHUNKS * b,), dtype=torch.int32, device="cuda")
+        for b in (512, 1024)
+    }
+    print(
+        "operator shape (fill, 1 barrier, atomics); up to 3 reps; counts are bad rows\n"
+    )
+    print(
+        f"  {'grid':>5} {'take':>5} {'w':>2} {'block':>5} {'opq':>5}  "
+        f"{'SIG':>5} {'INIT':>5} {'COUNT':>5} {'SUM':>5}  what"
+    )
+    for grid in (104, 4160):
+        for dens in (1, 4):
+            for nbuf, warps, block, opaque, why in OPAQUE_CONFIGS:
+                worst = None
+                for _ in range(3):
+                    res = run(
+                        srcs[block], grid, dens, nbuf, warps, 1, False, 1, block, opaque
+                    )
+                    if worst is None or res[3] > worst[3]:
+                        worst = res
+                sig, init, cnt, sb, n, detail = worst
+                print(
+                    f"  {grid:>5} {'1/' + str(dens):>5} {warps:>2} {block:>5} {str(opaque):>5}  "
+                    f"{sig:>5} {init:>5} {cnt:>5} {sb:>5}  {detail[:90] if sb else why}"
+                )
+        print()
+
+
 def main():
+    if "--opaque" in sys.argv:
+        return main_opaque()
     torch.manual_seed(0)
     src = torch.randint(0, 1 << 20, (CHUNKS * BLOCK,), dtype=torch.int32, device="cuda")
-    print(f"BLOCK={BLOCK}  {CHUNKS * BLOCK} items/program  up to 3 reps; "
-          f"counts are bad rows\n")
-    print(f"  {'grid':>5} {'take':>5} {'nbuf':>5} {'w':>2} {'bar':>3} {'probe':>5} "
-          f"{'sig@':>4}  {'SIG':>5} {'INIT':>5} {'COUNT':>5} {'SUM':>5}  example")
+    print(
+        f"BLOCK={BLOCK}  {CHUNKS * BLOCK} items/program  up to 3 reps; "
+        f"counts are bad rows\n"
+    )
+    print(
+        f"  {'grid':>5} {'take':>5} {'nbuf':>5} {'w':>2} {'bar':>3} {'probe':>5} "
+        f"{'sig@':>4}  {'SIG':>5} {'INIT':>5} {'COUNT':>5} {'SUM':>5}  example"
+    )
     for grid in (104, 4160):
         for dens in (1, 4):
             for nbuf, warps, bars, probe, sigpos, why in CONFIGS:
@@ -155,9 +252,11 @@ def main():
                     if worst is None or res[3] > worst[3]:
                         worst = res
                 sig, init, cnt, sb, n, detail = worst
-                print(f"  {grid:>5} {'1/' + str(dens):>5} {nbuf:>5} {warps:>2} {bars:>3} "
-                      f"{str(probe):>5} {sigpos:>4}  {sig:>5} {init:>5} {cnt:>5} {sb:>5}  "
-                      f"{detail[:110] if sb else why}")
+                print(
+                    f"  {grid:>5} {'1/' + str(dens):>5} {nbuf:>5} {warps:>2} {bars:>3} "
+                    f"{str(probe):>5} {sigpos:>4}  {sig:>5} {init:>5} {cnt:>5} {sb:>5}  "
+                    f"{detail[:110] if sb else why}"
+                )
         print()
 
 
