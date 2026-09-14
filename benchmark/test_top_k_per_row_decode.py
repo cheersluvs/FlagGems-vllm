@@ -26,7 +26,6 @@ import flaggems_vllm
 
 from . import base
 
-
 pytestmark = pytest.mark.skipif(
     not flaggems_vllm.runtime.torch_device_fn.is_available(),
     reason="accelerator device required",

@@ -85,23 +85,38 @@ def _sampled_prefill(
     out = out_indices_ptr + row_id * TOPK
 
     hist = tle.gpu.alloc(
-        [NBINS], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        [NBINS],
+        dtype=tl.int32,
+        layout=None,
+        scope=tle.gpu.smem,
         nv_mma_shared_layout=False,
     )
     fin = tle.gpu.alloc(
-        [NFINAL], dtype=tl.float32, layout=None, scope=tle.gpu.smem,
+        [NFINAL],
+        dtype=tl.float32,
+        layout=None,
+        scope=tle.gpu.smem,
         nv_mma_shared_layout=False,
     )
     oidx = tle.gpu.alloc(
-        [TOPKP], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        [TOPKP],
+        dtype=tl.int32,
+        layout=None,
+        scope=tle.gpu.smem,
         nv_mma_shared_layout=False,
     )
     ccnt = tle.gpu.alloc(
-        [1], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        [1],
+        dtype=tl.int32,
+        layout=None,
+        scope=tle.gpu.smem,
         nv_mma_shared_layout=False,
     )
     cfound = tle.gpu.alloc(
-        [1], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+        [1],
+        dtype=tl.int32,
+        layout=None,
+        scope=tle.gpu.smem,
         nv_mma_shared_layout=False,
     )
     hp = tle.gpu.local_ptr(hist, (0,))
@@ -125,8 +140,9 @@ def _sampled_prefill(
     for t in tl.range(0, tl.cdiv(n_s, BLOCK_SIZE)):
         i = (t * BLOCK_SIZE + lane) * SSTRIDE
         m = i < span
-        b, _ = _extract_bin_idx(tl.load(base + i * stride1, mask=m, other=0.0),
-                                m, 0, STEP=0)
+        b, _ = _extract_bin_idx(
+            tl.load(base + i * stride1, mask=m, other=0.0), m, 0, STEP=0
+        )
         tl.atomic_add(hp + b, one1, mask=m, sem="relaxed", scope="cta")
     tl.debug_barrier()
 
@@ -152,11 +168,12 @@ def _sampled_prefill(
                     i = t * BLOCK_SIZE + lane
                     m = i < span
                     b, _ = _extract_bin_idx(
-                        tl.load(base + i * stride1, mask=m, other=0.0), m, 0,
+                        tl.load(base + i * stride1, mask=m, other=0.0),
+                        m,
+                        0,
                         STEP=0,
                     )
-                    tl.atomic_add(hp + b, one1, mask=m, sem="relaxed",
-                                  scope="cta")
+                    tl.atomic_add(hp + b, one1, mask=m, sem="relaxed", scope="cta")
                 tl.debug_barrier()
                 cum2 = tl.cumsum(tl.load(hp + bins), axis=0)
                 thr = tl.min(tl.where(cum2 >= TOPK, bins, NBINS - 1), axis=0) + 1
@@ -175,8 +192,13 @@ def _sampled_prefill(
                 b, _ = _extract_bin_idx(x, True, 0, STEP=0)
                 # Explicit cast: implicit uint32/int32 promotion selects everything.
                 take = b.to(tl.int32) < thr
-                pos = tl.atomic_add(cp + tl.zeros([BLOCK_SIZE, VEC], tl.int32),
-                                    one2, mask=take, sem="relaxed", scope="cta")
+                pos = tl.atomic_add(
+                    cp + tl.zeros([BLOCK_SIZE, VEC], tl.int32),
+                    one2,
+                    mask=take,
+                    sem="relaxed",
+                    scope="cta",
+                )
                 keep = take & (pos < NFINAL)
                 tl.store(hp + pos, offs.to(tl.int32), mask=keep)
             tail = n_vec * BLOCK_SIZE * VEC
@@ -186,8 +208,13 @@ def _sampled_prefill(
                 x = tl.load(base + i * stride1, mask=m, other=0.0)
                 b, _ = _extract_bin_idx(x, m, 0, STEP=0)
                 take = m & (b.to(tl.int32) < thr)
-                pos = tl.atomic_add(cp + tl.zeros([BLOCK_SIZE], tl.int32),
-                                    one1, mask=take, sem="relaxed", scope="cta")
+                pos = tl.atomic_add(
+                    cp + tl.zeros([BLOCK_SIZE], tl.int32),
+                    one1,
+                    mask=take,
+                    sem="relaxed",
+                    scope="cta",
+                )
                 keep = take & (pos < NFINAL)
                 tl.store(hp + pos, i.to(tl.int32), mask=keep)
             tl.debug_barrier()
@@ -205,8 +232,15 @@ def _sampled_prefill(
 
     # ---- select TOPK out of the candidates --------------------------------
     _final_select_radix(
-        hp, fp, cp, fvp, op, None,
-        TOPK=TOPK, BLOCK_SIZE=BLOCK_SIZE, MULTIPLE_BLOCKS_PER_ROW=False,
+        hp,
+        fp,
+        cp,
+        fvp,
+        op,
+        None,
+        TOPK=TOPK,
+        BLOCK_SIZE=BLOCK_SIZE,
+        MULTIPLE_BLOCKS_PER_ROW=False,
     )
     tl.debug_barrier()
 
@@ -257,15 +291,35 @@ def _generic_at_block(
 
     if n_insert > 0:
         tle_top_k_per_row_prefill[(n_insert,)](
-            logits, indices, row_starts, row_ends, stride0, stride1, vocab_size,
-            TOPK=top_k, TOPKP=topkp, BLOCK_SIZE=block,
-            USE_RADIX_FINAL=False, ROW_OFFSET=0, num_warps=nw,
+            logits,
+            indices,
+            row_starts,
+            row_ends,
+            stride0,
+            stride1,
+            vocab_size,
+            TOPK=top_k,
+            TOPKP=topkp,
+            BLOCK_SIZE=block,
+            USE_RADIX_FINAL=False,
+            ROW_OFFSET=0,
+            num_warps=nw,
         )
     if num_rows > n_insert:
         tle_top_k_per_row_prefill[(num_rows - n_insert,)](
-            logits, indices, row_starts, row_ends, stride0, stride1, vocab_size,
-            TOPK=top_k, TOPKP=topkp, BLOCK_SIZE=block,
-            USE_RADIX_FINAL=True, ROW_OFFSET=n_insert, num_warps=nw,
+            logits,
+            indices,
+            row_starts,
+            row_ends,
+            stride0,
+            stride1,
+            vocab_size,
+            TOPK=top_k,
+            TOPKP=topkp,
+            BLOCK_SIZE=block,
+            USE_RADIX_FINAL=True,
+            ROW_OFFSET=n_insert,
+            num_warps=nw,
         )
 
 
@@ -290,8 +344,15 @@ def top_k_per_row_prefill(
         # Rows too short to sample can still use the wide block.
         if HAS_TLE and 0 < num_rows <= _wide_max_rows():
             return _generic_at_block(
-                logits, row_starts, row_ends, indices, num_rows, stride0,
-                stride1, top_k, _WIDE_BLOCK,
+                logits,
+                row_starts,
+                row_ends,
+                indices,
+                num_rows,
+                stride0,
+                stride1,
+                top_k,
+                _WIDE_BLOCK,
             )
         return _generic_prefill(
             logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k

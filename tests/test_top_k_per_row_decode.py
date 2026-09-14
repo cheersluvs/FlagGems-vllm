@@ -23,9 +23,7 @@ import pytest
 import torch
 
 import flaggems_vllm
-from flaggems_vllm.ops.top_k_per_row_decode import (
-    top_k_per_row_decode as _generic_impl,
-)
+from flaggems_vllm.ops.top_k_per_row_decode import top_k_per_row_decode as _generic_impl
 
 from . import conftest as cfg
 

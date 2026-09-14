@@ -27,9 +27,7 @@ import triton
 import triton.language as tl
 
 from flaggems_vllm import runtime
-
 from flaggems_vllm.utils.triton_version_utils import has_triton_tle
-
 
 _LAUNCH_GEOMETRY = None
 
