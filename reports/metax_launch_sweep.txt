@@ -1,0 +1,215 @@
+### branch topk-metax @ 14c3018
+### 2026-09-14T10:16:47+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+### python: /data/wuyuqing/workspace/mctle-v2/bin/python -> /data/wuyuqing/workspace/mctle-v2/bin/python
+INFO 09-14 10:17:09 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-14 10:17:09 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-14 10:17:09 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-14 10:17:09 [__init__.py:238] Platform plugin metax is activated
+INFO 09-14 10:17:09 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-14 10:17:09 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-14 10:17:09 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+TLE status: {'done': True, 'on': True, 'why': 'self-test passed'}
+geometry (64, 512)  merge tile 512  prefill split 12288
+
+######## decode   vLLM baseline: yes
+
+  drift, baseline first -> last (ms):
+    1 rows                    0.06707199662923813 ->    0.06732799857854843  +0.4%
+    4 rows                    0.06809599697589874 ->    0.06835199892520905  +0.4%
+    8 rows                    0.07705599814653397 ->    0.07756800204515457  +0.7%
+    16 rows                    0.0872960016131401 ->    0.08755200356245041  +0.3%
+    24 rows                    0.1013759970664978 ->     0.1013759970664978  +0.0%
+    32 rows                   0.11315199732780457 ->    0.11340799927711487  +0.2%
+    40 rows                   0.14745600521564484 ->    0.14771200716495514  +0.2%
+    48 rows                   0.14924800395965576 ->    0.14924800395965576  +0.0%
+    56 rows                    0.1656319946050644 ->     0.1658879965543747  +0.2%
+    496 rows                   0.9052159786224365 ->     0.9049599766731262  -0.0%
+    512 rows                   0.9159680008888245 ->     0.9164800047874451  +0.1%
+
+  ratio vs vLLM (x = speed vs baseline); * = fastest correct
+
+  1 rows   base 1.546
+    main W4 (2/thr)             1.319  0.853x
+    main W2 (4/thr)             1.069  0.691x
+    merge 256 W4 (1/thr)        1.368  0.885x
+    merge 256 W2 (2/thr)        1.160  0.751x
+    merge 512 W4 (2/thr)        1.401  0.907x
+    merge 512 W2 (4/thr)        1.167  0.755x
+    merge 1024 W8 (2/thr)       1.467  0.949x
+
+  4 rows   base 1.583
+    main W4 (2/thr)             1.367  0.864x
+    main W2 (4/thr)             1.096  0.693x
+    merge 256 W4 (1/thr)        1.408  0.890x
+    merge 256 W2 (2/thr)        1.206  0.762x
+    merge 512 W4 (2/thr)        1.447  0.914x
+    merge 512 W2 (4/thr)        1.210  0.764x
+    merge 1024 W8 (2/thr)       1.509  0.953x
+
+  8 rows   base 1.495
+    main W4 (2/thr)             1.398  0.935x
+    main W2 (4/thr)             1.125  0.753x
+    merge 256 W4 (1/thr)        1.351  0.904x
+    merge 256 W2 (2/thr)        1.169  0.782x
+    merge 512 W4 (2/thr)        1.380  0.923x
+    merge 512 W2 (4/thr)        1.172  0.784x
+    merge 1024 W8 (2/thr)       1.424  0.953x
+
+  16 rows   base 1.941
+    main W4 (2/thr)             1.373  0.707x
+    main W2 (4/thr)             1.046  0.539x
+    merge 256 W4 (1/thr)        1.780  0.917x
+    merge 256 W2 (2/thr)        1.565  0.806x
+    merge 512 W4 (2/thr)        1.809  0.932x
+    merge 512 W2 (4/thr)        1.572  0.810x
+    merge 1024 W8 (2/thr)       1.865  0.961x
+
+  24 rows   base 2.197
+    main W4 (2/thr)             1.925  0.876x
+    main W2 (4/thr)             1.518  0.691x
+    merge 256 W4 (1/thr)        2.107  0.959x
+    merge 256 W2 (2/thr)        1.946  0.886x
+    merge 512 W4 (2/thr)        2.107  0.959x
+    merge 512 W2 (4/thr)        1.912  0.870x
+    merge 1024 W8 (2/thr)       2.112  0.961x
+
+  32 rows   base 2.448
+    main W4 (2/thr)             1.573  0.642x
+    main W2 (4/thr)             1.125  0.459x
+    merge 256 W4 (1/thr)        2.357  0.963x
+    merge 256 W2 (2/thr)        2.199  0.898x
+    merge 512 W4 (2/thr)        2.352  0.961x
+    merge 512 W2 (4/thr)        2.160  0.882x
+    merge 1024 W8 (2/thr)       2.362  0.965x
+
+  40 rows   base 1.944
+    main W4 (2/thr)             1.652  0.850x
+    main W2 (4/thr)             1.271  0.654x
+    merge 256 W4 (1/thr)        1.905  0.980x
+    merge 256 W2 (2/thr)        1.821  0.937x
+    merge 512 W4 (2/thr)        1.892  0.973x
+    merge 512 W2 (4/thr)        1.792  0.922x
+    merge 1024 W8 (2/thr)       1.845  0.949x
+
+  48 rows   base 2.286
+    main W4 (2/thr)             1.932  0.845x
+    main W2 (4/thr)             1.498  0.655x
+    merge 256 W4 (1/thr)        2.240  0.980x
+    merge 256 W2 (2/thr)        2.153  0.942x
+    merge 512 W4 (2/thr)        2.237  0.978x
+    merge 512 W2 (4/thr)        2.119  0.927x
+    merge 1024 W8 (2/thr)       2.178  0.953x
+
+  56 rows   base 2.388
+    main W4 (2/thr)             1.431  0.599x
+    main W2 (4/thr)             0.985  0.413x
+    merge 256 W4 (1/thr)        2.348  0.983x
+    merge 256 W2 (2/thr)        2.262  0.947x
+    merge 512 W4 (2/thr)        2.341  0.980x
+    merge 512 W2 (4/thr)        2.223  0.931x
+    merge 1024 W8 (2/thr)       2.289  0.959x
+
+  496 rows   base 3.166
+    main W4 (2/thr)             2.028  0.641x
+    main W2 (4/thr)             1.447  0.457x
+    merge 256 W4 (1/thr)        3.161  0.998x
+    merge 256 W2 (2/thr)        3.132  0.989x
+    merge 512 W4 (2/thr)        3.155  0.996x
+    merge 512 W2 (4/thr)        3.115  0.984x
+    merge 1024 W8 (2/thr)       3.060  0.966x
+
+  512 rows   base 3.230
+    main W4 (2/thr)             2.066  0.640x
+    main W2 (4/thr)             1.490  0.461x
+    merge 256 W4 (1/thr)        3.220  0.997x
+    merge 256 W2 (2/thr)        3.188  0.987x
+    merge 512 W4 (2/thr)        3.216  0.996x
+    merge 512 W2 (4/thr)        3.165  0.980x
+    merge 1024 W8 (2/thr)       3.122  0.967x
+
+  geomean ratio vs vLLM:
+    base: main W8 | merge 512 W8 2.132
+    main W4 (2/thr)            1.619
+    main W2 (4/thr)            1.227
+    merge 256 W4 (1/thr)       2.025
+    merge 256 W2 (2/thr)       1.869
+    merge 512 W4 (2/thr)       2.038
+    merge 512 W2 (4/thr)       1.855
+    merge 1024 W8 (2/thr)      2.042
+
+######## prefill   vLLM baseline: yes
+
+  drift, baseline first -> last (ms):
+    (4,8193) k512             0.03558399900794029 ->   0.035840000957250595  +0.7%
+    (4,16385) k512            0.04070400074124336 ->    0.04095999896526337  +0.6%
+    (64,129280) k1024         0.16204799711704254 ->    0.16281600296497345  +0.5%
+    (4100,1025) k512          0.22015999257564545 ->    0.22067199647426605  +0.2%
+    (16383,4095) k512          1.2799999713897705 ->     1.2805119752883911  +0.0%
+    (12961,4100) k512          0.9528319835662842 ->     0.9533439874649048  +0.1%
+    (16380,5115) k512          1.3184000253677368 ->     1.3184000253677368  +0.0%
+
+  ratio vs vLLM (x = speed vs baseline); * = fastest correct
+
+  (4,8193) k512   base 0.914
+    W4                          0.799  0.874x
+    W2                          0.605  0.662x
+    no split                    0.914  1.000x
+    no split + W4               0.794  0.869x
+
+  (4,16385) k512   base 0.918
+    W4                          0.730  0.795x
+    W2                          0.105  0.114x
+    no split                    0.907  0.988x
+    no split + W4               0.730  0.795x
+
+  (64,129280) k1024   base 0.986
+    W4                          0.718  0.728x
+    W2                          0.079  0.080x
+    no split                    0.983  0.997x
+    no split + W4               0.717  0.728x
+
+  (4100,1025) k512   base 1.042
+    W4                          1.006  0.965x
+    W2                          0.923  0.886x
+    no split                    1.039  0.998x
+    no split + W4               1.003  0.963x
+
+  (16383,4095) k512   base 1.839
+    W4                          1.760  0.957x
+    W2                          1.452  0.790x
+    no split                    1.857  1.010x  *
+    no split + W4               1.785  0.971x
+
+  (12961,4100) k512   base 1.289
+    W4                          1.268  0.984x
+    W2                          1.058  0.821x
+    no split                    1.307  1.014x  *
+    no split + W4               1.293  1.003x
+
+  (16380,5115) k512   base 1.917
+    W4                          1.870  0.976x
+    W2                          1.485  0.775x
+    no split                    1.940  1.012x  *
+    no split + W4               1.898  0.990x
+
+  geomean ratio vs vLLM:
+    base: W rule | split 12288 1.215
+    W4                         1.084
+    W2                         0.522
+    no split                   1.218
+    no split + W4              1.090
