@@ -28,7 +28,9 @@ all 11 benchmark row counts:
     10 ->  1.35 1.37 1.37 1.78 2.09 1.98 1.92 2.10 2.22 2.59 2.58
     rule   1.53 1.58 1.50 1.95 2.21 2.46 1.96 2.30 2.40 3.17 3.23
 
-(ratio vs vLLM; geomean 1.890 -> 2.137). One block per row returns WRONG
+(ratio vs vLLM; geomean 1.890 -> 2.137; confirmed by the benchmark at
+2.117). The floor of 4 is measured too: at 128/256/496/512 rows, 2 blocks
+was within 0.2-1.7% of 4 and 3 blocks was slower. One block per row returns WRONG
 results at every BLOCK_SIZE (a generic merge-path bug), so 4 is also a floor
 for correctness headroom. BLOCK_SIZE stays 512: 128/256 were slower everywhere
 and 1024 only helped 1-8 rows, by 3-4%.
