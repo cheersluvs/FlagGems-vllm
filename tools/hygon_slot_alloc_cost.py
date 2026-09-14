@@ -118,12 +118,12 @@ def main():
     )
     print(
         f"  {'selected/tile':>13} {'atomic':>9} {'scan_reg':>9} {'scan_atomic':>12} "
-        f"{'no alloc':>9} {'best vs atomic':>15}"
+        f"{'adaptive':>9} {'no alloc':>9} {'adaptive vs best':>17}"
     )
     for dens in (64, 16, 8, 4, 2):
         sel = BLOCK // dens
         t = {}
-        for mode in (0, 1, 2, 3):
+        for mode in (0, 1, 2, 3, 4):
             t[mode] = timed(
                 lambda m=mode: k_slots[(ROWS,)](
                     src,
@@ -133,15 +133,16 @@ def main():
                     MODE=m,
                     TILES=TILES,
                     BLOCK=BLOCK,
+                    THRESH=48,
                     num_warps=WARPS,
                 )
             )
         floor = t[3]
-        best = min(t[1], t[2])
-        gain = (t[0] - floor) / (best - floor) if best > floor else float("inf")
+        best = min(t[0], t[1], t[2])
+        over = (t[4] - floor) / (best - floor) if best > floor else float("inf")
         print(
-            f"  {sel:>13} {t[0]:>9.2f} {t[1]:>9.2f} {t[2]:>12.2f} {t[3]:>9.2f} "
-            f"{gain:>14.2f}x"
+            f"  {sel:>13} {t[0]:>9.2f} {t[1]:>9.2f} {t[2]:>12.2f} {t[4]:>9.2f} "
+            f"{t[3]:>9.2f} {over:>16.2f}x"
         )
     print("\n  Costs are per program; 'adaptive vs best' divides the adaptive")
     print("  column's own cost (minus the floor) by the best fixed strategy's,")
