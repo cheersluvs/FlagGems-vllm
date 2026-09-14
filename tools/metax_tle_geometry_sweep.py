@@ -105,11 +105,11 @@ def apply(op, block, bpr):
 def run_one(op, shape, block, bpr):
     apply(op, block, bpr)
     args = decode_inputs(shape) if op == "decode" else prefill_inputs(shape)
-    fn_op = (
-        flaggems_vllm.top_k_per_row_decode
-        if op == "decode"
-        else flaggems_vllm.top_k_per_row_prefill
-    )
+    # Call the GENERIC op, not flaggems_vllm.<op>: since d58b45b the MetaX entry
+    # sets blocks-per-row / tile itself on every call, which would overwrite the
+    # config applied above and time the rule instead of the sweep point. The
+    # TLE switch-over already happened in main() through the entry.
+    fn_op = dec.top_k_per_row_decode if op == "decode" else pre.top_k_per_row_prefill
     try:
         fn_op(*args)
         torch.cuda.synchronize()
