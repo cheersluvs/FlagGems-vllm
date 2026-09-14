@@ -1,0 +1,74 @@
+### branch topk-metax @ fd60fe4
+### 2026-09-14T07:38:55+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+### python: /data/wuyuqing/workspace/mctle-v2/bin/python -> /data/wuyuqing/workspace/mctle-v2/bin/python
+INFO 09-14 07:39:17 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-14 07:39:17 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-14 07:39:17 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-14 07:39:17 [__init__.py:238] Platform plugin metax is activated
+INFO 09-14 07:39:17 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-14 07:39:17 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-14 07:39:17 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+TLE status: {'done': True, 'on': True, 'why': 'self-test passed'}
+warp geometry (generic _launch_geometry): (64, 512)  merge tile: 512
+
+######## decode  vLLM baseline: yes
+
+  drift check, default config timed first vs last (ms):
+    56 rows                   0.1784 ->    0.1787  +0.1%
+    128 rows                  0.3366 ->    0.3364  -0.1%
+    256 rows                  0.6013 ->    0.6016  +0.0%
+    496 rows                  1.1156 ->    1.1154  -0.0%
+    512 rows                  1.1535 ->    1.1535  +0.0%
+
+  per shape: ms (ratio vs vLLM) ; * = best correct config for the shape
+
+  56 rows   vLLM 0.3958 ms   default 0.1784 ms
+    B512/bpr2      0.2371 ms  ratio  1.670  0.75x vs default
+    B512/bpr3      0.1861 ms  ratio  2.127  0.96x vs default
+    B512/bpr4      0.1664 ms  ratio  2.378  1.07x vs default  *
+    B512/bpr8      0.1738 ms  ratio  2.277  1.03x vs default
+
+  128 rows   vLLM 0.8248 ms   default 0.3364 ms
+    B512/bpr2      0.2842 ms  ratio  2.903  1.18x vs default  *
+    B512/bpr3      0.3259 ms  ratio  2.531  1.03x vs default
+    B512/bpr4      0.2847 ms  ratio  2.897  1.18x vs default
+    B512/bpr8      0.3011 ms  ratio  2.740  1.12x vs default
+
+  256 rows   vLLM 1.5378 ms   default 0.6013 ms
+    B512/bpr2      0.5002 ms  ratio  3.074  1.20x vs default  *
+    B512/bpr3      0.5268 ms  ratio  2.919  1.14x vs default
+    B512/bpr4      0.5087 ms  ratio  3.023  1.18x vs default
+    B512/bpr8      0.5366 ms  ratio  2.866  1.12x vs default
+
+  496 rows   vLLM 2.8626 ms   default 1.1154 ms
+    B512/bpr2      0.9129 ms  ratio  3.136  1.22x vs default
+    B512/bpr3      0.9183 ms  ratio  3.117  1.21x vs default
+    B512/bpr4      0.9111 ms  ratio  3.142  1.22x vs default  *
+    B512/bpr8      0.9905 ms  ratio  2.890  1.13x vs default
+
+  512 rows   vLLM 2.9581 ms   default 1.1535 ms
+    B512/bpr2      0.9208 ms  ratio  3.212  1.25x vs default  *
+    B512/bpr3      0.9252 ms  ratio  3.197  1.25x vs default
+    B512/bpr4      0.9231 ms  ratio  3.204  1.25x vs default
+    B512/bpr8      1.0158 ms  ratio  2.912  1.14x vs default
+
+  geomean ratio vs vLLM over the swept shapes (control excluded / included):
+    B512/bpr2    low-row 3.079   with control 2.724
+    B512/bpr4    low-row 3.064   with control 2.913
+    B512/bpr3    low-row 2.929   with control 2.748
+    B512/bpr8    low-row 2.851   with control 2.726
