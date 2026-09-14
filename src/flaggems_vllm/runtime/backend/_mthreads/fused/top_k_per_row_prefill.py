@@ -57,10 +57,6 @@ SSTRIDE = int(os.environ.get("FLAGGEMS_MTT_PREFILL_SSTRIDE", "8"))
 # 8193 0.875 -> 0.706, vocab 16385 0.765 -> 0.835).
 MIN_SPAN = int(os.environ.get("FLAGGEMS_MTT_PREFILL_MIN_SPAN", "16384"))
 
-# Bins in the sample histogram. Coarser bins overshoot the 2x acceptance window
-# at top_k=1024 (512 bins: 0.856 -> 0.379), so it stays at NUM_BINS.
-SAMPLE_BINS = int(os.environ.get("FLAGGEMS_MTT_PREFILL_SBINS", str(NUM_BINS)))
-
 
 @triton.jit
 def _sampled_prefill(
@@ -76,8 +72,6 @@ def _sampled_prefill(
     VEC: tl.constexpr,
     SSTRIDE: tl.constexpr,
     TARGET_RANK: tl.constexpr,
-    SBINS: tl.constexpr,
-    SSHIFT: tl.constexpr,
     NBINS: tl.constexpr,
     NFINAL: tl.constexpr,
 ):
@@ -123,8 +117,7 @@ def _sampled_prefill(
     one2 = tl.full([BLOCK_SIZE, VEC], 1, tl.int32)
 
     # ---- pass 1: histogram of every SSTRIDE-th element -------------------
-    # Only the first SBINS entries are used here, so only those need clearing.
-    for z in tl.range(0, SBINS, BLOCK_SIZE):
+    for z in tl.range(0, NBINS, BLOCK_SIZE):
         tl.store(hp + z + lane, 0)
     tl.debug_barrier()
 
@@ -134,19 +127,16 @@ def _sampled_prefill(
         m = i < span
         b, _ = _extract_bin_idx(tl.load(base + i * stride1, mask=m, other=0.0),
                                 m, 0, STEP=0)
-        tl.atomic_add(hp + (b >> SSHIFT), one1, mask=m, sem="relaxed",
-                      scope="cta")
+        tl.atomic_add(hp + b, one1, mask=m, sem="relaxed", scope="cta")
     tl.debug_barrier()
 
     # Lower bins hold larger values, so the prefix sum counts the largest
     # elements. One wide scan instead of the generic op's tle.cumsum rounds:
     # a single cut has no use for the per-round bookkeeping.
-    sbins = tl.arange(0, SBINS)
-    cum = tl.cumsum(tl.load(hp + sbins), axis=0)
+    cum = tl.cumsum(tl.load(hp + bins), axis=0)
     target = TARGET_RANK // SSTRIDE + 1
-    thr_c = tl.min(tl.where(cum >= target, sbins, SBINS - 1), axis=0)
-    # Take the whole boundary bin: coarse bins over-collect, never under-collect.
-    thr = (thr_c + 1) << SSHIFT
+    thr_c = tl.min(tl.where(cum >= target, bins, NBINS - 1), axis=0)
+    thr = thr_c + 1
 
     # ---- pass 2: collect everything below the threshold -------------------
     # A count outside [TOPK, NFINAL] means a bad estimate; the retry recomputes
@@ -325,8 +315,6 @@ def top_k_per_row_prefill(
         VEC=4,
         SSTRIDE=SSTRIDE,
         TARGET_RANK=target_rank,
-        SBINS=SAMPLE_BINS,
-        SSHIFT=(NUM_BINS // SAMPLE_BINS).bit_length() - 1,
         NBINS=NUM_BINS,
         NFINAL=NUM_FILNAL_ITEMS,
         num_warps=_num_warps(block),
