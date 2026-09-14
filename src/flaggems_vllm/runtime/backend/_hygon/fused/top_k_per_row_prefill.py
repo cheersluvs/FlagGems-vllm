@@ -12,79 +12,99 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""top_k_per_row_prefill on Hygon BW1000: allocate output slots by prefix sum
-where a tile selects many elements, by per-element atomic where it selects few.
+"""top_k_per_row_prefill on Hygon BW1000: on DENSE rows, allocate output slots
+by prefix sum instead of one atomic per selected element.
 
-WHY. prefill loses on all seven benchmark shapes against vLLM's C++ kernel
-here (geomean 0.36), worst on the small-vocabulary ones. Its per-program cost
-fits base + ~19 ns x top_k + ~1.3 ns x vocab, and the k term is
+WHY. prefill loses on all seven benchmark shapes against vLLM's C++ kernel here
+(geomean 0.355), worst on the small-vocabulary ones. Per program it fits
+base + ~19 ns x top_k + ~1.3 ns x vocab, and the k term is
 `tl.atomic_add(found_topk_values_ptrs, ones, mask=take_lt)` in _process_bins:
-one atomic per selected element, all to one address, ~12 ns each on this card
-(the ablation removed 7.55 of 18.07 us per program with it). Shared memory does
-not help here -- smem scatter atomics measured 2.5-3.5x slower than global.
+one atomic per selected element, all to one address, ~12 ns each here (the
+ablation removed 7.55 of 18.07 us per program with it). Shared memory does not
+help on this card: smem scatter atomics measured 2.5-3.5x slower than global.
 
-WHAT. A prefix sum over the tile's take-mask gives every selected element a
-distinct offset in lane order; one atomic of the tile's COUNT to the same
-address gives the base. That costs a flat ~0.4 us per 512-lane tile whatever
-the tile selects, against ~12 ns per selected element for the atomics, so it
-wins above a crossover and loses below it. Measured on 512-lane tiles
-(tools/hygon_slot_alloc_cost.py), allocation cost per program:
+WHAT. A prefix sum over the tile's take-mask gives each selected element a
+distinct offset; one atomic of the tile's COUNT gives the base. Its cost scales
+with the tile's SIZE, the atomics' with how many it selects -- so the deciding
+quantity is DENSITY, the fraction of elements selected, which for a full-range
+row is top_k / vocab. Measured crossover ~9.4% (48 of 512); dispatched here at
+vocab <= 10 * top_k.
 
-    selected/tile   atomic   prefix-sum   adaptive
-               8      1.56        4.73       3.00
-              64      6.61        4.85       4.99
-             256     27.02        4.79       4.90
+WHY TWO MODULE COPIES, NOT A BRANCH. The first version branched inside the
+kernel on each tile's own count. The A/B on this box (kernel mode, both passes
+agreeing to 0.03):
 
-The operator's main tiles are [512, VEC=4] = 2048 elements, so its small-vocab
-shapes select ~200-256 per tile and land deep in the prefix-sum region, while
-(64, 129280) with k=1024 selects ~16 and stays on atomics.
+    shape            dense?  branch-in-kernel
+    (4100, 1025)       yes        1.97x
+    (12961, 4100)      yes        1.57x
+    (16380, 5115)      yes        1.41x
+    (16383, 4095)      yes        1.40x
+    (4, 8193)          no         0.77x   threshold was per-count, not density
+    (4, 16385)         no         0.71x   same
+    (64, 129280)       no         0.85x   took the atomic branch and STILL lost
 
-WHY ADAPTIVE, AND WHY IN THE KERNEL. The choice cannot be made per shape from
-the host: Triton resolves module globals at compile time and caches the kernel,
-so rebinding a helper between calls silently keeps whichever variant compiled
-first. The tile's own count is needed by the prefix sum anyway, so branch on it.
+The last row is the branch's own cost, ~0.18 us per call whether taken or not,
+on the production shape. And the choice cannot move to the host by rebinding:
+Triton binds module globals at compile time and caches, so one module can only
+ever hold one _process_bins. So the generic module is loaded a SECOND time
+under another name, the copy gets the prefix-sum _process_bins, and the host
+picks a module per call. Sparse rows run the untouched generic kernel.
 
-Nothing else in _process_bins changes -- the copy below is generic's own, and
-the import-time assert refuses to install it if generic's atomic ever changes
-shape. FLAGGEMS_HYGON_TOPK_SLOTSCAN=0 keeps the generic function, which is how
-to A/B this on one box.
+Density from vocab is conservative for partial-range rows (a shorter row is
+denser than vocab suggests), so a miss falls back to generic, never to
+something slower. FLAGGEMS_HYGON_TOPK_SLOTSCAN=0 always uses generic.
 """
 
+import importlib.util
 import os
+import sys
 from importlib import import_module
 
 import triton
 import triton.language as tl
 
-_generic = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
-_extract_bin_idx = _generic._extract_bin_idx
+_GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
+_DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
 
-# Selected elements per tile above which the prefix sum is cheaper than one
-# atomic per element; the measured crossover on 512-lane tiles is ~48.
-SLOT_SCAN_MIN = tl.constexpr(48)
+_generic = import_module(_GENERIC_NAME)
+
+# Dense iff vocab_size <= DENSE_VOCAB_PER_TOPK * top_k, i.e. density >= 10%.
+DENSE_VOCAB_PER_TOPK = 10
+
+
+def _load_copy(name):
+    """The generic module, executed again as a separate module. @triton.jit
+    needs its functions' source on disk, which the generic file provides."""
+    spec = importlib.util.spec_from_file_location(name, _generic.__file__)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_dense = _load_copy(_DENSE_NAME)
+_extract_bin_idx = _dense._extract_bin_idx
 
 
 @triton.jit
-def _alloc_slots(ptrs, ones, take):
-    """Same contract as tl.atomic_add(ptrs, ones, mask=take): every taken lane
-    gets a distinct slot, returned in a tensor shaped like `take`. `ptrs` all
-    point at one counter. Works on 1-D tiles and on [BLOCK, VEC] tiles."""
+def _alloc_slots(ptrs, take):
+    """Same contract as tl.atomic_add(ptrs, 1, mask=take) with `ptrs` all at
+    one counter: every taken lane gets a distinct slot. 1-D or [BLOCK, VEC]."""
     ti = take.to(tl.int32)
     flat = tl.reshape(ti, (ti.numel,))
     total = tl.sum(flat, axis=0)
-    if total >= SLOT_SCAN_MIN:
-        # One atomic, on lane 0 only, adds the whole count and returns the
-        # counter's previous value -- the base for this tile's run of slots.
-        first = tl.arange(0, ti.numel) == 0
-        flat_ptrs = tl.reshape(ptrs, (ti.numel,))
-        prev = tl.atomic_add(
-            flat_ptrs, flat * 0 + total, mask=first, sem="relaxed", scope="cta"
-        )
-        start = tl.sum(tl.where(first, prev, 0), axis=0)
-        pos = tl.reshape(start + tl.cumsum(flat, axis=0) - flat, ti.shape)
-    else:
-        pos = tl.atomic_add(ptrs, ones, mask=take, sem="relaxed", scope="cta")
-    return pos
+    # One atomic, on lane 0 only, adds the tile's count and returns the
+    # counter's previous value: the base of this tile's run of slots.
+    first = tl.arange(0, ti.numel) == 0
+    prev = tl.atomic_add(
+        tl.reshape(ptrs, (ti.numel,)),
+        flat * 0 + total,
+        mask=first,
+        sem="relaxed",
+        scope="cta",
+    )
+    start = tl.sum(tl.where(first, prev, 0), axis=0)
+    return tl.reshape(start + tl.cumsum(flat, axis=0) - flat, ti.shape)
 
 
 @triton.jit
@@ -120,8 +140,8 @@ def _process_bins_slotscan(
     )
     take_lt = is_partial_match & (bin_idx < threshold_bin_idx) & write_directly
     # The only change from the generic function: slots for the definitely-in
-    # elements are allocated by _alloc_slots, not one atomic per element.
-    out_pos_lt = _alloc_slots(found_topk_values_ptrs, ones, take_lt)
+    # elements come from a prefix sum, not from one atomic per element.
+    out_pos_lt = _alloc_slots(found_topk_values_ptrs, take_lt)
     if MERGE_BLOCKS:
         indices = tl.load(
             indices_ptr + offs,
@@ -227,21 +247,24 @@ def _process_bins_slotscan(
             )
 
 
+# Rebind in the COPY only, before anything compiles.
+_dense._process_bins = _process_bins_slotscan
+
+
 def _slotscan_enabled():
     raw = os.environ.get("FLAGGEMS_HYGON_TOPK_SLOTSCAN", "1").strip().lower()
     return raw not in ("0", "false", "off", "no")
 
 
-# Rebind before anything compiles: the generic kernels resolve _process_bins
-# from their module globals at compile time.
-if _slotscan_enabled():
-    _generic._process_bins = _process_bins_slotscan
+_ENABLED = _slotscan_enabled()
 
 
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
-    """The generic operator, with the slot allocation above when enabled."""
-    return _generic.top_k_per_row_prefill(
-        logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
-    )
+    """Dense rows through the prefix-sum copy, everything else through generic."""
+    if _ENABLED and logits.shape[1] <= DENSE_VOCAB_PER_TOPK * top_k:
+        op = _dense.top_k_per_row_prefill
+    else:
+        op = _generic.top_k_per_row_prefill
+    return op(logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k)
