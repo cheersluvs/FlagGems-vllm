@@ -131,7 +131,7 @@ def _split_forced():
         return None
 
 
-def _split_factor(num_rows, vocab_size):
+def _split_factor(num_rows, vocab_size, tle=False):
     """Chunks per row: fill the card, but keep each chunk worth a histogram.
 
     Only powers of two that divide the vocabulary exactly are considered. An
@@ -150,6 +150,15 @@ def _split_factor(num_rows, vocab_size):
         if vocab_size % forced or vocab_size // forced < MIN_CHUNK:
             return 1
         return forced
+
+    # On the TLE path the generic kernel already parallelises inside a row
+    # (MULTIPLE_BLOCKS_PER_ROW, 10 blocks, merged in shared memory) and its
+    # atomics are ~17x cheaper, so a second split only adds a pass. Measured
+    # A/B on the C550, kernel mode: unsplit wins 10-17% at 4-56 rows, ties at
+    # 1, loses 6% at 32 only; decode geomean 1.757 -> 1.893. The rule below
+    # was swept on the non-TLE path and does not transfer.
+    if tle:
+        return 1
 
     # Past one row per SM the card is already full and splitting only adds
     # passes: measured, 496 rows is fastest unsplit and every split is worse.
@@ -260,9 +269,9 @@ def top_k_per_row_decode(
     """Two passes over the existing kernel when one program per row wastes the card."""
     # Both passes run the generic kernel, on its TLE path when this FlagTree
     # build passes the self-test (see top_k_per_row_tle).
-    _tle.ensure_tle(logits.device)
+    tle_on = _tle.ensure_tle(logits.device)
     vocab_size = logits.shape[1]
-    split = _split_factor(num_rows, vocab_size)
+    split = _split_factor(num_rows, vocab_size, tle=tle_on)
 
     # next_n != 1 gives each row its own length offset, which the chunked view
     # cannot express. A non-contiguous row layout cannot be re-strided into
