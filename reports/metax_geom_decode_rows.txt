@@ -1,0 +1,128 @@
+### branch topk-metax @ 9c5d3e2
+### 2026-09-14T06:31:21+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+### python: /data/wuyuqing/workspace/mctle-v2/bin/python -> /data/wuyuqing/workspace/mctle-v2/bin/python
+INFO 09-14 06:31:43 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-14 06:31:43 [__init__.py:46] - metax -> vllm_metax:register
+INFO 09-14 06:31:43 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-14 06:31:43 [__init__.py:238] Platform plugin metax is activated
+INFO 09-14 06:31:43 [envs.py:123] Plugin sets VLLM_USE_FLASHINFER_SAMPLER to False. Reason: flashinfer sampler are not supported on maca
+INFO 09-14 06:31:43 [envs.py:123] Plugin sets VLLM_ENGINE_READY_TIMEOUT_S to 3600. Reason: set timeout to 3600s for model loading
+INFO 09-14 06:31:43 [envs.py:123] Plugin sets VLLM_FLOAT32_MATMUL_PRECISION to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO Print the version information of mcoplib during compilation.
+
+Version info:Mcoplib_Version = '0.4.6'
+Build_Maca_Version = '3.7.1.5'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'bf3c716'
+Vllm Op Version = 0.21.0
+SGlang Op Version  = 0.5.11 
+
+INFO Staring Check the current MACA version of the operating environment.
+
+INFO: Release major.minor matching,  successful:3.7. 
+
+TLE status: {'done': True, 'on': True, 'why': 'self-test passed'}
+warp geometry (generic _launch_geometry): (64, 512)  merge tile: 512
+
+######## decode  vLLM baseline: yes
+
+  drift check, default config timed first vs last (ms):
+    1 rows                    0.0771 ->    0.0773  +0.3%
+    4 rows                    0.0791 ->    0.0788  -0.3%
+    8 rows                    0.0842 ->    0.0845  +0.3%
+    16 rows                   0.0955 ->    0.0955  +0.0%
+    24 rows                    0.107 ->     0.107  +0.0%
+    32 rows                   0.1408 ->    0.1408  +0.0%
+    40 rows                     0.15 ->    0.1503  +0.2%
+    48 rows                   0.1626 ->    0.1638  +0.8%
+    56 rows                   0.1779 ->    0.1792  +0.7%
+    496 rows                  1.1062 ->    1.1075  +0.1%
+    512 rows                  1.1453 ->    1.1456  +0.0%
+
+  per shape: ms (ratio vs vLLM) ; * = best correct config for the shape
+
+  1 rows   vLLM 0.1037 ms   default 0.0771 ms
+    B512/bpr4      0.1078 ms  ratio  0.962  0.71x vs default
+    B512/bpr8      0.0783 ms  ratio  1.324  0.98x vs default
+    B512/bpr10     0.0771 ms  ratio  1.346  1.00x vs default
+    B512/bpr16     0.0676 ms  ratio  1.534  1.14x vs default  *
+    B512/bpr32     0.0676 ms  ratio  1.534  1.14x vs default
+
+  4 rows   vLLM 0.108 ms   default 0.0788 ms
+    B512/bpr4      0.1096 ms  ratio  0.986  0.72x vs default
+    B512/bpr8      0.0801 ms  ratio  1.348  0.98x vs default
+    B512/bpr10     0.0788 ms  ratio  1.370  1.00x vs default
+    B512/bpr16     0.0686 ms  ratio  1.575  1.15x vs default  *
+    B512/bpr32     0.0719 ms  ratio  1.502  1.10x vs default
+
+  8 rows   vLLM 0.1155 ms   default 0.0842 ms
+    B512/bpr4      0.1176 ms  ratio  0.982  0.72x vs default
+    B512/bpr8      0.0852 ms  ratio  1.354  0.99x vs default
+    B512/bpr10     0.0845 ms  ratio  1.367  1.00x vs default
+    B512/bpr16     0.0768 ms  ratio  1.503  1.10x vs default  *
+    B512/bpr32     0.0809 ms  ratio  1.427  1.04x vs default
+
+  16 rows   vLLM 0.1702 ms   default 0.0955 ms
+    B512/bpr4      0.1234 ms  ratio  1.380  0.77x vs default
+    B512/bpr8      0.0973 ms  ratio  1.750  0.98x vs default
+    B512/bpr10     0.0957 ms  ratio  1.778  1.00x vs default
+    B512/bpr16     0.0873 ms  ratio  1.950  1.09x vs default  *
+    B512/bpr32     0.1055 ms  ratio  1.614  0.91x vs default
+
+  24 rows   vLLM 0.2237 ms   default 0.107 ms
+    B512/bpr4      0.1293 ms  ratio  1.731  0.83x vs default
+    B512/bpr8      0.1014 ms  ratio  2.207  1.06x vs default  *
+    B512/bpr10     0.1073 ms  ratio  2.086  1.00x vs default
+    B512/bpr16     0.1139 ms  ratio  1.964  0.94x vs default
+    B512/bpr32     0.1352 ms  ratio  1.655  0.79x vs default
+
+  32 rows   vLLM 0.278 ms   default 0.1408 ms
+    B512/bpr4      0.1446 ms  ratio  1.922  0.97x vs default
+    B512/bpr8      0.1132 ms  ratio  2.457  1.24x vs default  *
+    B512/bpr10     0.1408 ms  ratio  1.975  1.00x vs default
+    B512/bpr16     0.1252 ms  ratio  2.221  1.12x vs default
+    B512/bpr32     0.1587 ms  ratio  1.752  0.89x vs default
+
+  40 rows   vLLM 0.2877 ms   default 0.15 ms
+    B512/bpr4      0.1472 ms  ratio  1.955  1.02x vs default  *
+    B512/bpr8      0.1500 ms  ratio  1.918  1.00x vs default
+    B512/bpr10     0.1503 ms  ratio  1.915  1.00x vs default
+    B512/bpr16     0.1541 ms  ratio  1.867  0.97x vs default
+    B512/bpr32     0.1871 ms  ratio  1.538  0.80x vs default
+
+  48 rows   vLLM 0.3423 ms   default 0.1626 ms
+    B512/bpr4      0.1490 ms  ratio  2.297  1.09x vs default  *
+    B512/bpr8      0.1592 ms  ratio  2.150  1.02x vs default
+    B512/bpr10     0.1631 ms  ratio  2.099  1.00x vs default
+    B512/bpr16     0.1674 ms  ratio  2.044  0.97x vs default
+    B512/bpr32     0.2079 ms  ratio  1.647  0.78x vs default
+
+  56 rows   vLLM 0.3963 ms   default 0.1779 ms
+    B512/bpr4      0.1651 ms  ratio  2.400  1.08x vs default  *
+    B512/bpr8      0.1725 ms  ratio  2.297  1.03x vs default
+    B512/bpr10     0.1784 ms  ratio  2.221  1.00x vs default
+    B512/bpr16     0.1828 ms  ratio  2.168  0.97x vs default
+    B512/bpr32     0.2363 ms  ratio  1.677  0.75x vs default
+
+  496 rows   vLLM 2.8659 ms   default 1.1062 ms
+    B512/bpr4      0.9037 ms  ratio  3.171  1.22x vs default  *
+    B512/bpr8      0.9846 ms  ratio  2.911  1.12x vs default
+    B512/bpr10     1.1072 ms  ratio  2.588  1.00x vs default
+    B512/bpr16     1.1882 ms  ratio  2.412  0.93x vs default
+    B512/bpr32     1.6174 ms  ratio  1.772  0.68x vs default
+
+  512 rows   vLLM 2.9594 ms   default 1.1453 ms
+    B512/bpr4      0.9152 ms  ratio  3.234  1.25x vs default  *
+    B512/bpr8      1.0109 ms  ratio  2.927  1.13x vs default
+    B512/bpr10     1.1461 ms  ratio  2.582  1.00x vs default
+    B512/bpr16     1.2188 ms  ratio  2.428  0.94x vs default
+    B512/bpr32     1.6645 ms  ratio  1.778  0.69x vs default
+
+  geomean ratio vs vLLM over the swept shapes (control excluded / included):
+    B512/bpr8    low-row 1.953   with control 1.982
+    B512/bpr16   low-row 1.923   with control 1.944
+    B512/bpr10   low-row 1.860   with control 1.890 <- default
+    B512/bpr4    low-row 1.696   with control 1.750
+    B512/bpr32   low-row 1.618   with control 1.623
