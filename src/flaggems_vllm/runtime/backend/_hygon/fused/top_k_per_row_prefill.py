@@ -55,9 +55,11 @@ denser than vocab suggests), so a miss falls back to generic, never to
 something slower. FLAGGEMS_HYGON_TOPK_SLOTSCAN=0 always uses generic.
 """
 
+import functools
 import importlib.util
 import os
 import sys
+import threading
 from importlib import import_module
 
 import triton
@@ -259,12 +261,86 @@ def _slotscan_enabled():
 _ENABLED = _slotscan_enabled()
 
 
+# ---------------------------------------------------------------------------
+# Launch geometry by occupancy.
+#
+# Which BLOCK_SIZE x num_warps is fastest depends on how many rows share this
+# card's SMs, not on elements per lane. Full operator, every point checked
+# against torch.topk, ratio vs vLLM (tools/hygon_prefill_launch_sweep.py and
+# tools/hygon_prefill_rows_sweep.py):
+#
+#   rows/SM         row 4096, k 512                row 129280, k 1024
+#   < 4             all configs within noise       B512 w8 (today) best
+#   4 - 16          B512 w4: +3% .. +16%           B512 w4: +3% .. +10%
+#   32 - 52         B256 w2: +47% .. +57%          B256 w4: +13% .. +32%
+#   204 (16383 r)   B256 w2: 1.95x                 --
+#
+# Many rows want narrow programs: past one row per SM the grid is the
+# parallelism, and wider programs only crowd each other out. Long rows keep
+# more threads per program than short ones at high occupancy. Where the switch
+# between w2 and w4 falls for row lengths between 8192 and 129280 is UNMEASURED;
+# those take w4, the choice measured for long rows.
+#
+# num_warps=1 is never used: it returned WRONG answers in the sweep.
+#
+# NUM_THREADS_PER_BLOCK and _num_warps are host-side globals read at each
+# launch -- unlike the jit globals above, they are not baked into a compiled
+# kernel -- so they are set per call. A lock keeps set-and-launch atomic.
+# FLAGGEMS_HYGON_TOPK_GEOMETRY=0 leaves them at generic's values.
+
+SHORT_ROW_MAX = 8192
+
+
+@functools.lru_cache(maxsize=1)
+def _sm_count():
+    try:
+        import torch
+
+        props = torch.cuda.get_device_properties(0)
+        return int(getattr(props, "multi_processor_count", 0)) or 80
+    except Exception:  # noqa: BLE001 - detection must never break dispatch
+        return 80
+
+
+def _geometry(num_rows, row_len):
+    """(BLOCK_SIZE, num_warps) for this call, or None for generic's own."""
+    sms = _sm_count()
+    if num_rows < 4 * sms:
+        return None
+    if num_rows < 32 * sms:
+        return 512, 4
+    return (256, 2) if row_len <= SHORT_ROW_MAX else (256, 4)
+
+
+def _geometry_enabled():
+    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_GEOMETRY", "1").strip().lower()
+    return raw not in ("0", "false", "off", "no")
+
+
+_GEOMETRY = _geometry_enabled()
+_LAUNCH_LOCK = threading.Lock()
+_GENERIC_DEFAULTS = {
+    id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps) for m in (_generic, _dense)
+}
+
+
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
-    """Dense rows through the prefix-sum copy, everything else through generic."""
+    """Dense rows through the prefix-sum copy, everything else through generic,
+    each launched at the geometry its occupancy wants."""
     if _ENABLED and logits.shape[1] <= DENSE_VOCAB_PER_TOPK * top_k:
-        op = _dense.top_k_per_row_prefill
+        mod = _dense
     else:
-        op = _generic.top_k_per_row_prefill
-    return op(logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k)
+        mod = _generic
+    geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
+    with _LAUNCH_LOCK:
+        if geo is None:
+            mod.NUM_THREADS_PER_BLOCK, mod._num_warps = _GENERIC_DEFAULTS[id(mod)]
+        else:
+            block, warps = geo
+            mod.NUM_THREADS_PER_BLOCK = block
+            mod._num_warps = lambda block_size, w=warps: w
+        return mod.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
+        )
