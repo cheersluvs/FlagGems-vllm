@@ -71,6 +71,16 @@ _generic = import_module(_GENERIC_NAME)
 # Dense iff vocab_size <= DENSE_VOCAB_PER_TOPK * top_k, i.e. density >= 10%.
 DENSE_VOCAB_PER_TOPK = 10
 
+# Highest STEP that uses the prefix sum. After step 0 the kernel only refines
+# inside the threshold bin, so later steps should select few elements -- and
+# there the flat ~0.4 us per tile of the prefix sum is spent for nothing. The
+# vocab sweep puts that fixed cost at ~3.7 us per program on the dense path.
+# 3 = every step (as first shipped), 0 = step 0 only. Read once at import:
+# it is baked into the compiled kernel.
+SLOT_SCAN_STEP_MAX = tl.constexpr(
+    int(os.environ.get("FLAGGEMS_HYGON_TOPK_SLOTSCAN_STEPMAX", "3"))
+)
+
 
 def _load_copy(name):
     """The generic module, executed again as a separate module. @triton.jit
@@ -140,8 +150,19 @@ def _process_bins_slotscan(
     )
     take_lt = is_partial_match & (bin_idx < threshold_bin_idx) & write_directly
     # The only change from the generic function: slots for the definitely-in
-    # elements come from a prefix sum, not from one atomic per element.
-    out_pos_lt = _alloc_slots(found_topk_values_ptrs, take_lt)
+    # elements come from a prefix sum, not from one atomic per element -- in
+    # the steps where that pays. STEP is a constexpr, so this choice costs
+    # nothing at run time (unlike the in-kernel branch this replaced).
+    if STEP <= SLOT_SCAN_STEP_MAX:
+        out_pos_lt = _alloc_slots(found_topk_values_ptrs, take_lt)
+    else:
+        out_pos_lt = tl.atomic_add(
+            found_topk_values_ptrs,
+            ones,
+            mask=take_lt,
+            sem="relaxed",
+            scope="cta",
+        )
     if MERGE_BLOCKS:
         indices = tl.load(
             indices_ptr + offs,
