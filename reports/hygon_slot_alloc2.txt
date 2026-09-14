@@ -1,22 +1,19 @@
-### branch topk-metax @ 81acc28
-### 2026-09-12T17:10:36+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### branch topk-metax @ 6c7fd61
+### 2026-09-14T11:11:42+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
 ### PYTHONPATH=src:/usr/local/:
 
 ### python: python -> /usr/bin/python
 3200 programs = 40 waves on 80 SMs | 8 tiles x 512 lanes per program | microseconds per program
 
-  selected/tile    atomic  scan_reg  scan_atomic  no alloc  best vs atomic
-Traceback (most recent call last):
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_slot_alloc_cost.py", line 154, in <module>
-    sys.exit(main())
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_slot_alloc_cost.py", line 127, in main
-    t[mode] = timed(
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_slot_alloc_cost.py", line 98, in timed
-    fn()
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_slot_alloc_cost.py", line 128, in <lambda>
-    lambda m=mode: k_slots[(ROWS,)](
-  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 399, in <lambda>
-    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
-  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 753, in run
-    bound_args, specialization, options = binder(*args, **kwargs)
-TypeError: dynamic_func() missing 1 required positional argument: 'THRESH'
+  selected/tile    atomic  scan_reg  scan_atomic  adaptive  no alloc  adaptive vs best
+              8      1.56      4.44         4.73      3.00      0.93             3.27x
+             32      3.40      4.37         4.86      3.85      0.96             1.18x
+             64      6.61      4.48         4.85      4.99      1.03             1.15x
+            128     13.05      4.45         4.86      4.93      1.09             1.14x
+            256     27.02      4.46         4.79      4.90      1.09             1.13x
+
+  Costs are per program; 'adaptive vs best' divides the adaptive
+  column's own cost (minus the floor) by the best fixed strategy's,
+  so 1.0x means the branch is free and picks right. The operator's
+  tiles select about top_k*BLOCK/vocab lanes each: 64 at vocab 4096
+  with k=512, 4 at the (64,129280) production shape.
