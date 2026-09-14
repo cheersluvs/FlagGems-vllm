@@ -18,6 +18,12 @@ process: case D aborts the interpreter on every build known so far.
                                                      Problem 4)
     D     nothing here fixes it -- prebuilt plugin  assertion, process abort
           (FlagTree issue #1152, Problem 1)
+    E     Alias.cpp fix, V2 (per-result)            an op whose SECOND result
+                                                    is the pointer loses the
+                                                    alias under V1 (A wrong,
+                                                    shared too small)
+    F     Alias.cpp fix (V1 or V2)                  tensor-index local_ptr:
+                                                    two buffers share bytes
 
 Both fixes are on https://github.com/cheersluvs/FlagTree branch
 metax-mctle-tle-fixes, on top of 0.6.1+metax3.6 + #971.
@@ -32,6 +38,8 @@ CASES = {
     "B": "two smem buffers written through local_ptr keep their own bytes",
     "C": "smem round-trip with tl.histogram in between (issue #1152 L7)",
     "D": "scalar local_ptr + offsets, 1 element/thread (plugin assert)",
+    "E": "pointer forwarded as the 2nd result of inline_asm_elementwise (V2 only)",
+    "F": "two buffers through tensor-index local_ptr",
 }
 
 if len(sys.argv) == 1:
@@ -151,6 +159,53 @@ def k_scalar_offsets(out_ptr, N: tl.constexpr):
     tl.store(out_ptr + lane, tl.load(p + lane))
 
 
+@triton.jit
+def k_mixed_result(out_ptr, N: tl.constexpr):
+    """Case E: the multi-result form from the V2 patch analysis. The pointer
+    comes back as result #1 of inline_asm_elementwise (result #0 is an int), so
+    an alias rule that only looks at result #0 (V1) drops it, buffer A looks
+    dead, and B is given A's bytes. Masked with other=0 as in that analysis;
+    the last slot is masked out and expected to read 0."""
+    idx = tl.arange(0, N)
+    mask = idx < N - 1
+    a = tle.gpu.alloc([N], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+                      nv_mma_shared_layout=False)
+    pa = tle.gpu.local_ptr(a, (idx,))
+    tl.store(pa, idx + 100, mask=mask)
+    tl.debug_barrier()
+    tag, forwarded = tl.inline_asm_elementwise(
+        asm="", constraints="=r,=r,1,0,~{memory}", args=[pa, idx],
+        dtype=(tl.int32, pa.dtype), is_pure=False, pack=1,
+    )
+    b = tle.gpu.alloc([N], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+                      nv_mma_shared_layout=False)
+    pb = tle.gpu.local_ptr(b, (idx,))
+    tl.store(pb, tag + 10000, mask=mask)
+    tl.debug_barrier()
+    tl.store(out_ptr + idx, tl.load(forwarded, mask=mask, other=0))
+
+
+@triton.jit
+def k_tensor_index(out_a, out_b, N: tl.constexpr):
+    """Case F: two buffers through tensor-index local_ptr, read back after
+    both are written. Without the alias fix A looks dead after its
+    local_pointers and B lands on it."""
+    i = tl.arange(0, N)
+    mask = i < N - 1
+    a = tle.gpu.alloc([N], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+                      nv_mma_shared_layout=False)
+    pa = tle.gpu.local_ptr(a, (i,))
+    tl.store(pa, i + 100, mask=mask)
+    tl.debug_barrier()
+    b = tle.gpu.alloc([N], dtype=tl.int32, layout=None, scope=tle.gpu.smem,
+                      nv_mma_shared_layout=False)
+    pb = tle.gpu.local_ptr(b, (i,))
+    tl.store(pb, i + 10000, mask=mask)
+    tl.debug_barrier()
+    tl.store(out_a + i, tl.load(pa, mask=mask, other=0))
+    tl.store(out_b + i, tl.load(pb, mask=mask, other=0))
+
+
 dev = "cuda"
 torch.manual_seed(0)
 
@@ -192,6 +247,31 @@ elif CASE == "D":
     ok = torch.equal(out, torch.arange(N, dtype=torch.int32, device=dev))
     print(f"RESULT D: {'PASS' if ok else 'WRONG'} "
           f"(N={N}, {N // (WARPS * 64)} elements/thread)")
+elif CASE == "E":
+    n = 256
+    out = torch.zeros(n, dtype=torch.int32, device=dev)
+    ck = k_mixed_result[(1,)](out, N=n, num_warps=4)
+    torch.cuda.synchronize()
+    want = torch.arange(n, dtype=torch.int32, device=dev) + 100
+    want[-1] = 0
+    shared = getattr(getattr(ck, "metadata", None), "shared", -1)
+    ok = torch.equal(out, want) and shared >= 2 * n * 4
+    print(f"RESULT E: {'PASS' if ok else 'WRONG'} (values "
+          f"{'ok' if torch.equal(out, want) else 'wrong'}, shared={shared} B, need >= {2 * n * 4})")
+elif CASE == "F":
+    n = 512
+    oa = torch.full((n,), -1, dtype=torch.int32, device=dev)
+    ob = torch.full_like(oa, -1)
+    ck = k_tensor_index[(1,)](oa, ob, N=n, num_warps=4)
+    torch.cuda.synchronize()
+    wa = torch.arange(n, dtype=torch.int32, device=dev) + 100
+    wb = wa + 9900
+    wa[-1] = 0
+    wb[-1] = 0
+    shared = getattr(getattr(ck, "metadata", None), "shared", -1)
+    ok = torch.equal(oa, wa) and torch.equal(ob, wb) and shared >= 2 * n * 4
+    print(f"RESULT F: {'PASS' if ok else 'WRONG'} (A {'ok' if torch.equal(oa, wa) else 'wrong'}, "
+          f"B {'ok' if torch.equal(ob, wb) else 'wrong'}, shared={shared} B, need >= {2 * n * 4})")
 else:
     print(f"unknown case {CASE}")
     sys.exit(2)

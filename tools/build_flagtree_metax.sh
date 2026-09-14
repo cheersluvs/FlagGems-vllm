@@ -196,6 +196,9 @@ fi
 #       so smem buffers reached only through local_ptr looked dead to the
 #       allocator and their bytes were reused (scratch at offsets 1..7 over a
 #       histogram; a 512xf32 buffer with no offset at all).
+#       V2 (2026-09-14): pointer results are handled result by result, so an
+#       op whose pointer is not its FIRST result keeps the alias too (V1 only
+#       looked at result 0). The patch-sum in the build stamp forces a rebuild.
 PATCH_DIR="$(cd "$(dirname "$0")" && pwd)/patches"
 PATCH_SUM=""
 for p in "$PATCH_DIR"/flagtree-metax-*.patch; do
