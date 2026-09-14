@@ -50,43 +50,20 @@ def _launch_geometry():
 
 
 def _num_warps(block_size):
-    """Warps needed to cover a BLOCK_SIZE-wide tile, within the thread ceiling.
+    """Warps covering a BLOCK_SIZE-wide tile, divided by the real warp size.
 
-    This used to be `block_size // 32`, which silently assumes a 32-lane warp.
-    On MetaX C550 the warp is 64 lanes and the per-block ceiling is 512 threads,
-    so BLOCK_SIZE=512 asked for 16 warps x 64 = 1024 threads and every launch
-    failed with OutOfResources -- the op could not run on that card at all.
-
-    Dividing by the real warp size is an identity on 32-lane parts (512 -> 16
-    warps either way), so NVIDIA and Moore Threads are unchanged. The clamp
-    matters where a tile is wider than the device can staff: the tile stays the
-    same width and each thread simply covers more of it.
+    `block_size // 32` assumed 32-lane warps and failed every launch on 64-lane
+    parts; this is an identity on 32-lane ones.
     """
     warp, maxt = _launch_geometry()
     return max(1, min(block_size // warp, maxt // warp))
 
 
 def _vendor_tle_enabled() -> bool:
-    """Does this backend actually support TLE, per its own VendorDescriptor?
+    """Whether the backend declares TLE support in its VendorDescriptor.
 
-    `has_triton_tle()` only proves the Python module imports. It does not prove
-    the backend can LOWER tle.gpu.alloc. MetaX C550 is exactly that case: every
-    tle symbol resolves, but compilation dies with
-
-        'triton._C.libtriton.ir.builder' object has no attribute
-        'make_swizzled_shared_encoding_attr'
-
-    which took both ops from "slow" to "cannot run at all", when the non-TLE
-    fallback would have worked fine.
-
-    The VendorDescriptor already carries `tle_enabled`, and it is already correct
-    -- nvidia/mthreads/enflame declare True, everyone else defaults False. It was
-    simply never read by anything. Reading it here makes the non-TLE path the
-    default for any backend that has not declared TLE support, which is the safe
-    direction: that path is plain Triton over global scratch and works everywhere.
-
-    FLAGGEMS_FORCE_TLE=1 overrides, so a vendor can test whether its TLE works
-    without editing the descriptor.
+    `has_triton_tle()` only proves the module imports, not that the backend can
+    lower `tle.gpu.alloc`. FLAGGEMS_FORCE_TLE overrides.
     """
     override = os.environ.get("FLAGGEMS_FORCE_TLE")
     if override is not None:

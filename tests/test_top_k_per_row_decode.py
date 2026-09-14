@@ -51,13 +51,8 @@ else:
 try:
     import vllm._custom_ops  # noqa: F401 — loads torch.ops._C
 
-    # Importing vLLM is NOT proof the op exists; the vendor of the build
-    # is not the test either -- this box's MUSA build DOES export
-    # top_k_per_row_decode. Check the symbol itself with hasattr, never
-    # dir(): torch.ops._C lists only what it has already resolved.
-    # Without this check HAS_VLLM would
-    # then be a lie -- the benchmark would report a SpeedUp against a baseline
-    # that does not exist. Check for the symbol itself, after the import.
+    # Import alone does not prove the op exists; check the symbol (hasattr, not
+    # dir(): torch.ops._C resolves lazily).
     if not hasattr(torch.ops._C, "top_k_per_row_decode"):
         raise AttributeError("vLLM build exposes no top_k_per_row_decode")
 
@@ -70,10 +65,7 @@ try:
 
     HAS_VLLM = True
 except (ImportError, AttributeError, RuntimeError):
-    # RuntimeError because a misconfigured vLLM should mean "no baseline", not a
-    # collection error: with two platform plugins registered it raises
-    # "Only one platform plugin can be activated" at import, which aborted
-    # collection of this whole file on an MTT box.
+    # RuntimeError: vLLM raises it at import when two platform plugins are active.
     HAS_VLLM = False
     _vllm_top_k_per_row_decode = None
 
