@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
+
 import pytest
 import torch
 
@@ -30,24 +32,6 @@ def is_cuda_available():
 
 CUDA_AVAILABLE = is_cuda_available()
 
-
-# FP8 runs on NVIDIA Hopper (CUDA_AVAILABLE) or on any other device whose
-# actual capability supports FP8. Probe the active device with a real FP8
-# round-trip instead of hard-coding vendor/architecture tables.
-def _probe_fp8_support() -> bool:
-    device = flaggems_vllm.device
-    if device == "cuda":
-        return False  # NVIDIA semantics stay with CUDA_AVAILABLE (Hopper)
-    try:
-        src = torch.ones(8, 8, device=device, dtype=torch.float32)
-        _ = src.to(torch.float8_e4m3fn).to(torch.float32)
-        return True
-    except Exception:
-        return False
-
-
-FP8_AVAILABLE = CUDA_AVAILABLE or _probe_fp8_support()
-
 try:
     from vllm.model_executor.layers.fused_moe.fused_moe import (
         fused_experts_impl as vllm_fused_experts_impl,
@@ -56,6 +40,24 @@ try:
     HAS_VLLM_FUSED_MOE = True
 except ImportError:
     HAS_VLLM_FUSED_MOE = False
+
+
+def _supports_keyword(op, keyword):
+    try:
+        parameters = inspect.signature(op).parameters
+    except (TypeError, ValueError):
+        return False
+    return keyword in parameters or any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+
+
+# vLLM versions differ: newer ones require ``inplace`` (no default), older ones
+# do not accept the keyword at all.
+VLLM_FUSED_MOE_SUPPORTS_INPLACE = HAS_VLLM_FUSED_MOE and _supports_keyword(
+    vllm_fused_experts_impl, "inplace"
+)
 
 
 def to_fp8(tensor: torch.Tensor):
@@ -79,11 +81,20 @@ class FusedMoEFP8Benchmark(base.Benchmark):
     def set_shapes(self, shape_file_path=None):
         # (num_tokens, num_experts, hidden_size, intermediate_size, topk)
         self.shapes = [
-            # Mixtral-like shapes (representative)
+            # Mixtral-like shapes
+            (1, 8, 4096, 14336, 2),
+            (4, 8, 4096, 14336, 2),
+            (16, 8, 4096, 14336, 2),
             (64, 8, 4096, 14336, 2),
+            (128, 8, 4096, 14336, 2),
+            (256, 8, 4096, 14336, 2),
             (512, 8, 4096, 14336, 2),
-            # DeepSeek-V3-like shapes (representative)
+            # DeepSeek-V3-like shapes (TP=8 shard)
+            (1, 256, 7168, 2048, 8),
+            (4, 256, 7168, 2048, 8),
+            (16, 256, 7168, 2048, 8),
             (64, 256, 7168, 2048, 8),
+            (128, 256, 7168, 2048, 8),
             (256, 256, 7168, 2048, 8),
             # Qwen3.6-35B-A3B (real production shapes, representative subset)
             (1, 256, 2048, 128, 8),
@@ -91,8 +102,6 @@ class FusedMoEFP8Benchmark(base.Benchmark):
             (64, 256, 2048, 128, 8),
             (512, 256, 2048, 128, 8),
             (1035, 256, 2048, 128, 8),
-            (16384, 256, 2048, 128, 8),
-            (16384, 256, 2048, 512, 8),
         ]
 
     def get_input_iter(self, cur_dtype):
@@ -152,9 +161,6 @@ class FusedMoEFP8Benchmark(base.Benchmark):
             num_tokens, num_experts, device=device, dtype=torch.float32
         )
         topk_weights, topk_ids = torch.topk(torch.softmax(gating, dim=-1), topk, dim=-1)
-        # Real vLLM inference passes int32 topk_ids; torch.topk returns int64 by
-        # default, so convert to match the production dtype contract.
-        topk_ids = topk_ids.to(torch.int32)
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
         topk_weights = topk_weights.to(dtype)
 
@@ -173,17 +179,18 @@ def _vllm_fused_moe_fp8_wrapper(
     hidden_states, w1, w2, topk_weights, topk_ids, w1_scale, w2_scale
 ):
     """Wrapper to call vllm fused_experts_impl with FP8."""
+    kwargs = {"inplace": False} if VLLM_FUSED_MOE_SUPPORTS_INPLACE else {}
     return vllm_fused_experts_impl(
         hidden_states.clone(),
         w1,
         w2,
         topk_weights,
         topk_ids,
-        inplace=False,
         activation="silu",
         use_fp8_w8a8=True,
         w1_scale=w1_scale,
         w2_scale=w2_scale,
+        **kwargs,
     )
 
 
@@ -205,8 +212,8 @@ def _gems_fused_moe_fp8_wrapper(
 
 @pytest.mark.fused_experts_impl
 @pytest.mark.skipif(
-    not (HAS_VLLM_FUSED_MOE and FP8_AVAILABLE),
-    reason="requires vLLM and an FP8-capable device (NVIDIA Hopper or FP8-capable accelerator)",
+    not (HAS_VLLM_FUSED_MOE and CUDA_AVAILABLE),
+    reason="requires vLLM and NVIDIA Hopper architecture for FP8",
 )
 def test_fused_moe_fp8():
     """

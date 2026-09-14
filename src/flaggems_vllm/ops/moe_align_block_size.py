@@ -169,14 +169,10 @@ def moe_align_block_size_tle_atomic_fused_coop(
         pid * BLOCK_TOKENS, numel_sorted_token_ids, NUM_BLOCKS * BLOCK_TOKENS
     ):
         offs = base + token_offsets
-        tl.store(
-            sorted_token_ids_ptr + offs,
-            numel,
-            mask=offs < numel_sorted_token_ids,
-        )
+        tl.store(sorted_token_ids_ptr + offs, numel, mask=offs < numel_sorted_token_ids)
     for base in range(pid * BLOCK_TOKENS, numel_expert_ids, NUM_BLOCKS * BLOCK_TOKENS):
         offs = base + token_offsets
-        tl.store(expert_ids_ptr + offs, 0, mask=offs < numel_expert_ids)
+        tl.store(expert_ids_ptr + offs, -1, mask=offs < numel_expert_ids)
     if pid == 0:
         tl.store(cumsum_ptr + expert_offsets, 0, mask=expert_mask)
     tle.distributed_barrier(mesh)
@@ -260,9 +256,7 @@ def moe_align_block_size_tle_atomic_fused_coop(
             count_ptrs, 1, mask=mask, sem="relaxed", scope="cta"
         )
         rank_base = tl.load(
-            tle.gpu.local_ptr(expert_starts_local, (expert_id,)),
-            mask=mask,
-            other=0,
+            tle.gpu.local_ptr(expert_starts_local, (expert_id,)), mask=mask, other=0
         )
         rank_post_pad = rank_with_prefix + rank_base
         tl.store(sorted_token_ids_ptr + rank_post_pad, offs, mask=mask)
@@ -298,21 +292,17 @@ def moe_align_block_size_tle_cluster_fused(
 
     init_offsets = tl.arange(0, BLOCK_TOKENS)
     for base in range(
-        cluster_rank * BLOCK_TOKENS,
-        numel_sorted_token_ids,
-        CLUSTER_SIZE * BLOCK_TOKENS,
+        cluster_rank * BLOCK_TOKENS, numel_sorted_token_ids, CLUSTER_SIZE * BLOCK_TOKENS
     ):
         offs = base + init_offsets
         mask = offs < numel_sorted_token_ids
         tl.store(sorted_token_ids_ptr + offs, numel, mask=mask)
     for base in range(
-        cluster_rank * BLOCK_TOKENS,
-        numel_expert_ids,
-        CLUSTER_SIZE * BLOCK_TOKENS,
+        cluster_rank * BLOCK_TOKENS, numel_expert_ids, CLUSTER_SIZE * BLOCK_TOKENS
     ):
         offs = base + init_offsets
         mask = offs < numel_expert_ids
-        tl.store(expert_ids_ptr + offs, 0, mask=mask)
+        tl.store(expert_ids_ptr + offs, -1, mask=mask)
 
     local_counts = tle.gpu.alloc(
         [BLOCK_EXPERT],
@@ -433,7 +423,7 @@ def moe_align_block_size_stage1(
 
     offsets_expert = pid * block_size_expert + tl.arange(0, block_size_expert)
     mask_expert = offsets_expert < numel_expert_ids
-    tl.store(expert_ids_ptr + offsets_expert, 0, mask=mask_expert)
+    tl.store(expert_ids_ptr + offsets_expert, -1, mask=mask_expert)
 
     start_idx = pid * tokens_per_thread
 
@@ -527,6 +517,75 @@ def moe_align_block_size_stage4(
     tl.store(sorted_token_ids_ptr + rank_post_pad, offset, mask=mask)
 
 
+def _moe_align_block_size_triton_4stage(
+    topk_ids: torch.Tensor,
+    num_experts: int,
+    block_size: int,
+    sorted_token_ids: torch.Tensor,
+    expert_ids: torch.Tensor,
+    num_tokens_post_pad: torch.Tensor,
+) -> None:
+    """Non-TLE 4-stage pipeline.
+
+    Shared by the generic ``moe_align_block_size_triton`` fallback and the
+    vendor-facing :func:`moe_align_block_size_no_tle` entry point.
+    """
+    numel = topk_ids.numel()
+    numel_sorted_token_ids = sorted_token_ids.numel()
+    numel_expert_ids = expert_ids.numel()
+    grid = (num_experts,)
+    tokens_per_thread = triton.next_power_of_2(ceil_div(numel, num_experts))
+    block_size_sorted = triton.next_power_of_2(
+        ceil_div(numel_sorted_token_ids, num_experts)
+    )
+    block_size_expert = triton.next_power_of_2(ceil_div(numel_expert_ids, num_experts))
+
+    # The tensor needs to be padded before calculating IDs,
+    # to prevent out-of-bounds address access.
+    cumsum = torch.zeros((num_experts + 1,), dtype=torch.int32, device=topk_ids.device)
+    tokens_cnts = torch.zeros(
+        (num_experts + 1, num_experts), dtype=torch.int32, device=topk_ids.device
+    )
+    num_experts_next_power_of_2 = triton.next_power_of_2(num_experts)
+
+    moe_align_block_size_stage1[grid](
+        topk_ids,
+        tokens_cnts,
+        num_experts,
+        numel,
+        tokens_per_thread,
+        sorted_token_ids,
+        expert_ids,
+        numel_sorted_token_ids,
+        numel_expert_ids,
+        block_size_sorted,
+        block_size_expert,
+    )
+    if num_experts == num_experts_next_power_of_2:
+        moe_align_block_size_stage2_vec[grid](tokens_cnts, num_experts)
+    else:
+        moe_align_block_size_stage2[grid](tokens_cnts, num_experts)
+    moe_align_block_size_stage3[(1,)](
+        num_tokens_post_pad,
+        tokens_cnts,
+        cumsum,
+        num_experts,
+        num_experts_next_power_of_2,
+        block_size,
+    )
+    moe_align_block_size_stage4[grid](
+        topk_ids,
+        sorted_token_ids,
+        expert_ids,
+        tokens_cnts,
+        cumsum,
+        num_experts,
+        block_size,
+        numel,
+        tokens_per_thread,
+    )
+
+
 def moe_align_block_size_triton(
     topk_ids: torch.Tensor,
     num_experts: int,
@@ -539,15 +598,9 @@ def moe_align_block_size_triton(
     numel = topk_ids.numel()
     numel_sorted_token_ids = sorted_token_ids.numel()
     numel_expert_ids = expert_ids.numel()
-    grid = (num_experts,)
-    tokens_per_thread = triton.next_power_of_2(ceil_div(numel, num_experts))
-    block_size_sorted = triton.next_power_of_2(
-        ceil_div(numel_sorted_token_ids, num_experts)
-    )
-    block_size_expert = triton.next_power_of_2(ceil_div(numel_expert_ids, num_experts))
     block_expert_tle = triton.next_power_of_2(num_experts)
 
-    if HAS_TLE and topk_ids.device.type == "cuda" and block_expert_tle <= 1024:
+    if HAS_TLE and topk_ids.is_cuda and block_expert_tle <= 1024:
         block_tokens_taf, _ = _pick_tle_atomic_fused_launch_params(numel, num_experts)
         experts_per_shard = ceil_div(num_experts, TLE_CLUSTER_SIZE)
         num_tokens = topk_ids.shape[0] if topk_ids.ndim > 1 else numel
@@ -628,51 +681,13 @@ def moe_align_block_size_triton(
         if _run_tle_atomic_fused():
             return
 
-    # The tensor needs to be padded before calculating IDs,
-    # to prevent out-of-bounds address access.
-    cumsum = torch.zeros((num_experts + 1,), dtype=torch.int32, device=topk_ids.device)
-    tokens_cnts = torch.zeros(
-        (num_experts + 1, num_experts),
-        dtype=torch.int32,
-        device=topk_ids.device,
-    )
-    num_experts_next_power_of_2 = triton.next_power_of_2(num_experts)
-
-    moe_align_block_size_stage1[grid](
+    _moe_align_block_size_triton_4stage(
         topk_ids,
-        tokens_cnts,
         num_experts,
-        numel,
-        tokens_per_thread,
+        block_size,
         sorted_token_ids,
         expert_ids,
-        numel_sorted_token_ids,
-        numel_expert_ids,
-        block_size_sorted,
-        block_size_expert,
-    )
-    if num_experts == triton.next_power_of_2(num_experts):
-        moe_align_block_size_stage2_vec[grid](tokens_cnts, num_experts)
-    else:
-        moe_align_block_size_stage2[grid](tokens_cnts, num_experts)
-    moe_align_block_size_stage3[(1,)](
         num_tokens_post_pad,
-        tokens_cnts,
-        cumsum,
-        num_experts,
-        num_experts_next_power_of_2,
-        block_size,
-    )
-    moe_align_block_size_stage4[grid](
-        topk_ids,
-        sorted_token_ids,
-        expert_ids,
-        tokens_cnts,
-        cumsum,
-        num_experts,
-        block_size,
-        numel,
-        tokens_per_thread,
     )
 
 
@@ -796,6 +811,54 @@ def moe_align_block_size_small_grouped(
         MAX_BLOCKS_PER_EXPERT=triton.cdiv(num_routes, block_size),
     )
     return sorted_token_ids, expert_ids, num_tokens_post_pad
+
+
+def moe_align_block_size_no_tle(
+    topk_ids: torch.Tensor,
+    block_size: int,
+    num_experts: int,
+    expert_map: Optional[torch.Tensor] = None,
+    pad_sorted_ids: bool = False,
+) -> "tuple[torch.Tensor, torch.Tensor, torch.Tensor]":
+    """TLE-free entry point for backends whose compiler cannot legalize the
+    TLE cooperative kernels (``tle.distributed_barrier``).
+
+    Same semantics as :func:`moe_align_block_size` minus the TLE attempt, so
+    vendors import this directly instead of re-implementing the non-TLE
+    orchestration in their fused_moe modules.
+    """
+    max_num_tokens_padded = topk_ids.numel() + num_experts * (block_size - 1)
+    if pad_sorted_ids:
+        max_num_tokens_padded = round_up(max_num_tokens_padded, block_size)
+    if topk_ids.numel() < num_experts:
+        # Small-batch tightening (same as vLLM): otherwise the
+        # (numel + E*(block_size-1)) bound inflates the sorted/expert buffers
+        # and the per-block masks of stage1/stage4.
+        max_num_tokens_padded = min(
+            topk_ids.numel() * block_size, max_num_tokens_padded
+        )
+    sorted_ids = torch.empty(
+        (max_num_tokens_padded,), dtype=torch.int32, device=topk_ids.device
+    )
+    numel_expert_ids = triton.cdiv(max_num_tokens_padded, block_size)
+    expert_ids = torch.empty(
+        (numel_expert_ids,), dtype=torch.int32, device=topk_ids.device
+    )
+    num_tokens_post_pad = torch.empty((1), dtype=torch.int32, device=topk_ids.device)
+
+    _moe_align_block_size_triton_4stage(
+        topk_ids,
+        num_experts,
+        block_size,
+        sorted_ids,
+        expert_ids,
+        num_tokens_post_pad,
+    )
+
+    if expert_map is not None:
+        expert_ids = expert_map[expert_ids]
+
+    return sorted_ids, expert_ids, num_tokens_post_pad
 
 
 def moe_align_block_size(

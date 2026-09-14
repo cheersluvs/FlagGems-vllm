@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from flaggems_vllm.runtime.backend._mthreads.fused.fused_add_rms_norm import (
+    fused_add_rms_norm,
+)
 from flaggems_vllm.runtime.backend._mthreads.fused.fused_moe import (
     fused_experts_impl,
     inplace_fused_experts,
@@ -26,4 +29,5 @@ __all__ = [
     "inplace_fused_experts",
     "outplace_fused_experts",
     "top_k_per_row_prefill",
+    "fused_add_rms_norm",
 ]

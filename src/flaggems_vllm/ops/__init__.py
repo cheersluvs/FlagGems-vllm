@@ -50,6 +50,7 @@ from flaggems_vllm.ops.attention import (
 from flaggems_vllm.ops.flash_mla import flash_mla
 from flaggems_vllm.ops.flash_mla_with_kvcache import flash_mla_with_kvcache
 from flaggems_vllm.ops.flashmla_sparse import flash_mla_sparse_fwd
+from flaggems_vllm.ops.fp8_einsum import fp8_einsum
 from flaggems_vllm.ops.fp8_fp4_mqa_logits import fp8_fp4_mqa_logits
 from flaggems_vllm.ops.fp8_fp4_paged_mqa_logits import fp8_fp4_paged_mqa_logits
 from flaggems_vllm.ops.fused_add_rms_norm import fused_add_rms_norm
@@ -79,8 +80,22 @@ from flaggems_vllm.ops.mhc import (
     mhc_pre,
     sinkhorn_forward,
 )
+from flaggems_vllm.ops.qwen4 import (
+    ple_state_gather,
+    ple_state_scatter_,
+    qwen4_compress_norm_mrope_store_groups,
+    qwen4_grouped_gemma_rmsnorm,
+    qwen4_hc_gate_reduce,
+    qwen4_hc_inject_combine,
+    qwen4_qsa_mqa_paged_dot,
+    qwen4_store_qsa_kv_rows,
+    qwen4_vendor_compress_qsa_groups,
+    qwen4_vendor_qsa_mqa_paged,
+    qwen4_vendor_store_qsa_rows,
+)
 from flaggems_vllm.ops.moe_align_block_size import (
     moe_align_block_size,
+    moe_align_block_size_no_tle,
     moe_align_block_size_triton,
 )
 from flaggems_vllm.ops.moe_sum import moe_sum
@@ -97,6 +112,7 @@ from flaggems_vllm.ops.per_token_group_quant_fp8 import (
     SUPPORTED_FP8_DTYPE,
     per_token_group_quant_fp8,
 )
+from flaggems_vllm.ops.permute_copy import permute_copy
 from flaggems_vllm.ops.persistent_topk import persistent_topk
 from flaggems_vllm.ops.reglu import dreglu, reglu
 from flaggems_vllm.ops.reshape_and_cache import reshape_and_cache
@@ -160,6 +176,7 @@ __all__ = [
     "flash_mla",
     "flash_mla_sparse_fwd",
     "flash_mla_with_kvcache",
+    "fp8_einsum",
     "fp8_fp4_mqa_logits",
     "fp8_fp4_paged_mqa_logits",
     "fused_add_rms_norm",
@@ -183,6 +200,7 @@ __all__ = [
     "mhc_post",
     "mhc_pre",
     "moe_align_block_size",
+    "moe_align_block_size_no_tle",
     "moe_align_block_size_triton",
     "moe_sum",
     "mrope",
@@ -191,11 +209,23 @@ __all__ = [
     "mv",
     "outer",
     "outplace_fused_experts",
+    "ple_state_gather",
+    "ple_state_scatter_",
     "parallel_nsa",
     "parallel_nsa_compression",
     "pack_seq_triton",
     "per_token_group_quant_fp8",
+    "permute_copy",
     "persistent_topk",
+    "qwen4_compress_norm_mrope_store_groups",
+    "qwen4_grouped_gemma_rmsnorm",
+    "qwen4_hc_gate_reduce",
+    "qwen4_hc_inject_combine",
+    "qwen4_qsa_mqa_paged_dot",
+    "qwen4_store_qsa_kv_rows",
+    "qwen4_vendor_compress_qsa_groups",
+    "qwen4_vendor_qsa_mqa_paged",
+    "qwen4_vendor_store_qsa_rows",
     "reglu",
     "reshape_and_cache",
     "reshape_and_cache_flash",
