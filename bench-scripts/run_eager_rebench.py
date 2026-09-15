@@ -114,8 +114,11 @@ def child(n, h):
 
 def main():
     rows = []
-    for n in TOKENS:
-        for h in HEADS:
+    only = os.environ.get("EAGER_SHAPES")          # e.g. "98304x128,131072x128"
+    shapes = ([tuple(int(v) for v in x.split("x")) for x in only.split(",")] if only
+              else [(n, h) for n in TOKENS for h in HEADS])
+    for n, h in shapes:
+        if True:
             log = "/tmp/eager_rebench_{}x{}.log".format(n, h)
             with open(log, "w") as f:
                 p = subprocess.run([sys.executable, os.path.abspath(__file__), str(n), str(h)],
