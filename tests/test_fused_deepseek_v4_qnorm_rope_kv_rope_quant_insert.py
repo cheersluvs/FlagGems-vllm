@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
+import sys
 
 import pytest
 import torch
@@ -301,6 +303,33 @@ def k_cache_compare(
     )
 
 
+# Rows of q (tokens x heads) the reference normalises and rotates at once. The
+# float32 working set of one chunk is a few times this many rows of 512; done
+# in one piece at 131072 tokens x 128 heads it exceeded 100 GiB. Every row is
+# independent, so chunking changes where the reference allocates, not what it
+# computes, and every case up to 4096 tokens x 128 heads is still one chunk.
+_REF_ROWS_PER_CHUNK = 1 << 19
+
+
+def _tokens_per_chunk(x: torch.Tensor) -> int:
+    rows_per_token = x.numel() // (x.shape[0] * x.shape[-1])
+    return max(1, _REF_ROWS_PER_CHUNK // rows_per_token)
+
+
+def _assert_close_by_token(actual, expected, rtol, atol):
+    """assert_close over token slices, so the comparison's own temporaries are
+    the size of one chunk rather than of q."""
+    step = _tokens_per_chunk(actual)
+    for start in range(0, actual.shape[0], step):
+        torch.testing.assert_close(
+            actual[start : start + step],
+            expected[start : start + step],
+            rtol=rtol,
+            atol=atol,
+            msg=lambda m, start=start: f"tokens from {start}: {m}",
+        )
+
+
 def ref_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
     """The oracle: always this file's torch reference.
 
@@ -312,8 +341,15 @@ def ref_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
     suite. Cross-checking against vLLM is worth doing, but as its own test
     (`test_matches_vllm_reference`), not as a substitution inside the oracle.
     """
-    q_norm_f32 = rmsnorm_no_weight_f32(q, eps)
-    apply_rope_gptj_last_k(q, q_norm_f32, positions, cos_sin_cache)
+    step = _tokens_per_chunk(q)
+    for start in range(0, q.shape[0], step):
+        q_chunk = q[start : start + step]
+        apply_rope_gptj_last_k(
+            q_chunk,
+            rmsnorm_no_weight_f32(q_chunk, eps),
+            positions[start : start + step],
+            cos_sin_cache,
+        )
     if kv.size(0) > slot_mapping.size(0):
         kv = kv[: slot_mapping.size(0), :]
         positions = positions[: slot_mapping.size(0)]
@@ -325,6 +361,23 @@ def fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
     flaggems_vllm.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
         q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs
     )
+
+
+@pytest.fixture(autouse=True)
+def _release_failed_case_memory():
+    """Free what a failed case's frames still hold before the next case runs.
+
+    pytest keeps the last failure in sys.last_traceback for post-mortem
+    debugging, and with it every tensor those frames referenced -- tens of GiB
+    at the largest shapes here -- so one failure used to make the next large
+    case run out of memory while allocating its inputs.
+    """
+    yield
+    sys.last_type = sys.last_value = sys.last_traceback = None
+    if hasattr(sys, "last_exc"):
+        sys.last_exc = None
+    gc.collect()
+    flaggems_vllm.runtime.torch_device_fn.empty_cache()
 
 
 # ── Test 1: Q path numerical parity ──────────────────────────────────────────
@@ -544,7 +597,7 @@ def test_combined_q_and_kv(num_tokens: int, n_heads: int, block_size: int):
     )
     fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, block_size)
 
-    torch.testing.assert_close(q, q_ref, rtol=1e-2, atol=1e-2)
+    _assert_close_by_token(q, q_ref, rtol=1e-2, atol=1e-2)
     k_cache_compare(k_cache, k_cache_ref, block_size, rtol=1e-2, atol=1e-2)
 
 
@@ -657,5 +710,5 @@ def test_matches_vllm_reference(num_tokens: int, n_heads: int, block_size: int):
 
     fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, block_size)
 
-    torch.testing.assert_close(q, q_ref, rtol=1e-2, atol=1e-2)
+    _assert_close_by_token(q, q_ref, rtol=1e-2, atol=1e-2)
     k_cache_compare(k_cache, k_cache_ref, block_size, rtol=1e-2, atol=1e-2)
