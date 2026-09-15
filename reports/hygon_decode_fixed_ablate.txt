@@ -1,0 +1,24 @@
+### branch topk-metax @ 23f6df1
+### 2026-09-15T15:42:37+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+=== 1. what the final select has to do, per vocab (1 row, k=512)
+    vocab final_cnt final_bin_size found (direct) threshold bin
+     4096        15             15            502           539
+    16384        37             37            500           516
+    65536        77             77            480           505
+   262144       111            111            509           498
+
+=== 2. ablating the final select (us per call, 1 row)
+  variant               4096     16384     65536    262144   removes
+  none                 113.5     112.6     114.0     319.2   baseline, must match the shipped operator
+  no_rank_loop         113.9     113.4     115.3     304.4   the O(final_cnt^2) inner rank loop
+  no_final_select      113.1     113.0     112.8     303.2   the whole final select: loads, ranks and stores
+
+  delta vs none    
+  no_rank_loop          -0.4      -0.8      -1.2      14.8
+  no_final_select        0.4      -0.4       1.2      16.1
+
+  Shipped operator for reference (should match 'none'):
+  shipped              113.7     113.3     115.6     319.2
