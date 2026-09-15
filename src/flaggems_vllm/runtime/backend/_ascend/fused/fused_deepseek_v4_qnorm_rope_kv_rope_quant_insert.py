@@ -36,6 +36,8 @@ scalar float-to-integer conversion, Triton can bitcast a pointer's element type
 here, and `[ROPE_DIM] -> [HALF_ROPE_DIM, 2]` survives the shape pipeline.
 """
 
+import functools
+
 import torch
 import triton
 import triton.language as tl
@@ -43,6 +45,23 @@ import triton.language as tl
 # The runtime rejects a launch whose program count exceeds this, reporting it as
 # an invalid `coreDim`. It is a launch-API limit, not a hardware occupancy one.
 MAX_PROGRAMS_PER_LAUNCH = 65535
+
+
+@functools.lru_cache(maxsize=None)
+def launch_group_size(device_index: int) -> int:
+    """Programs per launch must be at most this, or a multiple of it.
+
+    The runtime spreads a launch over `vector_core_num` cores (40 on 910B4). When
+    the grid is larger than that and not a multiple of it, program 0 is executed
+    again, 2 to 7 times per launch, varying run to run -- an in-place `x = 2x + 1`
+    kernel with no other content reads back 3, 7, 15, 31 at index 0 and 1
+    everywhere else. This operator writes q in place, so every extra execution
+    rotates token 0 again. Read the same way as the `add_rms_norm` override.
+    """
+    import torch_npu  # noqa: F401
+
+    return int(torch.npu.get_device_limit(device_index)["vector_core_num"])
+
 
 # Most heads of one token that a Q program may take, as an [H, HEAD_DIM] tile.
 # A single head moves only a kilobyte, far too little to cover this backend's
@@ -166,6 +185,7 @@ def fused_qnorm_rope_kv_insert_kernel(
     kv_block_stride,
     pid_offset,
     q_programs,
+    total_programs,
     tiles_per_token,
     H: tl.constexpr,
 ):
@@ -215,8 +235,10 @@ def fused_qnorm_rope_kv_insert_kernel(
     TOKEN_DATA_BYTES: tl.constexpr = NOPE_DIM + 2 * ROPE_DIM  # 576
     FP8_MAX: tl.constexpr = 448.0
 
-    # The work is issued in chunks of at most MAX_PROGRAMS_PER_LAUNCH, hence the
-    # offset. The grid is exact, so neither arm needs a bounds guard.
+    # The work is issued in chunks, hence the offset. The last chunk is padded up
+    # to a multiple of the launch group size, so programs at or past
+    # total_programs must do nothing: that is the `elif` below, which is a guard
+    # and not an early return -- a return in either arm aborts ttir_to_linalg.
     pid = tl.program_id(0).to(tl.int64) + pid_offset
     if pid < q_programs:
         # ---- Q: RMSNorm without weight, then GPT-J RoPE, for H heads of ONE
@@ -268,7 +290,7 @@ def fused_qnorm_rope_kv_insert_kernel(
         new_even_blk = even_blk * cos_blk[None, :] - odd_blk * sin_blk[None, :]
         new_odd_blk = even_blk * sin_blk[None, :] + odd_blk * cos_blk[None, :]
         tl.store(q + pair_off, tl.join(new_even_blk, new_odd_blk).to(tl.bfloat16))
-    else:
+    elif pid < total_programs:
         # ---- KV: GPT-J RoPE on the last 64, then UE8M0 FP8 quantisation of the
         # NoPE region and the paged-cache insert.
         kv_token = pid - q_programs
@@ -417,13 +439,23 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     # issued in chunks and each program adds its chunk's offset to its id. A
     # chunk boundary may fall inside either region -- each program classifies
     # itself from its global id, so nothing here has to align to it.
+    #
+    # Every launch is also at most one group or a whole number of groups; see
+    # launch_group_size for what goes wrong otherwise.
 
     heads_per_program = q_heads_per_program(num_heads)
     tiles_per_token = num_heads // heads_per_program
     q_programs = num_tokens * tiles_per_token
     total_programs = q_programs + num_tokens_insert
-    for pid_offset in range(0, total_programs, MAX_PROGRAMS_PER_LAUNCH):
-        grid = min(MAX_PROGRAMS_PER_LAUNCH, total_programs - pid_offset)
+    device_index = q.device.index
+    if device_index is None:
+        device_index = torch.npu.current_device()
+    group = launch_group_size(device_index)
+    step = MAX_PROGRAMS_PER_LAUNCH // group * group
+    for pid_offset in range(0, total_programs, step):
+        grid = min(step, total_programs - pid_offset)
+        if grid > group:
+            grid = triton.cdiv(grid, group) * group
         fused_qnorm_rope_kv_insert_kernel[(grid,)](
             q,
             kv,
@@ -438,6 +470,7 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
             k_cache.stride(0),
             pid_offset,
             q_programs,
+            total_programs,
             tiles_per_token,
             heads_per_program,
             num_warps=1,
