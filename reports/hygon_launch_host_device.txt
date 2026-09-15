@@ -1,0 +1,20 @@
+### branch topk-metax @ 044831f
+### 2026-09-15T15:54:33+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0915 15:54:56.126130 63442 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 4 (function operator())
+host python: 3.10.12  triton 3.6.0
+
+  call          submit us   wall us  device us
+  trivial            27.9      28.2        2.0
+  wide_noop          55.6      55.8        1.9
+  decode_s1         108.5     108.1        2.1
+  prefill_e1        112.4     111.8        2.9
+
+  submit ~= wall  -> the cost is host-side (JIT dispatch / host code)
+  device ~= wall  -> the cost is on the card
+  wide_noop vs trivial isolates what the argument list alone costs.
