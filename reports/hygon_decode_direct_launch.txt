@@ -1,0 +1,18 @@
+### branch topk-metax @ 2639e63
+### 2026-09-15T16:14:41+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+geometry BLOCK_SIZE=512 num_warps=8
+
+    vocab level     submit us   wall us  hit-path answer
+     4096 A op          112.2     111.9  OK
+     4096 B jit          54.7      55.6  OK
+     4096 C direct       11.6      17.3  OK
+   262144 A op          110.1     273.4  OK
+   262144 B jit          53.9     293.0  OK
+   262144 C direct       12.4     292.5  OK
+
+  At 262144 wall stays at the device's ~322 us whatever the host does;
+  what matters is the submit column, which is what every extra launch
+  of a split decode would pay.
