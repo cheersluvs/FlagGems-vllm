@@ -1,0 +1,27 @@
+### branch topk-metax @ 177bf51
+### 2026-09-15T15:25:02+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+=== 1. launch floor of a trivial kernel, 1 program (us)
+  B=  512 w=  8 threads=  512       31.1
+  B=  512 w=  4 threads=  256       30.2
+  B=  256 w=  4 threads=  256       31.3
+  B=  256 w=  2 threads=  128       30.0
+  B=  128 w=  2 threads=  128       31.3
+  B= 1024 w= 16 threads= 1024       30.1
+  B=  512 w=  2 threads=  128       31.4
+
+=== 2/3. operator at 1 row (ms), and fitted fixed part + slope
+  vLLM:        4096:0.0127  16384:0.0347  65536:0.0576  262144:0.0710   -> fixed   28.5 us, 0.179 ns/element
+  B= 512 w= 8:  4096:0.1550  16384:0.1549  65536:0.1553  262144:0.2993   -> fixed  140.0 us, 0.588 ns/element
+  B= 512 w= 4:  4096:0.1525  16384:0.1522  65536:0.1537  262144:0.4092   -> fixed  125.9 us, 1.045 ns/element
+  B= 256 w= 4:  4096:0.1551  16384:0.1551  65536:0.1565  262144:0.5051   -> fixed  118.9 us, 1.425 ns/element
+  B= 256 w= 2:  4096:0.1537  16384:0.1543  65536:0.1692  262144:0.5940   -> fixed  112.5 us, 1.785 ns/element
+  B= 128 w= 2:  4096:0.1573  16384:0.1565  65536:0.2250  262144:0.7725   -> fixed  112.6 us, 2.473 ns/element
+  B=1024 w=16:  4096:0.1536  16384:0.1530  65536:0.1551  262144:0.2868   -> fixed  139.9 us, 0.543 ns/element
+  B= 512 w= 2:  4096:0.1582  16384:0.1575  65536:0.1600  262144:0.5139   -> fixed  121.3 us, 1.449 ns/element
+
+  ! = WRONG answer. Today's geometry is B=512 w=8. If the operator's
+  fixed part tracks the trivial kernel's floor across geometries, the
+  0.14 ms is launch cost; if it stays put, it is the kernel's own work.
