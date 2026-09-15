@@ -13,27 +13,19 @@
 # limitations under the License.
 """Hygon BW1000 override: token-tiled fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert.
 
-The generic kernel gives each (token, head) slot its own program at num_warps=1,
-which on BW1000's 64-lane warp is 8 elements per lane and leaves most of the
-part's throughput unused. TPP tokens of ONE slot per program raises that to 16
-and the block to 256 threads. TPP=8/num_warps=4 is what the MetaX C550 override
-uses too -- both parts have 64-lane warps -- but do not tune the two separately:
-TPP=1/warps=1 and TPP=2/warps=2 are both 8 elements per lane and differ by 50%,
-because the second has a wider program.
+The generic kernel gives each (token, head) slot its own program, which leaves
+most of BW1000's 64-lane warp idle. Each program here takes TPP tokens of one
+slot. Tune TPP and num_warps together, not separately.
 
-Dispatch is on the PROGRAM count, num_tokens * (num_heads + 1) < 16384, not on
-tokens: the crossover is 256 tokens at 64 heads and 128 at 128 heads, which are
-16640 and 16512 programs. A flat token threshold would forfeit the 1.16x-1.32x
-available between 128 and 256 tokens at 128 heads. Output is bit-identical.
+Dispatch is on the program count, num_tokens * (num_heads + 1), not on tokens:
+that is what the crossovers agree on across head counts. Output is bit-identical.
 """
 
 import torch
 import triton
 import triton.language as tl
 
-# Measured on Hygon BW1000; see the module docstring. The threshold is a program
-# count -- num_tokens * (num_heads + 1) -- because that is what the measured
-# crossovers agree on across head counts.
+# Tuned on BW1000; see the module docstring.
 _TILED_MIN_PROGRAMS = 16384
 _TPP = 8
 _NUM_WARPS = 4

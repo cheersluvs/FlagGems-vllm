@@ -13,15 +13,12 @@
 # limitations under the License.
 """MetaX C550 override: token-tiled fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert.
 
-The generic kernel gives each (token, head) slot its own program at num_warps=1,
-so the KV slot's ~7 quant blocks straggle behind a Q slot's normalize+rotate and
-64-thread blocks under-fill the SM. Here each program takes TPP tokens of ONE
-slot, uniformly all-Q or all-KV; work and width must rise together, since raising
-num_warps alone only leaves each lane less to do.
+The generic kernel gives each (token, head) slot its own program, so KV slots'
+quant blocks straggle behind Q slots and 64-thread blocks under-fill the SM. Each
+program here takes TPP tokens of one slot, uniformly all-Q or all-KV.
 
-Below 512 tokens this dispatches to the generic kernel: TPP=8 masks off 7/8 of
-every program and the wider block raises the launch floor from ~26us to ~32us.
-Crossover measured at 512 on both head counts; output is bit-identical.
+Below 512 tokens this dispatches to the generic kernel, which launches cheaper
+where TPP=8 would mask off most of every program. Output is bit-identical.
 """
 
 import torch

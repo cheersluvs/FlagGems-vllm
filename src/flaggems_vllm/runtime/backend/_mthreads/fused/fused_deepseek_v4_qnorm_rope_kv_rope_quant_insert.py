@@ -14,31 +14,21 @@
 """Moore Threads S5000 override: token-tiled, and only at 64 heads.
 
 REQUIRES FLAGTREE >= 0.6.1+mthreads3.6, which bundles a working `llc` at
-`triton/backends/mthreads/bin/llc` (md5 cec9ff66714e311670b9412ec760e4aa). Older
-wheels ship no `bin/`, so Triton falls back to the `llc` in MUSA toolkit 4.3.5,
-where the 2-D tile trips an instruction-selection defect and NO configuration
-compiles. On such a build the dispatch below routes to the generic kernel, so
-nothing here is reached and nothing breaks.
+`triton/backends/mthreads/bin/llc` (md5 cec9ff66714e311670b9412ec760e4aa). With
+the `llc` from MUSA toolkit 4.3.5, which older wheels fall back to, the 2-D tile
+trips an instruction-selection defect and does not compile.
 
-Both gates were measured on this part rather than carried over: it has a 32-lane
-warp where MetaX and Hygon have 64, so its generic launch already delivers the 16
-elements per lane those two need TPP=8/num_warps=4 to reach.
-
-Heads: a full TPP x num_warps sweep at 128 heads finds nothing above 0.94x, and
-the tests and benchmark use 64 and 128 only, so the two-case rule is exhaustive
-rather than fitted. Tokens: below 192 the measurement spreads 12-34% across
-repetitions and is unusable, and the crossover sits between 256 (1.00x) and 512
-(1.03x), so 512 also stays clear of that region. The FP8 cache is bit-identical
-to the generic kernel; q differs by at most one bf16 ULP, from the RMSNorm
-reduction order.
+S5000 has a 32-lane warp, so its generic launch already gives each lane the work
+the 64-lane parts need TPP=8/num_warps=4 for. At 128 heads no tiling beats the
+generic kernel, and below 512 tokens the difference is within noise. The FP8
+cache is bit-identical; q differs by at most one bf16 ULP.
 """
 
 import torch
 import triton
 import triton.language as tl
 
-# See the docstring: 64 heads only, and only above the point where the
-# measurement stops being noise.
+# See the module docstring: 64 heads only, and 512 tokens and up.
 _TILED_MAX_HEADS = 64
 _TILED_MIN_TOKENS = 512
 _TPP = 4
@@ -200,9 +190,8 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     num_tokens, num_heads, head_dims = q.shape
 
     if num_heads > _TILED_MAX_HEADS or num_tokens < _TILED_MIN_TOKENS:
-        # 128 heads: no tiling configuration beats the generic kernel, which
-        # already leaves no headroom there. Small shapes: launch-bound, and the
-        # region is too noisy to claim a win in.
+        # 128 heads: no tiling configuration beats the generic kernel. Small shapes:
+        # launch-bound, and too noisy to claim a win in.
         from flaggems_vllm.ops.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert import (
             fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert as _generic,
         )

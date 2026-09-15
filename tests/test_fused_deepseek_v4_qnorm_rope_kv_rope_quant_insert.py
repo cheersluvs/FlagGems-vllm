@@ -46,10 +46,8 @@ try:
 
     HAS_VLLM = True
 except (ImportError, AttributeError, RuntimeError):
-    # RuntimeError because a misconfigured vLLM should mean "no baseline", not a
-    # collection error: with two platform plugins registered it raises
-    # "Only one platform plugin can be activated, but got: ['fl', 'musa']" at
-    # import, which aborted collection of this whole file on an MTT box.
+    # RuntimeError too: a misconfigured vLLM (e.g. two platform plugins) raises it
+    # at import, and that should mean "no baseline", not a collection error.
     pass
 
 VLLM_REF_AVAILABLE = HAS_VLLM and hasattr(torch.ops._C, OP_NAME)
@@ -156,18 +154,9 @@ def rmsnorm_no_weight_f32(x: torch.Tensor, eps: float) -> torch.Tensor:
 def _exact_pow2(exponent: torch.Tensor) -> torch.Tensor:
     """2 ** exponent for an integer-valued `exponent`, exactly.
 
-    `torch.exp2` and `torch.pow` do not return an exact power of two on every
-    backend: on Ascend, torch.exp2 is one ULP low for 492 of 512 integer
-    arguments. Almost anywhere else that is invisible, but the oracle divides by
-    this value, so every quantised element comes out a ULP high and the ones
-    sitting exactly between two E4M3 codes round the other way. The operator's
-    inputs keep bfloat16's 8 significand bits while E4M3 has 4, so such exact
-    ties are common, not a corner case -- this showed up as 16 differing bytes
-    per token, every one of them off by a single LSB.
-
-    Assembling the float from its exponent field is exact by construction. Done
-    on CPU because the exponent is small and this keeps it independent of what
-    the device's bit-level ops happen to support.
+    torch.exp2 is one ULP low for most integer arguments on Ascend, and the oracle
+    divides by this value, which flips E4M3 ties. Build the float from its exponent
+    field instead, on CPU.
     """
     code = (exponent.detach().cpu().to(torch.int32) + 127).clamp(0, 255)
     pow2 = (code << 23).contiguous().view(torch.float32)
@@ -177,11 +166,8 @@ def _exact_pow2(exponent: torch.Tensor) -> torch.Tensor:
 def _to_e4m3_uint8(x: torch.Tensor) -> torch.Tensor:
     """The reference FP8 conversion, returned as uint8 bit patterns.
 
-    A backend can carry the `float8_e4m3fn` dtype and still be unable to cast to
-    it: torch_npu raises `Float8_e4m3fn has not been supported`. That would fail
-    the oracle rather than the kernel under test, so fall back to CPU for this
-    one step. The cast is elementwise and device-independent, so the numbers are
-    unaffected -- only where they are computed.
+    torch_npu has the float8_e4m3fn dtype but cannot cast to it, so this elementwise
+    step falls back to CPU.
     """
     try:
         return x.to(torch.float8_e4m3fn).view(torch.uint8)
@@ -303,11 +289,8 @@ def k_cache_compare(
     )
 
 
-# Rows of q (tokens x heads) the reference normalises and rotates at once. The
-# float32 working set of one chunk is a few times this many rows of 512; done
-# in one piece at 131072 tokens x 128 heads it exceeded 100 GiB. Every row is
-# independent, so chunking changes where the reference allocates, not what it
-# computes, and every case up to 4096 tokens x 128 heads is still one chunk.
+# Rows of q (tokens x heads) the reference processes at once, so the largest
+# shapes fit in device memory. Rows are independent; small cases are one chunk.
 _REF_ROWS_PER_CHUNK = 1 << 19
 
 
@@ -331,15 +314,8 @@ def _assert_close_by_token(actual, expected, rtol, atol):
 
 
 def ref_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
-    """The oracle: always this file's torch reference.
-
-    This used to run vLLM's C++ kernel instead whenever `torch.ops._C` happened
-    to carry the op, which made the oracle depend on collection order -- nothing
-    here imports vLLM, but `test_cp_gather_indexer_k_quant_cache` and
-    `test_cutlass_scaled_mm` do so at module level and both sort earlier, so the
-    reference silently differed between running this file alone and running the
-    suite. Cross-checking against vLLM is worth doing, but as its own test
-    (`test_matches_vllm_reference`), not as a substitution inside the oracle.
+    """The oracle: always this file's torch reference, never vLLM's kernel;
+    `test_matches_vllm_reference` cross-checks against vLLM separately.
     """
     step = _tokens_per_chunk(q)
     for start in range(0, q.shape[0], step):
@@ -365,12 +341,8 @@ def fused_impl(q, kv, k_cache, slot_mapping, positions, cos_sin_cache, eps, bs):
 
 @pytest.fixture(autouse=True)
 def _release_failed_case_memory():
-    """Free what a failed case's frames still hold before the next case runs.
-
-    pytest keeps the last failure in sys.last_traceback for post-mortem
-    debugging, and with it every tensor those frames referenced -- tens of GiB
-    at the largest shapes here -- so one failure used to make the next large
-    case run out of memory while allocating its inputs.
+    """Drop the last failure's traceback, which pytest keeps for post-mortem
+    debugging and which holds the failed case's tensors, before the next case.
     """
     yield
     sys.last_type = sys.last_value = sys.last_traceback = None
@@ -663,13 +635,8 @@ def test_backend_override_matches_reference(
 @pytest.mark.parametrize("n_heads", [64, 128])
 @pytest.mark.parametrize("block_size", [16, 64])
 def test_matches_vllm_reference(num_tokens: int, n_heads: int, block_size: int):
-    """Cross-check against vLLM's own kernel -- the implementation this replaces.
-
-    Kept separate from the tests above, which compare against this file's torch
-    reference. That reference is the oracle; this is a comparison of two
-    production kernels, and it is skipped where vLLM is absent. Merging the two
-    is what the module used to do and it made the oracle order-dependent; see
-    `ref_impl`.
+    """Cross-check against vLLM's own kernel; skipped where vLLM is absent. The tests
+    above compare against this file's torch reference instead.
     """
     torch.manual_seed(4)
     device = flaggems_vllm.device

@@ -45,48 +45,21 @@ try:
 
     HAS_VLLM = True
 except (ImportError, AttributeError, RuntimeError):
-    # RuntimeError because a misconfigured vLLM should mean "no baseline", not a
-    # collection error: with two platform plugins registered it raises
-    # "Only one platform plugin can be activated, but got: ['fl', 'musa']" at
-    # import, which aborted collection of this whole file on an MTT box.
+    # RuntimeError too: a misconfigured vLLM (e.g. two platform plugins) raises it
+    # at import, and that should mean "no baseline", not a collection error.
     pass
 
 
 def _skip_if_unrunnable(ref, op_name):
     """Wrap the reference so a registered-but-unlaunchable kernel skips.
 
-    A vendor can register the op and still not run it: MetaX's build returns
-    `mcErrorInvalidValue` from every launch on C550. Failing there blames FlagGems
-    for someone else's defect, while the old `hasattr` gate hid it entirely by
-    skipping as "not installed". Skip, with the launch error as the reason.
+    A vendor build can register the op and still fail every launch, as MetaX's
+    mcoplib 0.4.6 does on C550. Skip with the launch error as the reason, rather than
+    failing the benchmark or hiding it as "not installed".
 
-    Only the first call pays. A failed launch is reported asynchronously, so left
-    alone it lands on whatever comes next -- here `do_bench`'s 256 MB L2-flush
-    allocation, too late to convert and pointing at the wrong frame. Surfacing it
-    takes a *new kernel launch*: on this backend `synchronize()` and a
-    device-to-host copy are both silent, while any launch raises. Hence the
-    throwaway reduction below. `pytest.skip` then raises `Skipped`, which derives
-    from `BaseException` and so passes through the harness's
-    `except (RuntimeError, Exception)` intact.
-
-    The sibling `torch.ops._C` benchmarks (`top_k_per_row_decode`,
-    `persistent_topk`, `cutlass_scaled_mm`) gate on the import alone; this is the
-    one deliberate deviation, since none of them has met a build that registers the
-    op but cannot launch it.
-
-    KEEP THIS WRAPPER even though mcoplib 0.4.9 fixes the defect in source (it drops
-    the `cudaLaunchKernelEx` path 0.4.6 calls with an uninitialised
-    `cudaLaunchConfig_t`), because no wheel carrying that fix is reachable -- MetaX
-    publishes none on GitHub (every release has zero assets) and the C550 image
-    installs mcoplib from a local file, not an index, so whoever runs this still
-    has 0.4.6 -- and because 0.4.9 is a different operator:
-    vLLM changed the schema at v0.22.0 (`q` read-only, `q_head_padded` added, the
-    result returned rather than written in place) and 0.4.9 follows it, while this
-    file targets the v0.21.0 contract the repo pins.
-
-    Rebuilt from 0.4.6 source with MetaX's own 0.4.9 launch fix the kernel runs on
-    C550 and scores what it did under an LD_PRELOAD shim, so only the published
-    binary is unusable.
+    A failed launch is reported asynchronously, so the first call forces it out with
+    a throwaway kernel launch; synchronize() alone is silent there. `pytest.skip`
+    raises `Skipped`, a BaseException, which passes the harness's `except Exception`.
     """
     checked = False
 
