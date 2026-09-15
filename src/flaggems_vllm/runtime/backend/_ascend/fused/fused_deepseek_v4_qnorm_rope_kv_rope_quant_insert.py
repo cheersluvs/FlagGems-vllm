@@ -60,7 +60,10 @@ def launch_group_size(device_index: int) -> int:
     """
     import torch_npu  # noqa: F401
 
-    return int(torch.npu.get_device_limit(device_index)["vector_core_num"])
+    # The query needs an initialised device context; entering the device
+    # context provides one and restores the caller's current device on exit.
+    with torch.npu.device(device_index):
+        return int(torch.npu.get_device_limit(device_index)["vector_core_num"])
 
 
 # Most heads of one token that a Q program may take, as an [H, HEAD_DIM] tile.
