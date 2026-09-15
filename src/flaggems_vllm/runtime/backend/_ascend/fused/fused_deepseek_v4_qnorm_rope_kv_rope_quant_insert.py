@@ -60,9 +60,12 @@ def launch_group_size(device_index: int) -> int:
     """
     import torch_npu  # noqa: F401
 
-    # The query needs an initialised device context; entering the device
-    # context provides one and restores the caller's current device on exit.
+    # The query needs an initialised device context. Entering torch.npu.device
+    # alone does not create one when the index is already current, so set the
+    # device explicitly, as add_rms_norm does; the context restores the caller's
+    # current device on exit.
     with torch.npu.device(device_index):
+        torch.npu.set_device(device_index)
         return int(torch.npu.get_device_limit(device_index)["vector_core_num"])
 
 
