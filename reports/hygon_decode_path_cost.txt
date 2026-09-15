@@ -1,0 +1,28 @@
+### branch topk-metax @ f15ec02
+### 2026-09-15T15:47:49+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+=== decode, 1 row, vocab 4096, one compiled kernel; only seq_len moves
+  seq_len   us/call  path
+     4096     111.7  assume_aligned
+     4095     110.1  stride1
+     4000     110.1  stride1
+     1024     110.1  stride1
+      512     111.2  row_len <= TOPK (early return)
+        1     109.8  row_len <= TOPK (early return)
+  compiled decode kernel(s):
+    regs=44 spills=0 shared=32 warps=8
+
+=== prefill, 1 row, vocab 4096; only row_end moves
+  row_end   us/call
+     4096     112.7
+     4095     113.9
+     4000     113.5
+     1024     114.3
+      512     113.7
+        1     114.1
+  compiled prefill kernel(s):
+    regs=44 spills=0 shared=32 warps=8
+
+  Launch floor of a trivial kernel on this card: ~30 us.
