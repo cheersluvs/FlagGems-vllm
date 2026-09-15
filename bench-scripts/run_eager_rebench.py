@@ -65,6 +65,11 @@ def child(n, h):
     if eager is None:
         cands = [k for k in dir(eager_baseline) if not k.startswith("_")]
         raise RuntimeError("eager_baseline has no eager_fused_deepseek_v4; has {}".format(cands))
+    if os.environ.get("EAGER_CHUNK") == "1":
+        # Whole below 65536x128 rows, token-chunked above; see eager_chunked.py
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import eager_chunked
+        eager = eager_chunked.eager_chunked
     fused = flaggems_vllm.fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert
     fixed = hasattr(importlib.import_module(
         "flaggems_vllm.runtime.backend._ascend.fused"
@@ -79,7 +84,8 @@ def child(n, h):
     bench = cls()
     p = mod.TestParam(n, h, num_tokens_insert=n, block_size=64, max_pos=4096, eps=1e-6)
     inp = next(iter(cls.make_input(p)))
-    row = {"n": n, "h": h, "fixed_override": fixed}
+    row = {"n": n, "h": h, "fixed_override": fixed,
+           "eager_chunked": os.environ.get("EAGER_CHUNK") == "1"}
 
     def timed(label, op):
         try:
