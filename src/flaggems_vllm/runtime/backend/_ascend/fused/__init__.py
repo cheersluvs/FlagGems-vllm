@@ -17,4 +17,9 @@ from flaggems_vllm.runtime.backend._ascend.fused.fused_deepseek_v4_qnorm_rope_kv
 
 __all__ = [
     "fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert",
+
+from flaggems_vllm.runtime.backend._ascend.fused.persistent_topk import persistent_topk
+
+__all__ = [
+    "persistent_topk",
 ]
