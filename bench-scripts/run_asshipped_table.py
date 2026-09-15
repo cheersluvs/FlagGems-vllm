@@ -51,6 +51,9 @@ _KNOWN = {            # vendor: (ceiling GB/s, baseline GB/s at its own optimum)
 _v = getattr(flaggems_vllm, "vendor_name", "?")
 _d = _KNOWN.get(_v, (None, None))
 CEIL = float(os.environ.get("CEILING_GBS") or (_d[0] or 0)) or None
+# BASELINE_NUM_WARPS=N: measure the baseline at an explicit num_warps (its own
+# optimum) instead of as shipped. The launch must carry exactly that value.
+EXPECT_WARPS = os.environ.get("BASELINE_NUM_WARPS")
 OPT = float(os.environ.get("OPTIMUM_GBS") or (_d[1] or 0)) or None
 
 
@@ -67,8 +70,10 @@ def find_baseline():
     """
     import ast as _ast
     out = []
+    here = os.path.dirname(os.path.abspath(__file__))
     for f in sorted(set(glob.glob(os.path.join(REPO, "myowncode", "**", "*.py"),
-                                  recursive=True))):
+                                  recursive=True)
+                        + glob.glob(os.path.join(here, "*.py")))):
         if os.path.abspath(f) == os.path.abspath(__file__):
             continue
         try:
@@ -85,7 +90,8 @@ def find_baseline():
 
 def main():
     print("=" * 76)
-    print("  基线用上游原样的启动配置(不传 num_warps)")
+    print("  基线用上游原样的启动配置(不传 num_warps)" if not EXPECT_WARPS
+          else "  基线 num_warps={}(自身实测最优点)".format(EXPECT_WARPS))
     print("=" * 76)
     print("  device:", DEVFN.get_device_name(0), " count:", DEVFN.device_count())
 
@@ -123,7 +129,13 @@ def main():
 
     warps = re.findall(r"num_warps\s*=\s*(\w+)", src)
     print("\n  该函数里出现的 num_warps:", warps or "无 —— 与上游一致")
-    if warps:
+    if EXPECT_WARPS:
+        if warps != [EXPECT_WARPS]:
+            print("  期望 num_warps={},实际 {} —— 基线不是要测的那份。".format(EXPECT_WARPS, warps))
+            print("\n[RESULT] NUM_WARPS_MISMATCH")
+            return
+        print("  num_warps={} 与 BASELINE_NUM_WARPS 一致。".format(EXPECT_WARPS))
+    elif warps:
         print("  存在 num_warps,而本次要的是上游原样。请先确认这是接线加的,")
         print("  再决定怎么处理 —— 本脚本不改机器上的文件。")
         print("\n[RESULT] NUM_WARPS_PRESENT")
@@ -201,7 +213,12 @@ def main():
             vend, gv, 100 * gv / CEIL))
         print("  gems {:.4f} ms -> {:>7.1f} GB/s = 天花板的 {:.1f}%".format(
             gems, gg, 100 * gg / CEIL))
-        if OPT:
+        if OPT and EXPECT_WARPS:
+            print("\n  该基线在自己最优 num_warps 下的已知带宽:{:.1f} GB/s".format(OPT))
+            ok = abs(gv / OPT - 1) <= 0.15
+            print("  本次为已知值的 {:.0f}% —— {}".format(
+                100 * gv / OPT, "吻合,接的是最优点那份" if ok else "偏离超过 15%,比值先别引用"))
+        elif OPT:
             print("\n  该基线在自己最优 num_warps 下的已知带宽:{:.1f} GB/s".format(OPT))
             if gv > OPT * 0.9:
                 print("  **as-shipped 达到了最优点的 {:.0f}% —— 太高。**".format(
@@ -211,8 +228,11 @@ def main():
                 print("  as-shipped 为最优点的 {:.0f}%,符合“被默认值压住”的预期。"
                       .format(100 * gv / OPT))
 
-    print("\n  加速比 = 上游原样的 vLLM XPU 基线 / FlagGems,--mode kernel --level core")
-    print("  对照:PR 采用的是基线跑在自己最优 num_warps 时的比值,不是这张表。")
+    if EXPECT_WARPS:
+        print("\n  加速比 = num_warps={} 的 vLLM XPU 基线 / FlagGems,--mode kernel --level core".format(EXPECT_WARPS))
+    else:
+        print("\n  加速比 = 上游原样的 vLLM XPU 基线 / FlagGems,--mode kernel --level core")
+        print("  对照:PR 采用的是基线跑在自己最优 num_warps 时的比值,不是这张表。")
     print("\n[RESULT] AS_SHIPPED_TABLE_OK")
 
 

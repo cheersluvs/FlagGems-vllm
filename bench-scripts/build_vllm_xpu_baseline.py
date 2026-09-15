@@ -121,8 +121,38 @@ HALF_ROPE = ROPE_DIM // 2
 
 '''
 
-io.open(OUT, "w", encoding="utf-8").write(
-    header + quant + "\n\n\n" + xpu_seg + "\n")
+body = header + quant + "\n\n\n" + xpu_seg + "\n"
+
+# BASELINE_NUM_WARPS=N: launch at an explicit num_warps instead of Triton's
+# default -- used for the table at the baseline's own measured optimum (Hygon
+# BW1000: 1). The call is located with ast, not by string, and must be unique.
+_warps = os.environ.get("BASELINE_NUM_WARPS")
+if _warps:
+    import ast as _ast
+    _t = _ast.parse(body)
+    _calls = [c for c in _ast.walk(_t) if isinstance(c, _ast.Call)
+              and isinstance(c.func, _ast.Subscript)
+              and getattr(c.func.value, "id", None) == "_xpu_qnorm_rope_kernel"]
+    assert len(_calls) == 1, "expected one kernel launch, found %d" % len(_calls)
+    assert not any(k.arg == "num_warps" for k in _calls[0].keywords)
+    _lines = body.split("\n")
+    _ln, _col = _calls[0].end_lineno - 1, _calls[0].end_col_offset - 1
+    _pre = _lines[_ln][:_col].rstrip()
+    if not _pre:                      # closing paren on its own line
+        _j = _ln - 1
+        while not _lines[_j].strip():
+            _j -= 1
+        _lines[_j] = _lines[_j].rstrip() + ("" if _lines[_j].rstrip().endswith(",") else ",")
+        _lines.insert(_ln, " " * (len(_lines[_j]) - len(_lines[_j].lstrip())) + "num_warps=%d," % int(_warps))
+    else:
+        _sep = " " if _pre.endswith(",") else ", "
+        _lines[_ln] = _lines[_ln][:_col].rstrip() + _sep + "num_warps=%d" % int(_warps) + _lines[_ln][_col:]
+    body = "\n".join(_lines).replace(
+        "**启动配置保持上游原样:不传 num_warps,取 Triton 默认 4。**",
+        "**启动配置:num_warps=%d(BASELINE_NUM_WARPS,基线自身实测最优点),不是上游默认。**" % int(_warps))
+    print("  启动参数改为 num_warps=%d" % int(_warps))
+
+io.open(OUT, "w", encoding="utf-8").write(body)
 
 import ast
 src = io.open(OUT, encoding="utf-8").read()
