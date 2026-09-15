@@ -1,0 +1,25 @@
+### branch topk-metax @ 816b7ec
+### 2026-09-15T16:05:32+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0915 16:05:53.045898 63602 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 41 (function operator())
+device microseconds per call, 1 row, top_k 512 (! = WRONG answer)
+
+  variant         4096     16384     65536    131072    262144
+  full           18.4      35.7      95.8     173.7     322.2 
+  steps<=3       18.7      36.1      98.2     173.0     328.8 
+  steps<=2       18.8      36.0      96.7     174.8     323.4 
+  steps<=1       18.4      35.3      98.1     172.7     328.4 
+INFO 09-15 16:06:03 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-15 16:06:03 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-15 16:06:03 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-15 16:06:03 [__init__.py:239] Platform plugin hcu is activated
+  vLLM           12.1      35.6      59.3      90.3      71.8 
+
+  full kernel, fitted over 16384..262144: fixed 18.7 us, 1.163 ns/element
+  A capped variant that stays CORRECT at a vocab shows those steps were
+  unnecessary there; the gap to `full` is what they cost.
