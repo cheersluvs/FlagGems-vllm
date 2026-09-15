@@ -69,6 +69,14 @@ def launch_group_size(device_index: int) -> int:
         return int(torch.npu.get_device_limit(device_index)["vector_core_num"])
 
 
+@functools.lru_cache(maxsize=None)
+def launch_geometry(device_index: int) -> tuple:
+    """(group size, chunk step): the step is the largest whole number of groups
+    within MAX_PROGRAMS_PER_LAUNCH. Cached, since the wrapper runs per call."""
+    group = launch_group_size(device_index)
+    return group, MAX_PROGRAMS_PER_LAUNCH // group * group
+
+
 # Most heads of one token that a Q program may take, as an [H, HEAD_DIM] tile.
 # A single head moves only a kilobyte, far too little to cover this backend's
 # per-program cost, and 32 measures better than 16. 64 will not compile:
@@ -456,12 +464,13 @@ def fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert(
     device_index = q.device.index
     if device_index is None:
         device_index = torch.npu.current_device()
-    group = launch_group_size(device_index)
-    step = MAX_PROGRAMS_PER_LAUNCH // group * group
+    group, step = launch_geometry(device_index)
     for pid_offset in range(0, total_programs, step):
         grid = min(step, total_programs - pid_offset)
         if grid > group:
-            grid = triton.cdiv(grid, group) * group
+            # Integer arithmetic, not triton.cdiv: that measured 2.9 us per call
+            # here against 0.014 us, a visible share of a ~70 us decode call.
+            grid = -(-grid // group) * group
         fused_qnorm_rope_kv_insert_kernel[(grid,)](
             q,
             kv,
