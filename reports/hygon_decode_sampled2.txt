@@ -1,0 +1,22 @@
+### branch topk-metax @ 38c86a6
+### 2026-09-16T10:17:20+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-16 10:17:38 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 10:17:38 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 10:17:38 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 10:17:38 [__init__.py:239] Platform plugin hcu is activated
+vocab 262144, top_k 512; sample 1/16, admit rank 64 of the sample (~1024 elements), buffer 8192
+
+  rows split  shipped us  sampled us  +sync us  ratio now  ratio new   cands   answer
+     1    16        76.6       455.5     576.9      0.920      0.122    1153       OK
+     4    16       104.5       452.1     572.0      0.680      0.124    1312       OK
+     8     8       138.2       458.8     581.1      0.559      0.133    1331       OK
+    16     8       171.9       454.7     576.9      0.559      0.167    1394       OK
+    24     8       223.3       456.7     578.9      0.548      0.211    1408       OK
+    32     4       265.0       452.6     578.3      0.661      0.303    1560       OK
+    56     4       385.7       450.3     577.5      0.810      0.541    1407       OK
+
+  'cands' is the largest candidate count admitted (buffer is 8192); under 512 would mean the threshold was too strict.
+  'ratio new' includes the sync that the fallback decision needs.
