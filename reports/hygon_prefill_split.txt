@@ -1,0 +1,48 @@
+### branch topk-metax @ f164b99
+### 2026-09-16T16:02:47+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-16 16:03:05 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 16:03:05 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 16:03:05 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 16:03:05 [__init__.py:239] Platform plugin hcu is activated
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 16:03:06.362741 87976 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+80 SMs; ratio vs vLLM (wall), device us in brackets
+
+  64 x 129280, top_k 1024: vLLM 105.4 us, shipped 0.333 (310.7 us device)
+      split  1:  0.428 (  249.1 us device, 64 programs, 1024 candidates) OK
+      split  2:  0.328 (  322.0 us device, 128 programs, 2048 candidates) OK
+      split  4:  0.332 (  317.2 us device, 256 programs, 4096 candidates) OK
+      split  8:  0.248 (  424.5 us device, 512 programs, 8192 candidates) OK
+      split 16:  0.163 (  645.0 us device, 1024 programs, 16384 candidates) OK
+      split 32:  0.102 ( 1029.3 us device, 2048 programs, 32768 candidates) OK
+
+  4 x 8193, top_k 512: vLLM 15.0 us, shipped 0.086 (26.5 us device)
+      split  1:  0.265 (   34.7 us device, 4 programs, 512 candidates) OK
+      split  2:  0.259 (   47.2 us device, 8 programs, 1024 candidates) OK
+      split  4:  0.258 (   52.0 us device, 16 programs, 2048 candidates) OK
+      split  8:  0.245 (   62.2 us device, 32 programs, 4096 candidates) OK
+
+  4 x 16385, top_k 512: vLLM 20.4 us, shipped 0.117 (36.6 us device)
+      split  1:  0.355 (   42.6 us device, 4 programs, 512 candidates) OK
+      split  2:  0.356 (   51.0 us device, 8 programs, 1024 candidates) OK
+      split  4:  0.358 (   55.5 us device, 16 programs, 2048 candidates) OK
+      split  8:  0.306 (   67.5 us device, 32 programs, 4096 candidates) OK
+      split 16:  0.224 (   94.3 us device, 64 programs, 8192 candidates) OK
+
+  16383 x 4095, top_k 512: vLLM 1149.0 us, shipped 0.848 (1349.5 us device)
+      split  1:  0.283 ( 4052.2 us device, 16383 programs, 512 candidates) OK
+
+  12961 x 4100, top_k 512: vLLM 681.3 us, shipped 0.636 (1066.6 us device)
+      split  1:  0.207 ( 3290.6 us device, 12961 programs, 512 candidates) OK
+
+  16380 x 5115, top_k 512: vLLM 1243.1 us, shipped 0.781 (1586.9 us device)
+      split  1:  0.288 ( 4332.6 us device, 16380 programs, 512 candidates) OK
+
+  4100 x 1025, top_k 512: vLLM 157.3 us, shipped 0.879 (172.4 us device)
+      split  1:  0.206 (  759.7 us device, 4100 programs, 512 candidates) OK
+
