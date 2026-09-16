@@ -1,0 +1,51 @@
+### branch topk-metax @ 6b22d72
+### 2026-09-16T14:38:41+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 14:39:00.774665 80498 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 7 (function operator())
+80 SMs; GB/s over the bytes read, one pass
+
+  64 x 129280, top_k 1024, split 2: 33.1 MB; select density 0.008 (exact) 0.048 (sampled), buffer 8192
+        B x w     read      h64     h256    h2048    atomx    scanx    atoms    scans
+      256 x 2      586      138      166      171      100       51       94       51
+      256 x 4     1055      179      245      276      204       74      114       72
+      512 x 4      629      162      204      243      158       87      113       85
+      512 x 8      992      178      249      305      353      116      114      115
+     1024 x 8      657      137      234      294      254      112      113      110
+    1024 x 16      987      121      199      275      477      135      115      135
+    best: read 1055, h64 179, h256 249, h2048 305, atomx 477, scanx 135, atoms 115, scans 135
+
+  16383 x 4095, top_k 512, split 1: 268.4 MB; select density 0.125 (exact) 0.500 (sampled), buffer 4096
+        B x w     read      h64     h256    h2048    atomx    scanx    atoms    scans
+      256 x 2      920      209      417      309      403      307      106      298
+      256 x 4     1212      245      440      322      352      303       89      286
+      512 x 4      928      192      390      306      303      278       79      270
+      512 x 8     1403      233      447      321      204      248       53      240
+     1024 x 8      933      184      374      305      183      209       50      204
+    1024 x 16     1298      210      430      320      117      175       30      171
+    best: read 1403, h64 245, h256 447, h2048 322, atomx 403, scanx 307, atoms 106, scans 298
+
+  12961 x 4100, top_k 512, split 1: 212.6 MB; select density 0.125 (exact) 0.500 (sampled), buffer 4096
+        B x w     read      h64     h256    h2048    atomx    scanx    atoms    scans
+      256 x 2     1157      231      431      316      436      408      109      351
+      256 x 4     1191      239      423      315      332      283       86      267
+      512 x 4     1210      212      413      310      300      360       80      341
+      512 x 8     1341      225      440      320      187      218       51      211
+     1024 x 8     1334      194      400      313      171      263       53      258
+    1024 x 16     1261      227      376      312      110      141       28      139
+    best: read 1341, h64 239, h256 440, h2048 320, atomx 436, scanx 408, atoms 109, scans 351
+
+  4100 x 1025, top_k 512, split 1: 16.8 MB; select density 0.500 (exact) 0.500 (sampled), buffer 1024
+        B x w     read      h64     h256    h2048    atomx    scanx    atoms    scans
+      256 x 2      883      203      354      260       92      260       93      260
+      256 x 4      852      171      337      223       68      149       68      157
+      512 x 4      859      160      360      223       66      182       65      171
+      512 x 8      717      183      345      256       41      141       41      146
+     1024 x 8      705      159      318      245       41      171       41      165
+    1024 x 16      376      153      271      227       26       76       26       76
+    best: read 883, h64 203, h256 360, h2048 260, atomx 92, scanx 260, atoms 93, scans 260
+
