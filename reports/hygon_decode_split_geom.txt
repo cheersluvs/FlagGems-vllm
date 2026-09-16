@@ -1,0 +1,57 @@
+### branch topk-metax @ 4041f7c
+### 2026-09-16T09:51:34+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-16 09:51:53 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 09:51:53 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 09:51:53 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 09:51:53 [__init__.py:239] Platform plugin hcu is activated
+vocab 262144, top_k 512, 80 SMs; ratio vs vLLM; (r) = what ships today; ! = WRONG
+
+  rows  16 (ships split 8, vLLM   96.0 us)
+    geometry          split 4    split 8   split 16    programs (stage 1)
+    B512   w8          0.533      0.534      0.539           64        128        256
+    B512   w4          0.458      0.506      0.488           64        128        256
+    B256   w4          0.432      0.516      0.534           64        128        256
+    B256   w2          0.381      0.463      0.497           64        128        256
+    B1024  w16         0.514      0.499      0.436           64        128        256
+    -> best 0.539 at B512 w8 split 16
+
+  rows  24 (ships split 8, vLLM  122.3 us)
+    geometry          split 4    split 8   split 16    programs (stage 1)
+    B512   w8          0.470      0.549      0.480           96        192        384
+    B512   w4          0.449      0.524      0.502           96        192        384
+    B256   w4          0.456      0.542      0.529           96        192        384
+    B256   w2          0.429      0.507      0.501           96        192        384
+    B1024  w16         0.435      0.450      0.408           96        192        384
+    -> best 0.549 at B512 w8 split 8
+
+  rows  32 (ships split 4, vLLM  176.5 us)
+    geometry          split 4    split 8   split 16    programs (stage 1)
+    B512   w8          0.673      0.644      0.567          128        256        512
+    B512   w4          0.633      0.622      0.589          128        256        512
+    B256   w4          0.633      0.643      0.610          128        256        512
+    B256   w2          0.577      0.618      0.576          128        256        512
+    B1024  w16         0.579      0.520      0.448          128        256        512
+    -> best 0.673 at B512 w8 split 4
+
+  rows  40 (ships split 4, vLLM  222.8 us)
+    geometry          split 4    split 8   split 16    programs (stage 1)
+    B512   w8          0.762      0.656      0.591          160        320        640
+    B512   w4          0.718      0.714      0.633          160        320        640
+    B256   w4          0.712      0.721      0.648          160        320        640
+    B256   w2          0.652      0.695      0.648          160        320        640
+    B1024  w16         0.640      0.589      0.474          160        320        640
+    -> best 0.762 at B512 w8 split 4
+
+  rows  56 (ships split 4, vLLM  313.5 us)
+    geometry          split 4    split 8   split 16    programs (stage 1)
+    B512   w8          0.805      0.739      0.629          224        448        896
+    B512   w4          0.771      0.755      0.698          224        448        896
+    B256   w4          0.785      0.785      0.712          224        448        896
+    B256   w2          0.736      0.722      0.699          224        448        896
+    B1024  w16         0.674      0.595      0.505          224        448        896
+    -> best 0.805 at B512 w8 split 4
+
+  Stage one launches rows*split programs; the merge launches rows.
