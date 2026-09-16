@@ -1,0 +1,34 @@
+### branch topk-metax @ 2606041
+### 2026-09-16T14:04:36+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-16 14:04:54 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 14:04:54 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 14:04:54 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 14:04:54 [__init__.py:239] Platform plugin hcu is activated
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 14:04:57.326481 69697 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 4 (function operator())
+device us from the profiler; 80 SMs
+
+    rows   vocab     k   n/k split      vllm   shipped   sampled  ratio now  ratio new   cands    ok
+      64  129280  1024   126     4     209.0     277.2     317.2      0.754      0.659    5211    OK
+       4    8193   512    16    16      30.3      26.1      52.3      1.159      0.579    2127    OK
+       4   16385   512    32    32      39.1      38.9      49.0      1.005      0.798    2165    OK
+   16383    4095   512     7     1    2296.7    1354.1    9340.9      1.696      0.246    2055    OK
+   12961    4100   512     8     1    1351.9    1069.0    7628.8      1.265      0.177    2054    OK
+   16380    5115   512     9     1    2475.6    1581.5    9724.3      1.565      0.255    2074    OK
+    4100    1025   512     2     1     310.2     172.3    1636.3      1.801      0.190    1025    OK
+
+  per-stage device us
+
+    rows  prepare   select    fixup    merge    remap      sum
+      64     20.8    200.3      2.1     83.2      2.4    308.8
+       4     13.8      8.3      2.1     20.5      3.2     47.9
+       4     14.3      8.5      2.0     20.3      2.3     47.4
+   16383   1015.2   4864.2     57.7   2715.3     85.8   8738.1
+   12961    815.0   4091.2     45.3   2156.9     68.8   7177.2
+   16380   1173.8   4929.8     57.6   2775.0     85.9   9022.1
+    4100    174.2    728.4     15.9     83.3     23.8   1025.6
