@@ -1,0 +1,230 @@
+### branch topk-metax @ 98a86ea
+### 2026-09-16T16:31:55+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 16:32:13.952121 89683 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+device us; the whole operator, against the shipped override
+
+  16383 x 4095, top_k 512: shipped 1351.2 us; row needs a 4096-element tile, buffer 4096
+    256 x 16 x 2, hist only          running...    969.5 us
+    256 x 16 x 2, atomic             running...   2759.6 + tail =   4878.0 us,  0.28x shipped,   555 cands, OK
+    256 x 16 x 2, prefix sum         running...Device::callbackQueue aborting with error : HSA_STATUS_ERROR_MEMORY_APERTURE_VIOLATION: The agent attempted to access memory beyond the largest legal address. code: 0x29
+>>>>>>>> KERNEL VMFault !!!! <<<<<<
+
+>>>>>>>> PID: 89683, SIGNAL: 0 !!!! <<<<<<
+
+>>>>>>>> FOR DEVICE 0x55cc5dffdfe0 <<<<<<
+
+
+===========================================================================================
+=========> HOSTQUEUE <0x55cca0437c10>: VMFault HSA QUEUE ANALYSIS <=========
+HOSTQUEUE <0x55cca0437c10>: base_address 0x7f4838400000
+HOSTQUEUE <0x55cca0437c10>: hsa queue id 1, stream id 0
+HOSTQUEUE <0x55cca0437c10>: get hsa queue W/R ptr: write index: 268, read index: 263
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP AQL 0x7f5103530000 PACKET WITH INDEX 263 <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> MATCH KERNEL COMMAND <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: header: 0xb02
+HOSTQUEUE <0x55cca0437c10>: setup: 3
+HOSTQUEUE <0x55cca0437c10>: workgroup: x:128, y:1, z:1
+HOSTQUEUE <0x55cca0437c10>: grid: x:2097024, y:1, z:1
+HOSTQUEUE <0x55cca0437c10>: group_segment_size: 8192
+HOSTQUEUE <0x55cca0437c10>: private_segment_size: 0
+HOSTQUEUE <0x55cca0437c10>: completion_signal: 0x0
+HOSTQUEUE <0x55cca0437c10>: kernel_object: 0x7f50f1c50a00
+HOSTQUEUE <0x55cca0437c10>: device id: 0
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> FIND MATCH KERNEL DETAILS <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: kernel name: _resident
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP KERNEL ARGS: size: 88 <<<<<<<<<
+
+00 00 e0 ed 47 7f 00 00 00 00 20 e5 47 7f 00 00 
+00 00 21 e5 47 7f 00 00 00 00 60 cc 47 7f 00 00 
+00 00 22 e5 47 7f 00 00 00 00 40 b7 47 7f 00 00 
+00 00 20 a7 47 7f 00 00 00 11 00 00 00 00 00 00 
+00 00 24 e5 47 7f 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP KERNEL ARGS PTR INFO <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 0, ptr: 0x7f47ede00000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47ede00000, size byte: 285212672
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 1, ptr: 0x7f47e5200000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 2, ptr: 0x7f47e5210000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 3, ptr: 0x7f47cc600000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47cc600000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 4, ptr: 0x7f47e5220000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 5, ptr: 0x7f47b7400000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47b7400000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 6, ptr: 0x7f47a7200000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47a7200000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 8, ptr: 0x7f47e5240000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP AQL 0x7f5103530000 PACKET WITH INDEX 264 <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> MATCH KERNEL COMMAND <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: header: 0xb02
+HOSTQUEUE <0x55cca0437c10>: setup: 3
+HOSTQUEUE <0x55cca0437c10>: workgroup: x:128, y:1, z:1
+HOSTQUEUE <0x55cca0437c10>: grid: x:2097024, y:1, z:1
+HOSTQUEUE <0x55cca0437c10>: group_segment_size: 8192
+HOSTQUEUE <0x55cca0437c10>: private_segment_size: 0
+HOSTQUEUE <0x55cca0437c10>: completion_signal: 0x0
+HOSTQUEUE <0x55cca0437c10>: kernel_object: 0x7f50f1c50a00
+HOSTQUEUE <0x55cca0437c10>: device id: 0
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> FIND MATCH KERNEL DETAILS <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: kernel name: _resident
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP KERNEL ARGS: size: 88 <<<<<<<<<
+
+00 00 e0 ed 47 7f 00 00 00 00 20 e5 47 7f 00 00 
+00 00 21 e5 47 7f 00 00 00 00 60 cc 47 7f 00 00 
+00 00 22 e5 47 7f 00 00 00 00 40 b7 47 7f 00 00 
+00 00 20 a7 47 7f 00 00 00 11 00 00 00 00 00 00 
+00 00 24 e5 47 7f 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP KERNEL ARGS PTR INFO <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 0, ptr: 0x7f47ede00000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47ede00000, size byte: 285212672
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 1, ptr: 0x7f47e5200000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 2, ptr: 0x7f47e5210000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 3, ptr: 0x7f47cc600000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47cc600000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 4, ptr: 0x7f47e5220000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 5, ptr: 0x7f47b7400000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47b7400000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 6, ptr: 0x7f47a7200000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47a7200000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 8, ptr: 0x7f47e5240000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP AQL 0x7f5103530000 PACKET WITH INDEX 265 <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> MATCH KERNEL COMMAND <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: header: 0xb02
+HOSTQUEUE <0x55cca0437c10>: setup: 3
+HOSTQUEUE <0x55cca0437c10>: workgroup: x:128, y:1, z:1
+HOSTQUEUE <0x55cca0437c10>: grid: x:2097024, y:1, z:1
+HOSTQUEUE <0x55cca0437c10>: group_segment_size: 8192
+HOSTQUEUE <0x55cca0437c10>: private_segment_size: 0
+HOSTQUEUE <0x55cca0437c10>: completion_signal: 0x0
+HOSTQUEUE <0x55cca0437c10>: kernel_object: 0x7f50f1c50a00
+HOSTQUEUE <0x55cca0437c10>: device id: 0
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> FIND MATCH KERNEL DETAILS <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: kernel name: _resident
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP KERNEL ARGS: size: 88 <<<<<<<<<
+
+00 00 e0 ed 47 7f 00 00 00 00 20 e5 47 7f 00 00 
+00 00 21 e5 47 7f 00 00 00 00 60 cc 47 7f 00 00 
+00 00 22 e5 47 7f 00 00 00 00 40 b7 47 7f 00 00 
+00 00 20 a7 47 7f 00 00 00 11 00 00 00 00 00 00 
+00 00 24 e5 47 7f 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP KERNEL ARGS PTR INFO <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 0, ptr: 0x7f47ede00000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47ede00000, size byte: 285212672
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 1, ptr: 0x7f47e5200000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 2, ptr: 0x7f47e5210000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 3, ptr: 0x7f47cc600000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47cc600000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 4, ptr: 0x7f47e5220000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 5, ptr: 0x7f47b7400000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47b7400000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 6, ptr: 0x7f47a7200000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47a7200000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 8, ptr: 0x7f47e5240000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP AQL 0x7f5103530000 PACKET WITH INDEX 266 <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> MATCH KERNEL COMMAND <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: header: 0xb02
+HOSTQUEUE <0x55cca0437c10>: setup: 3
+HOSTQUEUE <0x55cca0437c10>: workgroup: x:128, y:1, z:1
+HOSTQUEUE <0x55cca0437c10>: grid: x:2097024, y:1, z:1
+HOSTQUEUE <0x55cca0437c10>: group_segment_size: 8192
+HOSTQUEUE <0x55cca0437c10>: private_segment_size: 0
+HOSTQUEUE <0x55cca0437c10>: completion_signal: 0x0
+HOSTQUEUE <0x55cca0437c10>: kernel_object: 0x7f50f1c50a00
+HOSTQUEUE <0x55cca0437c10>: device id: 0
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> FIND MATCH KERNEL DETAILS <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: kernel name: _resident
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP KERNEL ARGS: size: 88 <<<<<<<<<
+
+00 00 e0 ed 47 7f 00 00 00 00 20 e5 47 7f 00 00 
+00 00 21 e5 47 7f 00 00 00 00 60 cc 47 7f 00 00 
+00 00 22 e5 47 7f 00 00 00 00 40 b7 47 7f 00 00 
+00 00 20 a7 47 7f 00 00 00 11 00 00 00 00 00 00 
+00 00 24 e5 47 7f 00 00 00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP KERNEL ARGS PTR INFO <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 0, ptr: 0x7f47ede00000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47ede00000, size byte: 285212672
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 1, ptr: 0x7f47e5200000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 2, ptr: 0x7f47e5210000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 3, ptr: 0x7f47cc600000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47cc600000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 4, ptr: 0x7f47e5220000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 5, ptr: 0x7f47b7400000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47b7400000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 6, ptr: 0x7f47a7200000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47a7200000, size byte: 268435456
+HOSTQUEUE <0x55cca0437c10>: ptr arg index: 8, ptr: 0x7f47e5240000
+HOSTQUEUE <0x55cca0437c10>: origin ptr: 0x7f47e5200000, size byte: 2097152
+
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> DUMP AQL 0x7f5103530000 PACKET WITH INDEX 267 <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: >>>>>>>> MATCH BARRIER AND COMMAND <<<<<<<<<
+HOSTQUEUE <0x55cca0437c10>: header: 0x1503
+HOSTQUEUE <0x55cca0437c10>: dep_signal[0]: 0x0
+HOSTQUEUE <0x55cca0437c10>: dep_signal[1]: 0x0
+HOSTQUEUE <0x55cca0437c10>: dep_signal[2]: 0x0
+HOSTQUEUE <0x55cca0437c10>: dep_signal[3]: 0x0
+HOSTQUEUE <0x55cca0437c10>: dep_signal[4]: 0x0
+HOSTQUEUE <0x55cca0437c10>: completion_signal: 0x7f50455fd480
+
+
+
+>>>>>>>> FOR DEVICE 0x55cc5dffbf90 <<<<<<
+
+
+>>>>>>>> FOR DEVICE 0x55cc5dfffbd0 <<<<<<
+
+
+>>>>>>>> FOR DEVICE 0x55cc5e000a80 <<<<<<
+
+
+>>>>>>>> FOR DEVICE 0x55cc5e001930 <<<<<<
+
+
+>>>>>>>> FOR DEVICE 0x55cc5e0027e0 <<<<<<
+
+
+>>>>>>>> FOR DEVICE 0x55cc5e003690 <<<<<<
+
+
+>>>>>>>> FOR DEVICE 0x55cc5e004540 <<<<<<
+
+
+>>>>>>>> KERNEL VMFault Analysis END !!!! <<<<<<
+
+=========> HW QUEUE INFO ANALYSIS <==========
+Can't read for directory: /sys/kernel/debug/kfd/process
+Please check mount/permission
