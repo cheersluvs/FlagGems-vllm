@@ -9,7 +9,7 @@ all exhausted (0.535-0.805 of vLLM at 16-56 rows).
 But stage one does more than is needed: the merge only needs a SUPERSET of the
 row's top-k, not each chunk's exact top-k. So:
 
-    sample   histogram of every STRIDE-th element      (~1/STRIDE of a pass)
+    sample   histogram of every STRIDE-th TILE          (~1/STRIDE of a pass)
     thresh   scan it for the bin holding rank k/STRIDE, with a safety factor
     select   ONE pass over the row, appending every element at or above that
              bin to a per-row candidate buffer (index and value)
@@ -60,6 +60,14 @@ def _key(x):
 
 
 @triton.jit
+def k_zero_hist(hist_ptr, NB: tl.constexpr, BLOCK: tl.constexpr):
+    row = tl.program_id(0)
+    lane = tl.arange(0, BLOCK)
+    for t in tl.static_range(NB // BLOCK):
+        tl.store(hist_ptr + row * NB + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+
+
+@triton.jit
 def k_sample_hist(
     logits_ptr,
     seq_ptr,
@@ -67,20 +75,30 @@ def k_sample_hist(
     stride0,
     NB: tl.constexpr,
     STRIDE: tl.constexpr,
+    CHUNK: tl.constexpr,
+    SPLIT: tl.constexpr,
     BLOCK: tl.constexpr,
 ):
-    row = tl.program_id(0)
+    """Every STRIDE-th TILE, one program per chunk.
+
+    Round 1 sampled every STRIDE-th ELEMENT from one program per row and the
+    whole pipeline came out flat at ~420 us, worse than the shipped path: a
+    strided element sample touches one cache line per value, so it reads all
+    of the row's lines for 1/STRIDE of the data, and one program per row does
+    not shrink with row count. Contiguous tiles read 1/STRIDE of the bytes.
+    """
+    pid = tl.program_id(0)
+    row = pid // SPLIT
+    chunk = pid % SPLIT
     lane = tl.arange(0, BLOCK)
     base = hist_ptr + row * NB
-    for t in tl.static_range(NB // BLOCK):
-        tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
-    tl.debug_barrier()
     n = tl.load(seq_ptr + row)
-    ns = tl.cdiv(n, STRIDE)
-    for t in tl.range(0, tl.cdiv(ns, BLOCK)):
-        i = t * BLOCK + lane
-        m = i < ns
-        x = tl.load(logits_ptr + row * stride0 + i * STRIDE, mask=m, other=0.0)
+    start = chunk * CHUNK
+    end = tl.minimum(start + CHUNK, n)
+    for t in tl.range(0, tl.cdiv(CHUNK, BLOCK * STRIDE)):
+        i = start + t * BLOCK * STRIDE + lane
+        m = i < end
+        x = tl.load(logits_ptr + row * stride0 + i, mask=m, other=0.0)
         tl.atomic_add(
             base + _key(x),
             tl.full([BLOCK], 1, tl.int32),
@@ -234,13 +252,16 @@ def main():
 
         def sampled(sync=False):
             cnt.zero_()
-            k_sample_hist[(rows,)](
+            k_zero_hist[(rows,)](hist, NB=NB, BLOCK=BLOCK, num_warps=WARPS)
+            k_sample_hist[(rows * split,)](
                 logits,
                 lens,
                 hist,
                 V,
                 NB=NB,
                 STRIDE=STRIDE,
+                CHUNK=chunk,
+                SPLIT=split,
                 BLOCK=BLOCK,
                 num_warps=WARPS,
             )
