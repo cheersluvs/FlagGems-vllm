@@ -1,0 +1,60 @@
+### branch topk-metax @ 1dec68b
+### 2026-09-16T16:10:16+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-16 16:10:34 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 16:10:34 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 16:10:34 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 16:10:34 [__init__.py:239] Platform plugin hcu is activated
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 16:10:34.674844 89276 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 4 (function operator())
+device us; every number is the same kernel doing the same work
+
+  64 x 129280, top_k 1024: vLLM 209.0, shipped 232.3, generic op 232.0
+        B x w    launch    folded    ans  best vs shipped
+      256 x 2     375.7     368.7     OK             0.63
+      256 x 4     321.8     326.1     OK             0.72
+      512 x 4     287.1     286.7     OK             0.81
+      512 x 8     250.0     249.9     OK             0.93
+     1024 x 8     249.2     249.2     OK             0.93
+    1024 x 16     241.9     241.4     OK             0.96
+
+  4 x 8193, top_k 512: vLLM 33.4, shipped 27.7, generic op 27.2
+        B x w    launch    folded    ans  best vs shipped
+      256 x 2      38.8      39.3     OK             0.71
+      256 x 4      32.3      32.2     OK             0.86
+      512 x 4      31.5      31.5     OK             0.88
+      512 x 8      26.5      26.9     OK             1.05
+     1024 x 8      28.1      28.1     OK             0.99
+    1024 x 16      26.1      25.9     OK             1.07
+
+  4 x 16385, top_k 512: vLLM 38.9, shipped 35.9, generic op 37.2
+        B x w    launch    folded    ans  best vs shipped
+      256 x 2      57.2      57.5     OK             0.63
+      256 x 4      48.3      48.3     OK             0.74
+      512 x 4      43.7      43.7     OK             0.82
+      512 x 8      36.0      36.1     OK             1.00
+     1024 x 8      38.0      37.9     OK             0.95
+    1024 x 16      36.4      36.2     OK             0.99
+
+  4100 x 1025, top_k 512: vLLM 309.5, shipped 172.0, generic op 681.1
+        B x w    launch    folded    ans  best vs shipped
+      256 x 2     361.6     362.1     OK             0.48
+      256 x 4     480.5     479.9     OK             0.36
+      512 x 4     509.4     507.6     OK             0.34
+      512 x 8     679.0     681.9     OK             0.25
+     1024 x 8     712.4     714.2     OK             0.24
+    1024 x 16    1119.6    1120.3     OK             0.15
+
+  16383 x 4095, top_k 512: vLLM 2296.7, shipped 1347.8, generic op 3573.8
+        B x w    launch    folded    ans  best vs shipped
+      256 x 2    2185.4    2182.0     OK             0.62
+      256 x 4    2758.6    2760.9     OK             0.49
+      512 x 4    2905.2    2904.1     OK             0.46
+      512 x 8    3589.3    3592.1     OK             0.38
+     1024 x 8    3848.0    3847.5     OK             0.35
+    1024 x 16    5273.1    5267.7     OK             0.26
+
