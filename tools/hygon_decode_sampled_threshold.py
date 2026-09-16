@@ -70,14 +70,36 @@ import triton.language as tl
 
 import flaggems_vllm
 
-V, K = 262144, 512
-ROWS = (1, 4, 8, 16, 24, 32, 56)
 NB = 2048  # bins, as in the operator's STEP 0
-STRIDE = 64  # sample one tile in STRIDE
 SAFETY = 4  # admit ~SAFETY * k elements
-CAP = 8192  # candidate buffer per row
 BLOCK = 512
 WARPS = 8
+SAMPLE_TILES = 8  # tiles read by the sample, whatever the row length
+
+# (num_rows, vocab, top_k, seq_len, timed) -- the timed cases are exactly the
+# decode benchmark's shapes; the rest only have to come out right.
+CASES = [
+    (r, 262144, 512, 262144, True) for r in (1, 4, 8, 16, 24, 32, 40, 48, 56, 496, 512)
+]
+CASES += [
+    (1, 129280, 1024, 100000, False),
+    (1, 32768, 256, 16384, False),
+    (1, 8192, 64, 4096, False),
+    (16, 129280, 1024, 129280, False),
+]
+
+
+def plan_params(vocab, top_k):
+    """Sample width, admit rank and buffer size for one shape.
+
+    The sample is a fixed number of tiles rather than a fixed fraction, so a
+    short row is sampled more densely and the estimate keeps its accuracy;
+    the buffer is 16x top_k, against a threshold that admits about 6x.
+    """
+    stride = max(1, vocab // (BLOCK * SAMPLE_TILES))
+    target = max(1, -(-top_k // stride) * SAFETY)
+    cap = max(BLOCK, triton.next_power_of_2(top_k * 16))
+    return stride, target, cap
 
 
 @triton.jit
@@ -353,21 +375,17 @@ def main():
     import vllm._custom_ops  # noqa: F401
 
     dev = "cuda"
-    target = max(1, (K // STRIDE) * SAFETY)
-    print(
-        f"vocab {V}, top_k {K}; sample 1/{STRIDE}, admit rank {target} of the "
-        f"sample (~{target * STRIDE} elements), buffer {CAP}\n"
-    )
     stages = []
     print(
-        f"  {'rows':>4} {'split':>5} {'shipped us':>11} {'sampled us':>11} "
-        f"{'fixup us':>9} {'ratio now':>10} {'ratio new':>10} {'cands':>7} "
-        f"{'normal':>7} {'tied':>7}"
+        f"  {'rows':>4} {'vocab':>7} {'top_k':>6} {'seq':>7} {'1/n':>5} "
+        f"{'shipped us':>11} {'sampled us':>11} {'ratio now':>10} "
+        f"{'ratio new':>10} {'cands':>7} {'cap':>6} {'normal':>7} {'tied':>7}"
     )
-    for rows in ROWS:
-        torch.manual_seed(rows)
+    for rows, V, K, seq, timed in CASES:
+        torch.manual_seed(rows + V + K)
+        STRIDE, target, CAP = plan_params(seq, K)
         logits = torch.randn(rows, V, dtype=torch.float32, device=dev)
-        lens = torch.full((rows,), V, dtype=torch.int32, device=dev)
+        lens = torch.full((rows,), seq, dtype=torch.int32, device=dev)
         idx = torch.empty(rows, K, dtype=torch.int32, device=dev)
         split = ov._split_factor(rows, V, K)
         chunk = V // split
@@ -380,8 +398,8 @@ def main():
         merged = torch.empty(rows, K, dtype=torch.int32, device=dev)
         mlens = torch.empty(rows, dtype=torch.int32, device=dev)
         scratch = [
-            torch.empty(s, dtype=d, device=dev)
-            for s, d in (
+            torch.empty(sh, dtype=d, device=dev)
+            for sh, d in (
                 ((rows, gen.NUM_BINS), torch.int32),
                 ((rows, gen.NUM_FILNAL_ITEMS), torch.float32),
                 ((rows,), torch.int32),
@@ -431,12 +449,26 @@ def main():
             lremap(cand_idx, merged, idx)
 
         def check(src):
-            want = torch.topk(src, K, dim=1).values.sort(dim=1).values
+            live = src[:, :seq]
+            want = torch.topk(live, K, dim=1).values.sort(dim=1).values
             sampled(src)
             torch.cuda.synchronize()
-            got = src.gather(1, idx.long().clamp(0, V - 1)).sort(dim=1).values
-            return torch.allclose(got, want) and bool((idx >= 0).all())
+            got = live.gather(1, idx.long().clamp(0, seq - 1)).sort(dim=1).values
+            inrange = bool(((idx >= 0) & (idx < seq)).all())
+            return torch.allclose(got, want) and inrange
 
+        ok = check(logits)
+        hi = int(cnt.max())
+        # few distinct values: the sampled threshold overflows, so every row
+        # takes the fixup's exact path
+        ok_tied = check((logits * 4).round() / 4)
+        if not timed:
+            print(
+                f"  {rows:>4} {V:>7} {K:>6} {seq:>7} {STRIDE:>5} "
+                f"{'-':>11} {'-':>11} {'-':>10} {'-':>10} {hi:>7} {CAP:>6} "
+                f"{'OK' if ok else 'WRONG':>7} {'OK' if ok_tied else 'WRONG':>7}"
+            )
+            continue
         t_vllm = wall_us(
             lambda: torch.ops._C.top_k_per_row_decode(
                 logits, 1, lens, idx, rows, V, 1, K
@@ -447,16 +479,8 @@ def main():
                 logits, 1, lens, idx, rows, V, 1, K
             )
         )
-        ok = check(logits)
-        hi = int(cnt.max())
-        # few distinct values: the sampled threshold overflows, so every row
-        # takes the fixup's exact path
-        ok_tied = check((logits * 4).round() / 4)
         t_new = wall_us(lambda: sampled(logits))
         sampled(logits)
-        t_fix = wall_us(
-            lambda: lfix(logits, lens, hist, cnt, mlens, cand_idx, cand_val, V)
-        )
         stages.append(
             (
                 rows,
@@ -477,17 +501,15 @@ def main():
             )
         )
         print(
-            f"  {rows:>4} {split:>5} {t_ship:>11.1f} {t_new:>11.1f} {t_fix:>9.1f} "
-            f"{t_vllm / t_ship:>10.3f} {t_vllm / t_new:>10.3f} {hi:>7} "
+            f"  {rows:>4} {V:>7} {K:>6} {seq:>7} {STRIDE:>5} "
+            f"{t_ship:>11.1f} {t_new:>11.1f} {t_vllm / t_ship:>10.3f} "
+            f"{t_vllm / t_new:>10.3f} {hi:>7} {CAP:>6} "
             f"{'OK' if ok else 'WRONG':>7} {'OK' if ok_tied else 'WRONG':>7}"
         )
     print(
-        "\n  'cands' is the largest candidate count admitted (buffer is "
-        f"{CAP}); under {K} would mean the threshold was too strict."
-    )
-    print(
-        "  'fixup us' is the fallback check launched alone on rows that are "
-        "all in range: what the no-sync check costs when it fires on nothing."
+        "\n  'cands' is the largest candidate count admitted; under top_k "
+        "would mean the threshold was too strict, over 'cap' sends the row "
+        "through the fixup's exact path."
     )
     names = ("prepare", "select", "fixup", "merge", "remap")
     print(
