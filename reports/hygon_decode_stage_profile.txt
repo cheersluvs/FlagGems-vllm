@@ -1,0 +1,53 @@
+### branch topk-metax @ b48af2b
+### 2026-09-16T09:57:33+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-16 09:57:51 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 09:57:51 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 09:57:51 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 09:57:51 [__init__.py:239] Platform plugin hcu is activated
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 09:57:52.077298 66704 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 4 (function operator())
+vocab 262144, top_k 512; device us per call, shipped configuration
+
+  rows  16 (split 8, 128 chunk programs): ours   179.7 us, vLLM    94.9 us, ratio 0.528
+        164.4 us   91.5%  non_tle_top_k_per_row_decode
+          5.9 us    3.3%  _gather_candidates
+          4.8 us    2.7%  _remap_indices
+          4.6 us    2.5%  _chunk_lens
+         62.2 us     vLLM  vllm::topKPerRowDecode<512, true, true
+         32.7 us     vLLM  vllm::topKPerRowDecode<1024, true, fal
+  rows  24 (split 8, 192 chunk programs): ours   225.0 us, vLLM   124.4 us, ratio 0.553
+        205.7 us   91.4%  non_tle_top_k_per_row_decode
+          9.9 us    4.4%  _gather_candidates
+          4.8 us    2.1%  _remap_indices
+          4.6 us    2.0%  _chunk_lens
+         90.1 us     vLLM  vllm::topKPerRowDecode<512, true, true
+         34.3 us     vLLM  vllm::topKPerRowDecode<1024, true, fal
+  rows  32 (split 4, 128 chunk programs): ours   286.4 us, vLLM   173.7 us, ratio 0.606
+        268.5 us   93.8%  non_tle_top_k_per_row_decode
+          8.5 us    3.0%  _gather_candidates
+          4.8 us    1.7%  _remap_indices
+          4.6 us    1.6%  _chunk_lens
+        140.0 us     vLLM  vllm::topKPerRowDecode<512, true, true
+         33.7 us     vLLM  vllm::topKPerRowDecode<1024, true, fal
+  rows  40 (split 4, 160 chunk programs): ours   299.4 us, vLLM   221.6 us, ratio 0.740
+        278.9 us   93.1%  non_tle_top_k_per_row_decode
+         11.1 us    3.7%  _gather_candidates
+          4.8 us    1.6%  _remap_indices
+          4.6 us    1.5%  _chunk_lens
+        186.4 us     vLLM  vllm::topKPerRowDecode<512, true, true
+         35.2 us     vLLM  vllm::topKPerRowDecode<1024, true, fal
+  rows  56 (split 4, 224 chunk programs): ours   392.5 us, vLLM   313.5 us, ratio 0.799
+        366.8 us   93.4%  non_tle_top_k_per_row_decode
+         14.9 us    3.8%  _gather_candidates
+          5.6 us    1.4%  _remap_indices
+          5.3 us    1.4%  _chunk_lens
+        277.5 us     vLLM  vllm::topKPerRowDecode<512, true, true
+         36.0 us     vLLM  vllm::topKPerRowDecode<1024, true, fal
+
+  stage1 is the generic kernel over chunks; merge is the same kernel
+  over split*top_k candidates, one program per row.
