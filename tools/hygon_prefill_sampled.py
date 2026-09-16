@@ -43,6 +43,14 @@ from torch.profiler import ProfilerActivity, profile
 
 import flaggems_vllm
 
+_generic = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
+
+# The operator's own STEP-0 key, referenced rather than copied so the probe
+# cannot end up measuring a different one from the kernel it is compared
+# against. Bound at module level: Triton resolves a jit function's globals at
+# compile time, and assigning it from inside main() only happens to work.
+_key = _generic._convert_to_trt_uint16_hi11
+
 # (num_rows, vocab, top_k, stride0, stride1) -- the benchmark's own shapes
 SHAPES = [
     (64, 129280, 1024, 129280, 1),
@@ -327,15 +335,11 @@ def split_factor(rows, vocab, sms):
 
 
 def main():
-    gen = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
+    gen = _generic
     ov = import_module(
         "flaggems_vllm.runtime.backend._hygon.fused.top_k_per_row_decode"
     )
     import vllm._custom_ops  # noqa: F401
-
-    global _key
-    _key = gen._convert_to_trt_uint16_hi11
-    globals()["_key"] = _key
 
     dev = "cuda"
     sms = ov._sm_count()
