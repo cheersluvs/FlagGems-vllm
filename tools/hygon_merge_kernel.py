@@ -42,6 +42,7 @@ from torch.profiler import ProfilerActivity, profile
 
 _generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 _u32 = _generic._convert_to_uint32
+_key11 = _generic._convert_to_trt_uint16_hi11
 
 CAP = 8192
 TOPK = 512
@@ -49,6 +50,7 @@ ROWS = (4, 16, 64, 512)
 CANDS = (1024, 2048, 4096, 8192)
 GEOMS = [(256, 4), (512, 4), (512, 8), (1024, 8), (1024, 16)]
 RADIX = 256
+NB = 2048  # 11-bit bins, as the operator's own STEP 0 uses
 
 
 def device_us(fn, iters=20, warmup=5):
@@ -158,6 +160,162 @@ def _merge(
             p = tl.atomic_add(slots, ones, mask=take, sem="relaxed", scope="cta")
             idx = tl.load(ibase + pos, mask=take, other=-1)
             tl.store(obase + p, idx, mask=take & (p < TOPK))
+        tl.debug_barrier()
+
+
+@triton.jit
+def _scan_rank(base, target, NB: tl.constexpr, BLOCK: tl.constexpr):
+    """Lowest bin whose inclusive prefix reaches `target`, and that bin's
+    EXCLUSIVE prefix -- i.e. how many elements are strictly better."""
+    lane = tl.arange(0, BLOCK)
+    carry = tl.zeros([], tl.int32)
+    tb = tl.full([], NB - 1, tl.int32)
+    lt = tl.zeros([], tl.int32)
+    found = tl.full([], False, tl.int1)
+    for t in tl.static_range(NB // BLOCK):
+        bins = t * BLOCK + lane
+        c = tl.load(base + bins)
+        pre = carry + tl.cumsum(c, axis=0) - c
+        hit = (pre < target) & (pre + c >= target) & (not found)
+        cand = tl.min(tl.where(hit, bins, NB - 1), axis=0)
+        candlt = tl.max(tl.where(hit, pre, 0), axis=0)
+        if (not found) & (tl.max(hit.to(tl.int32), axis=0) > 0):
+            tb = cand
+            lt = candlt
+            found = tl.full([], True, tl.int1)
+        carry += tl.sum(c, axis=0)
+    return tb, lt
+
+
+@triton.jit
+def _merge2(
+    cand_val_ptr,
+    cand_idx_ptr,
+    cnt_ptr,
+    out_ptr,
+    hist_ptr,
+    counts_ptr,
+    surv_ptr,
+    slot_ptr,
+    CAP: tl.constexpr,
+    TOPK: tl.constexpr,
+    NB: tl.constexpr,
+    RADIX: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """Exact top-k of a row's candidates in TWO passes over them.
+
+    v1 ran the 32-bit radix over every candidate, four rounds plus two output
+    passes -- six passes, and its per-candidate cost came out 2.7x the generic
+    kernel's, which narrows first. So narrow first here too: one 11-bit
+    histogram pass finds the bin holding the k-th, one partition pass sends
+    the strictly-better bins straight to the output and the k-th bin's
+    elements to a survivor list, and the exact 32-bit rounds then run over the
+    survivors alone -- a few dozen, since 2048 bins cut finely even across the
+    narrow range the candidates occupy.
+    """
+    row = tl.program_id(0)
+    lane = tl.arange(0, BLOCK)
+    bins = tl.arange(0, RADIX)
+    ones = tl.full([BLOCK], 1, tl.int32)
+    n = tl.minimum(tl.load(cnt_ptr + row), CAP)
+    vbase = cand_val_ptr + row * CAP
+    ibase = cand_idx_ptr + row * CAP
+    obase = out_ptr + row * TOPK
+    hbase = hist_ptr + row * NB
+    cbase = counts_ptr + row * RADIX
+    sbase = surv_ptr + row * CAP
+    tiles = tl.cdiv(n, BLOCK)
+
+    if n <= TOPK:
+        for t in tl.static_range((TOPK + BLOCK - 1) // BLOCK):
+            j = t * BLOCK + lane
+            idx = tl.load(ibase + j, mask=j < n, other=-1)
+            tl.store(obase + j, tl.where(j < n, idx, -1), mask=j < TOPK)
+        return
+
+    for t in tl.static_range(NB // BLOCK):
+        tl.store(hbase + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+    tl.store(slot_ptr + 2 * row, 0)
+    tl.store(slot_ptr + 2 * row + 1, 0)
+    tl.debug_barrier()
+    for t in tl.range(0, tiles):
+        pos = t * BLOCK + lane
+        valid = pos < n
+        x = tl.load(vbase + pos, mask=valid, other=0.0)
+        tl.atomic_add(hbase + _key11(x), ones, mask=valid, sem="relaxed", scope="cta")
+    tl.debug_barrier()
+    tb, nbetter = _scan_rank(hbase, TOPK, NB, BLOCK)
+
+    slot_a = slot_ptr + 2 * row + tl.zeros([BLOCK], tl.int32)
+    slot_b = slot_ptr + 2 * row + 1 + tl.zeros([BLOCK], tl.int32)
+    for t in tl.range(0, tiles):
+        pos = t * BLOCK + lane
+        valid = pos < n
+        x = tl.load(vbase + pos, mask=valid, other=0.0)
+        k = _key11(x)
+        idx = tl.load(ibase + pos, mask=valid, other=-1)
+        better = valid & (k < tb)
+        pa = tl.atomic_add(slot_a, ones, mask=better, sem="relaxed", scope="cta")
+        tl.store(obase + pa, idx, mask=better & (pa < TOPK))
+        eq = valid & (k == tb)
+        pb = tl.atomic_add(slot_b, ones, mask=eq, sem="relaxed", scope="cta")
+        tl.store(sbase + pb, pos.to(tl.int32), mask=eq & (pb < CAP))
+    tl.debug_barrier()
+    ns = tl.minimum(tl.load(slot_ptr + 2 * row + 1), CAP)
+    stiles = tl.cdiv(ns, BLOCK)
+
+    desired = tl.zeros((), tl.uint32)
+    desired_mask = tl.zeros((), tl.uint32)
+    k_to_find = TOPK - nbetter + 1
+    for digit_pos in tl.static_range(24, -1, -8):
+        if k_to_find > 1:
+            tl.store(cbase + bins, tl.zeros([RADIX], tl.int32))
+            tl.debug_barrier()
+            for t in tl.range(0, stiles):
+                j = t * BLOCK + lane
+                valid = j < ns
+                pos = tl.load(sbase + j, mask=valid, other=0)
+                x = tl.load(vbase + pos, mask=valid, other=0.0)
+                key = _u32(x)
+                digit = ((key >> digit_pos) & (RADIX - 1)).to(tl.int32)
+                tl.atomic_add(
+                    cbase + digit,
+                    ones,
+                    mask=valid & ((key & desired_mask) == desired),
+                    sem="relaxed",
+                    scope="cta",
+                )
+            tl.debug_barrier()
+            counts = tl.load(cbase + bins)
+            prefix = tl.cumsum(counts, axis=0) - counts
+            hit = (prefix < k_to_find) & (prefix + counts >= k_to_find)
+            rb = tl.min(tl.where(hit, bins, RADIX), axis=0).to(tl.int32)
+            rb = tl.where(rb == RADIX, RADIX - 1, rb)
+            counts_lt = tl.max(tl.where(bins == rb, prefix, 0), axis=0).to(tl.int32)
+            desired = desired | (rb.to(tl.uint32) << digit_pos)
+            desired_mask = desired_mask | (
+                tl.full((), RADIX - 1, tl.uint32) << digit_pos
+            )
+            k_to_find = k_to_find - counts_lt
+
+    thr_key = desired
+    tl.store(slot_ptr + 2 * row, nbetter)
+    tl.debug_barrier()
+    for equal in tl.static_range(2):
+        for t in tl.range(0, stiles):
+            j = t * BLOCK + lane
+            valid = j < ns
+            pos = tl.load(sbase + j, mask=valid, other=0)
+            x = tl.load(vbase + pos, mask=valid, other=0.0)
+            key = _u32(x)
+            if equal == 0:
+                take = valid & (key < thr_key)
+            else:
+                take = valid & (key == thr_key)
+            idx = tl.load(ibase + pos, mask=take, other=-1)
+            pa = tl.atomic_add(slot_a, ones, mask=take, sem="relaxed", scope="cta")
+            tl.store(obase + pa, idx, mask=take & (pa < TOPK))
         tl.debug_barrier()
 
 
