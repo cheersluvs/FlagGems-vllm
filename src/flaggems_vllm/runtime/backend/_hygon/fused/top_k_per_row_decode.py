@@ -67,7 +67,9 @@ CompiledKernel from `run`, the plan falls back to ordinary JIT launches.
 
 next_n != 1, non-unit stride1, a strided row layout, a dtype other than float32
 and shapes too small or too large for the candidate buffer go to the generic
-operator. FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED=0 disables the override.
+operator. FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED=0 disables the override;
+FLAGGEMS_HYGON_TOPK_DECODE_SPLIT=n forces the select pass's programs per row,
+for sweeping it.
 """
 
 import functools
@@ -449,15 +451,27 @@ def _enabled():
     return os.environ.get("FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED", "1") != "0"
 
 
+def _forced_split():
+    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_DECODE_SPLIT")
+    if raw is None:
+        return None
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return None
+
+
 def _split_factor(num_rows, vocab_size, top_k):
     """Programs per row for the select pass."""
-    if num_rows >= _sm_count():
+    forced = _forced_split()
+    if forced is None and num_rows >= _sm_count():
         return 1
-    split = _SPLIT_DEFAULT
-    for max_rows, factor in _SPLIT_BY_ROWS:
-        if num_rows <= max_rows:
-            split = factor
-            break
+    split = forced or _SPLIT_DEFAULT
+    if forced is None:
+        for max_rows, factor in _SPLIT_BY_ROWS:
+            if num_rows <= max_rows:
+                split = factor
+                break
     while split > 1 and (
         vocab_size % split or vocab_size // split < max(MIN_CHUNK, top_k)
     ):
