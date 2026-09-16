@@ -331,9 +331,12 @@ def main():
         f"(generic merge + remap, against one kernel)\n"
     )
     print(
-        f"  {'rows':>5} {'cands':>6} {'generic':>9} {'dedicated':>10} "
-        f"{'speedup':>8} {'geom':>10} {'answer':>8}"
+        f"  {'rows':>5} {'cands':>6} {'generic':>9}"
+        + "".join(
+            f" {v:>8} {'x':>6} {'geom':>9} {'ans':>6}" for v in ("v1 all", "v2 narrow")
+        )
     )
+
     for rows in ROWS:
         for c in CANDS:
             torch.manual_seed(rows * 31 + c)
@@ -347,7 +350,9 @@ def main():
             out = torch.empty((rows, TOPK), dtype=torch.int32, device=dev)
             merged = torch.empty((rows, TOPK), dtype=torch.int32, device=dev)
             counts = torch.empty((rows, RADIX), dtype=torch.int32, device=dev)
-            slot = torch.empty((rows,), dtype=torch.int32, device=dev)
+            slot = torch.empty((rows * 2,), dtype=torch.int32, device=dev)
+            hist = torch.empty((rows, NB), dtype=torch.int32, device=dev)
+            surv = torch.empty((rows, CAP), dtype=torch.int32, device=dev)
             scratch = (
                 torch.empty((rows, gen.NUM_BINS), dtype=torch.int32, device=dev),
                 torch.empty(
@@ -378,37 +383,72 @@ def main():
                 lremap(cand_idx, merged, out)
 
             t_old = device_us(old)
-            best = (1e9, None, False)
-            for blk, warps in GEOMS:
-                lded = ov._Launch(
-                    _merge,
-                    (rows,),
-                    {
-                        "CAP": CAP,
-                        "TOPK": TOPK,
-                        "RADIX": RADIX,
-                        "BLOCK": blk,
-                    },
-                    warps,
-                )
+            bests = []
+            for version in (1, 2):
+                best = (1e9, None, False)
+                for blk, warps in GEOMS:
+                    if version == 1:
+                        lded = ov._Launch(
+                            _merge,
+                            (rows,),
+                            {
+                                "CAP": CAP,
+                                "TOPK": TOPK,
+                                "RADIX": RADIX,
+                                "BLOCK": blk,
+                            },
+                            warps,
+                        )
 
-                def new(lded=lded):
-                    lded(cand_val, cand_idx, cnt, out, counts, slot)
+                        def new(lded=lded):
+                            lded(cand_val, cand_idx, cnt, out, counts, slot)
 
-                out.fill_(-9)
-                new()
-                torch.cuda.synchronize()
-                got = (
-                    cand_val.gather(1, out.long().clamp(0, CAP - 1)).sort(dim=1).values
-                )
-                ok = torch.allclose(got, want) and bool((out >= 0).all())
-                t = device_us(new)
-                if t < best[0]:
-                    best = (t, f"{blk}x{warps}", ok)
+                    else:
+                        lded = ov._Launch(
+                            _merge2,
+                            (rows,),
+                            {
+                                "CAP": CAP,
+                                "TOPK": TOPK,
+                                "NB": NB,
+                                "RADIX": RADIX,
+                                "BLOCK": blk,
+                            },
+                            warps,
+                        )
+
+                        def new(lded=lded):
+                            lded(
+                                cand_val,
+                                cand_idx,
+                                cnt,
+                                out,
+                                hist,
+                                counts,
+                                surv,
+                                slot,
+                            )
+
+                    out.fill_(-9)
+                    new()
+                    torch.cuda.synchronize()
+                    got = (
+                        cand_val.gather(1, out.long().clamp(0, CAP - 1))
+                        .sort(dim=1)
+                        .values
+                    )
+                    ok = torch.allclose(got, want) and bool((out >= 0).all())
+                    t = device_us(new)
+                    if t < best[0]:
+                        best = (t, f"{blk}x{warps}", ok)
+                bests.append(best)
             print(
-                f"  {rows:>5} {c:>6} {t_old:>9.1f} {best[0]:>10.1f} "
-                f"{t_old / best[0]:>8.2f} {best[1]:>10} "
-                f"{'OK' if best[2] else 'WRONG':>8}"
+                f"  {rows:>5} {c:>6} {t_old:>9.1f}"
+                + "".join(
+                    f" {b[0]:>8.1f} {t_old / b[0]:>6.2f} {b[1]:>9}"
+                    f" {'OK' if b[2] else 'WRONG':>6}"
+                    for b in bests
+                )
             )
 
 
