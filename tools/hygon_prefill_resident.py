@@ -30,6 +30,26 @@ The risk is not capacity, it is occupancy: 32 KB of registers per program cuts
 how many the SM can hold, and these shapes have thousands of programs. So
 (BLOCK, VEC, warps) is swept rather than chosen.
 
+Round 1 took a VM fault on the first configuration -- (16383,4095) at
+256 x 16 x 2 -- and a fault kills the process, so the report came back empty
+and the failing step had to be inferred from the AQL dump. Round 2 therefore
+does three things:
+
+  * every configuration and STAGE prints before it runs, flushed, so the last
+    line of the report names what died
+  * STAGE picks how far the kernel goes: 0 loads and histograms and scans but
+    emits nothing, 1 emits through a per-element atomic (the mechanism the
+    shipped decode select uses), 2 emits through the prefix-sum tile
+    allocator. Run in that order, the first failing stage is the answer.
+  * pos is guarded with >= 0 as well as < CAP. A masked atomic's return is
+    undefined on inactive lanes, and a negative slot passes a bare `< CAP`
+    and stores wherever it points -- which is what "beyond the largest legal
+    address" describes.
+
+The prefix-sum allocator is the prime suspect: the AQL dump shows
+group_segment_size 8192, and a 4096-element cumsum needs 16 KB. The shipped
+override only ever runs it on [512, 4] tiles.
+
 Device time from the profiler, which is what the benchmark's kernel mode
 reports. vLLM is NOT timed here: the profiler double-counts it on this card.
 
@@ -108,9 +128,11 @@ def _resident(
     cand_idx_ptr,
     cand_val_ptr,
     stride0,
+    thr_ptr,
     TOPK: tl.constexpr,
     NB: tl.constexpr,
     CAP: tl.constexpr,
+    STAGE: tl.constexpr,
     BLOCK: tl.constexpr,
     VEC: tl.constexpr,
 ):
@@ -140,6 +162,9 @@ def _resident(
     pre = tl.cumsum(counts, axis=0) - counts
     hit = (pre < TOPK) & (pre + counts >= TOPK)
     thr = tl.min(tl.where(hit, bins, NB - 1), axis=0).to(tl.int32)
+    tl.store(thr_ptr + row, thr)
+    if STAGE == 0:
+        return
 
     cnt_ptrs = cnt_ptr + row + tl.zeros([BLOCK, VEC], tl.int32)
     for equal in tl.static_range(2):
@@ -147,8 +172,17 @@ def _resident(
             take = m & (k < thr)
         else:
             take = m & (k == thr)
-        pos = _alloc_slots(cnt_ptrs, take)
-        keep = take & (pos < CAP)
+        if STAGE == 1:
+            pos = tl.atomic_add(
+                cnt_ptrs,
+                tl.full([BLOCK, VEC], 1, tl.int32),
+                mask=take,
+                sem="relaxed",
+                scope="cta",
+            )
+        else:
+            pos = _alloc_slots(cnt_ptrs, take)
+        keep = take & (pos >= 0) & (pos < CAP)
         tl.store(cand_idx_ptr + row * CAP + pos, off.to(tl.int32), mask=keep)
         tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
         tl.debug_barrier()
@@ -176,6 +210,7 @@ def main():
         counts = torch.empty((rows, RADIX), dtype=torch.int32, device=dev)
         slot = torch.empty((rows,), dtype=torch.int32, device=dev)
 
+        thr = torch.empty((rows,), dtype=torch.int32, device=dev)
         t_ship = device_us(
             lambda: flaggems_vllm.top_k_per_row_prefill(
                 logits, starts, ends, idx, rows, stride0, 1, top_k
@@ -184,111 +219,101 @@ def main():
         need = triton.next_power_of_2(vocab)
         print(
             f"  {rows} x {vocab}, top_k {top_k}: shipped {t_ship:.1f} us; "
-            f"row needs a {need}-element tile, buffer {cap}"
+            f"row needs a {need}-element tile, buffer {cap}",
+            flush=True,
         )
-        print(
-            f"    {'B x VEC x w':>14} {'resident':>9} {'tail':>7} {'total':>8} "
-            f"{'vs shipped':>11} {'cands':>7} {'ans':>6}"
-        )
+        names = {0: "hist only", 1: "atomic", 2: "prefix sum"}
         for block in BLOCKS:
             vec = need // block
             if vec < 1 or block * vec < vocab:
                 continue
             for warps in WARPS:
-                lr = ov._Launch(
-                    _resident,
-                    (rows,),
-                    {
-                        "TOPK": top_k,
-                        "NB": NB,
-                        "CAP": cap,
-                        "BLOCK": block,
-                        "VEC": vec,
-                    },
-                    warps,
-                )
-                lt = ov._Launch(
-                    ov._tail,
-                    (rows,),
-                    {
-                        "TOPK": top_k,
-                        "NB": NB,
-                        "CAP": cap,
-                        "RADIX": RADIX,
-                        "BLOCK": 512,
-                    },
-                    8,
-                )
-
-                def run(lr=lr):
-                    lr(
-                        logits,
-                        starts,
-                        ends,
-                        hist,
-                        cnt,
-                        cand_idx,
-                        cand_val,
-                        stride0,
+                for stage in (0, 1, 2):
+                    tag = f"{block} x {vec} x {warps}, {names[stage]}"
+                    print(f"    {tag:<32} running...", end="", flush=True)
+                    lr = ov._Launch(
+                        _resident,
+                        (rows,),
+                        {
+                            "TOPK": top_k,
+                            "NB": NB,
+                            "CAP": cap,
+                            "STAGE": stage,
+                            "BLOCK": block,
+                            "VEC": vec,
+                        },
+                        warps,
                     )
-                    lt(
-                        logits,
-                        ends,
-                        hist,
-                        cnt,
-                        cand_idx,
-                        cand_val,
-                        idx,
-                        counts,
-                        slot,
-                        stride0,
+                    lt = ov._Launch(
+                        ov._tail,
+                        (rows,),
+                        {
+                            "TOPK": top_k,
+                            "NB": NB,
+                            "CAP": cap,
+                            "RADIX": RADIX,
+                            "BLOCK": 512,
+                        },
+                        8,
                     )
 
-                idx.fill_(-9)
-                try:
+                    def resident(lr=lr):
+                        lr(
+                            logits,
+                            starts,
+                            ends,
+                            hist,
+                            cnt,
+                            cand_idx,
+                            cand_val,
+                            stride0,
+                            thr,
+                        )
+
+                    def run(lr=lr):
+                        resident(lr)
+                        lt(
+                            logits,
+                            ends,
+                            hist,
+                            cnt,
+                            cand_idx,
+                            cand_val,
+                            idx,
+                            counts,
+                            slot,
+                            stride0,
+                        )
+
+                    idx.fill_(-9)
+                    try:
+                        resident()
+                        torch.cuda.synchronize()
+                    except Exception as exc:  # noqa: BLE001 - keep sweeping
+                        print(f" FAILED {exc!r:.70}", flush=True)
+                        continue
+                    if stage == 0:
+                        t_r = device_us(resident)
+                        print(f" {t_r:>8.1f} us", flush=True)
+                        continue
                     run()
                     torch.cuda.synchronize()
-                except Exception as exc:  # noqa: BLE001 - report, keep sweeping
-                    print(f"    {f'{block} x {vec} x {warps}':>14}  {exc!r:.60}")
-                    continue
-                got = (
-                    logits.gather(1, idx.long().clamp(0, vocab - 1)).sort(dim=1).values
-                )
-                ok = torch.allclose(got, want) and bool((idx >= 0).all())
-                hi = int(cnt.max())
-                t_r = device_us(
-                    lambda lr=lr: lr(
-                        logits,
-                        starts,
-                        ends,
-                        hist,
-                        cnt,
-                        cand_idx,
-                        cand_val,
-                        stride0,
+                    got = (
+                        logits.gather(1, idx.long().clamp(0, vocab - 1))
+                        .sort(dim=1)
+                        .values
                     )
-                )
-                t_t = device_us(
-                    lambda: lt(
-                        logits,
-                        ends,
-                        hist,
-                        cnt,
-                        cand_idx,
-                        cand_val,
-                        idx,
-                        counts,
-                        slot,
-                        stride0,
+                    ok = torch.allclose(got, want) and bool((idx >= 0).all())
+                    hi = int(cnt.max())
+                    t_r = device_us(resident)
+                    t = device_us(run)
+                    print(
+                        f" {t_r:>8.1f} + tail = {t:>8.1f} us, "
+                        f"{t_ship / t:>5.2f}x shipped, {hi:>5} cands, "
+                        f"{'OK' if ok else 'WRONG'}",
+                        flush=True,
                     )
-                )
-                t = device_us(run)
-                print(
-                    f"    {f'{block} x {vec} x {warps}':>14} {t_r:>9.1f} "
-                    f"{t_t:>7.1f} {t:>8.1f} {t_ship / t:>11.2f} {hi:>7} "
-                    f"{'OK' if ok else 'WRONG':>6}"
-                )
-        print()
+        print(flush=True)
 
 
 if __name__ == "__main__":
