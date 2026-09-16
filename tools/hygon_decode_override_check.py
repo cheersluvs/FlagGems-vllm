@@ -7,6 +7,11 @@ the tests never reach. So here each (rows, seq_len) case is called three times
 with FRESH logits and seq_lens, and every call's answer is checked against
 torch.topk on the row's valid range.
 
+Each case is also run on rounded logits. The override picks its threshold from
+a sample and falls back, on the device, for a row that admits too few or too
+many candidates; random normals never leave that range, so only an input with
+few distinct values exercises the fallback at all.
+
     tools/vendor_probe.sh tools/hygon_decode_override_check.py hygon_decode_override_check
 """
 
@@ -18,7 +23,7 @@ import torch
 import flaggems_vllm
 
 V, K = 262144, 512
-ROWS = (1, 4, 8, 16, 24, 32, 56, 79)
+ROWS = (1, 4, 8, 16, 24, 32, 56, 79, 496)
 
 
 def check(logits, seq_lens, idx):
@@ -43,16 +48,24 @@ def main():
     dev = "cuda"
     total_bad = 0
     print(f"vocab {V}, top_k {K}; each case called 3x with fresh inputs\n")
-    print(f"  {'rows':>4} {'seq_len':<9} {'split':>5}  call1 call2 call3")
+    print(f"  {'rows':>4} {'seq_len':<13} {'split':>5}  call1 call2 call3")
     for rows in ROWS:
-        for label, seq in (("full", V), ("partial", V // 3 + 7), ("short", 496)):
+        for label, seq in (
+            ("full", V),
+            ("partial", V // 3 + 7),
+            ("short", 496),
+            ("full tied", V),
+            ("partial tied", V // 3 + 7),
+        ):
             split = ov._split_factor(rows, V, K)
             cells = []
             for call in range(3):
                 torch.manual_seed(1000 * rows + call)
                 logits = torch.randn(rows, V, dtype=torch.float32, device=dev)
+                if label.endswith("tied"):
+                    logits = (logits * 4).round() / 4
                 seq_lens = torch.full((rows,), seq, dtype=torch.int32, device=dev)
-                if label == "partial":
+                if label.startswith("partial"):
                     seq_lens -= torch.arange(rows, dtype=torch.int32, device=dev)
                 idx = torch.full((rows, K), -9, dtype=torch.int32, device=dev)
                 flaggems_vllm.top_k_per_row_decode(
@@ -62,8 +75,8 @@ def main():
                 bad = check(logits, seq_lens, idx)
                 total_bad += bad
                 cells.append(" ok " if bad == 0 else f"{bad:>3}!")
-            print(f"  {rows:>4} {label:<9} {split:>5}  " + "  ".join(cells))
-    stages = ("lens", "stage1", "gather", "merge", "remap")
+            print(f"  {rows:>4} {label:<13} {split:>5}  " + "  ".join(cells))
+    stages = ("prepare", "select", "fixup", "merge", "remap")
     direct = sum(
         1 for p in ov._PLANS.values() for st in stages if getattr(p, st).runner
     )

@@ -12,41 +12,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""top_k_per_row_decode on Hygon BW1000: split low-row decode across programs,
-and launch every kernel directly.
+"""top_k_per_row_decode on Hygon BW1000: pick the threshold from a sample, so
+one pass over the logits replaces the radix algorithm's two.
 
-WHY. The generic non-TLE path launches one program per row. At vocab 262144
-that is ~322 us of device work per row (the kernel is ~19 us + 1.16 ns per
-element, and only its STEP 0 ever runs), against vLLM's ~72 us. Below one row
-per SM the card is mostly idle -- ratio 0.20-0.28 at 1-16 rows.
+WHY. The generic non-TLE path launches one program per row and runs the full
+radix algorithm: a histogram pass over the row, a threshold scan, then a second
+pass writing the elements at or above the threshold. Below one row per SM the
+card is mostly idle, and every Triton launch costs ~110 us of host dispatch on
+this box (~12 us for a cached CompiledKernel launched directly), so the first
+lever was a row split with direct launches -- 0.82 of vLLM, geomean over the
+benchmark's eleven shapes.
 
-Splitting a row into chunks is the obvious answer and was measured as useless
-here, but that measurement was WALL time on a host-bound path: every Triton
-launch costs ~110 us of host dispatch on this box (device ~2 us when idle), and
-a split adds three launches. Launching a cached CompiledKernel directly costs
-~12 us instead. With that, the MetaX two-pass split pays in full
-(tools/hygon_decode_split_direct.py, vocab 262144, every point correct):
+Stage one then WAS the operator: 91-94% of device time, with geometry, split
+factor and the helper kernels all exhausted. But it does more work than the
+answer needs. The merge only needs a SUPERSET of the row's top-k, and a
+threshold that admits a few times k is enough to produce one:
 
-    rows   shipped   best split   ratio vs vLLM
-       1     0.224        16          0.968
-       4     0.199        16          0.762
-       8     0.219         8          0.640
-      16     0.276         8          0.595
-      32     0.435         4          0.692
-      56     0.614         4          0.837
+    prepare  histogram ~8 tiles of the row, then scan it for the bin that
+             holds rank k scaled to the sample, times a safety factor
+    select   ONE pass over the row, appending every element at or above that
+             bin to a per-row candidate buffer (value and index)
+    fixup    the fallback decision, on the device (see below)
+    merge    the generic kernel over the candidates -- ~6k of them, not 262144
+    remap    candidate slots -> row indices
 
-WHAT. Five launches, all direct after the first call of a given plan:
+That is ~1.02 passes against 2, and it wins at every shape the benchmark runs
+(tools/hygon_decode_sampled_threshold.py, vocab 262144, top_k 512):
 
-    _chunk_lens   per-chunk valid lengths from seq_lens (a kernel, not torch ops)
-    stage 1       the generic kernel over every chunk of every row; the logits
-                  are passed as-is with stride0 = CHUNK, so no view is needed
-    gather        chunk-local indices -> candidate values, padding -> -FLT_MAX
-    merge         the generic kernel again, over split * top_k candidates
-    remap         merged positions -> row indices, -1 where the row ran out
+    rows      1     4     8    16    24    32    40    48    56   496   512
+    split  .886  .732  .631  .555  .537  .621  .863  .762  .606 1.947 1.984
+    this  1.020 1.072  .780  .915 1.059  .997 1.466 1.645 1.477 2.705 2.766
 
-The global top-k of a row is contained in the union of its chunks' top-k (x in
-the global top-k has at most k-1 larger elements in its own chunk), so both
-passes are the existing kernel and nothing algorithmic is new.
+geomean 0.823 -> 1.324. The split path is gone; this replaces it outright.
+
+THE ESTIMATE IS NOT A BOUND, and the operator does not sync, so the fallback
+decision is made on the device. `_fixup` reads each row's candidate count:
+a row that admitted between k and CAP candidates already holds a superset of
+its top-k and only needs its merge length written, which is one scalar load and
+an early return. A row outside that range -- too few, or more than the buffer
+holds -- is redone exactly inside the kernel: full histogram, threshold at rank
+k, then the strictly-better bins appended BEFORE the threshold bin, so that a
+buffer which still overflows can only drop elements sharing an 11-bit key with
+the k-th. Checked against torch.topk on random normals (which never leave the
+range) and on rounded logits (which always do), for every shape above and for
+top_k 64/256/1024, vocab down to 8192, and seq_len below vocab.
 
 DIRECT LAUNCH SAFETY. Triton specialises a compiled kernel on pointer
 alignment (data_ptr % 16) and on integer values (== 1, % 16). A cached kernel
@@ -55,9 +64,9 @@ key holds every integer argument and the alignment of each caller tensor.
 Internal buffers are fresh allocations. If a Triton version returns no
 CompiledKernel from `run`, the plan falls back to ordinary JIT launches.
 
-Rows at or beyond the SM count, next_n != 1, non-unit stride1, a strided row
-layout, or a vocabulary the split cannot divide go to the generic operator.
-FLAGGEMS_HYGON_TOPK_DECODE_SPLIT=0 disables the split; n > 1 forces a factor.
+next_n != 1, non-unit stride1, a strided row layout, a dtype other than float32
+and shapes too small or too large for the candidate buffer go to the generic
+operator. FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED=0 disables the override.
 """
 
 import functools
@@ -71,97 +80,291 @@ import triton.language as tl
 
 _generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 
-# Smallest chunk worth a 2048-bin histogram pass.
-MIN_CHUNK = 8192
+# The operator's own STEP-0 key: fp16 bits mapped so that ascending uint16
+# means descending float, then the top 11 bits. Taken from the generic module
+# rather than copied, so the two cannot drift apart.
+_key = _generic._convert_to_trt_uint16_hi11
+NUM_BINS = _generic.NUM_BINS  # 2048 == 1 << 11
 
-# Measured best split by row count, swept on this override itself
-# (tools/hygon_decode_split_table.py, vocab 262144, top_k 512, ratio vs vLLM):
-#
-#   rows      1     4     8    16    24    32    40    48    56    64    72    79
-#   best     16    16     8     8     8     4     4     4     4     4     4     2
-#   at    0.925 0.709 0.646 0.534 0.567 0.664 0.745 0.711 0.808 0.806 0.876 0.904
-#
-# 79 rows prefers 2 by 2%, inside this box's noise and one row short of the SM
-# count, so the table stops at 4. Splitting still wins at 64 and 72 rows
-# (0.806 and 0.876 against 0.659 and 0.741 unsplit).
+BLOCK = 512
+WARPS = 8
+SAMPLE_TILES = 8  # tiles the sample reads, whatever the row length
+SAFETY = 4  # admit about SAFETY * top_k elements
+CAP_FACTOR = 16  # candidate buffer, as a multiple of top_k
+MAX_CAND = 1 << 24  # refuse shapes whose buffers would be absurd
+MIN_VOCAB = 2048
+MAX_TOP_K = 2048
+
+# Programs per row for the select pass, by row count. Swept on the split path
+# this replaces (tools/hygon_decode_split_table.py) and re-checked here; at or
+# beyond one row per SM the rows alone fill the card.
 _SPLIT_BY_ROWS = ((4, 16), (24, 8))
 _SPLIT_DEFAULT = 4
+MIN_CHUNK = 8192  # smallest chunk worth its own program
 
 
 @triton.jit
-def _chunk_lens(
-    seq_lens_ptr,
-    out_ptr,
-    SPLIT: tl.constexpr,
-    CHUNK: tl.constexpr,
-    BLOCK: tl.constexpr,
+def _scan_threshold(base, target, NB: tl.constexpr, BLOCK: tl.constexpr):
+    """Lowest bin whose prefix count reaches `target`. Bin 0 holds the largest
+    values, so 'at or above the threshold' means bin <= thr."""
+    lane = tl.arange(0, BLOCK)
+    carry = tl.zeros([], tl.int32)
+    thr = tl.full([], NB - 1, tl.int32)
+    found = tl.full([], False, tl.int1)
+    for t in tl.static_range(NB // BLOCK):
+        bins = t * BLOCK + lane
+        c = tl.load(base + bins)
+        pre = carry + tl.cumsum(c, axis=0)
+        hit = (pre >= target) & (not found)
+        cand = tl.min(tl.where(hit, bins, NB - 1), axis=0)
+        if (not found) & (tl.max(hit.to(tl.int32), axis=0) > 0):
+            thr = cand
+            found = tl.full([], True, tl.int1)
+        carry += tl.sum(c, axis=0)
+    return thr
+
+
+@triton.jit
+def _hist_total(base, NB: tl.constexpr, BLOCK: tl.constexpr):
+    lane = tl.arange(0, BLOCK)
+    total = tl.zeros([], tl.int32)
+    for t in tl.static_range(NB // BLOCK):
+        total += tl.sum(tl.load(base + t * BLOCK + lane), axis=0)
+    return total
+
+
+@triton.jit
+def _hist_pass(
+    logits_ptr, base, row, stride0, n, STRIDE: tl.constexpr, BLOCK: tl.constexpr
 ):
-    row = tl.program_id(0)
-    c = tl.arange(0, BLOCK)
-    m = c < SPLIT
-    seq_len = tl.load(seq_lens_ptr + row)
-    n = tl.minimum(tl.maximum(seq_len - c * CHUNK, 0), CHUNK)
-    tl.store(out_ptr + row * SPLIT + c, n.to(tl.int32), mask=m)
+    """Histogram every STRIDE-th tile of the row into `base` (STRIDE 1: all of
+    it). Whole tiles, not strided elements: a strided element sample touches
+    one cache line per value and so costs a full pass for a fraction of the
+    data."""
+    lane = tl.arange(0, BLOCK)
+    for t in tl.range(0, tl.cdiv(n, BLOCK * STRIDE)):
+        i = t * BLOCK * STRIDE + lane
+        m = i < n
+        x = tl.load(logits_ptr + row * stride0 + i, mask=m, other=0.0)
+        tl.atomic_add(
+            base + _key(x),
+            tl.full([BLOCK], 1, tl.int32),
+            mask=m,
+            sem="relaxed",
+            scope="cta",
+        )
 
 
 @triton.jit
-def _gather_candidates(
+def _prepare(
     logits_ptr,
-    cand_ptr,
-    out_ptr,
+    seq_lens_ptr,
+    hist_ptr,
+    thr_ptr,
+    cnt_ptr,
     stride0,
-    stride1,
-    floor,
-    SPLIT: tl.constexpr,
     TOPK: tl.constexpr,
-    CHUNK: tl.constexpr,
-    NCAND: tl.constexpr,
+    SAFETY: tl.constexpr,
+    NB: tl.constexpr,
+    STRIDE: tl.constexpr,
     BLOCK: tl.constexpr,
 ):
-    """Position p in a row's candidate array is chunk p // TOPK, slot p % TOPK.
-    A padding index (-1, from a chunk past seq_len) becomes `floor`."""
+    """Zero, sample and threshold, in one program per row.
+
+    One program, so the row's histogram is this program's alone and a
+    tl.debug_barrier() is all the ordering the three phases need -- and so the
+    atomics stay inside one CTA. Splitting the sample across programs would pay
+    the ~19 us per-program floor again for a pass that reads 1/STRIDE.
+
+    The admit rank is derived from the sample actually taken, not from STRIDE,
+    so that a row far shorter than the vocabulary still gets a usable estimate.
+    """
     row = tl.program_id(0)
-    p = tl.program_id(1) * BLOCK + tl.arange(0, BLOCK)
-    m = p < NCAND
-    chunk_id = p // TOPK
-    local = tl.load(
-        cand_ptr + (row * SPLIT + chunk_id) * TOPK + (p % TOPK), mask=m, other=-1
-    )
-    ok = m & (local >= 0)
-    val = tl.load(
-        logits_ptr + row * stride0 + (chunk_id * CHUNK + local) * stride1,
-        mask=ok,
-        other=floor,
-    )
-    tl.store(out_ptr + row * NCAND + p, tl.where(ok, val, floor), mask=m)
+    lane = tl.arange(0, BLOCK)
+    base = hist_ptr + row * NB
+    for t in tl.static_range(NB // BLOCK):
+        tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+    tl.store(cnt_ptr + row, 0)
+    tl.debug_barrier()
+    n = tl.load(seq_lens_ptr + row)
+    _hist_pass(logits_ptr, base, row, stride0, n, STRIDE, BLOCK)
+    tl.debug_barrier()
+    total = _hist_total(base, NB, BLOCK)
+    target = tl.maximum(tl.cdiv(TOPK * total, tl.maximum(n, 1)), 1) * SAFETY
+    tl.store(thr_ptr + row, _scan_threshold(base, target, NB, BLOCK))
 
 
 @triton.jit
-def _remap_indices(
-    cand_ptr,
+def _select(
+    logits_ptr,
+    seq_lens_ptr,
+    thr_ptr,
+    cnt_ptr,
+    cand_idx_ptr,
+    cand_val_ptr,
+    stride0,
+    CHUNK: tl.constexpr,
+    SPLIT: tl.constexpr,
+    CAP: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """The one pass: append every element at or above the row's threshold bin.
+
+    SPLIT programs share a row, so the counter they append through is written
+    from several CTAs and the atomic has to be scoped to the whole device.
+    """
+    pid = tl.program_id(0)
+    row = pid // SPLIT
+    chunk = pid % SPLIT
+    lane = tl.arange(0, BLOCK)
+    thr = tl.load(thr_ptr + row)
+    n = tl.load(seq_lens_ptr + row)
+    start = chunk * CHUNK
+    end = tl.minimum(start + CHUNK, n)
+    cnt_ptrs = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
+    for t in tl.range(0, tl.cdiv(CHUNK, BLOCK)):
+        i = start + t * BLOCK + lane
+        m = i < end
+        x = tl.load(logits_ptr + row * stride0 + i, mask=m, other=0.0)
+        take = m & (_key(x) <= thr)
+        pos = tl.atomic_add(
+            cnt_ptrs,
+            tl.full([BLOCK], 1, tl.int32),
+            mask=take,
+            sem="relaxed",
+            scope="gpu",
+        )
+        keep = take & (pos < CAP)
+        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
+        tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
+
+
+@triton.jit
+def _select_exact(
+    logits_ptr,
+    row,
+    stride0,
+    n,
+    thr,
+    cnt_ptrs,
+    cand_idx_ptr,
+    cand_val_ptr,
+    EQUAL: tl.constexpr,
+    CAP: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """One program's pass over a row, appending the elements whose key is below
+    `thr` (EQUAL False) or exactly `thr` (EQUAL True)."""
+    lane = tl.arange(0, BLOCK)
+    for t in tl.range(0, tl.cdiv(n, BLOCK)):
+        i = t * BLOCK + lane
+        m = i < n
+        x = tl.load(logits_ptr + row * stride0 + i, mask=m, other=0.0)
+        k = _key(x)
+        if EQUAL:
+            take = m & (k == thr)
+        else:
+            take = m & (k < thr)
+        pos = tl.atomic_add(
+            cnt_ptrs,
+            tl.full([BLOCK], 1, tl.int32),
+            mask=take,
+            sem="relaxed",
+            scope="cta",
+        )
+        keep = take & (pos < CAP)
+        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
+        tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
+
+
+@triton.jit
+def _fixup(
+    logits_ptr,
+    seq_lens_ptr,
+    hist_ptr,
+    cnt_ptr,
+    merge_lens_ptr,
+    cand_idx_ptr,
+    cand_val_ptr,
+    stride0,
+    TOPK: tl.constexpr,
+    NB: tl.constexpr,
+    CAP: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """The device-side stand-in for a host sync.
+
+    A row that admitted between TOPK and CAP candidates already holds a
+    superset of its top-k: write the merge length and leave. A row outside that
+    range is redone exactly here, appending the strictly-better bins BEFORE the
+    threshold bin so that a buffer which still overflows can only ever drop
+    elements sharing an 11-bit key with the k-th.
+    """
+    row = tl.program_id(0)
+    c = tl.load(cnt_ptr + row)
+    if (c >= TOPK) & (c <= CAP):
+        tl.store(merge_lens_ptr + row, c)
+        return
+    lane = tl.arange(0, BLOCK)
+    base = hist_ptr + row * NB
+    n = tl.load(seq_lens_ptr + row)
+    for t in tl.static_range(NB // BLOCK):
+        tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+    tl.debug_barrier()
+    _hist_pass(logits_ptr, base, row, stride0, n, 1, BLOCK)
+    tl.debug_barrier()
+    thr = _scan_threshold(base, TOPK, NB, BLOCK)
+    tl.store(cnt_ptr + row, 0)
+    tl.debug_barrier()
+    cnt_ptrs = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
+    _select_exact(
+        logits_ptr,
+        row,
+        stride0,
+        n,
+        thr,
+        cnt_ptrs,
+        cand_idx_ptr,
+        cand_val_ptr,
+        False,
+        CAP,
+        BLOCK,
+    )
+    tl.debug_barrier()
+    _select_exact(
+        logits_ptr,
+        row,
+        stride0,
+        n,
+        thr,
+        cnt_ptrs,
+        cand_idx_ptr,
+        cand_val_ptr,
+        True,
+        CAP,
+        BLOCK,
+    )
+    tl.debug_barrier()
+    tl.store(merge_lens_ptr + row, tl.minimum(tl.load(cnt_ptr + row), CAP))
+
+
+@triton.jit
+def _remap(
+    cand_idx_ptr,
     merged_ptr,
     out_ptr,
-    SPLIT: tl.constexpr,
+    CAP: tl.constexpr,
     TOPK: tl.constexpr,
-    CHUNK: tl.constexpr,
     BLOCK: tl.constexpr,
 ):
+    """Merged candidate slots -> row indices, -1 where the row ran out."""
     row = tl.program_id(0)
     j = tl.arange(0, BLOCK)
     m = j < TOPK
-    pos = tl.load(merged_ptr + row * TOPK + j, mask=m, other=0)
+    pos = tl.load(merged_ptr + row * TOPK + j, mask=m, other=-1)
     live = m & (pos >= 0)
-    chunk_id = pos // TOPK
-    local = tl.load(
-        cand_ptr + (row * SPLIT + chunk_id) * TOPK + (pos % TOPK),
-        mask=live,
-        other=-1,
-    )
-    tl.store(
-        out_ptr + row * TOPK + j,
-        tl.where(live & (local >= 0), chunk_id * CHUNK + local, -1),
-        mask=m,
-    )
+    idx = tl.load(cand_idx_ptr + row * CAP + pos, mask=live, other=-1)
+    tl.store(out_ptr + row * TOPK + j, tl.where(live, idx, -1), mask=m)
 
 
 @functools.lru_cache(maxsize=1)
@@ -173,35 +376,32 @@ def _sm_count():
         return 80
 
 
-def _forced_split():
-    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_DECODE_SPLIT")
-    if raw is None:
-        return None
-    try:
-        return max(0, int(raw))
-    except ValueError:
-        return None
+def _enabled():
+    return os.environ.get("FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED", "1") != "0"
 
 
 def _split_factor(num_rows, vocab_size, top_k):
-    forced = _forced_split()
-    if forced == 0:
+    """Programs per row for the select pass."""
+    if num_rows >= _sm_count():
         return 1
-    if forced:
-        split = forced
-    elif num_rows >= _sm_count():
-        return 1
-    else:
-        split = _SPLIT_DEFAULT
-        for max_rows, factor in _SPLIT_BY_ROWS:
-            if num_rows <= max_rows:
-                split = factor
-                break
+    split = _SPLIT_DEFAULT
+    for max_rows, factor in _SPLIT_BY_ROWS:
+        if num_rows <= max_rows:
+            split = factor
+            break
     while split > 1 and (
         vocab_size % split or vocab_size // split < max(MIN_CHUNK, top_k)
     ):
         split //= 2
     return split
+
+
+def _sample_stride(vocab_size):
+    return max(1, vocab_size // (BLOCK * SAMPLE_TILES))
+
+
+def _cap(top_k):
+    return max(BLOCK, triton.next_power_of_2(top_k * CAP_FACTOR))
 
 
 class _Launch:
@@ -233,89 +433,101 @@ class _Launch:
 
 
 class _Plan:
-    """Buffers and launchers for one (shape, specialisation) of the split."""
+    """Buffers and launchers for one (shape, specialisation)."""
 
     def __init__(self, dev, dtype, num_rows, vocab, top_k, split):
-        chunk = vocab // split
-        nv = num_rows * split
-        ncand = split * top_k
         gen = _generic
+        cap = _cap(top_k)
+        chunk = vocab // split
         block = gen.NUM_THREADS_PER_BLOCK
-        warps = gen._num_warps(block)
-        self.chunk, self.ncand = chunk, ncand
-        self.floor = torch.finfo(dtype).min
-        self.sub_lens = torch.empty((nv,), dtype=torch.int32, device=dev)
-        self.cand = torch.empty((nv, top_k), dtype=torch.int32, device=dev)
-        self.vals = torch.empty((num_rows, ncand), dtype=dtype, device=dev)
+        self.cap = cap
+        self.hist = torch.empty((num_rows, NUM_BINS), dtype=torch.int32, device=dev)
+        self.thr = torch.empty((num_rows,), dtype=torch.int32, device=dev)
+        self.cnt = torch.empty((num_rows,), dtype=torch.int32, device=dev)
+        self.cand_idx = torch.empty((num_rows, cap), dtype=torch.int32, device=dev)
+        self.cand_val = torch.empty((num_rows, cap), dtype=dtype, device=dev)
         self.merged = torch.empty((num_rows, top_k), dtype=torch.int32, device=dev)
-        self.merge_lens = torch.full((num_rows,), ncand, dtype=torch.int32, device=dev)
-        self.scratch1 = self._scratch(gen, nv, dev)
-        self.scratch2 = self._scratch(gen, num_rows, dev)
-        gblock = min(1024, triton.next_power_of_2(ncand))
-        self.lens = _Launch(
-            _chunk_lens,
+        self.merge_lens = torch.empty((num_rows,), dtype=torch.int32, device=dev)
+        self.scratch = (
+            torch.empty((num_rows, gen.NUM_BINS), dtype=torch.int32, device=dev),
+            torch.empty(
+                (num_rows, gen.NUM_FILNAL_ITEMS), dtype=torch.float32, device=dev
+            ),
+            torch.empty((num_rows,), dtype=torch.int32, device=dev),
+            torch.empty((num_rows,), dtype=torch.int32, device=dev),
+            torch.empty((num_rows,), dtype=torch.int32, device=dev),
+            torch.empty((num_rows,), dtype=torch.int32, device=dev),
+        )
+        self.prepare = _Launch(
+            _prepare,
             (num_rows,),
-            {"SPLIT": split, "CHUNK": chunk, "BLOCK": triton.next_power_of_2(split)},
-            1,
-        )
-        self.stage1 = _Launch(
-            gen.non_tle_top_k_per_row_decode,
-            (nv,),
-            {"TOPK": top_k, "BLOCK_SIZE": block},
-            warps,
-        )
-        self.gather = _Launch(
-            _gather_candidates,
-            (num_rows, triton.cdiv(ncand, gblock)),
             {
-                "SPLIT": split,
                 "TOPK": top_k,
-                "CHUNK": chunk,
-                "NCAND": ncand,
-                "BLOCK": gblock,
+                "SAFETY": SAFETY,
+                "NB": NUM_BINS,
+                "STRIDE": _sample_stride(vocab),
+                "BLOCK": BLOCK,
             },
-            4,
+            WARPS,
+        )
+        self.select = _Launch(
+            _select,
+            (num_rows * split,),
+            {"CHUNK": chunk, "SPLIT": split, "CAP": cap, "BLOCK": BLOCK},
+            WARPS,
+        )
+        self.fixup = _Launch(
+            _fixup,
+            (num_rows,),
+            {"TOPK": top_k, "NB": NUM_BINS, "CAP": cap, "BLOCK": BLOCK},
+            WARPS,
         )
         self.merge = _Launch(
             gen.non_tle_top_k_per_row_decode,
             (num_rows,),
             {"TOPK": top_k, "BLOCK_SIZE": block},
-            warps,
+            gen._num_warps(block),
         )
         self.remap = _Launch(
-            _remap_indices,
+            _remap,
             (num_rows,),
-            {
-                "SPLIT": split,
-                "TOPK": top_k,
-                "CHUNK": chunk,
-                "BLOCK": triton.next_power_of_2(top_k),
-            },
+            {"CAP": cap, "TOPK": top_k, "BLOCK": triton.next_power_of_2(top_k)},
             4,
         )
 
-    @staticmethod
-    def _scratch(gen, n, dev):
-        return (
-            torch.empty((n, gen.NUM_BINS), dtype=torch.int32, device=dev),
-            torch.empty((n, gen.NUM_FILNAL_ITEMS), dtype=torch.float32, device=dev),
-            torch.empty((n,), dtype=torch.int32, device=dev),
-            torch.empty((n,), dtype=torch.int32, device=dev),
-            torch.empty((n,), dtype=torch.int32, device=dev),
-            torch.empty((n,), dtype=torch.int32, device=dev),
-        )
-
     def run(self, logits, seq_lens, indices, stride0):
-        chunk, ncand = self.chunk, self.ncand
-        self.lens(seq_lens, self.sub_lens)
-        self.stage1(
-            logits, self.cand, self.sub_lens, 1, chunk, 1, chunk, *self.scratch1
+        cap = self.cap
+        self.prepare(logits, seq_lens, self.hist, self.thr, self.cnt, stride0)
+        self.select(
+            logits,
+            seq_lens,
+            self.thr,
+            self.cnt,
+            self.cand_idx,
+            self.cand_val,
+            stride0,
         )
-        self.gather(logits, self.cand, self.vals, stride0, 1, self.floor)
+        self.fixup(
+            logits,
+            seq_lens,
+            self.hist,
+            self.cnt,
+            self.merge_lens,
+            self.cand_idx,
+            self.cand_val,
+            stride0,
+        )
         self.merge(
-            self.vals, self.merged, self.merge_lens, 1, ncand, 1, ncand, *self.scratch2
+            self.cand_val,
+            self.merged,
+            self.merge_lens,
+            1,
+            cap,
+            1,
+            cap,
+            *self.scratch,
         )
-        self.remap(self.cand, self.merged, indices)
+        self.remap(self.cand_idx, self.merged, indices)
 
 
 _PLANS = {}
@@ -330,21 +542,25 @@ def _aligned(t):
 def top_k_per_row_decode(
     logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
 ):
-    """Split low-row decode across programs, launching every kernel directly."""
+    """One pass over the logits, with the threshold picked from a sample."""
     vocab_size = logits.shape[1]
-    split = _split_factor(num_rows, vocab_size, top_k)
     if (
-        split == 1
+        not _enabled()
         or next_n != 1
         or stride1 != 1
         or stride0 != vocab_size
         or logits.dtype != torch.float32
         or seq_lens.dtype != torch.int32
+        or vocab_size < MIN_VOCAB
+        or top_k > MAX_TOP_K
+        or top_k > vocab_size
+        or num_rows * _cap(top_k) > MAX_CAND
     ):
         return _generic.top_k_per_row_decode(
             logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
         )
 
+    split = _split_factor(num_rows, vocab_size, top_k)
     key = (
         logits.device,
         num_rows,
