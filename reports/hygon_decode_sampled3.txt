@@ -1,22 +1,33 @@
-### branch topk-metax @ 2e3fe6e
-### 2026-09-16T10:29:02+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### branch topk-metax @ 07e5654
+### 2026-09-16T10:29:55+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
 ### PYTHONPATH=src:/usr/local/:
 
 ### python: python -> /usr/bin/python
-INFO 09-16 10:29:21 [__init__.py:44] Available plugins for group vllm.platform_plugins:
-INFO 09-16 10:29:21 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
-INFO 09-16 10:29:21 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
-INFO 09-16 10:29:21 [__init__.py:239] Platform plugin hcu is activated
-vocab 262144, top_k 512; sample 1/16, admit rank 64 of the sample (~1024 elements), buffer 8192
+INFO 09-16 10:30:13 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 10:30:13 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 10:30:13 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 10:30:13 [__init__.py:239] Platform plugin hcu is activated
+vocab 262144, top_k 512; sample 1/64, admit rank 32 of the sample (~2048 elements), buffer 8192
 
   rows split  shipped us  sampled us  +sync us  ratio now  ratio new   cands   answer
-     1    16        76.5       465.1     586.7      0.925      0.121    1153       OK
-     4    16       101.5       458.3     580.0      0.700      0.122    1312       OK
-     8     8       126.2       459.4     580.6      0.609      0.132    1331       OK
-    16     8       171.7       460.4     584.1      0.560      0.165    1394       OK
-    24     8       225.2       455.3     579.3      0.544      0.211    1408       OK
-    32     4       267.8       452.2     579.0      0.656      0.304    1560       OK
-    56     4       383.9       454.6     582.2      0.812      0.535    1407       OK
+     1    16        76.5        83.4     187.9      0.924      0.377    2326       OK
+     4    16       101.0        79.1     189.1      0.704      0.376    2738       OK
+     8     8       127.0        99.6     211.2      0.599      0.361    2780       OK
+    16     8       174.6       111.4     219.5      0.550      0.438    3130       OK
+    24     8       223.1       118.2     227.5      0.548      0.537    2776       OK
+    32     4       265.3       171.5     278.8      0.659      0.627    2763       OK
+    56     4       386.8       202.7     309.5      0.809      1.011    3208       OK
 
   'cands' is the largest candidate count admitted (buffer is 8192); under 512 would mean the threshold was too strict.
   'ratio new' includes the sync that the fallback decision needs.
+
+  per-stage wall us (each launch timed alone, so each carries one host submit)
+
+  rows     zero   sample   thresh   select    clamp    merge    remap      sum
+     1     10.9     11.7     11.6     17.0     11.3     42.5     11.8    116.7
+     4     10.4     11.2     10.6     16.7     10.6     44.2     11.2    114.9
+     8     10.4     11.3     10.8     43.7     10.7     63.6     11.4    161.9
+    16     10.7     11.2     10.9     51.9     10.7     61.2     11.4    168.0
+    24     10.7     11.5     10.8     55.9     10.8     61.3     11.5    172.5
+    32     10.8     11.4     10.9    106.7     11.5     72.9     12.1    236.3
+    56     10.5     11.3     10.9    126.6     10.9     63.4     11.4    245.1
