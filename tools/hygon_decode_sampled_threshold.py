@@ -21,6 +21,21 @@ values over 262144 elements) or falls short of k must fall back to the exact
 pipeline -- which needs the count on the host, i.e. a device sync this
 operator does not do today. The sync is timed here as part of the cost.
 
+Rounds 1 and 2 both came out flat at ~420-460 us whatever the row count, and
+both times the flatness was the probe, not the idea:
+
+  round 1  sampled every STRIDE-th ELEMENT: one cache line per value, so it
+           read the whole row for 1/STRIDE of the data
+  round 2  launched all five kernels through the JIT: ~110 us of host dispatch
+           each, 550 us of serial host work hiding every device difference,
+           while the shipped pipeline it was compared against uses cached
+           direct launches at ~12 us
+
+Round 3: every launch direct (the recipe from hygon_decode_split_direct.py),
+no torch ops in the pipeline (zeroing and clamping are kernels), and the
+sample is one program per ROW over 1/64 of the tiles -- with one program per
+chunk the ~19 us per-program floor dominated a pass that only reads 1/16.
+
 Reports, per row count: wall us and ratio for the shipped pipeline and for
 this one, how many candidates the threshold actually admits, how often it
 overflows or undershoots, and correctness against torch.topk.
@@ -40,8 +55,8 @@ import flaggems_vllm
 V, K = 262144, 512
 ROWS = (1, 4, 8, 16, 24, 32, 56)
 NB = 2048  # bins, as in the operator's STEP 0
-STRIDE = 16  # sample one element in STRIDE
-SAFETY = 2  # admit ~SAFETY * k elements
+STRIDE = 64  # sample one tile in STRIDE
+SAFETY = 4  # admit ~SAFETY * k elements
 CAP = 8192  # candidate buffer per row
 BLOCK = 512
 WARPS = 8
@@ -60,11 +75,18 @@ def _key(x):
 
 
 @triton.jit
-def k_zero_hist(hist_ptr, NB: tl.constexpr, BLOCK: tl.constexpr):
+def k_zero(hist_ptr, cnt_ptr, NB: tl.constexpr, BLOCK: tl.constexpr):
     row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
     for t in tl.static_range(NB // BLOCK):
         tl.store(hist_ptr + row * NB + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+    tl.store(cnt_ptr + row, 0)
+
+
+@triton.jit
+def k_clamp_lens(cnt_ptr, out_ptr, CAP: tl.constexpr):
+    row = tl.program_id(0)
+    tl.store(out_ptr + row, tl.minimum(tl.load(cnt_ptr + row), CAP))
 
 
 @triton.jit
@@ -75,29 +97,22 @@ def k_sample_hist(
     stride0,
     NB: tl.constexpr,
     STRIDE: tl.constexpr,
-    CHUNK: tl.constexpr,
-    SPLIT: tl.constexpr,
     BLOCK: tl.constexpr,
 ):
-    """Every STRIDE-th TILE, one program per chunk.
+    """Every STRIDE-th TILE of the row, one program per row.
 
-    Round 1 sampled every STRIDE-th ELEMENT from one program per row and the
-    whole pipeline came out flat at ~420 us, worse than the shipped path: a
-    strided element sample touches one cache line per value, so it reads all
-    of the row's lines for 1/STRIDE of the data, and one program per row does
-    not shrink with row count. Contiguous tiles read 1/STRIDE of the bytes.
+    Tiles, not elements: a strided element sample touches one cache line per
+    value and costs a whole pass. One program per row, not per chunk: the
+    kernel floor is ~19 us per program and the sample only reads 1/STRIDE of
+    the bytes, so more programs would buy nothing and pay that floor again.
     """
-    pid = tl.program_id(0)
-    row = pid // SPLIT
-    chunk = pid % SPLIT
+    row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
     base = hist_ptr + row * NB
     n = tl.load(seq_ptr + row)
-    start = chunk * CHUNK
-    end = tl.minimum(start + CHUNK, n)
-    for t in tl.range(0, tl.cdiv(CHUNK, BLOCK * STRIDE)):
-        i = start + t * BLOCK * STRIDE + lane
-        m = i < end
+    for t in tl.range(0, tl.cdiv(n, BLOCK * STRIDE)):
+        i = t * BLOCK * STRIDE + lane
+        m = i < n
         x = tl.load(logits_ptr + row * stride0 + i, mask=m, other=0.0)
         tl.atomic_add(
             base + _key(x),
@@ -218,6 +233,7 @@ def main():
         f"vocab {V}, top_k {K}; sample 1/{STRIDE}, admit rank {target} of the "
         f"sample (~{target * STRIDE} elements), buffer {CAP}\n"
     )
+    stages = []
     print(
         f"  {'rows':>4} {'split':>5} {'shipped us':>11} {'sampled us':>11} "
         f"{'+sync us':>9} {'ratio now':>10} {'ratio new':>10} {'cands':>7} {'answer':>8}"
@@ -250,61 +266,48 @@ def main():
             )
         ]
 
+        L = ov._Launch
+        lz = L(k_zero, (rows,), {"NB": NB, "BLOCK": BLOCK}, WARPS)
+        lsamp = L(
+            k_sample_hist,
+            (rows,),
+            {"NB": NB, "STRIDE": STRIDE, "BLOCK": BLOCK},
+            WARPS,
+        )
+        lthr = L(
+            k_threshold,
+            (rows,),
+            {"TARGET": target, "NB": NB, "BLOCK": BLOCK},
+            WARPS,
+        )
+        lsel = L(
+            k_select,
+            (rows * split,),
+            {"CHUNK": chunk, "SPLIT": split, "CAP": CAP, "BLOCK": BLOCK},
+            WARPS,
+        )
+        lclamp = L(k_clamp_lens, (rows,), {"CAP": CAP}, 1)
+        lmerge = L(
+            gen.non_tle_top_k_per_row_decode,
+            (rows,),
+            {"TOPK": K, "BLOCK_SIZE": gen.NUM_THREADS_PER_BLOCK},
+            gen._num_warps(gen.NUM_THREADS_PER_BLOCK),
+        )
+        lremap = L(
+            k_remap,
+            (rows,),
+            {"CAP": CAP, "TOPK": K, "BLOCK": triton.next_power_of_2(K)},
+            4,
+        )
+
         def sampled(sync=False):
-            cnt.zero_()
-            k_zero_hist[(rows,)](hist, NB=NB, BLOCK=BLOCK, num_warps=WARPS)
-            k_sample_hist[(rows * split,)](
-                logits,
-                lens,
-                hist,
-                V,
-                NB=NB,
-                STRIDE=STRIDE,
-                CHUNK=chunk,
-                SPLIT=split,
-                BLOCK=BLOCK,
-                num_warps=WARPS,
-            )
-            k_threshold[(rows,)](
-                hist, thr, TARGET=target, NB=NB, BLOCK=BLOCK, num_warps=WARPS
-            )
-            k_select[(rows * split,)](
-                logits,
-                lens,
-                thr,
-                cnt,
-                cand_idx,
-                cand_val,
-                V,
-                CHUNK=chunk,
-                SPLIT=split,
-                CAP=CAP,
-                BLOCK=BLOCK,
-                num_warps=WARPS,
-            )
-            mlens.copy_(cnt.clamp(max=CAP))
-            gen.non_tle_top_k_per_row_decode[(rows,)](
-                cand_val,
-                merged,
-                mlens,
-                1,
-                CAP,
-                1,
-                CAP,
-                *scratch,
-                TOPK=K,
-                BLOCK_SIZE=gen.NUM_THREADS_PER_BLOCK,
-                num_warps=gen._num_warps(gen.NUM_THREADS_PER_BLOCK),
-            )
-            k_remap[(rows,)](
-                cand_idx,
-                merged,
-                idx,
-                CAP=CAP,
-                TOPK=K,
-                BLOCK=triton.next_power_of_2(K),
-                num_warps=4,
-            )
+            lz(hist, cnt)
+            lsamp(logits, lens, hist, V)
+            lthr(hist, thr)
+            lsel(logits, lens, thr, cnt, cand_idx, cand_val, V)
+            lclamp(cnt, mlens)
+            lmerge(cand_val, merged, mlens, 1, CAP, 1, CAP, *scratch)
+            lremap(cand_idx, merged, idx)
             if sync:
                 return int(cnt.max()), int(cnt.min())
             return None
@@ -325,6 +328,25 @@ def main():
         ok = torch.allclose(got, want) and bool((idx >= 0).all())
         t_new = wall_us(lambda: sampled(False))
         t_sync = wall_us(lambda: sampled(True))
+        stages.append(
+            (
+                rows,
+                [
+                    wall_us(f)
+                    for f in (
+                        lambda: lz(hist, cnt),
+                        lambda: lsamp(logits, lens, hist, V),
+                        lambda: lthr(hist, thr),
+                        lambda: lsel(logits, lens, thr, cnt, cand_idx, cand_val, V),
+                        lambda: lclamp(cnt, mlens),
+                        lambda: lmerge(
+                            cand_val, merged, mlens, 1, CAP, 1, CAP, *scratch
+                        ),
+                        lambda: lremap(cand_idx, merged, idx),
+                    )
+                ],
+            )
+        )
         print(
             f"  {rows:>4} {split:>5} {t_ship:>11.1f} {t_new:>11.1f} {t_sync:>9.1f} "
             f"{t_vllm / t_ship:>10.3f} {t_vllm / t_sync:>10.3f} {hi:>7} "
@@ -335,6 +357,16 @@ def main():
         f"{CAP}); under {K} would mean the threshold was too strict."
     )
     print("  'ratio new' includes the sync that the fallback decision needs.")
+    names = ("zero", "sample", "thresh", "select", "clamp", "merge", "remap")
+    print(
+        "\n  per-stage wall us (each launch timed alone, so each carries one"
+        " host submit)\n"
+    )
+    print("  " + f"{'rows':>4}" + "".join(f"{n:>9}" for n in names) + f"{'sum':>9}")
+    for rows, ts in stages:
+        print(
+            "  " + f"{rows:>4}" + "".join(f"{t:>9.1f}" for t in ts) + f"{sum(ts):>9.1f}"
+        )
 
 
 if __name__ == "__main__":
