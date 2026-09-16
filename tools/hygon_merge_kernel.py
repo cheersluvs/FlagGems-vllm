@@ -71,6 +71,26 @@ def device_us(fn, iters=20, warmup=5):
 
 
 @triton.jit
+def _remap(
+    cand_idx_ptr,
+    merged_ptr,
+    out_ptr,
+    CAP: tl.constexpr,
+    TOPK: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """The remap the override used to need, kept here now that the tail
+    kernel writes row indices itself."""
+    row = tl.program_id(0)
+    j = tl.arange(0, BLOCK)
+    m = j < TOPK
+    pos = tl.load(merged_ptr + row * TOPK + j, mask=m, other=-1)
+    live = m & (pos >= 0)
+    idx = tl.load(cand_idx_ptr + row * CAP + pos, mask=live, other=-1)
+    tl.store(out_ptr + row * TOPK + j, tl.where(live, idx, -1), mask=m)
+
+
+@triton.jit
 def _merge(
     cand_val_ptr,
     cand_idx_ptr,
@@ -372,7 +392,7 @@ def main():
                 gen._num_warps(block),
             )
             lremap = ov._Launch(
-                ov._remap,
+                _remap,
                 (rows,),
                 {"CAP": CAP, "TOPK": TOPK, "BLOCK": triton.next_power_of_2(TOPK)},
                 4,

@@ -32,9 +32,9 @@ threshold that admits a few times k is enough to produce one:
              holds rank k scaled to the sample, times a safety factor
     select   ONE pass over the row, appending every element at or above that
              bin to a per-row candidate buffer (value and index)
-    fixup    the fallback decision, on the device (see below)
-    merge    the generic kernel over the candidates -- ~6k of them, not 262144
-    remap    candidate slots -> row indices
+    tail     the fallback decision (see below) and then the exact top-k of the
+             candidates -- four 8-bit radix rounds over the full 32-bit
+             ordered key, writing cand_idx[pos] straight out
 
 That is ~1.02 passes against 2, and it wins at every shape the benchmark runs
 (tools/hygon_decode_sampled_threshold.py, vocab 262144, top_k 512):
@@ -46,7 +46,8 @@ That is ~1.02 passes against 2, and it wins at every shape the benchmark runs
 geomean 0.823 -> 1.324. The split path is gone; this replaces it outright.
 
 THE ESTIMATE IS NOT A BOUND, and the operator does not sync, so the fallback
-decision is made on the device. `_fixup` reads each row's candidate count:
+decision is made on the device, at the top of `_tail`, which reads each row's
+candidate count:
 a row that admitted between k and CAP candidates already holds a superset of
 its top-k and only needs its merge length written, which is one scalar load and
 an early return. A row outside that range -- too few, or more than the buffer
@@ -84,6 +85,7 @@ _generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 # means descending float, then the top 11 bits. Taken from the generic module
 # rather than copied, so the two cannot drift apart.
 _key = _generic._convert_to_trt_uint16_hi11
+_key32 = _generic._convert_to_uint32
 NUM_BINS = _generic.NUM_BINS  # 2048 == 1 << 11
 
 BLOCK = 512
@@ -91,6 +93,7 @@ WARPS = 8
 SAMPLE_TILES = 8  # tiles the sample reads, whatever the row length
 SAFETY = 4  # admit about SAFETY * top_k elements
 CAP_FACTOR = 16  # candidate buffer, as a multiple of top_k
+RADIX = 256  # bins per round of the tail's exact radix
 MAX_CAND = 1 << 24  # refuse shapes whose buffers would be absurd
 MIN_VOCAB = 2048
 MAX_TOP_K = 2048
@@ -278,93 +281,159 @@ def _select_exact(
 
 
 @triton.jit
-def _fixup(
+def _tail(
     logits_ptr,
     seq_lens_ptr,
     hist_ptr,
     cnt_ptr,
-    merge_lens_ptr,
     cand_idx_ptr,
     cand_val_ptr,
+    out_ptr,
+    counts_ptr,
+    slot_ptr,
     stride0,
     TOPK: tl.constexpr,
     NB: tl.constexpr,
     CAP: tl.constexpr,
+    RADIX: tl.constexpr,
     BLOCK: tl.constexpr,
 ):
-    """The device-side stand-in for a host sync.
+    """The fallback decision and the exact top-k of the candidates, in one
+    program per row -- so one launch where there were three.
 
-    A row that admitted between TOPK and CAP candidates already holds a
-    superset of its top-k: write the merge length and leave. A row outside that
-    range is redone exactly here, appending the strictly-better bins BEFORE the
-    threshold bin so that a buffer which still overflows can only ever drop
-    elements sharing an 11-bit key with the k-th.
+    First the decision a host sync would otherwise make: a row that admitted
+    between TOPK and CAP candidates already holds a superset of its top-k; one
+    outside that range is redone exactly here, appending the strictly-better
+    bins BEFORE the threshold bin so that a buffer which still overflows can
+    only ever drop elements sharing an 11-bit key with the k-th.
+
+    Then the answer, by four 8-bit radix rounds over the FULL 32-bit ordered
+    key (ascending uint32 is descending float). That is what the generic
+    kernel's own final select does; running it over the candidates directly
+    costs no 11-bit pre-pass and no threshold-bin special case, and is exact by
+    construction -- there is no fp16 granularity left to reason about. The
+    output is cand_idx[pos], so the remap disappears as well.
+
+    Measured against the generic merge plus a remap at the candidate counts
+    this pipeline produces (tools/hygon_merge_kernel.py): at or above parity
+    from 4 to 512 rows, and 1.2-1.8x where the candidates are few. A variant
+    that narrows with an 11-bit histogram first is flatter in the candidate
+    count and better above 64 rows, but loses here at the low row counts this
+    is meant to fix.
     """
     row = tl.program_id(0)
-    c = tl.load(cnt_ptr + row)
-    if (c >= TOPK) & (c <= CAP):
-        tl.store(merge_lens_ptr + row, c)
-        return
     lane = tl.arange(0, BLOCK)
-    base = hist_ptr + row * NB
+    bins = tl.arange(0, RADIX)
+    ones = tl.full([BLOCK], 1, tl.int32)
     n = tl.load(seq_lens_ptr + row)
-    for t in tl.static_range(NB // BLOCK):
-        tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
-    tl.debug_barrier()
-    _hist_pass(logits_ptr, base, row, stride0, n, 1, BLOCK)
-    tl.debug_barrier()
-    thr = _scan_threshold(base, TOPK, NB, BLOCK)
-    tl.store(cnt_ptr + row, 0)
-    tl.debug_barrier()
+    c = tl.load(cnt_ptr + row)
     cnt_ptrs = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
-    _select_exact(
-        logits_ptr,
-        row,
-        stride0,
-        n,
-        thr,
-        cnt_ptrs,
-        cand_idx_ptr,
-        cand_val_ptr,
-        False,
-        CAP,
-        BLOCK,
-    )
-    tl.debug_barrier()
-    _select_exact(
-        logits_ptr,
-        row,
-        stride0,
-        n,
-        thr,
-        cnt_ptrs,
-        cand_idx_ptr,
-        cand_val_ptr,
-        True,
-        CAP,
-        BLOCK,
-    )
-    tl.debug_barrier()
-    tl.store(merge_lens_ptr + row, tl.minimum(tl.load(cnt_ptr + row), CAP))
+    if (c < tl.minimum(TOPK, n)) | (c > CAP):
+        base = hist_ptr + row * NB
+        for t in tl.static_range(NB // BLOCK):
+            tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+        tl.debug_barrier()
+        _hist_pass(logits_ptr, base, row, stride0, n, 1, BLOCK)
+        tl.debug_barrier()
+        thr = _scan_threshold(base, TOPK, NB, BLOCK)
+        tl.store(cnt_ptr + row, 0)
+        tl.debug_barrier()
+        _select_exact(
+            logits_ptr,
+            row,
+            stride0,
+            n,
+            thr,
+            cnt_ptrs,
+            cand_idx_ptr,
+            cand_val_ptr,
+            False,
+            CAP,
+            BLOCK,
+        )
+        tl.debug_barrier()
+        _select_exact(
+            logits_ptr,
+            row,
+            stride0,
+            n,
+            thr,
+            cnt_ptrs,
+            cand_idx_ptr,
+            cand_val_ptr,
+            True,
+            CAP,
+            BLOCK,
+        )
+        tl.debug_barrier()
 
+    m = tl.minimum(tl.load(cnt_ptr + row), CAP)
+    vbase = cand_val_ptr + row * CAP
+    ibase = cand_idx_ptr + row * CAP
+    obase = out_ptr + row * TOPK
+    cbase = counts_ptr + row * RADIX
+    tiles = tl.cdiv(m, BLOCK)
 
-@triton.jit
-def _remap(
-    cand_idx_ptr,
-    merged_ptr,
-    out_ptr,
-    CAP: tl.constexpr,
-    TOPK: tl.constexpr,
-    BLOCK: tl.constexpr,
-):
-    """Merged candidate slots -> row indices, -1 where the row ran out."""
-    row = tl.program_id(0)
-    j = tl.arange(0, BLOCK)
-    m = j < TOPK
-    pos = tl.load(merged_ptr + row * TOPK + j, mask=m, other=-1)
-    live = m & (pos >= 0)
-    idx = tl.load(cand_idx_ptr + row * CAP + pos, mask=live, other=-1)
-    tl.store(out_ptr + row * TOPK + j, tl.where(live, idx, -1), mask=m)
+    if m <= TOPK:
+        # fewer candidates than asked for: all of them go out, -1 pads
+        for t in tl.static_range((TOPK + BLOCK - 1) // BLOCK):
+            j = t * BLOCK + lane
+            idx = tl.load(ibase + j, mask=j < m, other=-1)
+            tl.store(obase + j, tl.where(j < m, idx, -1), mask=j < TOPK)
+        return
+
+    desired = tl.zeros((), tl.uint32)
+    desired_mask = tl.zeros((), tl.uint32)
+    k_to_find = TOPK + 1
+    for digit_pos in tl.static_range(24, -1, -8):
+        if k_to_find > 1:
+            tl.store(cbase + bins, tl.zeros([RADIX], tl.int32))
+            tl.debug_barrier()
+            for t in tl.range(0, tiles):
+                pos = t * BLOCK + lane
+                valid = pos < m
+                key = _key32(tl.load(vbase + pos, mask=valid, other=0.0))
+                digit = ((key >> digit_pos) & (RADIX - 1)).to(tl.int32)
+                tl.atomic_add(
+                    cbase + digit,
+                    ones,
+                    mask=valid & ((key & desired_mask) == desired),
+                    sem="relaxed",
+                    scope="cta",
+                )
+            tl.debug_barrier()
+            counts = tl.load(cbase + bins)
+            prefix = tl.cumsum(counts, axis=0) - counts
+            hit = (prefix < k_to_find) & (prefix + counts >= k_to_find)
+            rb = tl.min(tl.where(hit, bins, RADIX), axis=0).to(tl.int32)
+            rb = tl.where(rb == RADIX, RADIX - 1, rb)
+            counts_lt = tl.max(tl.where(bins == rb, prefix, 0), axis=0).to(tl.int32)
+            desired = desired | (rb.to(tl.uint32) << digit_pos)
+            desired_mask = desired_mask | (
+                tl.full((), RADIX - 1, tl.uint32) << digit_pos
+            )
+            k_to_find = k_to_find - counts_lt
+
+    thr_key = desired
+    tl.store(slot_ptr + row, 0)
+    tl.debug_barrier()
+    slots = slot_ptr + row + tl.zeros([BLOCK], tl.int32)
+    # everything strictly better than the k-th, then its equals; the rounds
+    # above leave the first group short of TOPK and the two together at least
+    # TOPK, so this lands exactly on TOPK
+    for equal in tl.static_range(2):
+        for t in tl.range(0, tiles):
+            pos = t * BLOCK + lane
+            valid = pos < m
+            key = _key32(tl.load(vbase + pos, mask=valid, other=0.0))
+            if equal == 0:
+                take = valid & (key < thr_key)
+            else:
+                take = valid & (key == thr_key)
+            q = tl.atomic_add(slots, ones, mask=take, sem="relaxed", scope="cta")
+            idx = tl.load(ibase + pos, mask=take, other=-1)
+            tl.store(obase + q, idx, mask=take & (q < TOPK))
+        tl.debug_barrier()
 
 
 @functools.lru_cache(maxsize=1)
@@ -433,31 +502,20 @@ class _Launch:
 
 
 class _Plan:
-    """Buffers and launchers for one (shape, specialisation)."""
+    """Buffers and launchers for one (shape, specialisation). Three launches:
+    sample the row for a threshold, select against it in one pass, then the
+    fallback decision and the exact answer together."""
 
     def __init__(self, dev, dtype, num_rows, vocab, top_k, split):
-        gen = _generic
         cap = _cap(top_k)
         chunk = vocab // split
-        block = gen.NUM_THREADS_PER_BLOCK
-        self.cap = cap
         self.hist = torch.empty((num_rows, NUM_BINS), dtype=torch.int32, device=dev)
         self.thr = torch.empty((num_rows,), dtype=torch.int32, device=dev)
         self.cnt = torch.empty((num_rows,), dtype=torch.int32, device=dev)
         self.cand_idx = torch.empty((num_rows, cap), dtype=torch.int32, device=dev)
         self.cand_val = torch.empty((num_rows, cap), dtype=dtype, device=dev)
-        self.merged = torch.empty((num_rows, top_k), dtype=torch.int32, device=dev)
-        self.merge_lens = torch.empty((num_rows,), dtype=torch.int32, device=dev)
-        self.scratch = (
-            torch.empty((num_rows, gen.NUM_BINS), dtype=torch.int32, device=dev),
-            torch.empty(
-                (num_rows, gen.NUM_FILNAL_ITEMS), dtype=torch.float32, device=dev
-            ),
-            torch.empty((num_rows,), dtype=torch.int32, device=dev),
-            torch.empty((num_rows,), dtype=torch.int32, device=dev),
-            torch.empty((num_rows,), dtype=torch.int32, device=dev),
-            torch.empty((num_rows,), dtype=torch.int32, device=dev),
-        )
+        self.counts = torch.empty((num_rows, RADIX), dtype=torch.int32, device=dev)
+        self.slot = torch.empty((num_rows,), dtype=torch.int32, device=dev)
         self.prepare = _Launch(
             _prepare,
             (num_rows,),
@@ -476,27 +534,20 @@ class _Plan:
             {"CHUNK": chunk, "SPLIT": split, "CAP": cap, "BLOCK": BLOCK},
             WARPS,
         )
-        self.fixup = _Launch(
-            _fixup,
+        self.tail = _Launch(
+            _tail,
             (num_rows,),
-            {"TOPK": top_k, "NB": NUM_BINS, "CAP": cap, "BLOCK": BLOCK},
+            {
+                "TOPK": top_k,
+                "NB": NUM_BINS,
+                "CAP": cap,
+                "RADIX": RADIX,
+                "BLOCK": BLOCK,
+            },
             WARPS,
-        )
-        self.merge = _Launch(
-            gen.non_tle_top_k_per_row_decode,
-            (num_rows,),
-            {"TOPK": top_k, "BLOCK_SIZE": block},
-            gen._num_warps(block),
-        )
-        self.remap = _Launch(
-            _remap,
-            (num_rows,),
-            {"CAP": cap, "TOPK": top_k, "BLOCK": triton.next_power_of_2(top_k)},
-            4,
         )
 
     def run(self, logits, seq_lens, indices, stride0):
-        cap = self.cap
         self.prepare(logits, seq_lens, self.hist, self.thr, self.cnt, stride0)
         self.select(
             logits,
@@ -507,27 +558,18 @@ class _Plan:
             self.cand_val,
             stride0,
         )
-        self.fixup(
+        self.tail(
             logits,
             seq_lens,
             self.hist,
             self.cnt,
-            self.merge_lens,
             self.cand_idx,
             self.cand_val,
+            indices,
+            self.counts,
+            self.slot,
             stride0,
         )
-        self.merge(
-            self.cand_val,
-            self.merged,
-            self.merge_lens,
-            1,
-            cap,
-            1,
-            cap,
-            *self.scratch,
-        )
-        self.remap(self.cand_idx, self.merged, indices)
 
 
 _PLANS = {}

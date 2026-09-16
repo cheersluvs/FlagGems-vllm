@@ -76,7 +76,7 @@ def main():
                 total_bad += bad
                 cells.append(" ok " if bad == 0 else f"{bad:>3}!")
             print(f"  {rows:>4} {label:<13} {split:>5}  " + "  ".join(cells))
-    stages = ("prepare", "select", "fixup", "merge", "remap")
+    stages = ("prepare", "select", "tail")
     direct = sum(
         1 for p in ov._PLANS.values() for st in stages if getattr(p, st).runner
     )
