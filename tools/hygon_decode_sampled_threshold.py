@@ -16,10 +16,9 @@ row's top-k, not each chunk's exact top-k. So:
     merge    the existing kernel over the candidates, then remap
 
 That is ~1.06 passes against 2. The estimate is not a bound, so a row whose
-candidate count exceeds the buffer (ties: the 8-LSB test has 256 distinct
-values over 262144 elements) or falls short of k must fall back to the exact
-pipeline -- which needs the count on the host, i.e. a device sync this
-operator does not do today. The sync is timed here as part of the cost.
+candidate count exceeds the buffer or falls short of k has to be redone
+exactly -- and the operator does not sync, so that decision has to be made on
+the device.
 
 Rounds 1 and 2 both came out flat at ~420-460 us whatever the row count, and
 both times the flatness was the probe, not the idea:
@@ -36,9 +35,28 @@ no torch ops in the pipeline (zeroing and clamping are kernels), and the
 sample is one program per ROW over 1/64 of the tiles -- with one program per
 chunk the ~19 us per-program floor dominated a pass that only reads 1/16.
 
+Round 4, once round 3 showed the idea pays (0.85-1.54 of vLLM against the
+shipped path's 0.55-0.92, and five of the seven stages sitting at the ~11 us
+launch floor):
+
+  * zero, sample and threshold fuse into ONE kernel. All three are one program
+    per row and that program owns the row's histogram outright, so a
+    tl.debug_barrier() between the phases is all the ordering they need.
+  * the host sync is gone. A fixup kernel reads the count on the device: rows
+    in range just get their merge length written and return; a row out of
+    range is redone exactly inside the kernel -- histogram, rank-k threshold,
+    then the definite bins appended before the threshold bin, so a buffer that
+    still overflows can only drop elements that share an 11-bit key.
+  * the merge-length clamp folds into the fixup, so the pipeline is five
+    launches against round 3's seven, with no sync.
+
+Correctness is checked on random normals (which never leave the range, so they
+exercise the fast path) AND on a tie-heavy row of few distinct values, which
+does.
+
 Reports, per row count: wall us and ratio for the shipped pipeline and for
-this one, how many candidates the threshold actually admits, how often it
-overflows or undershoots, and correctness against torch.topk.
+this one, how many candidates the threshold admits, and both correctness
+checks.
 
     tools/vendor_probe.sh tools/hygon_decode_sampled_threshold.py hygon_decode_sampled
 """
@@ -75,41 +93,32 @@ def _key(x):
 
 
 @triton.jit
-def k_zero(hist_ptr, cnt_ptr, NB: tl.constexpr, BLOCK: tl.constexpr):
-    row = tl.program_id(0)
+def _scan_threshold(base, TARGET, NB: tl.constexpr, BLOCK: tl.constexpr):
+    """Lowest bin index whose prefix count reaches TARGET; bin 0 holds the
+    largest values, so 'at or above' means bin_idx <= thr."""
     lane = tl.arange(0, BLOCK)
+    carry = tl.zeros([], tl.int32)
+    thr = tl.full([], NB - 1, tl.int32)
+    found = tl.full([], False, tl.int1)
     for t in tl.static_range(NB // BLOCK):
-        tl.store(hist_ptr + row * NB + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
-    tl.store(cnt_ptr + row, 0)
+        bins = t * BLOCK + lane
+        c = tl.load(base + bins)
+        pre = carry + tl.cumsum(c, axis=0)
+        hit = (pre >= TARGET) & (not found)
+        cand = tl.min(tl.where(hit, bins, NB - 1), axis=0)
+        if (not found) & (tl.max(hit.to(tl.int32), axis=0) > 0):
+            thr = cand
+            found = tl.full([], True, tl.int1)
+        carry += tl.sum(c, axis=0)
+    return thr
 
 
 @triton.jit
-def k_clamp_lens(cnt_ptr, out_ptr, CAP: tl.constexpr):
-    row = tl.program_id(0)
-    tl.store(out_ptr + row, tl.minimum(tl.load(cnt_ptr + row), CAP))
-
-
-@triton.jit
-def k_sample_hist(
-    logits_ptr,
-    seq_ptr,
-    hist_ptr,
-    stride0,
-    NB: tl.constexpr,
-    STRIDE: tl.constexpr,
-    BLOCK: tl.constexpr,
+def _hist_pass(
+    logits_ptr, base, row, stride0, n, STRIDE: tl.constexpr, BLOCK: tl.constexpr
 ):
-    """Every STRIDE-th TILE of the row, one program per row.
-
-    Tiles, not elements: a strided element sample touches one cache line per
-    value and costs a whole pass. One program per row, not per chunk: the
-    kernel floor is ~19 us per program and the sample only reads 1/STRIDE of
-    the bytes, so more programs would buy nothing and pay that floor again.
-    """
-    row = tl.program_id(0)
+    """Histogram every STRIDE-th tile of the row into base (STRIDE=1: all)."""
     lane = tl.arange(0, BLOCK)
-    base = hist_ptr + row * NB
-    n = tl.load(seq_ptr + row)
     for t in tl.range(0, tl.cdiv(n, BLOCK * STRIDE)):
         i = t * BLOCK * STRIDE + lane
         m = i < n
@@ -124,28 +133,35 @@ def k_sample_hist(
 
 
 @triton.jit
-def k_threshold(
-    hist_ptr, thr_ptr, TARGET: tl.constexpr, NB: tl.constexpr, BLOCK: tl.constexpr
+def k_prepare(
+    logits_ptr,
+    seq_ptr,
+    hist_ptr,
+    thr_ptr,
+    cnt_ptr,
+    stride0,
+    TARGET: tl.constexpr,
+    NB: tl.constexpr,
+    STRIDE: tl.constexpr,
+    BLOCK: tl.constexpr,
 ):
-    """Lowest bin index whose prefix count reaches TARGET; bin 0 holds the
-    largest values, so 'at or above' means bin_idx <= thr."""
+    """Zero, sample and threshold in one program per row.
+
+    Tiles, not elements: a strided element sample touches one cache line per
+    value and costs a whole pass. One program per row, not per chunk: the
+    kernel floor is ~11 us per launch and ~19 us per program, and the sample
+    only reads 1/STRIDE of the bytes, so splitting it buys nothing.
+    """
     row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
     base = hist_ptr + row * NB
-    carry = tl.zeros([], tl.int32)
-    thr = tl.full([], NB - 1, tl.int32)
-    found = tl.full([], False, tl.int1)
     for t in tl.static_range(NB // BLOCK):
-        bins = t * BLOCK + lane
-        c = tl.load(base + bins)
-        pre = carry + tl.cumsum(c, axis=0)
-        hit = (pre >= TARGET) & (not found)
-        cand = tl.min(tl.where(hit, bins, NB - 1), axis=0)
-        if (not found) & (tl.max(hit.to(tl.int32), axis=0) > 0):
-            thr = cand
-            found = tl.full([], True, tl.int1)
-        carry += tl.sum(c, axis=0)
-    tl.store(thr_ptr + row, thr)
+        tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+    tl.store(cnt_ptr + row, 0)
+    tl.debug_barrier()
+    _hist_pass(logits_ptr, base, row, stride0, tl.load(seq_ptr + row), STRIDE, BLOCK)
+    tl.debug_barrier()
+    tl.store(thr_ptr + row, _scan_threshold(base, TARGET, NB, BLOCK))
 
 
 @triton.jit
@@ -187,6 +203,115 @@ def k_select(
         keep = take & (pos < CAP)
         tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
         tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
+
+
+@triton.jit
+def _select_pass(
+    logits_ptr,
+    row,
+    stride0,
+    n,
+    thr,
+    exact,
+    cnt_ptrs,
+    cand_idx_ptr,
+    cand_val_ptr,
+    CAP: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """Append the row's elements whose key is <= thr (exact: == thr)."""
+    lane = tl.arange(0, BLOCK)
+    for t in tl.range(0, tl.cdiv(n, BLOCK)):
+        i = t * BLOCK + lane
+        m = i < n
+        x = tl.load(logits_ptr + row * stride0 + i, mask=m, other=0.0)
+        k = _key(x)
+        if exact:
+            take = m & (k == thr)
+        else:
+            take = m & (k < thr)
+        pos = tl.atomic_add(
+            cnt_ptrs,
+            tl.full([BLOCK], 1, tl.int32),
+            mask=take,
+            sem="relaxed",
+            scope="cta",
+        )
+        keep = take & (pos < CAP)
+        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
+        tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
+
+
+@triton.jit
+def k_fixup(
+    logits_ptr,
+    seq_ptr,
+    hist_ptr,
+    cnt_ptr,
+    mlen_ptr,
+    cand_idx_ptr,
+    cand_val_ptr,
+    stride0,
+    TOPK: tl.constexpr,
+    NB: tl.constexpr,
+    CAP: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """The device-side stand-in for a host sync.
+
+    A row whose sampled threshold admitted between TOPK and CAP candidates is
+    already a superset of its top-k: write the merge length and leave. A row
+    outside that range is redone exactly here -- full histogram, threshold at
+    rank TOPK, then the strictly-better bins appended BEFORE the threshold bin
+    so that a buffer which still overflows can only ever drop elements sharing
+    an 11-bit key with the k-th.
+    """
+    row = tl.program_id(0)
+    c = tl.load(cnt_ptr + row)
+    if (c >= TOPK) & (c <= CAP):
+        tl.store(mlen_ptr + row, c)
+        return
+    lane = tl.arange(0, BLOCK)
+    base = hist_ptr + row * NB
+    n = tl.load(seq_ptr + row)
+    for t in tl.static_range(NB // BLOCK):
+        tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+    tl.debug_barrier()
+    _hist_pass(logits_ptr, base, row, stride0, n, 1, BLOCK)
+    tl.debug_barrier()
+    thr = _scan_threshold(base, TOPK, NB, BLOCK)
+    tl.store(cnt_ptr + row, 0)
+    tl.debug_barrier()
+    cnt_ptrs = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
+    _select_pass(
+        logits_ptr,
+        row,
+        stride0,
+        n,
+        thr,
+        False,
+        cnt_ptrs,
+        cand_idx_ptr,
+        cand_val_ptr,
+        CAP,
+        BLOCK,
+    )
+    tl.debug_barrier()
+    _select_pass(
+        logits_ptr,
+        row,
+        stride0,
+        n,
+        thr,
+        True,
+        cnt_ptrs,
+        cand_idx_ptr,
+        cand_val_ptr,
+        CAP,
+        BLOCK,
+    )
+    tl.debug_barrier()
+    tl.store(mlen_ptr + row, tl.minimum(tl.load(cnt_ptr + row), CAP))
 
 
 @triton.jit
@@ -236,12 +361,12 @@ def main():
     stages = []
     print(
         f"  {'rows':>4} {'split':>5} {'shipped us':>11} {'sampled us':>11} "
-        f"{'+sync us':>9} {'ratio now':>10} {'ratio new':>10} {'cands':>7} {'answer':>8}"
+        f"{'fixup us':>9} {'ratio now':>10} {'ratio new':>10} {'cands':>7} "
+        f"{'normal':>7} {'tied':>7}"
     )
     for rows in ROWS:
         torch.manual_seed(rows)
         logits = torch.randn(rows, V, dtype=torch.float32, device=dev)
-        want = torch.topk(logits, K, dim=1).values.sort(dim=1).values
         lens = torch.full((rows,), V, dtype=torch.int32, device=dev)
         idx = torch.empty(rows, K, dtype=torch.int32, device=dev)
         split = ov._split_factor(rows, V, K)
@@ -267,17 +392,10 @@ def main():
         ]
 
         L = ov._Launch
-        lz = L(k_zero, (rows,), {"NB": NB, "BLOCK": BLOCK}, WARPS)
-        lsamp = L(
-            k_sample_hist,
+        lprep = L(
+            k_prepare,
             (rows,),
-            {"NB": NB, "STRIDE": STRIDE, "BLOCK": BLOCK},
-            WARPS,
-        )
-        lthr = L(
-            k_threshold,
-            (rows,),
-            {"TARGET": target, "NB": NB, "BLOCK": BLOCK},
+            {"TARGET": target, "NB": NB, "STRIDE": STRIDE, "BLOCK": BLOCK},
             WARPS,
         )
         lsel = L(
@@ -286,7 +404,12 @@ def main():
             {"CHUNK": chunk, "SPLIT": split, "CAP": CAP, "BLOCK": BLOCK},
             WARPS,
         )
-        lclamp = L(k_clamp_lens, (rows,), {"CAP": CAP}, 1)
+        lfix = L(
+            k_fixup,
+            (rows,),
+            {"TOPK": K, "NB": NB, "CAP": CAP, "BLOCK": BLOCK},
+            WARPS,
+        )
         lmerge = L(
             gen.non_tle_top_k_per_row_decode,
             (rows,),
@@ -300,17 +423,19 @@ def main():
             4,
         )
 
-        def sampled(sync=False):
-            lz(hist, cnt)
-            lsamp(logits, lens, hist, V)
-            lthr(hist, thr)
-            lsel(logits, lens, thr, cnt, cand_idx, cand_val, V)
-            lclamp(cnt, mlens)
+        def sampled(src):
+            lprep(src, lens, hist, thr, cnt, V)
+            lsel(src, lens, thr, cnt, cand_idx, cand_val, V)
+            lfix(src, lens, hist, cnt, mlens, cand_idx, cand_val, V)
             lmerge(cand_val, merged, mlens, 1, CAP, 1, CAP, *scratch)
             lremap(cand_idx, merged, idx)
-            if sync:
-                return int(cnt.max()), int(cnt.min())
-            return None
+
+        def check(src):
+            want = torch.topk(src, K, dim=1).values.sort(dim=1).values
+            sampled(src)
+            torch.cuda.synchronize()
+            got = src.gather(1, idx.long().clamp(0, V - 1)).sort(dim=1).values
+            return torch.allclose(got, want) and bool((idx >= 0).all())
 
         t_vllm = wall_us(
             lambda: torch.ops._C.top_k_per_row_decode(
@@ -322,23 +447,27 @@ def main():
                 logits, 1, lens, idx, rows, V, 1, K
             )
         )
-        hi, lo = sampled(sync=True)
-        torch.cuda.synchronize()
-        got = logits.gather(1, idx.long().clamp(0, V - 1)).sort(dim=1).values
-        ok = torch.allclose(got, want) and bool((idx >= 0).all())
-        t_new = wall_us(lambda: sampled(False))
-        t_sync = wall_us(lambda: sampled(True))
+        ok = check(logits)
+        hi = int(cnt.max())
+        # few distinct values: the sampled threshold overflows, so every row
+        # takes the fixup's exact path
+        ok_tied = check((logits * 4).round() / 4)
+        t_new = wall_us(lambda: sampled(logits))
+        sampled(logits)
+        t_fix = wall_us(
+            lambda: lfix(logits, lens, hist, cnt, mlens, cand_idx, cand_val, V)
+        )
         stages.append(
             (
                 rows,
                 [
                     wall_us(f)
                     for f in (
-                        lambda: lz(hist, cnt),
-                        lambda: lsamp(logits, lens, hist, V),
-                        lambda: lthr(hist, thr),
+                        lambda: lprep(logits, lens, hist, thr, cnt, V),
                         lambda: lsel(logits, lens, thr, cnt, cand_idx, cand_val, V),
-                        lambda: lclamp(cnt, mlens),
+                        lambda: lfix(
+                            logits, lens, hist, cnt, mlens, cand_idx, cand_val, V
+                        ),
                         lambda: lmerge(
                             cand_val, merged, mlens, 1, CAP, 1, CAP, *scratch
                         ),
@@ -348,16 +477,19 @@ def main():
             )
         )
         print(
-            f"  {rows:>4} {split:>5} {t_ship:>11.1f} {t_new:>11.1f} {t_sync:>9.1f} "
-            f"{t_vllm / t_ship:>10.3f} {t_vllm / t_sync:>10.3f} {hi:>7} "
-            f"{'OK' if ok else 'WRONG':>8}"
+            f"  {rows:>4} {split:>5} {t_ship:>11.1f} {t_new:>11.1f} {t_fix:>9.1f} "
+            f"{t_vllm / t_ship:>10.3f} {t_vllm / t_new:>10.3f} {hi:>7} "
+            f"{'OK' if ok else 'WRONG':>7} {'OK' if ok_tied else 'WRONG':>7}"
         )
     print(
         "\n  'cands' is the largest candidate count admitted (buffer is "
         f"{CAP}); under {K} would mean the threshold was too strict."
     )
-    print("  'ratio new' includes the sync that the fallback decision needs.")
-    names = ("zero", "sample", "thresh", "select", "clamp", "merge", "remap")
+    print(
+        "  'fixup us' is the fallback check launched alone on rows that are "
+        "all in range: what the no-sync check costs when it fires on nothing."
+    )
+    names = ("prepare", "select", "fixup", "merge", "remap")
     print(
         "\n  per-stage wall us (each launch timed alone, so each carries one"
         " host submit)\n"
