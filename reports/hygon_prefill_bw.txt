@@ -1,6 +1,153 @@
-### branch topk-metax @ a67f891
-### 2026-09-16T14:26:40+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### branch topk-metax @ fb2776a
+### 2026-09-16T14:27:07+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
 ### PYTHONPATH=src:/usr/local/:
 
 ### python: python -> /usr/bin/python
-python: can't open file '/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_bandwidth.py': [Errno 2] No such file or directory
+INFO 09-16 14:27:25 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 14:27:25 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 14:27:25 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 14:27:25 [__init__.py:239] Platform plugin hcu is activated
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 14:27:25.964407 70265 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+80 SMs; GB/s over the row bytes actually read, one pass
+
+  64 x 129280, top_k 1024: 33.1 MB; vLLM 105.2 us (314 GB/s), shipped 238.1 us (278 GB/s over two passes)
+    split     B x w      read       key      hist    append
+        1   256 x 2       499       246       120        12
+        1   256 x 4       581       518       141        12
+        1   512 x 4       721       454       146        12
+        1   512 x 8      1049       723       167        12
+        1  1024 x 8       993       714       168        12
+        1 1024 x 16       978       926       172        12
+        2   256 x 2       700       440       179        12
+        2   256 x 4      1078       727       196        12
+        2   512 x 4       963       708       196        12
+        2   512 x 8      1031       915       178        12
+        2  1024 x 8      1045      1015       174        12
+        2 1024 x 16       984       932       168        12
+        4   256 x 2       965       743       276        12
+        4   256 x 4       968       920       301        12
+        4   512 x 4       941       959       275        12
+        4   512 x 8       972       850       266        12
+        4  1024 x 8       990       895       241        12
+        4 1024 x 16      1008       974       235        12
+        8   256 x 2       883       858       277        12
+        8   256 x 4       887       829       271        12
+        8   512 x 4       946       838       271        12
+        8   512 x 8       813       697       279        12
+        8  1024 x 8       863       682       279        12
+        8 1024 x 16      1030       916       275        12
+    best: read 1078 GB/s at split 2, 256x4, key 1015 GB/s at split 2, 1024x8, hist 301 GB/s at split 4, 256x4, append 12 GB/s at split 1, 512x4 
+
+  4 x 8193, top_k 512: 0.1 MB; vLLM 15.1 us (9 GB/s), shipped 26.3 us (10 GB/s over two passes)
+    split     B x w      read       key      hist    append
+        1   256 x 2        18        16         7         3
+        1   256 x 4        25        18         8         4
+        1   512 x 4        38        23         9         5
+        1   512 x 8        27        25        17         4
+        1  1024 x 8        26        34        18         4
+        1 1024 x 16        26        34        29         4
+        2   256 x 2        32        30        12         6
+        2   256 x 4        39        27        16         6
+        2   512 x 4        35        55        23         7
+        2   512 x 8        36        28        21         7
+        2  1024 x 8        36        56        27         7
+        2 1024 x 16        29        39        31         7
+        4   256 x 2        34        32        22         7
+        4   256 x 4        27        28        21         8
+        4   512 x 4        35        34        42         7
+        4   512 x 8        27        28        35         7
+        4  1024 x 8        37        37        32         8
+        4 1024 x 16        28        27        27         8
+        8   256 x 2        39        39        32         7
+        8   256 x 4        30        31        27         7
+        8   512 x 4        40        40        37         7
+        8   512 x 8        30        50        30         7
+        8  1024 x 8        76        38        64         7
+        8 1024 x 16        28        28        31         8
+       16   256 x 2        44        44        41         7
+       16   256 x 4        56        35        31         7
+       16   512 x 4        43       100        42         7
+       16   512 x 8        51        33        33         8
+    best: read 76 GB/s at split 8, 1024x8, key 100 GB/s at split 16, 512x4, hist 64 GB/s at split 8, 1024x8, append 8 GB/s at split 16, 512x8 
+
+  4 x 16385, top_k 512: 0.3 MB; vLLM 19.4 us (13 GB/s), shipped 36.5 us (14 GB/s over two passes)
+    split     B x w      read       key      hist    append
+        1   256 x 2        30        15         7         4
+        1   256 x 4        43        30         9         4
+        1   512 x 4        36        31        13         5
+        1   512 x 8        47        35        16         5
+        1  1024 x 8        49        42        15         5
+        1 1024 x 16        46        40        18         5
+        2   256 x 2        37        31        13         7
+        2   256 x 4        74        36        17         8
+        2   512 x 4        65        59        15         8
+        2   512 x 8        54        50        27         9
+        2  1024 x 8        69        61        32         9
+        2 1024 x 16        76        48        33         8
+        4   256 x 2        64        59        20         9
+        4   256 x 4        57        55        37         9
+        4   512 x 4        70        67        43         9
+        4   512 x 8        87        83        37         9
+        4  1024 x 8        71        68        58         9
+        4 1024 x 16        54        77        38         9
+        8   256 x 2        73        70        45         9
+        8   256 x 4        61        59        42         9
+        8   512 x 4        73        77        86         9
+        8   512 x 8        88        58        68         9
+        8  1024 x 8        72        75        57         9
+        8 1024 x 16        57        54        48         9
+       16   256 x 2        84       164        63         8
+       16   256 x 4        64       111        52         9
+       16   512 x 4        86        84        64         9
+       16   512 x 8        63        67        51         9
+       16  1024 x 8        81        82        65        10
+       16 1024 x 16        90        59        50         9
+       32   256 x 2        83        83        62         9
+       32   256 x 4        65        65        51         9
+       32   512 x 4        84       188        59         9
+       32   512 x 8        60        95        49         9
+    best: read 90 GB/s at split 16, 1024x16, key 188 GB/s at split 32, 512x4, hist 86 GB/s at split 8, 512x4, append 10 GB/s at split 16, 1024x8 
+
+  16383 x 4095, top_k 512: 268.4 MB; vLLM 1152.9 us (233 GB/s), shipped 1349.5 us (398 GB/s over two passes)
+    split     B x w      read       key      hist    append
+        1   256 x 2      1201      1193       317       111
+        1   256 x 4      1190      1190       321        91
+        1   512 x 4      1181      1166       317        85
+        1   512 x 8      1422      1390       323        53
+        1  1024 x 8      1419      1361       314        56
+        1 1024 x 16      1025       874       320        30
+    best: read 1422 GB/s at split 1, 512x8, key 1390 GB/s at split 1, 512x8, hist 323 GB/s at split 1, 512x8, append 111 GB/s at split 1, 256x2 
+
+  12961 x 4100, top_k 512: 212.6 MB; vLLM 680.3 us (312 GB/s), shipped 1065.1 us (399 GB/s over two passes)
+    split     B x w      read       key      hist    append
+        1   256 x 2      1149      1117       314       108
+        1   256 x 4      1203      1193       306        87
+        1   512 x 4      1213      1150       300        81
+        1   512 x 8      1356      1252       316        51
+        1  1024 x 8      1365      1210       304        53
+        1 1024 x 16      1013       821       299        28
+    best: read 1365 GB/s at split 1, 1024x8, key 1252 GB/s at split 1, 512x8, hist 316 GB/s at split 1, 512x8, append 108 GB/s at split 1, 256x2 
+
+  16380 x 5115, top_k 512: 335.1 MB; vLLM 1241.2 us (270 GB/s), shipped 1584.1 us (423 GB/s over two passes)
+    split     B x w      read       key      hist    append
+        1   256 x 2      1183      1178       317       112
+        1   256 x 4      1168      1189       323        92
+        1   512 x 4      1168      1146       320        86
+        1   512 x 8      1390      1394       326        53
+        1  1024 x 8      1398      1394       317        56
+        1 1024 x 16      1045      1019       317        30
+    best: read 1398 GB/s at split 1, 1024x8, key 1394 GB/s at split 1, 512x8, hist 326 GB/s at split 1, 512x8, append 112 GB/s at split 1, 256x2 
+
+  4100 x 1025, top_k 512: 16.8 MB; vLLM 155.5 us (108 GB/s), shipped 172.9 us (194 GB/s over two passes)
+    split     B x w      read       key      hist    append
+        1   256 x 2       790       843       250        94
+        1   256 x 4       786       775       229        67
+        1   512 x 4       844       720       240        65
+        1   512 x 8       553       517       251        41
+        1  1024 x 8       536       471       237        41
+        1 1024 x 16       280       242       209        26
+    best: read 844 GB/s at split 1, 512x4, key 843 GB/s at split 1, 256x2, hist 251 GB/s at split 1, 512x8, append 94 GB/s at split 1, 256x2 
+
