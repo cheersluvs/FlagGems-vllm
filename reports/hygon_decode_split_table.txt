@@ -1,0 +1,27 @@
+### branch topk-metax @ d94cfe5
+### 2026-09-16T08:48:30+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-16 08:48:50 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 08:48:50 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 08:48:50 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 08:48:50 [__init__.py:239] Platform plugin hcu is activated
+vocab 262144, top_k 512; ratio vs vLLM on the shipped override (* best, r = the rule's own choice, ! = WRONG)
+
+  rows  rule        /1       /2       /4       /8      /16      /32   best
+     1    16    0.215    0.348    0.592    0.787    0.931r   0.862     16
+     4    16    0.213    0.313    0.500    0.691    0.710r   0.613     16
+     8     8    0.212    0.333    0.512    0.646r   0.596    0.518      8
+    16     8    0.256    0.357    0.474    0.538r   0.528    0.411      8
+    24     4    0.318    0.406    0.503r   0.552    0.476    0.375      8
+    32     4    0.434    0.614    0.663r   0.613    0.558    0.414      4
+    40     4    0.488    0.674    0.748r   0.664    0.578    0.408      4
+    48     4    0.479    0.597    0.726r   0.681    0.604    0.422      4
+    56     4    0.628    0.667    0.813r   0.737    0.632    0.423      4
+    64     4    0.655    0.770    0.814r   0.761    0.629    0.418      4
+    72     4    0.737    0.865    0.870r   0.777    0.669    0.440      4
+    79     4    0.790    0.903    0.888r   0.809    0.658    0.439      2
+
+  A row whose best column is not the one marked r is a rule to fix;
+  /1 is the generic path with no split.
