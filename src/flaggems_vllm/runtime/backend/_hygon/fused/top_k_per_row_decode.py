@@ -100,11 +100,26 @@ MAX_CAND = 1 << 24  # refuse shapes whose buffers would be absurd
 MIN_VOCAB = 2048
 MAX_TOP_K = 2048
 
-# Programs per row for the select pass, by row count. Swept on the split path
-# this replaces (tools/hygon_decode_split_table.py) and re-checked here; at or
-# beyond one row per SM the rows alone fill the card.
-_SPLIT_BY_ROWS = ((4, 16), (24, 8))
-_SPLIT_DEFAULT = 4
+# Programs per row for the select pass. One constant, not a table: the old
+# table (16 below five rows, 8 below twenty-five, else 4) was swept on the
+# two-pass split pipeline, where each program ran the whole radix algorithm
+# over its chunk. This pipeline's select only compares and appends, and a
+# re-sweep (tools/hygon_decode_split_resweep.py, ratio vs vLLM) says every row
+# count wants more programs than that table gave:
+#
+#   rows        1     4     8    16    24    32    40    48    56
+#   split  1  .232  .235  .197  .227  .287  .403  .490  .559  .649
+#   split  4  .660  .632  .578  .665  .801 1.123 1.339 1.446 1.667
+#   split  8  .940  .889  .855  .966 1.143 1.480 1.633 1.410 1.664
+#   split 16 1.074 1.128 1.065 1.164  .968 1.314 1.562 1.528 1.744
+#   split 32 1.121 1.119 1.159 1.097 1.134 1.388 1.545 1.568 1.650
+#
+# Across 8, 16 and 32 the surface is flat to about 10% and not monotonic (24
+# rows dips at 16 and recovers at 32), so picking a best per row band fits
+# noise: geomean over these nine shapes is 1.295 for "32 up to 24 rows then
+# 8", 1.290 for "32 then 16", and 1.292 for a flat 32. Take the flat one.
+# At or beyond one row per SM the rows alone fill the card.
+_SPLIT = 32
 MIN_CHUNK = 8192  # smallest chunk worth its own program
 
 
@@ -466,12 +481,7 @@ def _split_factor(num_rows, vocab_size, top_k):
     forced = _forced_split()
     if forced is None and num_rows >= _sm_count():
         return 1
-    split = forced or _SPLIT_DEFAULT
-    if forced is None:
-        for max_rows, factor in _SPLIT_BY_ROWS:
-            if num_rows <= max_rows:
-                split = factor
-                break
+    split = forced or _SPLIT
     while split > 1 and (
         vocab_size % split or vocab_size // split < max(MIN_CHUNK, top_k)
     ):
