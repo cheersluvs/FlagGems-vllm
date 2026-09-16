@@ -1,0 +1,28 @@
+### branch topk-metax @ 9f8cbb2
+### 2026-09-16T14:53:34+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 14:53:53.435732 86116 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 11 (function operator())
+top_k 512, buffer 8192; device us for the whole tail (generic merge + remap, against one kernel)
+
+   rows  cands   generic  dedicated  speedup       geom   answer
+      4   1024      21.1       14.2     1.49      512x8       OK
+      4   2048      20.9       17.9     1.17    1024x16       OK
+      4   4096      24.0       24.1     1.00    1024x16       OK
+      4   8192      29.8       37.9     0.79    1024x16       OK
+     16   1024      23.3       15.6     1.49    1024x16       OK
+     16   2048      23.2       21.7     1.07    1024x16       OK
+     16   4096      29.1       26.3     1.11    1024x16       OK
+     16   8192      32.6       35.4     0.92    1024x16       OK
+     64   1024      38.6       31.7     1.22      512x8       OK
+     64   2048      41.4       36.1     1.15      512x8       OK
+     64   4096      47.4       43.1     1.10    1024x16       OK
+     64   8192      54.2       53.1     1.02    1024x16       OK
+    512   1024     103.8       59.4     1.75      256x4       OK
+    512   2048     123.2       73.3     1.68      256x4       OK
+    512   4096     140.5      112.5     1.25      256x4       OK
+    512   8192     175.9      202.4     0.87      256x4       OK
