@@ -1,0 +1,42 @@
+### branch topk-metax @ 730ffce
+### 2026-09-16T10:52:39+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-16 10:52:59 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-16 10:52:59 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-16 10:52:59 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-16 10:52:59 [__init__.py:239] Platform plugin hcu is activated
+  rows   vocab  top_k     seq   1/n  shipped us  sampled us  ratio now  ratio new   cands    cap  normal    tied
+     1  262144    512  262144    64        79.7        69.2      0.886      1.020    2307   8192      OK      OK
+     4  262144    512  262144    64       101.2        69.1      0.732      1.072    2792   8192      OK      OK
+     8  262144    512  262144    64       124.6       100.8      0.631      0.780    3149   8192      OK      OK
+    16  262144    512  262144    64       173.1       104.9      0.555      0.915    2791   8192      OK      OK
+    24  262144    512  262144    64       231.6       117.4      0.537      1.059    3290   8192      OK      OK
+    32  262144    512  262144    64       286.2       178.4      0.621      0.997    2758   8192      OK      OK
+    40  262144    512  262144    64       303.0       178.4      0.863      1.466    3186   8192      OK      OK
+    48  262144    512  262144    64       436.3       202.2      0.762      1.645    3231   8192      OK      OK
+    56  262144    512  262144    64       526.2       215.9      0.606      1.477    3232   8192      OK      OK
+   496  262144    512  262144    64      2923.8      2104.4      1.947      2.705    3354   8192      OK      OK
+   512  262144    512  262144    64      2949.2      2115.4      1.984      2.766    3743   8192      OK      OK
+     1  129280   1024  100000    24           -           -          -          -    3930  16384      OK      OK
+     1   32768    256   16384     4           -           -          -          -    1040   4096      OK      OK
+     1    8192     64    4096     1           -           -          -          -     260   1024      OK      OK
+    16  129280   1024  129280    31           -           -          -          -    4855  16384      OK      OK
+
+  'cands' is the largest candidate count admitted; under top_k would mean the threshold was too strict, over 'cap' sends the row through the fixup's exact path.
+
+  per-stage wall us (each launch timed alone, so each carries one host submit)
+
+  rows  prepare   select    fixup    merge    remap      sum
+     1     16.9     18.5     14.7     25.1     12.1     87.4
+     4     14.2     19.1     14.4     30.2     11.5     89.4
+     8     14.9     44.5     12.7     31.5     11.5    115.1
+    16     16.7     52.0     14.0     32.4     11.7    126.9
+    24     15.0     56.3     14.0     39.0     11.5    135.8
+    32     15.0    106.4     16.1     40.0     11.7    189.2
+    40     15.4    112.6     14.2     41.8     11.6    195.6
+    48     15.6    135.7     14.1     45.6     11.7    222.8
+    56     15.4    128.8     14.1     49.1     11.7    219.1
+   496     51.5   1959.3     14.6    130.9     12.8   2169.1
+   512     54.9   1975.5     14.9    136.7     12.1   2194.1
