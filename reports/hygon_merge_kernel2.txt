@@ -1,0 +1,28 @@
+### branch topk-metax @ f7477b8
+### 2026-09-16T15:10:19+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0916 15:10:38.035439 86701 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 11 (function operator())
+top_k 512, buffer 8192; device us for the whole tail (generic merge + remap, against one kernel)
+
+   rows  cands   generic   v1 all      x      geom    ans v2 narrow      x      geom    ans
+      4   1024      20.9     13.8   1.51   1024x16     OK     23.3   0.90   1024x16     OK
+      4   2048      21.3     17.9   1.19   1024x16     OK     24.6   0.87   1024x16     OK
+      4   4096      24.6     24.2   1.01   1024x16     OK     26.3   0.94   1024x16     OK
+      4   8192      29.9     38.0   0.79   1024x16     OK     32.0   0.94   1024x16     OK
+     16   1024      22.2     15.8   1.40     512x8     OK     26.0   0.85   1024x16     OK
+     16   2048      23.4     19.6   1.19   1024x16     OK     26.9   0.87   1024x16     OK
+     16   4096      27.6     27.1   1.02   1024x16     OK     29.7   0.93   1024x16     OK
+     16   8192      32.9     35.1   0.94   1024x16     OK     34.7   0.95   1024x16     OK
+     64   1024      38.5     32.0   1.20     512x8     OK     31.5   1.22   1024x16     OK
+     64   2048      41.5     35.8   1.16   1024x16     OK     34.8   1.19   1024x16     OK
+     64   4096      45.4     42.9   1.06   1024x16     OK     36.5   1.24   1024x16     OK
+     64   8192      49.6     53.3   0.93   1024x16     OK     39.2   1.26   1024x16     OK
+    512   1024     104.1     58.7   1.77     256x4     OK     60.8   1.71     256x4     OK
+    512   2048     126.9     75.0   1.69     256x4     OK     66.7   1.90     256x4     OK
+    512   4096     141.5    112.9   1.25     256x4     OK     88.2   1.60     256x4     OK
+    512   8192     173.1    202.0   0.86     256x4     OK    138.0   1.25     256x4     OK
