@@ -74,9 +74,17 @@ _generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 # Smallest chunk worth a 2048-bin histogram pass.
 MIN_CHUNK = 8192
 
-# Measured best split by row count (above). Between measured points the smaller
-# neighbouring factor is used.
-_SPLIT_BY_ROWS = ((4, 16), (16, 8))
+# Measured best split by row count, swept on this override itself
+# (tools/hygon_decode_split_table.py, vocab 262144, top_k 512, ratio vs vLLM):
+#
+#   rows      1     4     8    16    24    32    40    48    56    64    72    79
+#   best     16    16     8     8     8     4     4     4     4     4     4     2
+#   at    0.925 0.709 0.646 0.534 0.567 0.664 0.745 0.711 0.808 0.806 0.876 0.904
+#
+# 79 rows prefers 2 by 2%, inside this box's noise and one row short of the SM
+# count, so the table stops at 4. Splitting still wins at 64 and 72 rows
+# (0.806 and 0.876 against 0.659 and 0.741 unsplit).
+_SPLIT_BY_ROWS = ((4, 16), (24, 8))
 _SPLIT_DEFAULT = 4
 
 
