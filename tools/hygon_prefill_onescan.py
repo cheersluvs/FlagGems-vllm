@@ -61,7 +61,35 @@ SHAPES = [
     (16380, 5115, 512, 5376),
     (4100, 1025, 512, 1288),
 ]
-ROUNDS = 3
+ROUNDS = 7
+
+
+def occupancy(tag):
+    """What else is on the card. This box is shared, and round 1 of this probe
+    came back with per-round ratios spread 0.08-4.2 while the same shapes had
+    held within 10% that morning."""
+    import shutil
+    import subprocess
+
+    for cmd in (["hy-smi"], ["rocm-smi", "--showpids"], ["rocm-smi"]):
+        exe = shutil.which(cmd[0]) or (
+            f"/opt/dtk/bin/{cmd[0]}"
+            if pathlib.Path(f"/opt/dtk/bin/{cmd[0]}").exists()
+            else None
+        )
+        if not exe:
+            continue
+        try:
+            out = subprocess.run(
+                [exe] + cmd[1:], capture_output=True, text=True, timeout=30
+            ).stdout
+        except Exception as exc:  # noqa: BLE001 - diagnostics only
+            out = repr(exc)
+        print(f"--- card occupancy {tag}: {' '.join(cmd)}")
+        print("\n".join(out.strip().splitlines()[:25]))
+        return
+    print(f"--- card occupancy {tag}: no smi tool found")
+
 
 CLEAR_OLD = """    threshold_rounds: tl.constexpr = (
         RADIX10_SIZE // BLOCK_SIZE if STEP == 3 else RADIX11_SIZE // BLOCK_SIZE
@@ -168,13 +196,17 @@ def main():
                 m._process_bins = ov._process_bins_slotscan
             arms[(tag, kind)] = m
     dev = "cuda"
+    occupancy("before")
     print(
-        "device us, today's rounds against one scan, interleaved; production"
-        " routing and geometry in both arms\n"
+        "\ndevice us, today's rounds against one scan, interleaved over"
+        f" {ROUNDS} rounds; production routing and geometry in both arms."
+        "\n'min' is each arm's least-disturbed round -- contention only ever"
+        " ADDS time -- and is the number to read when the spread is wide.\n"
     )
     print(
-        f"  {'shape':>18} {'module':>8} {'rounds':>9} {'onescan':>9} "
-        f"{'ratio':>7} {'spread':>13} {'normal':>7} {'tied':>6}"
+        f"  {'shape':>18} {'module':>8} {'min rnds':>9} {'min one':>9} "
+        f"{'min ratio':>10} {'med ratio':>10} {'spread':>13} "
+        f"{'normal':>7} {'tied':>6}"
     )
     logs = []
     for rows, vocab, top_k, stride0 in SHAPES:
@@ -217,17 +249,18 @@ def main():
         pairs = [(device_us(gos[0]), device_us(gos[1])) for _ in range(ROUNDS)]
         rs = sorted(a / b for a, b in pairs)
         med = rs[ROUNDS // 2]
-        logs.append(math.log(med))
-        a = sorted(p[0] for p in pairs)[ROUNDS // 2]
-        b = sorted(p[1] for p in pairs)[ROUNDS // 2]
+        a = min(p[0] for p in pairs)
+        b = min(p[1] for p in pairs)
+        logs.append(math.log(a / b))
         print(
             f"  {f'{rows}x{vocab}':>18} {kind:>8} {a:>9.1f} {b:>9.1f} "
-            f"{med:>7.3f} {rs[0]:>6.3f}-{rs[-1]:<6.3f} "
+            f"{a / b:>10.3f} {med:>10.3f} {rs[0]:>6.3f}-{rs[-1]:<6.3f} "
             f"{'OK' if oks['normal'] else 'WRONG':>7} "
             f"{'OK' if oks['tied'] else 'WRONG':>6}",
             flush=True,
         )
-    print(f"\n  geomean ratio {math.exp(sum(logs) / len(logs)):.3f}")
+    print(f"\n  geomean of min ratios {math.exp(sum(logs) / len(logs)):.3f}")
+    occupancy("after")
     print(
         "  ratio > 1 means the single scan is faster. 'tied' uses rounded logits"
         "\n  so that the threshold bin overflows and STEP 1-3 actually run."
