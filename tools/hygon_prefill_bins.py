@@ -88,55 +88,63 @@ def load_copy(name):
 
 
 @triton.jit
-def _map16(x):
-    """The operator's own fp16 ordering, before the key is narrowed."""
-    h = x.to(tl.float16)
-    bits = h.to(tl.uint16, bitcast=True)
-    sign_set = (bits & tl.full(bits.shape, 0x8000, tl.uint16)) != 0
-    inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
-    return tl.where(sign_set, bits, inv)
-
-
-@triton.jit
-def _refine(x, in_range, pattern, STEP: tl.constexpr):
-    """STEP 1-3, verbatim from the operator. Dead code on these shapes -- STEP
-    0 always converges -- but kept so the rebind is a drop-in."""
-    bits = _convert_to_uint32(x)
-    if STEP == 1:
-        bin_idx = (bits >> 21) & 0x7FF
-        is_partial_match = in_range & ((bits >> 21) == pattern)
-    elif STEP == 2:
-        bin_idx = (bits >> 10) & 0x7FF
-        is_partial_match = in_range & ((bits >> 10) == pattern)
-    else:
-        bin_idx = bits & 0x3FF
-        is_partial_match = in_range & (bits == pattern)
-    return bin_idx, is_partial_match
-
-
-# One function per variant with the shift written out. A closure variable is
-# NOT usable here: Triton rejects any global or captured name inside a @jit
-# function unless it is a tl.constexpr instance, which is what round 1 of this
-# probe died on -- the third time this session (after BIG and SAFETY).
-@triton.jit
-def _extract_5(x, in_range, pattern, STEP: tl.constexpr):
-    if STEP == 0:
-        return (_map16(x) >> 5).to(tl.uint32), in_range
-    return _refine(x, in_range, pattern, STEP)
-
-
-@triton.jit
 def _extract_6(x, in_range, pattern, STEP: tl.constexpr):
+    """The operator's _extract_bin_idx, extracted from its source with ONLY
+    the STEP-0 shift changed -- a build-time check below asserts that the name
+    and that one literal are the only differences. Round 3 of this probe found
+    my hand-written STEP 1-3 branches were a paraphrase, not the operator's;
+    they never execute on these shapes, but a probe that quietly differs from
+    the thing it models is how a measurement ends up meaning nothing."""
+    is_partial_match = in_range
     if STEP == 0:
-        return (_map16(x) >> 6).to(tl.uint32), in_range
-    return _refine(x, in_range, pattern, STEP)
+        h = x.to(tl.float16)
+        bits = h.to(tl.uint16, bitcast=True)
+        sign_mask = tl.full(bits.shape, 0x8000, tl.uint16)
+        sign_set = (bits & sign_mask) != 0
+        inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
+        mapped = tl.where(sign_set, bits, inv)
+        bin_idx = (mapped >> 6).to(tl.uint32)
+    else:
+        bits = _convert_to_uint32(x)
+        if STEP == 1:
+            bin_idx = bits >> 21
+        elif STEP == 2:
+            bin_idx = (bits >> 10) & 0x7FF
+            is_partial_match &= ((bits ^ pattern) >> 21) == 0
+        elif STEP == 3:
+            bin_idx = bits & 0x3FF
+            is_partial_match &= ((bits ^ pattern) >> 10) == 0
+    return bin_idx, is_partial_match
 
 
 @triton.jit
 def _extract_7(x, in_range, pattern, STEP: tl.constexpr):
+    """The operator's _extract_bin_idx, extracted from its source with ONLY
+    the STEP-0 shift changed -- a build-time check below asserts that the name
+    and that one literal are the only differences. Round 3 of this probe found
+    my hand-written STEP 1-3 branches were a paraphrase, not the operator's;
+    they never execute on these shapes, but a probe that quietly differs from
+    the thing it models is how a measurement ends up meaning nothing."""
+    is_partial_match = in_range
     if STEP == 0:
-        return (_map16(x) >> 7).to(tl.uint32), in_range
-    return _refine(x, in_range, pattern, STEP)
+        h = x.to(tl.float16)
+        bits = h.to(tl.uint16, bitcast=True)
+        sign_mask = tl.full(bits.shape, 0x8000, tl.uint16)
+        sign_set = (bits & sign_mask) != 0
+        inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
+        mapped = tl.where(sign_set, bits, inv)
+        bin_idx = (mapped >> 7).to(tl.uint32)
+    else:
+        bits = _convert_to_uint32(x)
+        if STEP == 1:
+            bin_idx = bits >> 21
+        elif STEP == 2:
+            bin_idx = (bits >> 10) & 0x7FF
+            is_partial_match &= ((bits ^ pattern) >> 21) == 0
+        elif STEP == 3:
+            bin_idx = bits & 0x3FF
+            is_partial_match &= ((bits ^ pattern) >> 10) == 0
+    return bin_idx, is_partial_match
 
 
 def main():
