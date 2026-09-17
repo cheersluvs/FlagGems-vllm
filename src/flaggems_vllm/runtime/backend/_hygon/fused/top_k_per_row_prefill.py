@@ -56,9 +56,13 @@ something slower. FLAGGEMS_HYGON_TOPK_SLOTSCAN=0 always uses generic.
 """
 
 import functools
+import hashlib
 import importlib.util
+import logging
 import os
+import stat
 import sys
+import tempfile
 import threading
 from importlib import import_module
 
@@ -67,24 +71,186 @@ import triton.language as tl
 
 _GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
 _DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
+_SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
 
 _generic = import_module(_GENERIC_NAME)
+_log = logging.getLogger(__name__)
 
 # Dense iff vocab_size <= DENSE_VOCAB_PER_TOPK * top_k, i.e. density >= 10%.
 DENSE_VOCAB_PER_TOPK = 10
 
 
-def _load_copy(name):
-    """The generic module, executed again as a separate module. @triton.jit
-    needs its functions' source on disk, which the generic file provides."""
-    spec = importlib.util.spec_from_file_location(name, _generic.__file__)
+# ---------------------------------------------------------------------------
+# One threshold scan instead of a carried chain of rounds.
+#
+# The generic histogram step clears its bins in RADIX_SIZE // BLOCK_SIZE
+# stores and finds the threshold in as many rounds -- each a BLOCK_SIZE-wide
+# cumsum whose running total feeds the next, plus two masked stores of
+# block-uniform scalars into global scratch, a barrier after the loop and two
+# global reloads. The DSA bin_topk kernel does the same job in one scan. Here:
+# one vectorised clear, one RADIX_SIZE-wide cumsum, the bin as a min-reduction
+# and its size as a max-reduction, both kept in registers. Nothing downstream
+# reads the two global scalar buffers (the job takes threshold_bin_idx from
+# the return value), and a threshold always exists at that point because rows
+# no longer than top_k return first.
+#
+# Measured on the operator, both arms at production routing and geometry,
+# seven interleaved rounds, each arm's fastest round (tools/
+# hygon_prefill_onescan.py; the card was shared, and contention only adds):
+#
+#     (64,129280)  1.093    (16383,4095)  1.014    (4100,1025)  1.309
+#     (4,16385)    1.088    (12961,4100)  1.027
+#     (4,8193)     1.117    (16380,5115)  1.038    geomean      1.094
+#
+# Largest where fixed cost is the largest share: the many-row shapes run at
+# BLOCK_SIZE 256, so their chain was eight rounds deep. Correct on standard
+# normal logits and on rounded ones, which overflow the threshold bin and make
+# STEP 1-3 run.
+#
+# The change is applied as two exact text replacements to the generic
+# module's source. If either block is not found exactly once -- upstream
+# edited it -- the copies load the generic source unchanged and a warning is
+# logged; an exception here would take every Hygon override down with it.
+_ONESCAN_CLEAR_OLD = """    threshold_rounds: tl.constexpr = (
+        RADIX10_SIZE // BLOCK_SIZE if STEP == 3 else RADIX11_SIZE // BLOCK_SIZE
+    )
+    for clear_round in tl.static_range(0, threshold_rounds):
+        clear_bins = clear_round * BLOCK_SIZE + lane
+        tl.store(s_histogram_ptr + clear_bins, 0)
+    tl.debug_barrier()
+"""
+_ONESCAN_CLEAR_NEW = """    RADIX_SIZE: tl.constexpr = RADIX10_SIZE if STEP == 3 else RADIX11_SIZE
+    radix_bins = tl.arange(0, RADIX_SIZE)
+    tl.store(s_histogram_ptr + radix_bins, tl.zeros([RADIX_SIZE], tl.int32))
+    tl.debug_barrier()
+"""
+_ONESCAN_SCAN_OLD = """    threshold_bin_ptrs = s_threshold_bin_idx_ptr + zeros
+    final_bin_size_ptrs = s_final_bin_size_ptr + zeros
+    threshold_found = tl.full((), False, dtype=tl.int1)
+    for round_idx in tl.static_range(0, threshold_rounds):
+        if not threshold_found:
+            bins = round_idx * BLOCK_SIZE + lane
+            counts = tl.load(s_histogram_ptr + bins)
+            if HAS_TLE:
+                prefix_sum, counts_total = tle.cumsum(counts, axis=0, reverse=False)
+            else:
+                counts_total = tl.sum(counts)
+                prefix_sum = counts_total - tl.cumsum(counts, axis=0, reverse=True)
+            prefix_sum = prefix_sum + last_value
+            total_sum = last_value + counts_total
+            next_prefix_sum = prefix_sum + counts
+            threshold_mask = (prefix_sum < TOPK) & (next_prefix_sum >= TOPK)
+            threshold_bin = bins
+            threshold_bin_size = next_prefix_sum - prefix_sum
+            if STEP == 3:
+                tl.store(s_histogram_ptr + bins, prefix_sum)
+            tl.store(threshold_bin_ptrs, threshold_bin, mask=threshold_mask)
+            tl.store(final_bin_size_ptrs, threshold_bin_size, mask=threshold_mask)
+            found_round = tl.reduce_or(threshold_mask, axis=0)
+            threshold_found = found_round
+            last_value = total_sum
+
+    tl.debug_barrier()
+    threshold_bin_idx = tl.load(s_threshold_bin_idx_ptr)
+    final_bin_size = tl.load(s_final_bin_size_ptr)
+"""
+_ONESCAN_SCAN_NEW = """    counts = tl.load(s_histogram_ptr + radix_bins)
+    incl = last_value + tl.cumsum(counts, axis=0)
+    prefix_sum = incl - counts
+    threshold_mask = (prefix_sum < TOPK) & (incl >= TOPK)
+    threshold_bin_idx = tl.min(
+        tl.where(threshold_mask, radix_bins, RADIX_SIZE), axis=0
+    ).to(tl.int32)
+    final_bin_size = tl.max(tl.where(threshold_mask, counts, 0), axis=0)
+    if STEP == 3:
+        tl.store(s_histogram_ptr + radix_bins, prefix_sum)
+        tl.debug_barrier()
+"""
+
+
+def _onescan_enabled():
+    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_ONESCAN", "1").strip().lower()
+    return raw not in ("0", "false", "off", "no")
+
+
+def _private_dir():
+    """A directory only this user can write. The patched source is executed
+    as code, and this box is shared, so a world-writable /tmp is not an
+    acceptable place to look for it."""
+    for base in (
+        os.path.join(os.path.expanduser("~"), ".cache", "flaggems_vllm"),
+        os.path.join(tempfile.gettempdir(), f"flaggems_vllm_{os.getuid()}"),
+    ):
+        try:
+            os.makedirs(base, mode=0o700, exist_ok=True)
+            st = os.stat(base)
+            if st.st_uid == os.getuid() and not (
+                st.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+            ):
+                return base
+        except OSError:
+            continue
+    return None
+
+
+def _onescan_path():
+    """Path of the patched generic source, or None to use the generic file."""
+    if not _onescan_enabled():
+        return None
+    try:
+        with open(_generic.__file__) as fh:
+            src = fh.read()
+        for old, new in (
+            (_ONESCAN_CLEAR_OLD, _ONESCAN_CLEAR_NEW),
+            (_ONESCAN_SCAN_OLD, _ONESCAN_SCAN_NEW),
+        ):
+            n = src.count(old)
+            if n != 1:
+                _log.warning(
+                    "hygon top_k_per_row_prefill: one-scan patch skipped, a "
+                    "block was found %d times; the generic step is used",
+                    n,
+                )
+                return None
+            src = src.replace(old, new, 1)
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(src.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_onescan_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(src)
+            os.replace(tmp, path)
+        # Never execute a file this process did not verify byte for byte.
+        with open(path) as fh:
+            if fh.read() != src:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - never break the override import
+        _log.warning("hygon top_k_per_row_prefill: one-scan patch failed: %r", exc)
+        return None
+
+
+_ONESCAN_PATH = _onescan_path()
+
+
+def _load_copy(name, path=None):
+    """The generic module -- or the one-scan patch of it -- executed as a
+    separate module. @triton.jit needs its functions' source on disk."""
+    spec = importlib.util.spec_from_file_location(name, path or _generic.__file__)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
     spec.loader.exec_module(mod)
     return mod
 
 
-_dense = _load_copy(_DENSE_NAME)
+_dense = _load_copy(_DENSE_NAME, _ONESCAN_PATH)
+# Sparse rows used the generic module itself; with the patch they get their
+# own copy, which also stops this override mutating the shared module's
+# launch globals for them.
+_sparse = _load_copy(_SPARSE_NAME, _ONESCAN_PATH) if _ONESCAN_PATH else _generic
 _extract_bin_idx = _dense._extract_bin_idx
 
 
@@ -320,7 +486,7 @@ def _geometry_enabled():
 _GEOMETRY = _geometry_enabled()
 _LAUNCH_LOCK = threading.Lock()
 _GENERIC_DEFAULTS = {
-    id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps) for m in (_generic, _dense)
+    id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps) for m in (_sparse, _dense)
 }
 
 
@@ -332,7 +498,7 @@ def top_k_per_row_prefill(
     if _ENABLED and logits.shape[1] <= DENSE_VOCAB_PER_TOPK * top_k:
         mod = _dense
     else:
-        mod = _generic
+        mod = _sparse
     geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
     with _LAUNCH_LOCK:
         if geo is None:
