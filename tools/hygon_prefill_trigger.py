@@ -23,15 +23,33 @@ and raises the collected count in proportion -- exactly the trigger rate in
 question. If doubling top_k costs a few percent, the sampled design is
 available here; if it costs something like double, it is not.
 
-The confounder is the final select, whose work also grows with top_k. On MTT
-it was 10 us of 217, so it is reported per shape rather than assumed away: a
-cost that grows much faster than the final select can explain is the
-compaction.
+Round 1 answered nothing, because of two confounders I failed to control.
+
+Raising top_k moves the override's OWN density routing: it sends a shape to
+the prefix-sum allocator once vocab <= 10 * top_k, and that allocator issues
+one atomic per TILE, so its cost cannot track the hits by construction. All
+three points of (16383,4095) landed there -- flat to 1.3%, and meaningless for
+this question -- while both four-row shapes switched modules mid-series.
+
+That left (64,129280) as the only all-generic series, and it is the bimodal
+shape: within one series 2048 -> 4096 cost 1.0x (per-issue) and 4096 -> 8192
+cost 1.8x (per-hit), with 512 slower than 1024.
+
+So: pin the module by turning the slot-scan copy off, and interleave k against
+2k in one process over several rounds, which is the technique that has already
+corrected two readings on this shape. Only the two shapes a sampled path could
+serve are measured -- MTT's own crossover (MIN_SPAN 16384) puts the other five
+out of reach regardless of the answer.
+
+The final select also grows with top_k -- 10 us of 217 on MTT -- so the
+numbers are reported rather than adjusted.
 
     tools/vendor_probe.sh tools/hygon_prefill_trigger.py hygon_prefill_trigger
 """
 
 import sys
+
+from importlib import import_module
 
 import torch
 from torch.profiler import ProfilerActivity, profile
@@ -40,12 +58,13 @@ import flaggems_vllm
 
 # (num_rows, vocab, stride0, top_k values) -- long rows first, since the MTT
 # crossover (MIN_SPAN 16384) puts the short ones out of reach anyway
+# (num_rows, vocab, stride0, (k, 2k) pairs) -- only the shapes at or above
+# MTT's 16384 crossover, since no answer here helps the others
 CASES = [
-    (64, 129280, 129280, (512, 1024, 2048, 4096, 8192)),
-    (4, 16385, 16648, (512, 1024, 2048, 4096)),
-    (16383, 4095, 4352, (512, 1024, 2048)),
-    (4, 8193, 8456, (512, 1024, 2048)),
+    (64, 129280, 129280, ((1024, 2048), (2048, 4096), (4096, 8192))),
+    (4, 16385, 16648, ((512, 1024), (1024, 2048))),
 ]
+ROUNDS = 4
 
 
 def device_us(fn, iters=20, warmup=5):
@@ -66,52 +85,60 @@ def device_us(fn, iters=20, warmup=5):
 
 
 def main():
+    ov = import_module(
+        "flaggems_vllm.runtime.backend._hygon.fused.top_k_per_row_prefill"
+    )
+    ov._ENABLED = False  # pin the generic module: no prefix-sum allocator
     dev = "cuda"
     print(
-        "device us against top_k at a fixed shape: raising top_k loosens the"
-        "\nthreshold and raises the collected count in proportion\n"
+        "slot-scan copy OFF, so every point uses the per-element atomic.\n"
+        f"k against 2k, interleaved, {ROUNDS} rounds\n"
     )
-    for rows, vocab, stride0, topks in CASES:
+    for rows, vocab, stride0, pairs in CASES:
         torch.manual_seed(42)
         buf = torch.randn((rows - 1) * stride0 + vocab, device=dev, dtype=torch.float32)
         logits = torch.as_strided(buf, (rows, vocab), (stride0, 1))
         starts = torch.zeros(rows, dtype=torch.int32, device=dev)
         ends = torch.full((rows,), vocab, dtype=torch.int32, device=dev)
         print(f"  {rows} x {vocab}")
-        print(
-            f"    {'top_k':>6} {'density':>8} {'device us':>10} "
-            f"{'vs top_k/2':>11} {'vs first':>9} {'ans':>5}"
-        )
-        base = None
-        prev = None
-        for top_k in topks:
-            idx = torch.empty((rows, top_k), dtype=torch.int32, device=dev)
+        for k1, k2 in pairs:
+            calls = []
+            ok = True
+            for k in (k1, k2):
+                idx = torch.empty((rows, k), dtype=torch.int32, device=dev)
 
-            def call(top_k=top_k, idx=idx):
-                flaggems_vllm.top_k_per_row_prefill(
-                    logits, starts, ends, idx, rows, stride0, 1, top_k
+                def call(k=k, idx=idx):
+                    flaggems_vllm.top_k_per_row_prefill(
+                        logits, starts, ends, idx, rows, stride0, 1, k
+                    )
+
+                idx.fill_(-9)
+                call()
+                torch.cuda.synchronize()
+                want = torch.topk(logits, k, dim=1).values.sort(dim=1).values
+                got = (
+                    logits.gather(1, idx.long().clamp(0, vocab - 1)).sort(dim=1).values
                 )
-
-            idx.fill_(-9)
-            call()
-            torch.cuda.synchronize()
-            want = torch.topk(logits, top_k, dim=1).values.sort(dim=1).values
-            got = logits.gather(1, idx.long().clamp(0, vocab - 1)).sort(dim=1).values
-            ok = torch.allclose(got, want) and bool((idx >= 0).all())
-            t = device_us(call)
-            base = base if base is not None else t
-            step = f"{t / prev:>11.3f}" if prev else f"{'-':>11}"
+                ok = ok and torch.allclose(got, want) and bool((idx >= 0).all())
+                calls.append(call)
+            ratios = []
+            for _ in range(ROUNDS):
+                t1 = device_us(calls[0])
+                t2 = device_us(calls[1])
+                ratios.append((t1, t2))
+            rs = sorted(t2 / t1 for t1, t2 in ratios)
+            line = "  ".join(f"{t1:.0f}/{t2:.0f}" for t1, t2 in ratios)
             print(
-                f"    {top_k:>6} {top_k / vocab:>8.3f} {t:>10.1f} {step} "
-                f"{t / base:>9.3f} {'OK' if ok else 'WRONG':>5}",
+                f"    top_k {k1:>5} -> {k2:<5} median {rs[len(rs) // 2]:>6.3f}, "
+                f"spread {rs[0]:.3f}-{rs[-1]:.3f}  [{line}]  "
+                f"{'OK' if ok else 'WRONG'}",
                 flush=True,
             )
-            prev = t
         print(flush=True)
     print(
-        "  'vs top_k/2' near 1.0 means compaction does not track the hits --"
-        "\n  the MTT reading, and a loose threshold would be nearly free here."
-        "\n  Near 2.0 means it tracks them, and the sampled design cannot pay."
+        "  A median near 1.0 means doubling the hits is nearly free -- the MTT"
+        "\n  reading, and the sampled design would be available for these two"
+        "\n  shapes. Near 2.0 means the atomics are per-hit and it cannot pay."
     )
     return 0
 
