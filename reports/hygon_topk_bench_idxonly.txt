@@ -1,0 +1,517 @@
+### branch topk-metax @ 532f8a5
+### 2026-09-17T15:16:11+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+
+==============================================================================
+=== pass 1 of 2
+==============================================================================
+============================= test session starts ==============================
+collecting ... INFO 09-17 15:16:30 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-17 15:16:30 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-17 15:16:30 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-17 15:16:30 [__init__.py:239] Platform plugin hcu is activated
+collected 2 items
+
+benchmark/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill 
+baseline: vLLM
+FAILED
+benchmark/test_top_k_per_row_decode.py::test_top_k_per_row_decode 
+baseline: vLLM
+
+Operator: top_k_per_row_decode  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.085760            0.058560               1.464          [torch.Size([1, 262144]), 1, torch.Size([1]), torch.Size([1, 512]), 1, 262144, 1, 512]
+SUCCESS               5.093519            1.917120               2.657          [torch.Size([496, 262144]), 1, torch.Size([496]), torch.Size([496, 512]), 496, 262144, 1, 512]
+SUCCESS               5.301358            1.945519               2.725          [torch.Size([512, 262144]), 1, torch.Size([512]), torch.Size([512, 512]), 512, 262144, 1, 512]
+SUCCESS               0.101440            0.087520               1.159          [torch.Size([16, 262144]), 1, torch.Size([16]), torch.Size([16, 512]), 16, 262144, 1, 512]
+SUCCESS               0.179360            0.123680               1.450          [torch.Size([32, 262144]), 1, torch.Size([32]), torch.Size([32, 512]), 32, 262144, 1, 512]
+SUCCESS               0.260800            0.154880               1.684          [torch.Size([48, 262144]), 1, torch.Size([48]), torch.Size([48, 512]), 48, 262144, 1, 512]
+SUCCESS               0.220800            0.136320               1.620          [torch.Size([40, 262144]), 1, torch.Size([40]), torch.Size([40, 512]), 40, 262144, 1, 512]
+SUCCESS               0.313840            0.209440               1.498          [torch.Size([56, 262144]), 1, torch.Size([56]), torch.Size([56, 512]), 56, 262144, 1, 512]
+SUCCESS               0.080320            0.063519               1.265          [torch.Size([4, 262144]), 1, torch.Size([4]), torch.Size([4, 512]), 4, 262144, 1, 512]
+SUCCESS               0.083200            0.066240               1.256          [torch.Size([8, 262144]), 1, torch.Size([8]), torch.Size([8, 512]), 8, 262144, 1, 512]
+SUCCESS               0.124960            0.109440               1.142          [torch.Size([24, 262144]), 1, torch.Size([24]), torch.Size([24, 512]), 24, 262144, 1, 512]
+
+PASSED
+
+=================================== FAILURES ===================================
+__________________________ test_top_k_per_row_prefill __________________________
+
+self = <benchmark.test_top_k_per_row_prefill.TopKPerRowPrefillBenchmark object at 0x7f8a8c165210>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if "latency_base" in self.to_bench_metrics:
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+>                           metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+
+benchmark/base.py:403: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+benchmark/base.py:285: in get_latency
+    latency = do_bench(
+/usr/local/lib/python3.10/dist-packages/triton/testing.py:202: in do_bench
+    fn()
+benchmark/base.py:264: in <lambda>
+    fn = lambda: op(*args, **kwargs)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f8a867e7340>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f8a867f8820>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f8a867c2f70>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+
+During handling of the above exception, another exception occurred:
+
+    @pytest.mark.top_k_per_row_prefill
+    def test_top_k_per_row_prefill():
+        if HAS_VLLM:
+            baseline_op, which = _vllm_top_k_per_row_prefill, "vLLM"
+        elif _top_k_per_row_prefill_module.HAS_TLE:
+            baseline_op, which = _non_tle_top_k_per_row_prefill, "generic non-TLE kernel"
+        else:
+            baseline_op, which = _torch_top_k_per_row_prefill, "torch.topk"
+        print(f"\nbaseline: {which}")
+        bench = TopKPerRowPrefillBenchmark(
+            op_name="top_k_per_row_prefill",
+            torch_op=baseline_op,
+            gems_op=flaggems_vllm.top_k_per_row_prefill,
+            dtypes=[torch.float32],
+        )
+>       bench.run()
+
+benchmark/test_top_k_per_row_prefill.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <benchmark.test_top_k_per_row_prefill.TopKPerRowPrefillBenchmark object at 0x7f8a8c165210>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if "latency_base" in self.to_bench_metrics:
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+                            metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+                        else:
+                            if self.op_name == "zero_":
+                                with flaggems_vllm.use_gems():
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                            else:
+                                # exclude flaggems' zero_ to avoid the overhead of zero_
+                                # in do_bench's clear_cache
+                                with flaggems_vllm.use_gems(exclude=["zero_"]):
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                    if "speedup" in self.to_bench_metrics:
+                        metric.speedup = metric.latency_base / metric.latency
+    
+                    if "gbps" in self.to_bench_metrics:
+                        metric.gbps_base = self.get_gbps(
+                            args, latency=metric.latency_base
+                        )
+                        metric.gbps = self.get_gbps(args, latency=metric.latency)
+    
+                    if "tflops" in self.to_bench_metrics:
+                        metric.tflops = (
+                            self.get_tflops(self.torch_op, *args, **kwargs)
+                            / metric.latency
+                            / 1e12
+                            * 1e3
+                        )
+                        # utilization = metric.tflops / metric.latency / 1e12 * 1e3
+                except (RuntimeError, Exception) as e:
+                    metric.error_msg = str(e)
+>                   pytest.fail(str(e))  # raise exception again
+E                   Failed: at 102:4:
+E                       # redundant there -- but correct, and the retry does not fire in practice.
+E                       # The barrier is required: this program loads from vbase right after
+E                       # storing to it.
+E                       row_base = logits_ptr + row * stride0 + s
+E                       for t in tl.range(0, tiles):
+E                           pos = t * BLOCK + lane
+E                           valid = pos < n
+E                           ci = tl.load(ibase + pos, mask=valid, other=0)
+E                           tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E                       tl.debug_barrier()
+E                   
+E                       if n <= TOPK:
+E                       ^
+E                   AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+benchmark/base.py:438: Failed
+=========================== short test summary info ============================
+FAILED benchmark/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill - ...
+========================= 1 failed, 1 passed in 15.60s =========================
+
+==============================================================================
+=== pass 2 of 2
+==============================================================================
+============================= test session starts ==============================
+collecting ... collected 2 items
+
+benchmark/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill 
+baseline: vLLM
+FAILED
+benchmark/test_top_k_per_row_decode.py::test_top_k_per_row_decode 
+baseline: vLLM
+
+Operator: top_k_per_row_decode  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.086080            0.055520               1.550          [torch.Size([1, 262144]), 1, torch.Size([1]), torch.Size([1, 512]), 1, 262144, 1, 512]
+SUCCESS               5.670878            1.956559               2.898          [torch.Size([496, 262144]), 1, torch.Size([496]), torch.Size([496, 512]), 496, 262144, 1, 512]
+SUCCESS               5.759118            1.963759               2.933          [torch.Size([512, 262144]), 1, torch.Size([512]), torch.Size([512, 512]), 512, 262144, 1, 512]
+SUCCESS               0.098560            0.088960               1.108          [torch.Size([16, 262144]), 1, torch.Size([16]), torch.Size([16, 512]), 16, 262144, 1, 512]
+SUCCESS               0.180320            0.148960               1.211          [torch.Size([32, 262144]), 1, torch.Size([32]), torch.Size([32, 512]), 32, 262144, 1, 512]
+SUCCESS               0.260800            0.155840               1.674          [torch.Size([48, 262144]), 1, torch.Size([48]), torch.Size([48, 512]), 48, 262144, 1, 512]
+SUCCESS               0.221120            0.136640               1.618          [torch.Size([40, 262144]), 1, torch.Size([40]), torch.Size([40, 512]), 40, 262144, 1, 512]
+SUCCESS               0.315360            0.209440               1.506          [torch.Size([56, 262144]), 1, torch.Size([56]), torch.Size([56, 512]), 56, 262144, 1, 512]
+SUCCESS               0.080640            0.062880               1.282          [torch.Size([4, 262144]), 1, torch.Size([4]), torch.Size([4, 512]), 4, 262144, 1, 512]
+SUCCESS               0.083520            0.066720               1.252          [torch.Size([8, 262144]), 1, torch.Size([8]), torch.Size([8, 512]), 8, 262144, 1, 512]
+SUCCESS               0.125120            0.108640               1.152          [torch.Size([24, 262144]), 1, torch.Size([24]), torch.Size([24, 512]), 24, 262144, 1, 512]
+
+PASSED
+
+=================================== FAILURES ===================================
+__________________________ test_top_k_per_row_prefill __________________________
+
+self = <benchmark.test_top_k_per_row_prefill.TopKPerRowPrefillBenchmark object at 0x7f8a86131f00>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if "latency_base" in self.to_bench_metrics:
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+>                           metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+
+benchmark/base.py:403: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+benchmark/base.py:285: in get_latency
+    latency = do_bench(
+/usr/local/lib/python3.10/dist-packages/triton/testing.py:202: in do_bench
+    fn()
+benchmark/base.py:264: in <lambda>
+    fn = lambda: op(*args, **kwargs)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f8a86606650>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f8a86692440>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f8a866a8e70>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+
+During handling of the above exception, another exception occurred:
+
+    @pytest.mark.top_k_per_row_prefill
+    def test_top_k_per_row_prefill():
+        if HAS_VLLM:
+            baseline_op, which = _vllm_top_k_per_row_prefill, "vLLM"
+        elif _top_k_per_row_prefill_module.HAS_TLE:
+            baseline_op, which = _non_tle_top_k_per_row_prefill, "generic non-TLE kernel"
+        else:
+            baseline_op, which = _torch_top_k_per_row_prefill, "torch.topk"
+        print(f"\nbaseline: {which}")
+        bench = TopKPerRowPrefillBenchmark(
+            op_name="top_k_per_row_prefill",
+            torch_op=baseline_op,
+            gems_op=flaggems_vllm.top_k_per_row_prefill,
+            dtypes=[torch.float32],
+        )
+>       bench.run()
+
+benchmark/test_top_k_per_row_prefill.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <benchmark.test_top_k_per_row_prefill.TopKPerRowPrefillBenchmark object at 0x7f8a86131f00>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if "latency_base" in self.to_bench_metrics:
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+                            metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+                        else:
+                            if self.op_name == "zero_":
+                                with flaggems_vllm.use_gems():
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                            else:
+                                # exclude flaggems' zero_ to avoid the overhead of zero_
+                                # in do_bench's clear_cache
+                                with flaggems_vllm.use_gems(exclude=["zero_"]):
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                    if "speedup" in self.to_bench_metrics:
+                        metric.speedup = metric.latency_base / metric.latency
+    
+                    if "gbps" in self.to_bench_metrics:
+                        metric.gbps_base = self.get_gbps(
+                            args, latency=metric.latency_base
+                        )
+                        metric.gbps = self.get_gbps(args, latency=metric.latency)
+    
+                    if "tflops" in self.to_bench_metrics:
+                        metric.tflops = (
+                            self.get_tflops(self.torch_op, *args, **kwargs)
+                            / metric.latency
+                            / 1e12
+                            * 1e3
+                        )
+                        # utilization = metric.tflops / metric.latency / 1e12 * 1e3
+                except (RuntimeError, Exception) as e:
+                    metric.error_msg = str(e)
+>                   pytest.fail(str(e))  # raise exception again
+E                   Failed: at 102:4:
+E                       # redundant there -- but correct, and the retry does not fire in practice.
+E                       # The barrier is required: this program loads from vbase right after
+E                       # storing to it.
+E                       row_base = logits_ptr + row * stride0 + s
+E                       for t in tl.range(0, tiles):
+E                           pos = t * BLOCK + lane
+E                           valid = pos < n
+E                           ci = tl.load(ibase + pos, mask=valid, other=0)
+E                           tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E                       tl.debug_barrier()
+E                   
+E                       if n <= TOPK:
+E                       ^
+E                   AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+benchmark/base.py:438: Failed
+=========================== short test summary info ============================
+FAILED benchmark/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill - ...
+========================= 1 failed, 1 passed in 14.83s =========================
