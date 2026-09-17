@@ -470,23 +470,47 @@ def _s_collect(
 ):
     """One pass: append every element strictly better than the threshold bin.
     Indices are stored relative to row_start, which is what the operator
-    returns."""
+    returns.
+
+    The bulk loop is UNMASKED and the remainder is handled separately, which
+    is how the generic operator writes its own passes. Masking every iteration
+    instead measured 131.3 us here against a modelled 55 -- 252 GB/s where the
+    generic's collection pass reaches ~1270, essentially read speed -- and a
+    mask on every load is the one structural difference between them.
+    """
     row = tl.program_id(0)
     s = tl.load(starts_ptr + row)
     e = tl.load(ends_ptr + row)
+    span = e - s
     thr = tl.load(thr_ptr + row)
-    off = tl.arange(0, BLOCK)[:, None] * VEC + tl.arange(0, VEC)[None, :]
-    cnt_ptrs = cnt_ptr + row + tl.zeros([BLOCK, VEC], tl.int32)
-    ones = tl.full([BLOCK, VEC], 1, tl.int32)
-    for t in tl.range(0, tl.cdiv(e - s, BLOCK * VEC)):
+    base = logits_ptr + row * stride0 + s
+    lane = tl.arange(0, BLOCK)
+    off = lane[:, None] * VEC + tl.arange(0, VEC)[None, :]
+    ones2 = tl.full([BLOCK, VEC], 1, tl.int32)
+    ones1 = tl.full([BLOCK], 1, tl.int32)
+    cnt2 = cnt_ptr + row + tl.zeros([BLOCK, VEC], tl.int32)
+    cnt1 = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
+
+    n_vec = span // (BLOCK * VEC)
+    for t in tl.range(0, n_vec):
         i = t * BLOCK * VEC + off
-        m = i < e - s
-        x = tl.load(logits_ptr + row * stride0 + s + i, mask=m, other=0.0)
+        x = tl.load(base + i)
         # Cast explicitly: the key is uint32 and thr int32, and leaving that
         # promotion implicit selects every element (the MTT override records
         # the same bug).
+        take = _key11(x).to(tl.int32) < thr
+        pos = tl.atomic_add(cnt2, ones2, mask=take, sem="relaxed", scope="cta")
+        keep = take & (pos >= 0) & (pos < CAP)
+        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
+        tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
+
+    tail = n_vec * BLOCK * VEC
+    for t in tl.range(0, tl.cdiv(span - tail, BLOCK)):
+        i = tail + t * BLOCK + lane
+        m = i < span
+        x = tl.load(base + i, mask=m, other=0.0)
         take = m & (_key11(x).to(tl.int32) < thr)
-        pos = tl.atomic_add(cnt_ptrs, ones, mask=take, sem="relaxed", scope="cta")
+        pos = tl.atomic_add(cnt1, ones1, mask=take, sem="relaxed", scope="cta")
         keep = take & (pos >= 0) & (pos < CAP)
         tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
         tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
