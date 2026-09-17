@@ -1,0 +1,45 @@
+### branch topk-metax @ 69b87c9
+### 2026-09-17T08:31:12+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+counters on top_k_per_row_prefill; collector /opt/dtk/rocprofiler/bin/rocprof
+
+  === dense: 16383 4095 512 4352, 268.4 MB of row data
+    FETCH_SIZE                             8 dispatches; grd=2097024 wgr=128 lds=1024 scr=0 arch_vgpr=96 accum_vgpr=0 sgpr=96
+      FETCH_SIZE             557200.4062500000  = 2.13x the row bytes (544.1 MB)
+    WRITE_SIZE                             8 dispatches; grd=2097024 wgr=128 lds=1024 scr=0 arch_vgpr=96 accum_vgpr=0 sgpr=96
+      WRITE_SIZE             185040.4062500000  (180.7 MB)
+    TCC_EA_RDREQ_sum                       8 dispatches; grd=2097024 wgr=128 lds=1024 scr=0 arch_vgpr=96 accum_vgpr=0 sgpr=96
+      TCC_EA_RDREQ_sum       8940744.0000000000
+    L2CacheHit                             8 dispatches; grd=2097024 wgr=128 lds=1024 scr=0 arch_vgpr=96 accum_vgpr=0 sgpr=96
+      L2CacheHit             0.7918641476
+    SQ_WAVES SQ_BUSY_CYCLES SQ_WAIT_ANY    8 dispatches; grd=2097024 wgr=128 lds=1024 scr=0 arch_vgpr=96 accum_vgpr=0 sgpr=96
+      SQ_WAVES               32766  (410 waves per CU over the launch)
+      SQ_BUSY_CYCLES         16318975
+      SQ_WAIT_ANY            745415214
+    SQ_INSTS_VALU SQ_INSTS_VMEM SQ_INSTS_SALU 8 dispatches; grd=2097024 wgr=128 lds=1024 scr=0 arch_vgpr=96 accum_vgpr=0 sgpr=96
+      SQ_INSTS_VALU          81713006
+      SQ_INSTS_VMEM          9052706
+      SQ_INSTS_SALU          31843154
+
+  === sparse: 64 129280 1024 129280, 33.1 MB of row data
+    FETCH_SIZE                             8 dispatches; grd=32768 wgr=512 lds=512 scr=0 arch_vgpr=44 accum_vgpr=0 sgpr=112
+      FETCH_SIZE             64915.9375000000  = 2.01x the row bytes (63.4 MB)
+    WRITE_SIZE                             8 dispatches; grd=32768 wgr=512 lds=512 scr=0 arch_vgpr=44 accum_vgpr=0 sgpr=112
+      WRITE_SIZE             1043.5000000000  (1.0 MB)
+    TCC_EA_RDREQ_sum                       8 dispatches; grd=32768 wgr=512 lds=512 scr=0 arch_vgpr=44 accum_vgpr=0 sgpr=112
+      TCC_EA_RDREQ_sum       1038685.0000000000
+    L2CacheHit                             8 dispatches; grd=32768 wgr=512 lds=512 scr=0 arch_vgpr=44 accum_vgpr=0 sgpr=112
+      L2CacheHit             0.8730975338
+    SQ_WAVES SQ_BUSY_CYCLES SQ_WAIT_ANY    8 dispatches; grd=32768 wgr=512 lds=512 scr=0 arch_vgpr=44 accum_vgpr=0 sgpr=112
+      SQ_WAVES               512  (6 waves per CU over the launch)
+      SQ_BUSY_CYCLES         3102947
+      SQ_WAIT_ANY            38307212
+    SQ_INSTS_VALU SQ_INSTS_VMEM SQ_INSTS_SALU 8 dispatches; grd=32768 wgr=512 lds=512 scr=0 arch_vgpr=44 accum_vgpr=0 sgpr=112
+      SQ_INSTS_VALU          4069992
+      SQ_INSTS_VMEM          941384
+      SQ_INSTS_SALU          1391096
+
+  FETCH_SIZE near 1x the row bytes means the second pass is served
+  by the 8 MB L2, not HBM; near 2x means both passes reach memory.
