@@ -1,0 +1,255 @@
+### branch topk-metax @ dae8b83
+### 2026-09-17T08:25:05+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+
+=== the collector
+total 156
+drwxr-xr-x 2 root root     52 Mar 18  2026 .
+drwxr-xr-x 8 root root     90 Mar 18  2026 ..
+-r-xr-xr-x 1 root root  19489 Mar 10  2026 rocprof
+-r-xr-xr-x 1 root root   9967 Mar 10  2026 rocprofv2
+-rwxr-xr-x 1 root root 125128 Mar 10  2026 rocsys
+  chosen: /opt/dtk/rocprofiler/bin/rocprof
+
+--- $ /opt/dtk/rocprofiler/bin/rocprof --help
+RPL: on '260917_082505' from '/opt/dtk/rocprofiler' in '/data/wuyuqing/workspace/FlagGems-vllm'
+/opt/dtk/rocprofiler/bin/rocprof: Error: Wrong option '--help'
+
+ROCm Profiling Library (RPL) run script, a part of ROCprofiler library package.
+Full path: /opt/dtk/rocprofiler/bin/rocprof
+Metrics definition: /opt/dtk/rocprofiler/lib/rocprofiler/metrics.xml
+
+Usage:
+  rocprof [-h] [--list-basic] [--list-derived] [-i <input .txt/.xml file>] [-o <output CSV file>] <app command line>
+
+Options:
+  -h - this help
+  --verbose - verbose mode, dumping all base counters used in the input metrics
+  --list-basic - to print the list of basic HW counters
+  --list-derived - to print the list of derived metrics with formulas
+  --cmd-qts <on|off> - quoting profiled cmd line [on]
+
+  -i <.txt|.xml file> - input file
+      Input file .txt format, automatically rerun application for every profiling features line:
+
+        # Perf counters group 1
+        pmc : Wavefronts VALUInsts SALUInsts SFetchInsts FlatVMemInsts LDSInsts FlatLDSInsts GDSInsts VALUUtilization FetchSize
+        # Perf counters group 2
+        pmc : WriteSize L2CacheHit
+        # Filter by dispatches range, GPU index and kernel names
+        # supported range formats: "3:9", "3:", "3"
+        range: 1 : 4
+        gpu: 0 1 2 3
+        kernel: simple Pass1 simpleConvolutionPass2
+
+      Input file .xml format, for single profiling run:
+
+        # Metrics list definition, also the form "<block-name>:<event-id>" can be used
+        # All defined metrics can be found in the 'metrics.xml'
+        # There are basic metrics for raw HW counters and high-level metrics for derived counters
+        <metric name=SQ:4,SQ_WAVES,VFetchInsts
+        ></metric>
+
+        # Filter by dispatches range, GPU index and kernel names
+        <metric
+          # range formats: "3:9", "3:", "3"
+          range=""
+          # list of gpu indexes "0,1,2,3"
+          gpu_index=""
+          # list of matched sub-strings "Simple1,Conv1,SimpleConvolution"
+
+=== counter names this card defines (atomics and waves, from the XML)
+--- /opt/dtk/share/profiler/counters/basic_counters.xml
+CPC_CPC_STAT_BUSY
+CPC_CPC_STAT_STALL
+CPC_CPC_TCIU_BUSY
+CPC_CPC_UTCL2IU_BUSY
+CPC_CPC_UTCL2IU_STALL
+CPC_ME1_BUSY_FOR_PACKET_DECODE
+CPC_ME1_DC0_SPI_BUSY
+CPC_ME1_STALL_ON_DATA_FROM_ROQ
+CPC_ME1_STALL_ON_DATA_FROM_ROQ_PERF
+CPC_ME1_STALL_WAIT_ON_MIU_READ
+CPC_ME1_STALL_WAIT_ON_MIU_WRITE
+CPC_ME1_STALL_WAIT_ON_RCIU_READ
+CPC_ME1_STALL_WAIT_ON_RCIU_READY
+CPC_ME1_STALL_WAIT_ON_RCIU_READY_PERF
+CPC_ME2_BUSY_FOR_PACKET_DECODE
+CPC_ME2_DC1_SPI_BUSY
+CPC_ME2_STALL_ON_DATA_FROM_ROQ
+CPC_ME2_STALL_ON_DATA_FROM_ROQ_PERF
+CPC_ME2_STALL_WAIT_ON_MIU_READ
+CPC_ME2_STALL_WAIT_ON_MIU_WRITE
+CPC_ME2_STALL_WAIT_ON_RCIU_READ
+CPC_ME2_STALL_WAIT_ON_RCIU_READY
+CPC_ME2_STALL_WAIT_ON_RCIU_READY_PERF
+CPC_MIU_STALL_ON_RDREQ_FREE
+CPC_MIU_STALL_ON_WRREQ_FREE
+CPC_RCIU_STALL_PRIV_VIOLATION
+CPC_RCIU_STALL_WAIT_ON_FREE
+CPC_TCIU_STALL_WAIT_ON_FREE
+CPC_UTCL1_STALL_ON_TRANSLATION
+CPC_UTCL2IU_STALL_WAIT_ON_FREE
+CPC_UTCL2IU_STALL_WAIT_ON_TAGS
+CPF_CMP_UTCL1_STALL_ON_TRANSLATION
+CPF_CPF_STAT_BUSY
+CPF_CPF_STAT_STALL
+CPF_CPF_TCIU_BUSY
+CPF_CPF_TCIU_STALL
+CPF_CPF_UTCL2IU_BUSY
+CPF_CPF_UTCL2IU_STALL
+CPF_CSF_BUSY_FOR_FECTHINC_STATE
+CPF_CSF_BUSY_FOR_FETCHING_IB1
+--- /opt/dtk/rocprofiler/lib/rocprofiler/gfx_metrics.xml
+CPC_CPC_STAT_BUSY
+CPC_CPC_STAT_STALL
+CPC_CPC_TCIU_BUSY
+CPC_CPC_UTCL2IU_BUSY
+CPC_CPC_UTCL2IU_STALL
+CPC_ME1_BUSY_FOR_PACKET_DECODE
+CPC_ME1_DC0_SPI_BUSY
+CPC_UTCL1_STALL_ON_TRANSLATION
+CPF_CMP_UTCL1_STALL_ON_TRANSLATION
+CPF_CPF_STAT_BUSY
+CPF_CPF_STAT_STALL
+CPF_CPF_TCIU_BUSY
+CPF_CPF_TCIU_STALL
+GL2C_MC_WRREQ_STALL
+GRBM_CP_BUSY
+GRBM_CPC_BUSY
+GRBM_CPF_BUSY
+GRBM_EA_BUSY
+GRBM_GDS_BUSY
+GRBM_GL2CC_BUSY
+GRBM_SPI_BUSY
+GRBM_TA_BUSY
+GRBM_TC_BUSY
+GRBM_UTCL2_BUSY
+SPI_CSN_BUSY
+SPI_CSN_WAVE
+SPI_RA_LDS_CU_FULL_CSN
+SPI_RA_RES_STALL_CSN
+SPI_RA_TMP_STALL_CSN
+SPI_RA_WAVE_SIMD_FULL_CSN
+SPI_RA_WVLIM_STALL_CSN
+SQ_ACTIVE_INST_LDS
+SQ_ACTIVE_INST_VALU
+SQ_ACTIVE_INST_VMEM
+SQ_BUSY_CU_CYCLES
+SQ_BUSY_CYCLES
+SQC_DCACHE_ATOMIC
+SQC_DCACHE_BUSY_CYCLES
+SQC_ICACHE_BUSY_CYCLES
+SQC_LDS_BANK_CONFLICT
+
+=== dense (16383 x 4095, top_k 512): 268 MB of row data, two passes claimed
+
+--- $ /opt/dtk/rocprofiler/bin/rocprof -i /tmp/rocprof_pmc/dense_mem.txt -o /tmp/rocprof_pmc/dense_mem.csv python tools/hygon_prefill_one.py 16383 4095 512 4352 5
+  kernel = 
+  range = 
+  2 metrics
+    FETCH_SIZE, WRITE_SIZE
+
+Input metrics out of HW limit. Proposed metrics group set:
+ pmc :  FETCH_SIZE
+ pmc :  WRITE_SIZE
+
+Error: Context Create failed
+/opt/dtk/rocprofiler/bin/rocprof: line 300: 91173 Aborted                 (core dumped) "python" "tools/hygon_prefill_one.py" "16383" "4095" "512" "4352" "5"
+File '/tmp/rocprof_pmc/dense_mem.csv' is generating
+--- dense_mem.csv
+Index,KernelName
+
+--- $ /opt/dtk/rocprofiler/bin/rocprof -i /tmp/rocprof_pmc/dense_l2.txt -o /tmp/rocprof_pmc/dense_l2.csv python tools/hygon_prefill_one.py 16383 4095 512 4352 5
+  kernel = 
+  range = 
+  3 metrics
+    L2ReadReqs, L2WriteReqs, TCC_BUSY_avr
+
+Input metrics out of HW limit. Proposed metrics group set:
+ pmc :  L2ReadReqs L2WriteReqs
+ pmc :  TCC_BUSY_avr
+
+Error: Context Create failed
+/opt/dtk/rocprofiler/bin/rocprof: line 300: 91327 Aborted                 (core dumped) "python" "tools/hygon_prefill_one.py" "16383" "4095" "512" "4352" "5"
+File '/tmp/rocprof_pmc/dense_l2.csv' is generating
+--- dense_l2.csv
+Index,KernelName
+
+--- $ /opt/dtk/rocprofiler/bin/rocprof -i /tmp/rocprof_pmc/dense_waves.txt -o /tmp/rocprof_pmc/dense_waves.csv python tools/hygon_prefill_one.py 16383 4095 512 4352 5
+RPL: output dir '/tmp/rpl_data_260917_082550_91418'
+RPL: result dir '/tmp/rpl_data_260917_082550_91418/input0_results_260917_082550'
+ran 5 x prefill 16383x4095 top_k 512
+ROCProfiler: input from "/tmp/rpl_data_260917_082550_91418/input0.xml"
+  gpu_index = 
+  kernel = 
+  range = 
+  3 metrics
+    SQ_WAVES, SQ_BUSY_CYCLES, SQ_WAIT_ANY
+
+ROCPRofiler: 11 contexts collected, output directory /tmp/rpl_data_260917_082550_91418/input0_results_260917_082550
+File '/tmp/rocprof_pmc/dense_waves.csv' is generating
+--- dense_waves.csv
+Index,KernelName,gpu-id,queue-id,queue-index,pid,tid,grd,wgr,lds,scr,arch_vgpr,accum_vgpr,sgpr,wave_size,sig,obj,SQ_WAVES,SQ_BUSY_CYCLES,SQ_WAIT_ANY
+0,"void at::native::(anonymous namespace)::distribution_elementwise_grid_stride_kernel<float, 4, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2} const&, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(int, float)#1}>(long, at::PhiloxCudaState, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2} const&, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(int, float)#1}) [clone .kd]",8,0,2,91481,91481,204800,256,0,0,48,0,48,64,0x0,0x7f5f454ebd40,3200,8395403,46157476
+1,"void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>) [clone .kd]",8,0,5,91481,91481,4096,256,0,0,8,0,16,64,0x0,0x7f56d722e340,64,34511,65301
+2,"void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>) [clone .kd]",8,0,6,91481,91481,4096,256,0,0,8,0,16,64,0x0,0x7f56d722e340,64,34365,65001
+
+--- $ /opt/dtk/rocprofiler/bin/rocprof -i /tmp/rocprof_pmc/dense_insts.txt -o /tmp/rocprof_pmc/dense_insts.csv python tools/hygon_prefill_one.py 16383 4095 512 4352 5
+RPL: output dir '/tmp/rpl_data_260917_082618_91573'
+RPL: result dir '/tmp/rpl_data_260917_082618_91573/input0_results_260917_082618'
+ran 5 x prefill 16383x4095 top_k 512
+ROCProfiler: input from "/tmp/rpl_data_260917_082618_91573/input0.xml"
+  gpu_index = 
+  kernel = 
+  range = 
+  3 metrics
+    SQ_INSTS_VALU, SQ_INSTS_VMEM, SQ_INSTS_SALU
+
+ROCPRofiler: 11 contexts collected, output directory /tmp/rpl_data_260917_082618_91573/input0_results_260917_082618
+File '/tmp/rocprof_pmc/dense_insts.csv' is generating
+--- dense_insts.csv
+Index,KernelName,gpu-id,queue-id,queue-index,pid,tid,grd,wgr,lds,scr,arch_vgpr,accum_vgpr,sgpr,wave_size,sig,obj,SQ_INSTS_VALU,SQ_INSTS_VMEM,SQ_INSTS_SALU
+0,"void at::native::(anonymous namespace)::distribution_elementwise_grid_stride_kernel<float, 4, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2} const&, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(int, float)#1}>(long, at::PhiloxCudaState, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2} const&, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(int, float)#1}) [clone .kd]",8,0,2,91636,91636,204800,256,0,0,48,0,48,64,0x0,0x7fd6e26dbd40,72020400,1114040,5046400
+1,"void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>) [clone .kd]",8,0,5,91636,91636,4096,256,0,0,8,0,16,64,0x0,0x7fcdd522e340,444,76,648
+2,"void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>) [clone .kd]",8,0,6,91636,91636,4096,256,0,0,8,0,16,64,0x0,0x7fcdd522e340,444,76,648
+
+=== sparse (64 x 129280, top_k 1024): 33 MB, 64 programs on 80 CUs
+
+--- $ /opt/dtk/rocprofiler/bin/rocprof -i /tmp/rocprof_pmc/sparse_mem.txt -o /tmp/rocprof_pmc/sparse_mem.csv python tools/hygon_prefill_one.py 64 129280 1024 129280 5
+  kernel = 
+  range = 
+  2 metrics
+    FETCH_SIZE, WRITE_SIZE
+
+Input metrics out of HW limit. Proposed metrics group set:
+ pmc :  FETCH_SIZE
+ pmc :  WRITE_SIZE
+
+Error: Context Create failed
+/opt/dtk/rocprofiler/bin/rocprof: line 300: 91791 Aborted                 (core dumped) "python" "tools/hygon_prefill_one.py" "64" "129280" "1024" "129280" "5"
+File '/tmp/rocprof_pmc/sparse_mem.csv' is generating
+--- sparse_mem.csv
+Index,KernelName
+
+--- $ /opt/dtk/rocprofiler/bin/rocprof -i /tmp/rocprof_pmc/sparse_waves.txt -o /tmp/rocprof_pmc/sparse_waves.csv python tools/hygon_prefill_one.py 64 129280 1024 129280 5
+RPL: output dir '/tmp/rpl_data_260917_082705_91882'
+RPL: result dir '/tmp/rpl_data_260917_082705_91882/input0_results_260917_082705'
+ran 5 x prefill 64x129280 top_k 1024
+ROCProfiler: input from "/tmp/rpl_data_260917_082705_91882/input0.xml"
+  gpu_index = 
+  kernel = 
+  range = 
+  3 metrics
+    SQ_WAVES, SQ_BUSY_CYCLES, SQ_WAIT_ANY
+
+ROCPRofiler: 11 contexts collected, output directory /tmp/rpl_data_260917_082705_91882/input0_results_260917_082705
+File '/tmp/rocprof_pmc/sparse_waves.csv' is generating
+--- sparse_waves.csv
+Index,KernelName,gpu-id,queue-id,queue-index,pid,tid,grd,wgr,lds,scr,arch_vgpr,accum_vgpr,sgpr,wave_size,sig,obj,SQ_WAVES,SQ_BUSY_CYCLES,SQ_WAIT_ANY
+0,"void at::native::(anonymous namespace)::distribution_elementwise_grid_stride_kernel<float, 4, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2} const&, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(int, float)#1}>(long, at::PhiloxCudaState, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2} const&, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(int, float)#1}) [clone .kd]",8,0,2,91945,91945,204800,256,0,0,48,0,48,64,0x0,0x7fccb86dbd40,3200,1123778,8244043
+1,"void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>) [clone .kd]",8,0,5,91945,91945,256,256,0,0,8,0,16,64,0x0,0x7fc3ba62e340,4,4317,3510
+2,"void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>) [clone .kd]",8,0,6,91945,91945,256,256,0,0,8,0,16,64,0x0,0x7fc3ba62e340,4,4285,3451
+
+=== done
