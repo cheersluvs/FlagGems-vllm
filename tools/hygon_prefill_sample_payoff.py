@@ -116,7 +116,12 @@ def main():
     ov = import_module(
         "flaggems_vllm.runtime.backend._hygon.fused.top_k_per_row_prefill"
     )
-    ov._ENABLED = False  # pin the generic module, as the trigger probe did
+    # Shipped routing: the question is what production would gain, and the
+    # dense shapes' prefix-sum collection is part of that. Round 3 left a
+    # pin here from the previous question and silently measured them
+    # without it -- 2184 us where the operator takes 1348 -- so the routing
+    # is asserted and printed now rather than assumed.
+    assert ov._ENABLED, "slot-scan copy is off; dense shapes would be mis-measured"
     dev = "cuda"
     print(f"slot-scan copy OFF; every quantity interleaved, {ROUNDS} rounds\n")
     for rows, vocab, stride0, prod_k in CASES:
@@ -168,8 +173,10 @@ def main():
 
         pass_us = 2.0 * (med["one"] - med["one_half"])
         fixed_us = med["one"] - pass_us
+        mod = "dense" if vocab <= ov.DENSE_VOCAB_PER_TOPK * prod_k else "generic"
         print(
-            f"  {rows} x {vocab}, production top_k {prod_k}: "
+            f"  {rows} x {vocab}, top_k {prod_k}: density {prod_k / vocab:.3f}, "
+            f"{mod} module, window [{prod_k}, 2048] = {2048 / prod_k:.1f}x wide: "
             f"{'OK' if ok else 'WRONG'}"
         )
         for name, k, ends in probes:
