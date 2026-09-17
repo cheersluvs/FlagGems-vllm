@@ -1,0 +1,26 @@
+### branch topk-metax @ 9b68d55
+### 2026-09-17T14:13:51+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0917 14:14:13.274216 100274 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 8 (function operator())
+64 x 129280, top_k 1024; gate ratio 64, sstride 8, target 2048
+
+  _can_sample says: True
+  answer OK; buffer 4096, window [1024, 4096]
+  collected per row: min 1806, median 2166, max 2563; 0 of 64 rows outside the window
+
+  stage device us (each launched alone):
+     prepare     28.8   model said  24 us   (1.2x)
+     collect    128.9   model said  55 us   (2.3x)
+      finish     65.0   model said  36 us   (1.8x)
+         sum    222.7
+    pipeline    228.4
+         was    233.0   (1.020x)
+
+  If rows outside the window is large, the estimate is wrong and
+  the retry is paying for a second full histogram. If it is zero
+  and a stage is far above its model, the implementation is.
