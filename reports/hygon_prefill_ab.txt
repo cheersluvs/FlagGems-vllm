@@ -1,0 +1,31 @@
+### branch topk-metax @ b28cbe0
+### 2026-09-17T08:52:05+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+per-call CUDA events, median, shipped and stage-split alternating in one process, 5 rounds
+
+  64 x 129280, top_k 1024, split 8 (512 workgroups, 256x4): OK
+      shipped    231.0   staged    275.7    0.838x
+      shipped    232.6   staged    280.2    0.830x
+      shipped    233.1   staged    280.0    0.833x
+      shipped    233.3   staged    280.2    0.833x
+      shipped    233.1   staged    279.8    0.833x
+      median ratio 0.833, spread 0.830 to 0.838
+
+  4 x 16385, top_k 512, split 8 (32 workgroups, 512x8): OK
+      shipped    157.9   staged     73.8    2.141x
+      shipped    156.8   staged     73.1    2.144x
+      shipped    156.6   staged     73.3    2.138x
+      shipped    156.8   staged     72.2    2.173x
+      shipped    156.2   staged     72.3    2.159x
+      median ratio 2.144, spread 2.138 to 2.173
+
+  4 x 8193, top_k 512, split 4 (16 workgroups, 512x8): OK
+      shipped    154.9   staged     72.3    2.142x
+      shipped    155.4   staged     72.8    2.134x
+      shipped    155.2   staged     72.2    2.151x
+      shipped    155.2   staged     71.8    2.160x
+      shipped    155.2   staged     72.2    2.151x
+      median ratio 2.151, spread 2.134 to 2.160
+
