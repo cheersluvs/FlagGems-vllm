@@ -1,0 +1,24 @@
+### branch topk-metax @ 8c35aeb
+### 2026-09-17T15:41:25+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0917 15:41:53.181209 101186 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+device us, unclamped against clamped, interleaved; both generic copies at the override's geometry
+
+               shape  thr key  clamp  folded     plain   clamped   ratio        spread   ans
+           64x129280      505    520   95.7%     242.2     473.7   0.511  0.510-0.512     OK
+             4x16385      516    520   95.8%      36.1      71.3   0.507  0.497-0.508     OK
+              4x8193      528    540   86.5%      26.0      42.2   0.610  0.589-0.647     OK
+          16383x4095      542    560   76.9%    2188.7    3471.9   0.630  0.629-0.631     OK
+          12961x4100      542    560   76.9%    1758.8    2849.2   0.617  0.614-0.618     OK
+          16380x5115      537    560   76.9%    2361.1    4099.2   0.576  0.575-0.578     OK
+           4100x1025     1412  no clamp in (520, 540, 560, 600, 1100)
+
+  'folded' is the share of elements whose atomic goes to the single
+  overflow bin. A ratio well above 1 where that share is high means
+  mixed-address atomics do coalesce here, and a per-row clamp is
+  worth designing; near 1 means they do not, and this idea is done.
