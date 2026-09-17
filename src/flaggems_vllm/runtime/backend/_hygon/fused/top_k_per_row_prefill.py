@@ -324,21 +324,179 @@ _GENERIC_DEFAULTS = {
 }
 
 
+def _direct_enabled():
+    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_PREFILL_DIRECT", "1").strip().lower()
+    return raw not in ("0", "false", "off", "no")
+
+
+_DIRECT = _direct_enabled()
+
+# Scratch is (num_rows, 2048) int32 plus (num_rows, 2048) float32 -- 16 KB per
+# row. Holding it in a plan is what removes the per-call allocation, but at
+# 16383 rows that is 268 MB pinned per plan, so above this bound the plan keeps
+# only the launcher and the scratch is allocated per call as before. The shapes
+# that need the saving are the small ones, where the host cost is several times
+# the kernel's.
+SCRATCH_CACHE_BYTES = 64 << 20
+
+
+class _Launch:
+    """One kernel: JIT on first use, direct afterwards.
+
+    The same recipe as the decode override's; copied rather than imported so
+    the two operators do not depend on each other.
+    """
+
+    __slots__ = ("jit", "grid", "grid3", "constexprs", "num_warps", "runner")
+
+    def __init__(self, jit, grid, constexprs, num_warps):
+        self.jit = jit
+        self.grid = grid
+        self.grid3 = tuple(grid) + (1,) * (3 - len(grid))
+        self.constexprs = constexprs
+        self.num_warps = num_warps
+        self.runner = None
+
+    def __call__(self, *args):
+        if self.runner is not None:
+            self.runner(*args, *self.constexprs.values())
+            return
+        ck = self.jit.run(
+            *args,
+            **self.constexprs,
+            num_warps=self.num_warps,
+            grid=self.grid,
+            warmup=False,
+        )
+        if ck is not None:
+            self.runner = ck[self.grid3]
+
+
+def _scratch(mod, num_rows, device):
+    import torch
+
+    return (
+        torch.empty((num_rows, mod.NUM_BINS), dtype=torch.int32, device=device),
+        torch.empty(
+            (num_rows, mod.NUM_FILNAL_ITEMS), dtype=torch.float32, device=device
+        ),
+        torch.empty((num_rows,), dtype=torch.int32, device=device),
+        torch.empty((num_rows,), dtype=torch.int32, device=device),
+        torch.empty((num_rows,), dtype=torch.int32, device=device),
+        torch.empty((num_rows,), dtype=torch.int32, device=device),
+    )
+
+
+class _Plan:
+    """A cached launcher for one (module, shape, geometry, specialisation)."""
+
+    __slots__ = ("launch", "scratch")
+
+    def __init__(self, mod, device, num_rows, top_k, block, warps):
+        self.launch = _Launch(
+            mod.non_tle_top_k_per_row_prefill,
+            (num_rows,),
+            {"TOPK": top_k, "BLOCK_SIZE": block, "ROW_OFFSET": 0},
+            warps,
+        )
+        per_row = (mod.NUM_BINS + mod.NUM_FILNAL_ITEMS) * 4
+        self.scratch = (
+            _scratch(mod, num_rows, device)
+            if num_rows * per_row <= SCRATCH_CACHE_BYTES
+            else None
+        )
+
+
+_PLANS = {}
+_PLANS_MAX = 32
+_PLAN_LOCK = threading.Lock()
+
+
+def _aligned(t):
+    return t.data_ptr() % 16 == 0
+
+
+def _direct_ok(mod, logits, row_starts, row_ends, num_rows):
+    import torch
+
+    return (
+        _DIRECT
+        and not getattr(mod, "HAS_TLE", False)
+        and num_rows > 0
+        and num_rows == logits.shape[0]
+        and logits.dtype == torch.float32
+        and row_starts.dtype == torch.int32
+        and row_ends.dtype == torch.int32
+    )
+
+
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
     """Dense rows through the prefix-sum copy, everything else through generic,
-    each launched at the geometry its occupancy wants."""
-    if _ENABLED and logits.shape[1] <= DENSE_VOCAB_PER_TOPK * top_k:
+    each launched at the geometry its occupancy wants -- and, where the shape
+    allows it, through a cached CompiledKernel rather than Triton's dispatch.
+
+    The launch mechanism is worth nothing in `--mode kernel`, which times the
+    kernel: it is worth ~125 us per call of HOST time on the small shapes,
+    where the operator's own dispatch measured 155 us against 27 us of device
+    work. `--mode operator` and real serving pay that; kernel mode cannot see
+    it. FLAGGEMS_HYGON_TOPK_PREFILL_DIRECT=0 restores the dispatch path.
+    """
+    vocab_size = logits.shape[1]
+    if _ENABLED and vocab_size <= DENSE_VOCAB_PER_TOPK * top_k:
         mod = _dense
     else:
         mod = _generic
-    geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
+    geo = _geometry(num_rows, vocab_size) if _GEOMETRY else None
+    if geo is None:
+        block, warps_of = _GENERIC_DEFAULTS[id(mod)]
+        warps = warps_of(block)
+    else:
+        block, warps = geo
+
+    if _direct_ok(mod, logits, row_starts, row_ends, num_rows):
+        key = (
+            logits.device,
+            id(mod),
+            num_rows,
+            vocab_size,
+            top_k,
+            stride0,
+            stride1,
+            block,
+            warps,
+            _aligned(logits),
+            _aligned(row_starts),
+            _aligned(row_ends),
+            _aligned(indices),
+        )
+        with _PLAN_LOCK:
+            plan = _PLANS.get(key)
+            if plan is None:
+                if len(_PLANS) >= _PLANS_MAX:
+                    _PLANS.pop(next(iter(_PLANS)))
+                plan = _PLANS[key] = _Plan(
+                    mod, logits.device, num_rows, top_k, block, warps
+                )
+            scratch = plan.scratch or _scratch(mod, num_rows, logits.device)
+            plan.launch(
+                logits,
+                indices,
+                row_starts,
+                row_ends,
+                stride0,
+                stride1,
+                vocab_size,
+                *scratch,
+            )
+        return indices
+
+    # The module's own dispatch, which reads the geometry from its globals.
     with _LAUNCH_LOCK:
         if geo is None:
             mod.NUM_THREADS_PER_BLOCK, mod._num_warps = _GENERIC_DEFAULTS[id(mod)]
         else:
-            block, warps = geo
             mod.NUM_THREADS_PER_BLOCK = block
             mod._num_warps = lambda block_size, w=warps: w
         return mod.top_k_per_row_prefill(
