@@ -1,0 +1,49 @@
+### branch topk-metax @ 0aad4e9
+### 2026-09-17T09:00:40+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+direct launch enabled: True
+
+               shape range      call1  call2  call3
+           64x129280 full       ok    ok    ok 
+           64x129280 partial    ok    ok    ok 
+           64x129280 short      ok    ok    ok 
+              4x8193 full       ok    ok    ok 
+              4x8193 partial    ok    ok    ok 
+              4x8193 short      ok    ok    ok 
+             4x16385 full       ok    ok    ok 
+             4x16385 partial    ok    ok    ok 
+             4x16385 short      ok    ok    ok 
+          16383x4095 full       ok    ok    ok 
+          16383x4095 partial    ok    ok    ok 
+          16383x4095 short      ok    ok    ok 
+          12961x4100 full       ok    ok    ok 
+          12961x4100 partial    ok    ok    ok 
+          12961x4100 short      ok    ok    ok 
+          16380x5115 full       ok    ok    ok 
+          16380x5115 partial    ok    ok    ok 
+          16380x5115 short      ok    ok    ok 
+           4100x1025 full       ok    ok    ok 
+           4100x1025 partial    ok    ok    ok 
+           4100x1025 short      ok    ok    ok 
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0917 09:04:45.439399 96159 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 12 (function operator())
+
+  plans cached: 7
+  ALL CORRECT
+
+               shape   wall on  wall off    saved    dev on   dev off
+           64x129280     363.2     232.6   -130.6     361.9     228.2
+              4x8193      28.9     128.0     99.1      27.4      27.3
+             4x16385      34.5     128.2     93.7      33.5      36.2
+          16383x4095    1352.4    1354.2      1.8    1349.6    1349.8
+          12961x4100    1069.5    1071.5      2.1    1066.6    1066.6
+          16380x5115    1579.7    1581.5      1.9    1577.3    1576.2
+           4100x1025     175.2     177.3      2.1     172.2     172.4
+
+  'saved' is host time per call, which --mode kernel cannot see.
+  The device columns are the same kernel at the same geometry and
+  should not move; if they do, something else changed.
