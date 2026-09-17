@@ -36,6 +36,7 @@ import sys
 from importlib import import_module
 
 import torch
+import triton
 import triton.language as tl
 from torch.profiler import ProfilerActivity, profile
 
@@ -51,8 +52,12 @@ SHAPES = [
     (16380, 5115, 512, 5376),
     (4100, 1025, 512, 1288),
 ]
-# (label, extra shift on the STEP-0 key) -- 0 is the operator's own 2048 bins
-VARIANTS = [("2048 bins", 0), ("1024 bins", 1), ("512 bins", 2)]
+# (label, replacement for _extract_bin_idx); None keeps the operator's own
+VARIANTS = [
+    ("2048 bins", None),
+    ("1024 bins", "_extract_6"),
+    ("512 bins", "_extract_7"),
+]
 ROUNDS = 3
 
 
@@ -82,40 +87,56 @@ def load_copy(name):
     return mod
 
 
-def make_extract(extra):
-    """_extract_bin_idx with the STEP-0 key shifted `extra` bits further.
+@triton.jit
+def _map16(x):
+    """The operator's own fp16 ordering, before the key is narrowed."""
+    h = x.to(tl.float16)
+    bits = h.to(tl.uint16, bitcast=True)
+    sign_set = (bits & tl.full(bits.shape, 0x8000, tl.uint16)) != 0
+    inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
+    return tl.where(sign_set, bits, inv)
 
-    STEP 1-3 are untouched and, on these shapes, never run -- the pattern they
-    would derive from a narrower STEP-0 bin is not made consistent here, so
-    this is a probe of STEP 0 only and not a shippable change on its own.
-    """
-    import triton
 
-    @triton.jit
-    def _extract(x, in_range, pattern, STEP: tl.constexpr):
-        is_partial_match = in_range
-        if STEP == 0:
-            h = x.to(tl.float16)
-            bits = h.to(tl.uint16, bitcast=True)
-            sign_mask = tl.full(bits.shape, 0x8000, tl.uint16)
-            sign_set = (bits & sign_mask) != 0
-            inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
-            mapped = tl.where(sign_set, bits, inv)
-            bin_idx = (mapped >> (5 + extra)).to(tl.uint32)
-        else:
-            bits = _convert_to_uint32(x)
-            if STEP == 1:
-                bin_idx = (bits >> 21) & 0x7FF
-                is_partial_match = in_range & ((bits >> 21) == pattern)
-            elif STEP == 2:
-                bin_idx = (bits >> 10) & 0x7FF
-                is_partial_match = in_range & ((bits >> 10) == pattern)
-            else:
-                bin_idx = bits & 0x3FF
-                is_partial_match = in_range & (bits == pattern)
-        return bin_idx, is_partial_match
+@triton.jit
+def _refine(x, in_range, pattern, STEP: tl.constexpr):
+    """STEP 1-3, verbatim from the operator. Dead code on these shapes -- STEP
+    0 always converges -- but kept so the rebind is a drop-in."""
+    bits = _convert_to_uint32(x)
+    if STEP == 1:
+        bin_idx = (bits >> 21) & 0x7FF
+        is_partial_match = in_range & ((bits >> 21) == pattern)
+    elif STEP == 2:
+        bin_idx = (bits >> 10) & 0x7FF
+        is_partial_match = in_range & ((bits >> 10) == pattern)
+    else:
+        bin_idx = bits & 0x3FF
+        is_partial_match = in_range & (bits == pattern)
+    return bin_idx, is_partial_match
 
-    return _extract
+
+# One function per variant with the shift written out. A closure variable is
+# NOT usable here: Triton rejects any global or captured name inside a @jit
+# function unless it is a tl.constexpr instance, which is what round 1 of this
+# probe died on -- the third time this session (after BIG and SAFETY).
+@triton.jit
+def _extract_5(x, in_range, pattern, STEP: tl.constexpr):
+    if STEP == 0:
+        return (_map16(x) >> 5).to(tl.uint32), in_range
+    return _refine(x, in_range, pattern, STEP)
+
+
+@triton.jit
+def _extract_6(x, in_range, pattern, STEP: tl.constexpr):
+    if STEP == 0:
+        return (_map16(x) >> 6).to(tl.uint32), in_range
+    return _refine(x, in_range, pattern, STEP)
+
+
+@triton.jit
+def _extract_7(x, in_range, pattern, STEP: tl.constexpr):
+    if STEP == 0:
+        return (_map16(x) >> 7).to(tl.uint32), in_range
+    return _refine(x, in_range, pattern, STEP)
 
 
 def main():
@@ -124,10 +145,10 @@ def main():
     )
     dev = "cuda"
     mods = []
-    for i, (label, extra) in enumerate(VARIANTS):
+    for i, (label, repl) in enumerate(VARIANTS):
         mod = load_copy(f"flaggems_vllm.ops._topk_prefill_bins_{i}")
-        if extra:
-            mod._extract_bin_idx = make_extract(extra)
+        if repl:
+            mod._extract_bin_idx = globals()[repl]
         mods.append((label, mod))
     print("device us per variant, interleaved; only the STEP-0 key changes\n")
     print(
