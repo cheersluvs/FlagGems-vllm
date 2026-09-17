@@ -1,0 +1,385 @@
+### branch topk-metax @ da8e463
+### 2026-09-17T08:21:00+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+
+=== the GPU agent, via torch (rocminfo lists every CPU core as an agent too)
+  L2_cache_size = 8388608
+  gcnArchName = gfx936:sramecc+:xnack-
+  is_integrated = 0
+  is_multi_gpu_board = 0
+  major = 9
+  max_threads_per_block = 1024
+  max_threads_per_multi_processor = 2560
+  minor = 3
+  multi_processor_count = 80
+  name = BW
+  pci_bus_id = 9
+  pci_device_id = 0
+  pci_domain_id = 0
+  regs_per_multiprocessor = 196608
+  shared_memory_per_block = 65536
+  total_memory = 68702699520
+  uuid = 30303134-6263-3461-3237-346132393231
+  warp_size = 64
+
+=== GPU agent from rocminfo, this time actually selecting it
+
+=== hipprof interface
+lrwxrwxrwx 1 root root 18 Mar 18  2026 /opt/dtk/bin/hipprof -> ../hip/bin/hipprof
+lrwxrwxrwx 1 root root 18 Mar 18  2026 /opt/dtk/bin/hipprof -> ../hip/bin/hipprof
+lrwxrwxrwx 1 root root 23 Mar 18  2026 /opt/dtk/bin/hipprof_ctrl -> ../hip/bin/hipprof_ctrl
+
+--- $ /opt/dtk/bin/hipprof --help
+HIP_PROF:[31mInvalid arg: --help[m
+Full path: /opt/dtk/hip/bin/hipprof
+Usage:
+  hipprof [options] <app command line>
+
+Options:
+  -h                          - this help.
+  -o <output file>            - for the output filepath[a/, a/b/, /a/b/] and filename[a, a/b, /a/b/c].
+  -d <data directory>         - to change the temporary directory [/tmp].
+  --output-type <type code>   - specify output trace file format (options: 0=json, 1=html, 2=pftrace default: 2).
+
+tracing options:
+  --hiptx-trace               - to enable HIPTX application code annotation trace.
+  --hiptx-kernel              - to enable HIPTX kernel application code annotation trace.
+  --hip-trace                 - to trace HIP, HIP copy, HIP kernel generates API execution stats and trace file.
+  --libc-trace                - to trace LIBC generates API execution stats and trace file.
+  --hsa-trace                 - to trace HSA, HSA copy, HSA kernel generates API execution stats and trace file.
+  --cl-trace                  - to trace OpenCL, OpenCL copy, OpenCL kernel generates API execution stats and trace file.
+  --omp-trace                 - to trace OpenMP, OpenMP copy, OpenMP kernel generates API execution stats and trace file.
+  --rccl-trace                - to trace RCCL, RCCL kernel generates API execution stats and trace file.
+  --mpi-trace                 - to trace MPI generates API execution stats and trace file.
+  --barrier                   - to trace HIP barrier, OpenCL barrier, OpenMP barrier generates API execution stats and trace file.
+  --kernel-stack              - export csv file [<result_pid>.stack.csv] to save the stack information of the kernel.
+
+  --no-export                 - export trace db only.
+  --stats                     - print and export statistics only without trace file.
+  --show-pid                  - print and export statistics grouped by PID.
+  --segment-size <size>       - the maximum number of traces in a single trace file, default 5000000, at least 5000.
+  --group-stream              - to export trace time line group by stream.
+  --trace-args                - tracking collection parameters (not collected by default since version 25.04.2).
+  --devices <device id>       - only the OPS and COPY of the specified device[0 0,1 0,1,2] are output.
+  --print-trace               - print performance analysis process data of HIP„ÄÅOpenCL„ÄÅRCCL„ÄÅOpenMP on the terminal.
+  --mask-trace <config file>  - specify APIs of HIP for analysis and reduce the amount of data to analyze.
+  --libc-trace-level <level>  - limit the api level of the traced libc,default level 1. 1:track of all libc apis,0:track of common libc apis.
+  --trace-off                 - to disable tracing on start.
+
+  --db <db file name>         - export data from the existing database(s)[1.db, 2.db:3.db:4.db] specified via --db.
+  --db-path <db path>         - export data from the existing database(s) in db path specified via --db-path.
+  --db-merge <db file path>   - merge multiple db files and export new combined traces.
+  --merge-type <type id>      - select merge type, 0 is default original time, 1 is time alignment.
+
+--- $ /opt/dtk/bin/hipprof --version
+HIP_PROF:[31mInvalid arg: --version[m
+Full path: /opt/dtk/hip/bin/hipprof
+Usage:
+  hipprof [options] <app command line>
+
+Options:
+  -h                          - this help.
+  -o <output file>            - for the output filepath[a/, a/b/, /a/b/] and filename[a, a/b, /a/b/c].
+  -d <data directory>         - to change the temporary directory [/tmp].
+  --output-type <type code>   - specify output trace file format (options: 0=json, 1=html, 2=pftrace default: 2).
+
+tracing options:
+  --hiptx-trace               - to enable HIPTX application code annotation trace.
+  --hiptx-kernel              - to enable HIPTX kernel application code annotation trace.
+  --hip-trace                 - to trace HIP, HIP copy, HIP kernel generates API execution stats and trace file.
+  --libc-trace                - to trace LIBC generates API execution stats and trace file.
+  --hsa-trace                 - to trace HSA, HSA copy, HSA kernel generates API execution stats and trace file.
+  --cl-trace                  - to trace OpenCL, OpenCL copy, OpenCL kernel generates API execution stats and trace file.
+  --omp-trace                 - to trace OpenMP, OpenMP copy, OpenMP kernel generates API execution stats and trace file.
+  --rccl-trace                - to trace RCCL, RCCL kernel generates API execution stats and trace file.
+  --mpi-trace                 - to trace MPI generates API execution stats and trace file.
+  --barrier                   - to trace HIP barrier, OpenCL barrier, OpenMP barrier generates API execution stats and trace file.
+  --kernel-stack              - export csv file [<result_pid>.stack.csv] to save the stack information of the kernel.
+
+  --no-export                 - export trace db only.
+  --stats                     - print and export statistics only without trace file.
+  --show-pid                  - print and export statistics grouped by PID.
+  --segment-size <size>       - the maximum number of traces in a single trace file, default 5000000, at least 5000.
+  --group-stream              - to export trace time line group by stream.
+  --trace-args                - tracking collection parameters (not collected by default since version 25.04.2).
+  --devices <device id>       - only the OPS and COPY of the specified device[0 0,1 0,1,2] are output.
+  --print-trace               - print performance analysis process data of HIP„ÄÅOpenCL„ÄÅRCCL„ÄÅOpenMP on the terminal.
+  --mask-trace <config file>  - specify APIs of HIP for analysis and reduce the amount of data to analyze.
+  --libc-trace-level <level>  - limit the api level of the traced libc,default level 1. 1:track of all libc apis,0:track of common libc apis.
+  --trace-off                 - to disable tracing on start.
+
+  --db <db file name>         - export data from the existing database(s)[1.db, 2.db:3.db:4.db] specified via --db.
+  --db-path <db path>         - export data from the existing database(s) in db path specified via --db-path.
+  --db-merge <db file path>   - merge multiple db files and export new combined traces.
+  --merge-type <type id>      - select merge type, 0 is default original time, 1 is time alignment.
+
+=== what hipprof says it can count
+
+--- $ /opt/dtk/bin/hipprof --list-basic
+
+  gpu-agent0 : SQ_INSTS_MMOP : Number of MMOP instructions issued. (per-simd, emulated)
+      block SQ can only handle 8 counters at a time
+
+  gpu-agent0 : SQ_ACTIVE_INST_MMOP : Number of cycles the MMOP ALU is busy (per-simd, emulated)
+      block SQ can only handle 8 counters at a time
+
+  gpu-agent0 : CPC_ALWAYS_COUNT : Always Count.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_RCIU_STALL_WAIT_ON_FREE : RCIU Stall Waiting on Free.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_RCIU_STALL_PRIV_VIOLATION : RCIU Stall on Priv violation.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_MIU_STALL_ON_RDREQ_FREE : Reserved.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_MIU_STALL_ON_WRREQ_FREE : Reserved.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_TCIU_STALL_WAIT_ON_FREE : TCIU Stall waiting for free.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_ME1_STALL_WAIT_ON_RCIU_READY : Me1 stall waiting on RCIU Ready.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_ME1_STALL_WAIT_ON_RCIU_READY_PERF : Me1 stall waiting on RCIU Ready Perf.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_ME1_STALL_WAIT_ON_RCIU_READ : Me1 stall waiting on RCIU read.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_ME1_STALL_WAIT_ON_MIU_READ : Reserved.
+      block CPC can only handle 2 counters at a time
+
+  gpu-agent0 : CPC_ME1_STALL_WAIT_ON_MIU_WRITE : Reserved.
+      block CPC can only handle 2 counters at a time
+
+
+--- $ /opt/dtk/bin/hipprof --list-derived
+
+  gpu-agent0 : TCC_EA1_RDREQ_32B_sum : Number of 32-byte TCC/EA read requests. Sum over TCC EA1s.
+      TCC_EA1_RDREQ_32B_sum = sum(TCC_EA1_RDREQ_32B,32)
+
+  gpu-agent0 : TCC_EA1_RDREQ_sum : Number of TCC/EA read requests (either 32-byte or 64-byte). Sum over TCC EA1s.
+      TCC_EA1_RDREQ_sum = sum(TCC_EA1_RDREQ,32)
+
+  gpu-agent0 : TCC_EA1_WRREQ_sum : Number of transactions (either 32-byte or 64-byte) going over the TC_EA_wrreq interface. Sum over TCC EA1s.
+      TCC_EA1_WRREQ_sum = sum(TCC_EA1_WRREQ,32)
+
+  gpu-agent0 : TCC_EA1_WRREQ_64B_sum : Number of 64-byte transactions going (64-byte write or CMPSWAP) over the TC_EA_wrreq interface. Sum over TCC EA1s.
+      TCC_EA1_WRREQ_64B_sum = sum(TCC_EA1_WRREQ_64B,32)
+
+  gpu-agent0 : TCC_WRREQ1_STALL_max : Number of cycles a write request was stalled. Max over TCC instances.
+      TCC_WRREQ1_STALL_max = max(TCC_EA1_WRREQ_STALL,32)
+
+  gpu-agent0 : RDATA1_SIZE : The total kilobytes fetched from the video memory. This is measured on EA1s.
+      RDATA1_SIZE = (TCC_EA1_RDREQ_32B_sum*32+(TCC_EA1_RDREQ_sum-TCC_EA1_RDREQ_32B_sum)*64)
+
+  gpu-agent0 : WDATA1_SIZE : The total kilobytes written to the video memory. This is measured on EA1s.
+      WDATA1_SIZE = ((TCC_EA1_WRREQ_sum-TCC_EA1_WRREQ_64B_sum)*32+TCC_EA1_WRREQ_64B_sum*64)
+
+  gpu-agent0 : FETCH_SIZE : The total kilobytes fetched from the video memory. This is measured with all extra fetches and any cache or memory effects taken into account.
+      FETCH_SIZE = (TCC_EA_RDREQ_32B_sum*32+(TCC_EA_RDREQ_sum-TCC_EA_RDREQ_32B_sum)*64+RDATA1_SIZE)/1024
+
+  gpu-agent0 : WRITE_SIZE : The total kilobytes written to the video memory. This is measured with all extra fetches and any cache or memory effects taken into account.
+      WRITE_SIZE = ((TCC_EA_WRREQ_sum-TCC_EA_WRREQ_64B_sum)*32+TCC_EA_WRREQ_64B_sum*64+WDATA1_SIZE)/1024
+
+  gpu-agent0 : WRITE_REQ_32B : The total number of 32-byte effective memory writes.
+      WRITE_REQ_32B = (TCC_EA_WRREQ_sum-TCC_EA_WRREQ_64B_sum)+(TCC_EA1_WRREQ_sum-TCC_EA1_WRREQ_64B_sum)+(TCC_EA_WRREQ_64B_sum+TCC_EA1_WRREQ_64B_sum)*2
+
+  gpu-agent0 : L2ReadReqs : The total number of read requests to L2 cache.
+      L2ReadReqs = (TCC_EA_RDREQ_sum+TCC_EA1_RDREQ_sum)
+
+  gpu-agent0 : L2WriteReqs : The total number of write requests to L2 cache.
+      L2WriteReqs = (TCC_EA_WRREQ_sum+TCC_EA1_WRREQ_sum)
+
+  gpu-agent0 : TCC_BUSY_avr : TCC_BUSY avr over all memory channels.
+      TCC_BUSY_avr = avr(TCC_BUSY,32)
+
+
+--- $ /opt/dtk/bin/hipprof --list-counters
+HIP_PROF:[31mInvalid arg: --list-counters[m
+Full path: /opt/dtk/hip/bin/hipprof
+Usage:
+  hipprof [options] <app command line>
+
+Options:
+  -h                          - this help.
+  -o <output file>            - for the output filepath[a/, a/b/, /a/b/] and filename[a, a/b, /a/b/c].
+  -d <data directory>         - to change the temporary directory [/tmp].
+  --output-type <type code>   - specify output trace file format (options: 0=json, 1=html, 2=pftrace default: 2).
+
+tracing options:
+  --hiptx-trace               - to enable HIPTX application code annotation trace.
+  --hiptx-kernel              - to enable HIPTX kernel application code annotation trace.
+  --hip-trace                 - to trace HIP, HIP copy, HIP kernel generates API execution stats and trace file.
+  --libc-trace                - to trace LIBC generates API execution stats and trace file.
+  --hsa-trace                 - to trace HSA, HSA copy, HSA kernel generates API execution stats and trace file.
+  --cl-trace                  - to trace OpenCL, OpenCL copy, OpenCL kernel generates API execution stats and trace file.
+  --omp-trace                 - to trace OpenMP, OpenMP copy, OpenMP kernel generates API execution stats and trace file.
+  --rccl-trace                - to trace RCCL, RCCL kernel generates API execution stats and trace file.
+  --mpi-trace                 - to trace MPI generates API execution stats and trace file.
+  --barrier                   - to trace HIP barrier, OpenCL barrier, OpenMP barrier generates API execution stats and trace file.
+  --kernel-stack              - export csv file [<result_pid>.stack.csv] to save the stack information of the kernel.
+
+  --no-export                 - export trace db only.
+  --stats                     - print and export statistics only without trace file.
+  --show-pid                  - print and export statistics grouped by PID.
+  --segment-size <size>       - the maximum number of traces in a single trace file, default 5000000, at least 5000.
+  --group-stream              - to export trace time line group by stream.
+  --trace-args                - tracking collection parameters (not collected by default since version 25.04.2).
+  --devices <device id>       - only the OPS and COPY of the specified device[0 0,1 0,1,2] are output.
+  --print-trace               - print performance analysis process data of HIP„ÄÅOpenCL„ÄÅRCCL„ÄÅOpenMP on the terminal.
+  --mask-trace <config file>  - specify APIs of HIP for analysis and reduce the amount of data to analyze.
+  --libc-trace-level <level>  - limit the api level of the traced libc,default level 1. 1:track of all libc apis,0:track of common libc apis.
+  --trace-off                 - to disable tracing on start.
+
+  --db <db file name>         - export data from the existing database(s)[1.db, 2.db:3.db:4.db] specified via --db.
+  --db-path <db path>         - export data from the existing database(s) in db path specified via --db-path.
+  --db-merge <db file path>   - merge multiple db files and export new combined traces.
+  --merge-type <type id>      - select merge type, 0 is default original time, 1 is time alignment.
+/opt/dtk/rocprofiler:
+bin
+include
+lib
+libexec
+rocprofiler
+share
+/opt/dtk/rocprofiler/lib/rocprofiler/gfx_metrics.xml
+/opt/dtk/rocprofiler/lib/rocprofiler/metrics.xml
+/opt/dtk/rocprofiler/rocprofiler/lib/gfx_metrics.xml
+/opt/dtk/rocprofiler/rocprofiler/lib/metrics.xml
+/opt/dtk/share/profiler/counters/basic_counters.xml
+/opt/dtk/share/profiler/counters/derived_counters.xml
+
+=== kernel trace of the real operator
+
+--- $ /opt/dtk/bin/hipprof --stats -o /tmp/hipprof_survey/stats.csv python tools/hygon_prefill_one.py 16383 4095 512 4352 20
+ran 20 x prefill 16383x4095 top_k 512
+HIP_PROF:on Thu Sep 17 08:21:19 2026
+HIP_PROF:process id '90629'
+HIP_PROF:db file '/tmp/hipprof_survey/stats.csv.db'
+HIP_PROF:out put file '/tmp/hipprof_survey/stats.csv'
+HIP_PROF:profiling ' python tools/hygon_prefill_one.py 16383 4095 512 4352 20'
+HIP_PROF:process begin
+HIP_PROF:process end run total cost:24(s)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+HIP_PROF:IP:[31m43.9.7.7[0m HIP API statistics
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|Name                                                          |Calls          |TotalDurationNs            |AverageNs                  |Percentage                 |
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|hipMalloc                                                     |5              |37821314                   |7564262                    |52.9421856423373           |
+|hipDeviceSynchronize                                          |2              |27776589                   |13888294                   |38.881603408832            |
+|hipLaunchKernel                                               |3              |3980882                    |1326960                    |5.57242918276819           |
+|hipModuleGetFunction                                          |1              |1187167                    |1187167                    |1.66179355118272           |
+|hipModuleLaunchKernel                                         |23             |236553                     |10284                      |0.33112632840445           |
+|hipModuleLoadDataEx                                           |1              |159091                     |159091                     |0.222695204508894          |
+|hipGetDevice                                                  |666            |69651                      |104                        |0.0974973046196765         |
+|hipGetProcAddress                                             |6              |64641                      |10773                      |0.0904843185011057         |
+|hipPointerGetAttribute                                        |230            |50930                      |221                        |0.0712916932173282         |
+|hipSetDevice                                                  |288            |27230                      |94                         |0.0381164894228912         |
+|hipGetDeviceProperties_v2                                     |13             |23550                      |1811                       |0.0329652341501684         |
+|hipDevicePrimaryCtxGetState                                   |34             |17180                      |505                        |0.0240485232568957         |
+|__hipPopCallConfiguration                                     |3              |6540                       |2180                       |0.00915467649011047        |
+|hipStreamIsCapturing                                          |7              |5830                       |832                        |0.00816082017390582        |
+|hipGetDeviceCount                                             |4              |2560                       |640                        |0.00358348192885058        |
+|hipGetDeviceProperties                                        |8              |2390                       |298                        |0.00334551633201285        |
+|hipFuncGetAttribute                                           |3              |2060                       |686                        |0.00288358311462195        |
+|hipGetLastError                                               |8              |1980                       |247                        |0.00277159930434537        |
+|__hipPushCallConfiguration                                    |3              |1880                       |626                        |0.00263161954149965        |
+|hipDeviceGetStreamPriorityRange                               |1              |880                        |880                        |0.00123182191304239        |
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|Total                                                         |1309           |71438898                   |54575                      |100.0                      |
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+HIP_PROF:IP:[31m43.9.7.7[0m HIPOPS API statistics
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|Name                                                          |Calls          |TotalDurationNs            |AverageNs                  |Percentage                 |
+--- files
+total 304
+drwxr-xr-x 2 root root     87 Sep 17 08:21 .
+drwxrwxrwt 1 root root 102400 Sep 17 08:21 ..
+-rw-r--r-- 1 root root 151552 Sep 17 08:21 stats.csv.db
+-rw-r--r-- 1 root root   5488 Sep 17 08:21 stats.csv.hipkernel.csv
+-rw-r--r-- 1 root root   1367 Sep 17 08:21 stats.csv.hiptrace.csv
+--- /tmp/hipprof_survey/stats.csv.hipkernel.csv
+"Name","Calls","TotalDurationNs","AverageNs","Percentage"
+"non_tle_top_k_per_row_prefill","23","31033434","1349279","97.785"
+"void at::native::(anonymous namespace)::distribution_elementwise_grid_stride_kernel<float, 4, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2} const&, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(int, float)#1}>(long, at::PhiloxCudaState, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2} const&, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(int, float)#1})","1","697760","697760","2.199"
+"void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>)","2","5120","2560","0.016"
+"Total","26","31736314","1220627","100.0"
+--- /tmp/hipprof_survey/stats.csv.hiptrace.csv
+"Name","Calls","TotalDurationNs","AverageNs","Percentage"
+"hipMalloc","5","37821314","7564262","52.9421856423373"
+"hipDeviceSynchronize","2","27776589","13888294","38.881603408832"
+"hipLaunchKernel","3","3980882","1326960","5.57242918276819"
+"hipModuleGetFunction","1","1187167","1187167","1.66179355118272"
+"hipModuleLaunchKernel","23","236553","10284","0.33112632840445"
+"hipModuleLoadDataEx","1","159091","159091","0.222695204508894"
+"hipGetDevice","666","69651","104","0.0974973046196765"
+"hipGetProcAddress","6","64641","10773","0.0904843185011057"
+"hipPointerGetAttribute","230","50930","221","0.0712916932173282"
+"hipSetDevice","288","27230","94","0.0381164894228912"
+"hipGetDeviceProperties_v2","13","23550","1811","0.0329652341501684"
+--- /tmp/hipprof_survey/stats.csv.db
+SQLite format 3   @        %                                                             .WJ   “ >ªÆ\
+∂
+	UüÕ“                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ÅxÉGtableSUMMARYSUMMARY%CREATE TABLE SUMMARY(NAME integer, KIND integer, PID integer, CONFIG_KEY text, CALLS integer, MAX_NS integer, MIN_NS integer, TOTAL_NS integer, PARS text, TOTAL_BYTE integer, MAX_GBPS real, MIN_GBPS real, TOTAL_GBPS real)ÅO
+''Ç]tableTRACE_COUNTERTRACE_COUNTER$CREATE TABLE TRACE_COUNTER (Key TEXT, TraceType INTEGER, MinBeginNs INTEGER, MaxBeginNs INTEGER, TraceSum INTEGER, MinTs INTEGER, MaxTs INTEGER, DbMinTimeOfDay INTEGER)Å3	WOÅMindexHIPCOPY_43_9_7_7_90633_1789604482_idxHIPCOPY_43_9_7_7_90633_1789604482#CREATE INDEX HIPCOPY_43_9_7_7_90633_1789604482_idx on HIPCOPY_43_9_7_7_90633_1789604482 (_Index)Å/UMÅIindexHIPOPS_43_9_7_7_90633_1789604482_idxHIPOPS_43_9_7_7_90633_1789604482"CREATE INDEX HIPOPS_43_9_7_7_90633_1789604482_idx on HIPOPS_43_9_7_7_90633_1789604482 (_Index)Å,WGÅGindexHIP_43_9_7_7_90633_1789604482_beginnsHIP_43_9_7_7_90633_1789604482CREATE INDEX HIP_43_9_7_7_90633_1789604482_beginns ON HIP_43_9_7_7_90633_1789604482 (BeginNs)Å#OGÅ=indexHIP_43_9_7_7_90633_1789604482_idxHIP_43_9_7_7_90633_1789604482CREATE INDEX HIP_43_9_7_7_90633_1789604482_idx on HIP_43_9_7_7_90633_1789604482 (_Index)Ç MMÉ3tableHIPOPS_43_9_7_7_90633_1789604482HIPOPS_43_9_7_7_90633_1789604482	CREATE TABLE HIPOPS_43_9_7_7_90633_1789604482 (BeginNs INTEGER, EndNs INTEGER, dev_id INTEGER, queue_id TEXT, Name TEXT, pid INTEGER, tid INTEGER, _Index INTEGER, DurationNs INTEGER, PARS TEXT, accum_id INTEGER)Ç,OOÉGtableHIPCOPY_43_9_7_7_90633_1789604482HIPCOPY_43_9_7_7_90633_1789604482CREATE TABLE HIPCOPY_43_9_7_7_90633_1789604482 (BeginNs INTEGER, EndNs INTEGER, dev_id INTEGER, queue_id TEXT, Kind INTEGER, pid INTEGER, tid INTEGER, _Index INTEGER, DurationNs INTEGER, Bytes INTEGER, MemoryType INTEGER)Ç
+GGÉtableHIP_43_9_7_7_90633_1789604482HIP_43_9_7_7_90633_1789604482CREATE TABLE HIP_43_9_7_7_90633_1789604482 (BeginNs INTEGER, EndNs INTEGER, pid INTEGER, tid INTEGER, Name INTEGER, args TEXT, _Index INTEGER, State INTEGER, DurationNs INTEGER, ExtIndex INTEGER)Å ÅOtableSTR_TABLESTR_TABLECREATE TABLE STR_TABLE(PID INTEGER, CONFIG_KEY TEXT, TYPE INTEGER, STR_ID INTEGER, STR_NAME TEXT)Å?ÇYtableCONFIGCONFIGCREATE TABLE CONFIG (KEY TEXT, PID INTEGER NOT NULL, RANK_ID INTEGER, START_TIME TEXT, TIME_OF_DAY TEXT NOT NULL, MPI_TIME TEXT, CPU_ID TEXT, IP TEXT NOT NULL, DB_ID)   o o                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     Å?-3Å43_9_7_7_90633_1789604482b	ˇ8140875752650399178960448214561565180:00:00:03:fe:80:00:00:00:00:00:00:e5:08:e8:61:1a:65:6d:d643.9.7.7   
+€ È
+€                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             A?Gb	43_9_7_7_90633_1789604482non_tle_top_k_per_row_prefillÅH?ÇSb	43_9_7_7_90633_1789604482void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>)®?	œ]b	43_9_7_7_90633_1789604482void at::native::(anonymous namespace)::distribution_elementwise_grid_stride_kernel<float, 4, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1}>(at::TensorIteratorBase&, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBase const&, double, double, at::CUDAGeneratorImpl*)::{lambda()#1}::operator()() const::{lambda()#2}::operator()() const::{lambda(float)#1})::{lambda(hiprandStatePhilox4_32_10*)#2}, at::native::(anonymous namespace)::distribution_nullary_kernel<float, float, HIP_vector_type<float, 4u>, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_and_transform<float, float, at::CUDAGeneratorImpl*, at::native::templates::cuda::normal_kernel<at::CUDAGeneratorImpl*>(at::TensorBa      ≥    ˚ıÔÈ„›◊—À≈øπ≥                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                âV   àw   à   á9   ÜZ   Ö{   Ö   Ñ=   É^   
+Ç   Ç!   ÅC   c   c “ Ÿ±âb:Í¬örJ#˚”´É[3„ªîmF¯—™É\5
+Á
+¿
+ô
+r
+
+=== if --stats did not work, the plainest form
+
+--- $ /opt/dtk/bin/hipprof python tools/hygon_prefill_one.py 16383 4095 512 4352 20
+ran 20 x prefill 16383x4095 top_k 512
+HIP_PROF:on Thu Sep 17 08:21:44 2026
+HIP_PROF:process id '90839'
+HIP_PROF:db file 'hip-prof-90839.db'
+HIP_PROF:out put file 'result_90839'
+HIP_PROF:profiling ' python tools/hygon_prefill_one.py 16383 4095 512 4352 20'
+HIP_PROF:process begin
+HIP_PROF:process end run total cost:24(s)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+HIP_PROF:IP:[31m43.9.7.7[0m HIP API statistics
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|Name                                                          |Calls          |TotalDurationNs            |AverageNs                  |Percentage                 |
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|hipMalloc                                                     |5              |43067310                   |8613462                    |55.9655177858206           |
+|hipDeviceSynchronize                                          |2              |27850251                   |13925125                   |36.1911091656309           |
+|hipLaunchKernel                                               |3              |4158955                    |1386318                    |5.40451841600805           |
+|hipModuleGetFunction                                          |1              |1215517                    |1215517                    |1.57955159684845           |
+|hipModuleLaunchKernel                                         |23             |235361                     |10233                      |0.305849151748473          |
+|hipModuleLoadDataEx                                           |1              |151661                     |151661                     |0.19708187933993           |
+|hipGetDevice                                                  |666            |72130                      |108                        |0.0937321787195727         |
+|hipGetProcAddress                                             |6              |63780                      |10630                      |0.0828814412690191         |
+|hipPointerGetAttribute                                        |230            |50250                      |218                        |0.0652993481305771         |
+|hipSetDevice                                                  |288            |27200                      |94                         |0.035346114808989          |
+|hipGetDeviceProperties_v2                                     |13             |23040                      |1772                       |0.0299402384264378         |
+|hipDevicePrimaryCtxGetState                                   |34             |15650                      |460                        |0.020337010910319          |
+|__hipPopCallConfiguration                                     |3              |5630                       |1876                       |0.00731612596965471        |
+|hipStreamIsCapturing                                          |7              |5590                       |798                        |0.00726414638905326        |
+|hipGetDeviceCount                                             |4              |2760                       |690                        |0.00358659106150036        |
+|hipGetDeviceProperties                                        |8              |2130                       |266                        |0.00276791266702745        |
+|__hipPushCallConfiguration                                    |3              |1950                       |650                        |0.0025340045543209         |
+|hipFuncGetAttribute                                           |3              |1830                       |610                        |0.00237806581251654        |
+|hipGetLastError                                               |8              |1590                       |198                        |0.00206618832890781        |
+|hipDeviceGetStreamPriorityRange                               |1              |710                        |710                        |0.000922637555675816       |
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|Total                                                         |1309           |76953295                   |58787                      |100.0                      |
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+HIP_PROF:IP:[31m43.9.7.7[0m HIPOPS API statistics
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+|Name                                                          |Calls          |TotalDurationNs            |AverageNs                  |Percentage                 |
+
+=== survey done
