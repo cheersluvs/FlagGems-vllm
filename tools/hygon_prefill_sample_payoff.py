@@ -31,10 +31,28 @@ measures T over a range of top_k down to 1, takes H from the low end, and
 prints the predicted sampled time for each (SSTRIDE, m) -- the go/no-go
 number, before anything is built.
 
-It is a PREDICTION, not the thing itself: it assumes the sample pass costs
-H/SSTRIDE and ignores the fallback for rows whose estimate misses the window.
-MTT's own notes say that fallback dominated their first attempt, so a
-prediction below about 1.2x is not worth acting on.
+Round 1 of this probe got two things wrong.
+
+On (64,129280) it came back non-monotonic -- T(2048) = 255.9 BELOW both
+T(1024) = 287.5 and T(1) = 256.7 -- which the model forbids. Pinning the
+module did not defeat that shape's bimodality because this probe, unlike the
+trigger one, did not interleave. Its predicted speedups (9.2x, 18.8x) were
+artifacts of H landing on top of T(2048), and are void.
+
+And T(top_k=1) is NOT H. It is the histogram pass PLUS the fixed cost --
+launch, per-program floor, final select over nothing -- and sampling shrinks
+only the pass. On a four-row shape the fixed part is a large share of 25 us,
+so discounting all of it by 1/SSTRIDE overstated the saving.
+
+Both are fixed here. The per-element part is separated by measuring T(top_k=1)
+twice on the same shape with row_end at vocab and at vocab/2: the difference,
+doubled, is the pass, and what remains is fixed. And every quantity is
+measured interleaved, so drift acts on all of them alike.
+
+It is still a PREDICTION: it assumes the sample pass costs pass/SSTRIDE and
+ignores the retry for rows whose estimate misses the window, which is what
+sank MTT's first attempt at 0.383 against a generic 0.652. Below about 1.2x
+there is no margin for that and it should not be built.
 
     tools/vendor_probe.sh tools/hygon_prefill_sample_payoff.py hygon_prefill_payoff
 """
@@ -53,8 +71,8 @@ CASES = [
     (64, 129280, 129280, 1024),
     (4, 16385, 16648, 512),
 ]
-PROBE_K = (1, 16, 128, 512, 1024, 2048, 4096)
 SSTRIDES = (8, 16)
+ROUNDS = 4
 MULTIPLES = (2, 4, 8)
 
 
@@ -81,67 +99,96 @@ def main():
     )
     ov._ENABLED = False  # pin the generic module, as the trigger probe did
     dev = "cuda"
-    print("slot-scan copy OFF; T(top_k) on the operator\n")
+    print(f"slot-scan copy OFF; every quantity interleaved, {ROUNDS} rounds\n")
     for rows, vocab, stride0, prod_k in CASES:
         torch.manual_seed(42)
         buf = torch.randn((rows - 1) * stride0 + vocab, device=dev, dtype=torch.float32)
         logits = torch.as_strided(buf, (rows, vocab), (stride0, 1))
         starts = torch.zeros(rows, dtype=torch.int32, device=dev)
-        ends = torch.full((rows,), vocab, dtype=torch.int32, device=dev)
-        times = {}
-        print(f"  {rows} x {vocab}, production top_k {prod_k}")
-        print(f"    {'top_k':>6} {'density':>8} {'device us':>10} {'ans':>5}")
-        for k in PROBE_K:
-            if k > vocab:
-                continue
+        full = torch.full((rows,), vocab, dtype=torch.int32, device=dev)
+        half = torch.full((rows,), vocab // 2, dtype=torch.int32, device=dev)
+
+        def caller(k, ends):
             idx = torch.empty((rows, k), dtype=torch.int32, device=dev)
 
-            def call(k=k, idx=idx):
+            def go():
                 flaggems_vllm.top_k_per_row_prefill(
                     logits, starts, ends, idx, rows, stride0, 1, k
                 )
 
-            idx.fill_(-9)
-            call()
+            return go, idx
+
+        # what we need: the operator today, the same at m*k, and T(1) at the
+        # full range and at half of it to split the pass from the fixed cost
+        probes = [("base", prod_k, full), ("one", 1, full), ("one_half", 1, half)]
+        probes += [(f"m{m}", prod_k * m, full) for m in MULTIPLES]
+        gos, idxs = {}, {}
+        for name, k, ends in probes:
+            gos[name], idxs[name] = caller(k, ends)
+
+        ok = True
+        for name, k, ends in probes:
+            idxs[name].fill_(-9)
+            gos[name]()
             torch.cuda.synchronize()
-            want = torch.topk(logits, k, dim=1).values.sort(dim=1).values
-            got = logits.gather(1, idx.long().clamp(0, vocab - 1)).sort(dim=1).values
-            ok = torch.allclose(got, want) and bool((idx >= 0).all())
-            times[k] = device_us(call)
-            print(
-                f"    {k:>6} {k / vocab:>8.4f} {times[k]:>10.1f} "
-                f"{'OK' if ok else 'WRONG':>5}",
-                flush=True,
+            n = int(ends[0])
+            want = torch.topk(logits[:, :n], k, dim=1).values.sort(dim=1).values
+            got = (
+                logits[:, :n]
+                .gather(1, idxs[name].long().clamp(0, n - 1))
+                .sort(dim=1)
+                .values
             )
-        H = times[min(times)]
-        base = times.get(prod_k)
+            ok = ok and torch.allclose(got, want) and bool((idxs[name] >= 0).all())
+
+        acc = {name: [] for name, _, _ in probes}
+        for _ in range(ROUNDS):
+            for name, _, _ in probes:
+                acc[name].append(device_us(gos[name]))
+        med = {n: sorted(v)[len(v) // 2] for n, v in acc.items()}
+
+        pass_us = 2.0 * (med["one"] - med["one_half"])
+        fixed_us = med["one"] - pass_us
         print(
-            f"\n    H (histogram pass + fixed) ~ T(top_k={min(times)}) = "
-            f"{H:.1f} us, {H / base * 100:.0f}% of the operator at top_k"
-            f" {prod_k} ({base:.1f} us)"
+            f"  {rows} x {vocab}, production top_k {prod_k}: "
+            f"{'OK' if ok else 'WRONG'}"
         )
+        for name, k, ends in probes:
+            spread = max(acc[name]) / min(acc[name])
+            print(
+                f"    {name:>9} top_k {k:>5} range {int(ends[0]):>6}: "
+                f"{med[name]:>8.1f} us  (spread {spread:.3f})"
+            )
         print(
-            f"    {'sstride':>8} {'m':>3} {'collect at m*k':>15} "
-            f"{'predicted':>10} {'speedup':>8}"
+            f"    histogram pass {pass_us:>8.1f} us, fixed {fixed_us:>8.1f} us"
+            f"  -- pass is {pass_us / med['base'] * 100:.0f}% of the operator"
+        )
+        if pass_us <= 0:
+            print("    pass came out non-positive: the split did not hold\n")
+            continue
+        print(
+            f"    {'sstride':>8} {'m':>3} {'at m*k':>9} {'predicted':>10} "
+            f"{'speedup':>8}"
         )
         for ss in SSTRIDES:
             for m in MULTIPLES:
-                k2 = prod_k * m
-                if k2 not in times:
-                    continue
-                pred = times[k2] - H * (1 - 1 / ss)
+                pred = med[f"m{m}"] - pass_us * (1 - 1 / ss)
                 print(
-                    f"    {ss:>8} {m:>3} {times[k2]:>15.1f} {pred:>10.1f} "
-                    f"{base / pred:>8.3f}",
+                    (
+                        f"    {ss:>8} {m:>3} {med[f'm{m}']:>9.1f} {pred:>10.1f} "
+                        f"{med['base'] / pred:>8.3f}"
+                        if pred > 0
+                        else f"    {ss:>8} {m:>3} {med[f'm{m}']:>9.1f} "
+                        f"{'<=0':>10} {'-':>8}"
+                    ),
                     flush=True,
                 )
         print(flush=True)
     print(
-        "  A predicted speedup is not a measurement: it assumes the sample"
-        "\n  pass costs H/sstride and ignores the retry for rows whose estimate"
-        "\n  misses the window, which is what sank MTT's first attempt. Below"
-        "\n  about 1.2x there is no margin to lose to that and it is not worth"
-        "\n  building."
+        "  Still a prediction: the sample pass is assumed to cost pass/sstride"
+        "\n  and the retry for rows whose estimate misses the window is not"
+        "\n  modelled -- that is what sank MTT's first attempt. Under about"
+        "\n  1.2x there is no margin for it."
     )
     return 0
 
