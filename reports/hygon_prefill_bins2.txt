@@ -1,0 +1,101 @@
+### branch topk-metax @ 8434f39
+### 2026-09-17T10:19:56+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+device us per variant, interleaved; only the STEP-0 key changes
+
+               shape    2048 bins   1024 bins    512 bins  best vs 2048   ans
+triton.compiler.errors.CompilationError: at 4:4:
+def _extract_6(x, in_range, pattern, STEP: tl.constexpr):
+    if STEP == 0:
+        return (_map16(x) >> 6).to(tl.uint32), in_range
+    return _refine(x, in_range, pattern, STEP)
+    ^
+TypeError("Inconsistent return types: [:<['512', '4'], uint32>,:int1] and [:<['512', '4'], uint32>,:<['512', '4'], int1>]")
+
+The above exception was the direct cause of the following exception:
+
+triton.compiler.errors.CompilationError: at 9:32:
+def _distribute_to_bins(
+    logits,
+    in_range,
+    ones,
+    logit_pattern,
+    s_histogram_ptr,
+    STEP: tl.constexpr,
+):
+    bin_idx, is_partial_match = _extract_bin_idx(
+                                ^
+
+The above exception was the direct cause of the following exception:
+
+triton.compiler.errors.CompilationError: at 61:12:
+    elif STEP == 3:
+        logit_pattern |= (threshold_bin_idx.to(tl.uint32) & RADIX11_MASK) << 10
+
+    if assume_aligned:
+        n_tiles = tl.cdiv(vocab_size, BLOCK_SIZE)
+        n_vec_full = vocab_size // (BLOCK_SIZE * VEC)
+        rem_tiles = (vocab_size - n_vec_full * BLOCK_SIZE * VEC) // BLOCK_SIZE
+        for t in tl.range(0, n_vec_full):
+            base = t * BLOCK_SIZE * VEC + lane * VEC
+            offs = base[:, None] + vec[None, :]
+            x_vec = tl.load(logits_ptr + offs)
+            _distribute_to_bins(
+            ^
+
+The above exception was the direct cause of the following exception:
+
+triton.compiler.errors.CompilationError: at 80:16:
+    tl.store(s_found_topk_values_ptr, 0)
+    tl.debug_barrier()
+    logit_pattern = tl.zeros((), dtype=tl.uint32)
+    continue_to_next_step = tl.full((), True, dtype=tl.int1)
+    threshold_bin_idx = tl.full((), -1, dtype=tl.int32)
+    for step_idx in tl.static_range(0, 4):
+        if continue_to_next_step:
+            (
+                continue_to_next_step,
+                logit_pattern,
+                threshold_bin_idx,
+            ) = _process_histogram_step(
+                ^
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_bins.py", line 215, in <module>
+    sys.exit(main())
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_bins.py", line 190, in main
+    go()
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_bins.py", line 181, in go
+    mod.top_k_per_row_prefill(
+  File "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/top_k_per_row_prefill.py", line 1338, in top_k_per_row_prefill
+    non_tle_top_k_per_row_prefill[(num_rows,)](
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 399, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 763, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 899, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+  File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 326, in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+  File "/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py", line 64, in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+  File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+triton.compiler.errors.CompilationError: at 39:4:
+    x_off_mod = (row_id * stride0 + row_start) % VEC
+    skip_elems = 0 if x_off_mod == 0 else VEC - x_off_mod
+    out_indices_ptr += row_id * TOPK
+
+    s_histogram_ptr += row_id * NUM_BINS
+    s_final_logits_ptr += row_id * NUM_FILNAL_ITEMS
+    s_final_cnt_ptr += row_id
+    s_threshold_bin_idx_ptr += row_id
+    s_final_bin_size_ptr += row_id
+    s_found_topk_values_ptr += row_id
+
+    _top_k_per_row_job(
+    ^
