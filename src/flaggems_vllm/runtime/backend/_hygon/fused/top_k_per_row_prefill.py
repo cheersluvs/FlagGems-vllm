@@ -479,7 +479,12 @@ def _s_collect(
 ):
     """One pass: append every element strictly better than the threshold bin.
     Indices are stored relative to row_start, which is what the operator
-    returns.
+    returns. Only the INDEX is stored: the values are re-read from global in
+    _s_finish, in one short parallel pass over the candidates. On S5000 the
+    two scattered stores per hit were the largest remaining cost of the MTT
+    version of this pass, and dropping the value store netted 8.6 us after the
+    re-read; here collect measured 126.7 us against the generic's ~86 for the
+    same bytes.
 
     The bulk loop is UNMASKED and the remainder is handled separately, which
     is how the generic operator writes its own passes. Masking every iteration
@@ -511,7 +516,6 @@ def _s_collect(
         pos = tl.atomic_add(cnt2, ones2, mask=take, sem="relaxed", scope="cta")
         keep = take & (pos >= 0) & (pos < CAP)
         tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
-        tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
 
     tail = n_vec * BLOCK * VEC
     for t in tl.range(0, tl.cdiv(span - tail, BLOCK)):
@@ -522,7 +526,6 @@ def _s_collect(
         pos = tl.atomic_add(cnt1, ones1, mask=take, sem="relaxed", scope="cta")
         keep = take & (pos >= 0) & (pos < CAP)
         tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
-        tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
 
 
 @triton.jit
@@ -650,6 +653,19 @@ def _s_finish(
     obase = out_ptr + row * TOPK
     cbase = counts_ptr + row * RADIX
     tiles = tl.cdiv(n, BLOCK)
+
+    # _s_collect stores indices only; gather the candidate values back from
+    # global memory. The retry above stores values as well, so this re-read is
+    # redundant there -- but correct, and the retry does not fire in practice.
+    # The barrier is required: this program loads from vbase right after
+    # storing to it.
+    row_base = logits_ptr + row * stride0 + s
+    for t in tl.range(0, tiles):
+        pos = t * BLOCK + lane
+        valid = pos < n
+        ci = tl.load(ibase + pos, mask=valid, other=0)
+        tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+    tl.debug_barrier()
 
     if n <= TOPK:
         for t in tl.static_range((TOPK + BLOCK - 1) // BLOCK):
