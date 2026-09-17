@@ -1,0 +1,111 @@
+### branch topk-metax @ 00d8618
+### 2026-09-17T11:31:17+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0917 11:31:43.751550 99153 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+slot-scan copy OFF; every quantity interleaved, 4 rounds
+
+  64 x 129280, production top_k 1024: OK
+         base top_k  1024 range 129280:    230.4 us  (spread 1.008)
+          one top_k     1 range 129280:    203.7 us  (spread 1.009)
+     one_half top_k     1 range  64640:    109.1 us  (spread 1.005)
+           m2 top_k  2048 range 129280:    257.3 us  (spread 1.002)
+           m3 top_k  3072 range 129280:    301.7 us  (spread 1.004)
+           m4 top_k  4096 range 129280:    341.6 us  (spread 1.002)
+    histogram pass    189.1 us, fixed     14.6 us  -- pass is 82% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2     257.3       91.8    2.509
+           8   3     301.7      136.3    1.691
+           8   4     341.6      176.2    1.308
+          16   2     257.3       80.0    2.880
+          16   3     301.7      124.4    1.851
+          16   4     341.6      164.4    1.402
+
+  4 x 16385, production top_k 512: OK
+         base top_k   512 range  16385:     37.6 us  (spread 1.041)
+          one top_k     1 range  16385:     29.6 us  (spread 1.052)
+     one_half top_k     1 range   8192:     19.4 us  (spread 1.094)
+           m2 top_k  1024 range  16385:     42.4 us  (spread 1.047)
+           m3 top_k  1536 range  16385:     45.6 us  (spread 1.041)
+           m4 top_k  2048 range  16385:     52.9 us  (spread 1.005)
+    histogram pass     20.3 us, fixed      9.2 us  -- pass is 54% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2      42.4       24.6    1.525
+           8   3      45.6       27.8    1.351
+           8   4      52.9       35.1    1.069
+          16   2      42.4       23.4    1.608
+          16   3      45.6       26.5    1.416
+          16   4      52.9       33.9    1.109
+
+  4 x 8193, production top_k 512: OK
+         base top_k   512 range   8193:     27.5 us  (spread 1.063)
+          one top_k     1 range   8193:     18.9 us  (spread 1.087)
+     one_half top_k     1 range   4096:     13.3 us  (spread 1.124)
+           m2 top_k  1024 range   8193:     34.5 us  (spread 1.050)
+           m3 top_k  1536 range   8193:     30.1 us  (spread 1.060)
+           m4 top_k  2048 range   8193:     34.1 us  (spread 1.046)
+    histogram pass     11.4 us, fixed      7.6 us  -- pass is 41% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2      34.5       24.6    1.117
+           8   3      30.1       20.2    1.360
+           8   4      34.1       24.2    1.135
+          16   2      34.5       23.9    1.150
+          16   3      30.1       19.5    1.410
+          16   4      34.1       23.5    1.169
+
+  16383 x 4095, production top_k 512: OK
+         base top_k   512 range   4095:   2184.4 us  (spread 1.001)
+          one top_k     1 range   4095:   1101.2 us  (spread 1.001)
+     one_half top_k     1 range   2047:    670.6 us  (spread 1.003)
+           m2 top_k  1024 range   4095:   3210.3 us  (spread 1.010)
+           m3 top_k  1536 range   4095:   3906.5 us  (spread 1.007)
+           m4 top_k  2048 range   4095:   4637.8 us  (spread 1.009)
+    histogram pass    861.3 us, fixed    239.9 us  -- pass is 39% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2    3210.3     2456.7    0.889
+           8   3    3906.5     3152.8    0.693
+           8   4    4637.8     3884.2    0.562
+          16   2    3210.3     2402.8    0.909
+          16   3    3906.5     3099.0    0.705
+          16   4    4637.8     3830.4    0.570
+
+  12961 x 4100, production top_k 512: OK
+         base top_k   512 range   4100:   1757.4 us  (spread 1.004)
+          one top_k     1 range   4100:    891.1 us  (spread 1.001)
+     one_half top_k     1 range   2050:    519.0 us  (spread 1.004)
+           m2 top_k  1024 range   4100:   2537.6 us  (spread 1.017)
+           m3 top_k  1536 range   4100:   3159.9 us  (spread 1.007)
+           m4 top_k  2048 range   4100:   3718.6 us  (spread 1.011)
+    histogram pass    744.2 us, fixed    146.9 us  -- pass is 42% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2    2537.6     1886.4    0.932
+           8   3    3159.9     2508.7    0.701
+           8   4    3718.6     3067.4    0.573
+          16   2    2537.6     1839.9    0.955
+          16   3    3159.9     2462.2    0.714
+          16   4    3718.6     3020.9    0.582
+
+  16380 x 5115, production top_k 512: OK
+         base top_k   512 range   5115:   2374.5 us  (spread 1.002)
+          one top_k     1 range   5115:   1332.3 us  (spread 1.001)
+     one_half top_k     1 range   2557:    744.8 us  (spread 1.002)
+           m2 top_k  1024 range   5115:   3412.0 us  (spread 1.007)
+           m3 top_k  1536 range   5115:   4377.9 us  (spread 1.017)
+           m4 top_k  2048 range   5115:   4983.1 us  (spread 1.016)
+    histogram pass   1175.1 us, fixed    157.3 us  -- pass is 49% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2    3412.0     2383.8    0.996
+           8   3    4377.9     3349.7    0.709
+           8   4    4983.1     3954.9    0.600
+          16   2    3412.0     2310.3    1.028
+          16   3    4377.9     3276.3    0.725
+          16   4    4983.1     3881.4    0.612
+
+  Still a prediction: the sample pass is assumed to cost pass/sstride
+  and the retry for rows whose estimate misses the window is not
+  modelled -- that is what sank MTT's first attempt. Under about
+  1.2x there is no margin for it.
