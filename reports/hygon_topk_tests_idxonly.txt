@@ -1,0 +1,974 @@
+### branch topk-metax @ 33e5e77
+### 2026-09-17T15:15:08+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+.FFFFF......FFF.FFFF............                                         [100%]
+=================================== FAILURES ===================================
+_____________ test_top_k_per_row_prefill_full_vocab[1024-129280-1] _____________
+
+num_rows = 1, vocab_size = 129280, top_k = 1024
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.parametrize("num_rows", NUM_ROWS_FULL_VOCAB)
+    @pytest.mark.parametrize("vocab_size", [129280])  # DeepSeek V4 vocab size
+    @pytest.mark.parametrize("top_k", [1024])  # DeepSeek V4 KV cache topk
+    def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
+        """Test with full vocab range (row_starts=0, row_ends=vocab_size).
+    
+        This is the most common case in inference: every token sees the full vocabulary.
+        The masking kernel should early-exit for all rows.
+        """
+        if top_k > vocab_size:
+            return
+    
+        torch.manual_seed(42)
+    
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+        stride0 = logits.stride(0)
+        stride1 = logits.stride(1)
+    
+        indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+    
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices_test, num_rows, stride0, stride1, top_k
+        )
+
+tests/test_top_k_per_row_prefill.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b43aa7d0>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b4383eb0>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b4326830>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+____________ test_top_k_per_row_prefill_full_vocab[1024-129280-32] _____________
+
+num_rows = 32, vocab_size = 129280, top_k = 1024
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.parametrize("num_rows", NUM_ROWS_FULL_VOCAB)
+    @pytest.mark.parametrize("vocab_size", [129280])  # DeepSeek V4 vocab size
+    @pytest.mark.parametrize("top_k", [1024])  # DeepSeek V4 KV cache topk
+    def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
+        """Test with full vocab range (row_starts=0, row_ends=vocab_size).
+    
+        This is the most common case in inference: every token sees the full vocabulary.
+        The masking kernel should early-exit for all rows.
+        """
+        if top_k > vocab_size:
+            return
+    
+        torch.manual_seed(42)
+    
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+        stride0 = logits.stride(0)
+        stride1 = logits.stride(1)
+    
+        indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+    
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices_test, num_rows, stride0, stride1, top_k
+        )
+
+tests/test_top_k_per_row_prefill.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b4047700>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b40cb520>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b407a970>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+____________ test_top_k_per_row_prefill_full_vocab[1024-129280-64] _____________
+
+num_rows = 64, vocab_size = 129280, top_k = 1024
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.parametrize("num_rows", NUM_ROWS_FULL_VOCAB)
+    @pytest.mark.parametrize("vocab_size", [129280])  # DeepSeek V4 vocab size
+    @pytest.mark.parametrize("top_k", [1024])  # DeepSeek V4 KV cache topk
+    def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
+        """Test with full vocab range (row_starts=0, row_ends=vocab_size).
+    
+        This is the most common case in inference: every token sees the full vocabulary.
+        The masking kernel should early-exit for all rows.
+        """
+        if top_k > vocab_size:
+            return
+    
+        torch.manual_seed(42)
+    
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+        stride0 = logits.stride(0)
+        stride1 = logits.stride(1)
+    
+        indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+    
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices_test, num_rows, stride0, stride1, top_k
+        )
+
+tests/test_top_k_per_row_prefill.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b4045ab0>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b43f5ea0>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b40c5930>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+___________ test_top_k_per_row_prefill_full_vocab[1024-129280-2048] ____________
+
+num_rows = 2048, vocab_size = 129280, top_k = 1024
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.parametrize("num_rows", NUM_ROWS_FULL_VOCAB)
+    @pytest.mark.parametrize("vocab_size", [129280])  # DeepSeek V4 vocab size
+    @pytest.mark.parametrize("top_k", [1024])  # DeepSeek V4 KV cache topk
+    def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
+        """Test with full vocab range (row_starts=0, row_ends=vocab_size).
+    
+        This is the most common case in inference: every token sees the full vocabulary.
+        The masking kernel should early-exit for all rows.
+        """
+        if top_k > vocab_size:
+            return
+    
+        torch.manual_seed(42)
+    
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+        stride0 = logits.stride(0)
+        stride1 = logits.stride(1)
+    
+        indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+    
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices_test, num_rows, stride0, stride1, top_k
+        )
+
+tests/test_top_k_per_row_prefill.py:170: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b4333af0>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b61fac20>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b615abf0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+_________ test_top_k_per_row_prefill_large_vocab_partial_nonzero_range _________
+
+    @pytest.mark.top_k_per_row_prefill
+    def test_top_k_per_row_prefill_large_vocab_partial_nonzero_range():
+>       if not _tle_prefill_available():
+
+tests/test_top_k_per_row_prefill.py:196: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_top_k_per_row_prefill.py:188: in _tle_prefill_available
+    flaggems_vllm.top_k_per_row_prefill(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b40e71c0>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b40ecb80>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13af933db0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[0]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+____________________ test_top_k_per_row_prefill_vs_vllm[1] _____________________
+
+num_rows = 1
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.skipif(not HAS_VLLM, reason="vLLM is not installed")
+    @pytest.mark.parametrize("num_rows", [1, 32, 64])
+    def test_top_k_per_row_prefill_vs_vllm(num_rows):
+        """Test against vLLM's own top_k_per_row_prefill."""
+        torch.manual_seed(789)
+        vocab_size = 129280
+        top_k = 1024
+    
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+        stride0 = logits.stride(0)
+        stride1 = logits.stride(1)
+    
+        # vLLM reference
+        logits_vllm = logits.clone()
+        indices_vllm = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+        _vllm_top_k_per_row_prefill(
+            logits_vllm,
+            row_starts,
+            row_ends,
+            indices_vllm,
+            num_rows,
+            stride0,
+            stride1,
+            top_k,
+        )
+    
+        # FlagGems Triton kernel
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices_test, num_rows, stride0, stride1, top_k
+        )
+
+tests/test_top_k_per_row_prefill.py:320: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13afedb490>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b40ef400>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b4036bb0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+____________________ test_top_k_per_row_prefill_vs_vllm[32] ____________________
+
+num_rows = 32
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.skipif(not HAS_VLLM, reason="vLLM is not installed")
+    @pytest.mark.parametrize("num_rows", [1, 32, 64])
+    def test_top_k_per_row_prefill_vs_vllm(num_rows):
+        """Test against vLLM's own top_k_per_row_prefill."""
+        torch.manual_seed(789)
+        vocab_size = 129280
+        top_k = 1024
+    
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+        stride0 = logits.stride(0)
+        stride1 = logits.stride(1)
+    
+        # vLLM reference
+        logits_vllm = logits.clone()
+        indices_vllm = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+        _vllm_top_k_per_row_prefill(
+            logits_vllm,
+            row_starts,
+            row_ends,
+            indices_vllm,
+            num_rows,
+            stride0,
+            stride1,
+            top_k,
+        )
+    
+        # FlagGems Triton kernel
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices_test, num_rows, stride0, stride1, top_k
+        )
+
+tests/test_top_k_per_row_prefill.py:320: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b43f2470>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b40ef880>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b4041e70>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+____________________ test_top_k_per_row_prefill_vs_vllm[64] ____________________
+
+num_rows = 64
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.skipif(not HAS_VLLM, reason="vLLM is not installed")
+    @pytest.mark.parametrize("num_rows", [1, 32, 64])
+    def test_top_k_per_row_prefill_vs_vllm(num_rows):
+        """Test against vLLM's own top_k_per_row_prefill."""
+        torch.manual_seed(789)
+        vocab_size = 129280
+        top_k = 1024
+    
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+        stride0 = logits.stride(0)
+        stride1 = logits.stride(1)
+    
+        # vLLM reference
+        logits_vllm = logits.clone()
+        indices_vllm = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+        _vllm_top_k_per_row_prefill(
+            logits_vllm,
+            row_starts,
+            row_ends,
+            indices_vllm,
+            num_rows,
+            stride0,
+            stride1,
+            top_k,
+        )
+    
+        # FlagGems Triton kernel
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices_test, num_rows, stride0, stride1, top_k
+        )
+
+tests/test_top_k_per_row_prefill.py:320: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b61690f0>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b43f6c20>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f15b6b277f0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+__________________ test_backend_override_matches_reference[1] __________________
+
+num_rows = 1
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.skipif(
+        not _OVERRIDE_ACTIVE,
+        reason="No backend override registered; the generic kernel is in use",
+    )
+    @pytest.mark.parametrize("num_rows", NUM_ROWS_FULL_VOCAB)
+    def test_backend_override_matches_reference(num_rows):
+        """Validate the vendor override itself.
+    
+        The other tests call the same top-level binding, so they cover the override
+        too. This one exists to make its presence *visible*: it PASSES only when a
+        vendor kernel is actually registered and SKIPS when the generic kernel is in
+        use, so a silently-unregistered override cannot look like a green run.
+        """
+        torch.manual_seed(4242)
+        vocab_size, top_k = 129280, 1024
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+    
+        indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits,
+            row_starts,
+            row_ends,
+            indices_test,
+            num_rows,
+            logits.stride(0),
+            logits.stride(1),
+            top_k,
+        )
+
+tests/test_top_k_per_row_prefill.py:379: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b43d9b40>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b40ec160>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13aff66cf0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+_________________ test_backend_override_matches_reference[32] __________________
+
+num_rows = 32
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.skipif(
+        not _OVERRIDE_ACTIVE,
+        reason="No backend override registered; the generic kernel is in use",
+    )
+    @pytest.mark.parametrize("num_rows", NUM_ROWS_FULL_VOCAB)
+    def test_backend_override_matches_reference(num_rows):
+        """Validate the vendor override itself.
+    
+        The other tests call the same top-level binding, so they cover the override
+        too. This one exists to make its presence *visible*: it PASSES only when a
+        vendor kernel is actually registered and SKIPS when the generic kernel is in
+        use, so a silently-unregistered override cannot look like a green run.
+        """
+        torch.manual_seed(4242)
+        vocab_size, top_k = 129280, 1024
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+    
+        indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits,
+            row_starts,
+            row_ends,
+            indices_test,
+            num_rows,
+            logits.stride(0),
+            logits.stride(1),
+            top_k,
+        )
+
+tests/test_top_k_per_row_prefill.py:379: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b4033fd0>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b40ed630>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b4037d30>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+_________________ test_backend_override_matches_reference[64] __________________
+
+num_rows = 64
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.skipif(
+        not _OVERRIDE_ACTIVE,
+        reason="No backend override registered; the generic kernel is in use",
+    )
+    @pytest.mark.parametrize("num_rows", NUM_ROWS_FULL_VOCAB)
+    def test_backend_override_matches_reference(num_rows):
+        """Validate the vendor override itself.
+    
+        The other tests call the same top-level binding, so they cover the override
+        too. This one exists to make its presence *visible*: it PASSES only when a
+        vendor kernel is actually registered and SKIPS when the generic kernel is in
+        use, so a silently-unregistered override cannot look like a green run.
+        """
+        torch.manual_seed(4242)
+        vocab_size, top_k = 129280, 1024
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+    
+        indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits,
+            row_starts,
+            row_ends,
+            indices_test,
+            num_rows,
+            logits.stride(0),
+            logits.stride(1),
+            top_k,
+        )
+
+tests/test_top_k_per_row_prefill.py:379: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b4077fa0>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b43f6200>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b61750f0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+________________ test_backend_override_matches_reference[2048] _________________
+
+num_rows = 2048
+
+    @pytest.mark.top_k_per_row_prefill
+    @pytest.mark.skipif(
+        not _OVERRIDE_ACTIVE,
+        reason="No backend override registered; the generic kernel is in use",
+    )
+    @pytest.mark.parametrize("num_rows", NUM_ROWS_FULL_VOCAB)
+    def test_backend_override_matches_reference(num_rows):
+        """Validate the vendor override itself.
+    
+        The other tests call the same top-level binding, so they cover the override
+        too. This one exists to make its presence *visible*: it PASSES only when a
+        vendor kernel is actually registered and SKIPS when the generic kernel is in
+        use, so a silently-unregistered override cannot look like a green run.
+        """
+        torch.manual_seed(4242)
+        vocab_size, top_k = 129280, 1024
+        logits = torch.randn(num_rows, vocab_size, device=device, dtype=torch.float32)
+        row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+        row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+    
+        indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+        indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+>       flaggems_vllm.top_k_per_row_prefill(
+            logits,
+            row_starts,
+            row_ends,
+            indices_test,
+            num_rows,
+            logits.stride(0),
+            logits.stride(1),
+            top_k,
+        )
+
+tests/test_top_k_per_row_prefill.py:379: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:877: in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:809: in run
+    self.finish(
+src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py:746: in __call__
+    ck = self.jit.run(
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:763: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py:899: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:326: in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py:64: in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.compiler.compiler.ASTSource object at 0x7f13b4045c30>
+target = GPUTarget(backend='hip', arch='gfx936', warp_size=64)
+options = HIPOptions(num_warps=8, waves_per_eu=1, num_stages=2, num_ctas=1, extern_libs=(('ocml', '/opt/dtk/amdgcn/bitcode/ocml....warps=None, wasp_num_mma_warps=None, wdra_num_load_regs=None, wdra_num_mma_regs_main=None, wdra_num_mma_regs_tail=None)
+codegen_fns = {'min_dot_size': <function get_min_dot_size.<locals>.<lambda> at 0x7f13b40ec550>}
+module_map = {'triton.language.extra.libdevice': <module 'triton.language.extra.hip.libdevice' from '/usr/local/lib/python3.10/dist....hip.libnvshmem_device' from '/usr/local/lib/python3.10/dist-packages/triton/language/extra/hip/libnvshmem_device.py'>}
+context = <triton._C.libtriton.ir.context object at 0x7f13b40362b0>
+
+    def make_ir(self, target: GPUTarget, options, codegen_fns, module_map, context):
+        from .code_generator import ast_to_ttir
+>       return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+                           module_map=module_map)
+E       triton.compiler.errors.CompilationError: at 102:4:
+E           # redundant there -- but correct, and the retry does not fire in practice.
+E           # The barrier is required: this program loads from vbase right after
+E           # storing to it.
+E           row_base = logits_ptr + row * stride0 + s
+E           for t in tl.range(0, tiles):
+E               pos = t * BLOCK + lane
+E               valid = pos < n
+E               ci = tl.load(ibase + pos, mask=valid, other=0)
+E               tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+E           tl.debug_barrier()
+E       
+E           if n <= TOPK:
+E           ^
+E       AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[1]')
+
+/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py:102: CompilationError
+=========================== short test summary info ============================
+FAILED tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_full_vocab[1024-129280-1]
+FAILED tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_full_vocab[1024-129280-32]
+FAILED tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_full_vocab[1024-129280-64]
+FAILED tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_full_vocab[1024-129280-2048]
+FAILED tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_large_vocab_partial_nonzero_range
+FAILED tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_vs_vllm[1]
+FAILED tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_vs_vllm[32]
+FAILED tests/test_top_k_per_row_prefill.py::test_top_k_per_row_prefill_vs_vllm[64]
+FAILED tests/test_top_k_per_row_prefill.py::test_backend_override_matches_reference[1]
+FAILED tests/test_top_k_per_row_prefill.py::test_backend_override_matches_reference[32]
+FAILED tests/test_top_k_per_row_prefill.py::test_backend_override_matches_reference[64]
+FAILED tests/test_top_k_per_row_prefill.py::test_backend_override_matches_reference[2048]
+12 failed, 20 passed in 30.82s
