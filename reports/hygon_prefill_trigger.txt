@@ -1,0 +1,42 @@
+### branch topk-metax @ 918a8dd
+### 2026-09-17T10:52:45+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0917 10:53:04.255749 98229 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+device us against top_k at a fixed shape: raising top_k loosens the
+threshold and raises the collected count in proportion
+
+  64 x 129280
+     top_k  density  device us  vs top_k/2  vs first   ans
+       512    0.004      295.7           -     1.000    OK
+      1024    0.008      228.7       0.773     0.773    OK
+      2048    0.016      343.6       1.502     1.162    OK
+      4096    0.032      341.9       0.995     1.156    OK
+      8192    0.063      615.2       1.799     2.080    OK
+
+  4 x 16385
+     top_k  density  device us  vs top_k/2  vs first   ans
+       512    0.031       34.4           -     1.000    OK
+      1024    0.062       39.7       1.153     1.153    OK
+      2048    0.125       64.0       1.613     1.860    OK
+      4096    0.250       57.9       0.905     1.683    OK
+
+  16383 x 4095
+     top_k  density  device us  vs top_k/2  vs first   ans
+       512    0.125     1348.0           -     1.000    OK
+      1024    0.250     1347.0       0.999     0.999    OK
+      2048    0.500     1365.8       1.014     1.013    OK
+
+  4 x 8193
+     top_k  density  device us  vs top_k/2  vs first   ans
+       512    0.062       28.2           -     1.000    OK
+      1024    0.125       41.6       1.472     1.472    OK
+      2048    0.250       38.7       0.932     1.372    OK
+
+  'vs top_k/2' near 1.0 means compaction does not track the hits --
+  the MTT reading, and a loose threshold would be nearly free here.
+  Near 2.0 means it tracks them, and the sampled design cannot pay.
