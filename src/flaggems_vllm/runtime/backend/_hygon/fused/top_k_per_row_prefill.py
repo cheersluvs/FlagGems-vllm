@@ -361,7 +361,16 @@ SAMPLED_MIN_VOCAB_PER_TOPK = int(
     os.environ.get("FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO", "64")
 )
 SSTRIDE = int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSTRIDE", "8"))
-TARGET_MULT = 2  # collect about this many times top_k
+# Collect about this many times top_k. 2 put the target at the geometric
+# midpoint of the acceptance window [top_k, CAP] = [1024, 4096], which is
+# where MTT's notes say it belongs -- but the two stages that scale with the
+# collected count are 194 of the pipeline's 228 us, so the midpoint is not
+# free. At 1.5 the ranking drops about a quarter, and the target sits 24%
+# above the window's lower edge against a measured per-row spread of +-18%, so
+# an undershoot into the retry stays unlikely. Watch "rows outside the window"
+# in tools/hygon_prefill_sampled_stages.py: aiming below the midpoint is the
+# direction MTT's notes warn about.
+TARGET_MULT = float(os.environ.get("FLAGGEMS_HYGON_PREFILL_TARGET_MULT", "1.5"))
 CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]
 SBLOCK = 512
 SWARPS = 8
@@ -749,7 +758,7 @@ class _SPlan:
             _s_prepare,
             (num_rows,),
             {
-                "TARGET": top_k * TARGET_MULT,
+                "TARGET": int(top_k * TARGET_MULT),
                 "NB": nb,
                 "STRIDE": SSTRIDE,
                 "BLOCK": SBLOCK,
