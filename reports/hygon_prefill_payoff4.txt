@@ -1,0 +1,111 @@
+### branch topk-metax @ 0265fc5
+### 2026-09-17T11:44:37+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0917 11:44:56.553923 99506 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+slot-scan copy OFF; every quantity interleaved, 4 rounds
+
+  64 x 129280, top_k 1024: density 0.008, generic module, window [1024, 2048] = 2.0x wide: OK
+         base top_k  1024 range 129280:    230.1 us  (spread 2.657)
+          one top_k     1 range 129280:    204.0 us  (spread 1.011)
+     one_half top_k     1 range  64640:    109.5 us  (spread 1.016)
+           m2 top_k  2048 range 129280:    258.6 us  (spread 1.007)
+           m3 top_k  3072 range 129280:    301.7 us  (spread 2.156)
+           m4 top_k  4096 range 129280:    343.4 us  (spread 1.943)
+    histogram pass    189.0 us, fixed     15.0 us  -- pass is 82% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2     258.6       93.2    2.468
+           8   3     301.7      136.3    1.688
+           8   4     343.4      178.0    1.293
+          16   2     258.6       81.4    2.826
+          16   3     301.7      124.5    1.849
+          16   4     343.4      166.2    1.384
+
+  4 x 16385, top_k 512: density 0.031, generic module, window [512, 2048] = 4.0x wide: OK
+         base top_k   512 range  16385:     37.5 us  (spread 1.716)
+          one top_k     1 range  16385:     29.5 us  (spread 1.592)
+     one_half top_k     1 range   8192:     19.3 us  (spread 1.089)
+           m2 top_k  1024 range  16385:     42.5 us  (spread 1.043)
+           m3 top_k  1536 range  16385:     45.6 us  (spread 1.668)
+           m4 top_k  2048 range  16385:     67.2 us  (spread 1.503)
+    histogram pass     20.4 us, fixed      9.1 us  -- pass is 54% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2      42.5       24.7    1.518
+           8   3      45.6       27.8    1.350
+           8   4      67.2       49.4    0.760
+          16   2      42.5       23.4    1.601
+          16   3      45.6       26.5    1.415
+          16   4      67.2       48.1    0.780
+
+  4 x 8193, top_k 512: density 0.062, generic module, window [512, 2048] = 4.0x wide: OK
+         base top_k   512 range   8193:     28.7 us  (spread 1.635)
+          one top_k     1 range   8193:     20.5 us  (spread 1.551)
+     one_half top_k     1 range   4096:     14.7 us  (spread 1.364)
+           m2 top_k  1024 range   8193:     43.1 us  (spread 1.567)
+           m3 top_k  1536 range   8193:     37.5 us  (spread 1.046)
+           m4 top_k  2048 range   8193:     38.4 us  (spread 1.039)
+    histogram pass     11.6 us, fixed      8.9 us  -- pass is 40% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2      43.1       33.0    0.870
+           8   3      37.5       27.4    1.049
+           8   4      38.4       28.3    1.014
+          16   2      43.1       32.3    0.890
+          16   3      37.5       26.6    1.077
+          16   4      38.4       27.6    1.041
+
+  16383 x 4095, top_k 512: density 0.125, dense module, window [512, 2048] = 4.0x wide: OK
+         base top_k   512 range   4095:   1888.1 us  (spread 1.402)
+          one top_k     1 range   4095:   1292.4 us  (spread 1.182)
+     one_half top_k     1 range   2047:    670.0 us  (spread 1.318)
+           m2 top_k  1024 range   4095:   1345.2 us  (spread 1.002)
+           m3 top_k  1536 range   4095:   1338.4 us  (spread 1.001)
+           m4 top_k  2048 range   4095:   1365.4 us  (spread 1.001)
+    histogram pass   1244.8 us, fixed     47.6 us  -- pass is 66% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2    1345.2      256.0    7.376
+           8   3    1338.4      249.2    7.578
+           8   4    1365.4      276.2    6.835
+          16   2    1345.2      178.2   10.596
+          16   3    1338.4      171.4   11.017
+          16   4    1365.4      198.4    9.514
+
+  12961 x 4100, top_k 512: density 0.125, dense module, window [512, 2048] = 4.0x wide: OK
+         base top_k   512 range   4100:   1067.5 us  (spread 1.323)
+          one top_k     1 range   4100:    891.5 us  (spread 1.110)
+     one_half top_k     1 range   2050:    519.7 us  (spread 1.302)
+           m2 top_k  1024 range   4100:   1073.7 us  (spread 1.001)
+           m3 top_k  1536 range   4100:   1076.0 us  (spread 1.002)
+           m4 top_k  2048 range   4100:   1109.1 us  (spread 1.001)
+    histogram pass    743.6 us, fixed    147.8 us  -- pass is 70% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2    1073.7      423.0    2.524
+           8   3    1076.0      425.3    2.510
+           8   4    1109.1      458.4    2.329
+          16   2    1073.7      376.5    2.835
+          16   3    1076.0      378.9    2.818
+          16   4    1109.1      411.9    2.591
+
+  16380 x 5115, top_k 512: density 0.100, dense module, window [512, 2048] = 4.0x wide: OK
+         base top_k   512 range   5115:   1577.3 us  (spread 1.031)
+          one top_k     1 range   5115:   1333.2 us  (spread 1.096)
+     one_half top_k     1 range   2557:    744.3 us  (spread 1.002)
+           m2 top_k  1024 range   5115:   1584.7 us  (spread 1.001)
+           m3 top_k  1536 range   5115:   1643.2 us  (spread 1.352)
+           m4 top_k  2048 range   5115:   1723.7 us  (spread 1.249)
+    histogram pass   1177.8 us, fixed    155.4 us  -- pass is 75% of the operator
+     sstride   m    at m*k  predicted  speedup
+           8   2    1584.7      554.1    2.847
+           8   3    1643.2      612.6    2.575
+           8   4    1723.7      693.1    2.276
+          16   2    1584.7      480.5    3.283
+          16   3    1643.2      539.0    2.926
+          16   4    1723.7      619.5    2.546
+
+  Still a prediction: the sample pass is assumed to cost pass/sstride
+  and the retry for rows whose estimate misses the window is not
+  modelled -- that is what sank MTT's first attempt. Under about
+  1.2x there is no margin for it.
