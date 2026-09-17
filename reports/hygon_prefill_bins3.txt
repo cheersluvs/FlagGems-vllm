@@ -1,0 +1,23 @@
+### branch topk-metax @ 993d359
+### 2026-09-17T10:28:48+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0917 10:29:22.791805 97929 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+device us per variant, interleaved; only the STEP-0 key changes
+
+               shape    2048 bins   1024 bins    512 bins  best vs 2048   ans
+           64x129280        306.9       307.6       456.1         1.000    OK
+              4x8193         26.8        28.7        39.5         1.000    OK
+             4x16385         34.1        38.0        48.7         1.000    OK
+          16383x4095       2188.1      2212.4      2357.8         1.000    OK
+          12961x4100       1751.4      1771.6      1902.6         1.000    OK
+          16380x5115       2360.9      2355.5      2474.9         1.002    OK
+           4100x1025        372.6       359.8       342.9         1.087    OK
+
+  Only the STEP-0 key's width changes: the histogram is still 2048
+  wide, so the clear and the scan are identical across columns and
+  the difference is purely how far the atomics spread.
