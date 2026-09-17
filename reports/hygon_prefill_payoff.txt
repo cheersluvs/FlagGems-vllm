@@ -1,0 +1,52 @@
+### branch topk-metax @ 7d8d4ed
+### 2026-09-17T11:11:07+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0917 11:11:33.424489 98693 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+slot-scan copy OFF; T(top_k) on the operator
+
+  64 x 129280, production top_k 1024
+     top_k  density  device us   ans
+         1   0.0000      256.7    OK
+        16   0.0001      256.8    OK
+       128   0.0010      264.4    OK
+       512   0.0040      283.1    OK
+      1024   0.0079      287.5    OK
+      2048   0.0158      255.9    OK
+      4096   0.0317      337.2    OK
+
+    H (histogram pass + fixed) ~ T(top_k=1) = 256.7 us, 89% of the operator at top_k 1024 (287.5 us)
+     sstride   m  collect at m*k  predicted  speedup
+           8   2           255.9       31.3    9.184
+           8   4           337.2      112.5    2.555
+          16   2           255.9       15.3   18.840
+          16   4           337.2       96.5    2.979
+
+  4 x 16385, production top_k 512
+     top_k  density  device us   ans
+         1   0.0001       25.1    OK
+        16   0.0010       25.5    OK
+       128   0.0078       28.9    OK
+       512   0.0312       33.3    OK
+      1024   0.0625       39.7    OK
+      2048   0.1250       51.2    OK
+      4096   0.2500       52.4    OK
+
+    H (histogram pass + fixed) ~ T(top_k=1) = 25.1 us, 75% of the operator at top_k 512 (33.3 us)
+     sstride   m  collect at m*k  predicted  speedup
+           8   2            39.7       17.8    1.873
+           8   4            51.2       29.3    1.137
+           8   8            52.4       30.4    1.093
+          16   2            39.7       16.2    2.054
+          16   4            51.2       27.7    1.201
+          16   8            52.4       28.9    1.152
+
+  A predicted speedup is not a measurement: it assumes the sample
+  pass costs H/sstride and ignores the retry for rows whose estimate
+  misses the window, which is what sank MTT's first attempt. Below
+  about 1.2x there is no margin to lose to that and it is not worth
+  building.
