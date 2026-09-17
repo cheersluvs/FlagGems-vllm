@@ -65,15 +65,34 @@ from torch.profiler import ProfilerActivity, profile
 
 import flaggems_vllm
 
-# (num_rows, vocab, stride0, production top_k) -- the two shapes at or above
-# MTT's 16384 crossover, the only ones a sampled path could serve
+# (num_rows, vocab, stride0, production top_k) -- ALL the benchmark shapes.
+#
+# Round 2 measured only the two above MTT's MIN_SPAN = 16384, taking that
+# crossover on faith. It is an S5000 constant, and the quantity that actually
+# decides the question -- what share of the operator the histogram pass is --
+# is measurable here and had been measured on two shapes out of seven.
+#
+# There is also a reason to expect the opposite of MTT's exclusion. The four
+# many-row shapes route to the prefix-sum copy, whose collection issues ONE
+# atomic per TILE, so a looser threshold is nearly free there: the trigger
+# probe measured 1.014 for 4x the hits on (16383,4095). That is exactly the
+# condition sampling wants, and those shapes cost 1066-1577 us against this
+# one's 232.
+#
+# (4100,1025) is excluded on structure, not measurement: top_k 512 of a
+# 1025-element row is 50% density, and a threshold loosened to 2 * top_k would
+# take the whole row.
 CASES = [
     (64, 129280, 129280, 1024),
     (4, 16385, 16648, 512),
+    (4, 8193, 8456, 512),
+    (16383, 4095, 4352, 512),
+    (12961, 4100, 4360, 512),
+    (16380, 5115, 5376, 512),
 ]
 SSTRIDES = (8, 16)
 ROUNDS = 4
-MULTIPLES = (2, 4, 8)
+MULTIPLES = (2, 3, 4)
 
 
 def device_us(fn, iters=20, warmup=5):
