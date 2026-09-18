@@ -150,15 +150,40 @@ RADIX_OLD = (
 KEY_OLD = "        bin_idx = (mapped >> 5).to(tl.uint32)\n"
 
 
-def patched_source(step0_bins):
-    """The override's one-scan patch, then STEP 0 narrowed to step0_bins."""
+def slotscan_source():
+    """The override's prefix-sum collection, sliced out of the override file.
+
+    Round 1 borrowed the function object instead, and its _extract_bin_idx
+    resolves in the OVERRIDE's globals -- the unnarrowed production copy -- so
+    the dense arms histogrammed with a narrowed key and collected with a wide
+    one. Wrong answers, and fast ones, since almost nothing matched: every
+    dense number in that report is void. Appending the SOURCE to each copy
+    keeps every reference inside one module, which is the same reason a
+    patched module was the right unit to begin with.
+    """
+    ov_src = pathlib.Path(
+        import_module(
+            "flaggems_vllm.runtime.backend._hygon.fused.top_k_per_row_prefill"
+        ).__file__
+    ).read_text()
+    a = ov_src.index("@triton.jit\ndef _alloc_slots(")
+    b = ov_src.index("# Rebind in the COPY only, before anything compiles.")
+    return (
+        "\n\n" + ov_src[a:b].rstrip() + "\n\n_process_bins = _process_bins_slotscan\n"
+    )
+
+
+def patched_source(step0_bins, dense):
+    """The one-scan patch, STEP 0 narrowed to step0_bins, and for a dense arm
+    the override's prefix-sum collection appended."""
     src = pathlib.Path(_generic.__file__).read_text()
     for old, new in ((CLEAR_OLD, CLEAR_NEW), (SCAN_OLD, SCAN_NEW)):
         n = src.count(old)
         assert n == 1, f"expected block found {n} times -- the operator changed"
         src = src.replace(old, new, 1)
+    tail = slotscan_source() if dense else ""
     if step0_bins == 2048:
-        return src
+        return src + tail
     shift = 5 + (11 - step0_bins.bit_length() + 1)
     for old, new in (
         (
@@ -174,7 +199,7 @@ def patched_source(step0_bins):
         n = src.count(old)
         assert n == 1, f"narrowing block found {n} times"
         src = src.replace(old, new, 1)
-    return src
+    return src + tail
 
 
 def load(name, path):
@@ -207,18 +232,15 @@ def main():
         "flaggems_vllm.runtime.backend._hygon.fused.top_k_per_row_prefill"
     )
     tmpdir = pathlib.Path(tempfile.mkdtemp(prefix="bins256_"))
-    paths = []
-    for nb in STEP0_BINS:
-        f = tmpdir / f"topk_prefill_b{nb}.py"
-        f.write_text(patched_source(nb))
-        paths.append((f"b{nb}", str(f)))
+    paths = [(f"b{nb}", nb) for nb in STEP0_BINS]
     arms = {}
-    for tag, path in paths:
+    for tag, nb in paths:
         for kind in ("generic", "dense"):
-            m = load(f"flaggems_vllm.ops._topk_prefill_{tag}_{kind}", path)
-            if kind == "dense":
-                m._process_bins = ov._process_bins_slotscan
-            arms[(tag, kind)] = m
+            f = tmpdir / f"topk_prefill_{tag}_{kind}.py"
+            f.write_text(patched_source(nb, kind == "dense"))
+            arms[(tag, kind)] = load(
+                f"flaggems_vllm.ops._topk_prefill_{tag}_{kind}", str(f)
+            )
     dev = "cuda"
     occupancy("before")
     print(
