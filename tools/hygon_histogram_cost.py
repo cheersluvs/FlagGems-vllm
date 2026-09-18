@@ -47,6 +47,7 @@ VOCAB = 65536
 BLOCK = 512
 VEC = 4
 NB = 2048
+BIN_COUNTS = (2048, 512, 256)
 K = 1024
 WARPS = 8
 
@@ -62,6 +63,7 @@ def k_hist(
     BLOCK: tl.constexpr,
     VEC: tl.constexpr,
     NB: tl.constexpr,
+    SHIFT: tl.constexpr,
     K: tl.constexpr,
 ):
     row = tl.program_id(0)
@@ -71,7 +73,7 @@ def k_hist(
     ones = tl.full([BLOCK, VEC], 1, tl.int32)
     base_ptr = logits_ptr + row * VOCAB
     hrow = hist_ptr + row * NB
-    if (MODE == 2) | (MODE == 4):
+    if (MODE == 2) | (MODE == 4) | (MODE == 7):
         tl.store(hrow + bins, tl.zeros([NB], tl.int32))
         tl.debug_barrier()
     acc = tl.zeros([NB], tl.int32)
@@ -87,7 +89,7 @@ def k_hist(
             chk += tl.sum(x)
         else:
             bin_idx, _ = _extract_bin_idx(x, True, 0, STEP=0)
-            bi = bin_idx.to(tl.int32)
+            bi = bin_idx.to(tl.int32) >> SHIFT
             if MODE == 1:
                 chk += tl.sum(bi).to(tl.float32)
             elif MODE == 2:
@@ -100,6 +102,12 @@ def k_hist(
             elif MODE == 5:
                 flat = tl.reshape(bi, (BLOCK * VEC,))
                 acc += tl.histogram(flat, NB, mask=(flat & 1) == 0)
+            elif MODE == 7:
+                # The form _hygon/ops/persistent_topk.py uses: one histogram
+                # per tile, then ONE vector atomic of the whole histogram,
+                # rather than an accumulator carried in registers.
+                hist_t = tl.histogram(tl.reshape(bi, (BLOCK * VEC,)), NB)
+                tl.atomic_add(hrow + bins, hist_t, sem="relaxed", scope="cta")
             else:
                 take = (offs % 64) == 0
                 pos = tl.atomic_add(
@@ -112,7 +120,9 @@ def k_hist(
                 tl.store(
                     out_ptr + row * K + pos, offs.to(tl.int32), mask=take & (pos < K)
                 )
-    if (MODE == 3) | (MODE == 5):
+    if MODE == 7:
+        pass
+    elif (MODE == 3) | (MODE == 5):
         tl.store(hrow + bins, acc)
     elif (MODE == 0) | (MODE == 1):
         tl.store(chk_ptr + row, chk.to(tl.int32))
@@ -126,6 +136,7 @@ MODES = (
     "atomic_masked",
     "histogram_masked",
     "pass2_sparse",
+    "histogram_vecatomic",
 )
 
 
@@ -149,11 +160,22 @@ def main():
     hist = torch.zeros(ROWS * NB, dtype=torch.int32, device=dev)
     out = torch.zeros(ROWS * K, dtype=torch.int32, device=dev)
     chk = torch.zeros(ROWS, dtype=torch.int32, device=dev)
-    kw = dict(VOCAB=VOCAB, BLOCK=BLOCK, VEC=VEC, NB=NB, K=K, num_warps=WARPS)
     print(
         f"{ROWS} programs = 10 waves on {SMS} SMs | {VOCAB} elements/program in "
-        f"[{BLOCK},{VEC}] tiles | {NB} bins\n"
+        f"[{BLOCK},{VEC}] tiles\n"
     )
+    for nb in BIN_COUNTS:
+        _one(logits, hist, out, chk, nb)
+    return 0
+
+
+def _one(logits, hist, out, chk, nb):
+    NB = nb
+    shift = 11 - nb.bit_length() + 1
+    kw = dict(
+        VOCAB=VOCAB, BLOCK=BLOCK, VEC=VEC, NB=NB, SHIFT=shift, K=K, num_warps=WARPS
+    )
+    print(f"  === {NB} bins (11-bit key >> {shift})")
 
     t, saved = {}, {}
     for mode, name in enumerate(MODES):
@@ -161,7 +183,13 @@ def main():
             t[name] = timed(
                 lambda m=mode: k_hist[(ROWS,)](logits, hist, out, chk, MODE=m, **kw)
             )
-            if name in ("atomic", "histogram", "atomic_masked", "histogram_masked"):
+            if name in (
+                "atomic",
+                "histogram",
+                "atomic_masked",
+                "histogram_masked",
+                "histogram_vecatomic",
+            ):
                 saved[name] = hist.clone()
         except Exception as e:  # noqa: BLE001
             t[name] = None
@@ -178,7 +206,11 @@ def main():
         print(f"  {name:<18} {t[name]:>9.2f} {d:>11.2f} {d * 1000 / VOCAB:>11.3f}")
 
     print()
-    for a, b in (("atomic", "histogram"), ("atomic_masked", "histogram_masked")):
+    for a, b in (
+        ("atomic", "histogram"),
+        ("atomic", "histogram_vecatomic"),
+        ("atomic_masked", "histogram_masked"),
+    ):
         if a in saved and b in saved:
             same = bool(torch.equal(saved[a], saved[b]))
             ta, tb = t[a] - t["extract"], t[b] - t["extract"]
