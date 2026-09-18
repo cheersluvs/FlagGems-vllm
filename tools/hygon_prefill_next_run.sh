@@ -2,6 +2,7 @@
 # Run one ordered BW1000 experiment stage and push its complete report.
 # Usage: tools/hygon_prefill_next_run.sh launch [report-name]
 #        tools/hygon_prefill_next_run.sh combo  [report-name]
+#        tools/hygon_prefill_next_run.sh bitonic [report-name]
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -10,8 +11,8 @@ BRANCH=codex/hygon-prefill-audit
 REMOTE=https://github.com/cheersluvs/FlagGems-vllm.git
 STAGE=${1:-}
 case "$STAGE" in
-    launch|combo) ;;
-    *) echo "Usage: $0 {launch|combo} [report-name]"; exit 2 ;;
+    launch|combo|bitonic) ;;
+    *) echo "Usage: $0 {launch|combo|bitonic} [report-name]"; exit 2 ;;
 esac
 NAME=${2:-hygon_prefill_${STAGE}_device_v1}
 if [[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -45,8 +46,13 @@ export PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}"
     echo "### HIP_VISIBLE_DEVICES=${HIP_VISIBLE_DEVICES:-unset} CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 } | tee "$OUT"
 
-echo "### RUN timeout 14400 ${PY:-python} -u tools/hygon_prefill_next.py $STAGE" | tee -a "$OUT"
-timeout 14400 "${PY:-python}" -u tools/hygon_prefill_next.py "$STAGE" 2>&1 | tee -a "$OUT"
+if [ "$STAGE" = bitonic ]; then
+    PROBE=(tools/hygon_prefill_bitonic.py)
+else
+    PROBE=(tools/hygon_prefill_next.py "$STAGE")
+fi
+echo "### RUN timeout 14400 ${PY:-python} -u ${PROBE[*]}" | tee -a "$OUT"
+timeout 14400 "${PY:-python}" -u "${PROBE[@]}" 2>&1 | tee -a "$OUT"
 STATUS=("${PIPESTATUS[@]}")
 PROBE_STATUS=${STATUS[0]}
 if [ "${STATUS[1]}" -ne 0 ]; then
