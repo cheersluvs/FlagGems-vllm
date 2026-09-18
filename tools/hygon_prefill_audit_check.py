@@ -41,7 +41,7 @@ class ConstructionChecks(unittest.TestCase):
 
     def test_all_generated_variants_compile_as_python(self):
         for dense in (False, True):
-            for arm in ("control", "rank8", "rank16", "carry"):
+            for arm in ("control", "rank8", "rank16", "carry", "rank8_carry"):
                 for diagnostic in (False, True):
                     with self.subTest(dense=dense, arm=arm, diagnostic=diagnostic):
                         compile(build(ROOT, dense, arm, diagnostic), arm, "exec")
@@ -59,6 +59,19 @@ class ConstructionChecks(unittest.TestCase):
 
     def test_sparse_carry_is_identity(self):
         self.assertEqual(build(ROOT, False), build(ROOT, False, "carry"))
+        self.assertEqual(build(ROOT, False, "rank8"), build(ROOT, False, "rank8_carry"))
+
+    def test_rank8_carry_changes_only_the_expected_functions(self):
+        carry = build(ROOT, True, "carry")
+        combination = build(ROOT, True, "rank8_carry")
+        before, after = definitions(carry), definitions(combination)
+        self.assertEqual(
+            {n for n in before if before[n] != after[n]},
+            {"_top_k_per_row_job"},
+        )
+        self.assertIn(
+            "if final_cnt <= 256:", function_text(combination, "_top_k_per_row_job")
+        )
 
     def test_dense_carry_patches_every_collection_site(self):
         original = build(ROOT, True)

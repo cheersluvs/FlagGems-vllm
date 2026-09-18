@@ -158,12 +158,12 @@ def diagnostic_source(source):
 
 def build(root, dense, arm="control", diagnostic=False):
     source = control_source(root, dense)
-    if arm in ("rank8", "rank16"):
-        source = tiled_rank(source, int(arm[4:]))
-    elif arm == "carry":
+    if arm in ("rank8", "rank16", "rank8_carry"):
+        source = tiled_rank(source, 8 if arm == "rank8_carry" else int(arm[4:]))
+    if arm in ("carry", "rank8_carry"):
         if dense:
             source = register_carry(source)
-    elif arm != "control":
+    elif arm not in ("control", "rank8", "rank16"):
         raise ValueError(f"Unknown arm {arm}")
     if diagnostic:
         source = diagnostic_source(source)
