@@ -12,31 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""top_k_per_row_prefill on MetaX: the generic operator, on its TLE
-(shared-memory) path when the installed FlagTree passes the self-test below.
-Otherwise exactly the generic non-TLE path. The gate below documents which builds
-qualify and what it rebinds.
-
-On the TLE path the tile (NUM_THREADS_PER_BLOCK, generic default 512) is chosen
-per call. Swept on the C550 (kernel mode, benchmark shapes,
-drift <= 0.7%), 1024 against 512, ratio vs vLLM:
-
-    (64,129280)  0.878 -> 0.981     (4,16385)   0.892 -> 0.908
-    (4,8193)     0.920 -> 0.927     (4100,1025) 1.031 -> 0.912
-    (16383,4095) 1.839 -> 1.542     (12961,4100) 1.279 -> 1.025
-    (16380,5115) 1.919 -> 1.603
-
-The wide tile pays on long rows and costs 12-20% on the many-row, short-vocab
-shapes, so it is keyed on vocabulary size: >= 16384 takes 1024 (geomean 1.189
--> 1.211, nearly all of it the DeepSeek-V4 shape). The benchmark has no shape
-with both many rows and a large vocabulary, so the cut is placed between the
-two groups it does have, not fitted inside either.
-
-1024 lanes on 8 warps is 2 elements per thread. That regime once corrupted a
-masked shared atomic, but on a FlagTree with the Alias.cpp fix it measured
-clean with and without the local_ptr shim: the earlier corruption was the allocator overlap, not the plugin.
-"""
-
 import logging
 import os
 import threading
@@ -53,85 +28,16 @@ logger = logging.getLogger(__name__)
 _generic = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
 
 
-# BEGIN TLE GATE -- duplicated verbatim in top_k_per_row_decode.py and
-# top_k_per_row_prefill.py. The two ops are registered independently and each
-# one switches only its own generic module over, so neither file imports the
-# other. Edit one, edit both; the copies are kept byte-identical:
-#
-#   diff <(sed -n '/BEGIN TLE GATE/,/END TLE GATE/p' top_k_per_row_decode.py) \
-#        <(sed -n '/BEGIN TLE GATE/,/END TLE GATE/p' top_k_per_row_prefill.py)
-#
-# Measured on a C550 against vLLM's own kernels (geomean, kernel mode), with
-# the per-call launch geometry chosen below:
-#
-#     path             decode   prefill
-#     generic non-TLE   0.582     0.640
-#     TLE               2.117     1.210
-#
-# The difference is where the histogram and the write counters live: global
-# scratch on the non-TLE path, shared memory here, and a single-address atomic
-# costs ~17x less in shared memory on this card.
-#
-# WHICH BUILDS QUALIFY. The TLE path needs three things that MetaX FlagTree
-# builds before flagos-ai/FlagTree#1164 do not all have, so this never assumes
-# them -- it runs a small self-test kernel on the first call and switches the
-# generic module over only if that passes:
-#
-#   1. mctle compiled in (BUILD_MCTLE=ON): the tle.gpu bindings exist and the
-#      metax backend reports enable_mctle.
-#   2. __MCTLE__ reaching TableGen: FlagTree defines it for C++ only, so
-#      metax's TritonOps.td keeps the #else tt.atomic_rmw constraint and an
-#      atomic on a shared pointer fails the TTIR verifier. Surfaces as a
-#      compile error, caught.
-#   3. metax's own lib/Analysis/Alias.cpp taught about mctle.local_pointers:
-#      without it every buffer reached only through local_ptr looks dead to the
-#      shared-memory allocator after local_pointers, and its bytes are handed
-#      to reduction scratch and to other buffers. Nothing fails to compile --
-#      the answers are silently wrong. The self-test is built to expose exactly
-#      that: two buffers written through local_ptr across cross-warp
-#      reductions, then read back.
-#
-# A build with (1) and (2) but not (3) is the dangerous one, and is why this is
-# a runtime check and not a version test. FLAGGEMS_METAX_TLE=0 forces the
-# non-TLE path.
-#
-# WHAT GETS CHANGED, by rebinding the generic module's globals (no generic
-# diff):
-#
-#   tle        a module whose cumsum is plain tl (metax has no
-#              create_exclusive_cumsum binding) and whose local_ptr adds an
-#              always-zero, unprovable offset: the plugin widens the vector
-#              width of an unmasked shared load from pointer alignment alone,
-#              unclamped by elements per thread, and asserts below 4
-#              elements/thread -- which BLOCK_SIZE=512 on 8 warps is. It is a
-#              builtin rather than @jit because passing a tle buffer into a jit
-#              function needs builder.get_memdesc_type, also absent on metax.
-#   HAS_TLE    True.
-#   _final_select_radix
-#              replaced by the rank-based final select the kernel uses when
-#              radix is off. radix final is both slower here (decode 1.558 vs
-#              1.760, prefill 1.134 vs 1.194) and, in prefill, still wrong.
-#              Replacing the function rather than the policy keeps
-#              _use_radix_final_for_prefill as it is, and also catches
-#              prefill's hard-coded USE_RADIX_FINAL=True launch for rows past
-#              12288.
-#   NUM_THREADS_PER_BLOCK_MERGE / _LAUNCH_GEOMETRY
-#              512. The TLE-only multi-block merge asks for 1024 threads; the
-#              compiled kernel's own limit on this card is 512 ("Hardware
-#              limit: 512"), while torch's device properties say more. A 512
-#              merge tile on 8 warps also measured fastest against 256 / 1024
-#              tiles and 2 / 4 warps.
-#
-# All of it happens before the first TLE kernel is compiled, so the kernels'
-# cache keys include the replacements and never collide with an unswitched
-# process's.
+# BEGIN TLE GATE: identical in top_k_per_row_decode.py and top_k_per_row_prefill.py
+# The TLE path keeps the histogram and counters in shared memory, where a
+# single-address atomic is ~17x cheaper than in global scratch on a C550. It
+# needs a FlagTree built with mctle, __MCTLE__ passed to TableGen, and metax's
+# Alias.cpp aware of mctle.local_pointers; without the last, kernels compile but
+# share bytes, so this is a runtime self-test. FLAGGEMS_METAX_TLE=0 disables it.
 
-# The compiled merge kernel's thread limit on a C550, as reported by Triton's
-# OutOfResources at 16 warps. Per-kernel, so it is a measured constant here
-# rather than a device property.
+# Thread limit of the compiled merge kernel on a C550; torch reports more.
 _MAX_THREADS = 512
 
-# The self-test runs at the operator's own geometry: 512 lanes on 8 warps.
 _PROBE_N = 512
 _PROBE_WARPS = 8
 
@@ -146,7 +52,7 @@ else:
 
 @triton.jit
 def _cumsum_exclusive(x, axis: tl.constexpr = 0, reverse: tl.constexpr = False):
-    """tle.cumsum's contract -- (exclusive prefix, total) -- in plain tl."""
+    """tle.cumsum's (exclusive prefix, total) in plain tl."""
     tl.static_assert(not reverse, "reverse=True is not implemented")
     return tl.cumsum(x, axis=axis) - x, tl.sum(x, axis=axis)
 
@@ -163,8 +69,7 @@ def _final_select_rank(
     BLOCK_SIZE: tl.constexpr,
     MULTIPLE_BLOCKS_PER_ROW: tl.constexpr,
 ):
-    """_final_select_radix's signature, the non-radix final select's body --
-    the else-branch of _top_k_per_row_job, identical in both generic files."""
+    """The generic non-radix final select, behind _final_select_radix's signature."""
     NUM_FINAL_ITEMS: tl.constexpr = 2048
     lane = tl.arange(0, BLOCK_SIZE)
     base_idx = tl.load(s_found_topk_values_ptr)
@@ -193,11 +98,12 @@ def _build_shim():
         return None
     real = _tle.gpu
 
+    # Adds pid >> 31 (always 0, alignment unprovable): the metax plugin widens
+    # shared loads from pointer alignment and asserts below 4 elements/thread.
+    # A builtin, since a @jit function cannot take a TLE buffer on metax.
     @tl.core.builtin
     def local_ptr(buffer, indices=None, _semantic=None, _generator=None):
         p = real.local_ptr(buffer, indices, _semantic=_semantic, _generator=_generator)
-        # pid >> 31 is 0 for every valid program id, and AxisInfo cannot prove
-        # its divisibility, so the pointer's alignment becomes unprovable.
         pid = tl.program_id(0, _semantic=_semantic)
         return p.__add__(pid.__rshift__(31, _semantic=_semantic), _semantic=_semantic)
 
@@ -217,9 +123,7 @@ _SHIM = _build_shim()
 
 @triton.jit
 def _self_test_kernel(bad_ptr, N: tl.constexpr):
-    """Write two buffers through local_ptr, run cross-warp reductions and a
-    masked shared atomic, read everything back. Any overlap the allocator
-    was not told about shows up as a nonzero count."""
+    """Counts values an overlapping shared-memory allocation corrupted."""
     lane = tl.arange(0, N)
     a = _SHIM.gpu.alloc(
         [N],
@@ -230,8 +134,8 @@ def _self_test_kernel(bad_ptr, N: tl.constexpr):
     )
     pa = _SHIM.gpu.local_ptr(a, (0,))
     tl.store(pa + lane, lane)
-    # Allocated only after a's last direct use: an allocator that cannot see
-    # the pointer users gives b a's offset.
+    # Allocated after a's last direct use: an allocator that cannot see the
+    # pointer users gives b a's offset.
     b = _SHIM.gpu.alloc(
         [N],
         dtype=tl.int32,
@@ -284,7 +188,7 @@ def _is_mctle_build():
 
 
 def _self_test(device):
-    """(ok, reason). One launch and one 4-byte read, once per process."""
+    """(ok, reason)."""
     import torch
 
     bad = torch.empty((1,), dtype=torch.int32, device=device)
@@ -302,6 +206,7 @@ def _self_test(device):
 def _install():
     _generic.tle = _SHIM
     _generic.HAS_TLE = True
+    # Radix final select is slower on a C550, and wrong in prefill.
     _generic._final_select_radix = _final_select_rank
     _generic.NUM_THREADS_PER_BLOCK_MERGE = _MAX_THREADS
     warp, maxt = _generic._launch_geometry()
@@ -309,8 +214,7 @@ def _install():
 
 
 def ensure_tle(device):
-    """Switch this operator onto the TLE path if this build can run it.
-    Decided once per process, on the first call; returns whether it is on."""
+    """Decides once per process whether this operator takes the TLE path."""
     if _state["done"]:
         return _state["on"]
     with _lock:
@@ -339,12 +243,14 @@ def ensure_tle(device):
 
 
 def status():
-    """{'done', 'on', 'why'} -- for tools and tests."""
+    """{'done', 'on', 'why'}."""
     return dict(_state)
 
 
 # END TLE GATE
 
+# A 1024-thread tile pays on long rows ((64, 129280) 0.88 -> 0.98 of vLLM on a
+# C550) and costs 12-20% on many short rows, so it is keyed on vocabulary size.
 WIDE_TILE_VOCAB = 16384
 
 

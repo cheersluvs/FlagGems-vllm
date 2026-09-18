@@ -169,10 +169,8 @@ def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
 
 
 def _tle_prefill_available():
-    """Whether the TLE prefill path is live -- decided after one call, not at
-    collection. A vendor override may switch the generic module onto TLE on
-    its first call (MetaX does, after a runtime self-test), so a skipif that
-    reads HAS_TLE at collection time skips this test even where TLE runs."""
+    """Whether TLE prefill is live after one call: a vendor override may turn it
+    on at the first call, after a collection-time skipif has already run."""
     logits = torch.randn(1, 4096, device=device, dtype=torch.float32)
     starts = torch.zeros(1, dtype=torch.int32, device=device)
     ends = torch.full((1,), 4096, dtype=torch.int32, device=device)
