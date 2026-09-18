@@ -14,7 +14,7 @@ conv1d example in that workflow document.
 | Editable files | New `tools/hygon_prefill_audit*` probe, source builder and CPU checks |
 | Read-only files | Generic and Hygon operators, existing tests, benchmarks and historic reports |
 | Build | Python source/AST compilation locally; Triton JIT on BW1000; no package installation or `setup.sh` |
-| Validation | Every arm: bounds, uniqueness, exact selected values, padding; normal/tied full shapes and partial/short/strided cases; nonzero exit on any failure |
+| Validation | Every arm: bounds, uniqueness, exact selected values, padding; normal/tied full shapes and partial/short/padded-row cases; nonzero exit on any failure |
 | Benchmark | Paired, order-balanced rounds; profiler events for the single Triton kernel, microseconds; speedup = control/candidate |
 | Active set | Seven existing fp32 benchmark shapes, strides and k; seeds 42 and 43 |
 | Aggregation | Per-seed paired ratios and raw samples; geometric mean across seven shapes only with complete coverage; no best-of-arm minimum comparison |
