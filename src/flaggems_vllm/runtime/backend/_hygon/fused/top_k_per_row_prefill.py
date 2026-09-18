@@ -69,8 +69,11 @@ from importlib import import_module
 import triton
 import triton.language as tl
 
+from ._top_k_per_row_prefill_carry_source import build_carry_source
+
 _GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
 _DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
+_CARRY_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_carry"
 _SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
 
 _generic = import_module(_GENERIC_NAME)
@@ -419,6 +422,51 @@ def _process_bins_slotscan(
 _dense._process_bins = _process_bins_slotscan
 
 
+def _carry_path():
+    """Build the opt-in, self-contained dense copy tested by the audit."""
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_CARRY", "0").strip().lower() not in (
+        "1",
+        "true",
+        "on",
+        "yes",
+    ):
+        return None
+    if _ONESCAN_PATH is None:
+        _log.warning("hygon prefill carry requires the one-scan source")
+        return None
+    try:
+        with open(_ONESCAN_PATH) as fh:
+            generic_source = fh.read()
+        with open(__file__) as fh:
+            override_source = fh.read()
+        source = build_carry_source(generic_source, override_source)
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_carry_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(source)
+            os.replace(tmp, path)
+        with open(path) as fh:
+            if fh.read() != source:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
+        _log.warning("hygon prefill carry source skipped: %r", exc)
+        return None
+
+
+_CARRY_PATH = _carry_path()
+try:
+    _dense_carry = _load_copy(_CARRY_NAME, _CARRY_PATH) if _CARRY_PATH else None
+except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
+    _log.warning("hygon prefill carry module skipped: %r", exc)
+    _dense_carry = None
+
+
 def _slotscan_enabled():
     raw = os.environ.get("FLAGGEMS_HYGON_TOPK_SLOTSCAN", "1").strip().lower()
     return raw not in ("0", "false", "off", "no")
@@ -486,7 +534,9 @@ def _geometry_enabled():
 _GEOMETRY = _geometry_enabled()
 _LAUNCH_LOCK = threading.Lock()
 _GENERIC_DEFAULTS = {
-    id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps) for m in (_sparse, _dense)
+    id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps)
+    for m in (_sparse, _dense, _dense_carry)
+    if m is not None
 }
 
 
@@ -496,7 +546,7 @@ def top_k_per_row_prefill(
     """Dense rows through the prefix-sum copy, everything else through generic,
     each launched at the geometry its occupancy wants."""
     if _ENABLED and logits.shape[1] <= DENSE_VOCAB_PER_TOPK * top_k:
-        mod = _dense
+        mod = _dense_carry if _dense_carry is not None else _dense
     else:
         mod = _sparse
     geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None

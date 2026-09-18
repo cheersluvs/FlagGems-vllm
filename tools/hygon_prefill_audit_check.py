@@ -4,11 +4,12 @@ These checks do not claim Triton compilation or GPU correctness.
 """
 
 import ast
+import importlib.util
 import random
 import unittest
 from pathlib import Path
 
-from hygon_prefill_audit_source import build, function_text, replace_once
+from hygon_prefill_audit_source import OVERRIDE, build, function_text, replace_once
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,6 +23,22 @@ def definitions(source):
 
 
 class ConstructionChecks(unittest.TestCase):
+    def test_production_carry_source_matches_audited_arm(self):
+        builder_path = (
+            ROOT
+            / "src/flaggems_vllm/runtime/backend/_hygon/fused"
+            / "_top_k_per_row_prefill_carry_source.py"
+        )
+        spec = importlib.util.spec_from_file_location(
+            "carry_source_check", builder_path
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        generic_onescan = build(ROOT, False)
+        override = (ROOT / OVERRIDE).read_text()
+        candidate = module.build_carry_source(generic_onescan, override)
+        self.assertEqual(candidate, build(ROOT, True, "carry"))
+
     def test_all_generated_variants_compile_as_python(self):
         for dense in (False, True):
             for arm in ("control", "rank8", "rank16", "carry"):
