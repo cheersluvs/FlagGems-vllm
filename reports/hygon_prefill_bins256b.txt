@@ -1,0 +1,54 @@
+### branch topk-metax @ bae2755
+### 2026-09-18T09:08:47+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0918 09:09:06.660589 103234 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    104.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    97.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    106.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    90.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    96.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    93.0W      auto     1000.0W    1%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+device us, today's rounds against one scan, interleaved over 7 rounds; production routing and geometry in both arms.
+'min' is each arm's least-disturbed round -- contention only ever ADDS time -- and is the number to read when the spread is wide.
+
+               shape   module min b2048  min b512  min b256  512/2048   256/2048  normal   tied
+           64x129280  generic     255.2     430.2    1268.5     0.593      0.201      OK     OK
+             4x16385  generic      30.2      47.5      66.6     0.635      0.453      OK     OK
+              4x8193  generic      22.9      37.4      60.6     0.612      0.377      OK     OK
+          16383x4095    dense    1307.6    1561.3    2225.9     0.838      0.587      OK     OK
+          12961x4100    dense    1039.9    1201.1    1776.8     0.866      0.585      OK     OK
+          16380x5115    dense    1561.8    1808.9    2491.0     0.863      0.627      OK     OK
+           4100x1025    dense     129.2     117.5     108.4     1.099      1.192      OK     OK
+
+  geomean 2048/256 0.509
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    104.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       51.0C    113.0W     auto     1000.0W    4%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    106.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    90.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    96.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    94.0W      auto     1000.0W    1%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+  ratio > 1 means the narrower STEP 0 is faster. 'tied' uses rounded
+  logits, which overflow the threshold bin and make STEP 1-3 run --
+  the same thing 256 bins is expected to do to the sparse shapes.
