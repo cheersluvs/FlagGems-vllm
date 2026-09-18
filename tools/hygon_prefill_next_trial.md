@@ -15,7 +15,7 @@ Run the two stages separately; inspect the launch report before starting combo.
 | Validation | Exact `torch.topk` value multiset, unique relative indices, `-1` padding, output guards, public route; normal seeds 42/43 and tied/constant/partial/short/special/padded-row cases, **before** timing each candidate |
 | Benchmark | Torch profiler CUDA kernel events, exactly one `non_tle_top_k_per_row_prefill` event per call; median microseconds; A-B-B-A and reverse order over four rounds and two seeds; ratios >1 favor candidate |
 | Active set | Launch: `(4,8193,512)` and `(4,16385,512)`, seven candidate geometries vs shipped B512/w8. Combo: four dense benchmark shapes, four factorial arms, using production geometry |
-| Aggregation | Per-shape median of eight paired ratios, range and raw per-call samples retained; no winner selected from unvalidated or failed workers; no seven-shape geomean claim before the ordinary benchmark |
+| Aggregation | Per-shape median of 16 paired ratios (four rounds × two pairs × two seeds), range and raw per-call samples retained; no winner selected from unvalidated or failed workers; no seven-shape geomean claim before the ordinary benchmark |
 | Timeout / profiler | 1200 s per shape/config worker, 14400 s wrapper. `hy-smi` before/after. Device-only profiler events, not host launch time |
 | Autotune | Exempt: Hygon-only offline probe, no production tuning or NVIDIA config |
 | Fallback | Production stays at B512/w8 sparse and current carry dense. No torch compute fallback is added |
