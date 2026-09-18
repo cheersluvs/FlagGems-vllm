@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# On the Hygon experiment worktree, validate and benchmark the opt-in carry arm.
-# Always preserve the report, including a failed validation or benchmark.
+# On the Hygon experiment worktree, validate the default carry route and
+# compare it to the reversible preceding dense route. Always preserve a report.
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -50,8 +50,8 @@ record() {
 record hy-smi || true
 overall=0
 SOURCE_CHECK='import hashlib; import importlib; from pathlib import Path; ov=importlib.import_module("flaggems_vllm.runtime.backend._hygon.fused.top_k_per_row_prefill"); expected="869cf66cd5408b353333684c63a35a29f1f0d68f082eca50635beb3a7ccde777"; assert ov._ONESCAN_PATH and ov._ENABLED and ov._GEOMETRY; assert ov._dense_carry is not None and ov._CARRY_PATH; actual=hashlib.sha256(Path(ov._CARRY_PATH).read_bytes()).hexdigest(); print("carry source sha256", actual); assert actual == expected, (actual, expected)'
-if record timeout 1200 env FLAGGEMS_HYGON_TOPK_CARRY=1 "${PY:-python}" -c "$SOURCE_CHECK"; then
-    if ! record timeout 1200 env FLAGGEMS_HYGON_TOPK_CARRY=1 "${PY:-python}" -m pytest -q tests/test_top_k_per_row_prefill.py; then
+if record timeout 1200 "${PY:-python}" -c "$SOURCE_CHECK"; then
+    if ! record timeout 1200 "${PY:-python}" -m pytest -q tests/test_top_k_per_row_prefill.py; then
         overall=1
     fi
 else
@@ -61,8 +61,13 @@ fi
 if [ "$overall" -eq 0 ]; then
     # Separate processes load the correct env-gated module. B-C-C-B limits
     # drift; never quote a chosen minimum as the result.
-    for mode in 0 1 1 0; do
-        if ! record timeout 1200 env FLAGGEMS_HYGON_TOPK_CARRY="$mode" "${PY:-python}" -m pytest -q -s benchmark/test_top_k_per_row_prefill.py --mode kernel; then
+    for mode in 0 default default 0; do
+        if [ "$mode" = default ]; then
+            cmd=(timeout 1200 "${PY:-python}" -m pytest -q -s benchmark/test_top_k_per_row_prefill.py --mode kernel)
+        else
+            cmd=(timeout 1200 env FLAGGEMS_HYGON_TOPK_CARRY=0 "${PY:-python}" -m pytest -q -s benchmark/test_top_k_per_row_prefill.py --mode kernel)
+        fi
+        if ! record "${cmd[@]}"; then
             overall=1
             break
         fi

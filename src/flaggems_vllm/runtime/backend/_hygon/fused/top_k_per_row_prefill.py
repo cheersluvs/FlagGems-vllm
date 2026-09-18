@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""top_k_per_row_prefill on Hygon BW1000: on DENSE rows, allocate output slots
-by prefix sum instead of one atomic per selected element.
+"""top_k_per_row_prefill on Hygon BW1000: on dense rows, allocate output slots
+by prefix sum and carry their counter through the histogram step.
 
 WHY. prefill loses on all seven benchmark shapes against vLLM's C++ kernel here
 (geomean 0.355), worst on the small-vocabulary ones. Per program it fits
@@ -53,6 +53,14 @@ picks a module per call. Sparse rows run the untouched generic kernel.
 Density from vocab is conservative for partial-range rows (a shorter row is
 denser than vocab suggests), so a miss falls back to generic, never to
 something slower. FLAGGEMS_HYGON_TOPK_SLOTSCAN=0 always uses generic.
+
+The carried-counter dense copy removes one global atomic per collection tile:
+it loads the output count once at the start of each histogram step, derives
+tile-local offsets by cumsum, and stores the accumulated count before its
+barrier. The BW1000 v3 audit validated the exact generated source on padded
+rows, ties, short and partial ranges; the follow-up B-C-C-B run passed 19
+functional tests and improved the four dense benchmark shapes by 1.06-1.08x.
+Set FLAGGEMS_HYGON_TOPK_CARRY=0 to retain the preceding dense implementation.
 """
 
 import functools
@@ -423,12 +431,12 @@ _dense._process_bins = _process_bins_slotscan
 
 
 def _carry_path():
-    """Build the opt-in, self-contained dense copy tested by the audit."""
-    if os.environ.get("FLAGGEMS_HYGON_TOPK_CARRY", "0").strip().lower() not in (
-        "1",
-        "true",
-        "on",
-        "yes",
+    """Build the self-contained dense copy tested by the BW1000 audit."""
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_CARRY", "1").strip().lower() in (
+        "0",
+        "false",
+        "off",
+        "no",
     ):
         return None
     if _ONESCAN_PATH is None:

@@ -45,13 +45,16 @@ seeds agreeing. Rank8 was at most a small dense gain; rank16 regressed overall.
 | General/short/tied | Same host route; existing in-kernel fallback | No new torch fallback or public API | Full functional suite and v3 adversarial cases |
 | Unsupported | NaNs, non-fp32, column stride other than one | No expanded promise | Explicitly outside this trial |
 
-The candidate is deliberately opt-in until the card's standard tests and
-ABBA benchmark both pass. Keep only if four dense shapes improve without a
-meaningful sparse regression. Otherwise leave the shipped path untouched and
-investigate the histogram/read cost next.
+## Decision: keep as default
 
-On the Hygon experiment worktree, after fetching this commit, run
-`bash tools/hygon_prefill_carry_run.sh hygon_prefill_carry_v1` on an idle HCU.
-The runner writes and pushes `reports/hygon_prefill_carry_v1.txt` without
-rewriting branch history. Set visible-device variables before invoking it if
-other HCUs are occupied.
+`hygon_prefill_carry_v1` met the promotion rule on BW1000: the exact audited
+source hash was loaded, the existing suite passed **19 passed / 1 skipped**,
+and the B-C-C-B benchmark showed the four dense shapes improve by 1.06-1.08x.
+The three sparse shapes use the unchanged module. The carry copy is therefore
+the default dense path; `FLAGGEMS_HYGON_TOPK_CARRY=0` remains the reversible
+fallback for diagnosis.
+
+On the Hygon experiment worktree, after fetching the promotion commit, run
+the ordinary functional suite and benchmark with no carry environment variable
+to verify the default route. Set visible-device variables before invoking it
+if other HCUs are occupied.
