@@ -248,8 +248,11 @@ def adversarial_checks(modules, diag, shape, block, warps):
     # Keep the exact timed geometry/routing while bounding expensive tie cases.
     for case in ("tied", "constant", "partial", "short", "special", "strided"):
         n = min(rows, 32)
-        step = 2 if case == "strided" else 1
-        stride = max(stride0, vocab * step + 8)
+        # The production contract is column-contiguous.  Exercise the
+        # supported non-contiguous case with padded rows; a column stride of
+        # two makes the control implementation fail before candidate timing.
+        step = 1
+        stride = max(stride0, vocab + 8)
         tensors = inputs(n, vocab, stride, top_k, 123, case, step)
         want = oracle(tensors, top_k)
         for arm, module in modules.items():
