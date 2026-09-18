@@ -3,6 +3,7 @@
 # Usage: tools/hygon_prefill_next_run.sh launch [report-name]
 #        tools/hygon_prefill_next_run.sh combo  [report-name]
 #        tools/hygon_prefill_next_run.sh bitonic [report-name]
+#        tools/hygon_prefill_next_run.sh private_hist [report-name]
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -11,8 +12,8 @@ BRANCH=codex/hygon-prefill-audit
 REMOTE=https://github.com/cheersluvs/FlagGems-vllm.git
 STAGE=${1:-}
 case "$STAGE" in
-    launch|combo|bitonic) ;;
-    *) echo "Usage: $0 {launch|combo|bitonic} [report-name]"; exit 2 ;;
+    launch|combo|bitonic|private_hist) ;;
+    *) echo "Usage: $0 {launch|combo|bitonic|private_hist} [report-name]"; exit 2 ;;
 esac
 NAME=${2:-hygon_prefill_${STAGE}_device_v1}
 if [[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -48,6 +49,8 @@ export PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}"
 
 if [ "$STAGE" = bitonic ]; then
     PROBE=(tools/hygon_prefill_bitonic.py)
+elif [ "$STAGE" = private_hist ]; then
+    PROBE=(tools/hygon_prefill_private_hist.py)
 else
     PROBE=(tools/hygon_prefill_next.py "$STAGE")
 fi
