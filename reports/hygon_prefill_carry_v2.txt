@@ -1,0 +1,134 @@
+### branch codex/hygon-prefill-audit @ 548271e73fe2d4c1d355f820f3f5592ea0ee5dce
+### 2026-09-18T14:48:02+08:00 host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### python python
+### HIP_VISIBLE_DEVICES=1 CUDA_VISIBLE_DEVICES=1
+### RUN hy-smi
+
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    104.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    97.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    106.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    90.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    96.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       52.0C    143.0W     auto     1000.0W    2%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+### EXIT 0
+### RUN timeout 1200 python -c import hashlib; import importlib; from pathlib import Path; ov=importlib.import_module("flaggems_vllm.runtime.backend._hygon.fused.top_k_per_row_prefill"); expected="869cf66cd5408b353333684c63a35a29f1f0d68f082eca50635beb3a7ccde777"; assert ov._ONESCAN_PATH and ov._ENABLED and ov._GEOMETRY; assert ov._dense_carry is not None and ov._CARRY_PATH; actual=hashlib.sha256(Path(ov._CARRY_PATH).read_bytes()).hexdigest(); print("carry source sha256", actual); assert actual == expected, (actual, expected)
+carry source sha256 869cf66cd5408b353333684c63a35a29f1f0d68f082eca50635beb3a7ccde777
+### EXIT 0
+### RUN timeout 1200 python -m pytest -q tests/test_top_k_per_row_prefill.py
+.....s..............                                                     [100%]
+19 passed, 1 skipped in 28.20s
+### EXIT 0
+### RUN timeout 1200 env FLAGGEMS_HYGON_TOPK_CARRY=0 python -m pytest -q -s benchmark/test_top_k_per_row_prefill.py --mode kernel
+INFO 09-18 14:49:36 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-18 14:49:36 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-18 14:49:36 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-18 14:49:36 [__init__.py:239] Platform plugin hcu is activated
+
+baseline: vLLM
+
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.109440            0.262240               0.417          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.018400            0.031200               0.590          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               1.154239            1.336319               0.864          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.025920            0.040000               0.648          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               0.680799            1.045919               0.651          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               1.242080            1.575360               0.788          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.159200            0.135359               1.176          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+.
+1 passed in 33.62s
+### EXIT 0
+### RUN timeout 1200 python -m pytest -q -s benchmark/test_top_k_per_row_prefill.py --mode kernel
+INFO 09-18 14:50:34 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-18 14:50:34 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-18 14:50:34 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-18 14:50:34 [__init__.py:239] Platform plugin hcu is activated
+
+baseline: vLLM
+
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.109600            0.262560               0.417          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.020640            0.030080               0.686          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               1.155679            1.244160               0.929          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.023360            0.040480               0.577          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               0.682400            0.978720               0.697          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               1.244800            1.459519               0.853          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.160800            0.127680               1.259          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+.
+1 passed in 11.04s
+### EXIT 0
+### RUN timeout 1200 python -m pytest -q -s benchmark/test_top_k_per_row_prefill.py --mode kernel
+INFO 09-18 14:51:10 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-18 14:51:10 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-18 14:51:10 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-18 14:51:10 [__init__.py:239] Platform plugin hcu is activated
+
+baseline: vLLM
+
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.109439            0.262240               0.417          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.018560            0.031200               0.595          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               1.155200            1.244320               0.928          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.023520            0.040320               0.583          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               0.682880            0.978400               0.698          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               1.245119            1.470639               0.847          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.160800            0.127360               1.263          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+.
+1 passed in 10.90s
+### EXIT 0
+### RUN timeout 1200 env FLAGGEMS_HYGON_TOPK_CARRY=0 python -m pytest -q -s benchmark/test_top_k_per_row_prefill.py --mode kernel
+INFO 09-18 14:51:46 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-18 14:51:46 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-18 14:51:46 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-18 14:51:46 [__init__.py:239] Platform plugin hcu is activated
+
+baseline: vLLM
+
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.108800            0.262080               0.415          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.020320            0.030880               0.658          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               1.154480            1.337120               0.863          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.023040            0.039840               0.578          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               0.682560            1.043440               0.654          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               1.244799            1.567839               0.794          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.160480            0.135680               1.183          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+.
+1 passed in 10.94s
+### EXIT 0
+### RUN hy-smi
+
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    104.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    97.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    106.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    90.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    96.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       54.0C    178.0W     auto     1000.0W    2%         22.5%     0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+### EXIT 0
+### trial_exit=0
