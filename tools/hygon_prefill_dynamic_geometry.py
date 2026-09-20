@@ -83,7 +83,7 @@ def event_us(fn, iters=5):
         fn()
     end.record()
     torch.cuda.synchronize()
-    return end.elapsed_time(begin) * 1000.0 / iters
+    return begin.elapsed_time(end) * 1000.0 / iters
 
 
 def main():
