@@ -21,6 +21,9 @@
 #        tools/hygon_prefill_next_run.sh scratch_reuse [report-name]
 #        tools/hygon_prefill_next_run.sh scratch_verify [report-name]
 #        tools/hygon_prefill_next_run.sh three_new [report-name]
+#        tools/hygon_prefill_next_run.sh lane16 [report-name]
+#        tools/hygon_prefill_next_run.sh primitives [report-name]
+#        tools/hygon_prefill_next_run.sh budget [report-name]
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -29,8 +32,8 @@ BRANCH=codex/hygon-prefill-audit
 REMOTE=https://github.com/cheersluvs/FlagGems-vllm.git
 STAGE=${1:-}
 case "$STAGE" in
-    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new) ;;
-    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new} [report-name]"; exit 2 ;;
+    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new|lane16|primitives|budget) ;;
+    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new|lane16|primitives|budget} [report-name]"; exit 2 ;;
 esac
 NAME=${2:-hygon_prefill_${STAGE}_device_v1}
 if [[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -102,6 +105,12 @@ elif [ "$STAGE" = scratch_verify ]; then
     PROBE=(tools/hygon_prefill_scratch_verify.py)
 elif [ "$STAGE" = three_new ]; then
     PROBE=(tools/hygon_prefill_three_new.py)
+elif [ "$STAGE" = lane16 ]; then
+    PROBE=(tools/hygon_prefill_lane16.py)
+elif [ "$STAGE" = primitives ]; then
+    PROBE=(tools/hygon_prefill_primitives.py)
+elif [ "$STAGE" = budget ]; then
+    PROBE=(tools/hygon_prefill_budget.py)
 else
     PROBE=(tools/hygon_prefill_next.py "$STAGE")
 fi
