@@ -17,6 +17,7 @@
 #        tools/hygon_prefill_next_run.sh short_special [report-name]
 #        tools/hygon_prefill_next_run.sh short_bins_crossover [report-name]
 #        tools/hygon_prefill_next_run.sh short_bins_verify [report-name]
+#        tools/hygon_prefill_next_run.sh three_remaining [report-name]
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -25,8 +26,8 @@ BRANCH=codex/hygon-prefill-audit
 REMOTE=https://github.com/cheersluvs/FlagGems-vllm.git
 STAGE=${1:-}
 case "$STAGE" in
-    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify) ;;
-    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify} [report-name]"; exit 2 ;;
+    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining) ;;
+    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining} [report-name]"; exit 2 ;;
 esac
 NAME=${2:-hygon_prefill_${STAGE}_device_v1}
 if [[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -90,6 +91,8 @@ elif [ "$STAGE" = short_bins_crossover ]; then
     PROBE=(tools/hygon_prefill_short_bins_crossover.py)
 elif [ "$STAGE" = short_bins_verify ]; then
     PROBE=(tools/hygon_prefill_short_bins_verify.py)
+elif [ "$STAGE" = three_remaining ]; then
+    PROBE=(tools/hygon_prefill_three_remaining.py)
 else
     PROBE=(tools/hygon_prefill_next.py "$STAGE")
 fi
