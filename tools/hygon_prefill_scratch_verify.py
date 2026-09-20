@@ -106,6 +106,11 @@ def main():
 
 if __name__ == "__main__":
     try:
+        if len(sys.argv) == 2 and sys.argv[1] == "--preflight":
+            preflight(
+                os.environ.get("FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE") == "1"
+            )
+            raise SystemExit(0)
         raise SystemExit(main())
     except Exception:
         import traceback
