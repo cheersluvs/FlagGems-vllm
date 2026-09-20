@@ -1,0 +1,152 @@
+### branch codex/hygon-prefill-audit @ e7b91f6047f701dd318567f30b4b05ed943ad589
+### 2026-09-20T17:14:16+08:00 host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### python python
+### stage split_workset
+### HIP_VISIBLE_DEVICES=unset CUDA_VISIBLE_DEVICES=unset
+### RUN timeout 14400 python -u tools/hygon_prefill_split_workset.py
+INFO 09-20 17:14:34 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-20 17:14:34 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-20 17:14:34 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-20 17:14:35 [__init__.py:239] Platform plugin hcu is activated
+
+## split probe: current checkout, exact chunk split + merge
+shape=64x129280 k=1024 baseline_event_us=315.464
+  split= 1 chunk=129280 programs=    64 event_us=  246.992 ratio= 1.277 exact=OK
+  split= 2 chunk= 64640 programs=   128 event_us=  318.760 ratio= 0.990 exact=OK
+  split= 4 chunk= 32320 programs=   256 event_us=  323.528 ratio= 0.975 exact=OK
+  split= 8 chunk= 16160 programs=   512 event_us=  420.768 ratio= 0.750 exact=OK
+  split=16 chunk=  8080 programs=  1024 event_us=  646.952 ratio= 0.488 exact=OK
+shape=4x8193 k=512 baseline_event_us=178.976
+  split= 1 chunk=  8193 programs=     4 event_us=   56.152 ratio= 3.187 exact=OK
+  split= 2 chunk=  4097 programs=     8 event_us=   56.472 ratio= 3.169 exact=OK
+  split= 4 chunk=  2049 programs=    16 event_us=   56.552 ratio= 3.165 exact=OK
+  split= 8 chunk=  1025 programs=    32 event_us=   63.768 ratio= 2.807 exact=OK
+shape=4x16385 k=512 baseline_event_us=176.928
+  split= 1 chunk= 16385 programs=     4 event_us=   54.480 ratio= 3.248 exact=OK
+  split= 2 chunk=  8193 programs=     8 event_us=   54.296 ratio= 3.259 exact=OK
+  split= 4 chunk=  4097 programs=    16 event_us=   56.632 ratio= 3.124 exact=OK
+  split= 8 chunk=  2049 programs=    32 event_us=   67.136 ratio= 2.635 exact=OK
+  split=16 chunk=  1025 programs=    64 event_us=   91.816 ratio= 1.927 exact=OK
+shape=16383x4095 k=512 baseline_event_us=1174.775
+  split= 1 chunk=  4095 programs= 16383 event_us= 4049.006 ratio= 0.290 exact=OK
+  split= 2 chunk=  2048 programs= 32766 event_us= 8867.797 ratio= 0.132 exact=OK
+  split= 4 chunk=  1024 programs= 65532 event_us=13823.875 ratio= 0.085 exact=OK
+
+## workset probe: exact key mirror and safe-carry analysis
+  shape=64x129280 k=1024 case=normal step_counts=[(1, 64), (2, 0), (3, 0), (4, 0)]
+    c0: n=64 min=142 med=177 p90=195 p99=206 max=207
+    c1: n=64 min=10 med=144 p90=163 p99=169 max=169
+    c2: n=64 min=0 med=0 p90=0 p99=0 max=1
+    c3: n=64 min=0 med=0 p90=0 p99=0 max=0
+    saved: n=64 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=0 step2=0 step3=0 / 64
+    scan_elements baseline=16547840 workset=16547840 saved=0 (0.000%); candidate_materialization_bytes=68680
+  shape=64x129280 k=1024 case=tied step_counts=[(1, 64), (2, 0), (3, 0), (4, 0)]
+    c0: n=64 min=515 med=566 p90=603 p99=623 max=626
+    c1: n=64 min=785 med=862 p90=906 p99=922 max=933
+    c2: n=64 min=515 med=566 p90=603 p99=623 max=626
+    c3: n=64 min=0 med=0 p90=0 p99=0 max=0
+    saved: n=64 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=0 step2=0 step3=0 / 64
+    scan_elements baseline=16547840 workset=16547840 saved=0 (0.000%); candidate_materialization_bytes=733496
+  shape=64x129280 k=1024 case=constant step_counts=[(1, 0), (2, 0), (3, 0), (4, 64)]
+    c0: n=64 min=129280 med=129280 p90=129280 p99=129280 max=129280
+    c1: n=64 min=129280 med=129280 p90=129280 p99=129280 max=129280
+    c2: n=64 min=129280 med=129280 p90=129280 p99=129280 max=129280
+    c3: n=64 min=129280 med=129280 p90=129280 p99=129280 max=129280
+    saved: n=64 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=64 step2=64 step3=64 / 64
+    step0_to_step1 leakage among step1 rows: n=64 min=0 med=0 p90=0 p99=0 max=0 nonzero=0/64
+    adjacent_guard=0 step1_bucket_coverage: n=64 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=1 step1_bucket_coverage: n=64 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=2 step1_bucket_coverage: n=64 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=4 step1_bucket_coverage: n=64 min=1 med=1 p90=1 p99=1 max=1
+    scan_elements baseline=66191360 workset=66191360 saved=0 (0.000%); candidate_materialization_bytes=132382720
+  shape=4x8193 k=512 case=normal step_counts=[(1, 4), (2, 0), (3, 0), (4, 0)]
+    c0: n=4 min=27 med=38 p90=43 p99=44 max=44
+    c1: n=4 min=35 med=39 p90=43 p99=44 max=44
+    c2: n=4 min=0 med=0 p90=0 p99=0 max=0
+    c3: n=4 min=0 med=0 p90=0 p99=0 max=0
+    saved: n=4 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=0 step2=0 step3=0 / 4
+    scan_elements baseline=65544 workset=65544 saved=0 (0.000%); candidate_materialization_bytes=1256
+  shape=4x8193 k=512 case=tied step_counts=[(1, 4), (2, 0), (3, 0), (4, 0)]
+    c0: n=4 min=237 med=262 p90=293 p99=303 max=304
+    c1: n=4 min=167 med=171 p90=179 p99=181 max=181
+    c2: n=4 min=0 med=0 p90=0 p99=0 max=0
+    c3: n=4 min=0 med=0 p90=0 p99=0 max=0
+    saved: n=4 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=0 step2=0 step3=0 / 4
+    scan_elements baseline=65544 workset=65544 saved=0 (0.000%); candidate_materialization_bytes=5520
+  shape=4x8193 k=512 case=constant step_counts=[(1, 0), (2, 0), (3, 0), (4, 4)]
+    c0: n=4 min=8193 med=8193 p90=8193 p99=8193 max=8193
+    c1: n=4 min=8193 med=8193 p90=8193 p99=8193 max=8193
+    c2: n=4 min=8193 med=8193 p90=8193 p99=8193 max=8193
+    c3: n=4 min=8193 med=8193 p90=8193 p99=8193 max=8193
+    saved: n=4 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=4 step2=4 step3=4 / 4
+    step0_to_step1 leakage among step1 rows: n=4 min=0 med=0 p90=0 p99=0 max=0 nonzero=0/4
+    adjacent_guard=0 step1_bucket_coverage: n=4 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=1 step1_bucket_coverage: n=4 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=2 step1_bucket_coverage: n=4 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=4 step1_bucket_coverage: n=4 min=1 med=1 p90=1 p99=1 max=1
+    scan_elements baseline=262176 workset=262176 saved=0 (0.000%); candidate_materialization_bytes=524352
+  shape=4x16385 k=512 case=normal step_counts=[(1, 4), (2, 0), (3, 0), (4, 0)]
+    c0: n=4 min=29 med=32 p90=39 p99=41 max=41
+    c1: n=4 min=3 med=18 p90=57 p99=71 max=73
+    c2: n=4 min=0 med=0 p90=0 p99=0 max=0
+    c3: n=4 min=0 med=0 p90=0 p99=0 max=0
+    saved: n=4 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=0 step2=0 step3=0 / 4
+    scan_elements baseline=131080 workset=131080 saved=0 (0.000%); candidate_materialization_bytes=888
+  shape=4x16385 k=512 case=tied step_counts=[(1, 4), (2, 0), (3, 0), (4, 0)]
+    c0: n=4 min=307 med=340 p90=346 p99=348 max=348
+    c1: n=4 min=5 med=28 p90=76 p99=93 max=95
+    c2: n=4 min=0 med=0 p90=0 p99=0 max=0
+    c3: n=4 min=0 med=0 p90=0 p99=0 max=0
+    saved: n=4 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=0 step2=0 step3=0 / 4
+    scan_elements baseline=131080 workset=131080 saved=0 (0.000%); candidate_materialization_bytes=1240
+  shape=4x16385 k=512 case=constant step_counts=[(1, 0), (2, 0), (3, 0), (4, 4)]
+    c0: n=4 min=16385 med=16385 p90=16385 p99=16385 max=16385
+    c1: n=4 min=16385 med=16385 p90=16385 p99=16385 max=16385
+    c2: n=4 min=16385 med=16385 p90=16385 p99=16385 max=16385
+    c3: n=4 min=16385 med=16385 p90=16385 p99=16385 max=16385
+    saved: n=4 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=4 step2=4 step3=4 / 4
+    step0_to_step1 leakage among step1 rows: n=4 min=0 med=0 p90=0 p99=0 max=0 nonzero=0/4
+    adjacent_guard=0 step1_bucket_coverage: n=4 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=1 step1_bucket_coverage: n=4 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=2 step1_bucket_coverage: n=4 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=4 step1_bucket_coverage: n=4 min=1 med=1 p90=1 p99=1 max=1
+    scan_elements baseline=524320 workset=524320 saved=0 (0.000%); candidate_materialization_bytes=1048640
+  shape=16383x4095 k=512 case=normal step_counts=[(1, 16383), (2, 0), (3, 0), (4, 0)]
+    c0: n=16383 min=9 med=27 p90=34 p99=40 max=50
+    c1: n=16383 min=1 med=20 p90=60 p99=79 max=95
+    c2: n=16383 min=0 med=0 p90=0 p99=0 max=1
+    c3: n=16383 min=0 med=0 p90=0 p99=0 max=0
+    saved: n=16383 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=0 step2=0 step3=0 / 16383
+    scan_elements baseline=134176770 workset=134176770 saved=0 (0.000%); candidate_materialization_bytes=2982752
+  shape=16383x4095 k=512 case=tied step_counts=[(1, 16383), (2, 0), (3, 0), (4, 0)]
+    c0: n=16383 min=145 med=192 p90=245 p99=274 max=311
+    c1: n=16383 min=1 med=88 p90=102 p99=124 max=152
+    c2: n=16383 min=0 med=0 p90=0 p99=0 max=0
+    c3: n=16383 min=0 med=0 p90=0 p99=0 max=0
+    saved: n=16383 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=0 step2=0 step3=0 / 16383
+    scan_elements baseline=134176770 workset=134176770 saved=0 (0.000%); candidate_materialization_bytes=10476576
+  shape=16383x4095 k=512 case=constant step_counts=[(1, 0), (2, 0), (3, 0), (4, 16383)]
+    c0: n=16383 min=4095 med=4095 p90=4095 p99=4095 max=4095
+    c1: n=16383 min=4095 med=4095 p90=4095 p99=4095 max=4095
+    c2: n=16383 min=4095 med=4095 p90=4095 p99=4095 max=4095
+    c3: n=16383 min=4095 med=4095 p90=4095 p99=4095 max=4095
+    saved: n=16383 min=0 med=0 p90=0 p99=0 max=0
+    reaches_step1=16383 step2=16383 step3=16383 / 16383
+    step0_to_step1 leakage among step1 rows: n=16383 min=0 med=0 p90=0 p99=0 max=0 nonzero=0/16383
+    adjacent_guard=0 step1_bucket_coverage: n=16383 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=1 step1_bucket_coverage: n=16383 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=2 step1_bucket_coverage: n=16383 min=1 med=1 p90=1 p99=1 max=1
+    adjacent_guard=4 step1_bucket_coverage: n=16383 min=1 med=1 p90=1 p99=1 max=1
+    scan_elements baseline=536707080 workset=536707080 saved=0 (0.000%); candidate_materialization_bytes=1073414160
+### probe_exit=0
