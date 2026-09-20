@@ -684,7 +684,8 @@ def _scratch_buffers(mod, device, num_rows):
     device_index = device.index
     if device_index is None:
         device_index = torch.cuda.current_device()
-    key = (id(mod), device.type, device_index)
+    stream_id = torch.cuda.current_stream(device).cuda_stream
+    key = (id(mod), device.type, device_index, stream_id)
     num_bins = int(mod.NUM_BINS)
     num_final_items = int(mod.NUM_FILNAL_ITEMS)
     cached = _SCRATCH_CACHE.get(key)
