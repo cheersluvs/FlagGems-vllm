@@ -20,6 +20,7 @@
 #        tools/hygon_prefill_next_run.sh three_remaining [report-name]
 #        tools/hygon_prefill_next_run.sh scratch_reuse [report-name]
 #        tools/hygon_prefill_next_run.sh scratch_verify [report-name]
+#        tools/hygon_prefill_next_run.sh three_new [report-name]
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -28,8 +29,8 @@ BRANCH=codex/hygon-prefill-audit
 REMOTE=https://github.com/cheersluvs/FlagGems-vllm.git
 STAGE=${1:-}
 case "$STAGE" in
-    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify) ;;
-    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify} [report-name]"; exit 2 ;;
+    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new) ;;
+    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new} [report-name]"; exit 2 ;;
 esac
 NAME=${2:-hygon_prefill_${STAGE}_device_v1}
 if [[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -99,6 +100,8 @@ elif [ "$STAGE" = scratch_reuse ]; then
     PROBE=(tools/hygon_prefill_scratch_reuse.py)
 elif [ "$STAGE" = scratch_verify ]; then
     PROBE=(tools/hygon_prefill_scratch_verify.py)
+elif [ "$STAGE" = three_new ]; then
+    PROBE=(tools/hygon_prefill_three_new.py)
 else
     PROBE=(tools/hygon_prefill_next.py "$STAGE")
 fi
