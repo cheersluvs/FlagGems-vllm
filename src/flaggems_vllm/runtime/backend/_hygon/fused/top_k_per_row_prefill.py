@@ -75,8 +75,10 @@ import stat
 import sys
 import tempfile
 import threading
+from collections import OrderedDict
 from importlib import import_module
 
+import torch
 import triton
 import triton.language as tl
 
@@ -659,6 +661,94 @@ _GENERIC_DEFAULTS = {
 }
 
 
+# The non-TLE host wrapper allocates six scratch tensors for every call. On
+# BW1000, reusing one plan per module/device/row-count removes 4-52% of wall
+# time on the benchmark's small-row and four-row shapes. Keep only the most
+# recently used row-count for each loaded route and cap live storage so a
+# serving process cannot accumulate one full scratch set for every request
+# shape. The caller already holds _LAUNCH_LOCK, so cache mutation is serialized.
+_SCRATCH_CACHE = OrderedDict()
+_SCRATCH_CACHE_BYTES = 0
+_SCRATCH_CACHE_LIMIT = 512 * 1024 * 1024
+
+
+def _scratch_reuse_enabled():
+    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE", "1").strip().lower()
+    return raw not in ("0", "false", "off", "no")
+
+
+def _scratch_buffers(mod, device, num_rows):
+    """Return the non-TLE scratch set, reusing one active shape per route."""
+    global _SCRATCH_CACHE_BYTES
+
+    device_index = device.index
+    if device_index is None:
+        device_index = torch.cuda.current_device()
+    key = (id(mod), device.type, device_index)
+    num_bins = int(mod.NUM_BINS)
+    num_final_items = int(mod.NUM_FILNAL_ITEMS)
+    cached = _SCRATCH_CACHE.get(key)
+    if cached is not None:
+        cached_rows, cached_bins, cached_final, _, buffers = cached
+        if (
+            cached_rows == num_rows
+            and cached_bins == num_bins
+            and cached_final == num_final_items
+        ):
+            _SCRATCH_CACHE.move_to_end(key)
+            return buffers
+        del _SCRATCH_CACHE[key]
+        _SCRATCH_CACHE_BYTES -= cached[3]
+
+    allocation_bytes = (
+        num_rows * num_bins * 4
+        + num_rows * num_final_items * 4
+        + num_rows * 4 * 4
+    )
+    while _SCRATCH_CACHE and _SCRATCH_CACHE_BYTES + allocation_bytes > _SCRATCH_CACHE_LIMIT:
+        _, old = _SCRATCH_CACHE.popitem(last=False)
+        _SCRATCH_CACHE_BYTES -= old[3]
+
+    buffers = (
+        torch.empty((num_rows, num_bins), device=device, dtype=torch.int32),
+        torch.empty((num_rows, num_final_items), device=device, dtype=torch.float32),
+        torch.empty((num_rows,), device=device, dtype=torch.int32),
+        torch.empty((num_rows,), device=device, dtype=torch.int32),
+        torch.empty((num_rows,), device=device, dtype=torch.int32),
+        torch.empty((num_rows,), device=device, dtype=torch.int32),
+    )
+    if allocation_bytes <= _SCRATCH_CACHE_LIMIT:
+        _SCRATCH_CACHE[key] = (
+            num_rows,
+            num_bins,
+            num_final_items,
+            allocation_bytes,
+            buffers,
+        )
+        _SCRATCH_CACHE_BYTES += allocation_bytes
+    return buffers
+
+
+def _top_k_per_row_prefill_reuse(
+    mod, logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
+):
+    scratch = _scratch_buffers(mod, logits.device, num_rows)
+    return mod.non_tle_top_k_per_row_prefill[(num_rows,)](
+        logits,
+        indices,
+        row_starts,
+        row_ends,
+        stride0,
+        stride1,
+        logits.shape[1],
+        *scratch,
+        TOPK=top_k,
+        BLOCK_SIZE=mod.NUM_THREADS_PER_BLOCK,
+        ROW_OFFSET=0,
+        num_warps=mod._num_warps(mod.NUM_THREADS_PER_BLOCK),
+    )
+
+
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
@@ -687,6 +777,18 @@ def top_k_per_row_prefill(
             block, warps = geo
             mod.NUM_THREADS_PER_BLOCK = block
             mod._num_warps = lambda block_size, w=warps: w
+        if _scratch_reuse_enabled() and not getattr(mod, "HAS_TLE", False):
+            return _top_k_per_row_prefill_reuse(
+                mod,
+                logits,
+                row_starts,
+                row_ends,
+                indices,
+                num_rows,
+                stride0,
+                stride1,
+                top_k,
+            )
         return mod.top_k_per_row_prefill(
             logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
         )
