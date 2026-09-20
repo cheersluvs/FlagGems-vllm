@@ -71,23 +71,15 @@ def patch_bins(source, bins):
     if bins not in BIN_CANDIDATES:
         raise ValueError(f"unsupported bin candidate: {bins}")
     shift = 5 + (11 - int(math.log2(bins)))
-    marker = "NUM_BINS = 2048\nRADIX_BITS_FINAL"
-    if source.count(marker) != 1:
-        raise RuntimeError("source marker for probe constants drifted")
-    source = source.replace(
-        marker,
-        f"STEP0_BINS = {bins}\nSTEP0_SHIFT = {shift}\nNUM_BINS = 2048\nRADIX_BITS_FINAL",
-        1,
-    )
     old = "bin_idx = (mapped >> 5).to(tl.uint32)"
     if source.count(old) != 1:
         raise RuntimeError("STEP 0 key extraction marker drifted")
-    source = source.replace(old, "bin_idx = (mapped >> STEP0_SHIFT).to(tl.uint32)", 1)
+    source = source.replace(old, f"bin_idx = (mapped >> {shift}).to(tl.uint32)", 1)
     old = "RADIX_SIZE: tl.constexpr = RADIX10_SIZE if STEP == 3 else RADIX11_SIZE"
     new = (
         "RADIX_SIZE: tl.constexpr = ("
         "RADIX10_SIZE if STEP == 3 else "
-        "(STEP0_BINS if STEP == 0 else RADIX11_SIZE)"
+        f"({bins} if STEP == 0 else RADIX11_SIZE)"
         ")"
     )
     if source.count(old) != 1:
