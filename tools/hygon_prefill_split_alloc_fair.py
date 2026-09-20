@@ -37,6 +37,7 @@ TOOLS = Path(__file__).resolve().parent
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
+import hygon_prefill_split as direct_split  # noqa: E402
 import hygon_prefill_split_workset as split_probe  # noqa: E402
 
 
@@ -96,7 +97,7 @@ def split1_alloc_run(logits, starts, ends, out, rows, vocab, top_k, stride0):
     gblock = min(1024, cap)
 
     bounds = OV._Launch(
-        split_probe._bounds,
+        direct_split._bounds,
         (rows,),
         {"SPLIT": 1, "CHUNK": chunk, "BLOCK": 1},
         1,
@@ -108,7 +109,7 @@ def split1_alloc_run(logits, starts, ends, out, rows, vocab, top_k, stride0):
         GENERIC._num_warps(block),
     )
     gather = OV._Launch(
-        split_probe._gather,
+        direct_split._gather,
         (rows, triton.cdiv(ncand, gblock)),
         {"SPLIT": 1, "TOPK": top_k, "CHUNK": chunk, "NCAND": ncand, "BLOCK": gblock},
         4,
@@ -120,7 +121,7 @@ def split1_alloc_run(logits, starts, ends, out, rows, vocab, top_k, stride0):
             "TOPK": top_k,
             "NB": NB,
             "CAP": cap,
-            "RADIX": split_probe.RADIX,
+            "RADIX": direct_split.RADIX,
             "BLOCK": 512,
         },
         8,
@@ -137,7 +138,7 @@ def split1_alloc_run(logits, starts, ends, out, rows, vocab, top_k, stride0):
         cand_idx = torch.empty((rows, cap), dtype=torch.int32, device="cuda")
         cnt = torch.full((rows,), ncand, dtype=torch.int32, device="cuda")
         hist = torch.empty((rows, NB), dtype=torch.int32, device="cuda")
-        counts = torch.empty((rows, split_probe.RADIX), dtype=torch.int32, device="cuda")
+        counts = torch.empty((rows, direct_split.RADIX), dtype=torch.int32, device="cuda")
         slot = torch.empty((rows,), dtype=torch.int32, device="cuda")
         scratch = (
             torch.empty((nv, GENERIC.NUM_BINS), dtype=torch.int32, device="cuda"),
