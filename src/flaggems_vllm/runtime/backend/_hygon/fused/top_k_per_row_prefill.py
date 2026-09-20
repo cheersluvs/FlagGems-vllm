@@ -86,6 +86,7 @@ _GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
 _DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
 _CARRY_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_carry"
 _VEC2_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2"
+_SHORT_BINS_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_short_bins"
 _SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
 
 _generic = import_module(_GENERIC_NAME)
@@ -517,6 +518,69 @@ except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
     _dense_vec2 = None
 
 
+def _short_bins_path():
+    """Build the measured 512-bin STEP-0 dense specialization."""
+    if _VEC2_PATH is None:
+        return None
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_SHORT_BINS", "1").strip().lower() in (
+        "0",
+        "false",
+        "off",
+        "no",
+    ):
+        return None
+    try:
+        with open(_VEC2_PATH) as fh:
+            source = fh.read()
+        old_key = "bin_idx = (mapped >> 5).to(tl.uint32)"
+        if source.count(old_key) != 1:
+            raise ValueError("STEP-0 key extraction source drift")
+        source = source.replace(
+            old_key, "bin_idx = (mapped >> 7).to(tl.uint32)", 1
+        )
+        old_radix = (
+            "RADIX_SIZE: tl.constexpr = "
+            "RADIX10_SIZE if STEP == 3 else RADIX11_SIZE"
+        )
+        new_radix = (
+            "RADIX_SIZE: tl.constexpr = ("
+            "RADIX10_SIZE if STEP == 3 else "
+            "(512 if STEP == 0 else RADIX11_SIZE))"
+        )
+        if source.count(old_radix) != 1:
+            raise ValueError("one-scan radix source drift")
+        source = source.replace(old_radix, new_radix, 1)
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_short_bins_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(source)
+            os.replace(tmp, path)
+        with open(path) as fh:
+            if fh.read() != source:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
+        _log.warning("hygon prefill short-bins source skipped: %r", exc)
+        return None
+
+
+_SHORT_BINS_PATH = _short_bins_path()
+try:
+    _dense_short_bins = (
+        _load_copy(_SHORT_BINS_NAME, _SHORT_BINS_PATH)
+        if _SHORT_BINS_PATH
+        else None
+    )
+except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
+    _log.warning("hygon prefill short-bins module skipped: %r", exc)
+    _dense_short_bins = None
+
+
 def _slotscan_enabled():
     raw = os.environ.get("FLAGGEMS_HYGON_TOPK_SLOTSCAN", "1").strip().lower()
     return raw not in ("0", "false", "off", "no")
@@ -553,6 +617,11 @@ _ENABLED = _slotscan_enabled()
 # FLAGGEMS_HYGON_TOPK_GEOMETRY=0 leaves them at generic's values.
 
 SHORT_ROW_MAX = 8192
+# The crossover probe showed a stable STEP-0 win with 512 bins for the
+# benchmark's top_k=512 rows up through vocab/row_len 1536.  Do not apply it
+# to larger rows: 1792 was already neutral and the 4095/5115 cases regressed.
+SHORT_BINS_TOPK = 512
+SHORT_BINS_MAX_VOCAB = 1536
 
 
 @functools.lru_cache(maxsize=1)
@@ -585,7 +654,7 @@ _GEOMETRY = _geometry_enabled()
 _LAUNCH_LOCK = threading.Lock()
 _GENERIC_DEFAULTS = {
     id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps)
-    for m in (_sparse, _dense, _dense_carry, _dense_vec2)
+    for m in (_sparse, _dense, _dense_carry, _dense_vec2, _dense_short_bins)
     if m is not None
 }
 
@@ -596,11 +665,18 @@ def top_k_per_row_prefill(
     """Dense rows through the prefix-sum copy, everything else through generic,
     each launched at the geometry its occupancy wants."""
     if _ENABLED and logits.shape[1] <= DENSE_VOCAB_PER_TOPK * top_k:
-        mod = (
-            _dense_vec2
-            if _dense_vec2 is not None
-            else (_dense_carry if _dense_carry is not None else _dense)
-        )
+        if (
+            _dense_short_bins is not None
+            and top_k == SHORT_BINS_TOPK
+            and logits.shape[1] <= SHORT_BINS_MAX_VOCAB
+        ):
+            mod = _dense_short_bins
+        else:
+            mod = (
+                _dense_vec2
+                if _dense_vec2 is not None
+                else (_dense_carry if _dense_carry is not None else _dense)
+            )
     else:
         mod = _sparse
     geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
