@@ -5,10 +5,17 @@ import random
 import unittest
 from argparse import Namespace
 from pathlib import Path
+from types import SimpleNamespace
 
 from hygon_prefill_audit_source import build, function_text
 from hygon_prefill_gaps import jobs
 from hygon_prefill_gaps_source import atomic_to_scan, variant
+from hygon_prefill_focus import (
+    FAIL_SHAPES,
+    TIMING_CONFIGS,
+    TIMING_SHAPE,
+    swap_scratch,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,6 +29,16 @@ def definitions(source):
 
 
 class Checks(unittest.TestCase):
+    def test_focus_targets_and_workspace_swap(self):
+        self.assertEqual(FAIL_SHAPES, (12, 13))
+        self.assertEqual(TIMING_SHAPE, 15)
+        self.assertEqual(TIMING_CONFIGS, (3, 5))
+        a = SimpleNamespace(args=tuple(range(13)))
+        b = SimpleNamespace(args=tuple(range(20, 33)))
+        swap_scratch(a, b)
+        self.assertEqual(a.args, tuple(range(7)) + tuple(range(27, 33)))
+        self.assertEqual(b.args, tuple(range(20, 27)) + tuple(range(7, 13)))
+
     def test_complete_matrix_and_independent_workers(self):
         targets = list(jobs(Namespace(stage="all", shape_ids=None)))
         self.assertEqual(len(targets), 182)
