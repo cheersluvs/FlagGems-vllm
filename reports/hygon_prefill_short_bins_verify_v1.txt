@@ -1,0 +1,117 @@
+### branch codex/hygon-prefill-audit @ 24240f0e04dbeb63b35a917aae0360e17eb3a7cb
+### 2026-09-20T16:43:10+08:00 host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### python python
+### stage short_bins_verify
+### HIP_VISIBLE_DEVICES=unset CUDA_VISIBLE_DEVICES=unset
+### RUN timeout 14400 python -u tools/hygon_prefill_short_bins_verify.py
+{"commit": "24240f0e04dbeb63b35a917aae0360e17eb3a7cb", "env": {"CUDA_VISIBLE_DEVICES": null, "HIP_VISIBLE_DEVICES": null}, "host": "bm-srwl-nj-zone3-d-bw1000-64g-2-7", "kind": "probe"}
+{"exit": 0, "kind": "occupancy", "label": "before", "stderr": "", "stdout": "\n================================= System Management Interface ==================================\n================================================================================================\nHCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     \n0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n1       51.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n7       51.0C    91.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n================================================================================================\n======================================== End of SMI Log ========================================\n\n"}
+{"command": ["/usr/bin/python", "-u", "/data/wuyuqing/workspace/FlagGems-vllm-hygon-prefill/tools/hygon_prefill_short_bins_verify.py", "--preflight"], "enabled": false, "kind": "command", "label": "preflight"}
+INFO 09-20 16:43:30 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-20 16:43:30 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-20 16:43:30 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-20 16:43:30 [__init__.py:239] Platform plugin hcu is activated
+{"enabled": false, "kind": "preflight", "ok": true}
+{"code": 0, "enabled": false, "kind": "command_exit", "label": "preflight"}
+{"command": ["/usr/bin/python", "-u", "/data/wuyuqing/workspace/FlagGems-vllm-hygon-prefill/tools/hygon_prefill_short_bins_verify.py", "--preflight"], "enabled": true, "kind": "command", "label": "preflight"}
+INFO 09-20 16:43:52 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-20 16:43:52 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-20 16:43:52 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-20 16:43:52 [__init__.py:239] Platform plugin hcu is activated
+{"dense_module": "/root/.cache/flaggems_vllm/top_k_per_row_prefill_short_bins_97ff81bdf05870e9.py", "enabled": true, "kind": "preflight", "ok": true, "source": "/root/.cache/flaggems_vllm/top_k_per_row_prefill_short_bins_97ff81bdf05870e9.py"}
+{"code": 0, "enabled": true, "kind": "command_exit", "label": "preflight"}
+{"command": ["/usr/bin/python", "-m", "pytest", "-q", "tests/test_top_k_per_row_prefill.py"], "enabled": true, "kind": "command", "label": "functional"}
+.....s..............                                                     [100%]
+19 passed, 1 skipped in 39.49s
+{"code": 0, "enabled": true, "kind": "command_exit", "label": "functional"}
+{"command": ["/usr/bin/python", "-m", "pytest", "-q", "-s", "benchmark/test_top_k_per_row_prefill.py", "--mode", "kernel"], "enabled": false, "kind": "command", "label": "benchmark_0"}
+INFO 09-20 16:45:16 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-20 16:45:16 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-20 16:45:16 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-20 16:45:16 [__init__.py:239] Platform plugin hcu is activated
+
+baseline: vLLM
+
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.108480            0.259520               0.418          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.018080            0.028960               0.624          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               1.154559            1.172160               0.985          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.025120            0.039520               0.636          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               0.682240            0.942400               0.724          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               1.244480            1.401120               0.888          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.159360            0.123840               1.287          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+.
+1 passed in 10.96s
+{"code": 0, "enabled": false, "kind": "command_exit", "label": "benchmark_0"}
+{"command": ["/usr/bin/python", "-m", "pytest", "-q", "-s", "benchmark/test_top_k_per_row_prefill.py", "--mode", "kernel"], "enabled": true, "kind": "command", "label": "benchmark_1"}
+INFO 09-20 16:45:49 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-20 16:45:49 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-20 16:45:49 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-20 16:45:49 [__init__.py:239] Platform plugin hcu is activated
+
+baseline: vLLM
+
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.107360            0.261760               0.410          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.020160            0.029920               0.674          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               1.155040            1.171040               0.986          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.023360            0.039520               0.591          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               0.682240            0.944080               0.723          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               1.244960            1.401120               0.889          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.160000            0.098720               1.621          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+.
+1 passed in 11.03s
+{"code": 0, "enabled": true, "kind": "command_exit", "label": "benchmark_1"}
+{"command": ["/usr/bin/python", "-m", "pytest", "-q", "-s", "benchmark/test_top_k_per_row_prefill.py", "--mode", "kernel"], "enabled": true, "kind": "command", "label": "benchmark_2"}
+INFO 09-20 16:46:25 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-20 16:46:25 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-20 16:46:25 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-20 16:46:25 [__init__.py:239] Platform plugin hcu is activated
+
+baseline: vLLM
+
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.107680            0.602720               0.179          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.026400            0.045600               0.579          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               2.446959            1.806240               1.355          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.035520            0.059520               0.597          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               1.827199            1.407520               1.298          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               2.872719            2.085759               1.377          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.380960            0.167120               2.280          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+.
+1 passed in 10.69s
+{"code": 0, "enabled": true, "kind": "command_exit", "label": "benchmark_2"}
+{"command": ["/usr/bin/python", "-m", "pytest", "-q", "-s", "benchmark/test_top_k_per_row_prefill.py", "--mode", "kernel"], "enabled": false, "kind": "command", "label": "benchmark_3"}
+INFO 09-20 16:46:58 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-20 16:46:58 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-20 16:46:58 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-20 16:46:58 [__init__.py:239] Platform plugin hcu is activated
+
+baseline: vLLM
+
+Operator: top_k_per_row_prefill  Performance Test (dtype=torch.float32, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.333600            0.608640               0.548          [torch.Size([64, 129280]), torch.Size([64]), torch.Size([64]), torch.Size([64, 1024]), 64, 129280, 1, 1024]
+SUCCESS               0.027520            0.045760               0.601          [torch.Size([4, 8193]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 8456, 1, 512]
+SUCCESS               2.452319            1.838079               1.334          [torch.Size([16383, 4095]), torch.Size([16383]), torch.Size([16383]), torch.Size([16383, 512]), 16383, 4352, 1, 512]
+SUCCESS               0.035520            0.060960               0.583          [torch.Size([4, 16385]), torch.Size([4]), torch.Size([4]), torch.Size([4, 512]), 4, 16648, 1, 512]
+SUCCESS               1.825039            1.478480               1.234          [torch.Size([12961, 4100]), torch.Size([12961]), torch.Size([12961]), torch.Size([12961, 512]), 12961, 4360, 1, 512]
+SUCCESS               2.895599            2.064319               1.403          [torch.Size([16380, 5115]), torch.Size([16380]), torch.Size([16380]), torch.Size([16380, 512]), 16380, 5376, 1, 512]
+SUCCESS               0.160320            0.208960               0.767          [torch.Size([4100, 1025]), torch.Size([4100]), torch.Size([4100]), torch.Size([4100, 512]), 4100, 1288, 1, 512]
+
+.
+1 passed in 10.36s
+{"code": 0, "enabled": false, "kind": "command_exit", "label": "benchmark_3"}
+{"exit": 0, "kind": "occupancy", "label": "after", "stderr": "", "stdout": "\n================================= System Management Interface ==================================\n================================================================================================\nHCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     \n0       54.0C    258.0W     auto     1000.0W    1%         96.2%     0.0%      0.0%      Normal   \n1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   \n================================================================================================\n======================================== End of SMI Log ========================================\n\n"}
+{"failures": [], "kind": "probe_complete", "ok": true}
+### probe_exit=0
