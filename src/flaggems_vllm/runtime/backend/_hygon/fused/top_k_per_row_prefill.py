@@ -15,6 +15,9 @@
 """top_k_per_row_prefill on Hygon BW1000: on dense rows, allocate output slots
 by prefix sum and carry their counter through the histogram step.
 
+The dense route uses the validated VEC=2 layout by default. Set
+``FLAGGEMS_HYGON_TOPK_VEC2=0`` to fall back to the carried VEC=4 layout.
+
 WHY. prefill loses on all seven benchmark shapes against vLLM's C++ kernel here
 (geomean 0.355), worst on the small-vocabulary ones. Per program it fits
 base + ~19 ns x top_k + ~1.3 ns x vocab, and the k term is
@@ -477,8 +480,8 @@ except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
 
 
 def _vec2_path():
-    """Optional dense VEC=2 candidate; retain carried VEC=4 as fallback."""
-    if os.environ.get("FLAGGEMS_HYGON_TOPK_VEC2", "0").strip().lower() not in (
+    """Build the validated dense VEC=2 path; retain VEC=4 as fallback."""
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_VEC2", "1").strip().lower() not in (
         "1", "true", "on", "yes"
     ):
         return None

@@ -2,9 +2,10 @@
 
 The isolated VEC sweep (`reports/hygon_prefill_vec_v1.txt`) passed exact
 checks for every arm and found VEC=2 faster than VEC=4 by about 3–6% on the
-four dense benchmark shapes. Sparse shapes did not reproduce a gain. This
+four dense benchmark shapes. Sparse shapes did not reproduce a gain. The
 follow-up enables the candidate only in a child process via
-`FLAGGEMS_HYGON_TOPK_VEC2=1`; the default remains the shipped VEC=4 path.
+`FLAGGEMS_HYGON_TOPK_VEC2=1`; the default remains the shipped VEC=4 path
+until this confirmation completes.
 
 On the dedicated Hygon branch, pull the trial commit and run:
 
@@ -21,4 +22,6 @@ timeout; a failed check stops further benchmark runs. `SpeedUp` is vLLM over
 this operator, not a cross-operator result. Judge each shape from both passes;
 do not promote on one chosen minimum or on the isolated probe alone.
 
-No production default changes in this commit. Sparse routing is unchanged.
+After the confirmation passed, the production default was promoted in a
+separate commit; `FLAGGEMS_HYGON_TOPK_VEC2=0` remains the reversible VEC=4
+fallback. Sparse routing is unchanged.
