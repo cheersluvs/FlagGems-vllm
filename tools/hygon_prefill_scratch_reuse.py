@@ -49,9 +49,9 @@ def make_inputs(rows, vocab, stride0, seed):
 def configure(mod, ov, rows, vocab):
     geo = ov._geometry(rows, vocab)
     if geo is None:
-        defaults = ov._GENERIC_DEFAULTS[id(mod)]
-        mod.NUM_THREADS_PER_BLOCK, default_warps = defaults
-        mod._num_warps = lambda block_size, w=default_warps: w
+        default_block, default_warps = ov._GENERIC_DEFAULTS[id(mod)]
+        mod.NUM_THREADS_PER_BLOCK = default_block
+        mod._num_warps = default_warps
     else:
         mod.NUM_THREADS_PER_BLOCK = geo[0]
         mod._num_warps = lambda block_size, w=geo[1]: w
