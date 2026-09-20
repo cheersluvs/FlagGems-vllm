@@ -14,6 +14,7 @@
 #        tools/hygon_prefill_next_run.sh vec2 [report-name]
 #        tools/hygon_prefill_next_run.sh split_workset [report-name]
 #        tools/hygon_prefill_next_run.sh split_alloc_fair [report-name]
+#        tools/hygon_prefill_next_run.sh short_special [report-name]
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -22,8 +23,8 @@ BRANCH=codex/hygon-prefill-audit
 REMOTE=https://github.com/cheersluvs/FlagGems-vllm.git
 STAGE=${1:-}
 case "$STAGE" in
-    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair) ;;
-    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair} [report-name]"; exit 2 ;;
+    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special) ;;
+    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special} [report-name]"; exit 2 ;;
 esac
 NAME=${2:-hygon_prefill_${STAGE}_device_v1}
 if [[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -81,6 +82,8 @@ elif [ "$STAGE" = split_workset ]; then
     PROBE=(tools/hygon_prefill_split_workset.py)
 elif [ "$STAGE" = split_alloc_fair ]; then
     PROBE=(tools/hygon_prefill_split_alloc_fair.py)
+elif [ "$STAGE" = short_special ]; then
+    PROBE=(tools/hygon_prefill_short_special.py)
 else
     PROBE=(tools/hygon_prefill_next.py "$STAGE")
 fi
