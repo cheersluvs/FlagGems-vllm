@@ -1,0 +1,56 @@
+### branch codex/hygon-prefill-audit @ d6b004aaa29f67a3bb51a9304e238c874ff6aa94
+### 2026-09-20T16:00:30+08:00 host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### python python
+### stage split_alloc_fair
+### HIP_VISIBLE_DEVICES=unset CUDA_VISIBLE_DEVICES=unset
+### RUN timeout 14400 python -u tools/hygon_prefill_split_alloc_fair.py
+INFO 09-20 16:00:48 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-20 16:00:48 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-20 16:00:48 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-20 16:00:48 [__init__.py:239] Platform plugin hcu is activated
+## fair split=1 benchmark: allocation included
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0920 16:00:49.484643 18141 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+shape=64x129280 k=1024 seed=42 wall_samples={'baseline': [238.45579624176025, 241.44785404205322, 243.3439016342163, 237.86389827728271], 'split1_prealloc': [245.63984870910645, 245.75185775756836, 248.19984436035156, 245.62389850616455], 'split1_alloc': [257.4958562850952, 257.1918487548828, 256.80785179138184, 256.67195320129395]}
+  wall_median_us baseline=239.952 split1_prealloc=245.696 split1_alloc=257.000
+  wall_ratio_vs_baseline split1_prealloc=0.977 split1_alloc=0.934
+  allocation_overhead split1_alloc/prealloc=1.046
+  device_us baseline=229.239 split1_prealloc=247.756 split1_alloc=253.054
+shape=4x8193 k=512 seed=42 wall_samples={'baseline': [174.48785305023193, 174.4159460067749, 173.87994527816772, 174.19195175170898], 'split1_prealloc': [57.70394802093506, 57.53600001335144, 57.35999941825867, 57.00799822807312], 'split1_alloc': [188.63190412521362, 189.15995359420776, 189.96795415878296, 187.67194747924805]}
+  wall_median_us baseline=174.304 split1_prealloc=57.448 split1_alloc=188.896
+  wall_ratio_vs_baseline split1_prealloc=3.034 split1_alloc=0.923
+  allocation_overhead split1_alloc/prealloc=3.288
+  device_us baseline=25.179 split1_prealloc=34.416 split1_alloc=39.914
+shape=4x16385 k=512 seed=42 wall_samples={'baseline': [173.81584644317627, 173.43194484710693, 173.87189865112305, 174.10390377044678], 'split1_prealloc': [56.84794783592224, 57.46399760246277, 57.895952463150024, 57.62395262718201], 'split1_alloc': [188.67989778518677, 189.42389488220215, 187.15189695358276, 187.5359058380127]}
+  wall_median_us baseline=173.844 split1_prealloc=57.544 split1_alloc=188.108
+  wall_ratio_vs_baseline split1_prealloc=3.021 split1_alloc=0.924
+  allocation_overhead split1_alloc/prealloc=3.269
+  device_us baseline=35.179 split1_prealloc=46.456 split1_alloc=50.714
+shape=16383x4095 k=512 seed=42 wall_samples={'baseline': [1174.8554229736328, 1176.8075942993164, 1176.9756317138672, 1175.9515762329102], 'split1_prealloc': [4112.118911743164, 4104.150772094727, 4120.966339111328, 4121.654510498047], 'split1_alloc': [4069.98291015625, 4082.7022552490234, 4072.646713256836, 4073.5904693603516]}
+  wall_median_us baseline=1176.380 split1_prealloc=4116.543 split1_alloc=4073.119
+  wall_ratio_vs_baseline split1_prealloc=0.286 split1_alloc=0.289
+  allocation_overhead split1_alloc/prealloc=0.989
+  device_us baseline=1167.079 split1_prealloc=4118.514 split1_alloc=4081.532
+shape=64x129280 k=1024 seed=43 wall_samples={'baseline': [241.73591136932373, 238.12789916992188, 237.47990131378174, 240.72790145874023], 'split1_prealloc': [245.81594467163086, 247.08778858184814, 242.87989139556885, 244.79990005493164], 'split1_alloc': [252.7759075164795, 252.62389183044434, 252.4878978729248, 252.51989364624023]}
+  wall_median_us baseline=239.428 split1_prealloc=245.308 split1_alloc=252.572
+  wall_ratio_vs_baseline split1_prealloc=0.976 split1_alloc=0.948
+  allocation_overhead split1_alloc/prealloc=1.030
+  device_us baseline=231.579 split1_prealloc=247.236 split1_alloc=256.154
+shape=4x8193 k=512 seed=43 wall_samples={'baseline': [172.39995002746582, 173.7599015235901, 173.34389686584473, 174.35195446014404], 'split1_prealloc': [57.14399814605713, 58.19994807243347, 59.279948472976685, 58.25595259666443], 'split1_alloc': [187.70395517349243, 188.42389583587646, 188.1039023399353, 188.99985551834106]}
+  wall_median_us baseline=173.552 split1_prealloc=58.228 split1_alloc=188.264
+  wall_ratio_vs_baseline split1_prealloc=2.981 split1_alloc=0.922
+  allocation_overhead split1_alloc/prealloc=3.233
+  device_us baseline=23.879 split1_prealloc=33.996 split1_alloc=42.354
+shape=4x16385 k=512 seed=43 wall_samples={'baseline': [175.4238486289978, 175.8239507675171, 174.25589561462402, 174.28795099258423], 'split1_prealloc': [56.68795108795166, 57.520002126693726, 57.95999765396118, 58.135998249053955], 'split1_alloc': [187.67189979553223, 187.61589527130127, 187.25589513778687, 188.33589553833008]}
+  wall_median_us baseline=174.856 split1_prealloc=57.740 split1_alloc=187.644
+  wall_ratio_vs_baseline split1_prealloc=3.028 split1_alloc=0.932
+  allocation_overhead split1_alloc/prealloc=3.250
+  device_us baseline=35.879 split1_prealloc=48.096 split1_alloc=52.294
+shape=16383x4095 k=512 seed=43 wall_samples={'baseline': [1173.9595413208008, 1176.6316413879395, 1175.7513999938965, 1176.3195991516113], 'split1_prealloc': [4108.262252807617, 4108.854293823242, 4101.942443847656, 4110.270309448242], 'split1_alloc': [4074.6383666992188, 4079.4544219970703, 4068.4139251708984, 4076.558303833008]}
+  wall_median_us baseline=1176.035 split1_prealloc=4108.558 split1_alloc=4075.598
+  wall_ratio_vs_baseline split1_prealloc=0.286 split1_alloc=0.289
+  allocation_overhead split1_alloc/prealloc=0.992
+  device_us baseline=1167.159 split1_prealloc=4100.035 split1_alloc=4079.753
+### probe_exit=0
