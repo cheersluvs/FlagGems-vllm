@@ -37,10 +37,11 @@ from hygon_prefill_vec_source import variants
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Every tuple satisfies BLOCK * VEC / (num_warps * 64) == 16.
+# Every tuple satisfies BLOCK * VEC / (num_warps * 64) == 16.  The
+# num_warps=1 alternatives are intentionally omitted: an earlier Hygon sweep
+# showed wrong answers for those launches.
 CONFIGS = (
-    (2, 512, 2),
-    (4, 512, 4),
+    (4, 512, 2),
     (4, 1024, 4),
     (8, 256, 2),
     (8, 512, 4),

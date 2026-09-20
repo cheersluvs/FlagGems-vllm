@@ -25,8 +25,7 @@ from hygon_prefill_vec_source import variants
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = (
-    (2, 512, 2),
-    (4, 512, 4),
+    (4, 512, 2),
     (4, 1024, 4),
     (8, 256, 2),
     (8, 512, 4),
