@@ -1,0 +1,80 @@
+# Hygon prefill algorithm probes
+
+Measurement-only tools; no production registration or dispatch changes.
+`optimization.md` and `deep_opt.md` are absent in this checkout. These probes
+follow the existing audit contract, with the current public API as baseline.
+
+## Frozen project facts
+
+| Item | Contract |
+| --- | --- |
+| Operation | `top_k_per_row_prefill`, exact per-row top-k relative indices |
+| Editable | New `tools/hygon_prefill_algorithms*` files and report runner |
+| Read-only | Production sources, existing correctness helpers and benchmarks |
+| Build | Python syntax/source-construction checks locally; Triton JIT on BW1000 |
+| Validation | Exact selected-value multiset, index bounds/uniqueness, -1 padding, output guards; no timing after failure |
+| Benchmark | ABBA paired profiler kernel totals (us, control/candidate >1 is better); separately allocation-inclusive synchronized wall time |
+| Active set | Existing seven audit shapes, each algorithm restricted to its documented targets |
+| Aggregation | Per shape/config and per seed, no cross-distribution speedup claim |
+| Timeout | 600 seconds per isolated worker, 13000 seconds for a suite |
+| Profiler | PyTorch device events, all candidate kernels included; fail if event counts differ |
+| Autotune | Exempt: fixed Hygon experiment matrix, no NVIDIA/production integration |
+| Fallback | Original Triton final selector for large network tails; no torch compute in candidates |
+
+## Input/output contract
+
+| Item | Contract |
+| --- | --- |
+| Reference | Existing `hygon_prefill_audit.oracle/check_output` using torch.topk |
+| Device/type | Hygon HIP wave64, fp32 logits, int32 starts/ends/output |
+| Layout | Column-contiguous, contiguous or padded rows; arbitrary valid starts/ends |
+| Output | Relative indices, unordered exact top-k value multiset; any distinct tied indices allowed |
+| Short rows | All valid indices followed by -1; empty rows entirely -1 |
+| Specials | Finite values, ties, +/-Inf, +/-0; normalize zero before key conversion |
+| Unsupported | NaNs (not silently interpreted), non-fp32, column-strided input; forward-only |
+| Torch use | Input generation, oracle, diagnostics and scratch allocation only |
+
+## Experiment paths
+
+| Arm | Target shape IDs | Algorithm / parameters | Principal risk |
+| --- | --- | --- | --- |
+| threshold | 6,2,4,5 | Row-resident ordered-key search, binary or three pivots, 4/8 warps; one final compaction | Register pressure, reduction count |
+| streaming | 0,1,3 | Exact k-entry queue, merge each k-sized chunk, with/without threshold filtering; 8 warps | k=512/1024 sorting cost, ascending adversary |
+| final | 0..6 | Actual production source with small 64/128/256 network or common-prefix key search final selector; scalar original fallback | Final stage has insufficient share of total time |
+| delegate | 0 | Block maxima (32/64 elements), exact delegate kth bound, streaming tail skips blocks below bound; 8 warps | Three launches and weak pruning |
+
+Threshold searches operate on an integer ordered key, not approximate floating
+point pivots. Each iteration strictly reduces the interval. No distribution
+assumption or approximate stopping is used. The streaming prototype sorts a
+2k merge tile when new elements can enter the queue; it is not the full AMD
+ballot/staging-buffer implementation. Delegate filtering retains all blocks
+whose maxima equal the bound and falls back to bound=0 when there are fewer
+than k nonempty blocks. No candidate capacity truncation is permitted.
+
+Final probes include `remaining=0/all/1` shortcuts. Network sorts value+position
+keys and preserves the existing final selector's later-position tie rule.
+Prefix search starts at the actual candidate key min/max and never allocates
+radix counters. It still checks the full exact top-k result.
+
+Default timings use full normal shapes with seeds 42 and 43. Validation also
+uses tied, constant, partial, short, Inf/zero, padded rows, ascending, descending,
+heavy-tail and clustered data. Small adversarial cases additionally get full
+operator timings, clearly marked as validation-size timings. Iteration counts,
+merge counts and delegate survivor fractions are collected in separate launches
+so diagnostic stores do not contaminate timed kernels. Resource metadata is
+static compiler information, not measured occupancy.
+
+## Running
+
+On the dedicated `codex/hygon-prefill-audit` Hygon worktree after pulling:
+
+```bash
+tools/hygon_prefill_next_run.sh algorithms hygon_prefill_algorithms_v1
+```
+
+Independent report stages: `alg_threshold`, `alg_streaming`, `alg_final`,
+`alg_delegate`. Workers run serially in subprocesses. Faults/timeouts are
+reported as failures; the parent retains completed results. Only validated
+workers can emit performance summaries. A local `--check` needs no torch/Triton
+and validates source construction and scalar algorithm models; it does not
+claim HIP compilation or device correctness.
