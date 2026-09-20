@@ -11,6 +11,7 @@
 #        tools/hygon_prefill_next_run.sh codegen [report-name]
 #        tools/hygon_prefill_next_run.sh step0 [report-name]
 #        tools/hygon_prefill_next_run.sh vec [report-name]
+#        tools/hygon_prefill_next_run.sh vec2 [report-name]
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -19,8 +20,8 @@ BRANCH=codex/hygon-prefill-audit
 REMOTE=https://github.com/cheersluvs/FlagGems-vllm.git
 STAGE=${1:-}
 case "$STAGE" in
-    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec) ;;
-    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec} [report-name]"; exit 2 ;;
+    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2) ;;
+    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2} [report-name]"; exit 2 ;;
 esac
 NAME=${2:-hygon_prefill_${STAGE}_device_v1}
 if [[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -72,6 +73,8 @@ elif [ "$STAGE" = step0 ]; then
     PROBE=(tools/hygon_prefill_step0_only.py)
 elif [ "$STAGE" = vec ]; then
     PROBE=(tools/hygon_prefill_vec.py)
+elif [ "$STAGE" = vec2 ]; then
+    PROBE=(tools/hygon_prefill_vec2_trial.py)
 else
     PROBE=(tools/hygon_prefill_next.py "$STAGE")
 fi

@@ -110,3 +110,19 @@ def build_carry_source(generic_source, override_source):
     source = _replace_once(source, old_step, step)
     compile(source, "<hygon-prefill-carry>", "exec")
     return source
+
+
+def set_vector_width(source, width):
+    """Change only the non-TLE launch alignment and histogram tile width."""
+    if width not in (1, 2, 4, 8):
+        raise ValueError(f"Unsupported prefill vector width: {width}")
+    if width == 4:
+        return source
+    for name in ("_process_histogram_step", "non_tle_top_k_per_row_prefill"):
+        old = _function_text(source, name)
+        new = _replace_once(
+            old, "    VEC: tl.constexpr = 4", f"    VEC: tl.constexpr = {width}"
+        )
+        source = _replace_once(source, old, new)
+    compile(source, f"<hygon-prefill-vec{width}>", "exec")
+    return source
