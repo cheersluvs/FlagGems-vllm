@@ -1,0 +1,46 @@
+### branch codex/hygon-prefill-audit @ 6c00323
+### 2026-09-21T18:27:03+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-21 18:27:21 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-21 18:27:21 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-21 18:27:21 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-21 18:27:21 [__init__.py:239] Platform plugin hcu is activated
+sample policy: every 8th valid element (sample_count ~= row_len/8); full-32-bit fallback on candidate overflow
+
+  rows vocab top_k n/k split sampled-cands fallback normal band partial vllm-dev ship-dev sample-dev vllm/ship vllm/sample sample-wall
+Traceback (most recent call last):
+  File "/data/wuyuqing/workspace/FlagGems-vllm-hygon-prefill/tools/hygon_prefill_sparse_sample8.py", line 531, in <module>
+    sys.exit(main())
+  File "/data/wuyuqing/workspace/FlagGems-vllm-hygon-prefill/tools/hygon_prefill_sparse_sample8.py", line 440, in main
+    counts = run_with_counts()
+  File "/data/wuyuqing/workspace/FlagGems-vllm-hygon-prefill/tools/hygon_prefill_sparse_sample8.py", line 392, in run_with_counts
+    fixup(
+  File "/data/wuyuqing/workspace/FlagGems-vllm-hygon-prefill/src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_decode.py", line 517, in __call__
+    ck = self.jit.run(
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 763, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 899, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+  File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 326, in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+  File "/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py", line 64, in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+  File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+triton.compiler.errors.CompilationError: at 28:24:
+
+    row = tl.program_id(0)
+    c = tl.load(cnt_ptr + row)
+    s = tl.load(starts_ptr + row)
+    e = tl.load(ends_ptr + row)
+    need = (c < tl.minimum(TOPK, e - s)) | (c > CAP)
+    if not need:
+        tl.store(merge_lens_ptr + row, c)
+        return
+
+    lane = tl.arange(0, BLOCK)
+    bins = tl.arange(0, FULL_KEY_BINS)
+                        ^
+NameError("Cannot access global variable FULL_KEY_BINS from within @jit'ed function. Triton kernels can only access global variables that are instanstiated as constexpr (`x = triton.language.constexpr(42)`). Note that this is different from annotating a variable as constexpr (`x: triton.language.constexpr = 42`), which is not supported.  Alternatively, set the envvar TRITON_ALLOW_NON_CONSTEXPR_GLOBALS=1, but we do not promise to support this forever.")
