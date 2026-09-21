@@ -25,6 +25,7 @@ def replace_once(source, old, new):
 
 def fullrow_variant(source):
     """Allow full, aligned rows with a masked tail into the fast layout path."""
+    slotscan = "def _process_bins_slotscan(" in source
     job = function_text(source, "_top_k_per_row_job")
     new_job = replace_once(
         job,
@@ -79,20 +80,18 @@ def fullrow_variant(source):
     elif stride1 == 1:
 """,
     )
-    new_step = replace_once(
-        new_step,
-        """                MERGE_BLOCKS=MERGE_BLOCKS,
-            )
-    elif stride1 == 1:
-""",
-        """                MERGE_BLOCKS=MERGE_BLOCKS,
-            )
-        if rem_elems > 0:
+    tail_call = """        if rem_elems > 0:
             offs = (n_vec_full * VEC + rem_tiles) * BLOCK_SIZE + lane
             in_range = lane < rem_elems
             x = tl.load(logits_ptr + offs, mask=in_range, other=float("-inf"))
-            _process_bins(
-                x,
+"""
+    if slotscan:
+        tail_call += """            slot_base = _process_bins(
+"""
+    else:
+        tail_call += """            _process_bins(
+"""
+    tail_call += """                x,
                 in_range,
                 ones,
                 offs,
@@ -108,13 +107,27 @@ def fullrow_variant(source):
                 s_final_logits_ptr,
                 s_out_indices_ptr,
                 s_out_logits_ptr,
-                STEP=STEP,
+"""
+    if slotscan:
+        tail_call += """                slot_base,
+"""
+    tail_call += """                STEP=STEP,
                 TOPK=TOPK,
                 MULTIPLE_BLOCKS_PER_ROW=MULTIPLE_BLOCKS_PER_ROW,
                 MERGE_BLOCKS=MERGE_BLOCKS,
             )
     elif stride1 == 1:
+"""
+    new_step = replace_once(
+        new_step,
+        """                MERGE_BLOCKS=MERGE_BLOCKS,
+            )
+    elif stride1 == 1:
 """,
+        """                MERGE_BLOCKS=MERGE_BLOCKS,
+            )
+"""
+        + tail_call,
     )
     source = replace_once(source, step, new_step)
     compile(source, "<hygon-prefill-fullrow>", "exec")

@@ -4,7 +4,11 @@ import ast
 import importlib.util
 from pathlib import Path
 
-from hygon_prefill_scan_paths_source import fullrow_variant, wave64_variant
+from hygon_prefill_scan_paths_source import (
+    fullrow_variant,
+    function_text,
+    wave64_variant,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FUSED = ROOT / "src/flaggems_vllm/runtime/backend/_hygon/fused"
@@ -77,6 +81,10 @@ def main():
         result = fullrow_variant(source)
         if result == source or result.count("tl.assume(skip_elems == 0)") != 1:
             raise AssertionError(f"Full-row variant was not applied: {name}")
+        if name != "sparse":
+            step = function_text(result, "_process_histogram_step")
+            if step.count("slot_base = _process_bins(") != 8:
+                raise AssertionError(f"Dense tail slot carry was not applied: {name}")
         print(f"fullrow {name}: source parses, {len(result)} bytes")
     for name in ("dense", "final", "short"):
         source = sources[name]
