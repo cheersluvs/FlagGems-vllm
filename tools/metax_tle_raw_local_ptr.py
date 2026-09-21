@@ -166,10 +166,19 @@ def child(case, variant, root):
     detail = [
         ln[len("DETAIL ") :] for ln in p.stdout.splitlines() if ln.startswith("DETAIL ")
     ]
+    # Triton reports a failed lowering as "PassManager::run failed"; what
+    # actually failed -- an assert, an MLIR diagnostic -- the plugin prints on
+    # stderr, which this was discarding.
+    noise = [
+        ln.strip()
+        for ln in (p.stderr or "").splitlines()
+        if any(w in ln for w in ("ssert", "error:", ".cpp:", "Aborted", "LLVM ERROR"))
+    ]
     for line in p.stdout.splitlines():
         if line.startswith("RESULT "):
-            DETAILS[variant, case] = detail[0] if detail else ""
+            DETAILS[variant, case] = "; ".join(detail + noise[-3:])
             return line[len("RESULT ") :], p.returncode
+    DETAILS[variant, case] = "; ".join(detail + noise[-3:])
     if p.returncode < 0:
         return f"ABORTED signal {-p.returncode}", p.returncode
     tail = (p.stderr or p.stdout).strip().splitlines()
