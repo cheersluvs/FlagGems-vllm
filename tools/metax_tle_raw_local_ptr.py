@@ -40,6 +40,7 @@ CASES = {
     "prefill_wide": "prefill (64, 129280), tile 1024 (2 elements/thread)",
 }
 VARIANTS = ("shim", "raw")
+DETAILS = {}
 ENV_RAW = "FLAGGEMS_METAX_RAW_LOCAL_PTR"
 
 
@@ -123,6 +124,8 @@ def run_case(case, variant):
 
     gate = load_gate(op)
     on = gate.ensure_tle(dev)
+    if not on:
+        print(f"DETAIL {gate.status()['why']}")
     if case == "selftest":
         print(f"RESULT {'on' if on else 'off'} {gate.status()['why']}")
         return
@@ -160,8 +163,12 @@ def child(case, variant, root):
     env["PYTHONPATH"] = "src" + os.pathsep + env.get("PYTHONPATH", "")
     cmd = [sys.executable, __file__, "--child", case, "--variant", variant]
     p = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    detail = [
+        ln[len("DETAIL ") :] for ln in p.stdout.splitlines() if ln.startswith("DETAIL ")
+    ]
     for line in p.stdout.splitlines():
         if line.startswith("RESULT "):
+            DETAILS[variant, case] = detail[0] if detail else ""
             return line[len("RESULT ") :], p.returncode
     if p.returncode < 0:
         return f"ABORTED signal {-p.returncode}", p.returncode
@@ -215,6 +222,11 @@ def main():
     print()
     for case in cases:
         print(f"  {case:<16} {CASES[case]}")
+    if any(DETAILS.values()):
+        print("\nwhy a variant is off, untruncated:")
+        for (variant, case), why in DETAILS.items():
+            if why:
+                print(f"  {variant}/{case}: {why}")
 
     def good(status):
         return status.startswith(("ok", "on"))
