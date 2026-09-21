@@ -1,0 +1,122 @@
+### branch topk-metax @ 3035f2f
+### 2026-09-21T14:00:42+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0921 14:01:01.354743 103381 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 7 (function operator())
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    1%         0.0%      0.0%      0.0%      Normal   
+2       53.0C    132.0W     auto     1000.0W    13%        0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+device us, interleaved, fastest of 3 rounds; ratio is against
+the shipped SAMPLE_TILES=8 SAFETY=4, so > 1 means the
+point is faster. 'outside' is the share of rows landing outside the
+[top_k, CAP] window -- those pay the exact redo inside _tail.
+
+  1 x 262144, top_k 512, window [512, 8192]
+     tiles  sample  safety  admit med     min     max  outside        us  vs base    ans
+         8    4096       4       1911    1911    1911     0.0%      45.3    1.000     OK
+         4    2048       2       1121    1121    1121     0.0%      39.4    1.148     OK
+         4    2048       4       1911    1911    1911     0.0%      44.0    1.029     OK
+         4    2048       8       2711    2711    2711     0.0%      49.8    0.909     OK
+         8    4096       2        917     917     917     0.0%      39.6    1.144     OK
+         8    4096       8       3733    3733    3733     0.0%      58.9    0.768     OK
+        16    8192       2        917     917     917     0.0%      43.4    1.044     OK
+        16    8192       4       1911    1911    1911     0.0%      50.7    0.893     OK
+        16    8192       8       4343    4343    4343     0.0%      66.4    0.682     OK
+        32   16384       2       1121    1121    1121     0.0%      52.3    0.866     OK
+        32   16384       4       1911    1911    1911     0.0%      56.1    0.807     OK
+        32   16384       8       4343    4343    4343     0.0%      70.9    0.639     OK
+
+  8 x 262144, top_k 512, window [512, 8192]
+     tiles  sample  safety  admit med     min     max  outside        us  vs base    ans
+         8    4096       4       2175    1649    2747     0.0%      60.8    1.000     OK
+         4    2048       2       1121     547    1971     0.0%      49.4    1.229     OK
+         4    2048       4       1878     811    2747     0.0%      55.2    1.100     OK
+         4    2048       8       3879    2711    5221     0.0%      83.6    0.727     OK
+         8    4096       2        917     673    1700     0.0%      50.2    1.210     OK
+         8    4096       8       4395    3733    5221     0.0%      88.6    0.686     OK
+        16    8192       2       1175     673    1625     0.0%      54.2    1.120     OK
+        16    8192       4       2005    1414    2694     0.0%      64.1    0.948     OK
+        16    8192       8       4372    3797    5046     0.0%      90.7    0.670     OK
+        32   16384       2       1138     811    1337     0.0%      59.7    1.017     OK
+        32   16384       4       2262    1911    2343     0.0%      69.3    0.876     OK
+        32   16384       8       4372    4275    4536     0.0%      95.1    0.639     OK
+
+  24 x 262144, top_k 512, window [512, 8192]
+     tiles  sample  safety  admit med     min     max  outside        us  vs base    ans
+         8    4096       4       2252    1618    3174     0.0%     105.2    1.000     OK
+         4    2048       2        998     490    2264     4.2%     770.6    0.136     OK
+         4    2048       4       1945     811    3144     0.0%     103.5    1.016     OK
+         4    2048       8       4320    2711    5221     0.0%     161.3    0.652     OK
+         8    4096       2        992     673    1700     0.0%      84.1    1.250     OK
+         8    4096       8       4394    3245    5221     0.0%     166.6    0.631     OK
+        16    8192       2        955     673    1625     0.0%      87.2    1.206     OK
+        16    8192       4       2252    1414    2740     0.0%     105.3    0.999     OK
+        16    8192       8       4395    3315    5120     0.0%     171.0    0.615     OK
+        32   16384       2       1137     749    1360     0.0%      94.1    1.117     OK
+        32   16384       4       2285    1881    2776     0.0%     125.0    0.841     OK
+        32   16384       8       4394    3790    5095     0.0%     179.9    0.585     OK
+
+  56 x 262144, top_k 512, window [512, 8192]
+     tiles  sample  safety  admit med     min     max  outside        us  vs base    ans
+         8    4096       4       2246    1365    3174     0.0%     186.3    1.000     OK
+         4    2048       2       1064     490    2264     1.8%     826.4    0.225     OK
+         4    2048       4       1966     811    3231     0.0%     178.6    1.043     OK
+         4    2048       8       4369    2711    5865     0.0%     286.3    0.651     OK
+         8    4096       2        986     517    1700     0.0%     138.3    1.347     OK
+         8    4096       8       4382    3245    5221     0.0%     282.6    0.659     OK
+        16    8192       2       1005     673    1625     0.0%     143.8    1.296     OK
+        16    8192       4       2242    1414    2740     0.0%     190.8    0.976     OK
+        16    8192       8       4388    3252    5204     0.0%     291.4    0.639     OK
+        32   16384       2       1136     749    1404     0.0%     152.9    1.219     OK
+        32   16384       4       2275    1881    2776     0.0%     200.5    0.929     OK
+        32   16384       8       4405    3745    5095     0.0%     306.3    0.608     OK
+
+  512 x 262144, top_k 512, window [512, 8192]
+     tiles  sample  safety  admit med     min     max  outside        us  vs base    ans
+         8    4096       4       2252    1173    3304     0.0%    1932.3    1.000     OK
+         4    2048       2       1091     234    2346     2.9%    2717.3    0.711     OK
+         4    2048       4       2246     811    4400     0.0%    1925.2    1.004     OK
+         4    2048       8       4402    2026    6549     0.0%    2046.4    0.944     OK
+         8    4096       2       1095     430    2010     0.4%    2520.1    0.767     OK
+         8    4096       8       4397    3080    6100     0.0%    2069.9    0.934     OK
+        16    8192       2       1119     634    1960     0.0%    1882.6    1.026     OK
+        16    8192       4       2272    1414    3307     0.0%    1954.3    0.989     OK
+        16    8192       8       4405    3237    5321     0.0%    2102.8    0.919     OK
+        32   16384       2       1127     749    1686     0.0%    1947.8    0.992     OK
+        32   16384       4       2277    1639    2845     0.0%    1995.5    0.968     OK
+        32   16384       8       4410    3688    5295     0.0%    2168.7    0.891     OK
+
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       51.0C    140.0W     auto     1000.0W    2%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    2%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+  The shipped (8, 4) is measured first in each block and is the
+  denominator of the ratio column. Read 'outside' first: a point that
+  is fast because most rows skip the estimate and fall into the redo
+  is not a faster estimator, it is a worse one.
