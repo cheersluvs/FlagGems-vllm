@@ -260,6 +260,7 @@ def worker(stage, shape_id):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--worker", nargs=2)
+    parser.add_argument("--stage", choices=("all", "fullrow", "wave64"), default="all")
     args = parser.parse_args()
     if args.worker:
         worker(args.worker[0], int(args.worker[1]))
@@ -273,7 +274,8 @@ def main():
     )
     occupancy("before")
     failures = []
-    for stage, shape_ids in STAGES.items():
+    stages = STAGES if args.stage == "all" else {args.stage: STAGES[args.stage]}
+    for stage, shape_ids in stages.items():
         emit("scan_paths_stage_start", stage=stage, shape_ids=shape_ids)
         for shape_id in shape_ids:
             env = dict(
