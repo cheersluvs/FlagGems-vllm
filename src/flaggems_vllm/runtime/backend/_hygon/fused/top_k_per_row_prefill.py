@@ -83,11 +83,13 @@ import triton
 import triton.language as tl
 
 from ._top_k_per_row_prefill_carry_source import build_carry_source, set_vector_width
+from ._top_k_per_row_prefill_final_source import build_final_source
 
 _GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
 _DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
 _CARRY_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_carry"
 _VEC2_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2"
+_VEC2_FINAL_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2_final"
 _SHORT_BINS_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_short_bins"
 _SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
 
@@ -485,7 +487,10 @@ except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
 def _vec2_path():
     """Build the validated dense VEC=2 path; retain VEC=4 as fallback."""
     if os.environ.get("FLAGGEMS_HYGON_TOPK_VEC2", "1").strip().lower() not in (
-        "1", "true", "on", "yes"
+        "1",
+        "true",
+        "on",
+        "yes",
     ):
         return None
     if _CARRY_PATH is None:
@@ -520,6 +525,49 @@ except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
     _dense_vec2 = None
 
 
+def _final_network_path():
+    """Build a separate exact final-selector copy of the dense VEC2 route."""
+    if _VEC2_PATH is None:
+        return None
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_FINAL_NETWORK", "1").strip().lower() in (
+        "0",
+        "false",
+        "off",
+        "no",
+    ):
+        return None
+    try:
+        with open(_VEC2_PATH) as fh:
+            source = build_final_source(fh.read())
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_vec2_final_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(source)
+            os.replace(tmp, path)
+        with open(path) as fh:
+            if fh.read() != source:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - use the validated VEC2 route
+        _log.warning("hygon prefill final-network source skipped: %r", exc)
+        return None
+
+
+_VEC2_FINAL_PATH = _final_network_path()
+try:
+    _dense_vec2_final = (
+        _load_copy(_VEC2_FINAL_NAME, _VEC2_FINAL_PATH) if _VEC2_FINAL_PATH else None
+    )
+except Exception as exc:  # noqa: BLE001 - use the validated VEC2 route
+    _log.warning("hygon prefill final-network module skipped: %r", exc)
+    _dense_vec2_final = None
+
+
 def _short_bins_path():
     """Build the measured 512-bin STEP-0 dense specialization."""
     if _VEC2_PATH is None:
@@ -537,12 +585,9 @@ def _short_bins_path():
         old_key = "bin_idx = (mapped >> 5).to(tl.uint32)"
         if source.count(old_key) != 1:
             raise ValueError("STEP-0 key extraction source drift")
-        source = source.replace(
-            old_key, "bin_idx = (mapped >> 7).to(tl.uint32)", 1
-        )
+        source = source.replace(old_key, "bin_idx = (mapped >> 7).to(tl.uint32)", 1)
         old_radix = (
-            "RADIX_SIZE: tl.constexpr = "
-            "RADIX10_SIZE if STEP == 3 else RADIX11_SIZE"
+            "RADIX_SIZE: tl.constexpr = " "RADIX10_SIZE if STEP == 3 else RADIX11_SIZE"
         )
         new_radix = (
             "RADIX_SIZE: tl.constexpr = ("
@@ -574,9 +619,7 @@ def _short_bins_path():
 _SHORT_BINS_PATH = _short_bins_path()
 try:
     _dense_short_bins = (
-        _load_copy(_SHORT_BINS_NAME, _SHORT_BINS_PATH)
-        if _SHORT_BINS_PATH
-        else None
+        _load_copy(_SHORT_BINS_NAME, _SHORT_BINS_PATH) if _SHORT_BINS_PATH else None
     )
 except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
     _log.warning("hygon prefill short-bins module skipped: %r", exc)
@@ -656,7 +699,14 @@ _GEOMETRY = _geometry_enabled()
 _LAUNCH_LOCK = threading.Lock()
 _GENERIC_DEFAULTS = {
     id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps)
-    for m in (_sparse, _dense, _dense_carry, _dense_vec2, _dense_short_bins)
+    for m in (
+        _sparse,
+        _dense,
+        _dense_carry,
+        _dense_vec2,
+        _dense_vec2_final,
+        _dense_short_bins,
+    )
     if m is not None
 }
 
@@ -702,11 +752,12 @@ def _scratch_buffers(mod, device, num_rows):
         _SCRATCH_CACHE_BYTES -= cached[3]
 
     allocation_bytes = (
-        num_rows * num_bins * 4
-        + num_rows * num_final_items * 4
-        + num_rows * 4 * 4
+        num_rows * num_bins * 4 + num_rows * num_final_items * 4 + num_rows * 4 * 4
     )
-    while _SCRATCH_CACHE and _SCRATCH_CACHE_BYTES + allocation_bytes > _SCRATCH_CACHE_LIMIT:
+    while (
+        _SCRATCH_CACHE
+        and _SCRATCH_CACHE_BYTES + allocation_bytes > _SCRATCH_CACHE_LIMIT
+    ):
         _, old = _SCRATCH_CACHE.popitem(last=False)
         _SCRATCH_CACHE_BYTES -= old[3]
 
@@ -750,26 +801,39 @@ def _top_k_per_row_prefill_reuse(
     )
 
 
+def _select_module(logits, num_rows, top_k):
+    """Pick the original path or the measured Hygon dense final specialization."""
+    vocab = logits.shape[1]
+    if _ENABLED and vocab <= DENSE_VOCAB_PER_TOPK * top_k:
+        if (
+            _dense_short_bins is not None
+            and top_k == SHORT_BINS_TOPK
+            and vocab <= SHORT_BINS_MAX_VOCAB
+        ):
+            return _dense_short_bins
+        if (
+            _dense_vec2_final is not None
+            and not _dense_vec2_final.HAS_TLE
+            and num_rows >= 8192
+            and top_k == 512
+            and 2048 <= vocab <= 5120
+            and logits.dtype == torch.float32
+        ):
+            return _dense_vec2_final
+        return (
+            _dense_vec2
+            if _dense_vec2 is not None
+            else (_dense_carry if _dense_carry is not None else _dense)
+        )
+    return _sparse
+
+
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
     """Dense rows through the prefix-sum copy, everything else through generic,
     each launched at the geometry its occupancy wants."""
-    if _ENABLED and logits.shape[1] <= DENSE_VOCAB_PER_TOPK * top_k:
-        if (
-            _dense_short_bins is not None
-            and top_k == SHORT_BINS_TOPK
-            and logits.shape[1] <= SHORT_BINS_MAX_VOCAB
-        ):
-            mod = _dense_short_bins
-        else:
-            mod = (
-                _dense_vec2
-                if _dense_vec2 is not None
-                else (_dense_carry if _dense_carry is not None else _dense)
-            )
-    else:
-        mod = _sparse
+    mod = _select_module(logits, num_rows, top_k)
     geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
     with _LAUNCH_LOCK:
         if geo is None:
