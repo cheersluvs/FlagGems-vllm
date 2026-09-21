@@ -1,0 +1,62 @@
+### branch topk-metax @ c59cd93
+### 2026-09-21T09:06:11+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0921 09:06:29.865833 94564 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+device us, interleaved over 7 rounds, each arm's FASTEST
+round. Production routing and geometry in every arm. 'set' is the
+histogram working set in MB (programs x 8 KB) -- the L2 is 8 MB.
+Ratios are base/arm, so > 1 means the arm is faster. On the 4- and
+64-row shapes every P clamps to num_rows, so those rows show the
+row loop's own cost, not locality.
+
+               shape   module     base    pfull    p1280     p640     p320  set p320  b/pfull  b/p1280   b/p640   b/p320  normal  tied
+           64x129280  generic    255.2   1226.4   1228.2   1227.9   1225.9       0.5    0.208    0.208    0.208    0.208      OK    OK
+             4x16385  generic     30.2    168.8    168.7    169.0    168.8       0.0    0.179    0.179    0.179    0.179      OK    OK
+              4x8193  generic     24.4     93.2     93.1     94.8     93.5       0.0    0.261    0.262    0.257    0.261      OK    OK
+          16383x4095    dense   1307.4   4495.6   5698.7   6109.3   8951.0       2.6    0.291    0.229    0.214    0.146      OK    OK
+          12961x4100    dense   1040.4   3538.7   4296.6   4760.0   6886.4       2.6    0.294    0.242    0.219    0.151      OK    OK
+          16380x5115    dense   1562.1   5514.5   6974.0   7497.3  10932.0       2.6    0.283    0.224    0.208    0.143      OK    OK
+           4100x1025    dense    133.4    336.8    398.8    413.2    614.1       2.6    0.396    0.335    0.323    0.217      OK    OK
+
+  geomean base/pfull: 0.266  (7 shapes)
+  geomean base/p1280: 0.236  (7 shapes)
+  geomean base/p640: 0.226  (7 shapes)
+  geomean base/p320: 0.182  (7 shapes)
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       51.0C    130.0W     auto     1000.0W    4%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+  Read pfull FIRST: it is the persistent kernel at an unchanged
+  footprint, so base/pfull is the row loop's own price and the P
+  arms have to beat THAT, not base, for locality to be the story.
