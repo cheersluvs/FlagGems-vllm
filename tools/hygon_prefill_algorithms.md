@@ -92,3 +92,14 @@ by candidate, so larger than one is faster. Threshold and final network had
 Triton branch-variable type errors before measurement. This revision renames
 those conflicting variables and adds a network-only runner; Hygon validation
 is still required for both arms.
+
+The subsequent `alg_threshold_v3` and `alg_final_network_v3` reports pass all
+correctness cases. Threshold search is slower on every full target shape
+(best device ratio 0.72x). The network improves device time by 4–6% on the
+large-row dense shapes and by 12–30% on the two four-row shapes. The four-row
+allocation-inclusive wall ratio is only 0.79–0.82x because the candidate
+allocated its six scratch tensors per call while the public baseline reused
+them. `alg_final_cached` gives the candidate a separate one-shape scratch
+cache with the same six tensors and leaves the baseline's existing cache
+untouched. It measures whether the network benefit survives comparable host
+reuse. It still allocates the guarded output for each call in both arms.

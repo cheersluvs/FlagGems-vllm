@@ -36,6 +36,7 @@ CASES = (
     "heavy_tail",
     "clustered",
 )
+_FINAL_SCRATCH_CACHE = {}
 
 
 def tasks(family):
@@ -100,7 +101,17 @@ class PublicPlan:
 
 
 class CandidatePlan(PublicPlan):
-    def __init__(self, tensors, k, family, config, mod=None, geo=None, diag=False):
+    def __init__(
+        self,
+        tensors,
+        k,
+        family,
+        config,
+        mod=None,
+        geo=None,
+        diag=False,
+        cache_final=False,
+    ):
         import hygon_prefill_algorithms_kernel as kernels
         import torch
         import triton
@@ -115,7 +126,8 @@ class CandidatePlan(PublicPlan):
         self.diag = diag
         x, starts, ends = tensors
         rows, vocab = x.shape
-        self.stats = torch.empty((rows,), device=x.device, dtype=torch.int32)
+        if family != "final":
+            self.stats = torch.empty((rows,), device=x.device, dtype=torch.int32)
 
         def add(kernel, grid, args, meta, warps):
             self.calls.append((launcher(kernel, grid, meta, warps), args))
@@ -193,14 +205,21 @@ class CandidatePlan(PublicPlan):
             )
         else:
             block, warps = geo
-            self.hist = torch.empty((rows, 2048), device=x.device, dtype=torch.int32)
-            self.values = torch.empty(
-                (rows, 2048), device=x.device, dtype=torch.float32
-            )
-            self.counters = [
-                torch.empty((rows,), device=x.device, dtype=torch.int32)
-                for _ in range(4)
-            ]
+            cache_key = (id(mod), x.device.type, x.device.index, rows)
+            scratch = _FINAL_SCRATCH_CACHE.get(cache_key) if cache_final else None
+            if scratch is None:
+                scratch = (
+                    torch.empty((rows, 2048), device=x.device, dtype=torch.int32),
+                    torch.empty((rows, 2048), device=x.device, dtype=torch.float32),
+                    *(
+                        torch.empty((rows,), device=x.device, dtype=torch.int32)
+                        for _ in range(4)
+                    ),
+                )
+                if cache_final:
+                    _FINAL_SCRATCH_CACHE.clear()
+                    _FINAL_SCRATCH_CACHE[cache_key] = scratch
+            self.hist, self.values, *self.counters = scratch
             add(
                 mod.non_tle_top_k_per_row_prefill,
                 (rows,),
@@ -449,6 +468,8 @@ def worker(args):
     production, geo = actual_module(ov, rows, vocab, k)
     if production.HAS_TLE:
         raise RuntimeError("Expected non-TLE production control")
+    if args.cache_final and not ov._scratch_reuse_enabled():
+        raise RuntimeError("Cached comparison requires public scratch reuse")
     emit(
         "algorithm_config",
         family=args.family,
@@ -464,6 +485,7 @@ def worker(args):
         torch=torch.__version__,
         triton=triton.__version__,
         scratch_reuse=ov._scratch_reuse_enabled(),
+        candidate_scratch_reuse=args.cache_final,
     )
 
     with tempfile.TemporaryDirectory(prefix="hygon_algorithm_") as folder:
@@ -481,7 +503,9 @@ def worker(args):
             tail_checks(config[0], geo[1])
 
         def make(ts, diag=False):
-            return CandidatePlan(ts, k, args.family, config, mod, geo, diag)
+            return CandidatePlan(
+                ts, k, args.family, config, mod, geo, diag, args.cache_final
+            )
 
         # All correctness checks must pass before normal-shape performance.
         n = 5 if rows == 4 else min(rows, 8)
@@ -584,6 +608,7 @@ def main():
     ap.add_argument("--timeout", type=int, default=600)
     ap.add_argument("--suite-timeout", type=int, default=13000)
     ap.add_argument("--variant", choices=("network", "prefix"))
+    ap.add_argument("--cache-final", action="store_true")
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
     if args.check:
@@ -595,6 +620,8 @@ def main():
         ap.error("rounds/iters/timeouts must be positive")
     if args.variant and args.family != "final":
         ap.error("--variant is supported only with the final family")
+    if args.cache_final and args.family != "final":
+        ap.error("--cache-final is supported only with the final family")
     if args.worker is not None:
         if args.family == "all" or not 0 <= args.worker < len(tasks(args.family)):
             ap.error("invalid worker")
@@ -641,6 +668,8 @@ def main():
             ]
             if args.variant:
                 cmd.extend(("--variant", args.variant))
+            if args.cache_final:
+                cmd.append("--cache-final")
             try:
                 code = subprocess.run(
                     cmd,

@@ -27,6 +27,7 @@
 #        tools/hygon_prefill_next_run.sh algorithms [report-name]
 #        tools/hygon_prefill_next_run.sh alg_{threshold,streaming,final,delegate} [report-name]
 #        tools/hygon_prefill_next_run.sh alg_final_network [report-name]
+#        tools/hygon_prefill_next_run.sh alg_final_cached [report-name]
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -35,8 +36,8 @@ BRANCH=codex/hygon-prefill-audit
 REMOTE=https://github.com/cheersluvs/FlagGems-vllm.git
 STAGE=${1:-}
 case "$STAGE" in
-    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new|lane16|primitives|budget|algorithms|alg_threshold|alg_streaming|alg_final|alg_delegate|alg_final_network) ;;
-    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new|lane16|primitives|budget|algorithms|alg_threshold|alg_streaming|alg_final|alg_delegate|alg_final_network} [report-name]"; exit 2 ;;
+    launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new|lane16|primitives|budget|algorithms|alg_threshold|alg_streaming|alg_final|alg_delegate|alg_final_network|alg_final_cached) ;;
+    *) echo "Usage: $0 {launch|combo|bitonic|private_hist|gaps|focus|collisions|pivot|codegen|step0|vec|vec2|split_workset|split_alloc_fair|short_special|short_bins_crossover|short_bins_verify|three_remaining|scratch_reuse|scratch_verify|three_new|lane16|primitives|budget|algorithms|alg_threshold|alg_streaming|alg_final|alg_delegate|alg_final_network|alg_final_cached} [report-name]"; exit 2 ;;
 esac
 NAME=${2:-hygon_prefill_${STAGE}_device_v1}
 if [[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]]; then
@@ -118,6 +119,8 @@ elif [ "$STAGE" = algorithms ]; then
     PROBE=(tools/hygon_prefill_algorithms.py all)
 elif [ "$STAGE" = alg_final_network ]; then
     PROBE=(tools/hygon_prefill_algorithms.py final --variant network)
+elif [ "$STAGE" = alg_final_cached ]; then
+    PROBE=(tools/hygon_prefill_algorithms.py final --variant network --cache-final)
 elif [[ "$STAGE" == alg_* ]]; then
     PROBE=(tools/hygon_prefill_algorithms.py "${STAGE#alg_}")
 else
