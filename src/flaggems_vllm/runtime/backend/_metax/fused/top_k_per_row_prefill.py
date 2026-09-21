@@ -31,10 +31,10 @@ _generic = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
 # BEGIN TLE GATE: identical in top_k_per_row_decode.py and top_k_per_row_prefill.py
 # The TLE path keeps the histogram and counters in shared memory, where a
 # single-address atomic is ~17x cheaper than in global scratch on a C550. It is
-# taken whenever the build has mctle, and needs two metax fixes that are not
-# checked for: without __MCTLE__ reaching TableGen the first kernel fails to
-# compile, and without Alias.cpp aware of mctle.local_pointers it compiles and
-# returns wrong answers.
+# taken whenever this Triton has TLE at all. What it needs beyond that is not
+# checked: a FlagTree built with mctle, with __MCTLE__ reaching TableGen -- or
+# the first kernel fails to compile -- and with metax's Alias.cpp aware of
+# mctle.local_pointers, or it compiles and returns wrong answers.
 # FLAGGEMS_METAX_TLE=0 forces the generic non-TLE path.
 
 # Thread limit of the compiled merge kernel on a C550; torch reports more.
@@ -124,18 +124,6 @@ _lock = threading.Lock()
 _state = {"done": False, "on": False, "why": "not checked yet"}
 
 
-def _is_mctle_build():
-    from triton._C import libtriton
-
-    if not hasattr(libtriton.ir.builder, "make_swizzled_shared_encoding_attr"):
-        return False
-    try:
-        compiler = import_module("triton.backends.metax.compiler")
-    except ImportError:
-        return False
-    return getattr(compiler, "enable_mctle", False) is True
-
-
 def _install():
     _generic.tle = _SHIM
     _generic.HAS_TLE = True
@@ -159,10 +147,8 @@ def ensure_tle():
             why = "disabled by FLAGGEMS_METAX_TLE"
         elif _SHIM is None:
             why = "this Triton has no TLE"
-        elif not _is_mctle_build():
-            why = "FlagTree built without mctle"
         else:
-            on, why = True, "mctle build"
+            on, why = True, "TLE available"
         if on:
             _install()
             logger.info("%s: MetaX TLE path enabled (%s)", _generic.__name__, why)
