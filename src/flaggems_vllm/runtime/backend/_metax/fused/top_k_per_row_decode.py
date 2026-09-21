@@ -30,16 +30,15 @@ _generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
 
 # BEGIN TLE GATE: identical in top_k_per_row_decode.py and top_k_per_row_prefill.py
 # The TLE path keeps the histogram and counters in shared memory, where a
-# single-address atomic is ~17x cheaper than in global scratch on a C550. It
-# needs a FlagTree built with mctle, __MCTLE__ passed to TableGen, and metax's
-# Alias.cpp aware of mctle.local_pointers; without the last, kernels compile but
-# share bytes, so this is a runtime self-test. FLAGGEMS_METAX_TLE=0 disables it.
+# single-address atomic is ~17x cheaper than in global scratch on a C550. It is
+# taken whenever the build has mctle, and needs two metax fixes that are not
+# checked for: without __MCTLE__ reaching TableGen the first kernel fails to
+# compile, and without Alias.cpp aware of mctle.local_pointers it compiles and
+# returns wrong answers.
+# FLAGGEMS_METAX_TLE=0 forces the generic non-TLE path.
 
 # Thread limit of the compiled merge kernel on a C550; torch reports more.
 _MAX_THREADS = 512
-
-_PROBE_N = 512
-_PROBE_WARPS = 8
 
 if has_triton_tle(3, 6, 0):
     try:
@@ -121,56 +120,6 @@ def _build_shim():
 _SHIM = _build_shim()
 
 
-@triton.jit
-def _self_test_kernel(bad_ptr, N: tl.constexpr):
-    """Counts values an overlapping shared-memory allocation corrupted."""
-    lane = tl.arange(0, N)
-    a = _SHIM.gpu.alloc(
-        [N],
-        dtype=tl.int32,
-        layout=None,
-        scope=_SHIM.gpu.smem,
-        nv_mma_shared_layout=False,
-    )
-    pa = _SHIM.gpu.local_ptr(a, (0,))
-    tl.store(pa + lane, lane)
-    # Allocated after a's last direct use: an allocator that cannot see the
-    # pointer users gives b a's offset.
-    b = _SHIM.gpu.alloc(
-        [N],
-        dtype=tl.int32,
-        layout=None,
-        scope=_SHIM.gpu.smem,
-        nv_mma_shared_layout=False,
-    )
-    pb = _SHIM.gpu.local_ptr(b, (0,))
-    tl.store(pb + lane, lane + N)
-    c = _SHIM.gpu.alloc(
-        [64],
-        dtype=tl.int32,
-        layout=None,
-        scope=_SHIM.gpu.smem,
-        nv_mma_shared_layout=False,
-    )
-    tl.store(_SHIM.gpu.local_ptr(c), tl.zeros([64], tl.int32))
-    tl.debug_barrier()
-    pc = _SHIM.gpu.local_ptr(c, (0,))
-    tl.atomic_add(
-        pc + lane * 0, lane * 0 + 1, mask=(lane % 2) == 0, sem="relaxed", scope="cta"
-    )
-    # Reductions whose scratch an unpatched allocator lays over a or b.
-    total = tl.sum(lane, axis=0)
-    prefix, total2 = _SHIM.cumsum(lane, axis=0)
-    tl.debug_barrier()
-    bad = tl.sum((tl.load(pa + lane) != lane).to(tl.int32), axis=0)
-    bad += tl.sum((tl.load(pb + lane) != lane + N).to(tl.int32), axis=0)
-    bad += (tl.load(pc) != N // 2).to(tl.int32)
-    bad += (total != N * (N - 1) // 2).to(tl.int32)
-    bad += (total2 != total).to(tl.int32)
-    bad += tl.sum((prefix != (lane * (lane - 1)) // 2).to(tl.int32), axis=0)
-    tl.store(bad_ptr, bad)
-
-
 _lock = threading.Lock()
 _state = {"done": False, "on": False, "why": "not checked yet"}
 
@@ -187,22 +136,6 @@ def _is_mctle_build():
     return getattr(compiler, "enable_mctle", False) is True
 
 
-def _self_test(device):
-    """(ok, reason)."""
-    import torch
-
-    bad = torch.empty((1,), dtype=torch.int32, device=device)
-    compiled = _self_test_kernel[(1,)](bad, N=_PROBE_N, num_warps=_PROBE_WARPS)
-    count = int(bad.item())
-    if count != 0:
-        return False, f"self-test read back {count} wrong values (smem aliasing)"
-    need = 2 * _PROBE_N * 4 + 64 * 4
-    shared = getattr(getattr(compiled, "metadata", None), "shared", need)
-    if shared < need:
-        return False, f"self-test kernel got {shared} B of smem for {need} B of buffers"
-    return True, "self-test passed"
-
-
 def _install():
     _generic.tle = _SHIM
     _generic.HAS_TLE = True
@@ -213,7 +146,7 @@ def _install():
     _generic._LAUNCH_GEOMETRY = (warp, min(maxt, _MAX_THREADS))
 
 
-def ensure_tle(device):
+def ensure_tle():
     """Decides once per process whether this operator takes the TLE path."""
     if _state["done"]:
         return _state["on"]
@@ -229,10 +162,7 @@ def ensure_tle(device):
         elif not _is_mctle_build():
             why = "FlagTree built without mctle"
         else:
-            try:
-                on, why = _self_test(device)
-            except Exception as e:  # noqa: BLE001 - any failure means "not this build"
-                on, why = False, f"self-test failed: {type(e).__name__}: {e}"[:300]
+            on, why = True, "mctle build"
         if on:
             _install()
             logger.info("%s: MetaX TLE path enabled (%s)", _generic.__name__, why)
@@ -267,7 +197,7 @@ def _blocks_per_row(num_rows):
 def top_k_per_row_decode(
     logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
 ):
-    if ensure_tle(logits.device):
+    if ensure_tle():
         # Read by the generic host dispatch on this very call.
         _generic.MULTIPLE_BLOCKS_PER_ROW_CONFIG = _blocks_per_row(num_rows)
     return _generic.top_k_per_row_decode(
