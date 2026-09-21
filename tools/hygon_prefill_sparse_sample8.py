@@ -47,7 +47,6 @@ from hygon_prefill_sampled import (  # noqa: E402
     NB,
     SAFETY,
     WARPS,
-    _Launch,
     _remap,
     _select,
     device_us,
@@ -301,9 +300,11 @@ def _check(logits, starts, ends, indices, want):
 
 def _build_pipeline(logits, starts, ends, top_k, stride0, stride1):
     rows, vocab = logits.shape
-    sms = import_module(
+    decode = import_module(
         "flaggems_vllm.runtime.backend._hygon.fused.top_k_per_row_decode"
-    )._sm_count()
+    )
+    sms = decode._sm_count()
+    launch = decode._Launch
     split = split_factor(rows, vocab, sms)
     chunk = triton.cdiv(vocab, split)
     cap = max(BLOCK, triton.next_power_of_2(top_k * CAP_FACTOR))
@@ -329,7 +330,7 @@ def _build_pipeline(logits, starts, ends, top_k, stride0, stride1):
         torch.empty((rows,), dtype=torch.int32, device=logits.device),
     )
 
-    prepare = _Launch(
+    prepare = launch(
         _prepare_v8,
         (rows,),
         {
@@ -340,25 +341,25 @@ def _build_pipeline(logits, starts, ends, top_k, stride0, stride1):
         },
         WARPS,
     )
-    select = _Launch(
+    select = launch(
         _select,
         (rows * split,),
         {"CHUNK": chunk, "SPLIT": split, "CAP": cap, "BLOCK": BLOCK},
         WARPS,
     )
-    fixup = _Launch(
+    fixup = launch(
         _fixup_full32,
         (rows,),
         {"TOPK": top_k, "NB": NB, "CAP": cap, "BLOCK": BLOCK},
         WARPS,
     )
-    merge = _Launch(
+    merge = launch(
         _generic.non_tle_top_k_per_row_prefill,
         (rows,),
         {"TOPK": top_k, "BLOCK_SIZE": BLOCK, "ROW_OFFSET": 0},
         WARPS,
     )
-    remap = _Launch(
+    remap = launch(
         _remap,
         (rows,),
         {"CAP": cap, "TOPK": top_k, "BLOCK": triton.next_power_of_2(top_k)},
