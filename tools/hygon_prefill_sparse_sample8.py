@@ -150,6 +150,7 @@ def _fixup_full32(
     TOPK: tl.constexpr,
     NB: tl.constexpr,
     CAP: tl.constexpr,
+    RADIX: tl.constexpr,
     BLOCK: tl.constexpr,
 ):
     """Keep the cheap sampled result, or redo selection with the full key."""
@@ -164,7 +165,7 @@ def _fixup_full32(
         return
 
     lane = tl.arange(0, BLOCK)
-    bins = tl.arange(0, FULL_KEY_BINS)
+    bins = tl.arange(0, RADIX)
     base = hist_ptr + row * NB
     n_tiles = tl.cdiv(e - s, BLOCK)
     desired = tl.zeros((), dtype=tl.uint32)
@@ -175,14 +176,14 @@ def _fixup_full32(
     # (top_k + 1)-th key from the high byte to the low byte.
     for digit_pos in tl.static_range(24, -1, -8):
         if rank_left > 1:
-            tl.store(base + bins, tl.zeros([FULL_KEY_BINS], tl.int32))
+            tl.store(base + bins, tl.zeros([RADIX], tl.int32))
             tl.debug_barrier()
             for tile in tl.range(0, n_tiles):
                 i = s + tile * BLOCK + lane
                 mask = i < e
                 x = tl.load(logits_ptr + row * stride0 + i, mask=mask, other=0.0)
                 key = _full_key(x)
-                digit = ((key >> digit_pos) & (FULL_KEY_BINS - 1)).to(tl.int32)
+                digit = ((key >> digit_pos) & (RADIX - 1)).to(tl.int32)
                 tl.atomic_add(
                     base + digit,
                     tl.full([BLOCK], 1, tl.int32),
@@ -195,15 +196,15 @@ def _fixup_full32(
             prefix = tl.cumsum(counts, axis=0) - counts
             hit = (prefix < rank_left) & (prefix + counts >= rank_left)
             digit_value = tl.min(
-                tl.where(hit, bins, FULL_KEY_BINS), axis=0
+                tl.where(hit, bins, RADIX), axis=0
             ).to(tl.int32)
             digit_value = tl.where(
-                digit_value == FULL_KEY_BINS, FULL_KEY_BINS - 1, digit_value
+                digit_value == RADIX, RADIX - 1, digit_value
             )
             below = tl.max(tl.where(bins == digit_value, prefix, 0), axis=0)
             desired = desired | (digit_value.to(tl.uint32) << digit_pos)
             digit_mask = digit_mask | (
-                tl.full((), FULL_KEY_BINS - 1, tl.uint32) << digit_pos
+                tl.full((), RADIX - 1, tl.uint32) << digit_pos
             )
             rank_left = rank_left - below
 
@@ -350,7 +351,13 @@ def _build_pipeline(logits, starts, ends, top_k, stride0, stride1):
     fixup = launch(
         _fixup_full32,
         (rows,),
-        {"TOPK": top_k, "NB": NB, "CAP": cap, "BLOCK": BLOCK},
+        {
+            "TOPK": top_k,
+            "NB": NB,
+            "CAP": cap,
+            "RADIX": FULL_KEY_BINS,
+            "BLOCK": BLOCK,
+        },
         WARPS,
     )
     merge = launch(
