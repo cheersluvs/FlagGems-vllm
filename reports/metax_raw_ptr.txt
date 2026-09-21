@@ -1,0 +1,39 @@
+### branch topk-metax @ c757063
+### 2026-09-21T00:23:11+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
+
+### python: /data/wuyuqing/workspace/mctle-v2/bin/python -> /data/wuyuqing/workspace/mctle-v2/bin/python
+ImportError while loading conftest '/data/wuyuqing/workspace/FlagGems-vllm/tests/conftest.py'.
+tests/conftest.py:27: in <module>
+    import flaggems_vllm
+src/flaggems_vllm/__init__.py:21: in <module>
+    import flaggems_vllm.ops as _ops_module
+src/flaggems_vllm/ops/__init__.py:17: in <module>
+    from flaggems_vllm.ops.add_rms_norm import add_rms_norm
+src/flaggems_vllm/ops/add_rms_norm.py:25: in <module>
+    from flaggems_vllm.utils import libentry
+src/flaggems_vllm/utils/__init__.py:15: in <module>
+    from flaggems_vllm.utils.libentry import libentry, libtuner
+src/flaggems_vllm/utils/libentry.py:49: in <module>
+    from flaggems_vllm.utils.models import PersistantModel, SQLPersistantModel
+src/flaggems_vllm/utils/models/__init__.py:16: in <module>
+    from .sql import SQLPersistantModel
+src/flaggems_vllm/utils/models/sql.py:30: in <module>
+    import sqlalchemy
+E   ModuleNotFoundError: No module named 'sqlalchemy'
+triton caches under /tmp/metax-raw-ptr-0lv8869w; one per variant and case
+case             shim                               raw
+selftest         ModuleNotFoundError: No module na  ModuleNotFoundError: No module na
+decode           ModuleNotFoundError: No module na  ModuleNotFoundError: No module na
+prefill_narrow   ModuleNotFoundError: No module na  ModuleNotFoundError: No module na
+prefill_wide     ModuleNotFoundError: No module na  ModuleNotFoundError: No module na
+
+  selftest         the gate's own self-test kernel, 512 lanes on 8 warps
+  decode           decode, 56 rows, tile 512 (1 element/thread)
+  prefill_narrow   prefill (4100, 1025), tile 512 (1 element/thread)
+  prefill_wide     prefill (64, 129280), tile 1024 (2 elements/thread)
+
+inconclusive: the shim variant itself failed ['selftest', 'decode', 'prefill_narrow', 'prefill_wide']
+
+######## the two operator test files, raw local_ptr
+  pytest exit 4
