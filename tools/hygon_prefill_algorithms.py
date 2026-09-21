@@ -583,6 +583,7 @@ def main():
     ap.add_argument("--seeds", type=int, nargs="+", default=[42, 43])
     ap.add_argument("--timeout", type=int, default=600)
     ap.add_argument("--suite-timeout", type=int, default=13000)
+    ap.add_argument("--variant", choices=("network", "prefix"))
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
     if args.check:
@@ -592,9 +593,13 @@ def main():
         return 0
     if min(args.rounds, args.iters, args.timeout, args.suite_timeout) <= 0:
         ap.error("rounds/iters/timeouts must be positive")
+    if args.variant and args.family != "final":
+        ap.error("--variant is supported only with the final family")
     if args.worker is not None:
         if args.family == "all" or not 0 <= args.worker < len(tasks(args.family)):
             ap.error("invalid worker")
+        if args.variant and tasks(args.family)[args.worker][1][0] != args.variant:
+            ap.error("worker does not match --variant")
         try:
             worker(args)
             return 0
@@ -607,6 +612,8 @@ def main():
     failures, skipped = [], []
     for family in families:
         for task_id, (shape_id, config) in enumerate(tasks(family)):
+            if args.variant and config[0] != args.variant:
+                continue
             remaining = int(deadline - time.monotonic())
             if remaining <= 0:
                 skipped.append([family, task_id])
@@ -632,6 +639,8 @@ def main():
                 "--seeds",
                 *map(str, args.seeds),
             ]
+            if args.variant:
+                cmd.extend(("--variant", args.variant))
             try:
                 code = subprocess.run(
                     cmd,

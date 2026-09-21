@@ -73,8 +73,22 @@ tools/hygon_prefill_next_run.sh algorithms hygon_prefill_algorithms_v1
 ```
 
 Independent report stages: `alg_threshold`, `alg_streaming`, `alg_final`,
-`alg_delegate`. Workers run serially in subprocesses. Faults/timeouts are
+`alg_delegate`. After the first full Hygon report, use `alg_threshold` and
+`alg_final_network` to repeat only the two initially failed compilation arms.
+Workers run serially in subprocesses. Faults/timeouts are
 reported as failures; the parent retains completed results. Only validated
 workers can emit performance summaries. A local `--check` needs no torch/Triton
 and validates source construction and scalar algorithm models; it does not
 claim HIP compilation or device correctness.
+
+## First Hygon report
+
+`reports/hygon_prefill_algorithms_v1.txt` shows streaming at 0.072–0.139x
+device ratio and delegate at 0.062–0.066x on their full normal target shapes.
+Final prefix search reaches 1.05–1.21x device ratio on the two four-row shapes,
+but its allocation-inclusive wall ratio is 0.79–0.81x there; on other full
+normal shapes it is slower on both measures. These ratios are control divided
+by candidate, so larger than one is faster. Threshold and final network had
+Triton branch-variable type errors before measurement. This revision renames
+those conflicting variables and adds a network-only runner; Hygon validation
+is still required for both arms.

@@ -75,17 +75,21 @@ def threshold_select(
     n = tl.load(Ends + row) - start
     out = Out + row.to(tl.int64) * K
     if n <= K:
-        p = tl.arange(0, K)
-        tl.store(out + p, tl.where(p < n, p, -1))
+        short_pos = tl.arange(0, K)
+        tl.store(out + short_pos, tl.where(short_pos < n, short_pos, -1))
         if DIAG:
             tl.store(Stats + row, 0)
     else:
-        p = tl.arange(0, B)
-        valid = p < n
-        x = tl.load(X + row.to(tl.int64) * Stride + start + p, mask=valid, other=0.0)
+        search_pos = tl.arange(0, B)
+        valid = search_pos < n
+        x = tl.load(
+            X + row.to(tl.int64) * Stride + start + search_pos,
+            mask=valid,
+            other=0.0,
+        )
         keys = ordered_key(x)
         threshold, rounds = kth_key(keys, valid, K, QUATERNARY)
-        emit_indices(keys, valid, threshold, K, p, out)
+        emit_indices(keys, valid, threshold, K, search_pos, out)
         if DIAG:
             tl.store(Stats + row, rounds)
 
@@ -212,18 +216,18 @@ def final_network(Values, Indices, Output, count, base, remain, CAP: tl.constexp
     code = (ordered_key(x).to(tl.uint64) << 32) | p.to(tl.uint64)
     code = tl.where(valid, code, 0).to(tl.uint64)
     if remain == count:
-        idx = tl.load(Indices + p, mask=valid, other=0)
-        tl.store(Output + base + p, idx, mask=valid)
+        direct_idx = tl.load(Indices + p, mask=valid, other=0)
+        tl.store(Output + base + p, direct_idx, mask=valid)
     elif remain == 1:
         best = tl.max(code, 0)
-        winner = (best & 0xFFFFFFFF).to(tl.int32)
-        idx = tl.load(Indices + winner)
-        tl.store(Output + base, idx)
+        best_pos = (best & 0xFFFFFFFF).to(tl.int32)
+        best_idx = tl.load(Indices + best_pos)
+        tl.store(Output + base, best_idx)
     elif remain > 0:
         ranked = tl.sort(code, descending=True)
-        winner = (ranked & 0xFFFFFFFF).to(tl.int32)
-        idx = tl.load(Indices + winner, mask=p < remain, other=0)
-        tl.store(Output + base + p, idx, mask=p < remain)
+        sorted_pos = (ranked & 0xFFFFFFFF).to(tl.int32)
+        sorted_idx = tl.load(Indices + sorted_pos, mask=p < remain, other=0)
+        tl.store(Output + base + p, sorted_idx, mask=p < remain)
 
 
 @triton.jit
