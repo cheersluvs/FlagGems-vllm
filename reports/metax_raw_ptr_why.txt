@@ -1,15 +1,15 @@
-### branch topk-metax @ c59cd93
-### 2026-09-21T01:05:39+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
+### branch topk-metax @ 6d1ba02
+### 2026-09-21T01:09:15+00:00  host bm-zksg-wx-zone1-d-mc550-64g-2-120
 ### PYTHONPATH=src:/data/wuyuqing/FlagGems/src:
 
 ### python: /data/wuyuqing/workspace/mctle-v2/bin/python -> /data/wuyuqing/workspace/mctle-v2/bin/python
-triton caches under /tmp/metax-raw-ptr-rm54f4fh; one per variant and case
+triton caches under /tmp/metax-raw-ptr-wrrywngx; one per variant and case
 case             shim                               raw
 selftest         on self-test passed                off self-test failed: RuntimeErro
 
   selftest         the gate's own self-test kernel, 512 lanes on 8 warps
 
 why a variant is off, untruncated:
-  raw/selftest: self-test failed: RuntimeError: PassManager::run failed
+  raw/selftest: self-test failed: RuntimeError: PassManager::run failed; python: /data/jcheng2/mcFlagTree/third_party/metax/plugin/lib/TritonMETAXGPUToLLVM/LoadStoreOpToLLVM.cpp:427: virtual llvm::LogicalResult {anonymous}::LoadOpConversion::matchAndRewrite(mlir::triton::LoadOp, mlir::ConvertOpToLLVMPattern<mlir::triton::LoadOp>::OpAdaptor, mlir::ConversionPatternRewriter&) const: Assertion `wordNElems * nWords * numVecs == numElems' failed.; /data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/runtime/backend/_metax/fused/top_k_per_row_tle.py:189:0: error: Failures have been detected while processing an MLIR pass pipeline
 
 shim still needed: with metax's own local_ptr, ['selftest'] fail
