@@ -39,8 +39,8 @@ import triton.language as tl
 
 import flaggems_vllm  # noqa: F401
 
-# Reuse the previously written probe's launch wrapper, sampled collect and
-# remap kernel.  Importing it is side-effect free because its main is guarded.
+# Reuse the previously written probe's sampled collect and remap kernels.
+# Importing it is side-effect free because its main is guarded.
 from hygon_prefill_sampled import (  # noqa: E402
     BLOCK,
     CAP_FACTOR,
@@ -121,7 +121,7 @@ def _prepare_v8(
         bin_idx = _sample_key(x)
         tl.atomic_add(
             base + bin_idx,
-            tl.ones([BLOCK_SIZE], tl.int32),
+            tl.full([BLOCK_SIZE], 1, tl.int32),
             mask=mask,
             sem="relaxed",
             scope="cta",
@@ -185,7 +185,7 @@ def _fixup_full32(
                 digit = ((key >> digit_pos) & (FULL_KEY_BINS - 1)).to(tl.int32)
                 tl.atomic_add(
                     base + digit,
-                    tl.ones([BLOCK], tl.int32),
+                    tl.full([BLOCK], 1, tl.int32),
                     mask=mask & ((key & digit_mask) == desired),
                     sem="relaxed",
                     scope="cta",
@@ -224,7 +224,7 @@ def _fixup_full32(
                 take = mask & (key == desired)
             pos = tl.atomic_add(
                 cnt_ptrs,
-                tl.ones([BLOCK], tl.int32),
+                tl.full([BLOCK], 1, tl.int32),
                 mask=take,
                 sem="relaxed",
                 scope="cta",
