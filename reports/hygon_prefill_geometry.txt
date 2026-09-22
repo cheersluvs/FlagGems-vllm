@@ -1,0 +1,89 @@
+### branch topk-metax @ 1b7ff10
+### 2026-09-22T17:37:46+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    91.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### budget, arm base
+### budget, arm f1024w8
+### budget, arm f1024w16
+### budget, arm f2048w16
+### budget, arm f2048w32
+      ! f2048w32:   File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 474, in raise_
+    raise err
+triton.runtime.errors.OutOfResources: out of resource: threads, Required: 2048, Hardware limit: 1024. Reducing block sizes or `num_stages` may help.
+### budget, arm p1024w16
+### budget, arm c512w16
+### benchmark pass 1, arm base
+### benchmark pass 1, arm f1024w8
+### benchmark pass 1, arm f1024w16
+### benchmark pass 1, arm f2048w16
+### benchmark pass 1, arm p1024w16
+### benchmark pass 1, arm c512w16
+### benchmark pass 2, arm base
+### benchmark pass 2, arm f1024w8
+### benchmark pass 2, arm f1024w16
+### benchmark pass 2, arm f2048w16
+### benchmark pass 2, arm p1024w16
+### benchmark pass 2, arm c512w16
+### restored; git status: clean
+
+  per-launch budget on 64x129280, do_bench, us
+
+        arm   prepare   collect    finish     whole  cand min      mean       max   under TOPK   geometry
+       base      25.7      78.9      68.5     173.0      1076      1362      1839           0   P512/8 C512/8 F512/8
+    f1024w8      25.3      79.2      69.2     173.7      1076      1362      1839           0   P512/8 C512/8 F1024/8
+   f1024w16      24.7      79.8      67.7     172.2      1076      1362      1839           0   P512/8 C512/8 F1024/16
+   f2048w16      25.7      79.0      69.4     174.2      1076      1362      1839           0   P512/8 C512/8 F2048/16
+   p1024w16      22.3      78.1     506.6     607.0       946      1340      1839           1   P1024/16 C512/8 F512/8
+    c512w16      26.0      80.6      67.9     174.4      1076      1362      1839           0   P512/8 C512/16 F512/8
+
+  benchmark SpeedUp on 64x129280, two passes
+
+        arm    pass 1    pass 2   vs base
+       base     0.630     0.634     1.000
+    f1024w8     0.629     0.628     0.994
+   f1024w16     0.634     0.624     0.995
+   f2048w16     0.626     0.626     0.991
+   f2048w32   FAILED:   File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 474, in raise_
+    raise err
+triton.runtime.errors.OutOfResources: out of resource: threads, Required: 2048, Hardware limit: 1024. Reducing block sizes or `num_stages` may help.
+   p1024w16     0.181     0.178     0.284
+    c512w16     0.627     0.629     0.994
+
+  the other six shapes are a control -- they must not move:
+           base: geomean of the six 0.903 / 0.874
+        f1024w8: geomean of the six 0.903 / 0.885
+       f1024w16: geomean of the six 0.901 / 0.884
+       f2048w16: geomean of the six 0.872 / 0.889
+       p1024w16: geomean of the six 0.917 / 0.886
+        c512w16: geomean of the six 0.901 / 0.905
+
+  vLLM latency on that shape, max/min 1.02
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
