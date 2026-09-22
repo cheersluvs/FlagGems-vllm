@@ -1,0 +1,66 @@
+### branch topk-metax @ 6fd212f
+### 2026-09-22T17:29:00+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       52.0C    167.0W     auto     1000.0W    2%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### part A: the budget
+
+  budget on 64x129280, do_bench on our own kernels (us)
+
+                 prepare      25.8    14.9%        80 GB/s
+                 collect      79.1    45.7%       419 GB/s
+                  finish      68.2    39.4%
+                   whole     173.1
+
+      SSTRIDE 16  TARGET_MULT 1.25  SSPLIT 2  CAP 4096  TOPK 1024
+      candidates per row  min 1076  mean 1362  max 1839
+      rows under TOPK 0   rows over CAP 0   (either forces the full retry)
+      finish gathers 87170 values = 0.35 MB of data; at a 128 B line with no reuse that is 11.2 MB of traffic, against collect's 33.1 MB
+
+### part B pass 1, arm idx
+### part B pass 1, arm val
+### part B pass 2, arm idx
+### part B pass 2, arm val
+### restored; git status: clean
+
+benchmark SpeedUp on 64x129280, two passes
+
+    arm    pass 1    pass 2    vs idx
+    idx     0.635     0.632     1.000
+    val     0.613     0.614     0.968
+
+  the other six shapes are a control -- they must not move:
+      idx pass 1: 4x8193 0.679  4x16385 0.606  4100x1025 1.612  12961x4100 0.762  16380x5115 0.931  16383x4095 1.041
+      idx pass 2: 4x8193 0.605  4x16385 0.613  4100x1025 1.626  12961x4100 0.762  16380x5115 0.927  16383x4095 1.040
+      val pass 1: 4x8193 0.606  4x16385 0.605  4100x1025 1.608  12961x4100 0.762  16380x5115 0.931  16383x4095 1.043
+      val pass 2: 4x8193 0.611  4x16385 0.672  4100x1025 1.623  12961x4100 0.762  16380x5115 0.927  16383x4095 1.041
+
+  vLLM latency on that shape, max/min 1.00
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    96.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    93.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
