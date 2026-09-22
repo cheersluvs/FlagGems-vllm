@@ -7,7 +7,11 @@ with four 8-bit radix rounds over the full 32-bit key, not by counting. Both
 pieces of the idea are in that file and were measured at most 1.057.
 
 But its gate is `vocab >= 64 * top_k`, which admits ONE of the seven benchmark
-shapes -- (64,129280) -- and that is the shape whose measurements are unusable
+shapes -- and `_can_sample` carries a SECOND, independent one, `num_rows *
+next_pow2(top_k * CAP_MULT) <= 1 << 24`, which excludes the three big dense
+shapes by itself (16383 x 2048 = 33.5M against 16.8M). Round 1 of this probe
+opened only the first and tripped its own routing assertion on shape 1; both
+are opened here. The surviving shape either way is (64,129280), whose measurements are unusable
 here: the same shipped call read 310.7 and 232.3 us eight minutes apart, and it
 has already answered three questions contradictorily. **So the idea was only
 ever measured where it cannot be measured.**
@@ -132,11 +136,30 @@ def sampled_module():
         text=True,
         check=True,
     ).stdout
-    old = '_DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"'
-    assert src.count(old) == 1, "the reverted file changed shape"
-    src = src.replace(
-        old, '_DENSE_NAME = "flaggems_vllm.ops._topk_prefill_sample8_dense"', 1
-    )
+    subs = [
+        # keep this copy's generic module off the production override's entry
+        (
+            '_DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"',
+            '_DENSE_NAME = "flaggems_vllm.ops._topk_prefill_sample8_dense"',
+        ),
+        # `_can_sample` has a SECOND gate, and it excludes exactly the three big
+        # dense shapes on its own: 16383 rows x 2048 candidates is 33.5M
+        # elements against a hardcoded 1 << 24 = 16.8M. Round 1 of this probe
+        # opened only the ratio gate and tripped its own routing assertion.
+        (
+            "        and num_rows * triton.next_power_of_2(top_k * CAP_MULT) <= (1 << 24)",
+            "        and num_rows * triton.next_power_of_2(top_k * CAP_MULT)"
+            " <= _MAX_CAND_ELEMS",
+        ),
+        (
+            "CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]",
+            "CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]\n"
+            "_MAX_CAND_ELEMS = 1 << 24  # made tunable by tools/hygon_prefill_sample8",
+        ),
+    ]
+    for a, b in subs:
+        assert src.count(a) == 1, f"the reverted file changed shape near: {a[:60]!r}"
+        src = src.replace(a, b, 1)
     assert "SSTRIDE = int(" in src and "TARGET_MULT = float(" in src
     f = pathlib.Path(tempfile.mkdtemp(prefix="sample8_")) / "topk_prefill_sampled.py"
     f.write_text(src)
@@ -152,6 +175,10 @@ def set_arm(mod, ratio, sstride, target_mult):
     mod.SAMPLED_MIN_VOCAB_PER_TOPK = ratio
     mod.SSTRIDE = sstride
     mod.TARGET_MULT = target_mult
+    # 16383 x 2048 candidates needs 2^26; the buffers are torch.empty, so this
+    # costs address space rather than traffic (cand_idx + cand_val + hist is
+    # ~400 MB at the largest shape, against ~270 MB for the generic path).
+    mod._MAX_CAND_ELEMS = 1 << 27
     with mod._SPLAN_LOCK:
         mod._SPLANS.clear()
 
