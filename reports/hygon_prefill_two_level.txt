@@ -1,0 +1,58 @@
+### branch topk-metax @ 69755be
+### 2026-09-22T15:33:23+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0922 15:33:41.934093 113079 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+device us, interleaved over 7 rounds, each arm's FASTEST round.
+One launch per arm, same kernel and grid, so the profiler is sound here.
+Ratios are base/arm, so > 1 means the two-level search is faster.
+
+               shape   module      base       g16       g32       g64    b/g16    b/g32    b/g64  normal  tied
+           64x129280  generic     255.4     228.6     255.3     256.5    1.117    1.000    0.996      OK    OK
+             4x16385  generic      31.7      31.3      30.4      30.4    1.012    1.041    1.043      OK    OK
+              4x8193  generic      23.2      24.6      24.9      23.8    0.944    0.935    0.976      OK    OK
+          16383x4095    dense    1306.4    1338.4    1307.4    1309.4    0.976    0.999    0.998      OK    OK
+          12961x4100    dense    1039.9    1044.6    1043.6    1040.9    0.996    0.996    0.999      OK    OK
+          16380x5115    dense    1562.9    1567.2    1561.3    1564.0    0.997    1.001    0.999      OK    OK
+           4100x1025    dense     133.4     134.9     133.7     133.9    0.989    0.997    0.997      OK    OK
+
+  geomean base/g16: 1.003
+  geomean base/g32: 0.995
+  geomean base/g64: 1.001
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       51.0C    113.0W     auto     1000.0W    4%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+  The scan is one collective among a store, atomics and a pass, so a
+  win here is bounded by whatever share of STEP 0 it holds; a loss
+  means the two narrower prefix sums cost more than the wide one.
