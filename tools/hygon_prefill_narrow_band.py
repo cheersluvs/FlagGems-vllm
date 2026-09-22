@@ -75,46 +75,49 @@ OFF = {
 
 CHECKER = """
 import json, sys, torch, flaggems_vllm
-SHAPES = json.loads(sys.argv[1])
-out = []
-for rows, vocab, top_k, stride0 in SHAPES:
-    torch.manual_seed(42)
-    u = torch.rand(rows, vocab, device="cuda", dtype=torch.float32)
-    n = torch.randn(rows, vocab, device="cuda", dtype=torch.float32)
-    cases = {
-        "normal": n,
-        "tied": (n * 4).round() / 4,
-        "narrow": 10.0 + 0.2 * u,
-        "narrower": 10.0 + 0.02 * u,
-        "constant": torch.full((rows, vocab), 3.5, device="cuda"),
-    }
-    starts = torch.zeros(rows, dtype=torch.int32, device="cuda")
-    ends = torch.full((rows,), vocab, dtype=torch.int32, device="cuda")
-    idx = torch.empty((rows, top_k), dtype=torch.int32, device="cuda")
-    for name, src in cases.items():
-        want = torch.topk(src, top_k, dim=1).values.sort(dim=1).values
-        idx.fill_(-9)
+
+rows, vocab, top_k, stride0 = json.loads(sys.argv[1])
+out_path = sys.argv[2]
+torch.manual_seed(42)
+u = torch.rand(rows, vocab, device="cuda", dtype=torch.float32)
+n = torch.randn(rows, vocab, device="cuda", dtype=torch.float32)
+cases = [
+    ("normal", n),
+    ("tied", (n * 4).round() / 4),
+    ("narrow", 10.0 + 0.2 * u),
+    ("narrower", 10.0 + 0.02 * u),
+    ("constant", torch.full((rows, vocab), 3.5, device="cuda")),
+]
+starts = torch.zeros(rows, dtype=torch.int32, device="cuda")
+ends = torch.full((rows,), vocab, dtype=torch.int32, device="cuda")
+idx = torch.empty((rows, top_k), dtype=torch.int32, device="cuda")
+fh = open(out_path, "w", buffering=1)
+for name, src in cases:
+    # announced BEFORE the call, so a fault names the case that caused it
+    print("CASE " + name, file=sys.stderr, flush=True)
+    want = torch.topk(src, top_k, dim=1).values.sort(dim=1).values
+    idx.fill_(-9)
+    flaggems_vllm.top_k_per_row_prefill(src, starts, ends, idx, rows, stride0, 1, top_k)
+    torch.cuda.synchronize()
+    got = src.gather(1, idx.long().clamp(0, vocab - 1)).sort(dim=1).values
+    ok = bool(torch.allclose(got, want)) and bool((idx >= 0).all())
+    bad = 0 if ok else int((~torch.isclose(got, want)).sum())
+    ev = [torch.cuda.Event(enable_timing=True) for _ in range(2)]
+    for _ in range(3):
         flaggems_vllm.top_k_per_row_prefill(
             src, starts, ends, idx, rows, stride0, 1, top_k
         )
-        torch.cuda.synchronize()
-        got = src.gather(1, idx.long().clamp(0, vocab - 1)).sort(dim=1).values
-        ok = bool(torch.allclose(got, want)) and bool((idx >= 0).all())
-        bad = int((~torch.isclose(got, want)).sum()) if not ok else 0
-        ev = [torch.cuda.Event(enable_timing=True) for _ in range(2)]
-        for _ in range(3):
-            flaggems_vllm.top_k_per_row_prefill(
-                src, starts, ends, idx, rows, stride0, 1, top_k
-            )
-        torch.cuda.synchronize(); ev[0].record()
-        for _ in range(5):
-            flaggems_vllm.top_k_per_row_prefill(
-                src, starts, ends, idx, rows, stride0, 1, top_k
-            )
-        ev[1].record(); torch.cuda.synchronize()
-        out.append({"shape": [rows, vocab, top_k], "case": name, "ok": ok,
-                    "bad": bad, "ms": ev[0].elapsed_time(ev[1]) / 5})
-print("RESULT " + json.dumps(out))
+    torch.cuda.synchronize()
+    ev[0].record()
+    for _ in range(5):
+        flaggems_vllm.top_k_per_row_prefill(
+            src, starts, ends, idx, rows, stride0, 1, top_k
+        )
+    ev[1].record()
+    torch.cuda.synchronize()
+    fh.write(json.dumps({"case": name, "ok": ok, "bad": bad,
+                         "ms": ev[0].elapsed_time(ev[1]) / 5}) + chr(10))
+fh.close()
 """
 
 
@@ -142,90 +145,104 @@ def install(ref):
         p.write_text(r.stdout)
 
 
-def run_checker(script, env_extra):
+def run_shape(script, shape, env_extra):
+    """One shape in its own process. A VM fault poisons the whole HIP context,
+    so isolating each shape keeps one bad input from erasing the other six --
+    and the results land in a file line by line, so a crash loses only the case
+    that caused it."""
     env = dict(os.environ)
     env.update(env_extra)
+    out = pathlib.Path(tempfile.mkdtemp(prefix="nbres_")) / "r.jsonl"
     r = subprocess.run(
-        [sys.executable, script, json.dumps(SHAPES)],
+        [sys.executable, script, json.dumps(shape), str(out)],
         capture_output=True,
         text=True,
         env=env,
     )
-    for line in r.stdout.splitlines():
-        if line.startswith("RESULT "):
-            return json.loads(line[len("RESULT ") :])
-    print(r.stdout[-2500:])
-    print(r.stderr[-2000:])
-    raise SystemExit("the checker produced no result")
+    done = {}
+    if out.exists():
+        for line in out.read_text().splitlines():
+            if line.strip():
+                d = json.loads(line)
+                done[d["case"]] = d
+    last = [x[5:] for x in r.stderr.splitlines() if x.startswith("CASE ")]
+    faulted = last[-1] if last and last[-1] not in done else None
+    return done, faulted, r.returncode
 
 
 def main():
     ref = audit_ref()
-    dirty = sh(
-        "git", "status", "--porcelain", "--", *[str(p) for p in [OVERRIDE] + COMPANIONS]
-    ).stdout
+    paths = [str(p) for p in [OVERRIDE] + COMPANIONS]
+    dirty = sh("git", "status", "--porcelain", "--", *paths).stdout
     if dirty.strip():
         raise SystemExit("those paths are already modified:\n" + dirty)
     script = pathlib.Path(tempfile.mkdtemp(prefix="nb_")) / "check.py"
     script.write_text(CHECKER)
     arms = [("gen", None, OFF), ("ship", None, {}), ("audit", ref, {})]
-    res = {}
+    res = {t: {} for t, _, _ in arms}
+    faults = []
     try:
         for tag, r, env in arms:
             install(r)
-            print(f"### arm {tag}", flush=True)
-            res[tag] = run_checker(str(script), env)
+            for shape in SHAPES:
+                done, faulted, rc = run_shape(script, shape, env)
+                res[tag][tuple(shape[:3])] = done
+                mark = ""
+                if faulted:
+                    faults.append((tag, tuple(shape[:3]), faulted, rc))
+                    mark = f"   FAULT on '{faulted}' (exit {rc})"
+                print(
+                    f"### {tag:>6} {shape[0]}x{shape[1]}: "
+                    f"{len(done)}/5 cases{mark}",
+                    flush=True,
+                )
     finally:
         install(None)
-        left = sh(
-            "git",
-            "status",
-            "--porcelain",
-            "--",
-            *[str(p) for p in [OVERRIDE] + COMPANIONS],
-        ).stdout
+        left = sh("git", "status", "--porcelain", "--", *paths).stdout
         print(f"### restored; git status: {left.strip() or 'clean'}")
 
     cases = ["normal", "tied", "narrow", "narrower", "constant"]
-    print("\ncorrectness by path and input\n")
+    print("\ncorrectness by path and input  (FAULT = the call crashed the context)\n")
     print(f"  {'shape':>13} {'case':>10}" + "".join(f"{t:>9}" for t, _, _ in arms))
     wrong = []
-    for sh_ in SHAPES:
-        key = sh_[:3]
+    for shape in SHAPES:
+        key = tuple(shape[:3])
         for c in cases:
             line = f"  {f'{key[0]}x{key[1]}':>13} {c:>10}"
             for tag, _, _ in arms:
-                row = next(
-                    x for x in res[tag] if x["shape"] == list(key) and x["case"] == c
-                )
-                line += f"{'OK' if row['ok'] else 'WRONG':>9}"
-                if not row["ok"]:
-                    wrong.append((tag, key, c, row["bad"]))
+                d = res[tag][key].get(c)
+                v = "FAULT" if d is None else ("OK" if d["ok"] else "WRONG")
+                if d is not None and not d["ok"]:
+                    wrong.append((tag, key, c, d["bad"]))
+                line += f"{v:>9}"
             print(line)
-    print("\nper-call ms on the narrow band (the cost of escaping through STEP 1-3)\n")
+    print("\nper-call ms, normal vs narrow\n")
     print(f"  {'shape':>13} {'normal':>10} {'narrow':>10} {'x':>7}   arm")
     for tag, _, _ in arms:
-        for sh_ in SHAPES:
-            key = sh_[:3]
-            n = next(
-                x for x in res[tag] if x["shape"] == list(key) and x["case"] == "normal"
-            )["ms"]
-            w = next(
-                x for x in res[tag] if x["shape"] == list(key) and x["case"] == "narrow"
-            )["ms"]
+        for shape in SHAPES:
+            key = tuple(shape[:3])
+            n = res[tag][key].get("normal")
+            w = res[tag][key].get("narrow")
+            if not n or not w:
+                continue
             print(
-                f"  {f'{key[0]}x{key[1]}':>13} {n:>10.3f} {w:>10.3f} {w / n:>7.2f}   {tag}"
+                f"  {f'{key[0]}x{key[1]}':>13} {n['ms']:>10.3f} {w['ms']:>10.3f}"
+                f" {w['ms'] / n['ms']:>7.2f}   {tag}"
             )
     print()
+    if faults:
+        print(f"  {len(faults)} FAULTS -- a crash is worse than a wrong answer:")
+        for tag, key, c, rc in faults:
+            print(f"    {tag:>6}  {key[0]}x{key[1]}  {c}  exit {rc}")
     if wrong:
         print(f"  {len(wrong)} WRONG results:")
         for tag, key, c, bad in wrong:
             print(f"    {tag:>6}  {key[0]}x{key[1]}  {c}  ({bad} values differ)")
-    else:
-        print("  every shipped path is correct on every input tested.")
+    if not faults and not wrong:
+        print("  every path is correct on every input tested.")
     print(
-        "\n  'constant' is reported for contrast only: it passes even when the"
-        "\n  key has collapsed, because any k of equal values is correct."
+        "\n  'constant' is contrast only: it passes even when the key has"
+        "\n  collapsed, because any k of equal values is a correct answer."
     )
     return 0
 
