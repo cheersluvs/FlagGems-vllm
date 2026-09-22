@@ -1,0 +1,83 @@
+### branch topk-metax @ c65d090
+### 2026-09-22T14:49:42+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    91.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+phase 1: correctness and window occupancy, SSTRIDE 16, 64x129280 top_k 1024
+
+    mult      case   answer  cand med  cand max  outside
+    1.00    normal       OK      1124      1386    28.1%
+    1.00    narrow    WRONG    129280    129280   100.0%
+    1.00  constant       OK    129280    129280   100.0%
+    1.00      tied       OK      1137      2227     0.0%
+    1.10    normal       OK      1166      1551    10.9%
+    1.10    narrow    WRONG    129280    129280   100.0%
+    1.10  constant       OK    129280    129280   100.0%
+    1.10      tied       OK      1167      2247     0.0%
+    1.25    normal       OK      1338      1646     1.6%
+    1.25    narrow    WRONG    129280    129280   100.0%
+    1.25  constant       OK    129280    129280   100.0%
+    1.25      tied       OK      2155      2261     0.0%
+    1.50    normal       OK      1590      1931     0.0%
+    1.50    narrow    WRONG    129280    129280   100.0%
+    1.50  constant       OK    129280    129280   100.0%
+    1.50      tied       OK      2169      2263     0.0%
+### pass 1, arm off
+### pass 1, arm m1.0
+### pass 1, arm m1.1
+### pass 1, arm m1.25
+### pass 1, arm m1.5
+### pass 2, arm off
+### pass 2, arm m1.0
+### pass 2, arm m1.1
+### pass 2, arm m1.25
+### pass 2, arm m1.5
+### restored; git status: clean (0)
+
+phase 2: benchmark SpeedUp on 64x129280, two passes
+
+       arm    pass 1    pass 2    vs off  answer
+       off     0.415     0.415     1.000  n/a
+      m1.0     0.180     0.180     0.434  WRONG somewhere
+      m1.1     0.205     0.205     0.494  WRONG somewhere
+     m1.25     0.583     0.581     1.402  WRONG somewhere
+      m1.5     0.565     0.565     1.361  WRONG somewhere
+
+  whole-suite geomean (the reverted file lacks one-scan, so read
+  these against 'off', never against production):
+         off 0.664 / 0.650
+        m1.0 0.600 / 0.606
+        m1.1 0.609 / 0.607
+       m1.25 0.704 / 0.705
+        m1.5 0.703 / 0.702
+
+  vLLM latency on that shape, max/min 1.00
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    1%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       51.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    91.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
