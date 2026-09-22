@@ -1,47 +1,121 @@
-### branch topk-metax @ 89f3728
-### 2026-09-22T15:03:47+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### branch topk-metax @ 10ef1cb
+### 2026-09-22T15:06:36+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
 ### PYTHONPATH=src:/usr/local/:
 
 ### python: python -> /usr/bin/python
-### arm gen
-
-7fb793a00000, size byte: 18874368
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 1, ptr: 0x7fb7a1c08200
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb7a0c00000, size byte: 33554432
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 2, ptr: 0x7fb7b7000000
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb7b7000000, size byte: 2097152
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 3, ptr: 0x7fb7b7004200
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb7b7000000, size byte: 2097152
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 5, ptr: 0x7fb78b600000
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb78b600000, size byte: 35651584
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 6, ptr: 0x7fb78da00000
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb78da00000, size byte: 35651584
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 7, ptr: 0x7fb7b7008400
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb7b7000000, size byte: 2097152
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 8, ptr: 0x7fb7b700c600
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb7b7000000, size byte: 2097152
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 9, ptr: 0x7fb7b7010800
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb7b7000000, size byte: 2097152
-HOSTQUEUE <0x55c32ea05ae0>: ptr arg index: 10, ptr: 0x7fb7b7014a00
-HOSTQUEUE <0x55c32ea05ae0>: origin ptr: 0x7fb7b7000000, size byte: 2097152
-
-HOSTQUEUE <0x55c32ea05ae0>: >>>>>>>> DUMP AQL 0x7fc0adc48000 PACKET WITH INDEX 1107 <<<<<<<<<
-HOSTQUEUE <0x55c32ea05ae0>: >>>>>>>> MATCH BARRIER AND COMMAND <<<<<<<<<
-HOSTQUEUE <0x55c32ea05ae0>: header: 0x1503
-HOSTQUEUE <0x55c32ea05ae0>: dep_signal[0]: 0x0
-HOSTQUEUE <0x55c32ea05ae0>: dep_signal[1]: 0x0
-HOSTQUEUE <0x55c32ea05ae0>: dep_signal[2]: 0x0
-HOSTQUEUE <0x55c32ea05ae0>: dep_signal[3]: 0x0
-HOSTQUEUE <0x55c32ea05ae0>: dep_signal[4]: 0x0
-HOSTQUEUE <0x55c32ea05ae0>: completion_signal: 0x7fbfedffed80
-
-
-
->>>>>>>> KERNEL VMFault Analysis END !!!! <<<<<<
-
-=========> HW QUEUE INFO ANALYSIS <==========
-Can't read for directory: /sys/kernel/debug/kfd/process
-Please check mount/permission
-
+###    gen 4x8193: 5/5 cases
+###    gen 4x16385: 5/5 cases
+###    gen 64x129280: 5/5 cases
+###    gen 4100x1025: 0/5 cases   FAULT on 'normal' (exit -6)
+###    gen 12961x4100: 0/5 cases   FAULT on 'normal' (exit -6)
+###    gen 16383x4095: 0/5 cases   FAULT on 'normal' (exit -6)
+###    gen 16380x5115: 0/5 cases   FAULT on 'normal' (exit -6)
+###   ship 4x8193: 5/5 cases
+###   ship 4x16385: 5/5 cases
+###   ship 64x129280: 5/5 cases
+###   ship 4100x1025: 0/5 cases   FAULT on 'normal' (exit -6)
+###   ship 12961x4100: 0/5 cases   FAULT on 'normal' (exit -6)
+###   ship 16383x4095: 0/5 cases   FAULT on 'normal' (exit -6)
+###   ship 16380x5115: 0/5 cases   FAULT on 'normal' (exit -6)
+###  audit 4x8193: 5/5 cases
+###  audit 4x16385: 5/5 cases
+###  audit 64x129280: 5/5 cases
+###  audit 4100x1025: 0/5 cases   FAULT on 'normal' (exit -6)
+###  audit 12961x4100: 0/5 cases   FAULT on 'normal' (exit -6)
+###  audit 16383x4095: 0/5 cases   FAULT on 'normal' (exit -6)
+###  audit 16380x5115: 0/5 cases   FAULT on 'normal' (exit -6)
 ### restored; git status: clean
-the checker produced no result
+
+correctness by path and input  (FAULT = the call crashed the context)
+
+          shape       case      gen     ship    audit
+         4x8193     normal    WRONG    WRONG    WRONG
+         4x8193       tied    WRONG    WRONG    WRONG
+         4x8193     narrow    WRONG    WRONG    WRONG
+         4x8193   narrower    WRONG    WRONG    WRONG
+         4x8193   constant       OK       OK       OK
+        4x16385     normal    WRONG    WRONG    WRONG
+        4x16385       tied    WRONG    WRONG    WRONG
+        4x16385     narrow    WRONG    WRONG    WRONG
+        4x16385   narrower    WRONG    WRONG    WRONG
+        4x16385   constant       OK       OK       OK
+      64x129280     normal       OK       OK       OK
+      64x129280       tied       OK       OK       OK
+      64x129280     narrow       OK       OK       OK
+      64x129280   narrower       OK       OK       OK
+      64x129280   constant       OK       OK       OK
+      4100x1025     normal    FAULT    FAULT    FAULT
+      4100x1025       tied    FAULT    FAULT    FAULT
+      4100x1025     narrow    FAULT    FAULT    FAULT
+      4100x1025   narrower    FAULT    FAULT    FAULT
+      4100x1025   constant    FAULT    FAULT    FAULT
+     12961x4100     normal    FAULT    FAULT    FAULT
+     12961x4100       tied    FAULT    FAULT    FAULT
+     12961x4100     narrow    FAULT    FAULT    FAULT
+     12961x4100   narrower    FAULT    FAULT    FAULT
+     12961x4100   constant    FAULT    FAULT    FAULT
+     16383x4095     normal    FAULT    FAULT    FAULT
+     16383x4095       tied    FAULT    FAULT    FAULT
+     16383x4095     narrow    FAULT    FAULT    FAULT
+     16383x4095   narrower    FAULT    FAULT    FAULT
+     16383x4095   constant    FAULT    FAULT    FAULT
+     16380x5115     normal    FAULT    FAULT    FAULT
+     16380x5115       tied    FAULT    FAULT    FAULT
+     16380x5115     narrow    FAULT    FAULT    FAULT
+     16380x5115   narrower    FAULT    FAULT    FAULT
+     16380x5115   constant    FAULT    FAULT    FAULT
+
+per-call ms, normal vs narrow
+
+          shape     normal     narrow       x   arm
+         4x8193      0.138      0.141    1.02   gen
+        4x16385      0.140      0.179    1.28   gen
+      64x129280      0.334      1.918    5.75   gen
+         4x8193      0.139      0.143    1.03   ship
+        4x16385      0.139      0.172    1.24   ship
+      64x129280      0.334      1.911    5.72   ship
+         4x8193      0.107      0.112    1.05   audit
+        4x16385      0.110      0.166    1.51   audit
+      64x129280      0.332      1.889    5.69   audit
+
+  12 FAULTS -- a crash is worse than a wrong answer:
+       gen  4100x1025  normal  exit -6
+       gen  12961x4100  normal  exit -6
+       gen  16383x4095  normal  exit -6
+       gen  16380x5115  normal  exit -6
+      ship  4100x1025  normal  exit -6
+      ship  12961x4100  normal  exit -6
+      ship  16383x4095  normal  exit -6
+      ship  16380x5115  normal  exit -6
+     audit  4100x1025  normal  exit -6
+     audit  12961x4100  normal  exit -6
+     audit  16383x4095  normal  exit -6
+     audit  16380x5115  normal  exit -6
+  24 WRONG results:
+       gen  4x8193  normal  (1535 values differ)
+      ship  4x8193  normal  (1535 values differ)
+     audit  4x8193  normal  (1535 values differ)
+       gen  4x8193  tied  (1534 values differ)
+      ship  4x8193  tied  (1534 values differ)
+     audit  4x8193  tied  (1534 values differ)
+       gen  4x8193  narrow  (1535 values differ)
+      ship  4x8193  narrow  (1535 values differ)
+     audit  4x8193  narrow  (1535 values differ)
+       gen  4x8193  narrower  (1528 values differ)
+      ship  4x8193  narrower  (1528 values differ)
+     audit  4x8193  narrower  (1528 values differ)
+       gen  4x16385  normal  (1536 values differ)
+      ship  4x16385  normal  (1536 values differ)
+     audit  4x16385  normal  (1536 values differ)
+       gen  4x16385  tied  (1536 values differ)
+      ship  4x16385  tied  (1536 values differ)
+     audit  4x16385  tied  (1536 values differ)
+       gen  4x16385  narrow  (1535 values differ)
+      ship  4x16385  narrow  (1535 values differ)
+     audit  4x16385  narrow  (1535 values differ)
+       gen  4x16385  narrower  (1523 values differ)
+      ship  4x16385  narrower  (1523 values differ)
+     audit  4x16385  narrower  (1523 values differ)
+
+  'constant' is contrast only: it passes even when the key has
+  collapsed, because any k of equal values is a correct answer.
