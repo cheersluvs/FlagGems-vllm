@@ -998,7 +998,21 @@ def _s_collect(
     cnt1 = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
 
     n_vec = span // (BLOCK * VEC)
-    for t in tl.range(0, n_vec):
+    # Two pipeline stages. This shape is occupancy-starved rather than
+    # atomic-bound -- 64 workgroups is 512 waves against 3200 slots, 16%, with
+    # arch_vgpr 44 -- so the lever is hiding latency inside a wave, and waves
+    # cannot be added (splitting made every chunk re-run the radix). Measured
+    # on (64,129280), benchmark SpeedUp, two passes each
+    # (tools/hygon_prefill_pipeline.py):
+    #
+    #     stages   1       2       3       4     two tiles by hand
+    #     SpeedUp  0.582   0.600   0.542   0.544   0.605
+    #
+    # Deeper loses because more stages means more registers means fewer waves,
+    # which is the same constraint read from the other side. The hand-rolled
+    # two-tile version is 0.9% better and fourteen lines longer; it existed in
+    # case this backend ignored the hint, and it does not.
+    for t in tl.range(0, n_vec, num_stages=2):
         i = t * BLOCK * VEC + off
         x = tl.load(base + i)
         # Cast explicitly: the key is uint32 and thr int32, and leaving that
