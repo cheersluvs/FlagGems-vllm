@@ -1,0 +1,69 @@
+### branch topk-metax @ 6bc515a
+### 2026-09-22T16:54:13+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### pass 1, arm base
+### pass 1, arm g1
+### pass 1, arm g2
+### pass 1, arm g4
+### pass 1, arm g8
+### pass 1, arm g16
+### pass 2, arm base
+### pass 2, arm g1
+### pass 2, arm g2
+### pass 2, arm g4
+### pass 2, arm g8
+### pass 2, arm g16
+### restored; git status: clean
+
+benchmark SpeedUp on 64x129280, two passes
+
+     arm  programs    pass 1    pass 2   vs base
+    base        64     0.598     0.602     1.000
+      g1        64     0.600     0.598     0.998
+      g2       128     0.633     0.629     1.052
+      g4       256     0.604     0.606     1.008
+      g8       512     0.569     0.569     0.948
+     g16      1024     0.532     0.531     0.886
+
+  the other six shapes are a control -- they must not move:
+      base 0.871 / 0.916
+        g1 0.901 / 0.901
+        g2 0.871 / 0.886
+        g4 0.900 / 0.869
+        g8 0.887 / 0.884
+       g16 0.891 / 0.904
+
+  vLLM latency on that shape, max/min 1.01
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+  g1 is one program per row with a DEVICE-scoped counter: base/g1 is
+  the price of the scope, and anything beyond it is the waves.
