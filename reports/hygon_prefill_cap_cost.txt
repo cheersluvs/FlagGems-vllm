@@ -1,0 +1,64 @@
+### branch topk-metax @ ae32804
+### 2026-09-22T15:41:47+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### arm audit: cascade (64, 128, 256)
+### arm cap64: cascade (64,)
+### arm cap128: cascade (128,)
+### arm cap256: cascade (256,)
+### arm nonet: cascade route off
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0922 15:42:07.715147 113511 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 13 (function operator())
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    100.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+device us, interleaved over 7 rounds, each arm's FASTEST round.
+The candidate count is UNCHANGED across arms -- only the compiled
+network width moves -- so this prices CAP, not the bin count.
+
+               shape     audit     cap64    cap128    cap256     nonet   a/cap64  a/cap128  a/cap256   a/nonet  normal  tied
+          16383x4095    1103.7    1098.8    1110.7    1159.8    1165.0     1.004     0.994     0.952     0.947      OK    OK
+          12961x4100     890.9     889.0     895.0     934.5     937.8     1.002     0.995     0.953     0.950      OK    OK
+          16380x5115    1332.4    1335.5    1338.5    1381.4    1388.2     0.998     0.995     0.965     0.960      OK    OK
+           4100x1025      92.9      92.6      92.6      92.6      92.7     1.004     1.004     1.004     1.003      OK    OK
+
+  geomean audit/cap64: 1.002
+  geomean audit/cap128: 0.997
+  geomean audit/cap256: 0.968
+  geomean audit/nonet: 0.965
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       51.0C    116.0W     auto     1000.0W    6%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+  cap64 == audit means the cascade already picks the tight branch.
+  cap128 and cap256 are what 512- and 256-bin histograms would force,
+  at today's candidate count: if those are flat, the network does not
+  punish narrowing and item 1 is worth building; if they fall away,
+  narrowing is priced out before the bins are even touched.
+  audit/nonet is the network's own contribution to the dense gain.
