@@ -1,12 +1,12 @@
-### branch topk-metax @ 385fdf7
-### 2026-09-22T11:19:17+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### branch topk-metax @ aefa122
+### 2026-09-22T11:34:27+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
 ### PYTHONPATH=src:/usr/local/:
 
 ### python: python -> /usr/bin/python
 /usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
   _warn_once(
 WARNING: Logging before InitGoogleLogging() is written to STDERR
-W0922 11:19:36.051760 105873 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+W0922 11:34:46.643339 106074 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
 --- card occupancy before: hy-smi
 ================================= System Management Interface ==================================
 ================================================================================================
@@ -14,11 +14,11 @@ HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      E
 0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
 1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
 2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
-3       49.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
 4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
-5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
 6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
-7       54.0C    214.0W     manual   1000.0W    2%         57.5%     0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
 ================================================================================================
 ======================================== End of SMI Log ========================================
 
@@ -30,43 +30,40 @@ others lack) and is there for absolute position only.
 full redo inside _s_finish. Read it before the timings.
 
          shape     k     ship      off   s8/1.5   s8/2.0  s16/1.5 off/s8/1.5 off/s8/2.0off/s16/1.5 cand med outside   ans
-Traceback (most recent call last):
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 337, in <module>
-    sys.exit(main())
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 268, in main
-    ok = check(run) and ok
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 247, in check
-    run(src)
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 264, in run
-    mod.top_k_per_row_prefill(
-  File "/tmp/sample8_0xc1zo27/topk_prefill_sampled.py", line 878, in top_k_per_row_prefill
-    plan.run(logits, row_starts, row_ends, indices, stride0)
-  File "/tmp/sample8_0xc1zo27/topk_prefill_sampled.py", line 810, in run
-    self.finish(
-  File "/tmp/sample8_0xc1zo27/topk_prefill_sampled.py", line 747, in __call__
-    ck = self.jit.run(
-  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 763, in run
-    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
-  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 899, in _do_compile
-    kernel = self.compile(src, target=target, options=options.__dict__)
-  File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 326, in compile
-    module = backend.make_ir(src, options, codegen_fns, module_map, context)
-  File "/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py", line 64, in make_ir
-    return src.make_ir(self.target, options, codegen_fns, module_map, context)
-  File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 102, in make_ir
-    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
-triton.compiler.errors.CompilationError: at 102:4:
-    # redundant there -- but correct, and the retry does not fire in practice.
-    # The barrier is required: this program loads from vbase right after
-    # storing to it.
-    row_base = logits_ptr + row * stride0 + s
-    for t in tl.range(0, tiles):
-        pos = t * BLOCK + lane
-        valid = pos < n
-        ci = tl.load(ibase + pos, mask=valid, other=0)
-        tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
-    tl.debug_barrier()
+    16383x4095   512   1332.5   1354.5   5313.1   6185.4   6949.8      0.255      0.219      0.195      774    0.0%    OK
+      ! s16/1.5: 98.38% of rows outside the window, median 392 candidates
+    12961x4100   512   1039.5   1065.3   4151.9   4820.3   5474.3      0.257      0.221      0.195      768    0.0%    OK
+      ! s16/1.5: 98.52% of rows outside the window, median 392 candidates
+    16380x5115   512   1607.5   1617.4   6184.4   4887.3   5970.9      0.262      0.331      0.271      654    0.1%    OK
+      ! s8/1.5: 67.95% of rows outside the window, median 491 candidates
+      ! s8/2.0: 0.09% of rows outside the window, median 654 candidates
+      ! s16/1.5: 62.74% of rows outside the window, median 490 candidates
+     4100x1025   512    134.4    173.6   1029.6   1072.7    945.7      0.169      0.162      0.184       98  100.0%    OK
+      ! s8/1.5: 100.00% of rows outside the window, median 194 candidates
+      ! s8/2.0: 100.00% of rows outside the window, median 258 candidates
+      ! s16/1.5: 100.00% of rows outside the window, median 98 candidates
+        4x8193   512     22.6     25.4     37.0     42.0     36.6      0.685      0.604      0.693      722    0.0%    OK
+       4x16385   512     31.5     34.3     41.5     45.5     40.4      0.825      0.753      0.848      736    0.0%    OK
+     64x129280  1024    292.7    293.5    195.2    214.5    184.6      1.503      1.368      1.590     1595    0.0%    OK
 
-    if n <= TOPK:
-    ^
-AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[0]')
+  geomean off/s8/1.5: 0.424
+  geomean off/s8/2.0: 0.399
+  geomean off/s16/1.5: 0.404
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    101.0W     auto     1000.0W    5%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+  A ratio > 1 means the sampled path is faster than the same binary
+  with its gate shut. The 'cand med' / 'outside' columns belong to
+  whichever sampled arm was fastest on that row.
