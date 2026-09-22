@@ -64,6 +64,7 @@ it is here to place the gate, not to be improved.
     tools/vendor_probe.sh tools/hygon_prefill_sample8.py hygon_prefill_sample8
 """
 
+import ast
 import importlib.util
 import math
 import pathlib
@@ -123,6 +124,22 @@ def occupancy(tag):
     print(f"--- card occupancy {tag}: no smi tool found")
 
 
+def _assert_no_range_kind_clash(src):
+    """No function may name a tl.range and a tl.static_range loop variable the
+    same: Triton merges a loop variable's type across the function and refuses
+    the second kind. This is what stopped the sampled path's last round."""
+    tree = ast.parse(src)
+    for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+        kinds = {}
+        for node in ast.walk(fn):
+            if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+                call = node.iter
+                if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute):
+                    kinds.setdefault(node.target.id, set()).add(call.func.attr)
+        clash = {k: sorted(v) for k, v in kinds.items() if len(v) > 1}
+        assert not clash, f"{fn.name} mixes range kinds on {clash}"
+
+
 def sampled_module():
     """The reverted override, loaded as its own module.
 
@@ -156,11 +173,31 @@ def sampled_module():
             "CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]\n"
             "_MAX_CAND_ELEMS = 1 << 24  # made tunable by tools/hygon_prefill_sample8",
         ),
+        # `_s_finish` never compiled: it names both a tl.range and a
+        # tl.static_range loop variable `t`, and Triton merges a loop
+        # variable's type across the whole function ("initial value for `t` is
+        # of type int32[], but the then block redefines it as constexpr[0]").
+        # That is why the path's last round was reverted without a number. The
+        # two static_range loops are renamed here; nothing else changes, and an
+        # AST check below proves no other function mixes the two kinds.
+        (
+            "        for t in tl.static_range(NB // BLOCK):\n"
+            "            tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))\n",
+            "        for ct in tl.static_range(NB // BLOCK):\n"
+            "            tl.store(base + ct * BLOCK + lane, tl.zeros([BLOCK], tl.int32))\n",
+        ),
+        (
+            "        for t in tl.static_range((TOPK + BLOCK - 1) // BLOCK):\n"
+            "            j = t * BLOCK + lane\n",
+            "        for ft in tl.static_range((TOPK + BLOCK - 1) // BLOCK):\n"
+            "            j = ft * BLOCK + lane\n",
+        ),
     ]
     for a, b in subs:
         assert src.count(a) == 1, f"the reverted file changed shape near: {a[:60]!r}"
         src = src.replace(a, b, 1)
     assert "SSTRIDE = int(" in src and "TARGET_MULT = float(" in src
+    _assert_no_range_kind_clash(src)
     f = pathlib.Path(tempfile.mkdtemp(prefix="sample8_")) / "topk_prefill_sampled.py"
     f.write_text(src)
     name = "flaggems_vllm.runtime.backend._hygon.fused._topk_prefill_sample8"
