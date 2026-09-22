@@ -828,11 +828,532 @@ def _select_module(logits, num_rows, top_k):
     return _sparse
 
 
+# ---------------------------------------------------------------------------
+# A sampled threshold for very sparse rows.
+#
+# The generic step reads each row twice: once to build a 2048-bin histogram
+# whose only output is the threshold, once to compact against it. Where the
+# row is far longer than top_k the first pass can come from a SAMPLE instead.
+# _s_hist reads every SSTRIDE-th TILE -- whole tiles, not strided elements,
+# which touch one cache line per value and cost a full pass for a fraction of
+# the data -- and the threshold is aimed at TARGET_MULT * top_k so that one
+# pass collects a superset, which the finish ranks down exactly.
+#
+# WHEN IT PAYS. Collecting m * top_k candidates means ranking them afterwards,
+# which the generic operator does not pay: its final stage sees the threshold
+# bin alone, 27-36 elements. The saving scales with vocab and the ranking with
+# m * top_k, so the figure of merit is vocab / (m * top_k), and the gate is the
+# ratio. Measured on this card, benchmark SpeedUp on (64,129280) against the
+# same binary with the gate shut (tools/hygon_prefill_sample_tight.py):
+#
+#     TARGET_MULT   1.00    1.10    1.25    1.50    3.00
+#     rows outside  28.1%   10.9%    1.6%    0.0%     --
+#     vs gate shut  0.434   0.494   1.402   1.361   0.862
+#
+# The knee is sharp and it is not where a safety factor would put it: below
+# 1.25 the estimate undershoots the window's lower edge -- which is top_k
+# itself, so there is no margin under it -- and every row that lands short
+# pays a full redo. 28% of rows redoing costs 2.3x.
+SAMPLED_MIN_VOCAB_PER_TOPK = int(
+    os.environ.get("FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO", "64")
+)
+SSTRIDE = int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSTRIDE", "16"))
+TARGET_MULT = float(os.environ.get("FLAGGEMS_HYGON_PREFILL_TARGET_MULT", "1.25"))
+CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]
+SBLOCK = 512
+SWARPS = 8
+SRADIX = 256
+_MAX_CAND_ELEMS = 1 << 24
+
+# The sample and the collect key off the operator's own 11-bit STEP-0 key; the
+# retry in _s_finish keys off the full 32-bit one, because the 11-bit key
+# collapses on a narrow band and the retry is what has to be exact.
+_key11 = _generic._convert_to_trt_uint16_hi11
+_key32 = _generic._convert_to_uint32
+
+
+@triton.jit
+def _s_scan(base, target, NB: tl.constexpr, BLOCK: tl.constexpr):
+    """Lowest bin whose inclusive prefix reaches `target`, and that bin's
+    exclusive prefix. Bin 0 holds the largest values."""
+    lane = tl.arange(0, BLOCK)
+    carry = tl.zeros([], tl.int32)
+    tb = tl.full([], NB - 1, tl.int32)
+    lt = tl.zeros([], tl.int32)
+    found = tl.full([], False, tl.int1)
+    for t in tl.static_range(NB // BLOCK):
+        bins = t * BLOCK + lane
+        c = tl.load(base + bins)
+        pre = carry + tl.cumsum(c, axis=0) - c
+        hit = (pre < target) & (pre + c >= target) & (not found)
+        cand = tl.min(tl.where(hit, bins, NB - 1), axis=0)
+        candlt = tl.max(tl.where(hit, pre, 0), axis=0)
+        if (not found) & (tl.max(hit.to(tl.int32), axis=0) > 0):
+            tb = cand
+            lt = candlt
+            found = tl.full([], True, tl.int1)
+        carry += tl.sum(c, axis=0)
+    return tb, lt
+
+
+@triton.jit
+def _s_hist(
+    logits_ptr, base, row, stride0, s, e, STRIDE: tl.constexpr, BLOCK: tl.constexpr
+):
+    """Histogram every STRIDE-th TILE of [s, e). Tiles rather than strided
+    elements: at SSTRIDE 8 a strided element sample is 32 bytes apart and so
+    touches every other cache line, reading half the bytes for an eighth of
+    the values. Tiles read exactly 1/STRIDE. The cost is that the sample is
+    spatially clustered, which is only unbiased if the row has no spatial
+    structure -- true of the benchmark's iid inputs, and the reason the
+    fallback below is not optional."""
+    lane = tl.arange(0, BLOCK)
+    for t in tl.range(0, tl.cdiv(e - s, BLOCK * STRIDE)):
+        i = s + t * BLOCK * STRIDE + lane
+        m = i < e
+        x = tl.load(logits_ptr + row * stride0 + i, mask=m, other=0.0)
+        tl.atomic_add(
+            base + _key11(x),
+            tl.full([BLOCK], 1, tl.int32),
+            mask=m,
+            sem="relaxed",
+            scope="cta",
+        )
+
+
+@triton.jit
+def _s_prepare(
+    logits_ptr,
+    starts_ptr,
+    ends_ptr,
+    hist_ptr,
+    thr_ptr,
+    cnt_ptr,
+    stride0,
+    TARGET: tl.constexpr,
+    NB: tl.constexpr,
+    STRIDE: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """Zero, sample and threshold, one program per row -- so the histogram is
+    this program's alone and a barrier is all the ordering needed."""
+    row = tl.program_id(0)
+    lane = tl.arange(0, BLOCK)
+    base = hist_ptr + row * NB
+    for t in tl.static_range(NB // BLOCK):
+        tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+    tl.store(cnt_ptr + row, 0)
+    tl.debug_barrier()
+    s = tl.load(starts_ptr + row)
+    e = tl.load(ends_ptr + row)
+    _s_hist(logits_ptr, base, row, stride0, s, e, STRIDE, BLOCK)
+    tl.debug_barrier()
+    # Take the WHOLE boundary bin (+1, exclusive): coarser estimates should
+    # over-collect, since falling short of top_k forces the exact retry while
+    # overshooting only costs a slightly larger ranking.
+    tb, _ = _s_scan(base, tl.cdiv(TARGET, STRIDE), NB, BLOCK)
+    tl.store(thr_ptr + row, tb + 1)
+
+
+@triton.jit
+def _s_collect(
+    logits_ptr,
+    starts_ptr,
+    ends_ptr,
+    thr_ptr,
+    cnt_ptr,
+    cand_idx_ptr,
+    cand_val_ptr,
+    stride0,
+    CAP: tl.constexpr,
+    BLOCK: tl.constexpr,
+    VEC: tl.constexpr,
+):
+    """One pass: append every element strictly better than the threshold bin.
+    Indices are stored relative to row_start, which is what the operator
+    returns. Only the INDEX is stored: the values are re-read from global in
+    _s_finish, in one short parallel pass over the candidates. On S5000 the
+    two scattered stores per hit were the largest remaining cost of the MTT
+    version of this pass, and dropping the value store netted 8.6 us after the
+    re-read; here collect measured 126.7 us against the generic's ~86 for the
+    same bytes.
+
+    The bulk loop is UNMASKED and the remainder is handled separately, which
+    is how the generic operator writes its own passes. Masking every iteration
+    instead measured 131.3 us here against a modelled 55 -- 252 GB/s where the
+    generic's collection pass reaches ~1270, essentially read speed -- and a
+    mask on every load is the one structural difference between them.
+    """
+    row = tl.program_id(0)
+    s = tl.load(starts_ptr + row)
+    e = tl.load(ends_ptr + row)
+    span = e - s
+    thr = tl.load(thr_ptr + row)
+    base = logits_ptr + row * stride0 + s
+    lane = tl.arange(0, BLOCK)
+    off = lane[:, None] * VEC + tl.arange(0, VEC)[None, :]
+    ones2 = tl.full([BLOCK, VEC], 1, tl.int32)
+    ones1 = tl.full([BLOCK], 1, tl.int32)
+    cnt2 = cnt_ptr + row + tl.zeros([BLOCK, VEC], tl.int32)
+    cnt1 = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
+
+    n_vec = span // (BLOCK * VEC)
+    for t in tl.range(0, n_vec):
+        i = t * BLOCK * VEC + off
+        x = tl.load(base + i)
+        # Cast explicitly: the key is uint32 and thr int32, and leaving that
+        # promotion implicit selects every element (the MTT override records
+        # the same bug).
+        take = _key11(x).to(tl.int32) < thr
+        pos = tl.atomic_add(cnt2, ones2, mask=take, sem="relaxed", scope="cta")
+        keep = take & (pos >= 0) & (pos < CAP)
+        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
+
+    tail = n_vec * BLOCK * VEC
+    for t in tl.range(0, tl.cdiv(span - tail, BLOCK)):
+        i = tail + t * BLOCK + lane
+        m = i < span
+        x = tl.load(base + i, mask=m, other=0.0)
+        take = m & (_key11(x).to(tl.int32) < thr)
+        pos = tl.atomic_add(cnt1, ones1, mask=take, sem="relaxed", scope="cta")
+        keep = take & (pos >= 0) & (pos < CAP)
+        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
+
+
+@triton.jit
+def _s_finish(
+    logits_ptr,
+    starts_ptr,
+    ends_ptr,
+    hist_ptr,
+    cnt_ptr,
+    cand_idx_ptr,
+    cand_val_ptr,
+    out_ptr,
+    counts_ptr,
+    slot_ptr,
+    stride0,
+    TOPK: tl.constexpr,
+    NB: tl.constexpr,
+    CAP: tl.constexpr,
+    RADIX: tl.constexpr,
+    BLOCK: tl.constexpr,
+):
+    """The retry decision and the exact answer, one program per row.
+
+    A sample can under- or overshoot, so a row whose collected count falls
+    outside [TOPK, CAP] is redone here -- over the FULL 32-bit ordered key,
+    not the 11-bit one the sample and the collect use, because that key
+    collapses on a narrow band and the overflow guarantee goes with it.
+
+    Rows inside the window take the exact top-k of their candidates: four
+    8-bit radix rounds over the same 32-bit key.
+    """
+    row = tl.program_id(0)
+    lane = tl.arange(0, BLOCK)
+    bins = tl.arange(0, RADIX)
+    ones = tl.full([BLOCK], 1, tl.int32)
+    s = tl.load(starts_ptr + row)
+    e = tl.load(ends_ptr + row)
+    span = e - s
+    c = tl.load(cnt_ptr + row)
+    if (c < tl.minimum(TOPK, span)) | (c > CAP):
+        # The 11-bit fp16 key can COLLAPSE: a row whose values sit in a narrow
+        # band away from zero (relative spread below about 1%, the key's
+        # resolution being magnitude/32) maps to one or two bins, and then
+        # "an overflow can only drop what shares the k-th element's key" is
+        # true but vacuous -- everything shares it, so the true top-k can be
+        # dropped. The generic operator escapes through STEP 1-3, which refine
+        # over the full 32 bits; this path has no STEP 1-3, so the redo uses
+        # the full 32-bit ordered key directly. It is injective on distinct
+        # floats, so only exact ties can ever be dropped. Same fix, same
+        # reason, as top_k_per_row_decode's.
+        obase_r = out_ptr + row * TOPK
+        cbase_r = counts_ptr + row * RADIX
+        rbase = logits_ptr + row * stride0 + s
+        rdesired = tl.zeros((), dtype=tl.uint32)
+        rmask = tl.zeros((), dtype=tl.uint32)
+        r_to_find = TOPK + 1
+        row_tiles = tl.cdiv(span, BLOCK)
+        for rdpos in tl.static_range(24, -1, -8):
+            if r_to_find > 1:
+                tl.store(cbase_r + bins, tl.zeros([RADIX], tl.int32))
+                tl.debug_barrier()
+                for rt in tl.range(0, row_tiles):
+                    ri = rt * BLOCK + lane
+                    rvalid = ri < span
+                    rkey = _key32(tl.load(rbase + ri, mask=rvalid, other=0.0))
+                    rdigit = ((rkey >> rdpos) & (RADIX - 1)).to(tl.int32)
+                    tl.atomic_add(
+                        cbase_r + rdigit,
+                        ones,
+                        mask=rvalid & ((rkey & rmask) == rdesired),
+                        sem="relaxed",
+                        scope="cta",
+                    )
+                tl.debug_barrier()
+                rcounts = tl.load(cbase_r + bins)
+                rprefix = tl.cumsum(rcounts, axis=0) - rcounts
+                rhit = (rprefix < r_to_find) & (rprefix + rcounts >= r_to_find)
+                rb0 = tl.min(tl.where(rhit, bins, RADIX), axis=0).to(tl.int32)
+                rb0 = tl.where(rb0 == RADIX, RADIX - 1, rb0)
+                rlt = tl.max(tl.where(bins == rb0, rprefix, 0), axis=0).to(tl.int32)
+                rdesired = rdesired | (rb0.to(tl.uint32) << rdpos)
+                rmask = rmask | (tl.full((), RADIX - 1, tl.uint32) << rdpos)
+                r_to_find = r_to_find - rlt
+        rthr = rdesired
+        tl.store(slot_ptr + row, 0)
+        tl.debug_barrier()
+        rslots = slot_ptr + row + tl.zeros([BLOCK], tl.int32)
+        # strictly better than the k-th, then its exact ties
+        for req in tl.static_range(2):
+            for rt2 in tl.range(0, row_tiles):
+                ri2 = rt2 * BLOCK + lane
+                rvalid2 = ri2 < span
+                rkey2 = _key32(tl.load(rbase + ri2, mask=rvalid2, other=0.0))
+                if req == 0:
+                    rtake = rvalid2 & (rkey2 < rthr)
+                else:
+                    rtake = rvalid2 & (rkey2 == rthr)
+                rq = tl.atomic_add(rslots, ones, mask=rtake, sem="relaxed", scope="cta")
+                tl.store(obase_r + rq, ri2.to(tl.int32), mask=rtake & (rq < TOPK))
+            tl.debug_barrier()
+        # a row shorter than TOPK leaves the rest of the output padded
+        rfilled = tl.load(slot_ptr + row)
+        for rp in tl.static_range((TOPK + BLOCK - 1) // BLOCK):
+            rj = rp * BLOCK + lane
+            tl.store(obase_r + rj, -1, mask=(rj >= rfilled) & (rj < TOPK))
+        return
+
+    n = tl.minimum(tl.load(cnt_ptr + row), CAP)
+    vbase = cand_val_ptr + row * CAP
+    ibase = cand_idx_ptr + row * CAP
+    obase = out_ptr + row * TOPK
+    cbase = counts_ptr + row * RADIX
+    tiles = tl.cdiv(n, BLOCK)
+
+    # _s_collect stores indices only; gather the candidate values back from
+    # global memory. The retry above stores values as well, so this re-read is
+    # redundant there -- but correct, and the retry does not fire in practice.
+    # The barrier is required: this program loads from vbase right after
+    # storing to it.
+    row_base = logits_ptr + row * stride0 + s
+    for t in tl.range(0, tiles):
+        pos = t * BLOCK + lane
+        valid = pos < n
+        ci = tl.load(ibase + pos, mask=valid, other=0)
+        tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+    tl.debug_barrier()
+
+    if n <= TOPK:
+        for ft in tl.static_range((TOPK + BLOCK - 1) // BLOCK):
+            j = ft * BLOCK + lane
+            idx = tl.load(ibase + j, mask=j < n, other=-1)
+            tl.store(obase + j, tl.where(j < n, idx, -1), mask=j < TOPK)
+        return
+
+    desired = tl.zeros((), tl.uint32)
+    desired_mask = tl.zeros((), tl.uint32)
+    k_to_find = TOPK + 1
+    for digit_pos in tl.static_range(24, -1, -8):
+        if k_to_find > 1:
+            tl.store(cbase + bins, tl.zeros([RADIX], tl.int32))
+            tl.debug_barrier()
+            for t in tl.range(0, tiles):
+                pos = t * BLOCK + lane
+                valid = pos < n
+                key = _key32(tl.load(vbase + pos, mask=valid, other=0.0))
+                digit = ((key >> digit_pos) & (RADIX - 1)).to(tl.int32)
+                tl.atomic_add(
+                    cbase + digit,
+                    ones,
+                    mask=valid & ((key & desired_mask) == desired),
+                    sem="relaxed",
+                    scope="cta",
+                )
+            tl.debug_barrier()
+            cnts = tl.load(cbase + bins)
+            prefix = tl.cumsum(cnts, axis=0) - cnts
+            hit = (prefix < k_to_find) & (prefix + cnts >= k_to_find)
+            rb = tl.min(tl.where(hit, bins, RADIX), axis=0).to(tl.int32)
+            rb = tl.where(rb == RADIX, RADIX - 1, rb)
+            lt = tl.max(tl.where(bins == rb, prefix, 0), axis=0).to(tl.int32)
+            desired = desired | (rb.to(tl.uint32) << digit_pos)
+            desired_mask = desired_mask | (
+                tl.full((), RADIX - 1, tl.uint32) << digit_pos
+            )
+            k_to_find = k_to_find - lt
+
+    thr_key = desired
+    tl.store(slot_ptr + row, 0)
+    tl.debug_barrier()
+    slots = slot_ptr + row + tl.zeros([BLOCK], tl.int32)
+    for equal in tl.static_range(2):
+        for t in tl.range(0, tiles):
+            pos = t * BLOCK + lane
+            valid = pos < n
+            key = _key32(tl.load(vbase + pos, mask=valid, other=0.0))
+            if equal == 0:
+                take = valid & (key < thr_key)
+            else:
+                take = valid & (key == thr_key)
+            q = tl.atomic_add(slots, ones, mask=take, sem="relaxed", scope="cta")
+            idx = tl.load(ibase + pos, mask=take, other=-1)
+            tl.store(obase + q, idx, mask=take & (q < TOPK))
+        tl.debug_barrier()
+
+
+class _SLaunch:
+    """One kernel: JIT on first use, direct afterwards. Same recipe as the
+    decode override's; copied so the two operators stay independent."""
+
+    __slots__ = ("jit", "grid", "grid3", "constexprs", "num_warps", "runner")
+
+    def __init__(self, jit, grid, constexprs, num_warps):
+        self.jit = jit
+        self.grid = grid
+        self.grid3 = tuple(grid) + (1,) * (3 - len(grid))
+        self.constexprs = constexprs
+        self.num_warps = num_warps
+        self.runner = None
+
+    def __call__(self, *args):
+        if self.runner is not None:
+            self.runner(*args, *self.constexprs.values())
+            return
+        ck = self.jit.run(
+            *args,
+            **self.constexprs,
+            num_warps=self.num_warps,
+            grid=self.grid,
+            warmup=False,
+        )
+        if ck is not None:
+            self.runner = ck[self.grid3]
+
+
+class _SPlan:
+    """Buffers and the three launches for one sampled shape."""
+
+    def __init__(self, dev, dtype, num_rows, vocab, top_k):
+        import torch
+
+        cap = max(SBLOCK, triton.next_power_of_2(top_k * CAP_MULT))
+        self.cap = cap
+        nb = _generic.NUM_BINS
+        self.hist = torch.empty((num_rows, nb), dtype=torch.int32, device=dev)
+        self.thr = torch.empty((num_rows,), dtype=torch.int32, device=dev)
+        self.cnt = torch.empty((num_rows,), dtype=torch.int32, device=dev)
+        self.cand_idx = torch.empty((num_rows, cap), dtype=torch.int32, device=dev)
+        self.cand_val = torch.empty((num_rows, cap), dtype=dtype, device=dev)
+        self.counts = torch.empty((num_rows, SRADIX), dtype=torch.int32, device=dev)
+        self.slot = torch.empty((num_rows,), dtype=torch.int32, device=dev)
+        self.prepare = _SLaunch(
+            _s_prepare,
+            (num_rows,),
+            {
+                "TARGET": int(top_k * TARGET_MULT),
+                "NB": nb,
+                "STRIDE": SSTRIDE,
+                "BLOCK": SBLOCK,
+            },
+            SWARPS,
+        )
+        self.collect = _SLaunch(
+            _s_collect,
+            (num_rows,),
+            {"CAP": cap, "BLOCK": SBLOCK, "VEC": 4},
+            SWARPS,
+        )
+        self.finish = _SLaunch(
+            _s_finish,
+            (num_rows,),
+            {"TOPK": top_k, "NB": nb, "CAP": cap, "RADIX": SRADIX, "BLOCK": SBLOCK},
+            SWARPS,
+        )
+
+    def run(self, logits, starts, ends, indices, stride0):
+        self.prepare(logits, starts, ends, self.hist, self.thr, self.cnt, stride0)
+        self.collect(
+            logits,
+            starts,
+            ends,
+            self.thr,
+            self.cnt,
+            self.cand_idx,
+            self.cand_val,
+            stride0,
+        )
+        self.finish(
+            logits,
+            starts,
+            ends,
+            self.hist,
+            self.cnt,
+            self.cand_idx,
+            self.cand_val,
+            indices,
+            self.counts,
+            self.slot,
+            stride0,
+        )
+
+
+_SPLANS = {}
+_SPLANS_MAX = 8
+_SPLAN_LOCK = threading.Lock()
+
+
+def _s_aligned(t):
+    return t.data_ptr() % 16 == 0
+
+
+def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k):
+    import torch
+
+    vocab = logits.shape[1]
+    return (
+        SAMPLED_MIN_VOCAB_PER_TOPK > 0
+        and vocab >= SAMPLED_MIN_VOCAB_PER_TOPK * top_k
+        and stride1 == 1
+        and num_rows > 0
+        and num_rows == logits.shape[0]
+        and logits.dtype == torch.float32
+        and row_starts.dtype == torch.int32
+        and row_ends.dtype == torch.int32
+        and not getattr(_generic, "HAS_TLE", False)
+        and num_rows * triton.next_power_of_2(top_k * CAP_MULT) <= (1 << 24)
+    )
+
+
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
     """Dense rows through the prefix-sum copy, everything else through generic,
     each launched at the geometry its occupancy wants."""
+    if _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k):
+        skey = (
+            logits.device,
+            num_rows,
+            logits.shape[1],
+            top_k,
+            stride0,
+            _s_aligned(logits),
+            _s_aligned(row_starts),
+            _s_aligned(row_ends),
+            _s_aligned(indices),
+        )
+        with _SPLAN_LOCK:
+            plan = _SPLANS.get(skey)
+            if plan is None:
+                if len(_SPLANS) >= _SPLANS_MAX:
+                    _SPLANS.pop(next(iter(_SPLANS)))
+                plan = _SPLANS[skey] = _SPlan(
+                    logits.device, logits.dtype, num_rows, logits.shape[1], top_k
+                )
+            plan.run(logits, row_starts, row_ends, indices, stride0)
+        return indices
+
     mod = _select_module(logits, num_rows, top_k)
     geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
     with _LAUNCH_LOCK:
