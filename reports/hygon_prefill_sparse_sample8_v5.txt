@@ -1,0 +1,21 @@
+### branch codex/hygon-prefill-audit @ acf669a
+### 2026-09-22T10:49:11+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+INFO 09-22 10:49:29 [__init__.py:44] Available plugins for group vllm.platform_plugins:
+INFO 09-22 10:49:29 [__init__.py:46] - hcu -> vllm_hcu:hcu_platform_plugin
+INFO 09-22 10:49:29 [__init__.py:49] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 09-22 10:49:29 [__init__.py:239] Platform plugin hcu is activated
+/usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
+  _warn_once(
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0922 10:49:31.150935 105524 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 4 (function operator())
+sample policy: every 8th valid element (sample_count ~= row_len/8); full-32-bit fallback on candidate overflow
+
+  rows vocab top_k n/k split sampled-cands fallback normal band partial vllm-dev ship-dev sample-dev vllm/ship vllm/sample sample-wall
+    64 129280  1024 126     4          4722        0   True True    True    209.8    295.4      342.8     0.710      0.612      397.7 (  739.8)
+     4   8193   512  16    16          2110        0   True True    True     30.5     24.8       47.0     1.231      0.648      109.5 (  736.3)
+     4  16385   512  32    32          2268        0   True True    True     39.0     33.7       48.4     1.158      0.806      105.4 (  731.0)
+
+`sample-dev` is steady-state device time with candidate scratch preallocated; `sample-wall` includes synchronized host dispatch; the parenthesized value allocates the candidate scratch per call.
