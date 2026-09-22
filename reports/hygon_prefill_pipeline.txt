@@ -1,0 +1,65 @@
+### branch topk-metax @ 9b5abd3
+### 2026-09-22T16:28:11+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    91.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### pass 1, arm base
+### pass 1, arm ns2
+### pass 1, arm ns3
+### pass 1, arm ns4
+### pass 1, arm u2
+### pass 2, arm base
+### pass 2, arm ns2
+### pass 2, arm ns3
+### pass 2, arm ns4
+### pass 2, arm u2
+### restored; git status: clean
+
+benchmark SpeedUp on 64x129280, two passes
+
+     arm    pass 1    pass 2   vs base
+    base     0.580     0.584     1.000
+     ns2     0.599     0.601     1.031
+     ns3     0.542     0.541     0.930
+     ns4     0.542     0.545     0.934
+      u2     0.605     0.605     1.040
+
+  whole suite, to confirm the other six shapes do not move:
+      base 0.849 / 0.826
+       ns2 0.827 / 0.839
+       ns3 0.827 / 0.842
+       ns4 0.816 / 0.816
+        u2 0.855 / 0.840
+
+  vLLM latency on that shape, max/min 1.01
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+  A flat table means the waits are not where this looks, and the
+  shape's 16% occupancy has to be attacked some other way.
