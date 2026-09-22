@@ -12,83 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""top_k_per_row_decode on Hygon BW1000: pick the threshold from a sample, so
-one pass over the logits replaces the radix algorithm's two.
+"""top_k_per_row_decode on Hygon BW1000: one pass over the logits, not two.
 
-WHY. The generic non-TLE path launches one program per row and runs the full
-radix algorithm: a histogram pass over the row, a threshold scan, then a second
-pass writing the elements at or above the threshold. Below one row per SM the
-card is mostly idle, and every Triton launch costs ~110 us of host dispatch on
-this box (~12 us for a cached CompiledKernel launched directly), so the first
-lever was a row split with direct launches -- 0.82 of vLLM, geomean over the
-benchmark's eleven shapes.
+The merge only needs a SUPERSET of each row's top-k, so the threshold can come
+from a sample of the row instead of a full histogram pass. Three kernels then
+do in ~1.02 passes what the generic radix algorithm does in two.
 
-Stage one then WAS the operator: 91-94% of device time, with geometry, split
-factor and the helper kernels all exhausted. But it does more work than the
-answer needs. The merge only needs a SUPERSET of the row's top-k, and a
-threshold that admits a few times k is enough to produce one:
-
-    prepare  histogram ~8 tiles of the row, then scan it for the bin that
-             holds rank k scaled to the sample, times a safety factor
-    select   ONE pass over the row, appending every element at or above that
-             bin to a per-row candidate buffer (value and index)
-    tail     the fallback decision (see below) and then the exact top-k of the
-             candidates -- four 8-bit radix rounds over the full 32-bit
-             ordered key, writing cand_idx[pos] straight out
-
-That is ~1.02 passes against 2, and it wins at every shape the benchmark runs
-(tools/hygon_decode_sampled_threshold.py, vocab 262144, top_k 512):
-
-    rows      1     4     8    16    24    32    40    48    56   496   512
-    split  .886  .732  .631  .555  .537  .621  .863  .762  .606 1.947 1.984
-    this  1.020 1.072  .780  .915 1.059  .997 1.466 1.645 1.477 2.705 2.766
-
-geomean 0.823 -> 1.324. The split path is gone; this replaces it outright.
-
-THE ESTIMATE IS NOT A BOUND, and the operator does not sync, so the fallback
-decision is made on the device, at the top of `_tail`, which reads each row's
-candidate count:
-a row that admitted between k and CAP candidates already holds a superset of
-its top-k and only needs its merge length written, which is one scalar load and
-an early return. A row outside that range -- too few, or more than the buffer
-holds -- is redone exactly inside the kernel: full histogram, threshold at rank
-k, then the strictly-better bins appended BEFORE the threshold bin, so that a
-buffer which still overflows can only drop elements sharing an 11-bit key with
-the k-th. Checked against torch.topk on random normals (which never leave the
-range) and on rounded logits (which always do), for every shape above and for
-top_k 64/256/1024, vocab down to 8192, and seq_len below vocab.
-
-DIRECT LAUNCH SAFETY. Triton specialises a compiled kernel on pointer
-alignment (data_ptr % 16) and on integer values (== 1, % 16). A cached kernel
-must never be launched with arguments it was not specialised for, so the plan
-key holds every integer argument and the alignment of each caller tensor.
-Internal buffers are fresh allocations. If a Triton version returns no
-CompiledKernel from `run`, the plan falls back to ordinary JIT launches.
-
-next_n != 1, non-unit stride1, a strided row layout, a dtype other than float32
-and shapes too small or too large for the candidate buffer go to the generic
-operator. FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED=0 disables the override;
-FLAGGEMS_HYGON_TOPK_DECODE_SPLIT=n forces the select pass's programs per row,
-for sweeping it.
+Dispatch, buffer limits and the environment switches are documented on
+`top_k_per_row_decode` at the bottom of this file.
 """
 
 import functools
 import os
 import threading
-from importlib import import_module
 
 import torch
 import triton
 import triton.language as tl
 
-_generic = import_module("flaggems_vllm.ops.top_k_per_row_decode")
+from flaggems_vllm.ops.top_k_per_row_decode import NUM_BINS
+from flaggems_vllm.ops.top_k_per_row_decode import _convert_to_trt_uint16_hi11 as _key
+from flaggems_vllm.ops.top_k_per_row_decode import _convert_to_uint32 as _key32
+from flaggems_vllm.ops.top_k_per_row_decode import (
+    top_k_per_row_decode as _generic_decode,
+)
 
-# The operator's own STEP-0 key: fp16 bits mapped so that ascending uint16
-# means descending float, then the top 11 bits. Taken from the generic module
-# rather than copied, so the two cannot drift apart.
-_key = _generic._convert_to_trt_uint16_hi11
-_key32 = _generic._convert_to_uint32
-NUM_BINS = _generic.NUM_BINS  # 2048 == 1 << 11
+# The key is the operator's own STEP-0 key, imported rather than copied so the
+# two cannot drift apart: fp16 bits mapped so ascending uint16 means descending
+# float, then the top 11 bits. NUM_BINS is 2048 == 1 << 11.
 
 BLOCK = 512
 WARPS = 8
@@ -100,25 +51,11 @@ MAX_CAND = 1 << 24  # refuse shapes whose buffers would be absurd
 MIN_VOCAB = 2048
 MAX_TOP_K = 2048
 
-# Programs per row for the select pass. One constant, not a table: the old
-# table (16 below five rows, 8 below twenty-five, else 4) was swept on the
-# two-pass split pipeline, where each program ran the whole radix algorithm
-# over its chunk. This pipeline's select only compares and appends, and a
-# re-sweep (tools/hygon_decode_split_resweep.py, ratio vs vLLM) says every row
-# count wants more programs than that table gave:
-#
-#   rows        1     4     8    16    24    32    40    48    56
-#   split  1  .232  .235  .197  .227  .287  .403  .490  .559  .649
-#   split  4  .660  .632  .578  .665  .801 1.123 1.339 1.446 1.667
-#   split  8  .940  .889  .855  .966 1.143 1.480 1.633 1.410 1.664
-#   split 16 1.074 1.128 1.065 1.164  .968 1.314 1.562 1.528 1.744
-#   split 32 1.121 1.119 1.159 1.097 1.134 1.388 1.545 1.568 1.650
-#
-# Across 8, 16 and 32 the surface is flat to about 10% and not monotonic (24
-# rows dips at 16 and recovers at 32), so picking a best per row band fits
-# noise: geomean over these nine shapes is 1.295 for "32 up to 24 rows then
-# 8", 1.290 for "32 then 16", and 1.292 for a flat 32. Take the flat one.
-# At or beyond one row per SM the rows alone fill the card.
+# Programs per row for the select pass. A flat 32 rather than a per-row-band
+# table: across 8, 16 and 32 the surface is flat to about 10% and not monotonic,
+# and three candidate rules came out at geomean 1.295 / 1.290 / 1.292 -- a tie,
+# so do not fit a table to noise. At or beyond one row per SM the rows alone
+# fill the card, and _split_factor returns 1.
 _SPLIT = 32
 MIN_CHUNK = 8192  # smallest chunk worth its own program
 
@@ -191,13 +128,10 @@ def _prepare(
 ):
     """Zero, sample and threshold, in one program per row.
 
-    One program, so the row's histogram is this program's alone and a
-    tl.debug_barrier() is all the ordering the three phases need -- and so the
-    atomics stay inside one CTA. Splitting the sample across programs would pay
-    the ~19 us per-program floor again for a pass that reads 1/STRIDE.
-
-    The admit rank is derived from the sample actually taken, not from STRIDE,
-    so that a row far shorter than the vocabulary still gets a usable estimate.
+    One program owns the row's histogram, so tl.debug_barrier() is all the
+    ordering the three phases need and the atomics stay inside one CTA. The
+    admit rank comes from the sample actually taken, not from STRIDE, so a row
+    far shorter than the vocabulary still gets a usable estimate.
     """
     row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
@@ -260,48 +194,9 @@ def _select(
 
 
 @triton.jit
-def _select_exact(
-    logits_ptr,
-    row,
-    stride0,
-    n,
-    thr,
-    cnt_ptrs,
-    cand_idx_ptr,
-    cand_val_ptr,
-    EQUAL: tl.constexpr,
-    CAP: tl.constexpr,
-    BLOCK: tl.constexpr,
-):
-    """One program's pass over a row, appending the elements whose key is below
-    `thr` (EQUAL False) or exactly `thr` (EQUAL True)."""
-    lane = tl.arange(0, BLOCK)
-    for t in tl.range(0, tl.cdiv(n, BLOCK)):
-        i = t * BLOCK + lane
-        m = i < n
-        x = tl.load(logits_ptr + row * stride0 + i, mask=m, other=0.0)
-        k = _key(x)
-        if EQUAL:
-            take = m & (k == thr)
-        else:
-            take = m & (k < thr)
-        pos = tl.atomic_add(
-            cnt_ptrs,
-            tl.full([BLOCK], 1, tl.int32),
-            mask=take,
-            sem="relaxed",
-            scope="cta",
-        )
-        keep = take & (pos < CAP)
-        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
-        tl.store(cand_val_ptr + row * CAP + pos, x, mask=keep)
-
-
-@triton.jit
 def _tail(
     logits_ptr,
     seq_lens_ptr,
-    hist_ptr,
     cnt_ptr,
     cand_idx_ptr,
     cand_val_ptr,
@@ -310,33 +205,18 @@ def _tail(
     slot_ptr,
     stride0,
     TOPK: tl.constexpr,
-    NB: tl.constexpr,
     CAP: tl.constexpr,
     RADIX: tl.constexpr,
     BLOCK: tl.constexpr,
 ):
-    """The fallback decision and the exact top-k of the candidates, in one
-    program per row -- so one launch where there were three.
+    """The fallback decision, then the exact top-k of the candidates.
 
-    First the decision a host sync would otherwise make: a row that admitted
-    between TOPK and CAP candidates already holds a superset of its top-k; one
-    outside that range is redone exactly here, appending the strictly-better
-    bins BEFORE the threshold bin so that a buffer which still overflows can
-    only ever drop elements sharing an 11-bit key with the k-th.
-
-    Then the answer, by four 8-bit radix rounds over the FULL 32-bit ordered
-    key (ascending uint32 is descending float). That is what the generic
-    kernel's own final select does; running it over the candidates directly
-    costs no 11-bit pre-pass and no threshold-bin special case, and is exact by
-    construction -- there is no fp16 granularity left to reason about. The
-    output is cand_idx[pos], so the remap disappears as well.
-
-    Measured against the generic merge plus a remap at the candidate counts
-    this pipeline produces (tools/hygon_merge_kernel.py): at or above parity
-    from 4 to 512 rows, and 1.2-1.8x where the candidates are few. A variant
-    that narrows with an 11-bit histogram first is flatter in the candidate
-    count and better above 64 rows, but loses here at the low row counts this
-    is meant to fix.
+    A row that admitted between TOPK and CAP candidates already holds a
+    superset of its top-k; one outside that range is redone exactly here, the
+    strictly-better bins appended BEFORE the threshold bin so that a buffer
+    which still overflows can only drop elements sharing an 11-bit key with the
+    k-th. The answer is four 8-bit radix rounds over the full 32-bit ordered
+    key, written straight out as cand_idx[pos].
     """
     row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
@@ -344,51 +224,79 @@ def _tail(
     ones = tl.full([BLOCK], 1, tl.int32)
     n = tl.load(seq_lens_ptr + row)
     c = tl.load(cnt_ptr + row)
-    cnt_ptrs = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
+    obase = out_ptr + row * TOPK
+    cbase = counts_ptr + row * RADIX
     if (c < tl.minimum(TOPK, n)) | (c > CAP):
-        base = hist_ptr + row * NB
-        for t in tl.static_range(NB // BLOCK):
-            tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
+        # The 11-bit fp16 key can COLLAPSE: a row whose values sit in a narrow
+        # band away from zero (relative spread below about 1%, the key's
+        # resolution being magnitude/32) maps to one or two bins, and then
+        # "an overflow can only drop what shares the k-th element's key" is
+        # true but vacuous -- everything shares it, so the true top-k can be
+        # dropped. The generic operator escapes through STEP 1-3, which refine
+        # over the full 32 bits; this path has no STEP 1-3, so the redo uses
+        # the full 32-bit ordered key directly. It is injective on distinct
+        # floats, so only exact ties can ever be dropped.
+        rdesired = tl.zeros((), dtype=tl.uint32)
+        rmask = tl.zeros((), dtype=tl.uint32)
+        r_to_find = TOPK + 1
+        row_tiles = tl.cdiv(n, BLOCK)
+        for rdpos in tl.static_range(24, -1, -8):
+            if r_to_find > 1:
+                tl.store(cbase + bins, tl.zeros([RADIX], tl.int32))
+                tl.debug_barrier()
+                for rt in tl.range(0, row_tiles):
+                    ri = rt * BLOCK + lane
+                    rvalid = ri < n
+                    rkey = _key32(
+                        tl.load(logits_ptr + row * stride0 + ri, mask=rvalid, other=0.0)
+                    )
+                    rdigit = ((rkey >> rdpos) & (RADIX - 1)).to(tl.int32)
+                    tl.atomic_add(
+                        cbase + rdigit,
+                        ones,
+                        mask=rvalid & ((rkey & rmask) == rdesired),
+                        sem="relaxed",
+                        scope="cta",
+                    )
+                tl.debug_barrier()
+                rcounts = tl.load(cbase + bins)
+                rprefix = tl.cumsum(rcounts, axis=0) - rcounts
+                rhit = (rprefix < r_to_find) & (rprefix + rcounts >= r_to_find)
+                rb = tl.min(tl.where(rhit, bins, RADIX), axis=0).to(tl.int32)
+                rb = tl.where(rb == RADIX, RADIX - 1, rb)
+                rlt = tl.max(tl.where(bins == rb, rprefix, 0), axis=0).to(tl.int32)
+                rdesired = rdesired | (rb.to(tl.uint32) << rdpos)
+                rmask = rmask | (tl.full((), RADIX - 1, tl.uint32) << rdpos)
+                r_to_find = r_to_find - rlt
+        rthr = rdesired
+        tl.store(slot_ptr + row, 0)
         tl.debug_barrier()
-        _hist_pass(logits_ptr, base, row, stride0, n, 1, BLOCK)
-        tl.debug_barrier()
-        thr = _scan_threshold(base, TOPK, NB, BLOCK)
-        tl.store(cnt_ptr + row, 0)
-        tl.debug_barrier()
-        _select_exact(
-            logits_ptr,
-            row,
-            stride0,
-            n,
-            thr,
-            cnt_ptrs,
-            cand_idx_ptr,
-            cand_val_ptr,
-            False,
-            CAP,
-            BLOCK,
-        )
-        tl.debug_barrier()
-        _select_exact(
-            logits_ptr,
-            row,
-            stride0,
-            n,
-            thr,
-            cnt_ptrs,
-            cand_idx_ptr,
-            cand_val_ptr,
-            True,
-            CAP,
-            BLOCK,
-        )
-        tl.debug_barrier()
+        rslots = slot_ptr + row + tl.zeros([BLOCK], tl.int32)
+        # strictly better than the k-th, then its exact ties
+        for req in tl.static_range(2):
+            for rt2 in tl.range(0, row_tiles):
+                ri2 = rt2 * BLOCK + lane
+                rvalid2 = ri2 < n
+                rkey2 = _key32(
+                    tl.load(logits_ptr + row * stride0 + ri2, mask=rvalid2, other=0.0)
+                )
+                if req == 0:
+                    rtake = rvalid2 & (rkey2 < rthr)
+                else:
+                    rtake = rvalid2 & (rkey2 == rthr)
+                rq = tl.atomic_add(rslots, ones, mask=rtake, sem="relaxed", scope="cta")
+                tl.store(obase + rq, ri2.to(tl.int32), mask=rtake & (rq < TOPK))
+            tl.debug_barrier()
+        # a row shorter than TOPK leaves the rest of the output padded
+        rfilled = tl.load(slot_ptr + row)
+        for rp in tl.static_range((TOPK + BLOCK - 1) // BLOCK):
+            rj = rp * BLOCK + lane
+            tl.store(obase + rj, -1, mask=(rj >= rfilled) & (rj < TOPK))
+        return
 
     m = tl.minimum(tl.load(cnt_ptr + row), CAP)
     vbase = cand_val_ptr + row * CAP
     ibase = cand_idx_ptr + row * CAP
-    obase = out_ptr + row * TOPK
-    cbase = counts_ptr + row * RADIX
     tiles = tl.cdiv(m, BLOCK)
 
     if m <= TOPK:
@@ -563,7 +471,6 @@ class _Plan:
             (num_rows,),
             {
                 "TOPK": top_k,
-                "NB": NUM_BINS,
                 "CAP": cap,
                 "RADIX": RADIX,
                 "BLOCK": BLOCK,
@@ -585,7 +492,6 @@ class _Plan:
         self.tail(
             logits,
             seq_lens,
-            self.hist,
             self.cnt,
             self.cand_idx,
             self.cand_val,
@@ -608,7 +514,33 @@ def _aligned(t):
 def top_k_per_row_decode(
     logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
 ):
-    """One pass over the logits, with the threshold picked from a sample."""
+    """Top-K per row for DeepSeek V4 decode, threshold picked from a sample.
+
+    Three launches per call, all through the cached plan below:
+
+      prepare  one program per row. Histograms SAMPLE_TILES tiles of the row
+               and scans them for the bin holding rank top_k, scaled to the
+               sample actually taken and loosened by SAFETY.
+      select   _split_factor() programs per row. One pass over the row,
+               appending every element at or above that bin into a per-row
+               buffer of _cap(top_k) entries.
+      tail     one program per row. The fallback decision, then the exact
+               top-k of the candidates.
+
+    Falls back to the generic operator -- always correct, never faster -- when
+    any of these does not hold: next_n == 1, stride1 == 1, stride0 ==
+    vocab_size, logits float32, seq_lens int32, vocab_size >= MIN_VOCAB, top_k
+    <= min(MAX_TOP_K, vocab_size), and num_rows * _cap(top_k) <= MAX_CAND.
+
+    Plans are cached on (device, shape, split, caller pointer alignment),
+    because Triton specialises a compiled kernel on integer argument values and
+    on data_ptr % 16; at most _PLANS_MAX are kept. A Triton version whose `run`
+    returns no CompiledKernel falls back to ordinary JIT launches.
+
+    FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED=0 disables the override;
+    FLAGGEMS_HYGON_TOPK_DECODE_SPLIT=n forces the select pass's programs per
+    row, for sweeping it.
+    """
     vocab_size = logits.shape[1]
     if (
         not _enabled()
@@ -622,7 +554,7 @@ def top_k_per_row_decode(
         or top_k > vocab_size
         or num_rows * _cap(top_k) > MAX_CAND
     ):
-        return _generic.top_k_per_row_decode(
+        return _generic_decode(
             logits, next_n, seq_lens, indices, num_rows, stride0, stride1, top_k
         )
 
