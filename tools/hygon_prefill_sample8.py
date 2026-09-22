@@ -140,15 +140,15 @@ def _assert_no_range_kind_clash(src):
         assert not clash, f"{fn.name} mixes range kinds on {clash}"
 
 
-def sampled_module():
-    """The reverted override, loaded as its own module.
+def fixed_source(ref=None):
+    """The reverted override with the five fixes it needs to run at all.
 
-    Its `_DENSE_NAME` is renamed so its generic copy does not land on the
-    production override's entry in sys.modules; everything else is the file as
-    it stood at e1a25ee^, byte for byte.
+    Shared with tools/hygon_prefill_sample_bench.py so the substitutions and
+    their assertions live in one place. Everything not listed below is the file
+    as it stood at e1a25ee^, byte for byte.
     """
     src = subprocess.run(
-        ["git", "show", f"{REVERT_COMMIT}:{OVERRIDE_PATH}"],
+        ["git", "show", f"{ref or REVERT_COMMIT}:{OVERRIDE_PATH}"],
         capture_output=True,
         text=True,
         check=True,
@@ -198,6 +198,12 @@ def sampled_module():
         src = src.replace(a, b, 1)
     assert "SSTRIDE = int(" in src and "TARGET_MULT = float(" in src
     _assert_no_range_kind_clash(src)
+    return src
+
+
+def sampled_module():
+    """The fixed reverted override, loaded as its own module."""
+    src = fixed_source()
     f = pathlib.Path(tempfile.mkdtemp(prefix="sample8_")) / "topk_prefill_sampled.py"
     f.write_text(src)
     name = "flaggems_vllm.runtime.backend._hygon.fused._topk_prefill_sample8"
