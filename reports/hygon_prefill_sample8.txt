@@ -1,24 +1,24 @@
-### branch topk-metax @ 9ffb608
-### 2026-09-22T11:10:58+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### branch topk-metax @ 385fdf7
+### 2026-09-22T11:19:17+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
 ### PYTHONPATH=src:/usr/local/:
 
 ### python: python -> /usr/bin/python
 /usr/local/lib/python3.10/dist-packages/torch/profiler/profiler.py:217: UserWarning: Warning: Profiler clears events at the end of each cycle.Only events from the current cycle will be reported.To keep events across cycles, set acc_events=True.
   _warn_once(
 WARNING: Logging before InitGoogleLogging() is written to STDERR
-W0922 11:11:17.507975 105739 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
+W0922 11:19:36.051760 105873 collection.cpp:1148] Warning: ROCTracer produced duplicate flow start: 42 (function operator())
 --- card occupancy before: hy-smi
 ================================= System Management Interface ==================================
 ================================================================================================
 HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
-0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
 1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
 2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
-3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
 4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
-5       51.0C    96.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
-6       51.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
-7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       54.0C    214.0W     manual   1000.0W    2%         57.5%     0.0%      0.0%      Normal   
 ================================================================================================
 ======================================== End of SMI Log ========================================
 
@@ -31,8 +31,42 @@ full redo inside _s_finish. Read it before the timings.
 
          shape     k     ship      off   s8/1.5   s8/2.0  s16/1.5 off/s8/1.5 off/s8/2.0off/s16/1.5 cand med outside   ans
 Traceback (most recent call last):
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 310, in <module>
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 337, in <module>
     sys.exit(main())
-  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 244, in main
-    assert took == bool(ratio), f"{tag}: sampled={took}, expected {bool(ratio)}"
-AssertionError: s8/1.5: sampled=False, expected True
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 268, in main
+    ok = check(run) and ok
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 247, in check
+    run(src)
+  File "/data/wuyuqing/workspace/FlagGems-vllm/tools/hygon_prefill_sample8.py", line 264, in run
+    mod.top_k_per_row_prefill(
+  File "/tmp/sample8_0xc1zo27/topk_prefill_sampled.py", line 878, in top_k_per_row_prefill
+    plan.run(logits, row_starts, row_ends, indices, stride0)
+  File "/tmp/sample8_0xc1zo27/topk_prefill_sampled.py", line 810, in run
+    self.finish(
+  File "/tmp/sample8_0xc1zo27/topk_prefill_sampled.py", line 747, in __call__
+    ck = self.jit.run(
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 763, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 899, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+  File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 326, in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+  File "/usr/local/lib/python3.10/dist-packages/triton/backends/compiler.py", line 64, in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+  File "/usr/local/lib/python3.10/dist-packages/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+triton.compiler.errors.CompilationError: at 102:4:
+    # redundant there -- but correct, and the retry does not fire in practice.
+    # The barrier is required: this program loads from vbase right after
+    # storing to it.
+    row_base = logits_ptr + row * stride0 + s
+    for t in tl.range(0, tiles):
+        pos = t * BLOCK + lane
+        valid = pos < n
+        ci = tl.load(ibase + pos, mask=valid, other=0)
+        tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+    tl.debug_barrier()
+
+    if n <= TOPK:
+    ^
+AssertionError('initial value for `t` is of type int32[], but the then block redefines it as constexpr[0]')
