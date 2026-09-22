@@ -176,6 +176,59 @@ def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
     ), f"FAIL: num_rows={num_rows}, vocab_size={vocab_size}, top_k={top_k}"
 
 
+@pytest.mark.top_k_per_row_prefill
+@pytest.mark.parametrize(
+    "num_rows,vocab_size,top_k", [(4, 129280, 1024), (64, 4096, 512)]
+)
+@pytest.mark.parametrize("width", [0.2, 0.02])
+def test_top_k_per_row_prefill_narrow_band(num_rows, vocab_size, top_k, width):
+    """Rows inside a band narrower than the STEP-0 key can resolve.
+
+    The radix algorithm's STEP-0 key is sign + 5 exponent bits + the top 5
+    mantissa bits of the fp16 form, so within one binade it resolves
+    magnitude/32 -- 0.25 at magnitude 10. A row drawn from [10.0, 10.2)
+    therefore maps to a SINGLE bin, and the guarantee an implementation gets
+    from "an overflow can only drop what shares the k-th element's key"
+    becomes true but vacuous: every element shares it, so the true top-k can
+    be dropped. The generic operator escapes through STEP 1-3, which refine
+    over the full 32 bits, and any path that skips those has to say how it
+    escapes instead.
+
+    This has now been a real wrong-answer bug twice, in the Moore Threads
+    prefill override and in the Hygon decode one, and neither suite could see
+    it: test_logits_diff_in_8LSBits builds the same collapse at magnitude
+    1.125, where one ULP is 1.2e-7 and the error lands just inside
+    allclose(atol=1e-6, rtol=1e-6).
+
+    A CONSTANT row does not test this -- it passes even when the key has
+    collapsed, because when every value is equal any k of them is a correct
+    answer. Only a band discriminates.
+    """
+    if top_k > vocab_size:
+        return
+
+    torch.manual_seed(42)
+
+    logits = 10.0 + width * torch.rand(
+        num_rows, vocab_size, device=device, dtype=torch.float32
+    )
+    row_starts = torch.zeros(num_rows, dtype=torch.int32, device=device)
+    row_ends = torch.full((num_rows,), vocab_size, dtype=torch.int32, device=device)
+    stride0 = logits.stride(0)
+    stride1 = logits.stride(1)
+
+    indices_ref = reference_top_k_per_row(logits.clone(), row_starts, row_ends, top_k)
+
+    indices_test = torch.empty((num_rows, top_k), dtype=torch.int32, device=device)
+    flaggems_vllm.top_k_per_row_prefill(
+        logits, row_starts, row_ends, indices_test, num_rows, stride0, stride1, top_k
+    )
+
+    assert check_topk_values_match(
+        logits, indices_test, indices_ref, row_starts, top_k
+    ), f"FAIL: num_rows={num_rows}, vocab_size={vocab_size}, top_k={top_k}, band={width}"
+
+
 def _tle_prefill_available():
     """Whether the TLE prefill path is live -- decided after one call, not at
     collection. A vendor override may switch the generic module onto TLE on
