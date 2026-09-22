@@ -863,6 +863,21 @@ CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]
 SBLOCK = 512
 SWARPS = 8
 SRADIX = 256
+# Programs per row in the collect pass. Swept on (64,129280), benchmark
+# SpeedUp, two passes each (tools/hygon_prefill_collect_split.py):
+#
+#     split      1(cta)  1(gpu)    2       4       8      16
+#     programs      64      64    128     256     512    1024
+#     SpeedUp    0.600   0.599  0.631   0.605   0.569   0.531
+#
+# Splitting one row across two programs is worth 5.2%; the device-scoped
+# counter it needs is free (the 1(gpu) arm). Note the sweep is NOT monotone
+# and the occupancy argument that motivated it predicts the wrong answer:
+# 3200 wave slots at SWARPS each is ~400 programs, so "add waves until the
+# card is full" says 8, which is 5% WORSE than not splitting at all. Past two
+# the shared counter costs more than the waves return. 2 is measured, not
+# derived.
+SSPLIT = max(1, int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSPLIT", "2")))
 _MAX_CAND_ELEMS = 1 << 24
 
 # The sample and the collect key off the operator's own 11-bit STEP-0 key; the
@@ -968,6 +983,8 @@ def _s_collect(
     CAP: tl.constexpr,
     BLOCK: tl.constexpr,
     VEC: tl.constexpr,
+    SPLIT: tl.constexpr,
+    CHUNK: tl.constexpr,
 ):
     """One pass: append every element strictly better than the threshold bin.
     Indices are stored relative to row_start, which is what the operator
@@ -983,8 +1000,15 @@ def _s_collect(
     instead measured 131.3 us here against a modelled 55 -- 252 GB/s where the
     generic's collection pass reaches ~1270, essentially read speed -- and a
     mask on every load is the one structural difference between them.
+
+    SPLIT programs divide the row, so the candidate counter is shared and its
+    atomic is scoped to the device. CHUNK is a multiple of BLOCK * VEC, which
+    keeps the bulk loop unmasked inside each chunk; the last part runs to the
+    end of the row regardless, so coverage does not depend on that arithmetic.
     """
-    row = tl.program_id(0)
+    pid = tl.program_id(0)
+    row = pid // SPLIT
+    part = pid % SPLIT
     s = tl.load(starts_ptr + row)
     e = tl.load(ends_ptr + row)
     span = e - s
@@ -997,13 +1021,17 @@ def _s_collect(
     cnt2 = cnt_ptr + row + tl.zeros([BLOCK, VEC], tl.int32)
     cnt1 = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
 
-    n_vec = span // (BLOCK * VEC)
+    start = part * CHUNK
+    stop = tl.minimum(start + CHUNK, span)
+    stop = tl.where(part == SPLIT - 1, span, stop)
+    have = tl.maximum(stop - start, 0)
+
+    n_vec = have // (BLOCK * VEC)
     # Two pipeline stages. This shape is occupancy-starved rather than
     # atomic-bound -- 64 workgroups is 512 waves against 3200 slots, 16%, with
-    # arch_vgpr 44 -- so the lever is hiding latency inside a wave, and waves
-    # cannot be added (splitting made every chunk re-run the radix). Measured
-    # on (64,129280), benchmark SpeedUp, two passes each
-    # (tools/hygon_prefill_pipeline.py):
+    # arch_vgpr 44 -- so the lever is hiding latency inside a wave. (Waves can
+    # also be added, but only a little: see SSPLIT.) Measured on (64,129280),
+    # benchmark SpeedUp, two passes each (tools/hygon_prefill_pipeline.py):
     #
     #     stages   1       2       3       4     two tiles by hand
     #     SpeedUp  0.582   0.600   0.542   0.544   0.605
@@ -1013,23 +1041,23 @@ def _s_collect(
     # two-tile version is 0.9% better and fourteen lines longer; it existed in
     # case this backend ignored the hint, and it does not.
     for t in tl.range(0, n_vec, num_stages=2):
-        i = t * BLOCK * VEC + off
+        i = start + t * BLOCK * VEC + off
         x = tl.load(base + i)
         # Cast explicitly: the key is uint32 and thr int32, and leaving that
         # promotion implicit selects every element (the MTT override records
         # the same bug).
         take = _key11(x).to(tl.int32) < thr
-        pos = tl.atomic_add(cnt2, ones2, mask=take, sem="relaxed", scope="cta")
+        pos = tl.atomic_add(cnt2, ones2, mask=take, sem="relaxed", scope="gpu")
         keep = take & (pos >= 0) & (pos < CAP)
         tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
 
-    tail = n_vec * BLOCK * VEC
-    for t in tl.range(0, tl.cdiv(span - tail, BLOCK)):
+    tail = start + n_vec * BLOCK * VEC
+    for t in tl.range(0, tl.cdiv(tl.maximum(stop - tail, 0), BLOCK)):
         i = tail + t * BLOCK + lane
-        m = i < span
+        m = i < stop
         x = tl.load(base + i, mask=m, other=0.0)
         take = m & (_key11(x).to(tl.int32) < thr)
-        pos = tl.atomic_add(cnt1, ones1, mask=take, sem="relaxed", scope="cta")
+        pos = tl.atomic_add(cnt1, ones1, mask=take, sem="relaxed", scope="gpu")
         keep = take & (pos >= 0) & (pos < CAP)
         tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
 
@@ -1273,10 +1301,17 @@ class _SPlan:
             },
             SWARPS,
         )
+        schunk = triton.cdiv(triton.cdiv(vocab, SSPLIT), SBLOCK * 4) * SBLOCK * 4
         self.collect = _SLaunch(
             _s_collect,
-            (num_rows,),
-            {"CAP": cap, "BLOCK": SBLOCK, "VEC": 4},
+            (num_rows * SSPLIT,),
+            {
+                "CAP": cap,
+                "BLOCK": SBLOCK,
+                "VEC": 4,
+                "SPLIT": SSPLIT,
+                "CHUNK": schunk,
+            },
             SWARPS,
         )
         self.finish = _SLaunch(
