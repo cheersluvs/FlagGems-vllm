@@ -78,15 +78,31 @@ import json, sys, torch, flaggems_vllm
 
 rows, vocab, top_k, stride0 = json.loads(sys.argv[1])
 out_path = sys.argv[2]
+
+
+# A padded row layout, exactly as the benchmark builds it. Round 1 of this
+# probe used torch.rand(rows, vocab) -- stride0 = vocab -- while still passing
+# the benchmark's PADDED stride0 to the operator. The kernel then addressed
+# (rows-1)*stride0 + vocab elements of a rows*vocab buffer: past the end, which
+# is wrong answers on the small shapes and a VM fault on the big ones. Every
+# arm failed identically, which is the signature of a harness bug, not a
+# backend one.
+def strided(fill):
+    buf = fill((rows - 1) * stride0 + vocab)
+    t = torch.as_strided(buf, (rows, vocab), (stride0, 1))
+    assert t.stride(0) == stride0 and t.stride(1) == 1, "stride contract broken"
+    return t
+
+
 torch.manual_seed(42)
-u = torch.rand(rows, vocab, device="cuda", dtype=torch.float32)
-n = torch.randn(rows, vocab, device="cuda", dtype=torch.float32)
+n = strided(lambda k: torch.randn(k, device="cuda", dtype=torch.float32))
+u = strided(lambda k: torch.rand(k, device="cuda", dtype=torch.float32))
 cases = [
     ("normal", n),
     ("tied", (n * 4).round() / 4),
     ("narrow", 10.0 + 0.2 * u),
     ("narrower", 10.0 + 0.02 * u),
-    ("constant", torch.full((rows, vocab), 3.5, device="cuda")),
+    ("constant", torch.full_like(n, 3.5)),
 ]
 starts = torch.zeros(rows, dtype=torch.int32, device="cuda")
 ends = torch.full((rows,), vocab, dtype=torch.int32, device="cuda")
@@ -95,9 +111,11 @@ fh = open(out_path, "w", buffering=1)
 for name, src in cases:
     # announced BEFORE the call, so a fault names the case that caused it
     print("CASE " + name, file=sys.stderr, flush=True)
+    s0 = src.stride(0)
+    assert src.stride(1) == 1, name + ": row is not contiguous"
     want = torch.topk(src, top_k, dim=1).values.sort(dim=1).values
     idx.fill_(-9)
-    flaggems_vllm.top_k_per_row_prefill(src, starts, ends, idx, rows, stride0, 1, top_k)
+    flaggems_vllm.top_k_per_row_prefill(src, starts, ends, idx, rows, s0, 1, top_k)
     torch.cuda.synchronize()
     got = src.gather(1, idx.long().clamp(0, vocab - 1)).sort(dim=1).values
     ok = bool(torch.allclose(got, want)) and bool((idx >= 0).all())
@@ -105,13 +123,13 @@ for name, src in cases:
     ev = [torch.cuda.Event(enable_timing=True) for _ in range(2)]
     for _ in range(3):
         flaggems_vllm.top_k_per_row_prefill(
-            src, starts, ends, idx, rows, stride0, 1, top_k
+            src, starts, ends, idx, rows, s0, 1, top_k
         )
     torch.cuda.synchronize()
     ev[0].record()
     for _ in range(5):
         flaggems_vllm.top_k_per_row_prefill(
-            src, starts, ends, idx, rows, stride0, 1, top_k
+            src, starts, ends, idx, rows, s0, 1, top_k
         )
     ev[1].record()
     torch.cuda.synchronize()
