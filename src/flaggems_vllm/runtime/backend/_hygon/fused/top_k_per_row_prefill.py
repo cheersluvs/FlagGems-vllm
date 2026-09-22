@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""top_k_per_row_prefill on Hygon BW1000: on DENSE rows, allocate output slots
-by prefix sum instead of one atomic per selected element.
+"""top_k_per_row_prefill on Hygon BW1000: on dense rows, allocate output slots
+by prefix sum and carry their counter through the histogram step.
+
+The dense route uses the validated VEC=2 layout by default. Set
+``FLAGGEMS_HYGON_TOPK_VEC2=0`` to fall back to the carried VEC=4 layout.
 
 WHY. prefill loses on all seven benchmark shapes against vLLM's C++ kernel here
 (geomean 0.355), worst on the small-vocabulary ones. Per program it fits
@@ -53,6 +56,14 @@ picks a module per call. Sparse rows run the untouched generic kernel.
 Density from vocab is conservative for partial-range rows (a shorter row is
 denser than vocab suggests), so a miss falls back to generic, never to
 something slower. FLAGGEMS_HYGON_TOPK_SLOTSCAN=0 always uses generic.
+
+The carried-counter dense copy removes one global atomic per collection tile:
+it loads the output count once at the start of each histogram step, derives
+tile-local offsets by cumsum, and stores the accumulated count before its
+barrier. The BW1000 v3 audit validated the exact generated source on padded
+rows, ties, short and partial ranges; the follow-up B-C-C-B run passed 19
+functional tests and improved the four dense benchmark shapes by 1.06-1.08x.
+Set FLAGGEMS_HYGON_TOPK_CARRY=0 to retain the preceding dense implementation.
 """
 
 import functools
@@ -64,13 +75,22 @@ import stat
 import sys
 import tempfile
 import threading
+from collections import OrderedDict
 from importlib import import_module
 
+import torch
 import triton
 import triton.language as tl
 
+from ._top_k_per_row_prefill_carry_source import build_carry_source, set_vector_width
+from ._top_k_per_row_prefill_final_source import build_final_source
+
 _GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
 _DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
+_CARRY_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_carry"
+_VEC2_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2"
+_VEC2_FINAL_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2_final"
+_SHORT_BINS_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_short_bins"
 _SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
 
 _generic = import_module(_GENERIC_NAME)
@@ -419,6 +439,193 @@ def _process_bins_slotscan(
 _dense._process_bins = _process_bins_slotscan
 
 
+def _carry_path():
+    """Build the self-contained dense copy tested by the BW1000 audit."""
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_CARRY", "1").strip().lower() in (
+        "0",
+        "false",
+        "off",
+        "no",
+    ):
+        return None
+    if _ONESCAN_PATH is None:
+        _log.warning("hygon prefill carry requires the one-scan source")
+        return None
+    try:
+        with open(_ONESCAN_PATH) as fh:
+            generic_source = fh.read()
+        with open(__file__) as fh:
+            override_source = fh.read()
+        source = build_carry_source(generic_source, override_source)
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_carry_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(source)
+            os.replace(tmp, path)
+        with open(path) as fh:
+            if fh.read() != source:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
+        _log.warning("hygon prefill carry source skipped: %r", exc)
+        return None
+
+
+_CARRY_PATH = _carry_path()
+try:
+    _dense_carry = _load_copy(_CARRY_NAME, _CARRY_PATH) if _CARRY_PATH else None
+except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
+    _log.warning("hygon prefill carry module skipped: %r", exc)
+    _dense_carry = None
+
+
+def _vec2_path():
+    """Build the validated dense VEC=2 path; retain VEC=4 as fallback."""
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_VEC2", "1").strip().lower() not in (
+        "1",
+        "true",
+        "on",
+        "yes",
+    ):
+        return None
+    if _CARRY_PATH is None:
+        return None
+    try:
+        with open(_CARRY_PATH) as fh:
+            source = set_vector_width(fh.read(), 2)
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_vec2_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(source)
+            os.replace(tmp, path)
+        with open(path) as fh:
+            if fh.read() != source:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
+        _log.warning("hygon prefill VEC=2 source skipped: %r", exc)
+        return None
+
+
+_VEC2_PATH = _vec2_path()
+try:
+    _dense_vec2 = _load_copy(_VEC2_NAME, _VEC2_PATH) if _VEC2_PATH else None
+except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
+    _log.warning("hygon prefill VEC=2 module skipped: %r", exc)
+    _dense_vec2 = None
+
+
+def _final_network_path():
+    """Build a separate exact final-selector copy of the dense VEC2 route."""
+    if _VEC2_PATH is None:
+        return None
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_FINAL_NETWORK", "1").strip().lower() in (
+        "0",
+        "false",
+        "off",
+        "no",
+    ):
+        return None
+    try:
+        with open(_VEC2_PATH) as fh:
+            source = build_final_source(fh.read())
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_vec2_final_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(source)
+            os.replace(tmp, path)
+        with open(path) as fh:
+            if fh.read() != source:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - use the validated VEC2 route
+        _log.warning("hygon prefill final-network source skipped: %r", exc)
+        return None
+
+
+_VEC2_FINAL_PATH = _final_network_path()
+try:
+    _dense_vec2_final = (
+        _load_copy(_VEC2_FINAL_NAME, _VEC2_FINAL_PATH) if _VEC2_FINAL_PATH else None
+    )
+except Exception as exc:  # noqa: BLE001 - use the validated VEC2 route
+    _log.warning("hygon prefill final-network module skipped: %r", exc)
+    _dense_vec2_final = None
+
+
+def _short_bins_path():
+    """Build the measured 512-bin STEP-0 dense specialization."""
+    if _VEC2_PATH is None:
+        return None
+    if os.environ.get("FLAGGEMS_HYGON_TOPK_SHORT_BINS", "1").strip().lower() in (
+        "0",
+        "false",
+        "off",
+        "no",
+    ):
+        return None
+    try:
+        with open(_VEC2_PATH) as fh:
+            source = fh.read()
+        old_key = "bin_idx = (mapped >> 5).to(tl.uint32)"
+        if source.count(old_key) != 1:
+            raise ValueError("STEP-0 key extraction source drift")
+        source = source.replace(old_key, "bin_idx = (mapped >> 7).to(tl.uint32)", 1)
+        old_radix = (
+            "RADIX_SIZE: tl.constexpr = " "RADIX10_SIZE if STEP == 3 else RADIX11_SIZE"
+        )
+        new_radix = (
+            "RADIX_SIZE: tl.constexpr = ("
+            "RADIX10_SIZE if STEP == 3 else "
+            "(512 if STEP == 0 else RADIX11_SIZE))"
+        )
+        if source.count(old_radix) != 1:
+            raise ValueError("one-scan radix source drift")
+        source = source.replace(old_radix, new_radix, 1)
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_short_bins_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(source)
+            os.replace(tmp, path)
+        with open(path) as fh:
+            if fh.read() != source:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
+        _log.warning("hygon prefill short-bins source skipped: %r", exc)
+        return None
+
+
+_SHORT_BINS_PATH = _short_bins_path()
+try:
+    _dense_short_bins = (
+        _load_copy(_SHORT_BINS_NAME, _SHORT_BINS_PATH) if _SHORT_BINS_PATH else None
+    )
+except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
+    _log.warning("hygon prefill short-bins module skipped: %r", exc)
+    _dense_short_bins = None
+
+
 def _slotscan_enabled():
     raw = os.environ.get("FLAGGEMS_HYGON_TOPK_SLOTSCAN", "1").strip().lower()
     return raw not in ("0", "false", "off", "no")
@@ -455,6 +662,11 @@ _ENABLED = _slotscan_enabled()
 # FLAGGEMS_HYGON_TOPK_GEOMETRY=0 leaves them at generic's values.
 
 SHORT_ROW_MAX = 8192
+# The crossover probe showed a stable STEP-0 win with 512 bins for the
+# benchmark's top_k=512 rows up through vocab/row_len 1536.  Do not apply it
+# to larger rows: 1792 was already neutral and the 4095/5115 cases regressed.
+SHORT_BINS_TOPK = 512
+SHORT_BINS_MAX_VOCAB = 1536
 
 
 @functools.lru_cache(maxsize=1)
@@ -486,8 +698,134 @@ def _geometry_enabled():
 _GEOMETRY = _geometry_enabled()
 _LAUNCH_LOCK = threading.Lock()
 _GENERIC_DEFAULTS = {
-    id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps) for m in (_sparse, _dense)
+    id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps)
+    for m in (
+        _sparse,
+        _dense,
+        _dense_carry,
+        _dense_vec2,
+        _dense_vec2_final,
+        _dense_short_bins,
+    )
+    if m is not None
 }
+
+
+# The non-TLE host wrapper allocates six scratch tensors for every call. On
+# BW1000, reusing one plan per module/device/row-count removes 4-52% of wall
+# time on the benchmark's small-row and four-row shapes. Keep only the most
+# recently used row-count for each loaded route and cap live storage so a
+# serving process cannot accumulate one full scratch set for every request
+# shape. The caller already holds _LAUNCH_LOCK, so cache mutation is serialized.
+_SCRATCH_CACHE = OrderedDict()
+_SCRATCH_CACHE_BYTES = 0
+_SCRATCH_CACHE_LIMIT = 512 * 1024 * 1024
+
+
+def _scratch_reuse_enabled():
+    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE", "1").strip().lower()
+    return raw not in ("0", "false", "off", "no")
+
+
+def _scratch_buffers(mod, device, num_rows):
+    """Return the non-TLE scratch set, reusing one active shape per route."""
+    global _SCRATCH_CACHE_BYTES
+
+    device_index = device.index
+    if device_index is None:
+        device_index = torch.cuda.current_device()
+    stream_id = torch.cuda.current_stream(device).cuda_stream
+    key = (id(mod), device.type, device_index, stream_id)
+    num_bins = int(mod.NUM_BINS)
+    num_final_items = int(mod.NUM_FILNAL_ITEMS)
+    cached = _SCRATCH_CACHE.get(key)
+    if cached is not None:
+        cached_rows, cached_bins, cached_final, _, buffers = cached
+        if (
+            cached_rows == num_rows
+            and cached_bins == num_bins
+            and cached_final == num_final_items
+        ):
+            _SCRATCH_CACHE.move_to_end(key)
+            return buffers
+        del _SCRATCH_CACHE[key]
+        _SCRATCH_CACHE_BYTES -= cached[3]
+
+    allocation_bytes = (
+        num_rows * num_bins * 4 + num_rows * num_final_items * 4 + num_rows * 4 * 4
+    )
+    while (
+        _SCRATCH_CACHE
+        and _SCRATCH_CACHE_BYTES + allocation_bytes > _SCRATCH_CACHE_LIMIT
+    ):
+        _, old = _SCRATCH_CACHE.popitem(last=False)
+        _SCRATCH_CACHE_BYTES -= old[3]
+
+    buffers = (
+        torch.empty((num_rows, num_bins), device=device, dtype=torch.int32),
+        torch.empty((num_rows, num_final_items), device=device, dtype=torch.float32),
+        torch.empty((num_rows,), device=device, dtype=torch.int32),
+        torch.empty((num_rows,), device=device, dtype=torch.int32),
+        torch.empty((num_rows,), device=device, dtype=torch.int32),
+        torch.empty((num_rows,), device=device, dtype=torch.int32),
+    )
+    if allocation_bytes <= _SCRATCH_CACHE_LIMIT:
+        _SCRATCH_CACHE[key] = (
+            num_rows,
+            num_bins,
+            num_final_items,
+            allocation_bytes,
+            buffers,
+        )
+        _SCRATCH_CACHE_BYTES += allocation_bytes
+    return buffers
+
+
+def _top_k_per_row_prefill_reuse(
+    mod, logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
+):
+    scratch = _scratch_buffers(mod, logits.device, num_rows)
+    return mod.non_tle_top_k_per_row_prefill[(num_rows,)](
+        logits,
+        indices,
+        row_starts,
+        row_ends,
+        stride0,
+        stride1,
+        logits.shape[1],
+        *scratch,
+        TOPK=top_k,
+        BLOCK_SIZE=mod.NUM_THREADS_PER_BLOCK,
+        ROW_OFFSET=0,
+        num_warps=mod._num_warps(mod.NUM_THREADS_PER_BLOCK),
+    )
+
+
+def _select_module(logits, num_rows, top_k):
+    """Pick the original path or the measured Hygon dense final specialization."""
+    vocab = logits.shape[1]
+    if _ENABLED and vocab <= DENSE_VOCAB_PER_TOPK * top_k:
+        if (
+            _dense_short_bins is not None
+            and top_k == SHORT_BINS_TOPK
+            and vocab <= SHORT_BINS_MAX_VOCAB
+        ):
+            return _dense_short_bins
+        if (
+            _dense_vec2_final is not None
+            and not _dense_vec2_final.HAS_TLE
+            and num_rows >= 8192
+            and top_k == 512
+            and 2048 <= vocab <= 5120
+            and logits.dtype == torch.float32
+        ):
+            return _dense_vec2_final
+        return (
+            _dense_vec2
+            if _dense_vec2 is not None
+            else (_dense_carry if _dense_carry is not None else _dense)
+        )
+    return _sparse
 
 
 def top_k_per_row_prefill(
@@ -495,10 +833,7 @@ def top_k_per_row_prefill(
 ):
     """Dense rows through the prefix-sum copy, everything else through generic,
     each launched at the geometry its occupancy wants."""
-    if _ENABLED and logits.shape[1] <= DENSE_VOCAB_PER_TOPK * top_k:
-        mod = _dense
-    else:
-        mod = _sparse
+    mod = _select_module(logits, num_rows, top_k)
     geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
     with _LAUNCH_LOCK:
         if geo is None:
@@ -507,6 +842,18 @@ def top_k_per_row_prefill(
             block, warps = geo
             mod.NUM_THREADS_PER_BLOCK = block
             mod._num_warps = lambda block_size, w=warps: w
+        if _scratch_reuse_enabled() and not getattr(mod, "HAS_TLE", False):
+            return _top_k_per_row_prefill_reuse(
+                mod,
+                logits,
+                row_starts,
+                row_ends,
+                indices,
+                num_rows,
+                stride0,
+                stride1,
+                top_k,
+            )
         return mod.top_k_per_row_prefill(
             logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
         )
