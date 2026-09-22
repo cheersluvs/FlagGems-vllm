@@ -101,17 +101,62 @@ def occupancy(tag):
     print(f"--- card occupancy {tag}: no smi tool found")
 
 
+FUSED_PKG = "flaggems_vllm.runtime.backend._hygon.fused"
+FUSED_DIR = "src/flaggems_vllm/runtime/backend/_hygon/fused"
+
+
+def _git_show(ref, path):
+    r = subprocess.run(["git", "show", f"{ref}:{path}"], capture_output=True, text=True)
+    return r.stdout if r.returncode == 0 and r.stdout else None
+
+
+def _load_companions(ref, tmpdir):
+    """The audit override imports sibling modules that this branch does not have.
+
+        from ._top_k_per_row_prefill_carry_source import build_carry_source, ...
+        from ._top_k_per_row_prefill_final_source import build_final_source
+
+    A relative import resolves against the loaded module's package, so each
+    sibling is written to disk and registered under its real absolute name
+    before the override runs. On disk rather than synthesised, because
+    @triton.jit reads its functions' source from __file__.
+    """
+    listing = subprocess.run(
+        ["git", "ls-tree", "--name-only", f"{ref}", f"{FUSED_DIR}/"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    sibs = sorted(
+        p
+        for p in listing
+        if p.rsplit("/", 1)[-1].startswith("_top_k_per_row_prefill_")
+        and p.endswith(".py")
+    )
+    loaded = []
+    for path in sibs:
+        stem = path.rsplit("/", 1)[-1][: -len(".py")]
+        text = _git_show(ref, path)
+        assert text, f"cannot read {path} from {ref}"
+        assert "\nfrom ." not in text, f"{stem} has a relative import; order matters"
+        f = tmpdir / f"{stem}.py"
+        f.write_text(text)
+        name = f"{FUSED_PKG}.{stem}"
+        spec = importlib.util.spec_from_file_location(name, str(f))
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[name] = mod
+        spec.loader.exec_module(mod)
+        loaded.append(stem)
+    return loaded
+
+
 def audit_module():
     """The audit branch's override, loaded as its own module."""
     src = ref = None
     for candidate in AUDIT_REFS:
-        r = subprocess.run(
-            ["git", "show", f"{candidate}:{OVERRIDE_PATH}"],
-            capture_output=True,
-            text=True,
-        )
-        if r.returncode == 0 and r.stdout:
-            src, ref = r.stdout, candidate
+        src = _git_show(candidate, OVERRIDE_PATH)
+        if src:
+            ref = candidate
             break
     if src is None:
         raise SystemExit(
@@ -133,9 +178,11 @@ def audit_module():
         src = src.replace(old, f'{name} = "flaggems_vllm.ops._auditab_hygon_', 1)
         n += 1
     assert n == 6
-    f = pathlib.Path(tempfile.mkdtemp(prefix="auditab_")) / "topk_prefill_audit.py"
+    tmpdir = pathlib.Path(tempfile.mkdtemp(prefix="auditab_"))
+    print(f"### audit siblings loaded: {', '.join(_load_companions(ref, tmpdir))}")
+    f = tmpdir / "topk_prefill_audit.py"
     f.write_text(src)
-    mod_name = "flaggems_vllm.runtime.backend._hygon.fused._topk_prefill_auditab"
+    mod_name = f"{FUSED_PKG}._topk_prefill_auditab"
     spec = importlib.util.spec_from_file_location(mod_name, str(f))
     mod = importlib.util.module_from_spec(spec)
     sys.modules[mod_name] = mod
