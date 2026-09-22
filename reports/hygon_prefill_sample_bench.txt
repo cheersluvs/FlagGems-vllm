@@ -1,0 +1,84 @@
+### branch topk-metax @ 0ff9ae2
+### 2026-09-22T14:28:03+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### fixed reverted override: 895 lines
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    100.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### tests s-off: 19 passed, 1 skipped
+### tests s8/1.5: 19 passed, 1 skipped
+### tests s16/1.5: 19 passed, 1 skipped
+### tests s16/1.25: 19 passed, 1 skipped
+### tests s8/3.0: 19 passed, 1 skipped
+### pass 1, arm ship
+### pass 1, arm s-off
+### pass 1, arm s8/1.5
+### pass 1, arm s16/1.5
+### pass 1, arm s16/1.25
+### pass 1, arm s8/3.0
+### pass 2, arm ship
+### pass 2, arm s-off
+### pass 2, arm s8/1.5
+### pass 2, arm s16/1.5
+### pass 2, arm s16/1.25
+### pass 2, arm s8/3.0
+### restored; git status on the override: clean
+
+benchmark SpeedUp, --mode kernel, two interleaved passes
+
+   num_rows   vocab  top_k       ship      s-off     s8/1.5    s16/1.5   s16/1.25     s8/3.0   (pass 1 / pass 2 below each other)
+          4    8193    512      0.635      0.566      0.670      0.594      0.596      0.670
+                                0.717      0.578      0.575      0.675      0.642      0.665
+          4   16385    512      0.660      0.602      0.633      0.569      0.626      0.566
+                                0.593      0.602      0.631      0.590      0.566      0.570
+       4100    1025    512      1.182      0.913      0.914      0.913      0.915      0.914
+                                1.180      0.914      0.902      0.916      0.914      0.914
+         64  129280   1024      0.417      0.416      0.530      0.555      0.583      0.396  <== the shape under test
+                                0.415      0.419      0.537      0.564      0.593      0.393
+      12961    4100    512      0.654      0.638      0.637      0.638      0.638      0.637
+                                0.653      0.637      0.635      0.638      0.638      0.638
+      16383    4095    512      0.864      0.853      0.853      0.854      0.853      0.853
+                                0.860      0.854      0.850      0.854      0.853      0.853
+      16380    5115    512      0.789      0.784      0.783      0.783      0.788      0.784
+                                0.790      0.789      0.781      0.788      0.784      0.783
+
+       ship  geomean 0.711 / 0.712   64x129280 0.417 / 0.415   tests: not run (production)
+      s-off  geomean 0.661 / 0.664   64x129280 0.416 / 0.419   tests: 19 passed, 1 skipped
+     s8/1.5  geomean 0.706 / 0.689   64x129280 0.530 / 0.537   tests: 19 passed, 1 skipped
+    s16/1.5  geomean 0.688 / 0.707   64x129280 0.555 / 0.564   tests: 19 passed, 1 skipped
+   s16/1.25  geomean 0.704 / 0.702   64x129280 0.583 / 0.593   tests: 19 passed, 1 skipped
+     s8/3.0  geomean 0.667 / 0.666   64x129280 0.396 / 0.393   tests: 19 passed, 1 skipped
+
+  vLLM latency on the shape under test (ms), same kernel every time:
+    0.1094 0.1093 0.1096 0.1093 0.1081 0.1093 0.1075 0.1094 0.1096 0.1094 0.1094 0.1086   max/min 1.02
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    94.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       51.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+  Read the sampled arms against s-off, not against ship: the reverted
+  file predates the one-scan patch, so the two differ on the dense
+  shapes for reasons that have nothing to do with sampling.
