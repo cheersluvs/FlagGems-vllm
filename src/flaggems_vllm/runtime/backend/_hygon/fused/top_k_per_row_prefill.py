@@ -884,6 +884,16 @@ _ssplit = max(1, int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSPLIT", "4")))
 SSPLIT = 1 << (_ssplit.bit_length() - 1)
 _MAX_CAND_ELEMS = 1 << 24
 
+
+def _s_geometry(vocab, top_k):
+    """(CAP, CHUNK, SEG) for a sampled plan. A segment holds min(CAP, CHUNK),
+    so it can overflow only when the row already exceeds CAP; CHUNK's 2048
+    granularity can leave programs idle, which CAP // SSPLIT did not survive."""
+    cap = max(SBLOCK, triton.next_power_of_2(top_k * CAP_MULT))
+    chunk = triton.cdiv(triton.cdiv(vocab, SSPLIT), SBLOCK * 4) * SBLOCK * 4
+    return cap, chunk, min(cap, chunk)
+
+
 # The sample and the collect key off the operator's own 11-bit STEP-0 key; the
 # retry in _s_finish keys off the full 32-bit one, because the 11-bit key
 # collapses on a narrow band and the retry is what has to be exact.
@@ -1099,8 +1109,9 @@ def _s_finish(
     not the 11-bit one the sample and the collect use, because that key
     collapses on a narrow band and the overflow guarantee goes with it.
 
-    The candidates arrive in SPLIT per-program segments of SEG each; a
-    segment that filled has lost candidates, which is the overflow case.
+    The candidates arrive in SPLIT per-program segments of SEG each. A
+    segment that filled has lost candidates, and a row over CAP does not fit
+    the compacted buffers; either is the overflow case.
 
     Rows inside the window take the exact top-k of their candidates: four
     8-bit radix rounds over the same 32-bit key.
@@ -1118,7 +1129,7 @@ def _s_finish(
         craw = tl.load(cnt_ptr + row * SPLIT + sg)
         c += tl.minimum(craw, SEG)
         over += (craw > SEG).to(tl.int32)
-    if (c < tl.minimum(TOPK, span)) | (over > 0):
+    if (c < tl.minimum(TOPK, span)) | (c > CAP) | (over > 0):
         # The 11-bit fp16 key can COLLAPSE: a row whose values sit in a narrow
         # band away from zero (relative spread below about 1%, the key's
         # resolution being magnitude/32) maps to one or two bins, and then
@@ -1308,13 +1319,15 @@ class _SPlan:
     def __init__(self, dev, dtype, num_rows, vocab, top_k):
         import torch
 
-        cap = max(SBLOCK, triton.next_power_of_2(top_k * CAP_MULT))
+        cap, schunk, seg = _s_geometry(vocab, top_k)
         self.cap = cap
         nb = _generic.NUM_BINS
         self.hist = torch.empty((num_rows, nb), dtype=torch.int32, device=dev)
         self.thr = torch.empty((num_rows,), dtype=torch.int32, device=dev)
         self.cnt = torch.empty((num_rows * SSPLIT,), dtype=torch.int32, device=dev)
-        self.cand_idx = torch.empty((num_rows, cap), dtype=torch.int32, device=dev)
+        self.cand_idx = torch.empty(
+            (num_rows, SSPLIT * seg), dtype=torch.int32, device=dev
+        )
         self.cand_val = torch.empty((num_rows, cap), dtype=dtype, device=dev)
         self.cidx = torch.empty((num_rows, cap), dtype=torch.int32, device=dev)
         self.counts = torch.empty((num_rows, SRADIX), dtype=torch.int32, device=dev)
@@ -1331,7 +1344,6 @@ class _SPlan:
             },
             SWARPS,
         )
-        schunk = triton.cdiv(triton.cdiv(vocab, SSPLIT), SBLOCK * 4) * SBLOCK * 4
         self.collect = _SLaunch(
             _s_collect,
             (num_rows * SSPLIT,),
@@ -1341,7 +1353,7 @@ class _SPlan:
                 "VEC": 4,
                 "SPLIT": SSPLIT,
                 "CHUNK": schunk,
-                "SEG": cap // SSPLIT,
+                "SEG": seg,
             },
             SWARPS,
         )
@@ -1355,7 +1367,7 @@ class _SPlan:
                 "RADIX": SRADIX,
                 "BLOCK": SBLOCK,
                 "SPLIT": SSPLIT,
-                "SEG": cap // SSPLIT,
+                "SEG": seg,
             },
             SWARPS,
         )
@@ -1411,7 +1423,8 @@ def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k)
         and row_starts.dtype == torch.int32
         and row_ends.dtype == torch.int32
         and not getattr(_generic, "HAS_TLE", False)
-        and num_rows * triton.next_power_of_2(top_k * CAP_MULT) <= (1 << 24)
+        and num_rows * SSPLIT * _s_geometry(vocab, top_k)[2] <= _MAX_CAND_ELEMS
+        and num_rows * _s_geometry(vocab, top_k)[0] <= _MAX_CAND_ELEMS
     )
 
 
