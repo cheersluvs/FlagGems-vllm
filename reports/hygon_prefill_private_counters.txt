@@ -1,0 +1,127 @@
+### branch topk-metax @ cbe6df7
+### 2026-09-23T09:56:26+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### preflight
+       base: ok
+          B: ok
+         A2: ok
+         A4: ok
+         A8: ok
+        A16: ok
+        A8u: ok
+        AB8: ok
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       50.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    8%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### child (budget + checks), arm base
+      24.1 79.5 68.1 171.7 1076 1839 1839/4096 ok ok ok split=2
+### tests, arm base
+      23 passed, 1 skipped
+### child (budget + checks), arm B
+      24.8 78.4 36.4 139.6 1076 1839 1839/4096 ok ok ok split=2
+### tests, arm B
+      23 passed, 1 skipped
+### child (budget + checks), arm A2
+      23.3 61.1 68.6 153.1 1076 1839 926/2048 ok ok ok split=2
+### tests, arm A2
+      23 passed, 1 skipped
+### child (budget + checks), arm A4
+      23.6 52.2 69.2 145.1 1076 1839 465/1024 ok ok ok split=4
+### tests, arm A4
+      23 passed, 1 skipped
+### child (budget + checks), arm A8
+      23.0 77.8 70.4 171.3 1076 1839 247/512 ok ok ok split=8
+### tests, arm A8
+      23 passed, 1 skipped
+### child (budget + checks), arm A16
+      23.7 50.7 79.5 153.8 1076 1839 133/256 ok ok ok split=16
+### tests, arm A16
+      23 passed, 1 skipped
+### child (budget + checks), arm A8u
+      24.2 75.0 73.9 173.0 1076 1839 247/512 ok ok ok split=8
+### tests, arm A8u
+      23 passed, 1 skipped
+### child (budget + checks), arm AB8
+      23.0 76.4 40.3 139.6 1076 1839 247/512 ok ok ok split=8
+### tests, arm AB8
+      23 passed, 1 skipped
+### benchmark pass 1, arm base
+### benchmark pass 1, arm B
+### benchmark pass 1, arm A2
+### benchmark pass 1, arm A4
+### benchmark pass 1, arm A8
+### benchmark pass 1, arm A16
+### benchmark pass 1, arm A8u
+### benchmark pass 1, arm AB8
+### benchmark pass 2, arm base
+### benchmark pass 2, arm B
+### benchmark pass 2, arm A2
+### benchmark pass 2, arm A4
+### benchmark pass 2, arm A8
+### benchmark pass 2, arm A16
+### benchmark pass 2, arm A8u
+### benchmark pass 2, arm AB8
+### restored; git status: clean
+
+  budget on 64x129280, do_bench on our own launches, us
+
+    arm split  prepare  collect   finish    whole   cand/row min-max   max fill   normal / band / partial
+   base     2     24.1     79.5     68.1    171.7     1076-1839        1839/4096   ok / ok / ok
+      B     2     24.8     78.4     36.4    139.6     1076-1839        1839/4096   ok / ok / ok
+     A2     2     23.3     61.1     68.6    153.1     1076-1839         926/2048   ok / ok / ok
+     A4     4     23.6     52.2     69.2    145.1     1076-1839         465/1024   ok / ok / ok
+     A8     8     23.0     77.8     70.4    171.3     1076-1839          247/512   ok / ok / ok
+    A16    16     23.7     50.7     79.5    153.8     1076-1839          133/256   ok / ok / ok
+    A8u     8     24.2     75.0     73.9    173.0     1076-1839          247/512   ok / ok / ok
+    AB8     8     23.0     76.4     40.3    139.6     1076-1839          247/512   ok / ok / ok
+
+  benchmark SpeedUp on 64x129280, two passes
+
+    arm    pass 1    pass 2   vs base   tests
+   base     0.631     0.624     1.000   23 passed, 1 skipped
+      B     0.776     0.776     1.237   23 passed, 1 skipped
+     A2     0.701     0.702     1.118   23 passed, 1 skipped
+     A4     0.741     0.731     1.173   23 passed, 1 skipped
+     A8     0.624     0.643     1.010   23 passed, 1 skipped
+    A16     0.730     0.725     1.159   23 passed, 1 skipped
+    A8u     0.648     0.646     1.031   23 passed, 1 skipped
+    AB8     0.796     0.793     1.266   23 passed, 1 skipped
+
+  the other six shapes do not take the sampled path -- a control:
+       base: geomean of the six 0.874 / 0.873
+          B: geomean of the six 0.872 / 0.902
+         A2: geomean of the six 0.898 / 0.891
+         A4: geomean of the six 0.862 / 0.876
+         A8: geomean of the six 0.880 / 0.880
+        A16: geomean of the six 0.881 / 0.890
+        A8u: geomean of the six 0.878 / 0.903
+        AB8: geomean of the six 0.898 / 0.892
+
+  vLLM latency on 64x129280 across arms and passes, max/min 1.01
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    96.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       57.0C    245.0W     manual   1000.0W    10%        0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
