@@ -26,11 +26,13 @@ one _process_bins. A patch whose anchor is not found exactly once skips its
 route with a warning, and the generic kernel runs.
 """
 
+import ast
 import functools
 import hashlib
 import importlib.util
 import logging
 import os
+import re
 import stat
 import sys
 import tempfile
@@ -42,19 +44,10 @@ import torch
 import triton
 import triton.language as tl
 
-from flaggems_vllm.runtime.backend._hygon.fused._top_k_per_row_prefill_carry_source import (
-    build_carry_source,
-    set_vector_width,
-)
-from flaggems_vllm.runtime.backend._hygon.fused._top_k_per_row_prefill_final_source import (
-    build_final_source,
-)
-
 _GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
 _DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
 _CARRY_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_carry"
 _VEC2_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2"
-_VEC2_FINAL_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2_final"
 _SHORT_BINS_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_short_bins"
 _SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
 
@@ -156,6 +149,26 @@ def _private_dir():
     return None
 
 
+def _write_private(source, stem):
+    """Write a patched copy into the private directory under its digest and
+    return the path. Never execute a file this process did not verify byte for
+    byte."""
+    base = _private_dir()
+    if base is None:
+        return None
+    digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+    path = os.path.join(base, f"top_k_per_row_prefill_{stem}_{digest}.py")
+    if not os.path.exists(path):
+        fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+        with os.fdopen(fd, "w") as fh:
+            fh.write(source)
+        os.replace(tmp, path)
+    with open(path) as fh:
+        if fh.read() != source:
+            return None
+    return path
+
+
 def _onescan_path():
     """Path of the patched generic source, or None to use the generic file."""
     if not _onescan_enabled():
@@ -176,21 +189,7 @@ def _onescan_path():
                 )
                 return None
             src = src.replace(old, new, 1)
-        base = _private_dir()
-        if base is None:
-            return None
-        digest = hashlib.sha256(src.encode()).hexdigest()[:16]
-        path = os.path.join(base, f"top_k_per_row_prefill_onescan_{digest}.py")
-        if not os.path.exists(path):
-            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
-            with os.fdopen(fd, "w") as fh:
-                fh.write(src)
-            os.replace(tmp, path)
-        # Never execute a file this process did not verify byte for byte.
-        with open(path) as fh:
-            if fh.read() != src:
-                return None
-        return path
+        return _write_private(src, "onescan")
     except Exception as exc:  # noqa: BLE001 - never break the override import
         _log.warning("hygon top_k_per_row_prefill: one-scan patch failed: %r", exc)
         return None
@@ -382,8 +381,113 @@ def _process_bins_slotscan(
 _dense._process_bins = _process_bins_slotscan
 
 
+def _replace_once(source, old, new):
+    count = source.count(old)
+    if count != 1:
+        raise ValueError(f"Expected one source block, got {count}: {old[:80]!r}")
+    return source.replace(old, new, 1)
+
+
+def _function_text(source, name):
+    node = next(
+        n
+        for n in ast.parse(source).body
+        if isinstance(n, ast.FunctionDef) and n.name == name
+    )
+    first = min([node.lineno] + [d.lineno for d in node.decorator_list])
+    return "\n".join(source.splitlines()[first - 1 : node.end_lineno])
+
+
+def _build_carry_source(generic_source, override_source):
+    """Return the dense source with a carried slot counter.
+
+    Raises ValueError on source drift; callers must keep the shipped dense
+    module as a fallback. No production kernel is changed by this function.
+    """
+    source = generic_source
+    for name in ("_alloc_slots", "_process_bins_slotscan"):
+        source += "\n\n" + _function_text(override_source, name) + "\n"
+    source += "\n_process_bins = _process_bins_slotscan\n"
+
+    old_helper = _function_text(source, "_process_bins_slotscan")
+    helper = _replace_once(
+        old_helper, "    STEP: tl.constexpr,", "    slot_base,\n    STEP: tl.constexpr,"
+    )
+    helper = _replace_once(
+        helper,
+        "    out_pos_lt = _alloc_slots(found_topk_values_ptrs, take_lt)",
+        """    take_int = take_lt.to(tl.int32)
+    flat_take = tl.reshape(take_int, (take_int.numel,))
+    offsets = tl.cumsum(flat_take, axis=0) - flat_take
+    out_pos_lt = slot_base + tl.reshape(offsets, take_int.shape)
+    slot_base += tl.sum(flat_take, axis=0)""",
+    )
+    helper += "\n    return slot_base"
+    source = _replace_once(source, old_helper, helper)
+
+    old_step = _function_text(source, "_process_histogram_step")
+    step = _replace_once(
+        old_step,
+        "    final_cnt_ptrs = s_final_cnt_ptr + zeros\n",
+        "    final_cnt_ptrs = s_final_cnt_ptr + zeros\n"
+        "    slot_base = tl.load(s_found_topk_values_ptr)\n",
+    )
+    calls = [
+        n
+        for n in ast.walk(ast.parse(step))
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "_process_bins"
+    ]
+    if len(calls) != 7:
+        raise ValueError(f"Expected seven collection sites, got {len(calls)}")
+    replacements = []
+    lines = step.splitlines(keepends=True)
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
+    for node in calls:
+        old = ast.get_source_segment(step, node)
+        new, count = re.subn(
+            r"(?m)^(\s*)STEP=STEP,", r"\1slot_base,\n\1STEP=STEP,", old
+        )
+        if count != 1:
+            raise ValueError("Missing STEP keyword in collection call")
+        start = offsets[node.lineno - 1] + node.col_offset
+        end = offsets[node.end_lineno - 1] + node.end_col_offset
+        replacements.append((start, end, "slot_base = " + new))
+    for start, end, new in sorted(replacements, reverse=True):
+        step = step[:start] + new + step[end:]
+    step = _replace_once(
+        step,
+        "    tl.debug_barrier()\n    return final_bin_size > NUM_FINAL_ITEMS, logit_pattern, threshold_bin_idx",
+        "    tl.store(s_found_topk_values_ptr, slot_base)\n"
+        "    tl.debug_barrier()\n"
+        "    return final_bin_size > NUM_FINAL_ITEMS, logit_pattern, threshold_bin_idx",
+    )
+    source = _replace_once(source, old_step, step)
+    compile(source, "<hygon-prefill-carry>", "exec")
+    return source
+
+
+def _set_vector_width(source, width):
+    """Change only the non-TLE launch alignment and histogram tile width."""
+    if width not in (1, 2, 4, 8):
+        raise ValueError(f"Unsupported prefill vector width: {width}")
+    if width == 4:
+        return source
+    for name in ("_process_histogram_step", "non_tle_top_k_per_row_prefill"):
+        old = _function_text(source, name)
+        new = _replace_once(
+            old, "    VEC: tl.constexpr = 4", f"    VEC: tl.constexpr = {width}"
+        )
+        source = _replace_once(source, old, new)
+    compile(source, f"<hygon-prefill-vec{width}>", "exec")
+    return source
+
+
 def _carry_path():
-    """Build the self-contained dense copy tested by the BW1000 audit."""
+    """Build the dense copy with its slot counter carried through the step."""
     if os.environ.get("FLAGGEMS_HYGON_TOPK_CARRY", "1").strip().lower() in (
         "0",
         "false",
@@ -399,21 +503,8 @@ def _carry_path():
             generic_source = fh.read()
         with open(__file__) as fh:
             override_source = fh.read()
-        source = build_carry_source(generic_source, override_source)
-        base = _private_dir()
-        if base is None:
-            return None
-        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
-        path = os.path.join(base, f"top_k_per_row_prefill_carry_{digest}.py")
-        if not os.path.exists(path):
-            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
-            with os.fdopen(fd, "w") as fh:
-                fh.write(source)
-            os.replace(tmp, path)
-        with open(path) as fh:
-            if fh.read() != source:
-                return None
-        return path
+        source = _build_carry_source(generic_source, override_source)
+        return _write_private(source, "carry")
     except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
         _log.warning("hygon prefill carry source skipped: %r", exc)
         return None
@@ -440,21 +531,8 @@ def _vec2_path():
         return None
     try:
         with open(_CARRY_PATH) as fh:
-            source = set_vector_width(fh.read(), 2)
-        base = _private_dir()
-        if base is None:
-            return None
-        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
-        path = os.path.join(base, f"top_k_per_row_prefill_vec2_{digest}.py")
-        if not os.path.exists(path):
-            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
-            with os.fdopen(fd, "w") as fh:
-                fh.write(source)
-            os.replace(tmp, path)
-        with open(path) as fh:
-            if fh.read() != source:
-                return None
-        return path
+            source = _set_vector_width(fh.read(), 2)
+        return _write_private(source, "vec2")
     except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
         _log.warning("hygon prefill VEC=2 source skipped: %r", exc)
         return None
@@ -466,49 +544,6 @@ try:
 except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
     _log.warning("hygon prefill VEC=2 module skipped: %r", exc)
     _dense_vec2 = None
-
-
-def _final_network_path():
-    """Build a separate exact final-selector copy of the dense VEC2 route."""
-    if _VEC2_PATH is None:
-        return None
-    if os.environ.get("FLAGGEMS_HYGON_TOPK_FINAL_NETWORK", "1").strip().lower() in (
-        "0",
-        "false",
-        "off",
-        "no",
-    ):
-        return None
-    try:
-        with open(_VEC2_PATH) as fh:
-            source = build_final_source(fh.read())
-        base = _private_dir()
-        if base is None:
-            return None
-        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
-        path = os.path.join(base, f"top_k_per_row_prefill_vec2_final_{digest}.py")
-        if not os.path.exists(path):
-            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
-            with os.fdopen(fd, "w") as fh:
-                fh.write(source)
-            os.replace(tmp, path)
-        with open(path) as fh:
-            if fh.read() != source:
-                return None
-        return path
-    except Exception as exc:  # noqa: BLE001 - use the validated VEC2 route
-        _log.warning("hygon prefill final-network source skipped: %r", exc)
-        return None
-
-
-_VEC2_FINAL_PATH = _final_network_path()
-try:
-    _dense_vec2_final = (
-        _load_copy(_VEC2_FINAL_NAME, _VEC2_FINAL_PATH) if _VEC2_FINAL_PATH else None
-    )
-except Exception as exc:  # noqa: BLE001 - use the validated VEC2 route
-    _log.warning("hygon prefill final-network module skipped: %r", exc)
-    _dense_vec2_final = None
 
 
 def _short_bins_path():
@@ -540,20 +575,7 @@ def _short_bins_path():
         if source.count(old_radix) != 1:
             raise ValueError("one-scan radix source drift")
         source = source.replace(old_radix, new_radix, 1)
-        base = _private_dir()
-        if base is None:
-            return None
-        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
-        path = os.path.join(base, f"top_k_per_row_prefill_short_bins_{digest}.py")
-        if not os.path.exists(path):
-            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
-            with os.fdopen(fd, "w") as fh:
-                fh.write(source)
-            os.replace(tmp, path)
-        with open(path) as fh:
-            if fh.read() != source:
-                return None
-        return path
+        return _write_private(source, "short_bins")
     except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
         _log.warning("hygon prefill short-bins source skipped: %r", exc)
         return None
@@ -634,7 +656,6 @@ _GENERIC_DEFAULTS = {
         _dense,
         _dense_carry,
         _dense_vec2,
-        _dense_vec2_final,
         _dense_short_bins,
     )
     if m is not None
@@ -732,7 +753,7 @@ def _top_k_per_row_prefill_reuse(
 
 
 def _select_module(logits, num_rows, top_k):
-    """Pick the original path or the measured Hygon dense final specialization."""
+    """Pick the Hygon dense copy for dense rows, the sparse copy otherwise."""
     vocab = logits.shape[1]
     if _ENABLED and vocab <= DENSE_VOCAB_PER_TOPK * top_k:
         if (
@@ -741,15 +762,6 @@ def _select_module(logits, num_rows, top_k):
             and vocab <= SHORT_BINS_MAX_VOCAB
         ):
             return _dense_short_bins
-        if (
-            _dense_vec2_final is not None
-            and not _dense_vec2_final.HAS_TLE
-            and num_rows >= 8192
-            and top_k == 512
-            and 2048 <= vocab <= 5120
-            and logits.dtype == torch.float32
-        ):
-            return _dense_vec2_final
         return (
             _dense_vec2
             if _dense_vec2 is not None
@@ -1455,30 +1467,18 @@ def _d_sampled(
 
 
 def _in_function(source, name, old, new):
-    import ast
-
-    node = next(
-        n
-        for n in ast.parse(source).body
-        if isinstance(n, ast.FunctionDef) and n.name == name
-    )
-    lines = source.splitlines(keepends=True)
-    first = min([node.lineno] + [d.lineno for d in node.decorator_list])
-    a = sum(map(len, lines[: first - 1]))
-    b = sum(map(len, lines[: node.end_lineno]))
-    body = source[a:b]
-    if body.count(old) != 1:
-        raise ValueError(f"{name}: anchor found {body.count(old)} times")
-    return source[:a] + body.replace(old, new, 1) + source[b:]
+    """Replace `old`, found exactly once inside function `name`."""
+    body = _function_text(source, name)
+    return _replace_once(source, body, _replace_once(body, old, new))
 
 
 def _dense_retry_path():
-    """The dense final copy, each program returning at once unless _d_sampled
+    """The dense VEC2 copy, each program returning at once unless _d_sampled
     flagged its row."""
-    if not DENSE_SAMPLED or _VEC2_FINAL_PATH is None:
+    if not DENSE_SAMPLED or _VEC2_PATH is None:
         return None
     try:
-        with open(_VEC2_FINAL_PATH) as fh:
+        with open(_VEC2_PATH) as fh:
             source = fh.read()
         kernel = "non_tle_top_k_per_row_prefill"
         source = _in_function(
@@ -1496,20 +1496,7 @@ def _dense_retry_path():
             "        return\n",
         )
         compile(source, "<hygon-prefill-dense-retry>", "exec")
-        base = _private_dir()
-        if base is None:
-            return None
-        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
-        path = os.path.join(base, f"top_k_per_row_prefill_dense_retry_{digest}.py")
-        if not os.path.exists(path):
-            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
-            with os.fdopen(fd, "w") as fh:
-                fh.write(source)
-            os.replace(tmp, path)
-        with open(path) as fh:
-            if fh.read() != source:
-                return None
-        return path
+        return _write_private(source, "dense_retry")
     except Exception as exc:  # noqa: BLE001 - keep the dense copy
         _log.warning("hygon prefill dense sampled route skipped: %r", exc)
         return None
