@@ -1,0 +1,93 @@
+### branch topk-metax @ 1e669b6
+### 2026-09-23T11:26:37+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    94.0W      manual   1000.0W    11%        0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### child (route, checks, do_bench), arm base
+      ROUTE flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2_final
+      CHILD 16383x4095 us=1110.0 checks=ok/ok/ok
+      CHILD 12961x4100 us=895.2 checks=ok/ok/ok
+      CHILD 16380x5115 us=1336.9 checks=ok/ok/ok
+### tests, arm base
+      23 passed, 1 skipped
+### child (route, checks, do_bench), arm net512
+      ROUTE flaggems_vllm.ops._top_k_per_row_prefill_probe_e_net512
+      CHILD 16383x4095 us=1109.1 checks=ok/ok/ok
+      CHILD 12961x4100 us=895.1 checks=ok/ok/ok
+      CHILD 16380x5115 us=1338.4 checks=ok/ok/ok
+### tests, arm net512
+      23 passed, 1 skipped
+### child (route, checks, do_bench), arm n256
+      ROUTE flaggems_vllm.ops._top_k_per_row_prefill_probe_e_n256
+      CHILD 16383x4095 us=1183.9 checks=ok/ok/ok
+      CHILD 12961x4100 us=955.7 checks=ok/ok/ok
+      CHILD 16380x5115 us=1368.1 checks=ok/ok/ok
+### tests, arm n256
+      23 passed, 1 skipped
+### child (route, checks, do_bench), arm n256r
+      ROUTE flaggems_vllm.ops._top_k_per_row_prefill_probe_e_n256r
+      CHILD 16383x4095 us=1228.2 checks=ok/ok/ok
+      CHILD 12961x4100 us=1002.7 checks=ok/ok/ok
+      CHILD 16380x5115 us=1459.3 checks=ok/ok/ok
+### tests, arm n256r
+      23 passed, 1 skipped
+### benchmark pass 1, arm base
+### benchmark pass 1, arm net512
+### benchmark pass 1, arm n256
+### benchmark pass 1, arm n256r
+### benchmark pass 2, arm net512
+### benchmark pass 2, arm n256
+### benchmark pass 2, arm n256r
+### benchmark pass 2, arm base
+
+  do_bench on our op alone, us (min of 3), and correctness
+
+     base: flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2_final | 16383x4095 us=1110.0 checks=ok/ok/ok | 12961x4100 us=895.2 checks=ok/ok/ok | 16380x5115 us=1336.9 checks=ok/ok/ok
+   net512: flaggems_vllm.ops._top_k_per_row_prefill_probe_e_net512 | 16383x4095 us=1109.1 checks=ok/ok/ok | 12961x4100 us=895.1 checks=ok/ok/ok | 16380x5115 us=1338.4 checks=ok/ok/ok
+     n256: flaggems_vllm.ops._top_k_per_row_prefill_probe_e_n256 | 16383x4095 us=1183.9 checks=ok/ok/ok | 12961x4100 us=955.7 checks=ok/ok/ok | 16380x5115 us=1368.1 checks=ok/ok/ok
+    n256r: flaggems_vllm.ops._top_k_per_row_prefill_probe_e_n256r | 16383x4095 us=1228.2 checks=ok/ok/ok | 12961x4100 us=1002.7 checks=ok/ok/ok | 16380x5115 us=1459.3 checks=ok/ok/ok
+
+  benchmark SpeedUp, pass 1 / pass 2
+
+      arm 16383x4095           12961x4100           16380x5115            dense-3 geo   vs base   tests
+     base          1.040/1.041          0.762/0.762          0.927/0.931       0.903     1.000   23 passed, 1 skipped
+   net512          1.040/1.041          0.762/0.762          0.927/0.927       0.902     0.999   23 passed, 1 skipped
+     n256          0.975/0.979          0.715/0.712          0.912/0.912       0.860     0.952   23 passed, 1 skipped
+    n256r          0.940/0.942          0.681/0.681          0.852/0.853       0.817     0.905   23 passed, 1 skipped
+
+  every other shape must not move (geomean of the other four):
+         base: 0.929 / 0.907
+       net512: 0.889 / 0.935
+         n256: 0.883 / 0.902
+        n256r: 0.906 / 0.891
+  vLLM latency on 16383x4095, max/min 1.00
+  vLLM latency on 12961x4100, max/min 1.00
+  vLLM latency on 16380x5115, max/min 1.00
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    103.0W     manual   1000.0W    11%        0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
