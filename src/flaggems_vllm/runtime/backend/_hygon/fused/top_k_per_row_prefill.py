@@ -16,8 +16,9 @@
 
 Very sparse rows (vocab >= 64 * top_k) take a sampled threshold. Dense rows
 (vocab <= 10 * top_k) run copies of the generic kernel with a prefix-sum slot
-allocator, a VEC=2 layout and, on the large dense shapes, a small exact final
-network. Everything else runs the generic kernel with one threshold scan.
+allocator and a VEC=2 layout; the large dense shapes take a one-read sampled
+kernel instead, with that copy as its retry. Everything else runs the generic
+kernel with one threshold scan.
 
 Each route is a separate copy of the generic module patched as source text:
 Triton binds a kernel's globals at compile time, so one module can hold only
@@ -1290,6 +1291,340 @@ def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k)
     )
 
 
+# ---------------------------------------------------------------------------
+# One read for the large dense shapes.
+#
+# The dense copy reads each row twice and fires one global atomic per element
+# for its histogram. On 12961x4100 (895 us) the atomics cost ~474 us, bound by
+# the distinct addresses they touch; the second read ~184 us, not served by L2;
+# the first read already runs at 88% of this card's 1302 GB/s. This route reads
+# the row once and issues no per-element atomic: two thresholds from a
+# 512-element sample, one pass that writes the sure set straight out and keeps
+# the band between the thresholds, then the missing top_k - S from the band by
+# bitwise lifting on the 32-bit ordered key. At one warp per program every
+# reduction and scan stays inside a wave; two warps were 1.34x slower. do_bench,
+# us, before the retry below:
+#
+#                  dense copy   this route
+#     16383x4095      1110          615
+#     12961x4100       890          524
+#     16380x5115      1343          687
+#
+# A row the sample misjudges -- sure set past top_k, band short of it, or band
+# over DS_BCAP -- is flagged: 0.5-1.1% of standard-normal rows, every row of a
+# narrow band. The dense copy then runs for every row and returns at once
+# unless its row was flagged, so the answer is always that copy's or exact.
+# 70/150 flags only 0.06-0.2% but needs a 1024-slot band, and was 1.7x slower.
+DENSE_SAMPLED = os.environ.get(
+    "FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED", "1"
+).strip().lower() not in ("0", "false", "off", "no")
+DS_BLOCK = 512
+DS_NS = 512
+DS_BCAP = 512
+DS_HI = 75  # percent of top_k expected above T_hi: surely in
+DS_LO = 135  # percent of top_k expected above T_lo: the band's end
+_DENSE_RETRY_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense_retry"
+
+
+@triton.jit
+def _d_kth(keys, valid, r):
+    """The r-th smallest 11-bit key (1-based) among the valid lanes."""
+    res = tl.zeros((), tl.int32)
+    for b in tl.static_range(10, -1, -1):
+        probe = res | (1 << b)
+        cnt = tl.sum((valid & (keys < probe)).to(tl.int32), axis=0)
+        res = tl.where(cnt < r, probe, res)
+    return res
+
+
+@triton.jit
+def _d_classify(
+    x, i, m, t_hi, t_lo, S, B, obase, kb, ib, TOPK: tl.constexpr, BCAP: tl.constexpr
+):
+    k = _key11(x).to(tl.int32)
+    sure = m & (k < t_hi)
+    band = m & (k >= t_hi) & (k < t_lo)
+    # both slot positions from one scan: the sure count in the low 16 bits
+    packed = sure.to(tl.int32) + (band.to(tl.int32) << 16)
+    cs = tl.cumsum(packed, axis=0) - packed
+    tot = tl.sum(packed, axis=0)
+    ps = S + (cs & 0xFFFF)
+    pb = B + (cs >> 16)
+    tl.store(obase + ps, i, mask=sure & (ps < TOPK))
+    keep = band & (pb < BCAP)
+    tl.store(kb + pb, _key32(x).to(tl.int32, bitcast=True), mask=keep)
+    tl.store(ib + pb, i, mask=keep)
+    return S + (tot & 0xFFFF), B + (tot >> 16)
+
+
+@triton.jit
+def _d_sampled(
+    x_ptr,
+    starts_ptr,
+    ends_ptr,
+    out_ptr,
+    bkey_ptr,
+    bidx_ptr,
+    flag_ptr,
+    stride0,
+    TOPK: tl.constexpr,
+    BLOCK: tl.constexpr,
+    NS: tl.constexpr,
+    BCAP: tl.constexpr,
+    HI: tl.constexpr,
+    LO: tl.constexpr,
+):
+    """One program per row: writes the row's top-k and a flag of 0, or a flag
+    of 1 and leaves the row to the dense copy."""
+    row = tl.program_id(0)
+    s = tl.load(starts_ptr + row)
+    e = tl.load(ends_ptr + row)
+    span = e - s
+    base = x_ptr + row * stride0 + s
+
+    CH: tl.constexpr = NS // 8
+    sl = tl.arange(0, NS)
+    si = (sl // CH) * (span // 8) + (sl % CH)
+    sv = si < span
+    sk = _key11(tl.load(base + si, mask=sv, other=float("-inf"))).to(tl.int32)
+    ns = tl.sum(sv.to(tl.int32), axis=0)
+    expect = TOPK * ns.to(tl.float32) / tl.maximum(span, 1).to(tl.float32)
+    t_hi = _d_kth(sk, sv, (expect * HI / 100).to(tl.int32))
+    t_lo = _d_kth(sk, sv, (expect * LO / 100).to(tl.int32) + 1) + 1
+
+    lane = tl.arange(0, BLOCK)
+    obase = out_ptr + row * TOPK
+    kb = bkey_ptr + row * BCAP
+    ib = bidx_ptr + row * BCAP
+    S = tl.zeros((), tl.int32)
+    B = tl.zeros((), tl.int32)
+    n_full = span // BLOCK
+    for t in tl.range(0, n_full):
+        i = t * BLOCK + lane
+        S, B = _d_classify(
+            tl.load(base + i), i, i >= 0, t_hi, t_lo, S, B, obase, kb, ib, TOPK, BCAP
+        )
+    i = n_full * BLOCK + lane
+    m = i < span
+    x = tl.load(base + i, mask=m, other=float("-inf"))
+    S, B = _d_classify(x, i, m, t_hi, t_lo, S, B, obase, kb, ib, TOPK, BCAP)
+
+    need = TOPK - S
+    good = (S <= TOPK) & (need <= B) & (B <= BCAP)
+    tl.store(flag_ptr + row, 1 - good.to(tl.int32))
+    # the band select reads back what this program just stored
+    tl.debug_barrier()
+    if good:
+        q = tl.arange(0, BCAP)
+        bv = q < B
+        bk = tl.load(kb + q, mask=bv, other=0).to(tl.uint32, bitcast=True)
+        # Lift only the bits where the band's keys differ. The highest one is
+        # the float exponent of min ^ max, which can round up, never down.
+        one = tl.full((), 1, tl.uint32)
+        kmin = tl.min(tl.where(bv, bk, tl.full([BCAP], 0xFFFFFFFF, tl.uint32)), axis=0)
+        kmax = tl.max(tl.where(bv, bk, tl.zeros([BCAP], tl.uint32)), axis=0)
+        hb = ((kmin ^ kmax).to(tl.float32).to(tl.int32, bitcast=True) >> 23) - 127
+        hb = tl.minimum(tl.maximum(hb, 0), 31)
+        nb = hb + 1
+        low = tl.where(
+            nb >= 32,
+            tl.full((), 0xFFFFFFFF, tl.uint32),
+            (one << nb.to(tl.uint32)) - one,
+        )
+        kth = kmin & ~low
+        for j in tl.range(0, nb):
+            probe = kth | (one << (hb - j).to(tl.uint32))
+            cnt = tl.sum((bv & (bk < probe)).to(tl.int32), axis=0)
+            kth = tl.where(cnt < need, probe, kth)
+        idx = tl.load(ib + q, mask=bv, other=0)
+        lt = bv & (bk < kth)
+        lti = lt.to(tl.int32)
+        nlt = tl.sum(lti, axis=0)
+        tl.store(obase + S + tl.cumsum(lti, axis=0) - lti, idx, mask=lt)
+        eq = bv & (bk == kth)
+        eqi = eq.to(tl.int32)
+        pe = S + nlt + tl.cumsum(eqi, axis=0) - eqi
+        tl.store(obase + pe, idx, mask=eq & (pe < TOPK))
+
+
+def _in_function(source, name, old, new):
+    import ast
+
+    node = next(
+        n
+        for n in ast.parse(source).body
+        if isinstance(n, ast.FunctionDef) and n.name == name
+    )
+    lines = source.splitlines(keepends=True)
+    first = min([node.lineno] + [d.lineno for d in node.decorator_list])
+    a = sum(map(len, lines[: first - 1]))
+    b = sum(map(len, lines[: node.end_lineno]))
+    body = source[a:b]
+    if body.count(old) != 1:
+        raise ValueError(f"{name}: anchor found {body.count(old)} times")
+    return source[:a] + body.replace(old, new, 1) + source[b:]
+
+
+def _dense_retry_path():
+    """The dense final copy, each program returning at once unless _d_sampled
+    flagged its row."""
+    if not DENSE_SAMPLED or _VEC2_FINAL_PATH is None:
+        return None
+    try:
+        with open(_VEC2_FINAL_PATH) as fh:
+            source = fh.read()
+        kernel = "non_tle_top_k_per_row_prefill"
+        source = _in_function(
+            source,
+            kernel,
+            "    s_found_topk_values_ptr,\n    TOPK: tl.constexpr,\n",
+            "    s_found_topk_values_ptr,\n    skip_ptr,\n    TOPK: tl.constexpr,\n",
+        )
+        source = _in_function(
+            source,
+            kernel,
+            "    row_id = tl.program_id(0) + ROW_OFFSET\n",
+            "    row_id = tl.program_id(0) + ROW_OFFSET\n"
+            "    if tl.load(skip_ptr + row_id) == 0:\n"
+            "        return\n",
+        )
+        compile(source, "<hygon-prefill-dense-retry>", "exec")
+        base = _private_dir()
+        if base is None:
+            return None
+        digest = hashlib.sha256(source.encode()).hexdigest()[:16]
+        path = os.path.join(base, f"top_k_per_row_prefill_dense_retry_{digest}.py")
+        if not os.path.exists(path):
+            fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(source)
+            os.replace(tmp, path)
+        with open(path) as fh:
+            if fh.read() != source:
+                return None
+        return path
+    except Exception as exc:  # noqa: BLE001 - keep the dense copy
+        _log.warning("hygon prefill dense sampled route skipped: %r", exc)
+        return None
+
+
+_DENSE_RETRY_PATH = _dense_retry_path()
+try:
+    _dense_retry = (
+        _load_copy(_DENSE_RETRY_NAME, _DENSE_RETRY_PATH) if _DENSE_RETRY_PATH else None
+    )
+except Exception as exc:  # noqa: BLE001 - keep the dense copy
+    _log.warning("hygon prefill dense retry module skipped: %r", exc)
+    _dense_retry = None
+if _dense_retry is not None:
+    _GENERIC_DEFAULTS[id(_dense_retry)] = (
+        _dense_retry.NUM_THREADS_PER_BLOCK,
+        _dense_retry._num_warps,
+    )
+
+
+class _DPlan:
+    """Buffers and the sampled launch for one dense shape."""
+
+    def __init__(self, dev, num_rows, top_k):
+        self.bkey = torch.empty((num_rows, DS_BCAP), dtype=torch.int32, device=dev)
+        self.bidx = torch.empty((num_rows, DS_BCAP), dtype=torch.int32, device=dev)
+        self.flags = torch.empty((num_rows,), dtype=torch.int32, device=dev)
+        self.launch = _SLaunch(
+            _d_sampled,
+            (num_rows,),
+            {
+                "TOPK": top_k,
+                "BLOCK": DS_BLOCK,
+                "NS": DS_NS,
+                "BCAP": DS_BCAP,
+                "HI": DS_HI,
+                "LO": DS_LO,
+            },
+            1,
+        )
+
+
+_DPLANS = {}
+_DPLAN_LOCK = threading.Lock()
+
+
+def _can_dense_sample(logits, row_starts, row_ends, num_rows, stride1, top_k):
+    vocab = logits.shape[1]
+    return (
+        _dense_retry is not None
+        and top_k == 512
+        and num_rows >= 8192
+        and 2048 <= vocab <= 5120
+        and stride1 == 1
+        and num_rows == logits.shape[0]
+        and logits.dtype == torch.float32
+        and row_starts.dtype == torch.int32
+        and row_ends.dtype == torch.int32
+        and not getattr(_generic, "HAS_TLE", False)
+        and not _dense_retry.HAS_TLE
+        and num_rows * DS_BCAP <= _MAX_CAND_ELEMS
+    )
+
+
+def _dense_sampled(logits, row_starts, row_ends, indices, num_rows, stride0, top_k):
+    dev = logits.device
+    key = (
+        dev,
+        torch.cuda.current_stream(dev).cuda_stream,
+        num_rows,
+        logits.shape[1],
+        top_k,
+        stride0,
+        _s_aligned(logits),
+        _s_aligned(row_starts),
+        _s_aligned(row_ends),
+        _s_aligned(indices),
+    )
+    mod = _dense_retry
+    geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
+    with _DPLAN_LOCK:
+        plan = _DPLANS.get(key)
+        if plan is None:
+            if len(_DPLANS) >= _SPLANS_MAX:
+                _DPLANS.pop(next(iter(_DPLANS)))
+            plan = _DPLANS[key] = _DPlan(dev, num_rows, top_k)
+        plan.launch(
+            logits,
+            row_starts,
+            row_ends,
+            indices,
+            plan.bkey,
+            plan.bidx,
+            plan.flags,
+            stride0,
+        )
+        with _LAUNCH_LOCK:
+            if geo is None:
+                mod.NUM_THREADS_PER_BLOCK, mod._num_warps = _GENERIC_DEFAULTS[id(mod)]
+            else:
+                block, warps = geo
+                mod.NUM_THREADS_PER_BLOCK = block
+                mod._num_warps = lambda block_size, w=warps: w
+            scratch = _scratch_buffers(mod, dev, num_rows)
+            mod.non_tle_top_k_per_row_prefill[(num_rows,)](
+                logits,
+                indices,
+                row_starts,
+                row_ends,
+                stride0,
+                1,
+                logits.shape[1],
+                *scratch,
+                plan.flags,
+                TOPK=top_k,
+                BLOCK_SIZE=mod.NUM_THREADS_PER_BLOCK,
+                ROW_OFFSET=0,
+                num_warps=mod._num_warps(mod.NUM_THREADS_PER_BLOCK),
+            )
+    return indices
+
+
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
@@ -1317,6 +1652,11 @@ def top_k_per_row_prefill(
                 )
             plan.run(logits, row_starts, row_ends, indices, stride0)
         return indices
+
+    if _can_dense_sample(logits, row_starts, row_ends, num_rows, stride1, top_k):
+        return _dense_sampled(
+            logits, row_starts, row_ends, indices, num_rows, stride0, top_k
+        )
 
     mod = _select_module(logits, num_rows, top_k)
     geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
