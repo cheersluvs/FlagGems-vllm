@@ -1,0 +1,82 @@
+### branch topk-metax @ beb7972
+### 2026-09-23T11:07:16+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### preflight
+       base: ok
+        reg: ok
+       reg1: ok
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       52.0C    169.0W     manual   1000.0W    11%        0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### child (budget + checks), arm base
+      24.4 51.7 36.0 112.1 1076 1839 ok/ok/ok thr_ck=1054796 cnt_ck=2844787 thr=506-509
+### tests, arm base
+      23 passed, 1 skipped
+### child (budget + checks), arm reg
+      32.4 51.6 36.8 120.9 1076 1839 ok/ok/ok thr_ck=1054796 cnt_ck=2844787 thr=506-509
+### tests, arm reg
+      23 passed, 1 skipped
+### child (budget + checks), arm reg1
+      22.9 67.3 57.2 147.3 2840 3093 ok/ok/ok thr_ck=1064960 cnt_ck=6102184 thr=512-512
+### tests, arm reg1
+      23 passed, 1 skipped
+### benchmark pass 1, arm base
+### benchmark pass 1, arm reg
+### benchmark pass 1, arm reg1
+### benchmark pass 2, arm reg
+### benchmark pass 2, arm reg1
+### benchmark pass 2, arm base
+### restored; git status: clean
+
+  budget on 64x129280, do_bench on our own launches, us
+
+    arm  prepare  collect   finish    whole   cand/row    normal/band/partial
+   base     24.4     51.7     36.0    112.1   1076-1839    ok/ok/ok
+    reg     32.4     51.6     36.8    120.9   1076-1839    ok/ok/ok
+   reg1     22.9     67.3     57.2    147.3   2840-3093    ok/ok/ok
+
+  thresholds and candidate counts -- base and reg must agree EXACTLY:
+       base: thr_ck=1054796 cnt_ck=2844787 thr=506-509
+        reg: thr_ck=1054796 cnt_ck=2844787 thr=506-509
+       reg1: thr_ck=1064960 cnt_ck=6102184 thr=512-512
+
+  benchmark SpeedUp on 64x129280, two passes
+
+    arm    pass 1    pass 2   vs base   tests
+   base     0.958     0.954     1.000   23 passed, 1 skipped
+    reg     0.906     0.937     0.964   23 passed, 1 skipped
+   reg1     0.736     0.741     0.772   23 passed, 1 skipped
+
+  the other six shapes do not take the sampled path -- a control:
+       base: geomean of the six 0.896 / 0.912
+        reg: geomean of the six 0.880 / 0.881
+       reg1: geomean of the six 0.896 / 0.896
+
+  vLLM latency on that shape, max/min 1.00
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       53.0C    196.0W     manual   1000.0W    11%        0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
