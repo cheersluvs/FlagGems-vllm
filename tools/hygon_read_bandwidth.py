@@ -126,7 +126,7 @@ def main():
             f"   {us:8.1f} us   {gbs:7.0f} GB/s"
         )
     print(f"\n  peak read: {best:.0f} GB/s")
-    del x
+    x = None  # release before the row buffers
     torch.cuda.empty_cache()
 
     arms = [
@@ -174,7 +174,7 @@ def main():
             print(
                 f"  {num_rows}x{vocab:<5} {tag:>9} {us:9.1f} {gbs:7.0f} {100 * gbs / best:7.0f}%{note}"
             )
-        del buf
+        buf = None
         torch.cuda.empty_cache()
 
     print(
