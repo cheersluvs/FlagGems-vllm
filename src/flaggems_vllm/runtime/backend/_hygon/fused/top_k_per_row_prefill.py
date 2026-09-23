@@ -863,21 +863,25 @@ CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]
 SBLOCK = 512
 SWARPS = 8
 SRADIX = 256
-# Programs per row in the collect pass. Swept on (64,129280), benchmark
-# SpeedUp, two passes each (tools/hygon_prefill_collect_split.py):
+# Programs per row in the collect pass. Each has its OWN counter and its own
+# segment of the candidate buffer: a partially-masked atomic to one address
+# costs ~12 ns per taken lane on this card, serialised
+# (tools/hygon_masked_atomic_cost.py), so a row's ~1362 appends queued on a
+# shared counter however many programs split the row. Measured on
+# (64,129280), benchmark SpeedUp, two passes each:
 #
-#     split      1(cta)  1(gpu)    2       4       8      16
-#     programs      64      64    128     256     512    1024
-#     SpeedUp    0.600   0.599  0.631   0.605   0.569   0.531
+#     split                 2       4       8      16
+#     shared counter      0.631   0.605   0.569   0.531
+#     private counters    0.702   0.736   0.634   0.728
 #
-# Splitting one row across two programs is worth 5.2%; the device-scoped
-# counter it needs is free (the 1(gpu) arm). Note the sweep is NOT monotone
-# and the occupancy argument that motivated it predicts the wrong answer:
-# 3200 wave slots at SWARPS each is ~400 programs, so "add waves until the
-# card is full" says 8, which is 5% WORSE than not splitting at all. Past two
-# the shared counter costs more than the waves return. 2 is measured, not
-# derived.
-SSPLIT = max(1, int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSPLIT", "2")))
+# (tools/hygon_prefill_collect_split.py, tools/hygon_prefill_private_counters.py)
+# Private counters are worth 11.8% at the old split of 2 and 17.3% at 4. 8 is
+# bad in both rows; three arms at 8 agree, so it is real, but it is not
+# understood. Padding the counters onto separate cache lines changed nothing:
+# it is the address that has to be private, not the line.
+# A power of two, because prepare zeroes a row's counters with one arange.
+_ssplit = max(1, int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSPLIT", "4")))
+SSPLIT = 1 << (_ssplit.bit_length() - 1)
 _MAX_CAND_ELEMS = 1 << 24
 
 # The sample and the collect key off the operator's own 11-bit STEP-0 key; the
@@ -949,6 +953,7 @@ def _s_prepare(
     NB: tl.constexpr,
     STRIDE: tl.constexpr,
     BLOCK: tl.constexpr,
+    SPLIT: tl.constexpr,
 ):
     """Zero, sample and threshold, one program per row -- so the histogram is
     this program's alone and a barrier is all the ordering needed."""
@@ -957,7 +962,7 @@ def _s_prepare(
     base = hist_ptr + row * NB
     for t in tl.static_range(NB // BLOCK):
         tl.store(base + t * BLOCK + lane, tl.zeros([BLOCK], tl.int32))
-    tl.store(cnt_ptr + row, 0)
+    tl.store(cnt_ptr + row * SPLIT + tl.arange(0, SPLIT), tl.zeros([SPLIT], tl.int32))
     tl.debug_barrier()
     s = tl.load(starts_ptr + row)
     e = tl.load(ends_ptr + row)
@@ -985,6 +990,7 @@ def _s_collect(
     VEC: tl.constexpr,
     SPLIT: tl.constexpr,
     CHUNK: tl.constexpr,
+    SEG: tl.constexpr,
 ):
     """One pass: append every element strictly better than the threshold bin.
     Indices are stored relative to row_start, which is what the operator
@@ -1001,10 +1007,12 @@ def _s_collect(
     generic's collection pass reaches ~1270, essentially read speed -- and a
     mask on every load is the one structural difference between them.
 
-    SPLIT programs divide the row, so the candidate counter is shared and its
-    atomic is scoped to the device. CHUNK is a multiple of BLOCK * VEC, which
-    keeps the bulk loop unmasked inside each chunk; the last part runs to the
-    end of the row regardless, so coverage does not depend on that arithmetic.
+    SPLIT programs divide the row. Each appends through its OWN counter into
+    its own SEG-long segment of the row's candidate buffer, which _s_finish
+    compacts; a shared counter serialised every program of the row on one
+    address (see SSPLIT). CHUNK is a multiple of BLOCK * VEC, which keeps the
+    bulk loop unmasked inside each chunk; the last part runs to the end of the
+    row regardless, so coverage does not depend on that arithmetic.
     """
     pid = tl.program_id(0)
     row = pid // SPLIT
@@ -1018,8 +1026,8 @@ def _s_collect(
     off = lane[:, None] * VEC + tl.arange(0, VEC)[None, :]
     ones2 = tl.full([BLOCK, VEC], 1, tl.int32)
     ones1 = tl.full([BLOCK], 1, tl.int32)
-    cnt2 = cnt_ptr + row + tl.zeros([BLOCK, VEC], tl.int32)
-    cnt1 = cnt_ptr + row + tl.zeros([BLOCK], tl.int32)
+    cnt2 = cnt_ptr + pid + tl.zeros([BLOCK, VEC], tl.int32)
+    cnt1 = cnt_ptr + pid + tl.zeros([BLOCK], tl.int32)
 
     start = part * CHUNK
     stop = tl.minimum(start + CHUNK, span)
@@ -1027,11 +1035,11 @@ def _s_collect(
     have = tl.maximum(stop - start, 0)
 
     n_vec = have // (BLOCK * VEC)
-    # Two pipeline stages. This shape is occupancy-starved rather than
-    # atomic-bound -- 64 workgroups is 512 waves against 3200 slots, 16%, with
-    # arch_vgpr 44 -- so the lever is hiding latency inside a wave. (Waves can
-    # also be added, but only a little: see SSPLIT.) Measured on (64,129280),
-    # benchmark SpeedUp, two passes each (tools/hygon_prefill_pipeline.py):
+    # Two pipeline stages, to hide load latency inside a wave: at one program
+    # per row this shape was 512 waves against 3200 slots, 16%, with arch_vgpr
+    # 44. (It was atomic-bound as well -- see SSPLIT.) Measured on (64,129280)
+    # at one program per row, benchmark SpeedUp, two passes each
+    # (tools/hygon_prefill_pipeline.py):
     #
     #     stages   1       2       3       4     two tiles by hand
     #     SpeedUp  0.582   0.600   0.542   0.544   0.605
@@ -1047,9 +1055,9 @@ def _s_collect(
         # promotion implicit selects every element (the MTT override records
         # the same bug).
         take = _key11(x).to(tl.int32) < thr
-        pos = tl.atomic_add(cnt2, ones2, mask=take, sem="relaxed", scope="gpu")
-        keep = take & (pos >= 0) & (pos < CAP)
-        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
+        pos = tl.atomic_add(cnt2, ones2, mask=take, sem="relaxed", scope="cta")
+        keep = take & (pos >= 0) & (pos < SEG)
+        tl.store(cand_idx_ptr + pid * SEG + pos, i.to(tl.int32), mask=keep)
 
     tail = start + n_vec * BLOCK * VEC
     for t in tl.range(0, tl.cdiv(tl.maximum(stop - tail, 0), BLOCK)):
@@ -1057,9 +1065,9 @@ def _s_collect(
         m = i < stop
         x = tl.load(base + i, mask=m, other=0.0)
         take = m & (_key11(x).to(tl.int32) < thr)
-        pos = tl.atomic_add(cnt1, ones1, mask=take, sem="relaxed", scope="gpu")
-        keep = take & (pos >= 0) & (pos < CAP)
-        tl.store(cand_idx_ptr + row * CAP + pos, i.to(tl.int32), mask=keep)
+        pos = tl.atomic_add(cnt1, ones1, mask=take, sem="relaxed", scope="cta")
+        keep = take & (pos >= 0) & (pos < SEG)
+        tl.store(cand_idx_ptr + pid * SEG + pos, i.to(tl.int32), mask=keep)
 
 
 @triton.jit
@@ -1071,6 +1079,7 @@ def _s_finish(
     cnt_ptr,
     cand_idx_ptr,
     cand_val_ptr,
+    cidx_ptr,
     out_ptr,
     counts_ptr,
     slot_ptr,
@@ -1080,6 +1089,8 @@ def _s_finish(
     CAP: tl.constexpr,
     RADIX: tl.constexpr,
     BLOCK: tl.constexpr,
+    SPLIT: tl.constexpr,
+    SEG: tl.constexpr,
 ):
     """The retry decision and the exact answer, one program per row.
 
@@ -1087,6 +1098,9 @@ def _s_finish(
     outside [TOPK, CAP] is redone here -- over the FULL 32-bit ordered key,
     not the 11-bit one the sample and the collect use, because that key
     collapses on a narrow band and the overflow guarantee goes with it.
+
+    The candidates arrive in SPLIT per-program segments of SEG each; a
+    segment that filled has lost candidates, which is the overflow case.
 
     Rows inside the window take the exact top-k of their candidates: four
     8-bit radix rounds over the same 32-bit key.
@@ -1098,8 +1112,13 @@ def _s_finish(
     s = tl.load(starts_ptr + row)
     e = tl.load(ends_ptr + row)
     span = e - s
-    c = tl.load(cnt_ptr + row)
-    if (c < tl.minimum(TOPK, span)) | (c > CAP):
+    c = tl.zeros((), tl.int32)
+    over = tl.zeros((), tl.int32)
+    for sg in tl.static_range(SPLIT):
+        craw = tl.load(cnt_ptr + row * SPLIT + sg)
+        c += tl.minimum(craw, SEG)
+        over += (craw > SEG).to(tl.int32)
+    if (c < tl.minimum(TOPK, span)) | (over > 0):
         # The 11-bit fp16 key can COLLAPSE: a row whose values sit in a narrow
         # band away from zero (relative spread below about 1%, the key's
         # resolution being magnitude/32) maps to one or two bins, and then
@@ -1167,24 +1186,30 @@ def _s_finish(
             tl.store(obase_r + rj, -1, mask=(rj >= rfilled) & (rj < TOPK))
         return
 
-    n = tl.minimum(tl.load(cnt_ptr + row), CAP)
+    ibase = cidx_ptr + row * CAP
     vbase = cand_val_ptr + row * CAP
-    ibase = cand_idx_ptr + row * CAP
     obase = out_ptr + row * TOPK
     cbase = counts_ptr + row * RADIX
-    tiles = tl.cdiv(n, BLOCK)
 
-    # _s_collect stores indices only; gather the candidate values back from
-    # global memory. The retry above stores values as well, so this re-read is
-    # redundant there -- but correct, and the retry does not fire in practice.
-    # The barrier is required: this program loads from vbase right after
-    # storing to it.
+    # _s_collect stores indices only, in per-program segments. Compact them
+    # into one contiguous index buffer and gather each candidate's value back
+    # from global memory on the way. The retry above stores values as well,
+    # so this re-read is redundant there -- but correct, and the retry does
+    # not fire in practice. The barrier is required: this program loads from
+    # vbase and ibase right after storing to them.
     row_base = logits_ptr + row * stride0 + s
-    for t in tl.range(0, tiles):
-        pos = t * BLOCK + lane
-        valid = pos < n
-        ci = tl.load(ibase + pos, mask=valid, other=0)
-        tl.store(vbase + pos, tl.load(row_base + ci, mask=valid, other=0.0), mask=valid)
+    n = tl.zeros((), tl.int32)
+    for sg in tl.static_range(SPLIT):
+        cseg = tl.minimum(tl.load(cnt_ptr + row * SPLIT + sg), SEG)
+        sbase = cand_idx_ptr + (row * SPLIT + sg) * SEG
+        for t in tl.range(0, tl.cdiv(cseg, BLOCK)):
+            p = t * BLOCK + lane
+            pv = p < cseg
+            ci = tl.load(sbase + p, mask=pv, other=0)
+            tl.store(ibase + n + p, ci, mask=pv)
+            tl.store(vbase + n + p, tl.load(row_base + ci, mask=pv, other=0.0), mask=pv)
+        n += cseg
+    tiles = tl.cdiv(n, BLOCK)
     tl.debug_barrier()
 
     if n <= TOPK:
@@ -1227,9 +1252,11 @@ def _s_finish(
             k_to_find = k_to_find - lt
 
     thr_key = desired
-    tl.store(slot_ptr + row, 0)
-    tl.debug_barrier()
-    slots = slot_ptr + row + tl.zeros([BLOCK], tl.int32)
+    # One program owns the row, so its output positions need no atomic: a
+    # running offset plus an exclusive prefix over the take mask. The slot
+    # atomic this replaces cost 31.7 of finish's 68.1 us on (64,129280) --
+    # benchmark SpeedUp 0.628 -> 0.776 (tools/hygon_prefill_private_counters.py).
+    filled = tl.zeros((), tl.int32)
     for equal in tl.static_range(2):
         for t in tl.range(0, tiles):
             pos = t * BLOCK + lane
@@ -1239,10 +1266,11 @@ def _s_finish(
                 take = valid & (key < thr_key)
             else:
                 take = valid & (key == thr_key)
-            q = tl.atomic_add(slots, ones, mask=take, sem="relaxed", scope="cta")
+            ti = take.to(tl.int32)
+            q = filled + tl.cumsum(ti, axis=0) - ti
+            filled += tl.sum(ti, axis=0)
             idx = tl.load(ibase + pos, mask=take, other=-1)
             tl.store(obase + q, idx, mask=take & (q < TOPK))
-        tl.debug_barrier()
 
 
 class _SLaunch:
@@ -1285,9 +1313,10 @@ class _SPlan:
         nb = _generic.NUM_BINS
         self.hist = torch.empty((num_rows, nb), dtype=torch.int32, device=dev)
         self.thr = torch.empty((num_rows,), dtype=torch.int32, device=dev)
-        self.cnt = torch.empty((num_rows,), dtype=torch.int32, device=dev)
+        self.cnt = torch.empty((num_rows * SSPLIT,), dtype=torch.int32, device=dev)
         self.cand_idx = torch.empty((num_rows, cap), dtype=torch.int32, device=dev)
         self.cand_val = torch.empty((num_rows, cap), dtype=dtype, device=dev)
+        self.cidx = torch.empty((num_rows, cap), dtype=torch.int32, device=dev)
         self.counts = torch.empty((num_rows, SRADIX), dtype=torch.int32, device=dev)
         self.slot = torch.empty((num_rows,), dtype=torch.int32, device=dev)
         self.prepare = _SLaunch(
@@ -1298,6 +1327,7 @@ class _SPlan:
                 "NB": nb,
                 "STRIDE": SSTRIDE,
                 "BLOCK": SBLOCK,
+                "SPLIT": SSPLIT,
             },
             SWARPS,
         )
@@ -1311,13 +1341,22 @@ class _SPlan:
                 "VEC": 4,
                 "SPLIT": SSPLIT,
                 "CHUNK": schunk,
+                "SEG": cap // SSPLIT,
             },
             SWARPS,
         )
         self.finish = _SLaunch(
             _s_finish,
             (num_rows,),
-            {"TOPK": top_k, "NB": nb, "CAP": cap, "RADIX": SRADIX, "BLOCK": SBLOCK},
+            {
+                "TOPK": top_k,
+                "NB": nb,
+                "CAP": cap,
+                "RADIX": SRADIX,
+                "BLOCK": SBLOCK,
+                "SPLIT": SSPLIT,
+                "SEG": cap // SSPLIT,
+            },
             SWARPS,
         )
 
@@ -1341,6 +1380,7 @@ class _SPlan:
             self.cnt,
             self.cand_idx,
             self.cand_val,
+            self.cidx,
             indices,
             self.counts,
             self.slot,
