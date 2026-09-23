@@ -58,13 +58,8 @@ pytestmark = pytest.mark.skipif(
 try:
     import vllm._custom_ops  # noqa: F401 — loads torch.ops._C
 
-    # Importing vLLM is NOT proof the op exists; the vendor of the build
-    # is not the test either -- this box's MUSA build DOES export
-    # top_k_per_row_prefill. Check the symbol itself with hasattr, never
-    # dir(): torch.ops._C lists only what it has already resolved.
-    # Without this check HAS_VLLM would
-    # then be a lie -- the benchmark would report a SpeedUp against a baseline
-    # that does not exist. Check for the symbol itself, after the import.
+    # Import alone does not prove the op exists; check the symbol (hasattr, not
+    # dir(): torch.ops._C resolves lazily).
     if not hasattr(torch.ops._C, "top_k_per_row_prefill"):
         raise AttributeError("vLLM build exposes no top_k_per_row_prefill")
 
@@ -77,10 +72,7 @@ try:
 
     HAS_VLLM = True
 except (ImportError, AttributeError, RuntimeError):
-    # RuntimeError because a misconfigured vLLM should mean "no baseline", not a
-    # collection error: with two platform plugins registered it raises
-    # "Only one platform plugin can be activated" at import, which aborted
-    # collection of this whole file on an MTT box.
+    # RuntimeError: vLLM raises it at import when two platform plugins are active.
     HAS_VLLM = False
     _vllm_top_k_per_row_prefill = None
 
@@ -179,35 +171,25 @@ def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
 @pytest.mark.top_k_per_row_prefill
 @pytest.mark.parametrize(
     "num_rows,vocab_size,top_k",
-    [(4, 129280, 1024), (64, 4096, 512), (8192, 4096, 512)],
+    [
+        (1, 129280, 1024),
+        (4, 129280, 1024),
+        (64, 129280, 1024),
+        (64, 4096, 512),
+        (8192, 4096, 512),
+    ],
 )
 @pytest.mark.parametrize("width", [0.2, 0.02])
 def test_top_k_per_row_prefill_narrow_band(num_rows, vocab_size, top_k, width):
-    """Rows inside a band narrower than the STEP-0 key can resolve.
+    """Rows in a band narrower than the STEP-0 key resolves.
 
-    The radix algorithm's STEP-0 key is sign + 5 exponent bits + the top 5
-    mantissa bits of the fp16 form, so within one binade it resolves
-    magnitude/32 -- 0.25 at magnitude 10. A row drawn from [10.0, 10.2)
-    therefore maps to a SINGLE bin, and the guarantee an implementation gets
-    from "an overflow can only drop what shares the k-th element's key"
-    becomes true but vacuous: every element shares it, so the true top-k can
-    be dropped. The generic operator escapes through STEP 1-3, which refine
-    over the full 32 bits, and any path that skips those has to say how it
-    escapes instead.
-
-    This has now been a real wrong-answer bug twice, in the Moore Threads
-    prefill override and in the Hygon decode one, and neither suite could see
-    it: test_logits_diff_in_8LSBits builds the same collapse at magnitude
-    1.125, where one ULP is 1.2e-7 and the error lands just inside
-    allclose(atol=1e-6, rtol=1e-6).
-
-    A CONSTANT row does not test this -- it passes even when the key has
-    collapsed, because when every value is equal any k of them is a correct
-    answer. Only a band discriminates.
+    The STEP-0 key keeps five mantissa bits of the fp16 form, so it resolves
+    magnitude/32 -- 0.25 at magnitude 10 -- and [10.0, 10.2) maps to one bin.
+    A path that skips STEP 1-3 must still rank such a row exactly. A constant
+    row does not test this: any k of equal values is a correct answer. The band
+    sits away from zero on purpose: near zero the exponent varies from element
+    to element and the key spreads out again.
     """
-    if top_k > vocab_size:
-        return
-
     torch.manual_seed(42)
 
     logits = 10.0 + width * torch.rand(
@@ -231,10 +213,8 @@ def test_top_k_per_row_prefill_narrow_band(num_rows, vocab_size, top_k, width):
 
 
 def _tle_prefill_available():
-    """Whether the TLE prefill path is live -- decided after one call, not at
-    collection. A vendor override may switch the generic module onto TLE on
-    its first call (MetaX does, after a runtime self-test), so a skipif that
-    reads HAS_TLE at collection time skips this test even where TLE runs."""
+    """Whether TLE prefill is live after one call: a vendor override may turn it
+    on at the first call, after a collection-time skipif has already run."""
     logits = torch.randn(1, 4096, device=device, dtype=torch.float32)
     starts = torch.zeros(1, dtype=torch.int32, device=device)
     ends = torch.full((1,), 4096, dtype=torch.int32, device=device)
