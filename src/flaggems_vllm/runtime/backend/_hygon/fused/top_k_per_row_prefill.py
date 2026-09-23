@@ -42,8 +42,13 @@ import torch
 import triton
 import triton.language as tl
 
-from ._top_k_per_row_prefill_carry_source import build_carry_source, set_vector_width
-from ._top_k_per_row_prefill_final_source import build_final_source
+from flaggems_vllm.runtime.backend._hygon.fused._top_k_per_row_prefill_carry_source import (
+    build_carry_source,
+    set_vector_width,
+)
+from flaggems_vllm.runtime.backend._hygon.fused._top_k_per_row_prefill_final_source import (
+    build_final_source,
+)
 
 _GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
 _DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
