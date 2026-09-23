@@ -1,0 +1,123 @@
+### branch topk-metax @ ffbc33e
+### 2026-09-23T15:36:28+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### part A: correctness and cost, route ON / OFF
+  [on ] 16383x4095 normal routed=True us=700.4 flagged=76 answer=ok
+  [on ] 16383x4095 partial routed=True us=605.5 flagged=18 answer=ok
+  [on ] 16383x4095 ties routed=True us=858.1 flagged=1483 answer=ok
+  [on ] 16383x4095 band routed=True us=8627.6 flagged=16383 answer=ok
+  [on ] 16383x4095 const routed=True us=18184.9 flagged=16383 answer=ok
+  [on ] 12961x4100 normal routed=True us=594.6 flagged=61 answer=ok
+  [on ] 12961x4100 partial routed=True us=489.3 flagged=15 answer=ok
+  [on ] 12961x4100 ties routed=True us=764.7 flagged=1527 answer=ok
+  [on ] 12961x4100 band routed=True us=6957.3 flagged=12961 answer=ok
+  [on ] 12961x4100 const routed=True us=14609.1 flagged=12961 answer=ok
+  [on ] 16380x5115 normal routed=True us=778.5 flagged=186 answer=ok
+  [on ] 16380x5115 partial routed=True us=648.7 flagged=39 answer=ok
+  [on ] 16380x5115 ties routed=True us=1125.3 flagged=2428 answer=ok
+  [on ] 16380x5115 band routed=True us=10747.1 flagged=16380 answer=ok
+  [on ] 16380x5115 const routed=True us=22563.2 flagged=16380 answer=ok
+  [off] 16383x4095 normal routed=False us=1107.9 flagged=- answer=ok
+  [off] 16383x4095 partial routed=False us=786.0 flagged=- answer=ok
+  [off] 16383x4095 ties routed=False us=1956.0 flagged=- answer=ok
+  [off] 16383x4095 band routed=False us=8190.5 flagged=- answer=ok
+  [off] 16383x4095 const routed=False us=17720.2 flagged=- answer=ok
+  [off] 12961x4100 normal routed=False us=894.6 flagged=- answer=ok
+  [off] 12961x4100 partial routed=False us=627.6 flagged=- answer=ok
+  [off] 12961x4100 ties routed=False us=1573.3 flagged=- answer=ok
+  [off] 12961x4100 band routed=False us=6531.0 flagged=- answer=ok
+  [off] 12961x4100 const routed=False us=14131.3 flagged=- answer=ok
+  [off] 16380x5115 normal routed=False us=1342.8 flagged=- answer=ok
+  [off] 16380x5115 partial routed=False us=916.6 flagged=- answer=ok
+  [off] 16380x5115 ties routed=False us=2396.7 flagged=- answer=ok
+  [off] 16380x5115 band routed=False us=10155.8 flagged=- answer=ok
+  [off] 16380x5115 const routed=False us=22015.0 flagged=- answer=ok
+
+  route ON vs OFF, do_bench us (x = OFF / ON)
+
+  16383x4095: normal 1108->700 (x1.58) | partial 786->606 (x1.30) | ties 1956->858 (x2.28) | band 8190->8628 (x0.95) | const 17720->18185 (x0.97)
+  12961x4100: normal 895->595 (x1.50) | partial 628->489 (x1.28) | ties 1573->765 (x2.06) | band 6531->6957 (x0.94) | const 14131->14609 (x0.97)
+  16380x5115: normal 1343->778 (x1.72) | partial 917->649 (x1.41) | ties 2397->1125 (x2.13) | band 10156->10747 (x0.94) | const 22015->22563 (x0.98)
+
+### part B: tools/hygon_topk_accept.py, route ON
+
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       59.0C    398.0W     auto     1000.0W    2%         100.0%    0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+### tests
+   prefill: 23 passed, 1 skipped
+    decode: 13 passed
+### benchmark pass 1, prefill
+### benchmark pass 1, decode
+### benchmark pass 2, prefill
+### benchmark pass 2, decode
+
+prefill, --mode kernel, baseline = vLLM's own C++
+
+   num_rows   vocab  top_k   vLLM p1   Gems p1  SpeedUp p1  SpeedUp p2
+          4    8193    512    0.0182    0.0298       0.613       0.616   below 0.9
+          4   16385    512    0.0235    0.0371       0.634       0.676   below 0.9
+       4100    1025    512    0.1608    0.0995       1.616       1.617
+         64  129280   1024    0.1094    0.1141       0.959       0.963
+      12961    4100    512    0.6814    0.5946       1.146       1.150
+      16383    4095    512    1.1554    0.7006       1.649       1.652
+      16380    5115    512    1.2445    0.7768       1.602       1.603
+
+  geomean 1.090 / 1.102   at or above 0.9: 5/7
+  vLLM latency max/min across passes: 1.01
+
+decode, --mode kernel, baseline = vLLM's own C++
+
+   num_rows   vocab  top_k   vLLM p1   Gems p1  SpeedUp p1  SpeedUp p2
+          1  262144    512    0.0834    0.0573       1.455       1.462
+          4  262144    512    0.0826    0.0645       1.280       1.283
+          8  262144    512    0.0845    0.0698       1.210       1.198
+         16  262144    512    0.1006    0.0901       1.117       1.150
+         24  262144    512    0.1272    0.1102       1.154       1.159
+         32  262144    512    0.1797    0.1242       1.447       1.412
+         40  262144    512    0.2229    0.1383       1.612       1.602
+         48  262144    512    0.2622    0.1587       1.652       1.664
+         56  262144    512    0.3154    0.2150       1.467       1.475
+        496  262144    512    5.0938    1.9361       2.631       2.655
+        512  262144    512    5.3150    1.9441       2.734       2.735
+
+  geomean 1.543 / 1.546   at or above 0.9: 11/11
+  vLLM latency max/min across passes: 1.01
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+### part C: prefill benchmark with the route OFF, one pass
+
+       4    8193   512   vLLM 0.0184  Gems 0.0298  SpeedUp 0.618
+       4   16385   512   vLLM 0.0234  Gems 0.0373  SpeedUp 0.627
+      64  129280  1024   vLLM 0.1096  Gems 0.1138  SpeedUp 0.963
+    4100    1025   512   vLLM 0.1608  Gems 0.0994  SpeedUp 1.618
+   12961    4100   512   vLLM 0.6830  Gems 0.8970  SpeedUp 0.762
+   16380    5115   512   vLLM 1.2454  Gems 1.3438  SpeedUp 0.927
+   16383    4095   512   vLLM 1.1546  Gems 1.1104  SpeedUp 1.040
