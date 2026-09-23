@@ -171,7 +171,13 @@ def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
 @pytest.mark.top_k_per_row_prefill
 @pytest.mark.parametrize(
     "num_rows,vocab_size,top_k",
-    [(4, 129280, 1024), (64, 4096, 512), (8192, 4096, 512)],
+    [
+        (1, 129280, 1024),
+        (4, 129280, 1024),
+        (64, 129280, 1024),
+        (64, 4096, 512),
+        (8192, 4096, 512),
+    ],
 )
 @pytest.mark.parametrize("width", [0.2, 0.02])
 def test_top_k_per_row_prefill_narrow_band(num_rows, vocab_size, top_k, width):
@@ -180,7 +186,9 @@ def test_top_k_per_row_prefill_narrow_band(num_rows, vocab_size, top_k, width):
     The STEP-0 key keeps five mantissa bits of the fp16 form, so it resolves
     magnitude/32 -- 0.25 at magnitude 10 -- and [10.0, 10.2) maps to one bin.
     A path that skips STEP 1-3 must still rank such a row exactly. A constant
-    row does not test this: any k of equal values is a correct answer.
+    row does not test this: any k of equal values is a correct answer. The band
+    sits away from zero on purpose: near zero the exponent varies from element
+    to element and the key spreads out again.
     """
     torch.manual_seed(42)
 
