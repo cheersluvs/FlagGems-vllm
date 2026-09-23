@@ -1,0 +1,35 @@
+### branch topk-metax @ 401a8ec
+### 2026-09-23T14:50:19+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### peak: one contiguous 256 MB buffer, unmasked
+
+  BLOCK  256 VEC 4 warps 4 ITERS  8      214.6 us      1251 GB/s
+  BLOCK  512 VEC 4 warps 8 ITERS  8      206.1 us      1302 GB/s
+  BLOCK 1024 VEC 4 warps 8 ITERS  4      206.6 us      1300 GB/s
+  BLOCK  256 VEC 4 warps 4 ITERS 32      224.5 us      1196 GB/s
+  BLOCK  512 VEC 2 warps 4 ITERS 16      218.4 us      1229 GB/s
+
+  peak read: 1302 GB/s
+
+### row pattern: one program per row, BLOCK 256, 2 warps
+
+         shape       arm        us    GB/s  of peak
+  16383x4095         v2     226.2    1187      91%
+  16383x4095         v4     221.9    1209      93%
+  16383x4095   v4nohint     222.1    1208      93%
+  16383x4095      v2key     226.9    1183      91%
+  16383x4095    v2twice     448.0    1198      92%   second read adds 221.9 us
+  12961x4100         v2     185.5    1146      88%
+  12961x4100         v4     186.1    1142      88%
+  12961x4100   v4nohint     185.1    1149      88%
+  12961x4100      v2key     188.8    1126      86%
+  12961x4100    v2twice     368.9    1152      88%   second read adds 183.5 us
+  16380x5115         v2     284.4    1178      90%
+  16380x5115         v4     280.8    1193      92%
+  16380x5115   v4nohint     280.7    1194      92%
+  16380x5115      v2key     284.8    1177      90%
+  16380x5115    v2twice     566.4    1183      91%   second read adds 282.0 us
+
+  For reference, the dense kernel's first read + key math (budget, cut1r - cut0): 249 / 209 / 313 us on the three shapes.
