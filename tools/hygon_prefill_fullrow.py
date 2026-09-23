@@ -48,7 +48,8 @@ that the override's own text transforms still find their anchors afterwards.
 
 RECOVERY, if killed between the swap and the restore:
 
-    git checkout -- src/flaggems_vllm/ops/top_k_per_row_prefill.py
+    git checkout -- src/flaggems_vllm/ops/top_k_per_row_prefill.py \
+        src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py
 
     tools/vendor_probe.sh tools/hygon_prefill_fullrow.py hygon_prefill_fullrow
 """
@@ -60,6 +61,66 @@ import subprocess
 import sys
 
 GENERIC = pathlib.Path("src/flaggems_vllm/ops/top_k_per_row_prefill.py")
+OVERRIDE = pathlib.Path(
+    "src/flaggems_vllm/runtime/backend/_hygon/fused/top_k_per_row_prefill.py"
+)
+
+# Round 1 patched only the generic launch and every arm, `base` included,
+# failed identically: with scratch reuse on (the default) EVERY non-sampled
+# production call goes through `_top_k_per_row_prefill_reuse`, which launches
+# `mod.non_tle_top_k_per_row_prefill` itself and bypasses the generic host
+# function. So the new constexprs were missing there -- and, worse, had they
+# had defaults, production would have silently run the UNspecialised kernel
+# and this probe would have reported "no effect". Changing a kernel's
+# signature needs an audit of its CALLERS, not just of the patch anchors.
+REUSE_OLD = """        TOPK=top_k,
+        BLOCK_SIZE=mod.NUM_THREADS_PER_BLOCK,
+        ROW_OFFSET=0,
+        num_warps=mod._num_warps(mod.NUM_THREADS_PER_BLOCK),
+    )"""
+REUSE_NEW = """        TOPK=top_k,
+        BLOCK_SIZE=mod.NUM_THREADS_PER_BLOCK,
+        ROW_OFFSET=0,
+        FULL_ROW=bool(mod._SPEC_FULL_ROW),
+        STRIDE1=(stride1 if mod._SPEC_STRIDE1 else 0),
+        VOCAB=(logits.shape[1] if mod._SPEC_VOCAB else 0),
+        num_warps=mod._num_warps(mod.NUM_THREADS_PER_BLOCK),
+    )"""
+
+
+def patched_override(src):
+    n = src.count(REUSE_OLD)
+    assert n == 1, f"the override's reuse launch found {n} times"
+    return src.replace(REUSE_OLD, REUSE_NEW, 1)
+
+
+def preflight(generic_src, override_src):
+    """Every launch of the kernel whose signature changed, and whether it
+    forwards the knobs. The production one MUST; any other relies on the
+    defaults and is listed so it is a decision, not an accident."""
+    import ast
+
+    sites = []
+    for label, src in (("generic", generic_src), ("override", override_src)):
+        for node in ast.walk(ast.parse(src)):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Subscript)
+                and ast.unparse(node.func.value).endswith(
+                    "non_tle_top_k_per_row_prefill"
+                )
+            ):
+                kw = {k.arg for k in node.keywords}
+                sites.append(
+                    (label, node.lineno, {"FULL_ROW", "STRIDE1", "VOCAB"} <= kw)
+                )
+    for label, line, ok in sites:
+        print(f"      {label}:{line}  forwards knobs: {ok}")
+    prod = [s for s in sites if s[0] == "override"]
+    assert prod and all(s[2] for s in prod), "the production launch does not forward"
+    return sites
+
+
 PASSES = 2
 BENCH = ["benchmark/test_top_k_per_row_prefill.py", "--mode", "kernel"]
 TESTS = ["tests/test_top_k_per_row_prefill.py"]
@@ -90,9 +151,9 @@ SIG_OLD = """    TOPK: tl.constexpr,
 SIG_NEW = """    TOPK: tl.constexpr,
     BLOCK_SIZE: tl.constexpr,
     ROW_OFFSET: tl.constexpr,
-    FULL_ROW: tl.constexpr,
-    STRIDE1: tl.constexpr,
-    VOCAB: tl.constexpr,
+    FULL_ROW: tl.constexpr = False,
+    STRIDE1: tl.constexpr = 0,
+    VOCAB: tl.constexpr = 0,
 ):
     VEC: tl.constexpr = 4
     NUM_BINS: tl.constexpr = 2048
@@ -228,16 +289,21 @@ def geo(vals):
 
 
 def main():
-    dirty = sh("git", "status", "--porcelain", "--", str(GENERIC)).stdout
+    dirty = sh("git", "status", "--porcelain", "--", str(GENERIC), str(OVERRIDE)).stdout
     if dirty.strip():
-        raise SystemExit("the generic operator is already modified:\n" + dirty)
+        raise SystemExit("the operator files are already modified:\n" + dirty)
     pristine = GENERIC.read_text()
+    pristine_ov = OVERRIDE.read_text()
     patch = patched(pristine)
+    patch_ov = patched_override(pristine_ov)
+    print("### preflight: every launch of the re-signed kernel", flush=True)
+    preflight(patch, patch_ov)
     occupancy("before")
 
     bench, tests, broken = {a[0]: [] for a in ARMS}, {}, {}
     try:
         GENERIC.write_text(patch)
+        OVERRIDE.write_text(patch_ov)
 
         # the override rebuilds its five copies from this source; if any of its
         # own anchors moved it logs a warning and silently ships generic
@@ -262,13 +328,15 @@ def main():
             tag = arm[0]
             print(f"### tests, arm {tag}", flush=True)
             r = subprocess.run(
-                [sys.executable, "-m", "pytest", "-q"] + TESTS,
+                [sys.executable, "-m", "pytest", "-q", "-rf"] + TESTS,
                 capture_output=True,
                 text=True,
                 env=env_for(arm),
             )
             tests[tag] = parse_tests(r.stdout)
             print(f"      {tag}: {tests[tag]}", flush=True)
+            for ln in [x for x in r.stdout.splitlines() if x.startswith("FAILED")][:4]:
+                print(f"        {ln[:220]}", flush=True)
 
         for p in range(PASSES):
             for arm in ARMS:
@@ -284,14 +352,25 @@ def main():
                 )
                 rows = parse_bench(r.stdout)
                 if not rows:
-                    why = [ln for ln in r.stdout.splitlines() if "rror" in ln]
-                    broken[tag] = why[-1][:160] if why else "no SUCCESS rows"
+                    text = (r.stdout + r.stderr).splitlines()
+                    why = [
+                        ln.strip()
+                        for ln in text
+                        if ("Error" in ln or "error:" in ln)
+                        and "error_msg = str(e)" not in ln
+                    ]
+                    broken[tag] = why[-1][:220] if why else "no SUCCESS rows"
                     print(f"      ! {tag}: {broken[tag]}", flush=True)
+                    for ln in text[-12:]:
+                        print(f"        | {ln[:200]}", flush=True)
                     continue
                 bench[tag].append(rows)
     finally:
         GENERIC.write_text(pristine)
-        left = sh("git", "status", "--porcelain", "--", str(GENERIC)).stdout
+        OVERRIDE.write_text(pristine_ov)
+        left = sh(
+            "git", "status", "--porcelain", "--", str(GENERIC), str(OVERRIDE)
+        ).stdout
         print(f"### restored; git status: {left.strip() or 'clean'}", flush=True)
 
     good = [a[0] for a in ARMS if len(bench[a[0]]) == PASSES]
