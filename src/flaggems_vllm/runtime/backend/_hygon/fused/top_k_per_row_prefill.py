@@ -12,58 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""top_k_per_row_prefill on Hygon BW1000: on dense rows, allocate output slots
-by prefix sum and carry their counter through the histogram step.
+"""Hygon BW1000 top_k_per_row_prefill, routed per call.
 
-The dense route uses the validated VEC=2 layout by default. Set
-``FLAGGEMS_HYGON_TOPK_VEC2=0`` to fall back to the carried VEC=4 layout.
+Very sparse rows (vocab >= 64 * top_k) take a sampled threshold. Dense rows
+(vocab <= 10 * top_k) run copies of the generic kernel with a prefix-sum slot
+allocator, a VEC=2 layout and, on the large dense shapes, a small exact final
+network. Everything else runs the generic kernel with one threshold scan.
 
-WHY. prefill loses on all seven benchmark shapes against vLLM's C++ kernel here
-(geomean 0.355), worst on the small-vocabulary ones. Per program it fits
-base + ~19 ns x top_k + ~1.3 ns x vocab, and the k term is
-`tl.atomic_add(found_topk_values_ptrs, ones, mask=take_lt)` in _process_bins:
-one atomic per selected element, all to one address, ~12 ns each here (the
-ablation removed 7.55 of 18.07 us per program with it). Shared memory does not
-help on this card: smem scatter atomics measured 2.5-3.5x slower than global.
-
-WHAT. A prefix sum over the tile's take-mask gives each selected element a
-distinct offset; one atomic of the tile's COUNT gives the base. Its cost scales
-with the tile's SIZE, the atomics' with how many it selects -- so the deciding
-quantity is DENSITY, the fraction of elements selected, which for a full-range
-row is top_k / vocab. Measured crossover ~9.4% (48 of 512); dispatched here at
-vocab <= 10 * top_k.
-
-WHY TWO MODULE COPIES, NOT A BRANCH. The first version branched inside the
-kernel on each tile's own count. The A/B on this box (kernel mode, both passes
-agreeing to 0.03):
-
-    shape            dense?  branch-in-kernel
-    (4100, 1025)       yes        1.97x
-    (12961, 4100)      yes        1.57x
-    (16380, 5115)      yes        1.41x
-    (16383, 4095)      yes        1.40x
-    (4, 8193)          no         0.77x   threshold was per-count, not density
-    (4, 16385)         no         0.71x   same
-    (64, 129280)       no         0.85x   took the atomic branch and STILL lost
-
-The last row is the branch's own cost, ~0.18 us per call whether taken or not,
-on the production shape. And the choice cannot move to the host by rebinding:
-Triton binds module globals at compile time and caches, so one module can only
-ever hold one _process_bins. So the generic module is loaded a SECOND time
-under another name, the copy gets the prefix-sum _process_bins, and the host
-picks a module per call. Sparse rows run the untouched generic kernel.
-
-Density from vocab is conservative for partial-range rows (a shorter row is
-denser than vocab suggests), so a miss falls back to generic, never to
-something slower. FLAGGEMS_HYGON_TOPK_SLOTSCAN=0 always uses generic.
-
-The carried-counter dense copy removes one global atomic per collection tile:
-it loads the output count once at the start of each histogram step, derives
-tile-local offsets by cumsum, and stores the accumulated count before its
-barrier. The BW1000 v3 audit validated the exact generated source on padded
-rows, ties, short and partial ranges; the follow-up B-C-C-B run passed 19
-functional tests and improved the four dense benchmark shapes by 1.06-1.08x.
-Set FLAGGEMS_HYGON_TOPK_CARRY=0 to retain the preceding dense implementation.
+Each route is a separate copy of the generic module patched as source text:
+Triton binds a kernel's globals at compile time, so one module can hold only
+one _process_bins. A patch whose anchor is not found exactly once skips its
+route with a warning, and the generic kernel runs.
 """
 
 import functools
@@ -96,41 +55,19 @@ _SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
 _generic = import_module(_GENERIC_NAME)
 _log = logging.getLogger(__name__)
 
-# Dense iff vocab_size <= DENSE_VOCAB_PER_TOPK * top_k, i.e. density >= 10%.
+# Dense iff vocab_size <= DENSE_VOCAB_PER_TOPK * top_k, i.e. density >= 10%. A
+# prefix sum over the take mask beats one atomic per selected element above a
+# measured ~9.4% (48 of 512).
 DENSE_VOCAB_PER_TOPK = 10
 
 
 # ---------------------------------------------------------------------------
-# One threshold scan instead of a carried chain of rounds.
-#
-# The generic histogram step clears its bins in RADIX_SIZE // BLOCK_SIZE
-# stores and finds the threshold in as many rounds -- each a BLOCK_SIZE-wide
-# cumsum whose running total feeds the next, plus two masked stores of
-# block-uniform scalars into global scratch, a barrier after the loop and two
-# global reloads. The DSA bin_topk kernel does the same job in one scan. Here:
-# one vectorised clear, one RADIX_SIZE-wide cumsum, the bin as a min-reduction
-# and its size as a max-reduction, both kept in registers. Nothing downstream
-# reads the two global scalar buffers (the job takes threshold_bin_idx from
-# the return value), and a threshold always exists at that point because rows
-# no longer than top_k return first.
-#
-# Measured on the operator, both arms at production routing and geometry,
-# seven interleaved rounds, each arm's fastest round (tools/
-# hygon_prefill_onescan.py; the card was shared, and contention only adds):
-#
-#     (64,129280)  1.093    (16383,4095)  1.014    (4100,1025)  1.309
-#     (4,16385)    1.088    (12961,4100)  1.027
-#     (4,8193)     1.117    (16380,5115)  1.038    geomean      1.094
-#
-# Largest where fixed cost is the largest share: the many-row shapes run at
-# BLOCK_SIZE 256, so their chain was eight rounds deep. Correct on standard
-# normal logits and on rounded ones, which overflow the threshold bin and make
-# STEP 1-3 run.
-#
-# The change is applied as two exact text replacements to the generic
-# module's source. If either block is not found exactly once -- upstream
-# edited it -- the copies load the generic source unchanged and a warning is
-# logged; an exception here would take every Hygon override down with it.
+# One threshold scan instead of a carried chain of rounds: one vectorised
+# clear, one RADIX_SIZE-wide cumsum, the bin and its size as reductions kept in
+# registers. Measured on the operator at production routing: 1.014x-1.309x on
+# the seven benchmark shapes, geomean 1.094x. Applied as two exact text
+# replacements; if either is not found exactly once the copies load the
+# generic source unchanged.
 _ONESCAN_CLEAR_OLD = """    threshold_rounds: tl.constexpr = (
         RADIX10_SIZE // BLOCK_SIZE if STEP == 3 else RADIX11_SIZE // BLOCK_SIZE
     )
@@ -635,31 +572,18 @@ _ENABLED = _slotscan_enabled()
 
 
 # ---------------------------------------------------------------------------
-# Launch geometry by occupancy.
+# Launch geometry by occupancy: past one row per SM the grid is the
+# parallelism, so many rows want narrow programs. Ratio vs vLLM:
 #
-# Which BLOCK_SIZE x num_warps is fastest depends on how many rows share this
-# card's SMs, not on elements per lane. Full operator, every point checked
-# against torch.topk, ratio vs vLLM (tools/hygon_prefill_launch_sweep.py and
-# tools/hygon_prefill_rows_sweep.py):
+#   rows/SM   row 4096, k 512        row 129280, k 1024
+#   < 4       all within noise       B512 w8 best
+#   4 - 16    B512 w4: +3..16%       B512 w4: +3..10%
+#   32 - 52   B256 w2: +47..57%      B256 w4: +13..32%
+#   204       B256 w2: 1.95x         --
 #
-#   rows/SM         row 4096, k 512                row 129280, k 1024
-#   < 4             all configs within noise       B512 w8 (today) best
-#   4 - 16          B512 w4: +3% .. +16%           B512 w4: +3% .. +10%
-#   32 - 52         B256 w2: +47% .. +57%          B256 w4: +13% .. +32%
-#   204 (16383 r)   B256 w2: 1.95x                 --
-#
-# Many rows want narrow programs: past one row per SM the grid is the
-# parallelism, and wider programs only crowd each other out. Long rows keep
-# more threads per program than short ones at high occupancy. Where the switch
-# between w2 and w4 falls for row lengths between 8192 and 129280 is UNMEASURED;
-# those take w4, the choice measured for long rows.
-#
-# num_warps=1 is never used: it returned WRONG answers in the sweep.
-#
-# NUM_THREADS_PER_BLOCK and _num_warps are host-side globals read at each
-# launch -- unlike the jit globals above, they are not baked into a compiled
-# kernel -- so they are set per call. A lock keeps set-and-launch atomic.
-# FLAGGEMS_HYGON_TOPK_GEOMETRY=0 leaves them at generic's values.
+# num_warps=1 returned wrong answers and is never used. NUM_THREADS_PER_BLOCK
+# and _num_warps are host-side globals read at launch, so they are set per
+# call under a lock. FLAGGEMS_HYGON_TOPK_GEOMETRY=0 keeps generic's values.
 
 SHORT_ROW_MAX = 8192
 # The crossover probe showed a stable STEP-0 win with 512 bins for the
@@ -829,31 +753,17 @@ def _select_module(logits, num_rows, top_k):
 
 
 # ---------------------------------------------------------------------------
-# A sampled threshold for very sparse rows.
-#
-# The generic step reads each row twice: once to build a 2048-bin histogram
-# whose only output is the threshold, once to compact against it. Where the
-# row is far longer than top_k the first pass can come from a SAMPLE instead.
-# _s_hist reads every SSTRIDE-th TILE -- whole tiles, not strided elements,
-# which touch one cache line per value and cost a full pass for a fraction of
-# the data -- and the threshold is aimed at TARGET_MULT * top_k so that one
-# pass collects a superset, which the finish ranks down exactly.
-#
-# WHEN IT PAYS. Collecting m * top_k candidates means ranking them afterwards,
-# which the generic operator does not pay: its final stage sees the threshold
-# bin alone, 27-36 elements. The saving scales with vocab and the ranking with
-# m * top_k, so the figure of merit is vocab / (m * top_k), and the gate is the
-# ratio. Measured on this card, benchmark SpeedUp on (64,129280) against the
-# same binary with the gate shut (tools/hygon_prefill_sample_tight.py):
+# A sampled threshold for very sparse rows. The generic step reads each row
+# twice, the first time only to find the threshold; here that pass reads every
+# SSTRIDE-th tile and aims at TARGET_MULT * top_k, so one pass collects a
+# superset that _s_finish ranks exactly. Benchmark SpeedUp on (64,129280)
+# against the same binary with the gate shut:
 #
 #     TARGET_MULT   1.00    1.10    1.25    1.50    3.00
 #     rows outside  28.1%   10.9%    1.6%    0.0%     --
 #     vs gate shut  0.434   0.494   1.402   1.361   0.862
 #
-# The knee is sharp and it is not where a safety factor would put it: below
-# 1.25 the estimate undershoots the window's lower edge -- which is top_k
-# itself, so there is no margin under it -- and every row that lands short
-# pays a full redo. 28% of rows redoing costs 2.3x.
+# Below 1.25 the estimate undershoots top_k and every short row pays a redo.
 SAMPLED_MIN_VOCAB_PER_TOPK = int(
     os.environ.get("FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO", "64")
 )
@@ -863,23 +773,17 @@ CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]
 SBLOCK = 512
 SWARPS = 8
 SRADIX = 256
-# Programs per row in the collect pass. Each has its OWN counter and its own
-# segment of the candidate buffer: a partially-masked atomic to one address
-# costs ~12 ns per taken lane on this card, serialised
-# (tools/hygon_masked_atomic_cost.py), so a row's ~1362 appends queued on a
-# shared counter however many programs split the row. Measured on
-# (64,129280), benchmark SpeedUp, two passes each:
+# Programs per row in the collect pass, each with its own counter and segment:
+# a partially-masked atomic to one address costs ~12 ns per taken lane here,
+# serialised, so a shared counter queued every program of the row. Benchmark
+# SpeedUp on (64,129280):
 #
 #     split                 2       4       8      16
 #     shared counter      0.631   0.605   0.569   0.531
 #     private counters    0.702   0.736   0.634   0.728
 #
-# (tools/hygon_prefill_collect_split.py, tools/hygon_prefill_private_counters.py)
-# Private counters are worth 11.8% at the old split of 2 and 17.3% at 4. 8 is
-# bad in both rows; three arms at 8 agree, so it is real, but it is not
-# understood. Padding the counters onto separate cache lines changed nothing:
-# it is the address that has to be private, not the line.
-# A power of two, because prepare zeroes a row's counters with one arange.
+# 8 is slow in both designs, for a reason not yet understood. A power of two,
+# because prepare zeroes a row's counters with one arange.
 _ssplit = max(1, int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSPLIT", "4")))
 SSPLIT = 1 << (_ssplit.bit_length() - 1)
 _MAX_CAND_ELEMS = 1 << 24
@@ -929,13 +833,10 @@ def _s_scan(base, target, NB: tl.constexpr, BLOCK: tl.constexpr):
 def _s_hist(
     logits_ptr, base, row, stride0, s, e, STRIDE: tl.constexpr, BLOCK: tl.constexpr
 ):
-    """Histogram every STRIDE-th TILE of [s, e). Tiles rather than strided
-    elements: at SSTRIDE 8 a strided element sample is 32 bytes apart and so
-    touches every other cache line, reading half the bytes for an eighth of
-    the values. Tiles read exactly 1/STRIDE. The cost is that the sample is
-    spatially clustered, which is only unbiased if the row has no spatial
-    structure -- true of the benchmark's iid inputs, and the reason the
-    fallback below is not optional."""
+    """Histogram every STRIDE-th TILE of [s, e): whole tiles read 1/STRIDE of
+    the bytes, where strided elements would touch every cache line. The sample is
+    unbiased only for rows without spatial structure; _s_finish's exact retry
+    covers the rest."""
     lane = tl.arange(0, BLOCK)
     for t in tl.range(0, tl.cdiv(e - s, BLOCK * STRIDE)):
         i = s + t * BLOCK * STRIDE + lane
@@ -1002,27 +903,14 @@ def _s_collect(
     CHUNK: tl.constexpr,
     SEG: tl.constexpr,
 ):
-    """One pass: append every element strictly better than the threshold bin.
-    Indices are stored relative to row_start, which is what the operator
-    returns. Only the INDEX is stored: the values are re-read from global in
-    _s_finish, in one short parallel pass over the candidates. On S5000 the
-    two scattered stores per hit were the largest remaining cost of the MTT
-    version of this pass, and dropping the value store netted 8.6 us after the
-    re-read; here collect measured 126.7 us against the generic's ~86 for the
-    same bytes.
+    """Append every element strictly better than the threshold bin, as an
+    index relative to row_start; _s_finish re-reads the values.
 
-    The bulk loop is UNMASKED and the remainder is handled separately, which
-    is how the generic operator writes its own passes. Masking every iteration
-    instead measured 131.3 us here against a modelled 55 -- 252 GB/s where the
-    generic's collection pass reaches ~1270, essentially read speed -- and a
-    mask on every load is the one structural difference between them.
-
-    SPLIT programs divide the row. Each appends through its OWN counter into
-    its own SEG-long segment of the row's candidate buffer, which _s_finish
-    compacts; a shared counter serialised every program of the row on one
-    address (see SSPLIT). CHUNK is a multiple of BLOCK * VEC, which keeps the
-    bulk loop unmasked inside each chunk; the last part runs to the end of the
-    row regardless, so coverage does not depend on that arithmetic.
+    The bulk loop is unmasked and the remainder handled separately, as in the
+    generic passes: a mask on every load cost 131.3 us against a modelled 55.
+    SPLIT programs divide the row, each appending through its own counter into its
+    own SEG-long segment. CHUNK is a multiple of BLOCK * VEC so the bulk loop stays
+    unmasked; the last part runs to the end of the row regardless.
     """
     pid = tl.program_id(0)
     row = pid // SPLIT
@@ -1045,19 +933,9 @@ def _s_collect(
     have = tl.maximum(stop - start, 0)
 
     n_vec = have // (BLOCK * VEC)
-    # Two pipeline stages, to hide load latency inside a wave: at one program
-    # per row this shape was 512 waves against 3200 slots, 16%, with arch_vgpr
-    # 44. (It was atomic-bound as well -- see SSPLIT.) Measured on (64,129280)
-    # at one program per row, benchmark SpeedUp, two passes each
-    # (tools/hygon_prefill_pipeline.py):
-    #
-    #     stages   1       2       3       4     two tiles by hand
-    #     SpeedUp  0.582   0.600   0.542   0.544   0.605
-    #
-    # Deeper loses because more stages means more registers means fewer waves,
-    # which is the same constraint read from the other side. The hand-rolled
-    # two-tile version is 0.9% better and fourteen lines longer; it existed in
-    # case this backend ignored the hint, and it does not.
+    # Two stages hide load latency inside a wave. Benchmark SpeedUp on
+    # (64,129280) at one program per row, stages 1/2/3/4: 0.582 / 0.600 / 0.542 /
+    # 0.544; deeper stages cost registers, and so waves.
     for t in tl.range(0, n_vec, num_stages=2):
         i = start + t * BLOCK * VEC + off
         x = tl.load(base + i)
@@ -1104,16 +982,9 @@ def _s_finish(
 ):
     """The retry decision and the exact answer, one program per row.
 
-    A sample can under- or overshoot, so a row whose collected count falls
-    outside [TOPK, CAP] is redone here -- over the FULL 32-bit ordered key,
-    not the 11-bit one the sample and the collect use, because that key
-    collapses on a narrow band and the overflow guarantee goes with it.
-
-    The candidates arrive in SPLIT per-program segments of SEG each. A
-    segment that filled has lost candidates, and a row over CAP does not fit
-    the compacted buffers; either is the overflow case.
-
-    Rows inside the window take the exact top-k of their candidates: four
+    A row outside [TOPK, CAP], or with a full segment, is redone over the full
+    32-bit ordered key; the 11-bit key the sample and the collect use can collapse
+    on a narrow band. Rows inside take the exact top-k of their candidates: four
     8-bit radix rounds over the same 32-bit key.
     """
     row = tl.program_id(0)
@@ -1130,16 +1001,11 @@ def _s_finish(
         c += tl.minimum(craw, SEG)
         over += (craw > SEG).to(tl.int32)
     if (c < tl.minimum(TOPK, span)) | (c > CAP) | (over > 0):
-        # The 11-bit fp16 key can COLLAPSE: a row whose values sit in a narrow
-        # band away from zero (relative spread below about 1%, the key's
-        # resolution being magnitude/32) maps to one or two bins, and then
-        # "an overflow can only drop what shares the k-th element's key" is
-        # true but vacuous -- everything shares it, so the true top-k can be
-        # dropped. The generic operator escapes through STEP 1-3, which refine
-        # over the full 32 bits; this path has no STEP 1-3, so the redo uses
-        # the full 32-bit ordered key directly. It is injective on distinct
-        # floats, so only exact ties can ever be dropped. Same fix, same
-        # reason, as top_k_per_row_decode's.
+        # The 11-bit fp16 key resolves magnitude/32, so a row in a narrow band away
+        # from zero collapses into one or two bins and an overflow can drop the true
+        # top-k. This path has no STEP 1-3 to refine through, so the redo ranks the
+        # full 32-bit ordered key, which is injective on distinct floats. Same fix as
+        # top_k_per_row_decode's.
         obase_r = out_ptr + row * TOPK
         cbase_r = counts_ptr + row * RADIX
         rbase = logits_ptr + row * stride0 + s
@@ -1202,12 +1068,9 @@ def _s_finish(
     obase = out_ptr + row * TOPK
     cbase = counts_ptr + row * RADIX
 
-    # _s_collect stores indices only, in per-program segments. Compact them
-    # into one contiguous index buffer and gather each candidate's value back
-    # from global memory on the way. The retry above stores values as well,
-    # so this re-read is redundant there -- but correct, and the retry does
-    # not fire in practice. The barrier is required: this program loads from
-    # vbase and ibase right after storing to them.
+    # _s_collect stores indices only, in per-program segments: compact them and
+    # gather each candidate's value on the way. The barrier is required; this
+    # program reads vbase and ibase right after storing them.
     row_base = logits_ptr + row * stride0 + s
     n = tl.zeros((), tl.int32)
     for sg in tl.static_range(SPLIT):
@@ -1263,10 +1126,9 @@ def _s_finish(
             k_to_find = k_to_find - lt
 
     thr_key = desired
-    # One program owns the row, so its output positions need no atomic: a
-    # running offset plus an exclusive prefix over the take mask. The slot
-    # atomic this replaces cost 31.7 of finish's 68.1 us on (64,129280) --
-    # benchmark SpeedUp 0.628 -> 0.776 (tools/hygon_prefill_private_counters.py).
+    # One program owns the row, so output positions need no atomic: a running
+    # offset plus an exclusive prefix over the take mask. The slot atomic cost
+    # 31.7 of finish's 68.1 us on (64,129280).
     filled = tl.zeros((), tl.int32)
     for equal in tl.static_range(2):
         for t in tl.range(0, tiles):
