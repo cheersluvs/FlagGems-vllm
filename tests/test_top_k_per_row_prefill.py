@@ -178,7 +178,8 @@ def test_top_k_per_row_prefill_full_vocab(num_rows, vocab_size, top_k):
 
 @pytest.mark.top_k_per_row_prefill
 @pytest.mark.parametrize(
-    "num_rows,vocab_size,top_k", [(4, 129280, 1024), (64, 4096, 512)]
+    "num_rows,vocab_size,top_k",
+    [(4, 129280, 1024), (64, 4096, 512), (8192, 4096, 512)],
 )
 @pytest.mark.parametrize("width", [0.2, 0.02])
 def test_top_k_per_row_prefill_narrow_band(num_rows, vocab_size, top_k, width):

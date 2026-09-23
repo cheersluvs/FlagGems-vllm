@@ -1302,19 +1302,21 @@ def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k)
 # 512-element sample, one pass that writes the sure set straight out and keeps
 # the band between the thresholds, then the missing top_k - S from the band by
 # bitwise lifting on the 32-bit ordered key. At one warp per program every
-# reduction and scan stays inside a wave; two warps were 1.34x slower. do_bench,
-# us, before the retry below:
+# reduction and scan stays inside a wave; two warps were 1.34x slower.
+# Benchmark SpeedUp against vLLM, kernel mode, the retry below included:
 #
 #                  dense copy   this route
-#     16383x4095      1110          615
-#     12961x4100       890          524
-#     16380x5115      1343          687
+#     16383x4095     1.040        1.65
+#     12961x4100     0.762        1.15
+#     16380x5115     0.927        1.60
 #
 # A row the sample misjudges -- sure set past top_k, band short of it, or band
-# over DS_BCAP -- is flagged: 0.5-1.1% of standard-normal rows, every row of a
-# narrow band. The dense copy then runs for every row and returns at once
-# unless its row was flagged, so the answer is always that copy's or exact.
-# 70/150 flags only 0.06-0.2% but needs a 1024-slot band, and was 1.7x slower.
+# over DS_BCAP -- is flagged: 0.5-1.1% of standard-normal rows, ~9% of heavily
+# tied ones, every row of a narrow band. The dense copy then runs for every row
+# and returns at once unless its row was flagged, so the answer is always that
+# copy's or exact. With every row flagged the route costs 2-6% over the dense
+# copy alone. 70/150 flags only 0.06-0.2% but needs a 1024-slot band, and was
+# 1.7x slower.
 DENSE_SAMPLED = os.environ.get(
     "FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED", "1"
 ).strip().lower() not in ("0", "false", "off", "no")

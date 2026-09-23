@@ -9,6 +9,7 @@ upstream main runs on this card today:
     FLAGGEMS_HYGON_TOPK_ONESCAN=0            the untouched generic module
     FLAGGEMS_HYGON_TOPK_GEOMETRY=0           generic's BLOCK_SIZE / num_warps
     FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE=0      generic's own host wrapper
+    FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED=0   no one-read dense route
 
 `after` is the override as it ships. Interleaved before/after/before/after,
 prefill benchmark in kernel mode, vLLM latency printed per run.
@@ -28,6 +29,7 @@ OFF = {
     "FLAGGEMS_HYGON_TOPK_ONESCAN": "0",
     "FLAGGEMS_HYGON_TOPK_GEOMETRY": "0",
     "FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE": "0",
+    "FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED": "0",
 }
 ORDER = ["before", "after", "before", "after"]
 
@@ -55,6 +57,24 @@ def geo(vals):
 
 
 def main():
+    print("### tests, as shipped", flush=True)
+    for suite in ("prefill", "decode"):
+        r = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-rf",
+                f"tests/test_top_k_per_row_{suite}.py",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        tail = [ln for ln in r.stdout.splitlines() if "passed" in ln or "failed" in ln]
+        print(f"  {suite}: {tail[-1] if tail else 'no result'}", flush=True)
+        for ln in [x for x in r.stdout.splitlines() if x.startswith("FAILED")][:5]:
+            print(f"    {ln[:200]}", flush=True)
     runs = {"before": [], "after": []}
     for i, arm in enumerate(ORDER):
         env = dict(os.environ)
