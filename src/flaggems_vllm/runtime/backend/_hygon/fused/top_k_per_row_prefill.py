@@ -1320,12 +1320,9 @@ def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k)
 # the band between the thresholds, then the missing top_k - S from the band by
 # bitwise lifting on the 32-bit ordered key. At one warp per program every
 # reduction and scan stays inside a wave; two warps were 1.34x slower.
-# Benchmark SpeedUp against vLLM, kernel mode, the retry below included:
-#
-#                  dense copy   this route
-#     16383x4095     1.040        1.65
-#     12961x4100     0.762        1.15
-#     16380x5115     0.927        1.60
+# Benchmark SpeedUp against vLLM, kernel mode, the retry below included: 1.64
+# on 16383x4095, 1.14 on 12961x4100, 1.59 on 16380x5115 -- 1.58-1.79x the dense
+# copy alone on standard-normal rows.
 #
 # A row the sample misjudges -- sure set past top_k, band short of it, or band
 # over DS_BCAP -- is flagged: 0.5-1.1% of standard-normal rows, ~9% of heavily
