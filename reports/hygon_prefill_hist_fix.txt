@@ -1,0 +1,67 @@
+### branch topk-metax @ a7bca47
+### 2026-09-23T08:44:47+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    102.0W     manual   1000.0W    5%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+### part A: what tl.histogram does with out-of-range values
+
+  ! the semantics child failed:
+    return decorator(fn)
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 973, in decorator
+    return JITFunction(
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 806, in __init__
+    super().__init__(fn)
+  File "/usr/local/lib/python3.10/dist-packages/triton/runtime/jit.py", line 495, in __init__
+    raise ValueError("@jit functions should be defined in a Python file") from e
+ValueError: @jit functions should be defined in a Python file
+### part B rep 1, arm base
+### part B rep 1, arm flat
+### part B rep 1, arm hist
+### part B rep 1, arm histbin0
+### part B rep 2, arm base
+### part B rep 2, arm flat
+### part B rep 2, arm hist
+### part B rep 2, arm histbin0
+### restored; git status: clean
+
+  64x129280, do_bench, us
+
+         arm    prepare    collect     finish      whole    vs base     answer   max |err|
+        base       25.4       79.0       67.5      172.0      1.000       ok   0.000e+00
+        flat       25.6       78.4       27.5      131.4      0.407    WRONG   7.401e+00
+        hist       25.4       78.8       49.7      153.9      0.736    WRONG   5.963e+00
+    histbin0       25.3       78.6       69.8      173.7      1.034       ok   0.000e+00
+
+  per-rep finish, to show the spread:
+            base: 68.4  66.6
+            flat: 27.3  27.7
+            hist: 50.3  49.1
+        histbin0: 69.8  69.8
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    93.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       52.0C    134.0W     manual   1000.0W    5%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
