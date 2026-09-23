@@ -1,0 +1,85 @@
+### branch topk-metax @ a30cbb3
+### 2026-09-23T11:57:46+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### part A: the regression
+  ratio 16, SSPLIT 16, STRIDE 4
+      4x8193 split=16 CAP=2048 CHUNK=2048 SEG=2048 busy=4/16 fullest=181 cand=605-658 retry=0/4 checks=ok/ok/ok
+      4x16385 split=16 CAP=2048 CHUNK=2048 SEG=2048 busy=8/16 fullest=108 cand=624-736 retry=0/4 checks=ok/ok/ok
+  ratio 16, SSPLIT 4, STRIDE 4
+      4x8193 split=4 CAP=2048 CHUNK=4096 SEG=2048 busy=2/4 fullest=329 cand=605-658 retry=0/4 checks=ok/ok/ok
+      4x16385 split=4 CAP=2048 CHUNK=6144 SEG=2048 busy=3/4 fullest=293 cand=624-736 retry=0/4 checks=ok/ok/ok
+  shipped
+      64x129280 split=4 CAP=4096 CHUNK=32768 SEG=4096 busy=4/4 fullest=465 cand=1076-1839 retry=0/64 checks=ok/ok/ok
+
+### part B: tools/hygon_topk_accept.py
+
+--- card occupancy before: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       51.0C    94.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    100.0W     auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       51.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       52.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    91.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
+
+### tests
+   prefill: 23 passed, 1 skipped
+    decode: 13 passed
+### benchmark pass 1, prefill
+### benchmark pass 1, decode
+### benchmark pass 2, prefill
+### benchmark pass 2, decode
+
+prefill, --mode kernel, baseline = vLLM's own C++
+
+   num_rows   vocab  top_k   vLLM p1   Gems p1  SpeedUp p1  SpeedUp p2
+          4    8193    512    0.0206    0.0299       0.690       0.708   below 0.9
+          4   16385    512    0.0258    0.0373       0.691       0.634   below 0.9
+       4100    1025    512    0.1608    0.0990       1.624       1.628
+         64  129280   1024    0.1096    0.1140       0.961       0.961
+      12961    4100    512    0.6821    0.8963       0.761       0.762   below 0.9
+      16383    4095    512    1.1552    1.1108       1.040       1.041
+      16380    5115    512    1.2450    1.3358       0.932       0.930
+
+  geomean 0.918 / 0.910   at or above 0.9: 4/7
+  vLLM latency max/min across passes: 1.10
+
+decode, --mode kernel, baseline = vLLM's own C++
+
+   num_rows   vocab  top_k   vLLM p1   Gems p1  SpeedUp p1  SpeedUp p2
+          1  262144    512    0.0850    0.0571       1.487       1.493
+          4  262144    512    0.0840    0.0642       1.309       1.338
+          8  262144    512    0.0858    0.0694       1.235       1.243
+         16  262144    512    0.1013    0.0903       1.122       1.085
+         24  262144    512    0.1282    0.1097       1.168       1.166
+         32  262144    512    0.1801    0.1560       1.154       1.259
+         40  262144    512    0.2232    0.1391       1.605       1.608
+         48  262144    512    0.2634    0.1578       1.669       1.673
+         56  262144    512    0.3177    0.2144       1.482       1.491
+        496  262144    512    5.0974    1.9382       2.630       2.645
+        512  262144    512    5.3150    1.9433       2.735       2.735
+
+  geomean 1.525 / 1.539   at or above 0.9: 11/11
+  vLLM latency max/min across passes: 1.04
+--- card occupancy after: hy-smi
+================================= System Management Interface ==================================
+================================================================================================
+HCU     Temp     AvgPwr     Perf     PwrCap     VRAM%      HCU%      Dec%      Enc%      Mode     
+0       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+1       50.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+2       51.0C    99.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+3       49.0C    92.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+4       51.0C    89.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+5       51.0C    95.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+6       52.0C    98.0W      auto     1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+7       51.0C    92.0W      manual   1000.0W    0%         0.0%      0.0%      0.0%      Normal   
+================================================================================================
+======================================== End of SMI Log ========================================
