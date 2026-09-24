@@ -14,25 +14,14 @@
 
 """Hygon BW1000 top_k_per_row_prefill, routed per call.
 
-Each route is a separate copy of the generic module patched as source text:
-Triton binds a kernel's globals at compile time, so one module can hold only
-one _process_bins. A patch whose anchor is not found exactly once skips its
-route with a warning, and the generic kernel runs.
-
-Routes, their gates and the environment switch are documented on
-`top_k_per_row_prefill` at the bottom of this file.
+The radix routes run this file's copy of the generic kernel, specialized by
+constexprs; the two sampled routes run kernels of their own. Routes, their
+gates and the environment switch are documented on `top_k_per_row_prefill`
+at the bottom of this file.
 """
 
-import ast
 import functools
-import hashlib
-import importlib.util
-import logging
 import os
-import re
-import stat
-import sys
-import tempfile
 import threading
 from collections import OrderedDict
 from importlib import import_module
@@ -42,10 +31,9 @@ import triton
 import triton.language as tl
 
 _generic = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
-_log = logging.getLogger(__name__)
 
 # FLAGGEMS_HYGON_TOPK_PREFILL=0 turns the override off: every call goes to the
-# generic operator, and no patched source is written or loaded.
+# generic operator.
 _ENABLED = os.environ.get("FLAGGEMS_HYGON_TOPK_PREFILL", "1").strip().lower() not in (
     "0",
     "false",
@@ -60,240 +48,109 @@ DENSE_VOCAB_PER_TOPK = 10
 
 
 # ---------------------------------------------------------------------------
-# One threshold scan instead of a carried chain of rounds: one vectorized
-# clear, one RADIX_SIZE-wide cumsum, the bin and its size as reductions kept in
-# registers (geomean 1.09x over the benchmark shapes). Applied as two exact
-# text replacements; if either is not found exactly once the copies load the
-# generic source unchanged.
-_ONESCAN_CLEAR_OLD = """    threshold_rounds: tl.constexpr = (
-        RADIX10_SIZE // BLOCK_SIZE if STEP == 3 else RADIX11_SIZE // BLOCK_SIZE
-    )
-    for clear_round in tl.static_range(0, threshold_rounds):
-        clear_bins = clear_round * BLOCK_SIZE + lane
-        tl.store(s_histogram_ptr + clear_bins, 0)
-    tl.debug_barrier()
-"""
-_ONESCAN_CLEAR_NEW = """    RADIX_SIZE: tl.constexpr = RADIX10_SIZE if STEP == 3 else RADIX11_SIZE
-    radix_bins = tl.arange(0, RADIX_SIZE)
-    tl.store(s_histogram_ptr + radix_bins, tl.zeros([RADIX_SIZE], tl.int32))
-    tl.debug_barrier()
-"""
-_ONESCAN_SCAN_OLD = """    threshold_bin_ptrs = s_threshold_bin_idx_ptr + zeros
-    final_bin_size_ptrs = s_final_bin_size_ptr + zeros
-    threshold_found = tl.full((), False, dtype=tl.int1)
-    for round_idx in tl.static_range(0, threshold_rounds):
-        if not threshold_found:
-            bins = round_idx * BLOCK_SIZE + lane
-            counts = tl.load(s_histogram_ptr + bins)
-            if HAS_TLE:
-                prefix_sum, counts_total = tle.cumsum(counts, axis=0, reverse=False)
-            else:
-                counts_total = tl.sum(counts)
-                prefix_sum = counts_total - tl.cumsum(counts, axis=0, reverse=True)
-            prefix_sum = prefix_sum + last_value
-            total_sum = last_value + counts_total
-            next_prefix_sum = prefix_sum + counts
-            threshold_mask = (prefix_sum < TOPK) & (next_prefix_sum >= TOPK)
-            threshold_bin = bins
-            threshold_bin_size = next_prefix_sum - prefix_sum
-            if STEP == 3:
-                tl.store(s_histogram_ptr + bins, prefix_sum)
-            tl.store(threshold_bin_ptrs, threshold_bin, mask=threshold_mask)
-            tl.store(final_bin_size_ptrs, threshold_bin_size, mask=threshold_mask)
-            found_round = tl.reduce_or(threshold_mask, axis=0)
-            threshold_found = found_round
-            last_value = total_sum
+# The radix kernel, copied from the generic operator for the non-TLE,
+# one-program-per-row case, with four changes selected by constexprs:
+#
+#   one threshold scan  each step clears its histogram in one store and finds
+#                       the threshold bin with one RADIX_SIZE-wide cumsum,
+#                       kept in registers, instead of a carried chain of
+#                       rounds through scratch memory (geomean 1.09x).
+#   DENSE               slots for the definitely-in elements come from a prefix
+#                       sum over the take mask with the counter carried in a
+#                       register through the step, not from one atomic per
+#                       element.
+#   VEC                 the vector width of the bulk loads; the dense route
+#                       reads 2 floats per lane, the generic route 4.
+#   SHORT               512 STEP-0 bins instead of 2048.
+#   SKIP                a program returns at once unless its row is flagged:
+#                       the one-read route's retry.
+#
+# The generic route (DENSE False) calls the generic operator's own
+# _process_bins, so only the scan differs from upstream there.
 
-    tl.debug_barrier()
-    threshold_bin_idx = tl.load(s_threshold_bin_idx_ptr)
-    final_bin_size = tl.load(s_final_bin_size_ptr)
-"""
-_ONESCAN_SCAN_NEW = """    counts = tl.load(s_histogram_ptr + radix_bins)
-    incl = last_value + tl.cumsum(counts, axis=0)
-    prefix_sum = incl - counts
-    threshold_mask = (prefix_sum < TOPK) & (incl >= TOPK)
-    threshold_bin_idx = tl.min(
-        tl.where(threshold_mask, radix_bins, RADIX_SIZE), axis=0
-    ).to(tl.int32)
-    final_bin_size = tl.max(tl.where(threshold_mask, counts, 0), axis=0)
-    if STEP == 3:
-        tl.store(s_histogram_ptr + radix_bins, prefix_sum)
-        tl.debug_barrier()
-"""
-
-
-def _private_dir():
-    """A directory only this user can write. The patched source is executed
-    as code, and this box is shared, so a world-writable /tmp is not an
-    acceptable place to look for it."""
-    for base in (
-        os.path.join(os.path.expanduser("~"), ".cache", "flaggems_vllm"),
-        os.path.join(tempfile.gettempdir(), f"flaggems_vllm_{os.getuid()}"),
-    ):
-        try:
-            os.makedirs(base, mode=0o700, exist_ok=True)
-            st = os.stat(base)
-            if st.st_uid == os.getuid() and not (
-                st.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
-            ):
-                return base
-        except OSError:
-            continue
-    return None
-
-
-def _write_private(source, stem):
-    """Write a patched copy into the private directory under its digest and
-    return the path. Never execute a file this process did not verify byte for
-    byte."""
-    base = _private_dir()
-    if base is None:
-        return None
-    digest = hashlib.sha256(source.encode()).hexdigest()[:16]
-    path = os.path.join(base, f"top_k_per_row_prefill_{stem}_{digest}.py")
-    if not os.path.exists(path):
-        fd, tmp = tempfile.mkstemp(dir=base, suffix=".py")
-        with os.fdopen(fd, "w") as fh:
-            fh.write(source)
-        os.replace(tmp, path)
-    with open(path) as fh:
-        if fh.read() != source:
-            return None
-    return path
-
-
-def _onescan_path():
-    """Path of the patched generic source, or None to use the generic file."""
-    if not _ENABLED:
-        return None
-    try:
-        with open(_generic.__file__) as fh:
-            src = fh.read()
-        for old, new in (
-            (_ONESCAN_CLEAR_OLD, _ONESCAN_CLEAR_NEW),
-            (_ONESCAN_SCAN_OLD, _ONESCAN_SCAN_NEW),
-        ):
-            n = src.count(old)
-            if n != 1:
-                _log.warning(
-                    "hygon top_k_per_row_prefill: one-scan patch skipped, a "
-                    "block was found %d times; the generic step is used",
-                    n,
-                )
-                return None
-            src = src.replace(old, new, 1)
-        return _write_private(src, "onescan")
-    except Exception as exc:  # noqa: BLE001 - never break the override import
-        _log.warning("hygon top_k_per_row_prefill: one-scan patch failed: %r", exc)
-        return None
-
-
-_ONESCAN_PATH = _onescan_path()
-
-
-def _load_copy(name, path=None):
-    """The generic module -- or a patch of it -- executed as a separate module,
-    registered as `<this module>.<name>`. @triton.jit needs its functions'
-    source on disk."""
-    name = f"{__name__}.{name}"
-    spec = importlib.util.spec_from_file_location(name, path or _generic.__file__)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-_dense = _load_copy("_dense", _ONESCAN_PATH)
-# Sparse rows used the generic module itself; with the patch they get their
-# own copy, which also stops this override mutating the shared module's
-# launch globals for them.
-_sparse = _load_copy("_sparse", _ONESCAN_PATH) if _ONESCAN_PATH else _generic
-_extract_bin_idx = _dense._extract_bin_idx
+_generic_process_bins = _generic._process_bins
 
 
 @triton.jit
-def _alloc_slots(ptrs, take):
-    """Same contract as tl.atomic_add(ptrs, 1, mask=take) with `ptrs` all at
-    one counter: every taken lane gets a distinct slot. 1-D or [BLOCK, VEC]."""
-    ti = take.to(tl.int32)
-    flat = tl.reshape(ti, (ti.numel,))
-    total = tl.sum(flat, axis=0)
-    # One atomic, on lane 0 only, adds the tile's count and returns the
-    # counter's previous value: the base of this tile's run of slots.
-    first = tl.arange(0, ti.numel) == 0
-    prev = tl.atomic_add(
-        tl.reshape(ptrs, (ti.numel,)),
-        flat * 0 + total,
-        mask=first,
-        sem="relaxed",
-        scope="cta",
-    )
-    start = tl.sum(tl.where(first, prev, 0), axis=0)
-    return tl.reshape(start + tl.cumsum(flat, axis=0) - flat, ti.shape)
+def _extract_bin_idx(x, in_range, pattern, STEP: tl.constexpr, SHORT: tl.constexpr):
+    is_partial_match = in_range
+    if STEP == 0:
+        h = x.to(tl.float16)
+        bits = h.to(tl.uint16, bitcast=True)
+        sign_mask = tl.full(bits.shape, 0x8000, tl.uint16)
+        sign_set = (bits & sign_mask) != 0
+        inv = (~bits) & tl.full(bits.shape, 0x7FFF, tl.uint16)
+        mapped = tl.where(sign_set, bits, inv)
+        if SHORT:
+            bin_idx = (mapped >> 7).to(tl.uint32)
+        else:
+            bin_idx = (mapped >> 5).to(tl.uint32)
+    else:
+        bits = _key32(x)
+        if STEP == 1:
+            bin_idx = bits >> 21
+        elif STEP == 2:
+            bin_idx = (bits >> 10) & 0x7FF
+            is_partial_match &= ((bits ^ pattern) >> 21) == 0
+        elif STEP == 3:
+            bin_idx = bits & 0x3FF
+            is_partial_match &= ((bits ^ pattern) >> 10) == 0
+    return bin_idx, is_partial_match
 
 
 @triton.jit
-def _process_bins_slotscan(
+def _distribute_to_bins(
     logits,
     in_range,
     ones,
-    offs,  # row_start based
-    found_topk_values_ptrs,
+    logit_pattern,
+    s_histogram_ptr,
+    STEP: tl.constexpr,
+    SHORT: tl.constexpr,
+):
+    bin_idx, is_partial_match = _extract_bin_idx(
+        logits, in_range, logit_pattern, STEP=STEP, SHORT=SHORT
+    )
+    tl.atomic_add(
+        s_histogram_ptr + bin_idx,
+        ones,
+        mask=is_partial_match,
+        sem="relaxed",
+        scope="cta",
+    )
+
+
+@triton.jit
+def _dense_bins(
+    logits,
+    in_range,
+    ones,
+    offs,
     final_cnt_ptrs,
     logit_pattern,
     threshold_bin_idx,
     write_directly,
     use_final,
-    row_start,
-    indices_ptr,
     s_histogram_ptr,
     s_final_logits_ptr,
     s_out_indices_ptr,
-    s_out_logits_ptr,
+    slot_base,
     STEP: tl.constexpr,
     TOPK: tl.constexpr,
-    MULTIPLE_BLOCKS_PER_ROW: tl.constexpr,
-    MERGE_BLOCKS: tl.constexpr,
+    SHORT: tl.constexpr,
 ):
     NUM_FINAL_ITEMS: tl.constexpr = 2048
 
     bin_idx, is_partial_match = _extract_bin_idx(
-        logits,
-        in_range,
-        logit_pattern,
-        STEP=STEP,
+        logits, in_range, logit_pattern, STEP=STEP, SHORT=SHORT
     )
     take_lt = is_partial_match & (bin_idx < threshold_bin_idx) & write_directly
-    # The only change from the generic function: slots for the definitely-in
-    # elements come from a prefix sum, not from one atomic per element.
-    out_pos_lt = _alloc_slots(found_topk_values_ptrs, take_lt)
-    if MERGE_BLOCKS:
-        indices = tl.load(
-            indices_ptr + offs,
-            mask=take_lt,
-        )
-        tl.store(
-            s_out_indices_ptr + out_pos_lt,
-            indices,
-            mask=take_lt,
-        )
-    elif MULTIPLE_BLOCKS_PER_ROW:
-        tl.store(
-            s_out_indices_ptr + out_pos_lt,
-            (offs + row_start).to(tl.int32),
-            mask=take_lt,
-        )
-        tl.store(
-            s_out_logits_ptr + out_pos_lt,
-            logits,
-            mask=take_lt,
-        )
-    else:
-        tl.store(
-            s_out_indices_ptr + out_pos_lt,
-            offs.to(tl.int32),
-            mask=take_lt,
-        )
+    take_int = take_lt.to(tl.int32)
+    flat_take = tl.reshape(take_int, (take_int.numel,))
+    offsets = tl.cumsum(flat_take, axis=0) - flat_take
+    out_pos_lt = slot_base + tl.reshape(offsets, take_int.shape)
+    slot_base += tl.sum(flat_take, axis=0)
+    tl.store(s_out_indices_ptr + out_pos_lt, offs.to(tl.int32), mask=take_lt)
 
     if STEP < 3:
         if use_final:
@@ -305,37 +162,13 @@ def _process_bins_slotscan(
                 sem="relaxed",
                 scope="cta",
             )
-            tl.store(
-                s_final_logits_ptr + final_pos,
-                logits,
-                mask=take_eq_final & (final_pos < NUM_FINAL_ITEMS),
-            )
-            # s_histogram_ptr being used for indices in final sort
-            if MERGE_BLOCKS:
-                indices = tl.load(
-                    indices_ptr + offs,
-                    mask=take_eq_final & (final_pos < NUM_FINAL_ITEMS),
-                )
-                tl.store(
-                    s_histogram_ptr + final_pos,
-                    indices,
-                    mask=take_eq_final & (final_pos < NUM_FINAL_ITEMS),
-                )
-            elif MULTIPLE_BLOCKS_PER_ROW:
-                tl.store(
-                    s_histogram_ptr + final_pos,
-                    (offs + row_start).to(tl.int32),
-                    mask=take_eq_final & (final_pos < NUM_FINAL_ITEMS),
-                )
-            else:
-                tl.store(
-                    s_histogram_ptr + final_pos,
-                    offs.to(tl.int32),
-                    mask=take_eq_final & (final_pos < NUM_FINAL_ITEMS),
-                )
+            keep = take_eq_final & (final_pos < NUM_FINAL_ITEMS)
+            tl.store(s_final_logits_ptr + final_pos, logits, mask=keep)
+            # s_histogram_ptr holds the indices for the final sort
+            tl.store(s_histogram_ptr + final_pos, offs.to(tl.int32), mask=keep)
     else:
         take_eq = is_partial_match & (bin_idx == threshold_bin_idx)
-        # s_histogram_ptr being used for exclude prefix sum
+        # s_histogram_ptr holds the exclusive prefix sum
         out_pos_eq = tl.atomic_add(
             s_histogram_ptr + bin_idx,
             ones,
@@ -343,236 +176,557 @@ def _process_bins_slotscan(
             sem="relaxed",
             scope="cta",
         )
-        if MERGE_BLOCKS:
-            indices = tl.load(
-                indices_ptr + offs,
-                mask=take_eq & (out_pos_eq < TOPK),
-            )
-            tl.store(
-                s_out_indices_ptr + out_pos_eq,
-                indices,
-                mask=take_eq & (out_pos_eq < TOPK),
-            )
-        elif MULTIPLE_BLOCKS_PER_ROW:
-            tl.store(
-                s_out_indices_ptr + out_pos_eq,
-                (offs + row_start).to(tl.int32),
-                mask=take_eq & (out_pos_eq < TOPK),
-            )
-            tl.store(
-                s_out_logits_ptr + out_pos_eq,
-                logits,
-                mask=take_eq & (out_pos_eq < TOPK),
-            )
-        else:
-            tl.store(
-                s_out_indices_ptr + out_pos_eq,
-                offs.to(tl.int32),
-                mask=take_eq & (out_pos_eq < TOPK),
-            )
-
-
-# Rebind in the COPY only, before anything compiles.
-_dense._process_bins = _process_bins_slotscan
-
-
-def _replace_once(source, old, new):
-    count = source.count(old)
-    if count != 1:
-        raise ValueError(f"Expected one source block, got {count}: {old[:80]!r}")
-    return source.replace(old, new, 1)
-
-
-def _function_text(source, name):
-    node = next(
-        n
-        for n in ast.parse(source).body
-        if isinstance(n, ast.FunctionDef) and n.name == name
-    )
-    first = min([node.lineno] + [d.lineno for d in node.decorator_list])
-    return "\n".join(source.splitlines()[first - 1 : node.end_lineno])
-
-
-def _build_carry_source(generic_source, override_source):
-    """Return the dense source with a carried slot counter.
-
-    Raises ValueError on source drift; callers must keep the shipped dense
-    module as a fallback.
-    """
-    source = generic_source
-    for name in ("_alloc_slots", "_process_bins_slotscan"):
-        source += "\n\n" + _function_text(override_source, name) + "\n"
-    source += "\n_process_bins = _process_bins_slotscan\n"
-
-    old_helper = _function_text(source, "_process_bins_slotscan")
-    helper = _replace_once(
-        old_helper, "    STEP: tl.constexpr,", "    slot_base,\n    STEP: tl.constexpr,"
-    )
-    helper = _replace_once(
-        helper,
-        "    out_pos_lt = _alloc_slots(found_topk_values_ptrs, take_lt)",
-        """    take_int = take_lt.to(tl.int32)
-    flat_take = tl.reshape(take_int, (take_int.numel,))
-    offsets = tl.cumsum(flat_take, axis=0) - flat_take
-    out_pos_lt = slot_base + tl.reshape(offsets, take_int.shape)
-    slot_base += tl.sum(flat_take, axis=0)""",
-    )
-    helper += "\n    return slot_base"
-    source = _replace_once(source, old_helper, helper)
-
-    old_step = _function_text(source, "_process_histogram_step")
-    step = _replace_once(
-        old_step,
-        "    final_cnt_ptrs = s_final_cnt_ptr + zeros\n",
-        "    final_cnt_ptrs = s_final_cnt_ptr + zeros\n"
-        "    slot_base = tl.load(s_found_topk_values_ptr)\n",
-    )
-    calls = [
-        n
-        for n in ast.walk(ast.parse(step))
-        if isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Name)
-        and n.func.id == "_process_bins"
-    ]
-    if len(calls) != 7:
-        raise ValueError(f"Expected seven collection sites, got {len(calls)}")
-    replacements = []
-    lines = step.splitlines(keepends=True)
-    offsets = [0]
-    for line in lines:
-        offsets.append(offsets[-1] + len(line))
-    for node in calls:
-        old = ast.get_source_segment(step, node)
-        new, count = re.subn(
-            r"(?m)^(\s*)STEP=STEP,", r"\1slot_base,\n\1STEP=STEP,", old
+        tl.store(
+            s_out_indices_ptr + out_pos_eq,
+            offs.to(tl.int32),
+            mask=take_eq & (out_pos_eq < TOPK),
         )
-        if count != 1:
-            raise ValueError("Missing STEP keyword in collection call")
-        start = offsets[node.lineno - 1] + node.col_offset
-        end = offsets[node.end_lineno - 1] + node.end_col_offset
-        replacements.append((start, end, "slot_base = " + new))
-    for start, end, new in sorted(replacements, reverse=True):
-        step = step[:start] + new + step[end:]
-    step = _replace_once(
-        step,
-        "    tl.debug_barrier()\n    return final_bin_size > NUM_FINAL_ITEMS, logit_pattern, threshold_bin_idx",
-        "    tl.store(s_found_topk_values_ptr, slot_base)\n"
-        "    tl.debug_barrier()\n"
-        "    return final_bin_size > NUM_FINAL_ITEMS, logit_pattern, threshold_bin_idx",
+    return slot_base
+
+
+@triton.jit
+def _bins(
+    logits,
+    in_range,
+    ones,
+    offs,
+    found_ptrs,
+    final_cnt_ptrs,
+    logit_pattern,
+    threshold_bin_idx,
+    write_directly,
+    use_final,
+    s_histogram_ptr,
+    s_final_logits_ptr,
+    s_out_indices_ptr,
+    slot_base,
+    STEP: tl.constexpr,
+    TOPK: tl.constexpr,
+    DENSE: tl.constexpr,
+    SHORT: tl.constexpr,
+):
+    if DENSE:
+        slot_base = _dense_bins(
+            logits,
+            in_range,
+            ones,
+            offs,
+            final_cnt_ptrs,
+            logit_pattern,
+            threshold_bin_idx,
+            write_directly,
+            use_final,
+            s_histogram_ptr,
+            s_final_logits_ptr,
+            s_out_indices_ptr,
+            slot_base,
+            STEP=STEP,
+            TOPK=TOPK,
+            SHORT=SHORT,
+        )
+    else:
+        _generic_process_bins(
+            logits,
+            in_range,
+            ones,
+            offs,
+            found_ptrs,
+            final_cnt_ptrs,
+            logit_pattern,
+            threshold_bin_idx,
+            write_directly,
+            use_final,
+            0,
+            None,
+            s_histogram_ptr,
+            s_final_logits_ptr,
+            s_out_indices_ptr,
+            None,
+            STEP=STEP,
+            TOPK=TOPK,
+            MULTIPLE_BLOCKS_PER_ROW=False,
+            MERGE_BLOCKS=False,
+        )
+    return slot_base
+
+
+@triton.jit
+def _histogram_step(
+    logits_ptr,
+    row_start,
+    row_end,
+    stride1,
+    vocab_size,
+    skip_elems,
+    logit_pattern,
+    threshold_bin_idx,
+    assume_aligned,
+    s_histogram_ptr,
+    s_final_logits_ptr,
+    s_final_cnt_ptr,
+    s_found_topk_values_ptr,
+    s_out_indices_ptr,
+    STEP: tl.constexpr,
+    TOPK: tl.constexpr,
+    BLOCK_SIZE: tl.constexpr,
+    VEC: tl.constexpr,
+    DENSE: tl.constexpr,
+    SHORT: tl.constexpr,
+):
+    NUM_FINAL_ITEMS: tl.constexpr = 2048
+    RADIX11_MASK: tl.constexpr = 0x7FF
+    RADIX_SIZE: tl.constexpr = (
+        1024 if STEP == 3 else ((512 if STEP == 0 else 2048) if SHORT else 2048)
     )
-    source = _replace_once(source, old_step, step)
-    compile(source, "<hygon-prefill-carry>", "exec")
-    return source
+
+    lane = tl.arange(0, BLOCK_SIZE)
+    vec = tl.arange(0, VEC)
+    ones = tl.full([BLOCK_SIZE], 1, tl.int32)
+    ones_vec_2d = tl.full([BLOCK_SIZE, VEC], 1, tl.int32)
+    zeros = tl.zeros([BLOCK_SIZE], dtype=tl.int32)
+    zeros_vec_2d = tl.zeros([BLOCK_SIZE, VEC], dtype=tl.int32)
+
+    radix_bins = tl.arange(0, RADIX_SIZE)
+    tl.store(s_histogram_ptr + radix_bins, tl.zeros([RADIX_SIZE], tl.int32))
+    tl.debug_barrier()
+
+    if STEP == 2:
+        logit_pattern = (threshold_bin_idx.to(tl.uint32) & RADIX11_MASK) << 21
+    elif STEP == 3:
+        logit_pattern |= (threshold_bin_idx.to(tl.uint32) & RADIX11_MASK) << 10
+
+    if assume_aligned:
+        n_vec_full = vocab_size // (BLOCK_SIZE * VEC)
+        rem_tiles = (vocab_size - n_vec_full * BLOCK_SIZE * VEC) // BLOCK_SIZE
+        for t in tl.range(0, n_vec_full):
+            base = t * BLOCK_SIZE * VEC + lane * VEC
+            offs = base[:, None] + vec[None, :]
+            x_vec = tl.load(logits_ptr + offs)
+            _distribute_to_bins(
+                x_vec,
+                True,
+                ones_vec_2d,
+                logit_pattern,
+                s_histogram_ptr,
+                STEP=STEP,
+                SHORT=SHORT,
+            )
+        for t in tl.range(0, rem_tiles):
+            offs = (n_vec_full * VEC + t) * BLOCK_SIZE + lane
+            x = tl.load(logits_ptr + offs)
+            _distribute_to_bins(
+                x, True, ones, logit_pattern, s_histogram_ptr, STEP=STEP, SHORT=SHORT
+            )
+    elif stride1 == 1:
+        aligned_row_ptr = tl.multiple_of(logits_ptr + row_start + skip_elems, VEC * 4)
+        row_len = row_end - row_start - skip_elems
+        n_vec_full = row_len // (BLOCK_SIZE * VEC)
+        rem_tiles = (row_len - n_vec_full * BLOCK_SIZE * VEC) // BLOCK_SIZE
+        rem_elems = row_len % BLOCK_SIZE
+        for t in tl.range(0, n_vec_full):
+            base = t * BLOCK_SIZE * VEC + lane * VEC
+            offs = base[:, None] + vec[None, :]
+            x_vec = tl.load(aligned_row_ptr + offs)
+            _distribute_to_bins(
+                x_vec,
+                True,
+                ones_vec_2d,
+                logit_pattern,
+                s_histogram_ptr,
+                STEP=STEP,
+                SHORT=SHORT,
+            )
+        for t in tl.range(0, rem_tiles):
+            offs = (n_vec_full * VEC + t) * BLOCK_SIZE + lane
+            x = tl.load(aligned_row_ptr + offs)
+            _distribute_to_bins(
+                x, True, ones, logit_pattern, s_histogram_ptr, STEP=STEP, SHORT=SHORT
+            )
+        if skip_elems > 0:
+            in_range = lane < skip_elems
+            x = tl.load(
+                logits_ptr + row_start + lane, mask=in_range, other=float("-inf")
+            )
+            _distribute_to_bins(
+                x,
+                in_range,
+                ones,
+                logit_pattern,
+                s_histogram_ptr,
+                STEP=STEP,
+                SHORT=SHORT,
+            )
+        if rem_elems > 0:
+            offs = (n_vec_full * VEC + rem_tiles) * BLOCK_SIZE + lane
+            in_range = lane < rem_elems
+            x = tl.load(aligned_row_ptr + offs, mask=in_range, other=float("-inf"))
+            _distribute_to_bins(
+                x,
+                in_range,
+                ones,
+                logit_pattern,
+                s_histogram_ptr,
+                STEP=STEP,
+                SHORT=SHORT,
+            )
+    else:
+        row_len = row_end - row_start
+        n_tiles = tl.cdiv(row_len, BLOCK_SIZE)
+        for t in tl.range(0, n_tiles):
+            offs = t * BLOCK_SIZE + lane
+            in_range = offs < row_len
+            x = tl.load(
+                logits_ptr + row_start + offs * stride1,
+                mask=in_range,
+                other=float("-inf"),
+            )
+            _distribute_to_bins(
+                x,
+                in_range,
+                ones,
+                logit_pattern,
+                s_histogram_ptr,
+                STEP=STEP,
+                SHORT=SHORT,
+            )
+    last_value = tl.load(s_found_topk_values_ptr)
+    tl.debug_barrier()
+
+    # The threshold bin: the one where the running count crosses TOPK.
+    counts = tl.load(s_histogram_ptr + radix_bins)
+    incl = last_value + tl.cumsum(counts, axis=0)
+    prefix_sum = incl - counts
+    threshold_mask = (prefix_sum < TOPK) & (incl >= TOPK)
+    threshold_bin_idx = tl.min(
+        tl.where(threshold_mask, radix_bins, RADIX_SIZE), axis=0
+    ).to(tl.int32)
+    final_bin_size = tl.max(tl.where(threshold_mask, counts, 0), axis=0)
+    if STEP == 3:
+        tl.store(s_histogram_ptr + radix_bins, prefix_sum)
+        tl.debug_barrier()
+    use_final = final_bin_size <= NUM_FINAL_ITEMS
+    write_directly = ((STEP == 0) & (final_bin_size <= NUM_FINAL_ITEMS)) | (STEP >= 1)
+
+    found_ptrs = s_found_topk_values_ptr + zeros
+    final_cnt_ptrs = s_final_cnt_ptr + zeros
+    found_ptrs_vec_2d = s_found_topk_values_ptr + zeros_vec_2d
+    final_cnt_ptrs_vec_2d = s_final_cnt_ptr + zeros_vec_2d
+    if DENSE:
+        slot_base = tl.load(s_found_topk_values_ptr)
+    else:
+        slot_base = tl.zeros((), dtype=tl.int32)
+    if assume_aligned:
+        n_vec_full = vocab_size // (BLOCK_SIZE * VEC)
+        rem_tiles = (vocab_size - n_vec_full * BLOCK_SIZE * VEC) // BLOCK_SIZE
+        for t in tl.range(0, n_vec_full):
+            base = t * BLOCK_SIZE * VEC + lane * VEC
+            offs = base[:, None] + vec[None, :]
+            x_vec = tl.load(logits_ptr + offs)
+            slot_base = _bins(
+                x_vec,
+                True,
+                ones_vec_2d,
+                offs,
+                found_ptrs_vec_2d,
+                final_cnt_ptrs_vec_2d,
+                logit_pattern,
+                threshold_bin_idx,
+                write_directly,
+                use_final,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_out_indices_ptr,
+                slot_base,
+                STEP=STEP,
+                TOPK=TOPK,
+                DENSE=DENSE,
+                SHORT=SHORT,
+            )
+        for t in tl.range(0, rem_tiles):
+            offs = (n_vec_full * VEC + t) * BLOCK_SIZE + lane
+            x = tl.load(logits_ptr + offs)
+            slot_base = _bins(
+                x,
+                True,
+                ones,
+                offs,
+                found_ptrs,
+                final_cnt_ptrs,
+                logit_pattern,
+                threshold_bin_idx,
+                write_directly,
+                use_final,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_out_indices_ptr,
+                slot_base,
+                STEP=STEP,
+                TOPK=TOPK,
+                DENSE=DENSE,
+                SHORT=SHORT,
+            )
+    elif stride1 == 1:
+        aligned_row_ptr = tl.multiple_of(logits_ptr + row_start + skip_elems, VEC * 4)
+        row_len = row_end - row_start - skip_elems
+        n_vec_full = row_len // (BLOCK_SIZE * VEC)
+        rem_tiles = (row_len - n_vec_full * BLOCK_SIZE * VEC) // BLOCK_SIZE
+        rem_elems = row_len % BLOCK_SIZE
+        for t in tl.range(0, n_vec_full):
+            base = t * BLOCK_SIZE * VEC + lane * VEC
+            offs = base[:, None] + vec[None, :]
+            x_vec = tl.load(aligned_row_ptr + offs)
+            slot_base = _bins(
+                x_vec,
+                True,
+                ones_vec_2d,
+                offs + skip_elems,
+                found_ptrs_vec_2d,
+                final_cnt_ptrs_vec_2d,
+                logit_pattern,
+                threshold_bin_idx,
+                write_directly,
+                use_final,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_out_indices_ptr,
+                slot_base,
+                STEP=STEP,
+                TOPK=TOPK,
+                DENSE=DENSE,
+                SHORT=SHORT,
+            )
+        for t in tl.range(0, rem_tiles):
+            offs = (n_vec_full * VEC + t) * BLOCK_SIZE + lane
+            x = tl.load(aligned_row_ptr + offs)
+            slot_base = _bins(
+                x,
+                True,
+                ones,
+                offs + skip_elems,
+                found_ptrs,
+                final_cnt_ptrs,
+                logit_pattern,
+                threshold_bin_idx,
+                write_directly,
+                use_final,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_out_indices_ptr,
+                slot_base,
+                STEP=STEP,
+                TOPK=TOPK,
+                DENSE=DENSE,
+                SHORT=SHORT,
+            )
+        if skip_elems > 0:
+            in_range = lane < skip_elems
+            x = tl.load(
+                logits_ptr + row_start + lane, mask=in_range, other=float("-inf")
+            )
+            slot_base = _bins(
+                x,
+                in_range,
+                ones,
+                lane,
+                found_ptrs,
+                final_cnt_ptrs,
+                logit_pattern,
+                threshold_bin_idx,
+                write_directly,
+                use_final,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_out_indices_ptr,
+                slot_base,
+                STEP=STEP,
+                TOPK=TOPK,
+                DENSE=DENSE,
+                SHORT=SHORT,
+            )
+        if rem_elems > 0:
+            offs = (n_vec_full * VEC + rem_tiles) * BLOCK_SIZE + lane
+            in_range = lane < rem_elems
+            x = tl.load(aligned_row_ptr + offs, mask=in_range, other=float("-inf"))
+            slot_base = _bins(
+                x,
+                in_range,
+                ones,
+                offs + skip_elems,
+                found_ptrs,
+                final_cnt_ptrs,
+                logit_pattern,
+                threshold_bin_idx,
+                write_directly,
+                use_final,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_out_indices_ptr,
+                slot_base,
+                STEP=STEP,
+                TOPK=TOPK,
+                DENSE=DENSE,
+                SHORT=SHORT,
+            )
+    else:
+        row_len = row_end - row_start
+        n_tiles = tl.cdiv(row_len, BLOCK_SIZE)
+        for t in tl.range(0, n_tiles):
+            offs = t * BLOCK_SIZE + lane
+            in_range = offs < row_len
+            x = tl.load(
+                logits_ptr + row_start + offs * stride1,
+                mask=in_range,
+                other=float("-inf"),
+            )
+            slot_base = _bins(
+                x,
+                in_range,
+                ones,
+                offs,
+                found_ptrs,
+                final_cnt_ptrs,
+                logit_pattern,
+                threshold_bin_idx,
+                write_directly,
+                use_final,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_out_indices_ptr,
+                slot_base,
+                STEP=STEP,
+                TOPK=TOPK,
+                DENSE=DENSE,
+                SHORT=SHORT,
+            )
+    if DENSE:
+        tl.store(s_found_topk_values_ptr, slot_base)
+    tl.debug_barrier()
+    return final_bin_size > NUM_FINAL_ITEMS, logit_pattern, threshold_bin_idx
 
 
-def _set_vector_width(source, width):
-    """Change only the non-TLE launch alignment and histogram tile width."""
-    if width not in (1, 2, 4, 8):
-        raise ValueError(f"Unsupported prefill vector width: {width}")
-    if width == 4:
-        return source
-    for name in ("_process_histogram_step", "non_tle_top_k_per_row_prefill"):
-        old = _function_text(source, name)
-        new = _replace_once(
-            old, "    VEC: tl.constexpr = 4", f"    VEC: tl.constexpr = {width}"
-        )
-        source = _replace_once(source, old, new)
-    compile(source, f"<hygon-prefill-vec{width}>", "exec")
-    return source
+@triton.jit
+def _radix_prefill(
+    logits_ptr,
+    out_indices_ptr,
+    row_starts,
+    row_ends,
+    stride0,
+    stride1,
+    vocab_size,
+    s_histogram_ptr,
+    s_final_logits_ptr,
+    s_final_cnt_ptr,
+    s_found_topk_values_ptr,
+    skip_ptr,
+    TOPK: tl.constexpr,
+    BLOCK_SIZE: tl.constexpr,
+    VEC: tl.constexpr,
+    DENSE: tl.constexpr,
+    SHORT: tl.constexpr,
+    SKIP: tl.constexpr,
+):
+    NUM_BINS: tl.constexpr = 2048
+    NUM_FINAL_ITEMS: tl.constexpr = 2048
 
+    row_id = tl.program_id(0)
+    if SKIP:
+        if tl.load(skip_ptr + row_id) == 0:
+            return
+    row_start = tl.load(row_starts + row_id)
+    row_end = tl.load(row_ends + row_id)
+    logits_ptr += row_id * stride0
+    # float4 align
+    x_off_mod = (row_id * stride0 + row_start) % VEC
+    skip_elems = 0 if x_off_mod == 0 else VEC - x_off_mod
+    out_indices_ptr += row_id * TOPK
+    s_histogram_ptr += row_id * NUM_BINS
+    s_final_logits_ptr += row_id * NUM_FINAL_ITEMS
+    s_final_cnt_ptr += row_id
+    s_found_topk_values_ptr += row_id
 
-def _carry_path():
-    """Build the dense copy with its slot counter carried through the step."""
-    if not _ENABLED:
-        return None
-    if _ONESCAN_PATH is None:
-        _log.warning("hygon prefill carry requires the one-scan source")
-        return None
-    try:
-        with open(_ONESCAN_PATH) as fh:
-            generic_source = fh.read()
-        with open(__file__) as fh:
-            override_source = fh.read()
-        source = _build_carry_source(generic_source, override_source)
-        return _write_private(source, "carry")
-    except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
-        _log.warning("hygon prefill carry source skipped: %r", exc)
-        return None
-
-
-_CARRY_PATH = _carry_path()
-try:
-    _dense_carry = _load_copy("_carry", _CARRY_PATH) if _CARRY_PATH else None
-except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
-    _log.warning("hygon prefill carry module skipped: %r", exc)
-    _dense_carry = None
-
-
-def _vec2_path():
-    """Build the dense VEC=2 copy; the carried VEC=4 copy stays as fallback."""
-    if _CARRY_PATH is None:
-        return None
-    try:
-        with open(_CARRY_PATH) as fh:
-            source = _set_vector_width(fh.read(), 2)
-        return _write_private(source, "vec2")
-    except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
-        _log.warning("hygon prefill VEC=2 source skipped: %r", exc)
-        return None
-
-
-_VEC2_PATH = _vec2_path()
-try:
-    _dense_vec2 = _load_copy("_vec2", _VEC2_PATH) if _VEC2_PATH else None
-except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
-    _log.warning("hygon prefill VEC=2 module skipped: %r", exc)
-    _dense_vec2 = None
-
-
-def _short_bins_path():
-    """Build the dense copy with 512 STEP-0 bins, for short rows."""
-    if _VEC2_PATH is None:
-        return None
-    try:
-        with open(_VEC2_PATH) as fh:
-            source = fh.read()
-        old_key = "bin_idx = (mapped >> 5).to(tl.uint32)"
-        if source.count(old_key) != 1:
-            raise ValueError("STEP-0 key extraction source drift")
-        source = source.replace(old_key, "bin_idx = (mapped >> 7).to(tl.uint32)", 1)
-        old_radix = (
-            "RADIX_SIZE: tl.constexpr = " "RADIX10_SIZE if STEP == 3 else RADIX11_SIZE"
-        )
-        new_radix = (
-            "RADIX_SIZE: tl.constexpr = ("
-            "RADIX10_SIZE if STEP == 3 else "
-            "(512 if STEP == 0 else RADIX11_SIZE))"
-        )
-        if source.count(old_radix) != 1:
-            raise ValueError("one-scan radix source drift")
-        source = source.replace(old_radix, new_radix, 1)
-        return _write_private(source, "short_bins")
-    except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
-        _log.warning("hygon prefill short-bins source skipped: %r", exc)
-        return None
-
-
-_SHORT_BINS_PATH = _short_bins_path()
-try:
-    _dense_short_bins = (
-        _load_copy("_short_bins", _SHORT_BINS_PATH) if _SHORT_BINS_PATH else None
+    assume_aligned = (
+        (row_start == 0)
+        & (row_end == vocab_size)
+        & (stride1 == 1)
+        & ((vocab_size % BLOCK_SIZE) == 0)
     )
-except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
-    _log.warning("hygon prefill short-bins module skipped: %r", exc)
-    _dense_short_bins = None
+    if assume_aligned:
+        tl.assume(row_start == 0)
+        tl.assume(row_end == vocab_size)
+        tl.assume(stride1 == 1)
+        vocab_size = tl.multiple_of(vocab_size, BLOCK_SIZE)
+    elif stride1 == 1:
+        tl.assume(stride1 == 1)
+
+    lane = tl.arange(0, BLOCK_SIZE)
+    row_len = row_end - row_start
+    if row_len <= TOPK:
+        chunks: tl.constexpr = (TOPK + BLOCK_SIZE - 1) // BLOCK_SIZE
+        for chunk_idx in tl.range(0, chunks):
+            pos = chunk_idx * BLOCK_SIZE + lane
+            tl.store(out_indices_ptr + pos, pos.to(tl.int32), mask=pos < row_len)
+            tl.store(out_indices_ptr + pos, -1, mask=(pos >= row_len) & (pos < TOPK))
+        return
+    tl.store(s_final_cnt_ptr, 0)
+    tl.store(s_found_topk_values_ptr, 0)
+    tl.debug_barrier()
+    logit_pattern = tl.zeros((), dtype=tl.uint32)
+    continue_to_next_step = tl.full((), True, dtype=tl.int1)
+    threshold_bin_idx = tl.full((), -1, dtype=tl.int32)
+    for step_idx in tl.static_range(0, 4):
+        if continue_to_next_step:
+            (
+                continue_to_next_step,
+                logit_pattern,
+                threshold_bin_idx,
+            ) = _histogram_step(
+                logits_ptr,
+                row_start,
+                row_end,
+                stride1,
+                vocab_size,
+                skip_elems,
+                logit_pattern,
+                threshold_bin_idx,
+                assume_aligned,
+                s_histogram_ptr,
+                s_final_logits_ptr,
+                s_final_cnt_ptr,
+                s_found_topk_values_ptr,
+                out_indices_ptr,
+                STEP=step_idx,
+                TOPK=TOPK,
+                BLOCK_SIZE=BLOCK_SIZE,
+                VEC=VEC,
+                DENSE=DENSE,
+                SHORT=SHORT,
+            )
+
+    if not continue_to_next_step:
+        base_idx = tl.load(s_found_topk_values_ptr)
+        final_cnt = tl.minimum(tl.load(s_final_cnt_ptr), NUM_FINAL_ITEMS)
+        sort_chunks = tl.cdiv(final_cnt, BLOCK_SIZE)
+        for sort_chunk in tl.range(0, sort_chunks):
+            pos = sort_chunk * BLOCK_SIZE + lane
+            valid = pos < final_cnt
+            logit_i = tl.load(s_final_logits_ptr + pos, mask=valid, other=0)
+            out_rank = tl.zeros([BLOCK_SIZE], dtype=tl.int32)
+            for j in tl.range(0, final_cnt):
+                logit_j = tl.load(s_final_logits_ptr + j)
+                better = (logit_i < logit_j) | ((logit_i == logit_j) & (pos < j))
+                out_rank = out_rank + (valid & better).to(tl.int32)
+            dst_pos = base_idx + out_rank
+            take = valid & (dst_pos < TOPK)
+            idx_i = tl.load(s_histogram_ptr + pos, mask=take, other=0)
+            tl.store(out_indices_ptr + dst_pos, idx_i, mask=take)
+        tl.debug_barrier()
 
 
 # ---------------------------------------------------------------------------
 # Launch geometry by occupancy: past one row per SM the grid is the
 # parallelism, so many rows want narrower programs -- up to 1.95x at about 200
 # rows per SM. num_warps=1 returned wrong answers on the generic kernel, so
-# this never picks it. NUM_THREADS_PER_BLOCK and _num_warps are host-side
-# globals read at launch, so they are set per call under a lock.
+# this never picks it.
 
 SHORT_ROW_MAX = 8192
 # 512 STEP-0 bins beat 2048 for top_k 512 on rows up to 1536 long; at 1792
@@ -593,51 +747,40 @@ def _sm_count():
 
 
 def _geometry(num_rows, row_len):
-    """(BLOCK_SIZE, num_warps) for this call, or None for generic's own."""
+    """(BLOCK_SIZE, num_warps) for this call; below 4 rows per SM, generic's."""
     sms = _sm_count()
     if num_rows < 4 * sms:
-        return None
+        block = _generic.NUM_THREADS_PER_BLOCK
+        return block, _generic._num_warps(block)
     if num_rows < 32 * sms:
         return 512, 4
     return (256, 2) if row_len <= SHORT_ROW_MAX else (256, 4)
 
 
-_LAUNCH_LOCK = threading.Lock()
-_GENERIC_DEFAULTS = {
-    id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps)
-    for m in (
-        _sparse,
-        _dense,
-        _dense_carry,
-        _dense_vec2,
-        _dense_short_bins,
-    )
-    if m is not None
-}
-
-
-# The non-TLE host wrapper allocates six scratch tensors for every call. On
+# The generic host wrapper allocates its scratch tensors on every call. On
 # BW1000, reusing one plan per module/device/row-count removes 4-52% of wall
 # time on the benchmark's small-row and four-row shapes. Keep only the most
 # recently used row-count for each loaded route and cap live storage so a
 # serving process cannot accumulate one full scratch set for every request
-# shape. The caller already holds _LAUNCH_LOCK, so cache mutation is serialized.
+# shape.
+_SCRATCH_LOCK = threading.Lock()
 _SCRATCH_CACHE = OrderedDict()
 _SCRATCH_CACHE_BYTES = 0
 _SCRATCH_CACHE_LIMIT = 512 * 1024 * 1024
 
 
-def _scratch_buffers(mod, device, num_rows):
-    """Return the non-TLE scratch set, reusing one active shape per route."""
+def _scratch_buffers(route, device, num_rows):
+    """Return the scratch set, reusing one active shape per route. The caller
+    holds _SCRATCH_LOCK."""
     global _SCRATCH_CACHE_BYTES
 
     device_index = device.index
     if device_index is None:
         device_index = torch.cuda.current_device()
     stream_id = torch.cuda.current_stream(device).cuda_stream
-    key = (id(mod), device.type, device_index, stream_id)
-    num_bins = int(mod.NUM_BINS)
-    num_final_items = int(mod.NUM_FILNAL_ITEMS)
+    key = (route, device.type, device_index, stream_id)
+    num_bins = int(_generic.NUM_BINS)
+    num_final_items = int(_generic.NUM_FILNAL_ITEMS)
     cached = _SCRATCH_CACHE.get(key)
     if cached is not None:
         cached_rows, cached_bins, cached_final, _, buffers = cached
@@ -652,7 +795,7 @@ def _scratch_buffers(mod, device, num_rows):
         _SCRATCH_CACHE_BYTES -= cached[3]
 
     allocation_bytes = (
-        num_rows * num_bins * 4 + num_rows * num_final_items * 4 + num_rows * 4 * 4
+        num_rows * num_bins * 4 + num_rows * num_final_items * 4 + num_rows * 2 * 4
     )
     while (
         _SCRATCH_CACHE
@@ -664,8 +807,6 @@ def _scratch_buffers(mod, device, num_rows):
     buffers = (
         torch.empty((num_rows, num_bins), device=device, dtype=torch.int32),
         torch.empty((num_rows, num_final_items), device=device, dtype=torch.float32),
-        torch.empty((num_rows,), device=device, dtype=torch.int32),
-        torch.empty((num_rows,), device=device, dtype=torch.int32),
         torch.empty((num_rows,), device=device, dtype=torch.int32),
         torch.empty((num_rows,), device=device, dtype=torch.int32),
     )
@@ -681,42 +822,57 @@ def _scratch_buffers(mod, device, num_rows):
     return buffers
 
 
-def _top_k_per_row_prefill_reuse(
-    mod, logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
-):
-    scratch = _scratch_buffers(mod, logits.device, num_rows)
-    return mod.non_tle_top_k_per_row_prefill[(num_rows,)](
-        logits,
-        indices,
-        row_starts,
-        row_ends,
-        stride0,
-        stride1,
-        logits.shape[1],
-        *scratch,
-        TOPK=top_k,
-        BLOCK_SIZE=mod.NUM_THREADS_PER_BLOCK,
-        ROW_OFFSET=0,
-        num_warps=mod._num_warps(mod.NUM_THREADS_PER_BLOCK),
-    )
+# (VEC, DENSE, SHORT) of the radix kernel for each route.
+_GENERIC_ROUTE = (4, False, False)
+_DENSE_ROUTE = (2, True, False)
+_SHORT_ROUTE = (2, True, True)
 
 
-def _select_module(logits, num_rows, top_k):
-    """Pick the Hygon dense copy for dense rows, the sparse copy otherwise."""
-    vocab = logits.shape[1]
+def _route(vocab, top_k):
     if vocab <= DENSE_VOCAB_PER_TOPK * top_k:
-        if (
-            _dense_short_bins is not None
-            and top_k == SHORT_BINS_TOPK
-            and vocab <= SHORT_BINS_MAX_VOCAB
-        ):
-            return _dense_short_bins
-        return (
-            _dense_vec2
-            if _dense_vec2 is not None
-            else (_dense_carry if _dense_carry is not None else _dense)
+        if top_k == SHORT_BINS_TOPK and vocab <= SHORT_BINS_MAX_VOCAB:
+            return _SHORT_ROUTE
+        return _DENSE_ROUTE
+    return _GENERIC_ROUTE
+
+
+def _launch_radix(
+    logits,
+    row_starts,
+    row_ends,
+    indices,
+    num_rows,
+    stride0,
+    stride1,
+    top_k,
+    route,
+    skip=None,
+):
+    """The radix kernel for one route. With `skip`, only rows whose flag is
+    set run."""
+    block, warps = _geometry(num_rows, logits.shape[1])
+    vec, dense, short = route
+    with _SCRATCH_LOCK:
+        scratch = _scratch_buffers((route, skip is not None), logits.device, num_rows)
+        _radix_prefill[(num_rows,)](
+            logits,
+            indices,
+            row_starts,
+            row_ends,
+            stride0,
+            stride1,
+            logits.shape[1],
+            *scratch,
+            row_starts if skip is None else skip,
+            TOPK=top_k,
+            BLOCK_SIZE=block,
+            VEC=vec,
+            DENSE=dense,
+            SHORT=short,
+            SKIP=skip is not None,
+            num_warps=warps,
         )
-    return _sparse
+    return indices
 
 
 # ---------------------------------------------------------------------------
@@ -1243,15 +1399,15 @@ def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k)
 
 
 # ---------------------------------------------------------------------------
-# One read for the large dense shapes. The dense copy reads each row twice and
+# One read for the large dense shapes. The dense route reads each row twice and
 # fires one global atomic per element for its histogram; on 12961x4100 the
 # atomics are about half its time, bound by the distinct addresses they touch,
 # and the second read, which L2 does not serve, a fifth. This route reads each
 # row once and issues no per-element atomic (_d_sampled). A row it cannot
 # answer is flagged -- about 1% of standard-normal rows, every row of a narrow
-# band -- and the dense copy, launched after it for every row, returns at once
+# band -- and the dense route, launched after it for every row, returns at once
 # unless its row was flagged, so every answer is exact. On standard-normal rows
-# the route is 1.6-1.8x the dense copy alone; with every row flagged it costs
+# the route is 1.6-1.8x the dense route alone; with every row flagged it costs
 # 2-6% more.
 DS_BLOCK = 512
 DS_NS = 512
@@ -1309,7 +1465,7 @@ def _d_sampled(
     LO: tl.constexpr,
 ):
     """One program per row: the row's top-k and a flag of 0, or a flag of 1
-    and the row left to the dense copy.
+    and the row left to the dense route.
 
     Two thresholds come from an NS-element sample by bitwise lifting on the
     11-bit key: about HI% of top_k lies above T_hi and is surely in, about LO%
@@ -1390,57 +1546,6 @@ def _d_sampled(
         tl.store(obase + pe, idx, mask=eq & (pe < TOPK))
 
 
-def _in_function(source, name, old, new):
-    """Replace `old`, found exactly once inside function `name`."""
-    body = _function_text(source, name)
-    return _replace_once(source, body, _replace_once(body, old, new))
-
-
-def _dense_retry_path():
-    """The dense VEC2 copy, each program returning at once unless _d_sampled
-    flagged its row."""
-    if _VEC2_PATH is None:
-        return None
-    try:
-        with open(_VEC2_PATH) as fh:
-            source = fh.read()
-        kernel = "non_tle_top_k_per_row_prefill"
-        source = _in_function(
-            source,
-            kernel,
-            "    s_found_topk_values_ptr,\n    TOPK: tl.constexpr,\n",
-            "    s_found_topk_values_ptr,\n    skip_ptr,\n    TOPK: tl.constexpr,\n",
-        )
-        source = _in_function(
-            source,
-            kernel,
-            "    row_id = tl.program_id(0) + ROW_OFFSET\n",
-            "    row_id = tl.program_id(0) + ROW_OFFSET\n"
-            "    if tl.load(skip_ptr + row_id) == 0:\n"
-            "        return\n",
-        )
-        compile(source, "<hygon-prefill-dense-retry>", "exec")
-        return _write_private(source, "dense_retry")
-    except Exception as exc:  # noqa: BLE001 - keep the dense copy
-        _log.warning("hygon prefill dense sampled route skipped: %r", exc)
-        return None
-
-
-_DENSE_RETRY_PATH = _dense_retry_path()
-try:
-    _dense_retry = (
-        _load_copy("_dense_retry", _DENSE_RETRY_PATH) if _DENSE_RETRY_PATH else None
-    )
-except Exception as exc:  # noqa: BLE001 - keep the dense copy
-    _log.warning("hygon prefill dense retry module skipped: %r", exc)
-    _dense_retry = None
-if _dense_retry is not None:
-    _GENERIC_DEFAULTS[id(_dense_retry)] = (
-        _dense_retry.NUM_THREADS_PER_BLOCK,
-        _dense_retry._num_warps,
-    )
-
-
 class _DPlan:
     """Buffers and the sampled launch for one dense shape."""
 
@@ -1470,8 +1575,7 @@ _DPLAN_LOCK = threading.Lock()
 def _can_dense_sample(logits, row_starts, row_ends, num_rows, stride1, top_k):
     vocab = logits.shape[1]
     return (
-        _dense_retry is not None
-        and top_k == 512
+        top_k == 512
         and num_rows >= 8192
         and 2048 <= vocab <= 5120
         and stride1 == 1
@@ -1480,7 +1584,6 @@ def _can_dense_sample(logits, row_starts, row_ends, num_rows, stride1, top_k):
         and row_starts.dtype == torch.int32
         and row_ends.dtype == torch.int32
         and not getattr(_generic, "HAS_TLE", False)
-        and not _dense_retry.HAS_TLE
         and num_rows * DS_BCAP <= _MAX_CAND_ELEMS
     )
 
@@ -1499,8 +1602,6 @@ def _dense_sampled(logits, row_starts, row_ends, indices, num_rows, stride0, top
         _s_aligned(row_ends),
         _s_aligned(indices),
     )
-    mod = _dense_retry
-    geo = _geometry(num_rows, logits.shape[1])
     with _DPLAN_LOCK:
         plan = _DPLANS.get(key)
         if plan is None:
@@ -1517,29 +1618,18 @@ def _dense_sampled(logits, row_starts, row_ends, indices, num_rows, stride0, top
             plan.flags,
             stride0,
         )
-        with _LAUNCH_LOCK:
-            if geo is None:
-                mod.NUM_THREADS_PER_BLOCK, mod._num_warps = _GENERIC_DEFAULTS[id(mod)]
-            else:
-                block, warps = geo
-                mod.NUM_THREADS_PER_BLOCK = block
-                mod._num_warps = lambda block_size, w=warps: w
-            scratch = _scratch_buffers(mod, dev, num_rows)
-            mod.non_tle_top_k_per_row_prefill[(num_rows,)](
-                logits,
-                indices,
-                row_starts,
-                row_ends,
-                stride0,
-                1,
-                logits.shape[1],
-                *scratch,
-                plan.flags,
-                TOPK=top_k,
-                BLOCK_SIZE=mod.NUM_THREADS_PER_BLOCK,
-                ROW_OFFSET=0,
-                num_warps=mod._num_warps(mod.NUM_THREADS_PER_BLOCK),
-            )
+        _launch_radix(
+            logits,
+            row_starts,
+            row_ends,
+            indices,
+            num_rows,
+            stride0,
+            1,
+            top_k,
+            _DENSE_ROUTE,
+            skip=plan.flags,
+        )
     return indices
 
 
@@ -1555,21 +1645,22 @@ def top_k_per_row_prefill(
                 split over SSPLIT programs, finish ranks the candidates exactly
                 or redoes the row on the full 32-bit key.
       one-read  top_k 512, num_rows >= 8192, 2048 <= vocab <= 5120. One
-                program per row, with the dense copy as its retry.
-      dense     vocab <= DENSE_VOCAB_PER_TOPK * top_k. A copy of the generic
-                kernel with a prefix-sum slot allocator, a carried slot counter
-                and VEC=2; 512 STEP-0 bins for top_k 512 on rows up to 1536.
-      generic   everything else, with one threshold scan.
+                program per row, with the dense route as its retry.
+      dense     vocab <= DENSE_VOCAB_PER_TOPK * top_k. The radix kernel with a
+                prefix-sum slot allocator and VEC=2; 512 STEP-0 bins for
+                top_k 512 on rows up to 1536.
+      generic   everything else: the radix kernel with the generic operator's
+                own bin pass.
 
     The sampled and one-read routes need stride1 == 1, float32 logits, int32
     row bounds, no TLE and buffers within _MAX_CAND_ELEMS; a call that misses
     a gate falls through to the next route. The dense and generic routes run
     at a launch geometry chosen by rows per SM and reuse their scratch buffers.
 
-    FLAGGEMS_HYGON_TOPK_PREFILL=0 disables the override; every call then goes
-    to the generic operator at its own launch geometry.
+    FLAGGEMS_HYGON_TOPK_PREFILL=0 disables the override, and so does a Triton
+    with TLE; every call then goes to the generic operator.
     """
-    if not _ENABLED:
+    if not _ENABLED or getattr(_generic, "HAS_TLE", False):
         return _generic.top_k_per_row_prefill(
             logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
         )
@@ -1601,27 +1692,14 @@ def top_k_per_row_prefill(
             logits, row_starts, row_ends, indices, num_rows, stride0, top_k
         )
 
-    mod = _select_module(logits, num_rows, top_k)
-    geo = _geometry(num_rows, logits.shape[1])
-    with _LAUNCH_LOCK:
-        if geo is None:
-            mod.NUM_THREADS_PER_BLOCK, mod._num_warps = _GENERIC_DEFAULTS[id(mod)]
-        else:
-            block, warps = geo
-            mod.NUM_THREADS_PER_BLOCK = block
-            mod._num_warps = lambda block_size, w=warps: w
-        if not getattr(mod, "HAS_TLE", False):
-            return _top_k_per_row_prefill_reuse(
-                mod,
-                logits,
-                row_starts,
-                row_ends,
-                indices,
-                num_rows,
-                stride0,
-                stride1,
-                top_k,
-            )
-        return mod.top_k_per_row_prefill(
-            logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
-        )
+    return _launch_radix(
+        logits,
+        row_starts,
+        row_ends,
+        indices,
+        num_rows,
+        stride0,
+        stride1,
+        top_k,
+        _route(logits.shape[1], top_k),
+    )
