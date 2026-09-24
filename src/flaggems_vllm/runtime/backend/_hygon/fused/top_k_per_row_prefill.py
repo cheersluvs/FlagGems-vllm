@@ -41,14 +41,7 @@ import torch
 import triton
 import triton.language as tl
 
-_GENERIC_NAME = "flaggems_vllm.ops.top_k_per_row_prefill"
-_DENSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense"
-_CARRY_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_carry"
-_VEC2_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_vec2"
-_SHORT_BINS_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_short_bins"
-_SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
-
-_generic = import_module(_GENERIC_NAME)
+_generic = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
 _log = logging.getLogger(__name__)
 
 # FLAGGEMS_HYGON_TOPK_PREFILL=0 turns the override off: every call goes to the
@@ -199,8 +192,10 @@ _ONESCAN_PATH = _onescan_path()
 
 
 def _load_copy(name, path=None):
-    """The generic module -- or the one-scan patch of it -- executed as a
-    separate module. @triton.jit needs its functions' source on disk."""
+    """The generic module -- or a patch of it -- executed as a separate module,
+    registered as `<this module>.<name>`. @triton.jit needs its functions'
+    source on disk."""
+    name = f"{__name__}.{name}"
     spec = importlib.util.spec_from_file_location(name, path or _generic.__file__)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
@@ -208,11 +203,11 @@ def _load_copy(name, path=None):
     return mod
 
 
-_dense = _load_copy(_DENSE_NAME, _ONESCAN_PATH)
+_dense = _load_copy("_dense", _ONESCAN_PATH)
 # Sparse rows used the generic module itself; with the patch they get their
 # own copy, which also stops this override mutating the shared module's
 # launch globals for them.
-_sparse = _load_copy(_SPARSE_NAME, _ONESCAN_PATH) if _ONESCAN_PATH else _generic
+_sparse = _load_copy("_sparse", _ONESCAN_PATH) if _ONESCAN_PATH else _generic
 _extract_bin_idx = _dense._extract_bin_idx
 
 
@@ -507,7 +502,7 @@ def _carry_path():
 
 _CARRY_PATH = _carry_path()
 try:
-    _dense_carry = _load_copy(_CARRY_NAME, _CARRY_PATH) if _CARRY_PATH else None
+    _dense_carry = _load_copy("_carry", _CARRY_PATH) if _CARRY_PATH else None
 except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
     _log.warning("hygon prefill carry module skipped: %r", exc)
     _dense_carry = None
@@ -528,7 +523,7 @@ def _vec2_path():
 
 _VEC2_PATH = _vec2_path()
 try:
-    _dense_vec2 = _load_copy(_VEC2_NAME, _VEC2_PATH) if _VEC2_PATH else None
+    _dense_vec2 = _load_copy("_vec2", _VEC2_PATH) if _VEC2_PATH else None
 except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
     _log.warning("hygon prefill VEC=2 module skipped: %r", exc)
     _dense_vec2 = None
@@ -565,7 +560,7 @@ def _short_bins_path():
 _SHORT_BINS_PATH = _short_bins_path()
 try:
     _dense_short_bins = (
-        _load_copy(_SHORT_BINS_NAME, _SHORT_BINS_PATH) if _SHORT_BINS_PATH else None
+        _load_copy("_short_bins", _SHORT_BINS_PATH) if _SHORT_BINS_PATH else None
     )
 except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
     _log.warning("hygon prefill short-bins module skipped: %r", exc)
@@ -1263,7 +1258,6 @@ DS_NS = 512
 DS_BCAP = 512
 DS_HI = 75  # percent of top_k expected above T_hi: surely in
 DS_LO = 135  # percent of top_k expected above T_lo: the band's end
-_DENSE_RETRY_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_dense_retry"
 
 
 @triton.jit
@@ -1435,7 +1429,7 @@ def _dense_retry_path():
 _DENSE_RETRY_PATH = _dense_retry_path()
 try:
     _dense_retry = (
-        _load_copy(_DENSE_RETRY_NAME, _DENSE_RETRY_PATH) if _DENSE_RETRY_PATH else None
+        _load_copy("_dense_retry", _DENSE_RETRY_PATH) if _DENSE_RETRY_PATH else None
     )
 except Exception as exc:  # noqa: BLE001 - keep the dense copy
     _log.warning("hygon prefill dense retry module skipped: %r", exc)
