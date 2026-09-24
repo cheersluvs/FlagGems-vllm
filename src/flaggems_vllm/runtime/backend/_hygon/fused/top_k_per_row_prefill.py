@@ -14,12 +14,6 @@
 
 """Hygon BW1000 top_k_per_row_prefill, routed per call.
 
-Very sparse rows (vocab >= 64 * top_k) take a sampled threshold. Dense rows
-(vocab <= 10 * top_k) run copies of the generic kernel with a prefix-sum slot
-allocator and a VEC=2 layout; the large dense shapes take a one-read sampled
-kernel instead, with that copy as its retry. Everything else runs the generic
-kernel with one threshold scan.
-
 Each route is a separate copy of the generic module patched as source text:
 Triton binds a kernel's globals at compile time, so one module can hold only
 one _process_bins. A patch whose anchor is not found exactly once skips its
@@ -408,7 +402,7 @@ def _build_carry_source(generic_source, override_source):
     """Return the dense source with a carried slot counter.
 
     Raises ValueError on source drift; callers must keep the shipped dense
-    module as a fallback. No production kernel is changed by this function.
+    module as a fallback.
     """
     source = generic_source
     for name in ("_alloc_slots", "_process_bins_slotscan"):
@@ -520,7 +514,7 @@ except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
 
 
 def _vec2_path():
-    """Build the validated dense VEC=2 path; retain VEC=4 as fallback."""
+    """Build the dense VEC=2 copy; the carried VEC=4 copy stays as fallback."""
     if _CARRY_PATH is None:
         return None
     try:
@@ -541,7 +535,7 @@ except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
 
 
 def _short_bins_path():
-    """Build the measured 512-bin STEP-0 dense specialization."""
+    """Build the dense copy with 512 STEP-0 bins, for short rows."""
     if _VEC2_PATH is None:
         return None
     try:
@@ -1560,7 +1554,7 @@ def top_k_per_row_prefill(
 ):
     """Top-K per row for DeepSeek V4 prefill, routed per call.
 
-    Routes, first match wins:
+    Same contract as the generic operator. Routes, first match wins:
 
       sampled   vocab >= SAMPLED_MIN_VOCAB_PER_TOPK * top_k. prepare samples
                 every SSTRIDE-th tile for a threshold, collect makes one pass
