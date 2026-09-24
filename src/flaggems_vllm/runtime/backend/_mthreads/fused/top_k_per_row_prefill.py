@@ -48,15 +48,24 @@ else:
     tle = None
     HAS_TLE = False
 
+# FLAGGEMS_MTT_TOPK_PREFILL=0 turns the override off: every call goes to the
+# generic operator.
+_ENABLED = os.environ.get("FLAGGEMS_MTT_TOPK_PREFILL", "1").strip().lower() not in (
+    "0",
+    "false",
+    "off",
+    "no",
+)
+
 
 # Sample every SSTRIDE-th element for the threshold estimate. 8 leaves ~256
 # samples in the top-k tail (~6% error); 64 left ~32 and missed the
 # [top_k, 2048] window on almost every row.
-SSTRIDE = int(os.environ.get("FLAGGEMS_MTT_PREFILL_SSTRIDE", "8"))
+SSTRIDE = 8
 
 # Shorter rows are fixed-cost dominated and lose with sampling (S5000: vocab
 # 8193 0.875 -> 0.706, vocab 16385 0.765 -> 0.835).
-MIN_SPAN = int(os.environ.get("FLAGGEMS_MTT_PREFILL_MIN_SPAN", "16384"))
+MIN_SPAN = 16384
 
 
 @triton.jit
@@ -315,18 +324,14 @@ def _wide_max_rows():
     """Largest num_rows for which the wide block still fits in one wave."""
     global _WIDE_MAX_ROWS
     if _WIDE_MAX_ROWS is None:
-        override = os.environ.get("FLAGGEMS_MTT_PREFILL_WIDE_MAX_ROWS")
-        if override is not None:
-            _WIDE_MAX_ROWS = int(override)
-        else:
-            try:
-                props = runtime.torch_device_fn.get_device_properties(0)
-                warp = getattr(props, "warp_size", 32) or 32
-                sm = getattr(props, "multi_processor_count", 0)
-                # The crossover was measured on 32-lane warps only.
-                _WIDE_MAX_ROWS = sm if (warp == 32 and sm) else 0
-            except Exception:  # noqa: BLE001 - detection must not break dispatch
-                _WIDE_MAX_ROWS = 0
+        try:
+            props = runtime.torch_device_fn.get_device_properties(0)
+            warp = getattr(props, "warp_size", 32) or 32
+            sm = getattr(props, "multi_processor_count", 0)
+            # The crossover was measured on 32-lane warps only.
+            _WIDE_MAX_ROWS = sm if (warp == 32 and sm) else 0
+        except Exception:  # noqa: BLE001 - detection must not break dispatch
+            _WIDE_MAX_ROWS = 0
     return _WIDE_MAX_ROWS
 
 
@@ -389,7 +394,15 @@ def _can_sample(num_rows, vocab_size, stride1, top_k):
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
-    """Top-K per row for DeepSeek V4 prefill with a sampled threshold."""
+    """Top-K per row for DeepSeek V4 prefill with a sampled threshold.
+
+    FLAGGEMS_MTT_TOPK_PREFILL=0 disables the override; every call then goes to
+    the generic operator.
+    """
+    if not _ENABLED:
+        return _generic_prefill(
+            logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
+        )
     vocab_size = logits.shape[1]
     if not _can_sample(num_rows, vocab_size, stride1, top_k):
         # Rows too short to sample can still use the wide block.
