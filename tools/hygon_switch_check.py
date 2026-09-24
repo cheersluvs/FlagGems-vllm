@@ -1,5 +1,8 @@
 """One environment switch per operator, validated on the card.
 
+Also: the module copies are now registered under the override's own name
+(<override>._dense, ._vec2, ...) instead of flaggems_vllm.ops._top_k_*_hygon_*.
+
 The Hygon prefill override had twelve switches and decode two; both now have
 exactly one: FLAGGEMS_HYGON_TOPK_PREFILL=0 and FLAGGEMS_HYGON_TOPK_DECODE=0
 (renamed from FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED). The tuning values that were
@@ -51,6 +54,10 @@ print("OUT copies", {n: getattr(pre, n) is not None for n in
 print("OUT constants SSTRIDE", pre.SSTRIDE, "TARGET_MULT", pre.TARGET_MULT,
       "SSPLIT", pre.SSPLIT, "ratio", pre.SAMPLED_MIN_VOCAB_PER_TOPK)
 print("OUT warnings", [r for r in records if "hygon" in r.lower()] or "none")
+print("OUT copy names", [m.__name__ for m in (pre._dense, pre._sparse, pre._dense_carry,
+      pre._dense_vec2, pre._dense_short_bins, pre._dense_retry) if m is not None])
+print("OUT old names in sys.modules",
+      [n for n in sys.modules if "_top_k_per_row_prefill_hygon" in n] or "none")
 
 calls = []
 orig = gen.top_k_per_row_prefill
