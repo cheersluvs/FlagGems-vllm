@@ -1,0 +1,87 @@
+### branch topk-metax @ 6873ff1
+### 2026-09-24T09:14:37+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### part 0: switches
+
+  [default]
+    prefill _ENABLED True | decode _enabled() True
+    copies {'_dense_carry': True, '_dense_vec2': True, '_dense_short_bins': True, '_dense_retry': True} onescan True sparse is generic False
+    constants SSTRIDE 16 TARGET_MULT 1.25 SSPLIT 4 ratio 64
+    warnings none
+    prefill 64x129280 k1024: ok  generic called: False
+    prefill 12961x4100 k512: ok  generic called: False
+    prefill 4100x1025 k512: ok  generic called: False
+    decode 8x262144 k512: ok
+  [PREFILL=0]
+    prefill _ENABLED False | decode _enabled() True
+    copies {'_dense_carry': False, '_dense_vec2': False, '_dense_short_bins': False, '_dense_retry': False} onescan False sparse is generic True
+    constants SSTRIDE 16 TARGET_MULT 1.25 SSPLIT 4 ratio 64
+    warnings none
+    prefill 64x129280 k1024: ok  generic called: True
+    prefill 12961x4100 k512: ok  generic called: True
+    prefill 4100x1025 k512: ok  generic called: True
+    decode 8x262144 k512: ok
+  [DECODE=0]
+    prefill _ENABLED True | decode _enabled() False
+    copies {'_dense_carry': True, '_dense_vec2': True, '_dense_short_bins': True, '_dense_retry': True} onescan True sparse is generic False
+    constants SSTRIDE 16 TARGET_MULT 1.25 SSPLIT 4 ratio 64
+    warnings none
+    prefill 64x129280 k1024: ok  generic called: False
+    prefill 12961x4100 k512: ok  generic called: False
+    prefill 4100x1025 k512: ok  generic called: False
+    decode 8x262144 k512: ok
+  [stale old vars]
+    prefill _ENABLED True | decode _enabled() True
+    copies {'_dense_carry': True, '_dense_vec2': True, '_dense_short_bins': True, '_dense_retry': True} onescan True sparse is generic False
+    constants SSTRIDE 16 TARGET_MULT 1.25 SSPLIT 4 ratio 64
+    warnings none
+    prefill 64x129280 k1024: ok  generic called: False
+    prefill 12961x4100 k512: ok  generic called: False
+    prefill 4100x1025 k512: ok  generic called: False
+    decode 8x262144 k512: ok
+
+### part 1: before / after
+
+### tests, as shipped
+  prefill: 29 passed, 1 skipped in 48.62s
+  decode: 13 passed in 1.91s
+### run 1: before
+### run 2: after
+### run 3: before
+### run 4: after
+
+  num_rows  vocab   top_k   vLLM ms   before ms  after ms   before SpeedUp       after SpeedUp
+        64  129280   1024   0.1094    0.2638    0.1139     0.415 / 0.416     0.959 / 0.963
+         4    8193    512   0.0186    0.0342    0.0296     0.542 / 0.610     0.697 / 0.624
+         4   16385    512   0.0258    0.0432    0.0361     0.596 / 0.610     0.718 / 0.703
+      4100    1025    512   0.1608    0.6875    0.0994     0.234 / 0.235     1.618 / 1.601
+     12961    4100    512   0.6830    2.9138    0.5982     0.234 / 0.235     1.141 / 1.141
+     16380    5115    512   1.2456    3.8400    0.7806     0.324 / 0.324     1.595 / 1.596
+     16383    4095    512   1.1552    3.6066    0.7034     0.320 / 0.321     1.643 / 1.643
+  before: geomean 0.358 / 0.367   without the 4-row pair 0.298 / 0.299   >= 0.9: 0 / 0 of 7
+   after: geomean 1.128 / 1.106   without the 4-row pair 1.359 / 1.358   >= 0.9: 5 / 5 of 7
+  vLLM latency 64x129280 across runs: max/min 1.00
+  vLLM latency 4x8193 across runs: max/min 1.12
+  vLLM latency 4x16385 across runs: max/min 1.02
+  vLLM latency 4100x1025 across runs: max/min 1.01
+  vLLM latency 12961x4100 across runs: max/min 1.00
+  vLLM latency 16380x5115 across runs: max/min 1.00
+  vLLM latency 16383x4095 across runs: max/min 1.00
+
+### part 2: decode benchmark, two passes
+
+      1  262144   512   1.459 / 1.481
+      4  262144   512   1.354 / 1.336
+      8  262144   512   1.209 / 1.227
+     16  262144   512   1.135 / 1.113
+     24  262144   512   1.156 / 1.173
+     32  262144   512   1.452 / 1.202
+     40  262144   512   1.613 / 1.622
+     48  262144   512   1.661 / 1.666
+     56  262144   512   1.474 / 1.478
+    496  262144   512   2.638 / 2.663
+    512  262144   512   2.698 / 2.715
+
+  decode geomean 1.554 / 1.533  (PR table: 1.529 / 1.560)
