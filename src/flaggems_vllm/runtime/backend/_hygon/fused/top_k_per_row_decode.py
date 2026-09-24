@@ -434,7 +434,7 @@ class _Launch:
 
 
 class _Plan:
-    """Buffers and launchers for one (shape, specialisation). Three launches:
+    """Buffers and launchers for one (shape, specialization). Three launches:
     sample the row for a threshold, select against it in one pass, then the
     fallback decision and the exact answer together."""
 
@@ -533,7 +533,7 @@ def top_k_per_row_decode(
     <= min(MAX_TOP_K, vocab_size), and num_rows * _cap(top_k) <= MAX_CAND.
 
     Plans are cached on (device, shape, split, caller pointer alignment),
-    because Triton specialises a compiled kernel on integer argument values and
+    because Triton specializes a compiled kernel on integer argument values and
     on data_ptr % 16; at most _PLANS_MAX are kept. A Triton version whose `run`
     returns no CompiledKernel falls back to ordinary JIT launches.
 
