@@ -371,25 +371,19 @@ def _sm_count():
 
 
 def _enabled():
-    return os.environ.get("FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED", "1") != "0"
-
-
-def _forced_split():
-    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_DECODE_SPLIT")
-    if raw is None:
-        return None
-    try:
-        return max(1, int(raw))
-    except ValueError:
-        return None
+    return os.environ.get("FLAGGEMS_HYGON_TOPK_DECODE", "1").strip().lower() not in (
+        "0",
+        "false",
+        "off",
+        "no",
+    )
 
 
 def _split_factor(num_rows, vocab_size, top_k):
     """Programs per row for the select pass."""
-    forced = _forced_split()
-    if forced is None and num_rows >= _sm_count():
+    if num_rows >= _sm_count():
         return 1
-    split = forced or _SPLIT
+    split = _SPLIT
     while split > 1 and (
         vocab_size % split or vocab_size // split < max(MIN_CHUNK, top_k)
     ):
@@ -537,9 +531,8 @@ def top_k_per_row_decode(
     on data_ptr % 16; at most _PLANS_MAX are kept. A Triton version whose `run`
     returns no CompiledKernel falls back to ordinary JIT launches.
 
-    FLAGGEMS_HYGON_TOPK_DECODE_SAMPLED=0 disables the override;
-    FLAGGEMS_HYGON_TOPK_DECODE_SPLIT=n forces the select pass's programs per
-    row, for sweeping it.
+    FLAGGEMS_HYGON_TOPK_DECODE=0 disables the override; every call then goes
+    to the generic operator.
     """
     vocab_size = logits.shape[1]
     if (

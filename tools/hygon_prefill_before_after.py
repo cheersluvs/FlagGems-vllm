@@ -1,15 +1,8 @@
 """Before/after for the upstream prefill PR, measured in one session.
 
-`before` switches every part of the Hygon override off, so a call reaches the
+`before` is FLAGGEMS_HYGON_TOPK_PREFILL=0: the override hands every call to the
 generic module's own top_k_per_row_prefill at its own launch geometry -- what
-upstream main runs on this card today:
-
-    FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO=0   no sampled path
-    FLAGGEMS_HYGON_TOPK_SLOTSCAN=0           no dense copies
-    FLAGGEMS_HYGON_TOPK_ONESCAN=0            the untouched generic module
-    FLAGGEMS_HYGON_TOPK_GEOMETRY=0           generic's BLOCK_SIZE / num_warps
-    FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE=0      generic's own host wrapper
-    FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED=0   no one-read dense route
+upstream main runs on this card today.
 
 `after` is the override as it ships. Interleaved before/after/before/after,
 prefill benchmark in kernel mode, vLLM latency printed per run.
@@ -23,14 +16,7 @@ import subprocess
 import sys
 
 BENCH = ["benchmark/test_top_k_per_row_prefill.py", "--mode", "kernel"]
-OFF = {
-    "FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO": "0",
-    "FLAGGEMS_HYGON_TOPK_SLOTSCAN": "0",
-    "FLAGGEMS_HYGON_TOPK_ONESCAN": "0",
-    "FLAGGEMS_HYGON_TOPK_GEOMETRY": "0",
-    "FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE": "0",
-    "FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED": "0",
-}
+OFF = {"FLAGGEMS_HYGON_TOPK_PREFILL": "0"}
 ORDER = ["before", "after", "before", "after"]
 
 

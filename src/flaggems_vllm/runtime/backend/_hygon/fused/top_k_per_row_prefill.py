@@ -25,7 +25,7 @@ Triton binds a kernel's globals at compile time, so one module can hold only
 one _process_bins. A patch whose anchor is not found exactly once skips its
 route with a warning, and the generic kernel runs.
 
-Routes, their gates and the environment switches are documented on
+Routes, their gates and the environment switch are documented on
 `top_k_per_row_prefill` at the bottom of this file.
 """
 
@@ -56,6 +56,15 @@ _SPARSE_NAME = "flaggems_vllm.ops._top_k_per_row_prefill_hygon_sparse"
 
 _generic = import_module(_GENERIC_NAME)
 _log = logging.getLogger(__name__)
+
+# FLAGGEMS_HYGON_TOPK_PREFILL=0 turns the override off: every call goes to the
+# generic operator, and no patched source is written or loaded.
+_ENABLED = os.environ.get("FLAGGEMS_HYGON_TOPK_PREFILL", "1").strip().lower() not in (
+    "0",
+    "false",
+    "off",
+    "no",
+)
 
 # Dense iff vocab_size <= DENSE_VOCAB_PER_TOPK * top_k, i.e. density >= 10%. A
 # prefix sum over the take mask beats one atomic per selected element above a
@@ -126,11 +135,6 @@ _ONESCAN_SCAN_NEW = """    counts = tl.load(s_histogram_ptr + radix_bins)
 """
 
 
-def _onescan_enabled():
-    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_ONESCAN", "1").strip().lower()
-    return raw not in ("0", "false", "off", "no")
-
-
 def _private_dir():
     """A directory only this user can write. The patched source is executed
     as code, and this box is shared, so a world-writable /tmp is not an
@@ -173,7 +177,7 @@ def _write_private(source, stem):
 
 def _onescan_path():
     """Path of the patched generic source, or None to use the generic file."""
-    if not _onescan_enabled():
+    if not _ENABLED:
         return None
     try:
         with open(_generic.__file__) as fh:
@@ -490,12 +494,7 @@ def _set_vector_width(source, width):
 
 def _carry_path():
     """Build the dense copy with its slot counter carried through the step."""
-    if os.environ.get("FLAGGEMS_HYGON_TOPK_CARRY", "1").strip().lower() in (
-        "0",
-        "false",
-        "off",
-        "no",
-    ):
+    if not _ENABLED:
         return None
     if _ONESCAN_PATH is None:
         _log.warning("hygon prefill carry requires the one-scan source")
@@ -522,13 +521,6 @@ except Exception as exc:  # noqa: BLE001 - preserve the shipped dense path
 
 def _vec2_path():
     """Build the validated dense VEC=2 path; retain VEC=4 as fallback."""
-    if os.environ.get("FLAGGEMS_HYGON_TOPK_VEC2", "1").strip().lower() not in (
-        "1",
-        "true",
-        "on",
-        "yes",
-    ):
-        return None
     if _CARRY_PATH is None:
         return None
     try:
@@ -551,13 +543,6 @@ except Exception as exc:  # noqa: BLE001 - preserve carried VEC=4
 def _short_bins_path():
     """Build the measured 512-bin STEP-0 dense specialization."""
     if _VEC2_PATH is None:
-        return None
-    if os.environ.get("FLAGGEMS_HYGON_TOPK_SHORT_BINS", "1").strip().lower() in (
-        "0",
-        "false",
-        "off",
-        "no",
-    ):
         return None
     try:
         with open(_VEC2_PATH) as fh:
@@ -591,14 +576,6 @@ try:
 except Exception as exc:  # noqa: BLE001 - preserve the dense fallback
     _log.warning("hygon prefill short-bins module skipped: %r", exc)
     _dense_short_bins = None
-
-
-def _slotscan_enabled():
-    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_SLOTSCAN", "1").strip().lower()
-    return raw not in ("0", "false", "off", "no")
-
-
-_ENABLED = _slotscan_enabled()
 
 
 # ---------------------------------------------------------------------------
@@ -636,12 +613,6 @@ def _geometry(num_rows, row_len):
     return (256, 2) if row_len <= SHORT_ROW_MAX else (256, 4)
 
 
-def _geometry_enabled():
-    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_GEOMETRY", "1").strip().lower()
-    return raw not in ("0", "false", "off", "no")
-
-
-_GEOMETRY = _geometry_enabled()
 _LAUNCH_LOCK = threading.Lock()
 _GENERIC_DEFAULTS = {
     id(m): (m.NUM_THREADS_PER_BLOCK, m._num_warps)
@@ -665,11 +636,6 @@ _GENERIC_DEFAULTS = {
 _SCRATCH_CACHE = OrderedDict()
 _SCRATCH_CACHE_BYTES = 0
 _SCRATCH_CACHE_LIMIT = 512 * 1024 * 1024
-
-
-def _scratch_reuse_enabled():
-    raw = os.environ.get("FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE", "1").strip().lower()
-    return raw not in ("0", "false", "off", "no")
 
 
 def _scratch_buffers(mod, device, num_rows):
@@ -749,7 +715,7 @@ def _top_k_per_row_prefill_reuse(
 def _select_module(logits, num_rows, top_k):
     """Pick the Hygon dense copy for dense rows, the sparse copy otherwise."""
     vocab = logits.shape[1]
-    if _ENABLED and vocab <= DENSE_VOCAB_PER_TOPK * top_k:
+    if vocab <= DENSE_VOCAB_PER_TOPK * top_k:
         if (
             _dense_short_bins is not None
             and top_k == SHORT_BINS_TOPK
@@ -771,11 +737,9 @@ def _select_module(logits, num_rows, top_k):
 # superset that _s_finish ranks exactly. Below TARGET_MULT 1.25 the estimate
 # falls short of top_k often enough (28% of rows at 1.0) that the redo
 # dominates; above it the larger candidate set costs more than it saves.
-SAMPLED_MIN_VOCAB_PER_TOPK = int(
-    os.environ.get("FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO", "64")
-)
-SSTRIDE = int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSTRIDE", "16"))
-TARGET_MULT = float(os.environ.get("FLAGGEMS_HYGON_PREFILL_TARGET_MULT", "1.25"))
+SAMPLED_MIN_VOCAB_PER_TOPK = 64
+SSTRIDE = 16
+TARGET_MULT = 1.25
 CAP_MULT = 4  # candidate buffer; the acceptance window is [top_k, CAP]
 SBLOCK = 512
 SWARPS = 8
@@ -785,8 +749,7 @@ SRADIX = 256
 # card, serialized, so one counter shared by the row queued all its programs.
 # 4 measured best of 2 to 16. A power of two, because prepare zeroes a row's
 # counters with one arange.
-_ssplit = max(1, int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSPLIT", "4")))
-SSPLIT = 1 << (_ssplit.bit_length() - 1)
+SSPLIT = 4
 _MAX_CAND_ELEMS = 1 << 24
 
 
@@ -1277,8 +1240,7 @@ def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k)
 
     vocab = logits.shape[1]
     return (
-        SAMPLED_MIN_VOCAB_PER_TOPK > 0
-        and vocab >= SAMPLED_MIN_VOCAB_PER_TOPK * top_k
+        vocab >= SAMPLED_MIN_VOCAB_PER_TOPK * top_k
         and stride1 == 1
         and num_rows > 0
         and num_rows == logits.shape[0]
@@ -1302,9 +1264,6 @@ def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k)
 # unless its row was flagged, so every answer is exact. On standard-normal rows
 # the route is 1.6-1.8x the dense copy alone; with every row flagged it costs
 # 2-6% more.
-DENSE_SAMPLED = os.environ.get(
-    "FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED", "1"
-).strip().lower() not in ("0", "false", "off", "no")
 DS_BLOCK = 512
 DS_NS = 512
 DS_BCAP = 512
@@ -1452,7 +1411,7 @@ def _in_function(source, name, old, new):
 def _dense_retry_path():
     """The dense VEC2 copy, each program returning at once unless _d_sampled
     flagged its row."""
-    if not DENSE_SAMPLED or _VEC2_PATH is None:
+    if _VEC2_PATH is None:
         return None
     try:
         with open(_VEC2_PATH) as fh:
@@ -1553,7 +1512,7 @@ def _dense_sampled(logits, row_starts, row_ends, indices, num_rows, stride0, top
         _s_aligned(indices),
     )
     mod = _dense_retry
-    geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
+    geo = _geometry(num_rows, logits.shape[1])
     with _DPLAN_LOCK:
         plan = _DPLANS.get(key)
         if plan is None:
@@ -1619,20 +1578,13 @@ def top_k_per_row_prefill(
     a gate falls through to the next route. The dense and generic routes run
     at a launch geometry chosen by rows per SM and reuse their scratch buffers.
 
-    Environment switches, all on by default; together they reproduce the
-    generic path:
-
-      FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO=0   no sampled route
-      FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED=0   no one-read route
-      FLAGGEMS_HYGON_TOPK_SLOTSCAN=0           no dense copies
-      FLAGGEMS_HYGON_TOPK_ONESCAN=0            the unpatched generic module
-      FLAGGEMS_HYGON_TOPK_GEOMETRY=0           generic's launch geometry
-      FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE=0      generic's own host wrapper
-
-    FLAGGEMS_HYGON_TOPK_CARRY, _VEC2 and _SHORT_BINS turn off single dense
-    steps; FLAGGEMS_HYGON_PREFILL_SSTRIDE, _TARGET_MULT and _SSPLIT tune the
-    sampled route.
+    FLAGGEMS_HYGON_TOPK_PREFILL=0 disables the override; every call then goes
+    to the generic operator at its own launch geometry.
     """
+    if not _ENABLED:
+        return _generic.top_k_per_row_prefill(
+            logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
+        )
     if _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k):
         skey = (
             logits.device,
@@ -1662,7 +1614,7 @@ def top_k_per_row_prefill(
         )
 
     mod = _select_module(logits, num_rows, top_k)
-    geo = _geometry(num_rows, logits.shape[1]) if _GEOMETRY else None
+    geo = _geometry(num_rows, logits.shape[1])
     with _LAUNCH_LOCK:
         if geo is None:
             mod.NUM_THREADS_PER_BLOCK, mod._num_warps = _GENERIC_DEFAULTS[id(mod)]
@@ -1670,7 +1622,7 @@ def top_k_per_row_prefill(
             block, warps = geo
             mod.NUM_THREADS_PER_BLOCK = block
             mod._num_warps = lambda block_size, w=warps: w
-        if _scratch_reuse_enabled() and not getattr(mod, "HAS_TLE", False):
+        if not getattr(mod, "HAS_TLE", False):
             return _top_k_per_row_prefill_reuse(
                 mod,
                 logits,
