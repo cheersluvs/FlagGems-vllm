@@ -18,7 +18,7 @@ The merge only needs a SUPERSET of each row's top-k, so the threshold can come
 from a sample of the row instead of a full histogram pass. Three kernels then
 do in ~1.02 passes what the generic radix algorithm does in two.
 
-Dispatch, buffer limits and the environment switches are documented on
+Dispatch, buffer limits and the environment switch are documented on
 `top_k_per_row_decode` at the bottom of this file.
 """
 
@@ -51,11 +51,9 @@ MAX_CAND = 1 << 24  # refuse shapes whose buffers would be absurd
 MIN_VOCAB = 2048
 MAX_TOP_K = 2048
 
-# Programs per row for the select pass. A flat 32 rather than a per-row-band
-# table: across 8, 16 and 32 the surface is flat to about 10% and not monotonic,
-# and three candidate rules came out at geomean 1.295 / 1.290 / 1.292 -- a tie,
-# so do not fit a table to noise. At or beyond one row per SM the rows alone
-# fill the card, and _split_factor returns 1.
+# Programs per row for the select pass: a flat 32, since tables keyed on the
+# row count over 8, 16 and 32 did no better. At or beyond one row per SM the
+# rows alone fill the card, and _split_factor returns 1.
 _SPLIT = 32
 MIN_CHUNK = 8192  # smallest chunk worth its own program
 
@@ -212,11 +210,10 @@ def _tail(
     """The fallback decision, then the exact top-k of the candidates.
 
     A row that admitted between TOPK and CAP candidates already holds a
-    superset of its top-k; one outside that range is redone exactly here, the
-    strictly-better bins appended BEFORE the threshold bin so that a buffer
-    which still overflows can only drop elements sharing an 11-bit key with the
-    k-th. The answer is four 8-bit radix rounds over the full 32-bit ordered
-    key, written straight out as cand_idx[pos].
+    superset of its top-k. One outside that range is redone here over the
+    whole row on the full 32-bit ordered key, so only exact ties can be
+    dropped. Either way the answer comes from four 8-bit radix rounds over
+    that key and is written straight to the output.
     """
     row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
@@ -227,15 +224,10 @@ def _tail(
     obase = out_ptr + row * TOPK
     cbase = counts_ptr + row * RADIX
     if (c < tl.minimum(TOPK, n)) | (c > CAP):
-        # The 11-bit fp16 key can COLLAPSE: a row whose values sit in a narrow
-        # band away from zero (relative spread below about 1%, the key's
-        # resolution being magnitude/32) maps to one or two bins, and then
-        # "an overflow can only drop what shares the k-th element's key" is
-        # true but vacuous -- everything shares it, so the true top-k can be
-        # dropped. The generic operator escapes through STEP 1-3, which refine
-        # over the full 32 bits; this path has no STEP 1-3, so the redo uses
-        # the full 32-bit ordered key directly. It is injective on distinct
-        # floats, so only exact ties can ever be dropped.
+        # Not the sample's 11-bit key: it resolves magnitude/32, so a row in a
+        # narrow band away from zero collapses into one or two bins. This path
+        # has no STEP 1-3 to refine through; the 32-bit ordered key is
+        # injective on distinct floats.
         rdesired = tl.zeros((), dtype=tl.uint32)
         rmask = tl.zeros((), dtype=tl.uint32)
         r_to_find = TOPK + 1
@@ -510,7 +502,8 @@ def top_k_per_row_decode(
 ):
     """Top-K per row for DeepSeek V4 decode, threshold picked from a sample.
 
-    Three launches per call, all through the cached plan below:
+    Same contract as the generic operator. Three launches per call, all
+    through the cached plan below:
 
       prepare  one program per row. Histograms SAMPLE_TILES tiles of the row
                and scans them for the bin holding rank top_k, scaled to the
