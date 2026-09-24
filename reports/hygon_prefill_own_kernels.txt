@@ -1,0 +1,59 @@
+### branch topk-metax @ 8367d08
+### 2026-09-24T10:36:55+08:00  host bm-srwl-nj-zone3-d-bw1000-64g-2-7
+### PYTHONPATH=src:/usr/local/:
+
+### python: python -> /usr/bin/python
+### part 0 + 1: routes and correctness
+
+  module copies in sys.modules: none
+  route 64x129280 k1024: sampled
+  route 4x8193 k512: generic
+  route 4x16385 k512: generic
+  route 4100x1025 k512: short
+  route 12961x4100 k512: one-read
+  route 16380x5115 k512: one-read
+  route 16383x4095 k512: one-read
+  generic aligned 4x16384                      ok
+  generic unaligned 4x16385                    ok
+  generic partial rows 8x8193                  ok
+  generic strided (stride1=8) 8x8193           WRONG rows=8/8
+  dense aligned 64x4096                        ok
+  dense unaligned 64x4095                      ok
+  dense partial rows 64x4100                   ok
+  dense narrow band 64x4096                    ok
+  dense ties 64x4096                           ok
+  dense strided (stride1=16) 16x4096           WRONG rows=16/16
+  dense short rows (some <= top_k) 64x4096     ok
+  short 4100x1025                              ok
+  short partial rows 4100x1025                 ok
+  short narrow band 512x1024                   ok
+  one-read 12961x4100                          ok
+  one-read ties (retry ~9%)                    ok
+  one-read band (every row retried)            ok
+  one-read partial rows                        ok
+  sampled 64x129280                            ok
+
+### part 2: tests
+
+  prefill: 29 passed, 1 skipped in 78.31s (0:01:18)
+  decode: 13 passed in 1.76s
+
+### part 3: benchmark, OLD (45c154a) vs NEW, interleaved
+
+  old imports 
+  new imports 
+  run 1: old, 7 shapes
+  run 2: new, 7 shapes
+  run 3: old, 7 shapes
+  run 4: new, 7 shapes
+
+               shape    old ms    new ms  new/old     old SpeedUp   new SpeedUp
+       4x8193   k512     0.0296    0.0298    1.005   0.622 / 0.618 0.704 / 0.704
+       4x16385  k512     0.0366    0.0347    0.948   0.629 / 0.703 0.703 / 0.682
+    4100x1025   k512     0.0982    0.0994    1.011   1.624 / 1.635 1.622 / 1.616
+      64x129280 k1024    0.1141    0.1138    0.997   0.958 / 0.957 0.959 / 0.958
+   12961x4100   k512     0.5982    0.5990    1.001   1.141 / 1.141 1.140 / 1.140
+   16383x4095   k512     0.7035    0.7034    1.000   1.642 / 1.642 1.642 / 1.640
+   16380x5115   k512     0.7814    0.7803    0.999   1.593 / 1.593 1.594 / 1.595
+  old: geomean 1.089 / 1.106   without 4-row 1.359 / 1.361
+  new: geomean 1.126 / 1.120   without 4-row 1.359 / 1.358
