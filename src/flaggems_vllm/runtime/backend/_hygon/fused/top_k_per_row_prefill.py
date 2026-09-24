@@ -24,6 +24,9 @@ Each route is a separate copy of the generic module patched as source text:
 Triton binds a kernel's globals at compile time, so one module can hold only
 one _process_bins. A patch whose anchor is not found exactly once skips its
 route with a warning, and the generic kernel runs.
+
+Routes, their gates and the environment switches are documented on
+`top_k_per_row_prefill` at the bottom of this file.
 """
 
 import ast
@@ -61,11 +64,10 @@ DENSE_VOCAB_PER_TOPK = 10
 
 
 # ---------------------------------------------------------------------------
-# One threshold scan instead of a carried chain of rounds: one vectorised
+# One threshold scan instead of a carried chain of rounds: one vectorized
 # clear, one RADIX_SIZE-wide cumsum, the bin and its size as reductions kept in
-# registers. Measured on the operator at production routing: 1.014x-1.309x on
-# the seven benchmark shapes, geomean 1.094x. Applied as two exact text
-# replacements; if either is not found exactly once the copies load the
+# registers (geomean 1.09x over the benchmark shapes). Applied as two exact
+# text replacements; if either is not found exactly once the copies load the
 # generic source unchanged.
 _ONESCAN_CLEAR_OLD = """    threshold_rounds: tl.constexpr = (
         RADIX10_SIZE // BLOCK_SIZE if STEP == 3 else RADIX11_SIZE // BLOCK_SIZE
@@ -601,22 +603,14 @@ _ENABLED = _slotscan_enabled()
 
 # ---------------------------------------------------------------------------
 # Launch geometry by occupancy: past one row per SM the grid is the
-# parallelism, so many rows want narrow programs. Ratio vs vLLM:
-#
-#   rows/SM   row 4096, k 512        row 129280, k 1024
-#   < 4       all within noise       B512 w8 best
-#   4 - 16    B512 w4: +3..16%       B512 w4: +3..10%
-#   32 - 52   B256 w2: +47..57%      B256 w4: +13..32%
-#   204       B256 w2: 1.95x         --
-#
-# num_warps=1 returned wrong answers and is never used. NUM_THREADS_PER_BLOCK
-# and _num_warps are host-side globals read at launch, so they are set per
-# call under a lock. FLAGGEMS_HYGON_TOPK_GEOMETRY=0 keeps generic's values.
+# parallelism, so many rows want narrower programs -- up to 1.95x at about 200
+# rows per SM. num_warps=1 returned wrong answers on the generic kernel, so
+# this never picks it. NUM_THREADS_PER_BLOCK and _num_warps are host-side
+# globals read at launch, so they are set per call under a lock.
 
 SHORT_ROW_MAX = 8192
-# The crossover probe showed a stable STEP-0 win with 512 bins for the
-# benchmark's top_k=512 rows up through vocab/row_len 1536.  Do not apply it
-# to larger rows: 1792 was already neutral and the 4095/5115 cases regressed.
+# 512 STEP-0 bins beat 2048 for top_k 512 on rows up to 1536 long; at 1792
+# they were already neutral, and rows of 4095 and 5115 regressed.
 SHORT_BINS_TOPK = 512
 SHORT_BINS_MAX_VOCAB = 1536
 
@@ -774,14 +768,9 @@ def _select_module(logits, num_rows, top_k):
 # A sampled threshold for very sparse rows. The generic step reads each row
 # twice, the first time only to find the threshold; here that pass reads every
 # SSTRIDE-th tile and aims at TARGET_MULT * top_k, so one pass collects a
-# superset that _s_finish ranks exactly. Benchmark SpeedUp on (64,129280)
-# against the same binary with the gate shut:
-#
-#     TARGET_MULT   1.00    1.10    1.25    1.50    3.00
-#     rows outside  28.1%   10.9%    1.6%    0.0%     --
-#     vs gate shut  0.434   0.494   1.402   1.361   0.862
-#
-# Below 1.25 the estimate undershoots top_k and every short row pays a redo.
+# superset that _s_finish ranks exactly. Below TARGET_MULT 1.25 the estimate
+# falls short of top_k often enough (28% of rows at 1.0) that the redo
+# dominates; above it the larger candidate set costs more than it saves.
 SAMPLED_MIN_VOCAB_PER_TOPK = int(
     os.environ.get("FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO", "64")
 )
@@ -792,16 +781,10 @@ SBLOCK = 512
 SWARPS = 8
 SRADIX = 256
 # Programs per row in the collect pass, each with its own counter and segment:
-# a partially-masked atomic to one address costs ~12 ns per taken lane here,
-# serialised, so a shared counter queued every program of the row. Benchmark
-# SpeedUp on (64,129280):
-#
-#     split                 2       4       8      16
-#     shared counter      0.631   0.605   0.569   0.531
-#     private counters    0.702   0.736   0.634   0.728
-#
-# 8 is slow in both designs, for a reason not yet understood. A power of two,
-# because prepare zeroes a row's counters with one arange.
+# a partially masked atomic to one address costs ~12 ns per taken lane on this
+# card, serialized, so one counter shared by the row queued all its programs.
+# 4 measured best of 2 to 16. A power of two, because prepare zeroes a row's
+# counters with one arange.
 _ssplit = max(1, int(os.environ.get("FLAGGEMS_HYGON_PREFILL_SSPLIT", "4")))
 SSPLIT = 1 << (_ssplit.bit_length() - 1)
 _MAX_CAND_ELEMS = 1 << 24
@@ -852,9 +835,9 @@ def _s_hist(
     logits_ptr, base, row, stride0, s, e, STRIDE: tl.constexpr, BLOCK: tl.constexpr
 ):
     """Histogram every STRIDE-th TILE of [s, e): whole tiles read 1/STRIDE of
-    the bytes, where strided elements would touch every cache line. The sample is
-    unbiased only for rows without spatial structure; _s_finish's exact retry
-    covers the rest."""
+    the bytes, where strided elements would touch every cache line. The sample
+    is unbiased only for rows without spatial structure; _s_finish's exact
+    retry covers the rest."""
     lane = tl.arange(0, BLOCK)
     for t in tl.range(0, tl.cdiv(e - s, BLOCK * STRIDE)):
         i = s + t * BLOCK * STRIDE + lane
@@ -925,10 +908,11 @@ def _s_collect(
     index relative to row_start; _s_finish re-reads the values.
 
     The bulk loop is unmasked and the remainder handled separately, as in the
-    generic passes: a mask on every load cost 131.3 us against a modelled 55.
-    SPLIT programs divide the row, each appending through its own counter into its
-    own SEG-long segment. CHUNK is a multiple of BLOCK * VEC so the bulk loop stays
-    unmasked; the last part runs to the end of the row regardless.
+    generic passes: a mask on every load cost this pass more than twice its
+    modeled time. SPLIT programs divide the row, each appending through its
+    own counter into its own SEG-long segment. CHUNK is a multiple of
+    BLOCK * VEC so the bulk loop stays unmasked; the last part runs to the end
+    of the row regardless.
     """
     pid = tl.program_id(0)
     row = pid // SPLIT
@@ -951,9 +935,8 @@ def _s_collect(
     have = tl.maximum(stop - start, 0)
 
     n_vec = have // (BLOCK * VEC)
-    # Two stages hide load latency inside a wave. Benchmark SpeedUp on
-    # (64,129280) at one program per row, stages 1/2/3/4: 0.582 / 0.600 / 0.542 /
-    # 0.544; deeper stages cost registers, and so waves.
+    # Two stages hide load latency inside a wave; deeper ones cost registers,
+    # and so occupancy.
     for t in tl.range(0, n_vec, num_stages=2):
         i = start + t * BLOCK * VEC + off
         x = tl.load(base + i)
@@ -1001,9 +984,9 @@ def _s_finish(
     """The retry decision and the exact answer, one program per row.
 
     A row outside [TOPK, CAP], or with a full segment, is redone over the full
-    32-bit ordered key; the 11-bit key the sample and the collect use can collapse
-    on a narrow band. Rows inside take the exact top-k of their candidates: four
-    8-bit radix rounds over the same 32-bit key.
+    32-bit ordered key; the 11-bit key the sample and the collect use can
+    collapse on a narrow band. Rows inside take the exact top-k of their
+    candidates: four 8-bit radix rounds over the same 32-bit key.
     """
     row = tl.program_id(0)
     lane = tl.arange(0, BLOCK)
@@ -1019,11 +1002,11 @@ def _s_finish(
         c += tl.minimum(craw, SEG)
         over += (craw > SEG).to(tl.int32)
     if (c < tl.minimum(TOPK, span)) | (c > CAP) | (over > 0):
-        # The 11-bit fp16 key resolves magnitude/32, so a row in a narrow band away
-        # from zero collapses into one or two bins and an overflow can drop the true
-        # top-k. This path has no STEP 1-3 to refine through, so the redo ranks the
-        # full 32-bit ordered key, which is injective on distinct floats. Same fix as
-        # top_k_per_row_decode's.
+        # The 11-bit fp16 key resolves magnitude/32, so a row in a narrow band
+        # away from zero collapses into one or two bins and an overflow can
+        # drop the true top-k. This path has no STEP 1-3 to refine through, so
+        # the redo ranks the full 32-bit ordered key, which is injective on
+        # distinct floats. Same fix as top_k_per_row_decode's.
         obase_r = out_ptr + row * TOPK
         cbase_r = counts_ptr + row * RADIX
         rbase = logits_ptr + row * stride0 + s
@@ -1145,8 +1128,8 @@ def _s_finish(
 
     thr_key = desired
     # One program owns the row, so output positions need no atomic: a running
-    # offset plus an exclusive prefix over the take mask. The slot atomic cost
-    # 31.7 of finish's 68.1 us on (64,129280).
+    # offset plus an exclusive prefix over the take mask. Allocating the slots
+    # with an atomic took nearly half of this kernel's time.
     filled = tl.zeros((), tl.int32)
     for equal in tl.static_range(2):
         for t in tl.range(0, tiles):
@@ -1309,28 +1292,16 @@ def _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k)
 
 
 # ---------------------------------------------------------------------------
-# One read for the large dense shapes.
-#
-# The dense copy reads each row twice and fires one global atomic per element
-# for its histogram. On 12961x4100 (895 us) the atomics cost ~474 us, bound by
-# the distinct addresses they touch; the second read ~184 us, not served by L2;
-# the first read already runs at 88% of this card's 1302 GB/s. This route reads
-# the row once and issues no per-element atomic: two thresholds from a
-# 512-element sample, one pass that writes the sure set straight out and keeps
-# the band between the thresholds, then the missing top_k - S from the band by
-# bitwise lifting on the 32-bit ordered key. At one warp per program every
-# reduction and scan stays inside a wave; two warps were 1.34x slower.
-# Benchmark SpeedUp against vLLM, kernel mode, the retry below included: 1.64
-# on 16383x4095, 1.14 on 12961x4100, 1.59 on 16380x5115 -- 1.58-1.79x the dense
-# copy alone on standard-normal rows.
-#
-# A row the sample misjudges -- sure set past top_k, band short of it, or band
-# over DS_BCAP -- is flagged: 0.5-1.1% of standard-normal rows, ~9% of heavily
-# tied ones, every row of a narrow band. The dense copy then runs for every row
-# and returns at once unless its row was flagged, so the answer is always that
-# copy's or exact. With every row flagged the route costs 2-6% over the dense
-# copy alone. 70/150 flags only 0.06-0.2% but needs a 1024-slot band, and was
-# 1.7x slower.
+# One read for the large dense shapes. The dense copy reads each row twice and
+# fires one global atomic per element for its histogram; on 12961x4100 the
+# atomics are about half its time, bound by the distinct addresses they touch,
+# and the second read, which L2 does not serve, a fifth. This route reads each
+# row once and issues no per-element atomic (_d_sampled). A row it cannot
+# answer is flagged -- about 1% of standard-normal rows, every row of a narrow
+# band -- and the dense copy, launched after it for every row, returns at once
+# unless its row was flagged, so every answer is exact. On standard-normal rows
+# the route is 1.6-1.8x the dense copy alone; with every row flagged it costs
+# 2-6% more.
 DENSE_SAMPLED = os.environ.get(
     "FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED", "1"
 ).strip().lower() not in ("0", "false", "off", "no")
@@ -1390,8 +1361,17 @@ def _d_sampled(
     HI: tl.constexpr,
     LO: tl.constexpr,
 ):
-    """One program per row: writes the row's top-k and a flag of 0, or a flag
-    of 1 and leaves the row to the dense copy."""
+    """One program per row: the row's top-k and a flag of 0, or a flag of 1
+    and the row left to the dense copy.
+
+    Two thresholds come from an NS-element sample by bitwise lifting on the
+    11-bit key: about HI% of top_k lies above T_hi and is surely in, about LO%
+    above T_lo. One pass writes the sure set straight to the output and keeps
+    the band [T_hi, T_lo) in BCAP slots; the missing top_k - S then come from
+    the band by lifting on the full 32-bit ordered key. The row is flagged when
+    its sure set passes top_k, its band falls short, or the band overflows. At
+    one warp every reduction and scan stays inside a wave.
+    """
     row = tl.program_id(0)
     s = tl.load(starts_ptr + row)
     e = tl.load(ends_ptr + row)
@@ -1619,8 +1599,40 @@ def _dense_sampled(logits, row_starts, row_ends, indices, num_rows, stride0, top
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
-    """Dense rows through the prefix-sum copy, everything else through generic,
-    each launched at the geometry its occupancy wants."""
+    """Top-K per row for DeepSeek V4 prefill, routed per call.
+
+    Routes, first match wins:
+
+      sampled   vocab >= SAMPLED_MIN_VOCAB_PER_TOPK * top_k. prepare samples
+                every SSTRIDE-th tile for a threshold, collect makes one pass
+                split over SSPLIT programs, finish ranks the candidates exactly
+                or redoes the row on the full 32-bit key.
+      one-read  top_k 512, num_rows >= 8192, 2048 <= vocab <= 5120. One
+                program per row, with the dense copy as its retry.
+      dense     vocab <= DENSE_VOCAB_PER_TOPK * top_k. A copy of the generic
+                kernel with a prefix-sum slot allocator, a carried slot counter
+                and VEC=2; 512 STEP-0 bins for top_k 512 on rows up to 1536.
+      generic   everything else, with one threshold scan.
+
+    The sampled and one-read routes need stride1 == 1, float32 logits, int32
+    row bounds, no TLE and buffers within _MAX_CAND_ELEMS; a call that misses
+    a gate falls through to the next route. The dense and generic routes run
+    at a launch geometry chosen by rows per SM and reuse their scratch buffers.
+
+    Environment switches, all on by default; together they reproduce the
+    generic path:
+
+      FLAGGEMS_HYGON_PREFILL_SAMPLED_RATIO=0   no sampled route
+      FLAGGEMS_HYGON_PREFILL_DENSE_SAMPLED=0   no one-read route
+      FLAGGEMS_HYGON_TOPK_SLOTSCAN=0           no dense copies
+      FLAGGEMS_HYGON_TOPK_ONESCAN=0            the unpatched generic module
+      FLAGGEMS_HYGON_TOPK_GEOMETRY=0           generic's launch geometry
+      FLAGGEMS_HYGON_TOPK_SCRATCH_REUSE=0      generic's own host wrapper
+
+    FLAGGEMS_HYGON_TOPK_CARRY, _VEC2 and _SHORT_BINS turn off single dense
+    steps; FLAGGEMS_HYGON_PREFILL_SSTRIDE, _TARGET_MULT and _SSPLIT tune the
+    sampled route.
+    """
     if _can_sample(logits, row_starts, row_ends, num_rows, stride0, stride1, top_k):
         skey = (
             logits.device,
