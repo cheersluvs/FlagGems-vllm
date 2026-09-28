@@ -18,12 +18,11 @@ The merge only needs a SUPERSET of each row's top-k, so the threshold can come
 from a sample of the row instead of a full histogram pass. Three kernels then
 do in ~1.02 passes what the generic radix algorithm does in two.
 
-Dispatch, buffer limits and the environment switch are documented on
-`top_k_per_row_decode` at the bottom of this file.
+Dispatch and buffer limits are documented on `top_k_per_row_decode` at the
+bottom of this file.
 """
 
 import functools
-import os
 import threading
 
 import torch
@@ -362,15 +361,6 @@ def _sm_count():
         return 80
 
 
-def _enabled():
-    return os.environ.get("FLAGGEMS_HYGON_TOPK_DECODE", "1").strip().lower() not in (
-        "0",
-        "false",
-        "off",
-        "no",
-    )
-
-
 def _split_factor(num_rows, vocab_size, top_k):
     """Programs per row for the select pass."""
     if num_rows >= _sm_count():
@@ -523,14 +513,10 @@ def top_k_per_row_decode(
     because Triton specializes a compiled kernel on integer argument values and
     on data_ptr % 16; at most _PLANS_MAX are kept. A Triton version whose `run`
     returns no CompiledKernel falls back to ordinary JIT launches.
-
-    FLAGGEMS_HYGON_TOPK_DECODE=0 disables the override; every call then goes
-    to the generic operator.
     """
     vocab_size = logits.shape[1]
     if (
-        not _enabled()
-        or next_n != 1
+        next_n != 1
         or stride1 != 1
         or stride0 != vocab_size
         or logits.dtype != torch.float32
