@@ -119,10 +119,29 @@ def main():
     fn = flaggems_vllm.runtime.torch_device_fn
     tdev = dev if isinstance(dev, torch.device) else torch.device(dev)
 
+    x = torch.randn(N, device=tdev)
+    i32_0 = torch.zeros(N, dtype=torch.int32, device=tdev)
+
+    # BASELINE FIRST, before anything is patched. Every piece failing in the
+    # previous run -- the fp8-free control included -- means either the shim
+    # breaks all compiles or this box compiles nothing; only an unpatched
+    # baseline separates the two, so it runs before the shim exists.
+    print("\n  unpatched baseline (no shim at all)")
+    try:
+        k_control[(1, )](x, i32_0, N, BLOCK=N, num_warps=1)
+        fn.synchronize()
+        base_ok = bool(torch.equal(i32_0.cpu(), x.cpu().view(torch.int32)))
+        print("    trivial kernel compiles and runs: yes   correct bytes: {}".format(base_ok))
+    except Exception as e:
+        print("    trivial kernel FAILED: {}".format(str(e).splitlines()[0][:90]))
+        print("    -> this box compiles nothing right now; the fp8 question cannot be")
+        print("       asked until that is fixed (triton 3.6.0 vs the installed PPU_SDK).")
+
     log = []
     keep = None
     try:
         keep = ppu_fp8_shim.preserve_vendor_asm(log)
+        ppu_fp8_shim.repair_vendor_error_path(log)   # else every failure is NameError
         ppu_fp8_shim._patch_backend_options(log)
         ppu_fp8_shim._patch_semantic_cast(log)
     except Exception as e:
@@ -130,7 +149,6 @@ def main():
     for line in log:
         print("  " + line)
 
-    x = torch.randn(N, device=tdev)
     i32 = torch.zeros(N, dtype=torch.int32, device=tdev)
     u8 = torch.zeros(N, dtype=torch.uint8, device=tdev)
     f8 = torch.zeros(N, dtype=torch.float8_e4m3fn, device=tdev)
@@ -156,9 +174,10 @@ def main():
             fn.synchronize()
             print("  {:<40} ok".format(name))
         except Exception as e:
-            first = [ln for ln in str(e).splitlines() if ln.strip()]
-            msg = first[0][:70] if first else type(e).__name__
-            print("  {:<40} FAIL  {}".format(name, msg))
+            lines = [ln for ln in str(e).splitlines() if ln.strip()]
+            print("  {:<40} FAIL  {}".format(name, (lines[0][:70] if lines else type(e).__name__)))
+            for ln in lines[1:4]:
+                print("  {:<40}       {}".format("", ln[:100]))
             if failed_first is None:
                 failed_first = (name, traceback.format_exc())
         fn.empty_cache()

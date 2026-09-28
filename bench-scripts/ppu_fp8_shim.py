@@ -232,11 +232,11 @@ def _patch_backend_options(log):
             return o
         want = fp8 + ("fp8e4nv", )
         try:
-            o = dataclasses.replace(o, supported_fp8_dtypes=want)
+            object.__setattr__(o, "supported_fp8_dtypes", want)
         except Exception:
             pass
         if "fp8e4nv" not in tuple(getattr(o, "supported_fp8_dtypes", ()) or ()):
-            object.__setattr__(o, "supported_fp8_dtypes", want)
+            o = dataclasses.replace(o, supported_fp8_dtypes=want)
         return o
 
     backend_cls.parse_options = parse_options
