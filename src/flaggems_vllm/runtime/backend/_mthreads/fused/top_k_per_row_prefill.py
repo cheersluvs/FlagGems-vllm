@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import math
-import os
 
 import triton
 import triton.language as tl
@@ -47,15 +46,6 @@ if has_triton_tle(3, 6, 0):
 else:
     tle = None
     HAS_TLE = False
-
-# FLAGGEMS_MTT_TOPK_PREFILL=0 turns the override off: every call goes to the
-# generic operator.
-_ENABLED = os.environ.get("FLAGGEMS_MTT_TOPK_PREFILL", "1").strip().lower() not in (
-    "0",
-    "false",
-    "off",
-    "no",
-)
 
 
 # Sample every SSTRIDE-th element for the threshold estimate. 8 leaves ~256
@@ -394,15 +384,7 @@ def _can_sample(num_rows, vocab_size, stride1, top_k):
 def top_k_per_row_prefill(
     logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
 ):
-    """Top-K per row for DeepSeek V4 prefill with a sampled threshold.
-
-    FLAGGEMS_MTT_TOPK_PREFILL=0 disables the override; every call then goes to
-    the generic operator.
-    """
-    if not _ENABLED:
-        return _generic_prefill(
-            logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
-        )
+    """Top-K per row for DeepSeek V4 prefill with a sampled threshold."""
     vocab_size = logits.shape[1]
     if not _can_sample(num_rows, vocab_size, stride1, top_k):
         # Rows too short to sample can still use the wide block.
