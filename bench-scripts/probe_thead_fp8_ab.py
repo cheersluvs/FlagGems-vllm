@@ -7,6 +7,16 @@ text names for dropping the T-Head override ("once fp8e4m3fn is supported on
 PPU, the generic path is the optimal"). The sentence predates the
 implementation, so it is a hypothesis, not a result.
 
+NO REBUILT FLAGTREE NEEDED. #1116 is on flagtree main only -- no release and no
+0.7.0-rc branch contains it (rc2-triton3.6 was cut two hours before the merge).
+It does not have to be installed: on the PPU the *downcast* it adds is pure
+Python ("downcasts to f8e4m3nv are implemented in the frontend"), and this
+operator only ever writes fp8. ppu_fp8_shim.py installs that same frontend code
+as a monkey patch and verifies it byte-for-byte against torch before any timing
+runs, so this box measures #1116's generic arm today. Only the fp8 -> float
+upcast and the fp4/dot changes need the rebuilt compiler, and this operator uses
+neither.
+
 WHAT THE TWO ARMS ACTUALLY DIFFER IN. Both encode f32 -> OCP E4M3:
 
   generic   `.to(tl.float8e4nv)`, which on cap80 expands to
@@ -49,10 +59,10 @@ import traceback
 REPO = os.environ.get("REPO", os.getcwd())
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "src"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import torch  # noqa: E402
 import triton  # noqa: E402
-import triton.language as tl  # noqa: E402
 
 OP = "fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert"
 REL = "src/flaggems_vllm/runtime/backend/_thead/fused/{}.py".format(OP)
@@ -64,13 +74,6 @@ SHAPES = [(1, 64), (1, 128), (4, 64), (4, 128), (17, 64), (17, 128), (64, 64), (
           (131072, 64), (131072, 128)]
 if os.environ.get("THEAD_SHAPES"):
     SHAPES = [tuple(int(v) for v in s.split("x")) for s in os.environ["THEAD_SHAPES"].split(",")]
-
-
-@triton.jit
-def _cast_probe(src, dst, N: tl.constexpr):
-    off = tl.arange(0, N)
-    x = tl.load(src + off)
-    tl.store(dst + off, x.to(tl.float8e4nv).to(tl.uint8, bitcast=True))
 
 
 def health(dev):
@@ -92,6 +95,33 @@ def load_override(dev):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return getattr(mod, OP)
+
+
+def _find_vendor_op():
+    """The vendor baseline, from whichever vllm is importable.
+
+    The PPU wheel `pip install -t /tmp/vllm_ppu` was not needed on this box: an
+    installed vllm registers the op on import, so try that first and only report
+    the arm missing if no namespace carries it (the timing then runs without it
+    instead of aborting -- gen/ovr is the question this script exists for).
+    """
+    where = []
+    try:
+        import vllm
+        where.append("vllm {} at {}".format(getattr(vllm, "__version__", "?"),
+                                            os.path.dirname(vllm.__file__)))
+        try:
+            import vllm._C  # noqa: F401  (registers the custom ops)
+        except Exception as e:
+            where.append("vllm._C import failed: {}".format(str(e).splitlines()[0][:60]))
+    except Exception as e:
+        where.append("no importable vllm ({})".format(str(e).splitlines()[0][:60]))
+    for ns in ("_C", "_C_cache_ops", "vllm", "_ppu_C"):
+        lib = getattr(torch.ops, ns, None)
+        op = getattr(lib, OP, None) if lib is not None else None
+        if op is not None:
+            return op, "torch.ops.{}.{} -- {}".format(ns, OP, "; ".join(where))
+    return None, "not registered in torch.ops -- {}".format("; ".join(where))
 
 
 def main():
@@ -126,19 +156,21 @@ def main():
     print("  FlagTree #1116 software cast present: {}".format(has_sw))
     print("  FLAGTREE_LOW_PRECISION_FLOAT = {}".format(
         os.environ.get("FLAGTREE_LOW_PRECISION_FLOAT", "(unset -> default 1)")))
-    try:
-        s = torch.tensor([1.0, -0.5, 448.0, 500.0], dtype=torch.float32, device=dev)
-        d = torch.zeros(4, dtype=torch.uint8, device=dev)
-        _cast_probe[(1,)](s, d, 4, num_warps=1)
-        fn.synchronize()
-        ref = s.cpu().clamp(-448, 448).to(torch.float8_e4m3fn).view(torch.uint8)
-        print("  f32 -> fp8e4nv compiles: yes   bytes {} (torch {}){}".format(
-            d.cpu().tolist(), ref.tolist(),
-            "" if torch.equal(d.cpu(), ref) else "   <- DIFFERS from torch"))
-    except Exception as e:
-        print("  f32 -> fp8e4nv compiles: NO -- {}".format(str(e).splitlines()[0][:70]))
-        print("\n  Without the cast the generic arm cannot run; this box's flagtree")
-        print("  predates #1116 or the knob is 0.")
+    import ppu_fp8_shim
+    tdev = dev if isinstance(dev, torch.device) else torch.device(dev)
+    if os.environ.get("THEAD_FP8_SHIM", "auto") == "0":
+        got = {"mode": "native" if ppu_fp8_shim.native_cast_works(tdev)[0] else "unavailable",
+               "reason": "THEAD_FP8_SHIM=0, shim not attempted"}
+    else:
+        got = ppu_fp8_shim.install(tdev)
+    cast_mode = got["mode"]
+    print("  f32 -> fp8e4nv cast: {}   ({})".format(
+        {"native": "installed flagtree provides it", "shim": "via ppu_fp8_shim (#1116 frontend code)",
+         "unavailable": "NOT AVAILABLE"}[cast_mode], got["reason"]))
+    if cast_mode == "unavailable":
+        print("\n  Without the cast the generic arm cannot run. The shim needs only the")
+        print("  frontend, so this is a real incompatibility, not a missing build:")
+        print("  read the reason above before rebuilding flagtree from main.")
         print("\n[RESULT] NO_FP8_CAST")
         return
     print("  health check: {}".format("pass" if health(dev) else "FAIL"))
@@ -147,8 +179,8 @@ def main():
     override = load_override(dev)
     bound = getattr(flaggems_vllm, OP)
     print("  bound override is the generic function: {}".format(bound is generic))
-    vendor = getattr(torch.ops._C, OP, None)
-    print("  vendor vLLM kernel registered: {}".format(vendor is not None))
+    vendor, vendor_where = _find_vendor_op()
+    print("  vendor vLLM kernel: {}".format(vendor_where))
 
     def inputs(n, h):
         p = mod.TestParam(n, h, num_tokens_insert=n, block_size=64, max_pos=4096, eps=1e-6)
@@ -184,7 +216,8 @@ def main():
 
     # ---------------- timing ----------------
     print("\n" + "=" * 84)
-    print("LATENCY, ms -- generic (software cast) vs override (integer encoder)")
+    print("LATENCY, ms -- generic (software cast, {}) vs override (integer encoder)"
+          .format(cast_mode))
     print("=" * 84)
     hdr = "  {:>7} {:>5} {:>10} {:>10} {:>10} {:>9} {:>9} {:>9}"
     print(hdr.format("tokens", "heads", "vendor", "generic", "override",
