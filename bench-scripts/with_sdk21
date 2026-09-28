@@ -1,0 +1,28 @@
+#!/bin/sh
+# Run ONE command against the PPU SDK 2.1.0 user space that fetch_ppu_sdk.py
+# extracted, e.g.
+#     bench-scripts/with_sdk21 /root/wuyuqing/venv/bin/python3 script.py
+#
+# Nothing is exported into the calling shell: /usr/local/PPU_SDK (2.0.0) stays
+# the toolchain for every other process, including /usr/local/bin/python3's
+# triton 3.5.0, the only environment that worked before 2.1.0 was extracted.
+#
+#   TRITON_PPU_LLC_PATH / TRITON_IR_FORMATTER_PATH  first in the backend's search
+#   LD_LIBRARY_PATH  the driver finds libhggc.so via ldconfig, then this
+#   PPU_HOME         headers for the launcher driver.py compiles at runtime;
+#                    unset, it silently builds against 2.0.0's headers
+#   TRITON_CACHE_DIR separate, so nothing compiled under 2.0.0 is ever reused
+#
+# Known remaining mix: torch 2.9.0 needs cudart 12 and SDK 2.1.0 ships only
+# cudart 13, so libcudart.so.12.9.37 still comes from /usr/local/PPU_SDK.
+S=${SDK21:-/root/sdk_2.1.0_root/usr/local/PPU_SDK}
+if [ ! -x "$S/bin/ppu-llc" ]; then
+    echo "no SDK 2.1.0 at $S -- run: fetch_ppu_sdk.py --extract 9 --keep-paths" \
+         "--pattern '^\.?/?usr/local/PPU_SDK/' --out /root/sdk_2.1.0_root" >&2
+    exit 2
+fi
+export PPU_SDK="$S" PPU_HOME="$S"
+export TRITON_PPU_LLC_PATH="$S/bin/ppu-llc" TRITON_IR_FORMATTER_PATH="$S/bin/llvm-irformatter"
+export LD_LIBRARY_PATH="$S/targets/x86_64-linux/lib:$S/CUDA_SDK/targets/x86_64-linux/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export TRITON_CACHE_DIR="${TRITON_CACHE_DIR:-/root/.triton/cache-sdk21}"
+exec "$@"
