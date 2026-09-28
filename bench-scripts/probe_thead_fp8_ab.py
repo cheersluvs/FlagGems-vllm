@@ -159,10 +159,12 @@ def main():
     import ppu_fp8_shim
     tdev = dev if isinstance(dev, torch.device) else torch.device(dev)
     if os.environ.get("THEAD_FP8_SHIM", "auto") == "0":
-        got = {"mode": "native" if ppu_fp8_shim.native_cast_works(tdev)[0] else "unavailable",
-               "reason": "THEAD_FP8_SHIM=0, shim not attempted"}
+        got = {"mode": "native" if ppu_fp8_shim.native_cast_works(tdev, sync=fn.synchronize)[0]
+               else "unavailable", "reason": "THEAD_FP8_SHIM=0, shim not attempted", "log": []}
     else:
-        got = ppu_fp8_shim.install(tdev)
+        got = ppu_fp8_shim.install(tdev, verbose=False, sync=fn.synchronize)
+    for line in got.get("log", ()):
+        print("    " + line)
     cast_mode = got["mode"]
     print("  f32 -> fp8e4nv cast: {}   ({})".format(
         {"native": "installed flagtree provides it", "shim": "via ppu_fp8_shim (#1116 frontend code)",

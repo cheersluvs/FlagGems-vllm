@@ -108,10 +108,42 @@ def _downcast_f32_to_e4nv(sem, arg, rtz):
 # --------------------------------------------------------------------------
 # the two declarations #1116 adds: the dtype is legal, and its cast is custom
 # --------------------------------------------------------------------------
-def _patch_backend_options(log):
+def _active_backend_cls(log):
+    """The backend class triton would compile with.
+
+    NOT `backends[target.backend]`: that dict is keyed by backend *directory*
+    ("ppu", "nvidia"), while a vendor that aliases the device onto cuda reports
+    `target.backend == "cuda"` -- which is how the first run of this shim died
+    with KeyError: 'cuda'. `make_backend` scans `supports_target` instead, which
+    is the same resolution the compiler performs.
+    """
     target = triton.runtime.driver.active.get_current_target()
+    try:
+        from triton.compiler.compiler import make_backend
+        cls = type(make_backend(target))
+        log.append("backend {} (target.backend={!r}, via make_backend)".format(cls.__name__, target.backend))
+        return cls
+    except Exception as e:
+        log.append("make_backend failed ({}), scanning supports_target".format(str(e)[:60]))
     from triton.backends import backends
-    backend_cls = backends[target.backend].compiler
+    for name, be in backends.items():
+        ok = False
+        try:
+            ok = bool(be.compiler.supports_target(target))
+        except Exception:
+            try:
+                ok = isinstance(triton.runtime.driver.active, be.driver)
+            except Exception:
+                ok = False
+        if ok:
+            log.append("backend {} (dir {!r}, target.backend={!r})".format(be.compiler.__name__, name, target.backend))
+            return be.compiler
+    raise RuntimeError("no registered backend claims target {!r}; registered: {}".format(
+        target, sorted(backends)))
+
+
+def _patch_backend_options(log):
+    backend_cls = _active_backend_cls(log)
     orig = backend_cls.parse_options
 
     def parse_options(self, opts, _orig=orig):
@@ -172,10 +204,11 @@ def _patch_semantic_cast(log):
 # verification: the shim is only usable if it agrees with torch bit for bit
 # --------------------------------------------------------------------------
 @triton.jit
-def _shim_probe(src, dst, N: tl.constexpr):
-    off = tl.arange(0, N)
-    x = tl.load(src + off)
-    tl.store(dst + off, x.to(tl.float8e4nv).to(tl.uint8, bitcast=True))
+def _shim_probe(src, dst, n, BLOCK: tl.constexpr):
+    off = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    m = off < n
+    x = tl.load(src + off, mask=m, other=0.0)
+    tl.store(dst + off, x.to(tl.float8e4nv).to(tl.uint8, bitcast=True), mask=m)
 
 
 def _edge_values(n=4096):
@@ -191,13 +224,20 @@ def _edge_values(n=4096):
     return torch.cat([torch.tensor(fixed, dtype=torch.float32), rnd.float()])[:n].contiguous()
 
 
-def probe_cast(device, n=4096):
+def probe_cast(device, n=4096, sync=None, block=256):
     """Compile and run the cast; return (ok, mismatches, detail)."""
     x = _edge_values(n)
     src = x.to(device)
     dst = torch.zeros(n, dtype=torch.uint8, device=device)
-    _shim_probe[(1, )](src, dst, n, num_warps=1)
-    torch.cuda.synchronize() if device.type == "cuda" else None
+    grid = ((n + block - 1) // block, )
+    _shim_probe[grid](src, dst, n, BLOCK=block, num_warps=1)
+    if sync is not None:
+        sync()
+    else:
+        try:
+            torch.cuda.synchronize()
+        except Exception:
+            pass
     got = dst.cpu()
     ref = x.clamp(-448.0, 448.0).to(torch.float8_e4m3fn).view(torch.uint8)
     bad = (got != ref).nonzero().flatten().tolist()
@@ -209,15 +249,15 @@ def probe_cast(device, n=4096):
     return (not bad), len(bad), detail
 
 
-def native_cast_works(device):
+def native_cast_works(device, sync=None):
     try:
-        ok, bad, detail = probe_cast(device, 64)
+        ok, bad, detail = probe_cast(device, 256, sync=sync)
         return True, ("bit-exact vs torch" if ok else "COMPILES BUT DIFFERS: " + detail)
     except Exception as e:
         return False, str(e).splitlines()[0][:100]
 
 
-def install(device, verbose=True):
+def install(device, verbose=True, sync=None):
     """Install the #1116 downcast on a flagtree that lacks it.
 
     Returns a dict: mode is "native" (nothing was patched), "shim" (patched and
@@ -226,7 +266,7 @@ def install(device, verbose=True):
     if _INSTALLED:
         return _INSTALLED
     info = {"mode": None, "log": [], "reason": ""}
-    native, detail = native_cast_works(device)
+    native, detail = native_cast_works(device, sync=sync)
     if native:
         info["mode"] = "native"
         info["reason"] = detail
@@ -237,16 +277,20 @@ def install(device, verbose=True):
         _patch_backend_options(info["log"])
         _patch_semantic_cast(info["log"])
     except Exception as e:
+        import traceback
         info["mode"] = "unavailable"
         info["reason"] = "patching failed: {}: {}".format(type(e).__name__, e)
+        info["log"].append("traceback:\n" + "".join(traceback.format_exc()[-800:]))
         _INSTALLED.update(info)
         return info
     try:
-        ok, bad, detail = probe_cast(device)
+        ok, bad, detail = probe_cast(device, sync=sync)
     except Exception as e:
+        import traceback
         info["mode"] = "unavailable"
         info["reason"] = "shim compiled/ran with an error: {}: {}".format(
             type(e).__name__, str(e).splitlines()[0][:160])
+        info["log"].append("traceback:\n" + "".join(traceback.format_exc()[-1200:]))
         _INSTALLED.update(info)
         return info
     if not ok:
