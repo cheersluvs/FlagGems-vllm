@@ -30,7 +30,9 @@ VENV=${VENV:-/root/venv-ft-main}
 PY=${PY:-/usr/local/bin/python3}              # 3.12, and the site-packages with the working torch
 JOBS=${JOBS:-20}                              # 22 cores; leave two for the shell
 BUILD_HOME=${BUILD_HOME:-/root/.triton-build} # TRITON_HOME for the build's LLVM / nvidia downloads only
-PIP_INDEX=${PIP_INDEX:-https://pypi.org/simple}
+PIP_INDEX_USER=${PIP_INDEX:-}                 # empty: preflight picks the first index that really downloads
+# the box's pip.conf points at aiextpypi, which returned 502 before; keep it out of every pip call
+export PIP_CONFIG_FILE=/dev/null
 LOG_DIR=${LOG_DIR:-/root/ftmain-logs}
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=${REPO:-$(cd "$HERE/.." && pwd)}         # the FlagGems-vllm worktree the probes run against
@@ -79,9 +81,26 @@ preflight() {
         warn "NVIDIA redist unreachable -> will skip those downloads (TRITON_*_PATH set) and build without proton; PPU does not use them"
         SKIP_NV=1
     fi
-    reach "$PIP_INDEX/pip/" && ok "pip index $PIP_INDEX" \
-        || die "pip index $PIP_INDEX unreachable (this box's default aiextpypi returned 502 before); rerun with PIP_INDEX=<mirror>/simple"
-    echo "SKIP_NV=$SKIP_NV" > "$LOG_DIR/preflight.env"
+    # An index answering is not enough: pypi.org's index answered here while its
+    # file host (files.pythonhosted.org) timed out mid-download and failed the
+    # first build. So download a real (small) package through each candidate
+    # and keep the first one that completes. DSW runs on Aliyun, whose mirror
+    # is on the internal network.
+    local cands=() idx PIP_INDEX=""
+    [ -n "$PIP_INDEX_USER" ] && cands+=("$PIP_INDEX_USER")
+    cands+=(https://mirrors.aliyun.com/pypi/simple https://pypi.tuna.tsinghua.edu.cn/simple https://pypi.org/simple)
+    for idx in "${cands[@]}"; do
+        rm -rf "$LOG_DIR/piptest"
+        if timeout 120 "$PY" -m pip download -q --no-deps --no-cache-dir --timeout 30 \
+                -d "$LOG_DIR/piptest" -i "$idx" lit >/dev/null 2>&1; then
+            PIP_INDEX=$idx; break
+        fi
+        warn "pip index $idx could not deliver a package"
+    done
+    rm -rf "$LOG_DIR/piptest"
+    [ -n "$PIP_INDEX" ] && ok "pip index $PIP_INDEX (a real download completed)" \
+        || die "no pip index could deliver a package; set PIP_INDEX=<reachable mirror>/simple"
+    { echo "SKIP_NV=$SKIP_NV"; echo "PIP_INDEX=$PIP_INDEX"; } > "$LOG_DIR/preflight.env"
     echo "[RESULT] PREFLIGHT_OK"
 }
 
@@ -114,13 +133,14 @@ build() {
         "$PY" -m venv --system-site-packages "$VENV" || die "venv creation failed"
     fi
     ok "venv $VENV"
-    "$VENV/bin/python" -m pip install -q -i "$PIP_INDEX" \
+    [ -f "$LOG_DIR/preflight.env" ] && . "$LOG_DIR/preflight.env"
+    [ -n "${PIP_INDEX:-}" ] || die "no pip index recorded -- run the preflight stage first"
+    "$VENV/bin/python" -m pip install -q -i "$PIP_INDEX" --timeout 60 --retries 8 \
         "setuptools>=40.8.0" wheel "cmake>=3.20,<4.0" "ninja>=1.11.1" "pybind11>=2.13.1" lit \
         || die "build requirements (python/requirements.txt) failed to install"
-    ok "build requirements"
+    ok "build requirements (from $PIP_INDEX)"
 
     hdr build
-    [ -f "$LOG_DIR/preflight.env" ] && . "$LOG_DIR/preflight.env"
     local extra=()
     if [ "${SKIP_NV:-0}" = 1 ]; then
         for v in PTXAS PTXAS_BLACKWELL CUOBJDUMP NVDISASM CUDACRT CUDART CUPTI_INCLUDE CUPTI_LIB; do
