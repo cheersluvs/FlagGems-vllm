@@ -23,6 +23,8 @@ reporting success, so a silent numerical difference cannot reach a timing.
 """
 
 import dataclasses
+import os
+import tempfile
 
 import torch
 import triton
@@ -140,6 +142,37 @@ def _active_backend_cls(log):
             return be.compiler
     raise RuntimeError("no registered backend claims target {!r}; registered: {}".format(
         target, sorted(backends)))
+
+
+def repair_vendor_error_path(log):
+    """Un-hide the vendor compiler's real error.
+
+    `triton/backends/ppu/compiler.py:make_hgbin` opens `log_file` on its failure
+    path, and that name is defined nowhere: every binary-stage failure on this
+    box surfaces as `NameError: name 'log_file' is not defined` instead of the
+    reason. Python resolves the free variable in the function's *module*
+    globals, so defining it there lets the vendor's own handler finish and raise
+    (or log) the real message. Returns the path it will be written to, if any.
+    """
+    import sys as _sys
+    try:
+        cls = _active_backend_cls(log)
+    except Exception as e:
+        log.append("cannot locate the backend module ({})".format(str(e)[:60]))
+        return None
+    mod = _sys.modules.get(cls.__module__)
+    if mod is None or hasattr(mod, "log_file"):
+        return getattr(mod, "log_file", None)
+    fn = getattr(cls, "make_hgbin", None)
+    names = getattr(getattr(fn, "__code__", None), "co_names", ())
+    if "log_file" not in names:
+        return None
+    path = os.path.join(tempfile.gettempdir(), "ppu_hgbin_error.log")
+    open(path, "w").close()
+    mod.log_file = path
+    log.append("{}.log_file was undefined (its own failure path raises NameError); "
+               "pointed it at {}".format(cls.__module__, path))
+    return path
 
 
 def _patch_backend_options(log):
@@ -273,6 +306,7 @@ def install(device, verbose=True, sync=None):
         _INSTALLED.update(info)
         return info
     info["log"].append("native cast unavailable: " + detail)
+    info["vendor_log"] = repair_vendor_error_path(info["log"])
     try:
         _patch_backend_options(info["log"])
         _patch_semantic_cast(info["log"])
@@ -291,6 +325,10 @@ def install(device, verbose=True, sync=None):
         info["reason"] = "shim compiled/ran with an error: {}: {}".format(
             type(e).__name__, str(e).splitlines()[0][:160])
         info["log"].append("traceback:\n" + "".join(traceback.format_exc()[-1200:]))
+        vlog = info.get("vendor_log")
+        if vlog and os.path.exists(vlog) and os.path.getsize(vlog):
+            info["log"].append("vendor compiler log {} (tail):\n{}".format(
+                vlog, open(vlog, errors="replace").read()[-2000:]))
         _INSTALLED.update(info)
         return info
     if not ok:
