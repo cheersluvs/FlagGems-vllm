@@ -15,13 +15,11 @@
 """Hygon BW1000 top_k_per_row_prefill, routed per call.
 
 The radix routes run this file's copy of the generic kernel, specialized by
-constexprs; the two sampled routes run kernels of their own. Routes, their
-gates and the environment switch are documented on `top_k_per_row_prefill`
-at the bottom of this file.
+constexprs; the two sampled routes run kernels of their own. Routes and their
+gates are documented on `top_k_per_row_prefill` at the bottom of this file.
 """
 
 import functools
-import os
 import threading
 from collections import OrderedDict
 from importlib import import_module
@@ -31,15 +29,6 @@ import triton
 import triton.language as tl
 
 _generic = import_module("flaggems_vllm.ops.top_k_per_row_prefill")
-
-# FLAGGEMS_HYGON_TOPK_PREFILL=0 turns the override off: every call goes to the
-# generic operator.
-_ENABLED = os.environ.get("FLAGGEMS_HYGON_TOPK_PREFILL", "1").strip().lower() not in (
-    "0",
-    "false",
-    "off",
-    "no",
-)
 
 # Dense iff vocab_size <= DENSE_VOCAB_PER_TOPK * top_k, i.e. density >= 10%. A
 # prefix sum over the take mask beats one atomic per selected element above a
@@ -1657,10 +1646,9 @@ def top_k_per_row_prefill(
     a gate falls through to the next route. The dense and generic routes run
     at a launch geometry chosen by rows per SM and reuse their scratch buffers.
 
-    FLAGGEMS_HYGON_TOPK_PREFILL=0 disables the override, and so does a Triton
-    with TLE; every call then goes to the generic operator.
+    With a Triton that has TLE, every call goes to the generic operator.
     """
-    if not _ENABLED or getattr(_generic, "HAS_TLE", False):
+    if getattr(_generic, "HAS_TLE", False):
         return _generic.top_k_per_row_prefill(
             logits, row_starts, row_ends, indices, num_rows, stride0, stride1, top_k
         )

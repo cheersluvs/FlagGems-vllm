@@ -1,8 +1,8 @@
 """Before/after for the upstream prefill PR, measured in one session.
 
-`before` is FLAGGEMS_HYGON_TOPK_PREFILL=0: the override hands every call to the
-generic module's own top_k_per_row_prefill at its own launch geometry -- what
-upstream main runs on this card today.
+`before` loads tools/hygon_generic_prefill_plugin.py, which points
+flaggems_vllm.top_k_per_row_prefill back at the generic module's own function
+at its own launch geometry -- what upstream main runs on this card today.
 
 `after` is the override as it ships. Interleaved before/after/before/after,
 prefill benchmark in kernel mode, vLLM latency printed per run.
@@ -16,7 +16,8 @@ import subprocess
 import sys
 
 BENCH = ["benchmark/test_top_k_per_row_prefill.py", "--mode", "kernel"]
-OFF = {"FLAGGEMS_HYGON_TOPK_PREFILL": "0"}
+TOOLS = os.path.dirname(os.path.abspath(__file__))
+GENERIC = ["-p", "hygon_generic_prefill_plugin"]
 ORDER = ["before", "after", "before", "after"]
 
 
@@ -64,11 +65,14 @@ def main():
     runs = {"before": [], "after": []}
     for i, arm in enumerate(ORDER):
         env = dict(os.environ)
+        extra = []
         if arm == "before":
-            env.update(OFF)
+            pp = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = TOOLS + (os.pathsep + pp if pp else "")
+            extra = GENERIC
         print(f"### run {i + 1}: {arm}", flush=True)
         r = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-s"] + BENCH,
+            [sys.executable, "-m", "pytest", "-q", "-s"] + extra + BENCH,
             capture_output=True,
             text=True,
             env=env,
