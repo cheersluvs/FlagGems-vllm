@@ -175,6 +175,52 @@ def repair_vendor_error_path(log):
     return path
 
 
+def preserve_vendor_asm(log, keep_dir="/tmp/ppu_keep"):
+    """Keep the assembly ppu-llc rejected.
+
+    make_hgbin feeds ppu-llc a NamedTemporaryFile, so the file is gone by the
+    time the error is read and the reproduce command it prints cannot be run.
+    Wrap the *module's* `subprocess`: on CalledProcessError, copy every existing
+    path in the command line into keep_dir, with the stderr beside it.
+    """
+    import shutil
+    import sys as _sys
+    cls = _active_backend_cls(log)
+    mod = _sys.modules.get(cls.__module__)
+    sp = getattr(mod, "subprocess", None)
+    if sp is None or getattr(sp, "_shim_proxy", False):
+        return keep_dir
+    os.makedirs(keep_dir, exist_ok=True)
+
+    class _Proxy(object):
+        _shim_proxy = True
+
+        def __getattr__(self, k):
+            return getattr(sp, k)
+
+        def run(self, cmd, *a, **kw):
+            try:
+                return sp.run(cmd, *a, **kw)
+            except sp.CalledProcessError as e:
+                toks = cmd.split() if isinstance(cmd, str) else list(cmd)
+                for t in toks:
+                    if os.path.isfile(t):
+                        try:
+                            shutil.copy(t, os.path.join(keep_dir, os.path.basename(t)))
+                        except Exception:
+                            pass
+                try:
+                    open(os.path.join(keep_dir, "stderr.txt"), "w").write(
+                        (e.stderr or "") + "\n---cmd---\n" + (cmd if isinstance(cmd, str) else " ".join(cmd)))
+                except Exception:
+                    pass
+                raise
+
+    mod.subprocess = _Proxy()
+    log.append("vendor subprocess wrapped: rejected assembly is kept in " + keep_dir)
+    return keep_dir
+
+
 def _patch_backend_options(log):
     backend_cls = _active_backend_cls(log)
     orig = backend_cls.parse_options
