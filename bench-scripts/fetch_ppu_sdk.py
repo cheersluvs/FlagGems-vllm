@@ -79,6 +79,8 @@ def main():
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--extract", type=int, metavar="LAYER_INDEX")
     ap.add_argument("--pattern", default=r"(^|/)(ppu-llc|llvm-irformatter)$")
+    ap.add_argument("--grep", default="", metavar="REGEX",
+                    help="only list layers whose command matches this")
     ap.add_argument("--out", default="/root/ppu_sdk_2.1.0")
     args = ap.parse_args()
 
@@ -102,9 +104,14 @@ def main():
         for i, lay in enumerate(layers):
             made = (hist[i].get("created_by", "") if i < len(hist) else "").strip()
             made = re.sub(r"\s+", " ", made)
-            mark = "  <-- SDK?" if re.search(r"sdk|ppu", made, re.I) else ""
-            print("  [{:>2}] {:>8.2f} MB  {}{}".format(
-                i, lay["size"] / 2**20, made[:110], mark))
+            # buildkit prefixes RUN layers with the whole build-arg environment,
+            # which is what truncated the useful half out of the first listing
+            cut = made.find("/bin/sh -c")
+            if cut > 0:
+                made = made[cut + len("/bin/sh -c"):].strip()
+            if args.grep and not re.search(args.grep, made, re.I):
+                continue
+            print("  [{:>2}] {:>8.2f} MB  {}".format(i, lay["size"] / 2**20, made[:190]))
         if args.extract is None:
             print("\nPick a layer and rerun with --extract N.")
             return
