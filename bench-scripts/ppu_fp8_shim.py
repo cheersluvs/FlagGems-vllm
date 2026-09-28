@@ -329,11 +329,16 @@ def probe_cast(device, n=4096, sync=None, block=256):
 
 
 def native_cast_works(device, sync=None):
+    """(usable, detail). Compiling is not enough: the installed cast must match
+    torch on the same 4096 edge values the shim is held to, or it is reported
+    unusable -- a timing of a wrong encoder is worse than no timing."""
     try:
-        ok, bad, detail = probe_cast(device, 256, sync=sync)
-        return True, ("bit-exact vs torch" if ok else "COMPILES BUT DIFFERS: " + detail)
+        ok, bad, detail = probe_cast(device, 4096, sync=sync)
     except Exception as e:
         return False, str(e).splitlines()[0][:100]
+    if ok:
+        return True, "installed cast, byte-exact vs torch on 4096 values (ties, subnormals, saturation)"
+    return False, "installed cast COMPILES BUT DIFFERS from torch: " + detail
 
 
 def install(device, verbose=True, sync=None):
@@ -348,6 +353,13 @@ def install(device, verbose=True, sync=None):
     native, detail = native_cast_works(device, sync=sync)
     if native:
         info["mode"] = "native"
+        info["reason"] = detail
+        _INSTALLED.update(info)
+        return info
+    if "DIFFERS" in detail:
+        # never paper over a wrong installed cast with the shim: that would time
+        # a different compiler than the one being evaluated
+        info["mode"] = "unavailable"
         info["reason"] = detail
         _INSTALLED.update(info)
         return info

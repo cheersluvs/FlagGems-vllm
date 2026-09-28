@@ -139,11 +139,15 @@ def main():
 
     log = []
     keep = None
+    use_shim = os.environ.get("PIECES_SHIM", "1") != "0"
     try:
         keep = ppu_fp8_shim.preserve_vendor_asm(log)
         ppu_fp8_shim.repair_vendor_error_path(log)   # else every failure is NameError
-        ppu_fp8_shim._patch_backend_options(log)
-        ppu_fp8_shim._patch_semantic_cast(log)
+        if use_shim:
+            ppu_fp8_shim._patch_backend_options(log)
+            ppu_fp8_shim._patch_semantic_cast(log)
+        else:
+            log.append("PIECES_SHIM=0: fp8 pieces use the INSTALLED compiler's own cast")
     except Exception as e:
         print("  shim could not attach: {}: {}".format(type(e).__name__, e))
     for line in log:
