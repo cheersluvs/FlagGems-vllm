@@ -82,6 +82,9 @@ def main():
     ap.add_argument("--grep", default="", metavar="REGEX",
                     help="only list layers whose command matches this")
     ap.add_argument("--out", default="/root/ppu_sdk_2.1.0")
+    ap.add_argument("--keep-paths", action="store_true",
+                    help="recreate the tree (and its symlinks) under --out instead of "
+                         "flattening -- needed when ppu-llc turns out to load SDK .so files")
     args = ap.parse_args()
 
     token = get_token(REPO)
@@ -128,9 +131,23 @@ def main():
     found = []
     with tarfile.open(fileobj=raw, mode="r|") as tf:
         for m in tf:
-            if not m.isfile() or not pat.search(m.name):
+            if not pat.search(m.name):
                 continue
-            dst = os.path.join(args.out, os.path.basename(m.name))
+            if args.keep_paths:
+                dst = os.path.join(args.out, m.name.lstrip("./"))
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                if m.issym():
+                    if os.path.lexists(dst):
+                        os.remove(dst)
+                    os.symlink(m.linkname, dst)
+                    continue
+                if m.isdir():
+                    os.makedirs(dst, exist_ok=True)
+                    continue
+            if not m.isfile():
+                continue
+            if not args.keep_paths:
+                dst = os.path.join(args.out, os.path.basename(m.name))
             with open(dst, "wb") as f:
                 src = tf.extractfile(m)
                 while True:
@@ -138,10 +155,14 @@ def main():
                     if not chunk:
                         break
                     f.write(chunk)
-            os.chmod(dst, 0o755)
+            os.chmod(dst, m.mode if args.keep_paths else 0o755)
             found.append((m.name, os.path.getsize(dst)))
-            print("  extracted {}  ({:.2f} MB)  from {}".format(
-                os.path.basename(m.name), os.path.getsize(dst) / 2**20, m.name))
+            if not args.keep_paths or re.search(r"/bin/[^/]+$", m.name):
+                print("  extracted {}  ({:.2f} MB)  from {}".format(
+                    os.path.basename(m.name), os.path.getsize(dst) / 2**20, m.name))
+    if args.keep_paths and found:
+        print("  {} files, {:.1f} MB total under {}".format(
+            len(found), sum(sz for _, sz in found) / 2**20, args.out))
     if not found:
         print("\n  nothing matched in this layer; try another index from --list")
         print("[RESULT] NOT_IN_THIS_LAYER")
