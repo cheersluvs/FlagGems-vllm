@@ -36,6 +36,15 @@ from flaggems_vllm.runtime.backend._ascend.ops.cp_gather_indexer_k_quant_cache i
 from flaggems_vllm.runtime.backend._ascend.ops.deepseek_v4_attention_combine_topk_swa_indices import (
     combine_topk_swa_indices,
 )
+from flaggems_vllm.runtime.backend._ascend.ops.dequantize_and_gather_k_cache import (
+    dequantize_and_gather_k_cache,
+)
+from flaggems_vllm.runtime.backend._ascend.ops.fused_add_rms_norm import (
+    fused_add_rms_norm,
+)
+from flaggems_vllm.runtime.backend._ascend.ops.fused_inv_rope_int8_quant import (
+    fused_inv_rope_int8_quant,
+)
 from flaggems_vllm.runtime.backend._ascend.ops.fused_moe import (
     fused_experts_impl,
     inplace_fused_experts,
@@ -73,6 +82,7 @@ from flaggems_vllm.runtime.backend._ascend.ops.kv_rmsnorm_rope_cache import (
 from flaggems_vllm.runtime.backend._ascend.ops.lightning_indexer import (
     lightning_indexer,
 )
+from flaggems_vllm.runtime.backend._ascend.ops.mhc_pre import npu_mhc_pre
 from flaggems_vllm.runtime.backend._ascend.ops.pack_seq import pack_seq_triton
 from flaggems_vllm.runtime.backend._ascend.ops.paged_scatter import paged_scatter_triton
 from flaggems_vllm.runtime.backend._ascend.ops.per_token_group_quant_fp8 import (
@@ -106,11 +116,13 @@ from flaggems_vllm.runtime.backend._ascend.ops.unpack_seq import unpack_seq_trit
 
 __all__ = [
     "cp_gather_indexer_k_quant_cache",
+    "dequantize_and_gather_k_cache",
     "SUPPORTED_FP8_DTYPE",
     "add_rms_norm",
     "causal_conv1d_fn",
     "causal_conv1d_update",
     "fused_experts_impl",
+    "fused_inv_rope_int8_quant",
     "gemma_rms_norm",
     "grouped_topk",
     "inplace_fused_experts",
@@ -149,4 +161,6 @@ __all__ = [
     "indexer_gemm_score",
     "kv_rmsnorm_rope_cache",
     "lightning_indexer",
+    "npu_mhc_pre",
+    "fused_add_rms_norm",
 ]
