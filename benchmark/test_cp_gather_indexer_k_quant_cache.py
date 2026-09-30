@@ -17,7 +17,6 @@ import os
 
 import pytest
 import torch
-from packaging.version import InvalidVersion, Version
 
 import flaggems_vllm
 
@@ -33,9 +32,6 @@ device = flaggems_vllm.device
 _device_module = getattr(torch, device, None)
 _HAS_DEVICE = _device_module is not None and _device_module.is_available()
 
-_TARGET_VLLM_VERSION = Version("0.20.2")
-_NEXT_VLLM_VERSION = Version("0.21.0")
-
 
 def run_vllm_benchmark(bench):
     original_str = base.BenchmarkResult.__str__
@@ -43,8 +39,8 @@ def run_vllm_benchmark(bench):
     def vllm_str(result):
         return (
             original_str(result)
-            .replace("Torch Latency (ms)", "vLLM CUDA Latency (ms)")
-            .replace("Torch GBPS ", "vLLM CUDA GBPS ")
+            .replace("Torch Latency (ms)", "vLLM Latency (ms)")
+            .replace("Torch GBPS ", "vLLM GBPS ")
         )
 
     base.BenchmarkResult.__str__ = vllm_str
@@ -64,26 +60,17 @@ def _default_fp8_dtype():
     pytest.skip("float8_e4m3fn is required for cp_gather_indexer_k_quant_cache")
 
 
-def load_vllm_cuda_op_and_fp8_dtype():
-    """Return (vllm_op, fp8_dtype), or (None, fp8_dtype) when the vLLM CUDA
-    custom op is unavailable (e.g. on non-NVIDIA vendor backends)."""
+def load_vllm_op_and_fp8_dtype():
+    """Load the native vLLM baseline on any backend and vLLM version.
+
+    Return (None, fp8_dtype) when the vLLM custom op is unavailable.
+    """
     os.environ.setdefault("VLLM_CONFIGURE_LOGGING", "0")
-    if device != "cuda" or getattr(torch.version, "cuda", None) is None:
-        return None, _default_fp8_dtype()
     try:
-        import vllm
         import vllm._custom_ops as ops
         from vllm.platforms import current_platform
     except Exception:
         return None, _default_fp8_dtype()
-
-    version = getattr(vllm, "__version__", "0.0.0")
-    try:
-        parsed = Version(version.split("+", 1)[0])
-        if parsed < _TARGET_VLLM_VERSION or parsed >= _NEXT_VLLM_VERSION:
-            return None, _default_fp8_dtype()
-    except InvalidVersion:
-        pass
 
     if not hasattr(ops, "cp_gather_indexer_k_quant_cache"):
         return None, _default_fp8_dtype()
@@ -101,7 +88,7 @@ def load_vllm_cuda_op_and_fp8_dtype():
 
 
 def torch_gather(kv_cache, dst_k, dst_scale, block_table, cu_seq_lens):
-    """Torch baseline for backends without the vLLM CUDA op.
+    """Torch baseline for environments without the vLLM custom op.
 
     Assumes every row of dst_k is a valid token (true for the inputs built
     below), so no device-to-host sync is needed to size the gather.
@@ -249,9 +236,9 @@ class CpGatherIndexerKQuantCacheBenchmark(base.Benchmark):
 @pytest.mark.skipif(not _HAS_DEVICE, reason=f"requires an available {device} device")
 @pytest.mark.cp_gather_indexer_k_quant_cache
 def test_cp_gather_indexer_k_quant_cache_benchmark():
-    vllm_op, fp8_dtype = load_vllm_cuda_op_and_fp8_dtype()
+    vllm_op, fp8_dtype = load_vllm_op_and_fp8_dtype()
     if vllm_op is not None:
         run_vllm_benchmark(CpGatherIndexerKQuantCacheBenchmark(vllm_op, fp8_dtype))
     else:
-        # No vLLM CUDA op on this backend: compare against the torch baseline.
+        # No vLLM custom op in this environment: use the torch baseline.
         CpGatherIndexerKQuantCacheBenchmark(torch_gather, fp8_dtype).run()
