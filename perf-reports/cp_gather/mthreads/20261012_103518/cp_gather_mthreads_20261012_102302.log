@@ -1,0 +1,218 @@
+2026-10-12 10:26:33 | __init__ | 140527518143104 | INFO : Platform plugin musa is activated
+
+=== ENVIRONMENT ===
+{
+  "operator": "cp_gather_indexer_k_quant_cache",
+  "vendor": "mthreads",
+  "device_backend": "musa",
+  "device_name": "MTT S5000",
+  "python": "/usr/bin/python",
+  "torch": "2.7.1",
+  "triton": "3.6.0",
+  "vllm": "0.20.3.dev0+gbc150f502.d20260601",
+  "vllm_path": "/usr/local/lib/python3.10/dist-packages/vllm/__init__.py",
+  "cuda": null,
+  "hip": null,
+  "platform_plugins_available": [
+    {
+      "name": "musa",
+      "value": "vllm_musa:musa_platform_plugin"
+    }
+  ],
+  "VLLM_PLUGINS": "musa",
+  "git_head": "a1ff6f94655b2e915a4cd69064116a0aa512ec00",
+  "git_branch": "topk-per-row-vendor",
+  "git_status": "M  benchmark/test_cp_gather_indexer_k_quant_cache.py\nM  benchmark/test_top_k_per_row_decode.py\nM  benchmark/test_top_k_per_row_prefill.py\nM  src/flaggems_vllm/ops/top_k_per_row_decode.py\nM  src/flaggems_vllm/ops/top_k_per_row_prefill.py\nM  src/flaggems_vllm/runtime/backend/_ascend/fused/__init__.py\nA  src/flaggems_vllm/runtime/backend/_ascend/fused/top_k_per_row_decode.py\nA  src/flaggems_vllm/runtime/backend/_ascend/fused/top_k_per_row_prefill.py\nM  src/flaggems_vllm/runtime/backend/_metax/fused/__init__.py\nM  src/flaggems_vllm/runtime/backend/_mthreads/fused/__init__.py\nM  src/flaggems_vllm/runtime/backend/_mthreads/fused/top_k_per_row_prefill.py",
+  "baseline": "vendor native vLLM",
+  "native_entry": "vllm._custom_ops.cp_gather_indexer_k_quant_cache",
+  "native_source": {
+    "path": "/usr/local/lib/python3.10/dist-packages/vllm/_custom_ops.py",
+    "sha256": "2e559bbbffdde417ec6331e9535361ae26a0655a44a1eb2415e9b3bee967f22b"
+  },
+  "gems_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+    "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+  },
+  "generic_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+    "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+  },
+  "benchmark_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/benchmark/test_cp_gather_indexer_k_quant_cache.py",
+    "sha256": "aa52c81cb7cde53a8c9a13e459ab6116bfc482be73e999476d346b793c83f4c4"
+  },
+  "harness_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/benchmark/base.py",
+    "sha256": "69f59da1bd67ccbd196e1d0e4c0235e45e712ba264bbfbb526e27fe93bf69003"
+  },
+  "fp8_dtype": "torch.float8_e4m3fn",
+  "mode": "kernel",
+  "level": "comprehensive",
+  "warmup_ms_arg": 1000,
+  "rep_ms_arg": 100,
+  "timing_note": "Ascend uses the repository do_bench_npu defaults; inspect benchmark/base.py for timer details.",
+  "shapes": [
+    [
+      4,
+      256,
+      16,
+      128,
+      128
+    ],
+    [
+      8,
+      512,
+      16,
+      128,
+      128
+    ],
+    [
+      16,
+      1024,
+      16,
+      512,
+      128
+    ],
+    [
+      32,
+      1024,
+      16,
+      512,
+      128
+    ],
+    [
+      1,
+      8192,
+      64,
+      128,
+      128
+    ],
+    [
+      8,
+      4096,
+      64,
+      128,
+      128
+    ],
+    [
+      64,
+      1024,
+      64,
+      128,
+      128
+    ]
+  ],
+  "speedup_definition": "native_vllm_ms / gems_ms"
+}
+
+=== RUN 1/3 ===
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python
+cachedir: .pytest_cache
+rootdir: /data/wuyuqing/workspace/FlagGems-vllm
+configfile: pytest.ini
+plugins: anyio-4.12.1
+collecting ... 
+BASELINE: <function cp_gather_indexer_k_quant_cache at 0x7fc87ef38e50> GEMS: /data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py
+BYTE_CHECK_PASS: (4, 256, 16, 128, 128)
+BYTE_CHECK_PASS: (8, 512, 16, 128, 128)
+BYTE_CHECK_PASS: (16, 1024, 16, 512, 128)
+BYTE_CHECK_PASS: (32, 1024, 16, 512, 128)
+BYTE_CHECK_PASS: (1, 8192, 64, 128, 128)
+BYTE_CHECK_PASS: (8, 4096, 64, 128, 128)
+BYTE_CHECK_PASS: (64, 1024, 64, 128, 128)
+collected 1 item
+
+benchmark/test_cp_gather_indexer_k_quant_cache.py::test_cp_gather_indexer_k_quant_cache_benchmark 
+Operator: cp_gather_indexer_k_quant_cache  Performance Test (dtype=torch.float16, mode=kernel,level=comprehensive)
+Status       vLLM Latency (ms)    Gems Latency (ms)         Gems Speedup          vLLM GBPS            Gems GBPS           Size Detail
+-----------------------------------------------------------------------------------------------------------------------------------------
+SUCCESS               0.010240            0.005880               1.741              26.427              46.022          [torch.Size([64, 16, 132]), torch.Size([1024, 128]), torch.Size([1024, 4]), torch.Size([4, 16]), torch.Size([5])]
+SUCCESS               0.011520            0.006680               1.725              93.959             162.037          [torch.Size([256, 16, 132]), torch.Size([4096, 128]), torch.Size([4096, 4]), torch.Size([8, 32]), torch.Size([9])]
+SUCCESS               0.084560            0.030040               2.815             204.655             576.087          [torch.Size([1024, 16, 528]), torch.Size([16384, 512]), torch.Size([16384, 16]), torch.Size([16, 64]), torch.Size([17])]
+SUCCESS               0.166240            0.056320               2.952             208.201             614.548          [torch.Size([2048, 16, 528]), torch.Size([32768, 512]), torch.Size([32768, 16]), torch.Size([32, 64]), torch.Size([33])]
+SUCCESS               0.015680            0.005720               2.741             137.960             378.183          [torch.Size([128, 64, 132]), torch.Size([8192, 128]), torch.Size([8192, 4]), torch.Size([1, 128]), torch.Size([2])]
+SUCCESS               0.044960            0.015960               2.817             192.456             542.158          [torch.Size([512, 64, 132]), torch.Size([32768, 128]), torch.Size([32768, 4]), torch.Size([8, 64]), torch.Size([9])]
+SUCCESS               0.085560            0.031720               2.697             202.266             545.582          [torch.Size([1024, 64, 132]), torch.Size([65536, 128]), torch.Size([65536, 4]), torch.Size([64, 16]), torch.Size([65])]
+
+PASSED
+
+=============================== warnings summary ===============================
+../../../../usr/local/lib/python3.10/dist-packages/_pytest/config/__init__.py:1303
+  /usr/local/lib/python3.10/dist-packages/_pytest/config/__init__.py:1303: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; anyio
+    self._mark_plugins_for_rewrite(hook, disable_autoload)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 1 warning in 14.23s =========================
+RUN_SUMMARY 1: avg=2.4983 min=1.7246
+
+=== RUN 2/3 ===
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python
+cachedir: .pytest_cache
+rootdir: /data/wuyuqing/workspace/FlagGems-vllm
+configfile: pytest.ini
+plugins: anyio-4.12.1
+collecting ... 
+BASELINE: <function cp_gather_indexer_k_quant_cache at 0x7fc87ef38e50> GEMS: /data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py
+collected 1 item
+
+benchmark/test_cp_gather_indexer_k_quant_cache.py::test_cp_gather_indexer_k_quant_cache_benchmark 
+Operator: cp_gather_indexer_k_quant_cache  Performance Test (dtype=torch.float16, mode=kernel,level=comprehensive)
+Status       vLLM Latency (ms)    Gems Latency (ms)         Gems Speedup          vLLM GBPS            Gems GBPS           Size Detail
+-----------------------------------------------------------------------------------------------------------------------------------------
+SUCCESS               0.010080            0.006320               1.595              26.846              42.818          [torch.Size([64, 16, 132]), torch.Size([1024, 128]), torch.Size([1024, 4]), torch.Size([4, 16]), torch.Size([5])]
+SUCCESS               0.011480            0.006640               1.729              94.286             163.013          [torch.Size([256, 16, 132]), torch.Size([4096, 128]), torch.Size([4096, 4]), torch.Size([8, 32]), torch.Size([9])]
+SUCCESS               0.084560            0.030640               2.760             204.655             564.806          [torch.Size([1024, 16, 528]), torch.Size([16384, 512]), torch.Size([16384, 16]), torch.Size([16, 64]), torch.Size([17])]
+SUCCESS               0.166200            0.057960               2.867             208.251             597.159          [torch.Size([2048, 16, 528]), torch.Size([32768, 512]), torch.Size([32768, 16]), torch.Size([32, 64]), torch.Size([33])]
+SUCCESS               0.015680            0.005840               2.685             137.960             370.412          [torch.Size([128, 64, 132]), torch.Size([8192, 128]), torch.Size([8192, 4]), torch.Size([1, 128]), torch.Size([2])]
+SUCCESS               0.045040            0.016080               2.801             192.114             538.112          [torch.Size([512, 64, 132]), torch.Size([32768, 128]), torch.Size([32768, 4]), torch.Size([8, 64]), torch.Size([9])]
+SUCCESS               0.085640            0.031800               2.693             202.077             544.209          [torch.Size([1024, 64, 132]), torch.Size([65536, 128]), torch.Size([65536, 4]), torch.Size([64, 16]), torch.Size([65])]
+
+PASSED
+
+=============================== warnings summary ===============================
+../../../../usr/local/lib/python3.10/dist-packages/_pytest/config/__init__.py:1303
+  /usr/local/lib/python3.10/dist-packages/_pytest/config/__init__.py:1303: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; anyio
+    self._mark_plugins_for_rewrite(hook, disable_autoload)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+========================= 1 passed, 1 warning in 5.17s =========================
+RUN_SUMMARY 2: avg=2.4472 min=1.5949
+
+=== RUN 3/3 ===
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.2, pluggy-1.6.0 -- /usr/bin/python
+cachedir: .pytest_cache
+rootdir: /data/wuyuqing/workspace/FlagGems-vllm
+configfile: pytest.ini
+plugins: anyio-4.12.1
+collecting ... 
+BASELINE: <function cp_gather_indexer_k_quant_cache at 0x7fc87ef38e50> GEMS: /data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py
+collected 1 item
+
+benchmark/test_cp_gather_indexer_k_quant_cache.py::test_cp_gather_indexer_k_quant_cache_benchmark 
+Operator: cp_gather_indexer_k_quant_cache  Performance Test (dtype=torch.float16, mode=kernel,level=comprehensive)
+Status       vLLM Latency (ms)    Gems Latency (ms)         Gems Speedup          vLLM GBPS            Gems GBPS           Size Detail
+-----------------------------------------------------------------------------------------------------------------------------------------
+SUCCESS               0.010160            0.005920               1.716              26.635              45.711          [torch.Size([64, 16, 132]), torch.Size([1024, 128]), torch.Size([1024, 4]), torch.Size([4, 16]), torch.Size([5])]
+SUCCESS               0.011480            0.006640               1.729              94.286             163.013          [torch.Size([256, 16, 132]), torch.Size([4096, 128]), torch.Size([4096, 4]), torch.Size([8, 32]), torch.Size([9])]
+SUCCESS               0.084560            0.030680               2.756             204.655             564.070          [torch.Size([1024, 16, 528]), torch.Size([16384, 512]), torch.Size([16384, 16]), torch.Size([16, 64]), torch.Size([17])]
+SUCCESS               0.166280            0.058040               2.865             208.151             596.336          [torch.Size([2048, 16, 528]), torch.Size([32768, 512]), torch.Size([32768, 16]), torch.Size([32, 64]), torch.Size([33])]
+SUCCESS               0.015720            0.005800               2.710             137.609             372.967          [torch.Size([128, 64, 132]), torch.Size([8192, 128]), torch.Size([8192, 4]), torch.Size([1, 128]), torch.Size([2])]
+SUCCESS               0.045120            0.016080               2.806             191.774             538.112          [torch.Size([512, 64, 132]), torch.Size([32768, 128]), torch.Size([32768, 4]), torch.Size([8, 64]), torch.Size([9])]
+SUCCESS               0.085640            0.031840               2.690             202.077             543.526          [torch.Size([1024, 64, 132]), torch.Size([65536, 128]), torch.Size([65536, 4]), torch.Size([64, 16]), torch.Size([65])]
+
+PASSED
+
+=============================== warnings summary ===============================
+../../../../usr/local/lib/python3.10/dist-packages/_pytest/config/__init__.py:1303
+  /usr/local/lib/python3.10/dist-packages/_pytest/config/__init__.py:1303: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; anyio
+    self._mark_plugins_for_rewrite(hook, disable_autoload)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+========================= 1 passed, 1 warning in 5.27s =========================
+RUN_SUMMARY 3: avg=2.4675 min=1.7162
+
+SEND_BACK_JSON: /data/wuyuqing/workspace/FlagGems-vllm/perf-results/cp_gather_mthreads_20261012_102634/collection.json
+Send this collection.json together with the complete tee log.

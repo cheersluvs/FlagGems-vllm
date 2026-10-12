@@ -1,0 +1,103 @@
+{
+  "operator": "cp_gather_indexer_k_quant_cache",
+  "vendor": "mthreads",
+  "device_backend": "musa",
+  "device_name": "MTT S5000",
+  "python": "/usr/bin/python",
+  "torch": "2.7.1",
+  "triton": "3.6.0",
+  "vllm": "0.20.3.dev0+gbc150f502.d20260601",
+  "vllm_path": "/usr/local/lib/python3.10/dist-packages/vllm/__init__.py",
+  "cuda": null,
+  "hip": null,
+  "platform_plugins_available": [
+    {
+      "name": "musa",
+      "value": "vllm_musa:musa_platform_plugin"
+    }
+  ],
+  "VLLM_PLUGINS": "musa",
+  "git_head": "a1ff6f94655b2e915a4cd69064116a0aa512ec00",
+  "git_branch": "topk-per-row-vendor",
+  "git_status": "M  benchmark/test_cp_gather_indexer_k_quant_cache.py\nM  benchmark/test_top_k_per_row_decode.py\nM  benchmark/test_top_k_per_row_prefill.py\nM  src/flaggems_vllm/ops/top_k_per_row_decode.py\nM  src/flaggems_vllm/ops/top_k_per_row_prefill.py\nM  src/flaggems_vllm/runtime/backend/_ascend/fused/__init__.py\nA  src/flaggems_vllm/runtime/backend/_ascend/fused/top_k_per_row_decode.py\nA  src/flaggems_vllm/runtime/backend/_ascend/fused/top_k_per_row_prefill.py\nM  src/flaggems_vllm/runtime/backend/_metax/fused/__init__.py\nM  src/flaggems_vllm/runtime/backend/_mthreads/fused/__init__.py\nM  src/flaggems_vllm/runtime/backend/_mthreads/fused/top_k_per_row_prefill.py",
+  "baseline": "vendor native vLLM",
+  "native_entry": "vllm._custom_ops.cp_gather_indexer_k_quant_cache",
+  "native_source": {
+    "path": "/usr/local/lib/python3.10/dist-packages/vllm/_custom_ops.py",
+    "sha256": "2e559bbbffdde417ec6331e9535361ae26a0655a44a1eb2415e9b3bee967f22b"
+  },
+  "gems_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+    "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+  },
+  "generic_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+    "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+  },
+  "benchmark_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/benchmark/test_cp_gather_indexer_k_quant_cache.py",
+    "sha256": "aa52c81cb7cde53a8c9a13e459ab6116bfc482be73e999476d346b793c83f4c4"
+  },
+  "harness_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/benchmark/base.py",
+    "sha256": "69f59da1bd67ccbd196e1d0e4c0235e45e712ba264bbfbb526e27fe93bf69003"
+  },
+  "fp8_dtype": "torch.float8_e4m3fn",
+  "mode": "kernel",
+  "level": "comprehensive",
+  "warmup_ms_arg": 1000,
+  "rep_ms_arg": 100,
+  "timing_note": "Ascend uses the repository do_bench_npu defaults; inspect benchmark/base.py for timer details.",
+  "shapes": [
+    [
+      4,
+      256,
+      16,
+      128,
+      128
+    ],
+    [
+      8,
+      512,
+      16,
+      128,
+      128
+    ],
+    [
+      16,
+      1024,
+      16,
+      512,
+      128
+    ],
+    [
+      32,
+      1024,
+      16,
+      512,
+      128
+    ],
+    [
+      1,
+      8192,
+      64,
+      128,
+      128
+    ],
+    [
+      8,
+      4096,
+      64,
+      128,
+      128
+    ],
+    [
+      64,
+      1024,
+      64,
+      128,
+      128
+    ]
+  ],
+  "speedup_definition": "native_vllm_ms / gems_ms"
+}
