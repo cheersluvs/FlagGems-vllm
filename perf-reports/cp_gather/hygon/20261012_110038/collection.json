@@ -1,0 +1,416 @@
+{
+  "environment": {
+    "operator": "cp_gather_indexer_k_quant_cache",
+    "vendor": "hygon",
+    "device_backend": "cuda",
+    "device_name": "BW",
+    "python": "/usr/bin/python",
+    "torch": "2.10.0",
+    "triton": "3.6.0",
+    "vllm": "0.18.1",
+    "vllm_path": "/usr/local/lib/python3.10/dist-packages/vllm/__init__.py",
+    "cuda": null,
+    "hip": "6.3.26113",
+    "platform_plugins_available": [
+      {
+        "name": "hcu",
+        "value": "vllm_hcu:hcu_platform_plugin"
+      }
+    ],
+    "VLLM_PLUGINS": "hcu",
+    "git_head": "cf00a55105d2558b3c73eda7a583677eafea8453",
+    "git_branch": "claude/fervent-volta-mkj1io",
+    "git_status": "M  benchmark/test_cp_gather_indexer_k_quant_cache.py\n?? benchmark/.test_deepseek_v4_attention_combine_topk_swa_indices.py.swp",
+    "baseline": "vendor native vLLM",
+    "native_entry": "vllm._custom_ops.cp_gather_indexer_k_quant_cache",
+    "native_source": {
+      "path": "/usr/local/lib/python3.10/dist-packages/vllm/_custom_ops.py",
+      "sha256": "db73a0005ce4ac844ac733bb3f0f5a01173f46efa61bce6662e516a6abe530c6"
+    },
+    "gems_source": {
+      "path": "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+      "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+    },
+    "generic_source": {
+      "path": "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+      "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+    },
+    "benchmark_source": {
+      "path": "/data/wuyuqing/workspace/FlagGems-vllm/benchmark/test_cp_gather_indexer_k_quant_cache.py",
+      "sha256": "aa52c81cb7cde53a8c9a13e459ab6116bfc482be73e999476d346b793c83f4c4"
+    },
+    "harness_source": {
+      "path": "/data/wuyuqing/workspace/FlagGems-vllm/benchmark/base.py",
+      "sha256": "936f41e070e3baab8b5f445ea79c4695c65b164eae7410046d5e8571d5d507fb"
+    },
+    "fp8_dtype": "torch.float8_e4m3fn",
+    "mode": "kernel",
+    "level": "comprehensive",
+    "warmup_ms_arg": 1000,
+    "rep_ms_arg": 100,
+    "timing_note": "Ascend uses the repository do_bench_npu defaults; inspect benchmark/base.py for timer details.",
+    "shapes": [
+      [
+        4,
+        256,
+        16,
+        128,
+        128
+      ],
+      [
+        8,
+        512,
+        16,
+        128,
+        128
+      ],
+      [
+        16,
+        1024,
+        16,
+        512,
+        128
+      ],
+      [
+        32,
+        1024,
+        16,
+        512,
+        128
+      ],
+      [
+        1,
+        8192,
+        64,
+        128,
+        128
+      ],
+      [
+        8,
+        4096,
+        64,
+        128,
+        128
+      ],
+      [
+        64,
+        1024,
+        64,
+        128,
+        128
+      ]
+    ],
+    "speedup_definition": "native_vllm_ms / gems_ms"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "rows": [
+        {
+          "shape": [
+            4,
+            256,
+            16,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.007519999984651804,
+          "gems_ms": 0.0081599997356534,
+          "speedup": 0.9215686554246746,
+          "native_gbps": 35.98563837131843,
+          "gems_gbps": 33.163236368454506
+        },
+        {
+          "shape": [
+            8,
+            512,
+            16,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.00800000037997961,
+          "gems_ms": 0.008960000239312649,
+          "speedup": 0.8928571614182588,
+          "native_gbps": 135.30049357357143,
+          "gems_gbps": 120.80401463058831
+        },
+        {
+          "shape": [
+            16,
+            1024,
+            16,
+            512,
+            128
+          ],
+          "native_vllm_ms": 0.06719999760389328,
+          "gems_ms": 0.03248000144958496,
+          "speedup": 2.068965351131534,
+          "native_gbps": 257.5248306109669,
+          "gems_gbps": 532.809951590108
+        },
+        {
+          "shape": [
+            32,
+            1024,
+            16,
+            512,
+            128
+          ],
+          "native_vllm_ms": 0.057760000228881836,
+          "gems_ms": 0.05552000179886818,
+          "speedup": 1.040345791740578,
+          "native_gbps": 599.2266596753445,
+          "gems_gbps": 623.4029336920083
+        },
+        {
+          "shape": [
+            1,
+            8192,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.009279999881982803,
+          "gems_ms": 0.009440000168979168,
+          "speedup": 0.9830508173588659,
+          "native_gbps": 233.1043133093015,
+          "gems_gbps": 229.15338572858602
+        },
+        {
+          "shape": [
+            8,
+            4096,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.01583999954164028,
+          "gems_ms": 0.01744000054895878,
+          "speedup": 0.9082568258626562,
+          "native_gbps": 546.2649147970855,
+          "gems_gbps": 496.1488375937351
+        },
+        {
+          "shape": [
+            64,
+            1024,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.06976000219583511,
+          "gems_ms": 0.02768000029027462,
+          "speedup": 2.5202312667729747,
+          "native_gbps": 248.0771137509112,
+          "gems_gbps": 625.2116986458423
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "rows": [
+        {
+          "shape": [
+            4,
+            256,
+            16,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.007519999984651804,
+          "gems_ms": 0.008320000022649765,
+          "speedup": 0.9038461495408535,
+          "native_gbps": 35.98563837131843,
+          "gems_gbps": 32.52548068068575
+        },
+        {
+          "shape": [
+            8,
+            512,
+            16,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.00800000037997961,
+          "gems_ms": 0.008960000239312649,
+          "speedup": 0.8928571614182588,
+          "native_gbps": 135.30049357357143,
+          "gems_gbps": 120.80401463058831
+        },
+        {
+          "shape": [
+            16,
+            1024,
+            16,
+            512,
+            128
+          ],
+          "native_vllm_ms": 0.0700799971818924,
+          "gems_ms": 0.03215999901294708,
+          "speedup": 2.179104456865168,
+          "native_gbps": 246.94161951923593,
+          "gems_gbps": 538.1115836798697
+        },
+        {
+          "shape": [
+            32,
+            1024,
+            16,
+            512,
+            128
+          ],
+          "native_vllm_ms": 0.057760000228881836,
+          "gems_ms": 0.05567999929189682,
+          "speedup": 1.0373563391421903,
+          "native_gbps": 599.2266596753445,
+          "gems_gbps": 621.6115739972186
+        },
+        {
+          "shape": [
+            1,
+            8192,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.009920000098645687,
+          "gems_ms": 0.009440000168979168,
+          "speedup": 1.0508474492663515,
+          "native_gbps": 218.0653204121771,
+          "gems_gbps": 229.15338572858602
+        },
+        {
+          "shape": [
+            8,
+            4096,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.01568000018596649,
+          "gems_ms": 0.01744000054895878,
+          "speedup": 0.8990825511701395,
+          "native_gbps": 551.8390240673746,
+          "gems_gbps": 496.1488375937351
+        },
+        {
+          "shape": [
+            64,
+            1024,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.06976000219583511,
+          "gems_ms": 0.02783999964594841,
+          "speedup": 2.505747237176685,
+          "native_gbps": 248.0771137509112,
+          "gems_gbps": 621.6185423881119
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "rows": [
+        {
+          "shape": [
+            4,
+            256,
+            16,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.007519999984651804,
+          "gems_ms": 0.0081599997356534,
+          "speedup": 0.9215686554246746,
+          "native_gbps": 35.98563837131843,
+          "gems_gbps": 33.163236368454506
+        },
+        {
+          "shape": [
+            8,
+            512,
+            16,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.0081599997356534,
+          "gems_ms": 0.008960000239312649,
+          "speedup": 0.9107142318870497,
+          "native_gbps": 132.6475533167806,
+          "gems_gbps": 120.80401463058831
+        },
+        {
+          "shape": [
+            16,
+            1024,
+            16,
+            512,
+            128
+          ],
+          "native_vllm_ms": 0.06719999760389328,
+          "gems_ms": 0.03248000144958496,
+          "speedup": 2.068965351131534,
+          "native_gbps": 257.5248306109669,
+          "gems_gbps": 532.809951590108
+        },
+        {
+          "shape": [
+            32,
+            1024,
+            16,
+            512,
+            128
+          ],
+          "native_vllm_ms": 0.058240000158548355,
+          "gems_ms": 0.05567999929189682,
+          "speedup": 1.045977027643822,
+          "native_gbps": 594.2879791513842,
+          "gems_gbps": 621.6115739972186
+        },
+        {
+          "shape": [
+            1,
+            8192,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.009440000168979168,
+          "gems_ms": 0.009600000455975533,
+          "speedup": 0.9833333042295043,
+          "native_gbps": 229.15338572858602,
+          "gems_gbps": 225.33415596386857
+        },
+        {
+          "shape": [
+            8,
+            4096,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.015200000256299973,
+          "gems_ms": 0.01759999990463257,
+          "speedup": 0.8636363828785657,
+          "native_gbps": 569.2655167169253,
+          "gems_gbps": 491.638411754903
+        },
+        {
+          "shape": [
+            64,
+            1024,
+            64,
+            128,
+            128
+          ],
+          "native_vllm_ms": 0.07264000177383423,
+          "gems_ms": 0.02783999964594841,
+          "speedup": 2.609195499196266,
+          "native_gbps": 238.24145893996624,
+          "gems_gbps": 621.6185423881119
+        }
+      ]
+    }
+  ]
+}

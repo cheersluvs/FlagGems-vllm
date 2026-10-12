@@ -1,0 +1,202 @@
+
+=== ENVIRONMENT ===
+{
+  "operator": "cp_gather_indexer_k_quant_cache",
+  "vendor": "hygon",
+  "device_backend": "cuda",
+  "device_name": "BW",
+  "python": "/usr/bin/python",
+  "torch": "2.10.0",
+  "triton": "3.6.0",
+  "vllm": "0.18.1",
+  "vllm_path": "/usr/local/lib/python3.10/dist-packages/vllm/__init__.py",
+  "cuda": null,
+  "hip": "6.3.26113",
+  "platform_plugins_available": [
+    {
+      "name": "hcu",
+      "value": "vllm_hcu:hcu_platform_plugin"
+    }
+  ],
+  "VLLM_PLUGINS": "hcu",
+  "git_head": "cf00a55105d2558b3c73eda7a583677eafea8453",
+  "git_branch": "claude/fervent-volta-mkj1io",
+  "git_status": "M  benchmark/test_cp_gather_indexer_k_quant_cache.py\n?? benchmark/.test_deepseek_v4_attention_combine_topk_swa_indices.py.swp",
+  "baseline": "vendor native vLLM",
+  "native_entry": "vllm._custom_ops.cp_gather_indexer_k_quant_cache",
+  "native_source": {
+    "path": "/usr/local/lib/python3.10/dist-packages/vllm/_custom_ops.py",
+    "sha256": "db73a0005ce4ac844ac733bb3f0f5a01173f46efa61bce6662e516a6abe530c6"
+  },
+  "gems_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+    "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+  },
+  "generic_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+    "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+  },
+  "benchmark_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/benchmark/test_cp_gather_indexer_k_quant_cache.py",
+    "sha256": "aa52c81cb7cde53a8c9a13e459ab6116bfc482be73e999476d346b793c83f4c4"
+  },
+  "harness_source": {
+    "path": "/data/wuyuqing/workspace/FlagGems-vllm/benchmark/base.py",
+    "sha256": "936f41e070e3baab8b5f445ea79c4695c65b164eae7410046d5e8571d5d507fb"
+  },
+  "fp8_dtype": "torch.float8_e4m3fn",
+  "mode": "kernel",
+  "level": "comprehensive",
+  "warmup_ms_arg": 1000,
+  "rep_ms_arg": 100,
+  "timing_note": "Ascend uses the repository do_bench_npu defaults; inspect benchmark/base.py for timer details.",
+  "shapes": [
+    [
+      4,
+      256,
+      16,
+      128,
+      128
+    ],
+    [
+      8,
+      512,
+      16,
+      128,
+      128
+    ],
+    [
+      16,
+      1024,
+      16,
+      512,
+      128
+    ],
+    [
+      32,
+      1024,
+      16,
+      512,
+      128
+    ],
+    [
+      1,
+      8192,
+      64,
+      128,
+      128
+    ],
+    [
+      8,
+      4096,
+      64,
+      128,
+      128
+    ],
+    [
+      64,
+      1024,
+      64,
+      128,
+      128
+    ]
+  ],
+  "speedup_definition": "native_vllm_ms / gems_ms"
+}
+
+=== RUN 1/3 ===
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.3, pluggy-1.6.0 -- /usr/bin/python
+cachedir: .pytest_cache
+rootdir: /data/wuyuqing/workspace/FlagGems-vllm
+configfile: pytest.ini
+plugins: anyio-4.13.0, asyncio-1.4.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... 
+BASELINE: <function cp_gather_indexer_k_quant_cache at 0x7f4d581e88b0> GEMS: /data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py
+BYTE_CHECK_PASS: (4, 256, 16, 128, 128)
+BYTE_CHECK_PASS: (8, 512, 16, 128, 128)
+BYTE_CHECK_PASS: (16, 1024, 16, 512, 128)
+BYTE_CHECK_PASS: (32, 1024, 16, 512, 128)
+BYTE_CHECK_PASS: (1, 8192, 64, 128, 128)
+BYTE_CHECK_PASS: (8, 4096, 64, 128, 128)
+BYTE_CHECK_PASS: (64, 1024, 64, 128, 128)
+collected 1 item
+
+benchmark/test_cp_gather_indexer_k_quant_cache.py::test_cp_gather_indexer_k_quant_cache_benchmark 
+Operator: cp_gather_indexer_k_quant_cache  Performance Test (dtype=torch.float16, mode=kernel,level=comprehensive)
+Status       vLLM Latency (ms)    Gems Latency (ms)         Gems Speedup          vLLM GBPS            Gems GBPS           Size Detail
+-----------------------------------------------------------------------------------------------------------------------------------------
+SUCCESS               0.007520            0.008160               0.922              35.986              33.163          [torch.Size([64, 16, 132]), torch.Size([1024, 128]), torch.Size([1024, 4]), torch.Size([4, 16]), torch.Size([5])]
+SUCCESS               0.008000            0.008960               0.893             135.300             120.804          [torch.Size([256, 16, 132]), torch.Size([4096, 128]), torch.Size([4096, 4]), torch.Size([8, 32]), torch.Size([9])]
+SUCCESS               0.067200            0.032480               2.069             257.525             532.810          [torch.Size([1024, 16, 528]), torch.Size([16384, 512]), torch.Size([16384, 16]), torch.Size([16, 64]), torch.Size([17])]
+SUCCESS               0.057760            0.055520               1.040             599.227             623.403          [torch.Size([2048, 16, 528]), torch.Size([32768, 512]), torch.Size([32768, 16]), torch.Size([32, 64]), torch.Size([33])]
+SUCCESS               0.009280            0.009440               0.983             233.104             229.153          [torch.Size([128, 64, 132]), torch.Size([8192, 128]), torch.Size([8192, 4]), torch.Size([1, 128]), torch.Size([2])]
+SUCCESS               0.015840            0.017440               0.908             546.265             496.149          [torch.Size([512, 64, 132]), torch.Size([32768, 128]), torch.Size([32768, 4]), torch.Size([8, 64]), torch.Size([9])]
+SUCCESS               0.069760            0.027680               2.520             248.077             625.212          [torch.Size([1024, 64, 132]), torch.Size([65536, 128]), torch.Size([65536, 4]), torch.Size([64, 16]), torch.Size([65])]
+
+PASSED
+
+============================== 1 passed in 7.76s ===============================
+RUN_SUMMARY 1: avg=1.3336 min=0.8929
+
+=== RUN 2/3 ===
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.3, pluggy-1.6.0 -- /usr/bin/python
+cachedir: .pytest_cache
+rootdir: /data/wuyuqing/workspace/FlagGems-vllm
+configfile: pytest.ini
+plugins: anyio-4.13.0, asyncio-1.4.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... 
+BASELINE: <function cp_gather_indexer_k_quant_cache at 0x7f4d581e88b0> GEMS: /data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py
+collected 1 item
+
+benchmark/test_cp_gather_indexer_k_quant_cache.py::test_cp_gather_indexer_k_quant_cache_benchmark 
+Operator: cp_gather_indexer_k_quant_cache  Performance Test (dtype=torch.float16, mode=kernel,level=comprehensive)
+Status       vLLM Latency (ms)    Gems Latency (ms)         Gems Speedup          vLLM GBPS            Gems GBPS           Size Detail
+-----------------------------------------------------------------------------------------------------------------------------------------
+SUCCESS               0.007520            0.008320               0.904              35.986              32.525          [torch.Size([64, 16, 132]), torch.Size([1024, 128]), torch.Size([1024, 4]), torch.Size([4, 16]), torch.Size([5])]
+SUCCESS               0.008000            0.008960               0.893             135.300             120.804          [torch.Size([256, 16, 132]), torch.Size([4096, 128]), torch.Size([4096, 4]), torch.Size([8, 32]), torch.Size([9])]
+SUCCESS               0.070080            0.032160               2.179             246.942             538.112          [torch.Size([1024, 16, 528]), torch.Size([16384, 512]), torch.Size([16384, 16]), torch.Size([16, 64]), torch.Size([17])]
+SUCCESS               0.057760            0.055680               1.037             599.227             621.612          [torch.Size([2048, 16, 528]), torch.Size([32768, 512]), torch.Size([32768, 16]), torch.Size([32, 64]), torch.Size([33])]
+SUCCESS               0.009920            0.009440               1.051             218.065             229.153          [torch.Size([128, 64, 132]), torch.Size([8192, 128]), torch.Size([8192, 4]), torch.Size([1, 128]), torch.Size([2])]
+SUCCESS               0.015680            0.017440               0.899             551.839             496.149          [torch.Size([512, 64, 132]), torch.Size([32768, 128]), torch.Size([32768, 4]), torch.Size([8, 64]), torch.Size([9])]
+SUCCESS               0.069760            0.027840               2.506             248.077             621.619          [torch.Size([1024, 64, 132]), torch.Size([65536, 128]), torch.Size([65536, 4]), torch.Size([64, 16]), torch.Size([65])]
+
+PASSED
+
+============================== 1 passed in 7.26s ===============================
+RUN_SUMMARY 2: avg=1.3527 min=0.8929
+
+=== RUN 3/3 ===
+============================= test session starts ==============================
+platform linux -- Python 3.10.12, pytest-9.0.3, pluggy-1.6.0 -- /usr/bin/python
+cachedir: .pytest_cache
+rootdir: /data/wuyuqing/workspace/FlagGems-vllm
+configfile: pytest.ini
+plugins: anyio-4.13.0, asyncio-1.4.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... 
+BASELINE: <function cp_gather_indexer_k_quant_cache at 0x7f4d581e88b0> GEMS: /data/wuyuqing/workspace/FlagGems-vllm/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py
+collected 1 item
+
+benchmark/test_cp_gather_indexer_k_quant_cache.py::test_cp_gather_indexer_k_quant_cache_benchmark 
+Operator: cp_gather_indexer_k_quant_cache  Performance Test (dtype=torch.float16, mode=kernel,level=comprehensive)
+Status       vLLM Latency (ms)    Gems Latency (ms)         Gems Speedup          vLLM GBPS            Gems GBPS           Size Detail
+-----------------------------------------------------------------------------------------------------------------------------------------
+SUCCESS               0.007520            0.008160               0.922              35.986              33.163          [torch.Size([64, 16, 132]), torch.Size([1024, 128]), torch.Size([1024, 4]), torch.Size([4, 16]), torch.Size([5])]
+SUCCESS               0.008160            0.008960               0.911             132.648             120.804          [torch.Size([256, 16, 132]), torch.Size([4096, 128]), torch.Size([4096, 4]), torch.Size([8, 32]), torch.Size([9])]
+SUCCESS               0.067200            0.032480               2.069             257.525             532.810          [torch.Size([1024, 16, 528]), torch.Size([16384, 512]), torch.Size([16384, 16]), torch.Size([16, 64]), torch.Size([17])]
+SUCCESS               0.058240            0.055680               1.046             594.288             621.612          [torch.Size([2048, 16, 528]), torch.Size([32768, 512]), torch.Size([32768, 16]), torch.Size([32, 64]), torch.Size([33])]
+SUCCESS               0.009440            0.009600               0.983             229.153             225.334          [torch.Size([128, 64, 132]), torch.Size([8192, 128]), torch.Size([8192, 4]), torch.Size([1, 128]), torch.Size([2])]
+SUCCESS               0.015200            0.017600               0.864             569.266             491.638          [torch.Size([512, 64, 132]), torch.Size([32768, 128]), torch.Size([32768, 4]), torch.Size([8, 64]), torch.Size([9])]
+SUCCESS               0.072640            0.027840               2.609             238.241             621.619          [torch.Size([1024, 64, 132]), torch.Size([65536, 128]), torch.Size([65536, 4]), torch.Size([64, 16]), torch.Size([65])]
+
+PASSED
+
+============================== 1 passed in 7.26s ===============================
+RUN_SUMMARY 3: avg=1.3433 min=0.8636
+
+SEND_BACK_JSON: /data/wuyuqing/workspace/FlagGems-vllm/perf-results/cp_gather_hygon_20261012_105746/collection.json
+Send this collection.json together with the complete tee log.
