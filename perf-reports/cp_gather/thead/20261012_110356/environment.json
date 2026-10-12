@@ -1,0 +1,103 @@
+{
+  "operator": "cp_gather_indexer_k_quant_cache",
+  "vendor": "thead",
+  "device_backend": "cuda",
+  "device_name": "PPU-ZW810E",
+  "python": "/root/venv-ft-main/bin/python",
+  "torch": "2.9.0",
+  "triton": "3.6.0",
+  "vllm": "0.13.1.dev0+g72506c983.d20260218",
+  "vllm_path": "/usr/local/lib/python3.12/site-packages/vllm/__init__.py",
+  "cuda": "12.9",
+  "hip": null,
+  "platform_plugins_available": [
+    {
+      "name": "fl",
+      "value": "vllm_fl:register"
+    }
+  ],
+  "VLLM_PLUGINS": "",
+  "git_head": "5a5120e5b0b49842871b4069356b41340718780f",
+  "git_branch": "",
+  "git_status": "M  benchmark/test_cp_gather_indexer_k_quant_cache.py\nM  benchmark/test_fused_deepseek_v4_qnorm_rope_kv_rope_quant_insert.py",
+  "baseline": "vendor native vLLM",
+  "native_entry": "vllm._custom_ops.cp_gather_indexer_k_quant_cache",
+  "native_source": {
+    "path": "/usr/local/lib/python3.12/site-packages/vllm/_custom_ops.py",
+    "sha256": "d38c40df665cdbe2b9147822c16e33fa2f7b525552fb343fa9dd6dedcc7ed036"
+  },
+  "gems_source": {
+    "path": "/tmp/thead-ab/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+    "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+  },
+  "generic_source": {
+    "path": "/tmp/thead-ab/src/flaggems_vllm/ops/cp_gather_indexer_k_quant_cache.py",
+    "sha256": "30893e8d131154c02bbc6358e983e7b969e64267bc42c684ad5352ae4190fd3a"
+  },
+  "benchmark_source": {
+    "path": "/tmp/thead-ab/benchmark/test_cp_gather_indexer_k_quant_cache.py",
+    "sha256": "aa52c81cb7cde53a8c9a13e459ab6116bfc482be73e999476d346b793c83f4c4"
+  },
+  "harness_source": {
+    "path": "/tmp/thead-ab/benchmark/base.py",
+    "sha256": "936f41e070e3baab8b5f445ea79c4695c65b164eae7410046d5e8571d5d507fb"
+  },
+  "fp8_dtype": "torch.float8_e4m3fn",
+  "mode": "kernel",
+  "level": "comprehensive",
+  "warmup_ms_arg": 1000,
+  "rep_ms_arg": 100,
+  "timing_note": "Ascend uses the repository do_bench_npu defaults; inspect benchmark/base.py for timer details.",
+  "shapes": [
+    [
+      4,
+      256,
+      16,
+      128,
+      128
+    ],
+    [
+      8,
+      512,
+      16,
+      128,
+      128
+    ],
+    [
+      16,
+      1024,
+      16,
+      512,
+      128
+    ],
+    [
+      32,
+      1024,
+      16,
+      512,
+      128
+    ],
+    [
+      1,
+      8192,
+      64,
+      128,
+      128
+    ],
+    [
+      8,
+      4096,
+      64,
+      128,
+      128
+    ],
+    [
+      64,
+      1024,
+      64,
+      128,
+      128
+    ]
+  ],
+  "speedup_definition": "native_vllm_ms / gems_ms"
+}
