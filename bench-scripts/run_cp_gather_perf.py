@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Collect vendor-native vLLM versus FlagGems through the repository harness.
+"""Collect vLLM or Torch gather versus FlagGems through the repository harness.
 
 Run from a FlagGems-vllm checkout, using the same working GPU environment as
 previous successful runs. Does not modify repository source files.
@@ -35,6 +35,7 @@ parser.add_argument(
     "--vendor", required=True, choices=["metax", "hygon", "mthreads", "thead", "ascend"]
 )
 parser.add_argument("--runs", type=int, default=3)
+parser.add_argument("--baseline", choices=["native", "torch"], default="native")
 args = parser.parse_args()
 if args.runs < 1:
     raise SystemExit("--runs must be positive")
@@ -51,7 +52,7 @@ platform_plugins = (
     else list(entry_points.get("vllm.platform_plugins", []))
 )
 selected = sorted({e.name for e in platform_plugins if e.name != "fl"})
-if len(selected) > 1:
+if len(selected) > 1 and args.baseline == "native":
     chosen = os.environ.get("VLLM_PLUGINS", "").split(",")
     selected = [name for name in selected if name in chosen]
     if len(selected) != 1:
@@ -69,20 +70,31 @@ sys.path.insert(0, str(root))
 
 import torch  # noqa: E402
 import triton  # noqa: E402
-import vllm  # noqa: E402
-import vllm._custom_ops as vllm_ops  # noqa: E402
-from vllm.platforms import current_platform  # noqa: E402
 
-# Save the vendor-native wrapper before importing FlagGems-vllm.
-native = getattr(vllm_ops, "cp_gather_indexer_k_quant_cache", None)
-if native is None:
-    raise SystemExit("Native vLLM cp_gather_indexer_k_quant_cache is unavailable.")
-native_source = inspect.getsourcefile(native)
-if native_source and (
-    "flaggems_vllm" in native_source or "/flag_gems/" in native_source
-):
-    raise SystemExit("vLLM entry already points to Gems: " + native_source)
-fp8_dtype = current_platform.fp8_dtype()
+# Only the native baseline requires vLLM to be installed.
+vllm = None
+native = None
+native_source = None
+if args.baseline == "native":
+    import vllm
+    import vllm._custom_ops as vllm_ops
+    from vllm.platforms import current_platform
+
+    native = getattr(vllm_ops, "cp_gather_indexer_k_quant_cache", None)
+    if native is None:
+        raise SystemExit("Native vLLM cp_gather_indexer_k_quant_cache is unavailable.")
+    native_source = inspect.getsourcefile(native)
+    if native_source and (
+        "flaggems_vllm" in native_source or "/flag_gems/" in native_source
+    ):
+        raise SystemExit("vLLM entry already points to Gems: " + native_source)
+    fp8_dtype = current_platform.fp8_dtype()
+else:
+    fp8_dtype = (
+        torch.float8_e4m3fnuz
+        if getattr(torch.version, "hip", None) is not None
+        else torch.float8_e4m3fn
+    )
 
 import pytest  # noqa: E402
 
@@ -135,8 +147,8 @@ meta = {
     "python": sys.executable,
     "torch": torch.__version__,
     "triton": triton.__version__,
-    "vllm": vllm.__version__,
-    "vllm_path": vllm.__file__,
+    "vllm": vllm.__version__ if vllm else None,
+    "vllm_path": vllm.__file__ if vllm else None,
     "cuda": getattr(torch.version, "cuda", None),
     "hip": getattr(torch.version, "hip", None),
     "platform_plugins_available": [
@@ -146,8 +158,10 @@ meta = {
     "git_head": git("rev-parse", "HEAD"),
     "git_branch": git("branch", "--show-current"),
     "git_status": git("status", "--short", "--", "benchmark", "src/flaggems_vllm"),
-    "baseline": "vendor native vLLM",
-    "native_entry": native.__module__ + "." + native.__name__,
+    "baseline": "vendor native vLLM" if native else "Torch gather fallback",
+    "baseline_kind": args.baseline,
+    "baseline_source": file_info(native_source if native else bench_path),
+    "native_entry": native.__module__ + "." + native.__name__ if native else None,
     "native_source": file_info(native_source),
     "gems_source": file_info(inspect.getsourcefile(gems)),
     "generic_source": file_info(
@@ -162,7 +176,7 @@ meta = {
     "rep_ms_arg": 100,
     "timing_note": "Ascend uses the repository do_bench_npu defaults; inspect benchmark/base.py for timer details.",
     "shapes": SHAPES,
-    "speedup_definition": "native_vllm_ms / gems_ms",
+    "speedup_definition": "baseline_ms / gems_ms",
 }
 (out_dir / "environment.json").write_text(
     json.dumps(meta, indent=2, ensure_ascii=False)
@@ -171,7 +185,7 @@ print("\n=== ENVIRONMENT ===", flush=True)
 print(json.dumps(meta, indent=2, ensure_ascii=False), flush=True)
 
 
-class NativePlugin:
+class BaselinePlugin:
     def __init__(self, check_accuracy):
         self.check_accuracy = check_accuracy
 
@@ -200,19 +214,28 @@ class NativePlugin:
         def forbidden_torch_baseline(*a, **kw):
             raise RuntimeError("Torch baseline is forbidden for this collection.")
 
-        module.torch_gather = forbidden_torch_baseline
-        benchmark = module.CpGatherIndexerKQuantCacheBenchmark(native, fp8_dtype)
+        baseline = native if native else module.torch_gather
+        if native:
+            module.torch_gather = forbidden_torch_baseline
+        benchmark = module.CpGatherIndexerKQuantCacheBenchmark(baseline, fp8_dtype)
         benchmark.set_shapes()
         if benchmark.shapes != SHAPES:
             raise RuntimeError(
                 "Benchmark shapes differ from the required seven: "
                 + str(benchmark.shapes)
             )
-        print("\nBASELINE:", native, "GEMS:", inspect.getsourcefile(gems), flush=True)
+        print(
+            "\nBASELINE:",
+            meta["baseline"],
+            baseline,
+            "GEMS:",
+            inspect.getsourcefile(gems),
+            flush=True,
+        )
         if self.check_accuracy:
             torch.manual_seed(0)
             for shape, tensors in zip(SHAPES, benchmark.get_input_iter(torch.float16)):
-                native(*tensors)
+                baseline(*tensors)
                 expected_k = tensors[1].view(torch.uint8).clone()
                 expected_scale = tensors[2].view(torch.uint8).clone()
                 gems(*tensors)
@@ -220,7 +243,7 @@ class NativePlugin:
                 if not torch.equal(
                     expected_k, tensors[1].view(torch.uint8)
                 ) or not torch.equal(expected_scale, tensors[2].view(torch.uint8)):
-                    raise RuntimeError("Native/Gems byte mismatch at " + str(shape))
+                    raise RuntimeError("Baseline/Gems byte mismatch at " + str(shape))
                 print("BYTE_CHECK_PASS:", shape, flush=True)
 
 
@@ -248,7 +271,7 @@ for repeat in range(1, args.runs + 1):
             "--output",
             str(output),
         ],
-        plugins=[NativePlugin(repeat == 1)],
+        plugins=[BaselinePlugin(repeat == 1)],
     )
     if code != 0:
         raise SystemExit(
@@ -277,10 +300,14 @@ for repeat in range(1, args.runs + 1):
         rows.append(
             {
                 "shape": shape,
-                "native_vllm_ms": a,
+                "baseline_ms": a,
+                "native_vllm_ms" if native else "torch_gather_ms": a,
                 "gems_ms": b,
                 "speedup": a / b,
-                "native_gbps": metric.get("gbps_base"),
+                "baseline_gbps": metric.get("gbps_base"),
+                "native_gbps" if native else "torch_gather_gbps": metric.get(
+                    "gbps_base"
+                ),
                 "gems_gbps": metric.get("gbps"),
             }
         )
