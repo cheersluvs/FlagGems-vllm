@@ -112,21 +112,23 @@ def head_kernel(
     GROUPS: tl.constexpr = triton.cdiv(H, HPP)
     q_programs = N * GROUPS
     if MERGE:
-        tok = pid // GROUPS
-        group = pid % GROUPS
-        cos, sin = _q_heads(q, positions, cs, eps, tok, group, H, HPP)
-        if group == GROUPS - 1:
+        merged_tok = pid // GROUPS
+        merged_group = pid % GROUPS
+        merged_cos, merged_sin = _q_heads(
+            q, positions, cs, eps, merged_tok, merged_group, H, HPP
+        )
+        if merged_group == GROUPS - 1:
             # Includes the last Q head(s), THEN this token's one KV; no Q replaced.
-            tok_vector = tl.full((1,), tok, tl.int64)
-            good = tl.full((1,), True, tl.int1)
+            merged_tok_vector = tl.full((1,), merged_tok, tl.int64)
+            merged_good = tl.full((1,), True, tl.int1)
             _kv_insert(
                 kv,
                 cache,
                 slots,
-                tok_vector,
-                good,
-                cos[None, :],
-                sin[None, :],
+                merged_tok_vector,
+                merged_good,
+                merged_cos[None, :],
+                merged_sin[None, :],
                 stride,
                 I,
                 BS,
@@ -134,18 +136,35 @@ def head_kernel(
             )
     else:
         if pid < q_programs:
-            tok = pid // GROUPS
-            group = pid % GROUPS
-            _q_heads(q, positions, cs, eps, tok, group, H, HPP)
+            # Separate names prevent a scalar/vector SSA merge at the branch join.
+            q_tok = pid // GROUPS
+            q_group = pid % GROUPS
+            _q_heads(q, positions, cs, eps, q_tok, q_group, H, HPP)
         else:
-            tok = (pid - q_programs) * KV_TPP + tl.arange(0, KV_TPP).to(tl.int64)
-            good = tok < N
-            pos = tl.load(positions + tok, good, other=0)
-            half = tl.arange(0, 32)
-            cos = tl.load(
-                cs + pos[:, None] * 64 + half[None, :], good[:, None], other=0
+            kv_tok = (pid - q_programs) * KV_TPP + tl.arange(0, KV_TPP).to(tl.int64)
+            kv_good = kv_tok < N
+            kv_pos = tl.load(positions + kv_tok, kv_good, other=0)
+            kv_half = tl.arange(0, 32)
+            kv_cos = tl.load(
+                cs + kv_pos[:, None] * 64 + kv_half[None, :],
+                kv_good[:, None],
+                other=0,
             )
-            sin = tl.load(
-                cs + pos[:, None] * 64 + 32 + half[None, :], good[:, None], other=0
+            kv_sin = tl.load(
+                cs + kv_pos[:, None] * 64 + 32 + kv_half[None, :],
+                kv_good[:, None],
+                other=0,
             )
-            _kv_insert(kv, cache, slots, tok, good, cos, sin, stride, I, BS, KV_TPP)
+            _kv_insert(
+                kv,
+                cache,
+                slots,
+                kv_tok,
+                kv_good,
+                kv_cos,
+                kv_sin,
+                stride,
+                I,
+                BS,
+                KV_TPP,
+            )

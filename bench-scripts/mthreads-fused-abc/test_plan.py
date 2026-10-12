@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """CPU-only coverage of scheduling and cache addressing (not GPU validation)."""
 
+import ast
 import hashlib
 import unittest
 from pathlib import Path
@@ -10,6 +11,32 @@ from plan import addresses, cache_stride, geometry, positive_list
 
 
 class PlanTests(unittest.TestCase):
+    def test_candidate_branch_locals_are_disjoint(self):
+        # Naming-policy regression, not a substitute for Triton/device compilation.
+        path = Path(__file__).resolve().parent / "candidates.py"
+        module = ast.parse(path.read_text())
+        kernel = next(
+            node
+            for node in module.body
+            if isinstance(node, ast.FunctionDef) and node.name == "head_kernel"
+        )
+
+        def defined_names(statements):
+            return {
+                node.id
+                for statement in statements
+                for node in ast.walk(statement)
+                if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+            }
+
+        branches = [node for node in ast.walk(kernel) if isinstance(node, ast.If)]
+        self.assertTrue(branches)
+        for branch in branches:
+            self.assertFalse(
+                defined_names(branch.body) & defined_names(branch.orelse),
+                f"shared branch-local names at line {branch.lineno}",
+            )
+
     def test_frozen_baseline(self):
         path = Path(__file__).resolve().parent / "frozen_a.py"
         self.assertEqual(

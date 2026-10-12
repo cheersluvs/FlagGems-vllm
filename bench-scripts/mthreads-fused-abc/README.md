@@ -108,3 +108,15 @@ Mac 的 managed-worktree 工具未识别当前任务关联的仓库，所以本�
 本地 CPU 检查：`test_plan.py` 4 项通过；Black/isort/flake8、语法检查通过。
 `optimization.md` 和 `deep_opt.md` 在本提交中不存在；未据缺失文档杜撰指导。
 GPU correctness / compile / latency gate 均等待摩尔线程执行；准备实验不是生产优化验收。
+
+## 2026-10-12 编译修复 trial
+
+远端在 boundary correctness 阶段报告 B 分支编译失败：Q 路径的 `tok` 是 int64 标量，
+独立 KV 路径的同名 `tok` 是 int64[4]；Triton 在运行时 if/else 汇合处拒绝不同类型。
+本轮继承以上三张冻结表：A/数值契约/shape/参数/计时口径不变；只修改候选分支局部变量名，
+并增加 CPU AST 回归检查，要求 head_kernel 各分支定义的变量名不相交。
+该检查不是 Triton 编译测试；修复是否通过卡上编译和正确性仍需重新执行 validate。
+远端更新时只 checkout candidates.py、test_plan.py、README.md；先确认这三个文件与原始
+实验提交 `4972513` 一致，再覆盖，保留其他远端改动和原失败报告。
+修复后本地 5 项 CPU 测试和格式/语法检查通过；AST 负对照能检出原提交中的分支变量重用，
+修复版本没有该重用。修复没有改变 A/B/B1/C 的 program 数量、算术或计时方法。
