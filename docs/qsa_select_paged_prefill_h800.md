@@ -1,6 +1,7 @@
 # QSA paged prefill: H800 implementation and validation
 
-Status: first implementation prepared; H800 correctness/performance pending.
+Status: H800 quick accuracy report records 38 passed and 9 unavailable-vLLM
+skips. Full accuracy, official comparisons and performance remain pending.
 The Mac has no Torch, Triton, or CUDA device. GPU correctness and performance
 must not be inferred from static checks.
 
@@ -188,9 +189,10 @@ production workload frequency. No H800 results are available yet.
   allocations/launchers confirms widths 1280/1536 and 1/36 chunks for the
   four slack/budget combinations, plus negative/invalid budget rejection.
   This exercises no GPU kernels and is not a GPU correctness result.
-- H800: tests and benchmark are prepared but have not been executed here.
-  No speedup or GPU correctness claim is made. The user supplies the card
-  reports before any performance acceptance or deep-optimization decision.
+- H800: the user's quick report records supported-case accuracy passes and
+  explicit unsupported/error checks; official comparisons were skipped.
+  Full accuracy and performance acceptance are pending. No speedup claim is
+  made; deep optimization awaits performance evidence.
 - Autotune: six score candidates; fill kernels use fixed launches because
   they only initialize indices/row starts. Reused Top-K retains its existing
   tuning/dispatch policy; this change does not retune it.
@@ -199,6 +201,49 @@ production workload frequency. No H800 results are available yet.
   CUDA graph integration and vLLM plugin wiring are outside this first scope.
 - Export/integration: `flaggems_vllm.qsa_select_paged_prefill` is callable;
   excluded from ATen registration because this API has no ATen schema.
+
+## H800 report and container-local official baseline setup
+
+Report commit `4784cd9b8403a27b4f8b4697f8ae1bb9eaf9b190` on
+`codex/qsa-h800-results-20261013-065119` records the quick run of code commit
+`e0e9cff867dcc6116b7f165ad4b4552a4dcadc82`: **38 passed, 9 skipped**, in
+62.80 seconds. The nine skips are all pinned-vLLM comparisons, blocked by
+missing `vllm._C_stable_libtorch` in the installed `0.24.0+flagos` distribution.
+The added BF16 upstream fixtures, all six score candidates on their test
+input, and noncurrent-device validation passed. Full accuracy, official
+comparisons and performance acceptance remain pending.
+
+Reported container: Ubuntu 24.04.1, NVIDIA H800, host driver 570.124.06,
+Torch 2.10.0+cu128 and Triton 3.6.0. No nvcc/Docker executable was reported.
+`tools/setup_qsa_vllm031_h800.sh` prepares a separate environment inside this
+container using the official vLLM 0.31.0 CUDA 12.9 wheel. It extracts NVIDIA's
+SHA256-checked `cuda-compat-12-9` package into a temporary directory rather
+than installing system packages. Both package and wheel are SHA256-pinned.
+NVIDIA's forward-compatibility matrix lists
+this package as compatible with the 570 driver family on data-center GPUs.
+It then checks CUDA extension symbols, BF16 matmul and Triton JIT before
+running the original pinned-reference runner. This setup has only been
+checked statically on the Mac; actual container installation and execution
+are pending. The downloaded compatibility package's SHA256, library paths
+and symlinks were checked on the Mac; shell syntax and embedded Python compile.
+
+```bash
+bash tools/setup_qsa_vllm031_h800.sh all
+# Or install/preflight only, then use the printed activate_qsa.sh path:
+bash tools/setup_qsa_vllm031_h800.sh setup
+```
+
+The setup targets Linux x86_64, downloads several GB of dependencies, and
+prints its environment directory and setup log. It preserves the existing
+FlagOS Python environment and host driver. Reusing the printed activation
+file selects the extracted compatibility libraries for subsequent QSA runs.
+Changing the environment changes the benchmark baseline; compare FlagGems
+and vLLM in the same new environment and record its version details.
+
+Official installation sources:
+- https://github.com/vllm-project/vllm/releases/tag/v0.31.0
+- https://docs.nvidia.com/deploy/cuda-compatibility/forward-compatibility.html
+- https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/
 
 After operator validation, the plugin's prefill path can call the exported
 function with the existing ten arguments. Keep compressed-index expansion
