@@ -1,8 +1,32 @@
 # QSA paged prefill: H800 implementation and validation
 
-Status: code `b5fae92` passed H800 quick (47) and full (51) tests without
-skips in report `892186e`; its official full-operator speedups are below 0.9.
-The new FP8/D=8 coverage and stricter BF16 checks below await an H800 run.
+## Persistent Top-K substitution (before editing)
+
+| Project field | Choice |
+| --- | --- |
+| Evidence | Report 5f21e689 tests code b69506f: full 67 passed, no skips, 103.10 s; official Torch 2.13.0+cu129/Triton 3.7.1/vLLM 0.31.0+cu129. No new benchmark in that report |
+| Editable | QSA dispatch, persistent_topk workspace initialization/TLE guard, QSA tests/stage benchmark, runner/environment support, this guide |
+| Read-only | Score kernel/six tune candidates, persistent Top-K selection algorithm/dispatch, all original benchmark shapes and pinned vLLM source |
+| Environment | Mac cannot run CUDA or SSH to H800; publish focused commit, card runs full accuracy before benchmark. FlagGems persistent_topk requires TLE; test preflight must check it |
+| Benchmark | Same operator mean latency and per-case speedup; retain official full/score/Top-K groups and add old-vs-persistent Top-K stage comparison in the same runtime |
+| Autotune | Existing score config unchanged; inherited persistent Top-K scheduling unchanged; fixed-size zero fill exempt from tuning |
+
+| Contract field | Choice |
+| --- | --- |
+| API/output | Same QSA arguments, dtypes, D=8/128, logical block indices, padding and strict upstream checks |
+| Top-K | Repository persistent_topk(logits, visible, output, uint8_workspace, k, max_seq_len=logits_width); next_n=1 behavior for flat visible counts |
+| Workspace | Allocate 1 MiB Top-K workspace once per nontrivial QSA call and reuse across chunks; persistent kernel clears its active scratch every launch |
+| No Torch compute | Replace inherited workspace slice assignment with a Triton zero fill; no cast/copy/selection fallback |
+| Unsupported | TLE unavailable: explicit NotImplementedError, no return to old Top-K or native vLLM production kernel |
+
+| Path | Change | Verification |
+| --- | --- | --- |
+| Empty/select all | Preserve existing fast paths | Existing no-launch checks |
+| Scored selection | Remove row-start allocation/fill, call persistent_topk | Full 67-case suite plus workspace reuse/argument test |
+| Scratch init | Fixed Triton byte-zero kernel | Mocked launch/host checks; existing persistent_topk tests on H800 |
+| Benchmark | Persistent stage with preallocated workspace; old-stage A/B | Same inputs/runtime, no new baseline relabeling |
+
+Status: code `b69506f` passed all 67 full H800 tests without skips in report `5f21e689`, including FP8/D=8 and strict BF16 index checks. The new persistent Top-K substitution awaits card validation and benchmarks. Previous code `b5fae92` has measured official speedups below 0.9.
 The Mac has no Torch, Triton, or CUDA device. GPU correctness and performance
 must not be inferred from static checks.
 
@@ -61,7 +85,7 @@ must not be inferred from static checks.
 | Timeout | First GPU test/JIT 20 min; full tests 30 min; benchmark 45 min (external timeout recommended) |
 | Profiler | Card: `nsys profile --stats=true ...`; `ncu --set full ...` after narrowing to the score kernel. Unknown availability until the card run |
 | Autotune | `qsa_select_paged_prefill_score` through `get_tuned_config` + `libtuner`; key includes chunk rows, query length, logits width, request count, page size, layouts; candidate TILE_R/BLOCK_N/K_TILES/warps/stages in YAML |
-| Fallback | No Torch compute fallback. Reuse existing Triton `top_k_per_row_prefill`; unsupported types/devices/shapes raise |
+| Fallback | No Torch compute fallback. Reuse repository Triton `persistent_topk` (TLE required); unsupported types/devices/shapes raise |
 
 ## Contract table (before implementation)
 
@@ -113,8 +137,8 @@ must not be inferred from static checks.
 | Empty/error | Empty T or invalid shape/type | Metadata checks and return/raise | None | Empty and contract tests | Invalid device metadata values are caller preconditions |
 | Select all | Upper bound on visible blocks <= K | Triton index/padding fill, no Q.K needed | Exempt: simple fixed-size index fill | Zero/short contexts | Must retain logical index and -1 convention |
 | Prefill score | Visible upper bound > K | Request/tiled-query/tiled-key `tl.dot`, explicit strides and nonzero query base | YAML + libtuner | Ragged requests, shuffled pages, chunks, score reference | Tensor-core rounding and incomplete coverage |
-| Top-K | Per-row score selection | Existing `top_k_per_row_prefill` on `[0,visible)` | Existing operator's policy; no changes | Random/tied/short rows and K sweep | Existing TLE/non-TLE scratch and tie behavior |
-| Workspace | Nontrivial selection | One per-call logits allocation reused across chunks; Triton zero row starts | Fill exempt; score tuned | Force 1 MiB budget and cross-request chunks | Only logits is bounded by configured budget; Top-K scratch is additional |
+| Top-K | Per-row score selection | Repository `persistent_topk` on `[0,visible)` | Existing operator's policy; no changes | Random/tied/short rows and K sweep | Existing TLE/non-TLE scratch and tie behavior |
+| Workspace | Nontrivial selection | One per-call logits allocation reused across chunks; 1 MiB uint8 persistent Top-K scratch | Fill exempt; score tuned | Force 1 MiB budget and cross-request chunks | Only logits is bounded by configured budget; Top-K scratch is additional |
 | Unsupported | Outside contract | Explicit exceptions, no conversions or compute fallback | None | Error tests | Unsupported types/shapes raise |
 
 The public Python entry is exported through `ops.__all__` and the existing
@@ -168,7 +192,7 @@ vLLM plugins for the isolated comparisons, verifies the imported source path,
 and writes environment details, commit ID, pytest text and JSON to the printed
 `/tmp/qsa-prefill-h800.*` directory.
 
-Modes `quick`, `full`, and `bench` run individual stages. Benchmark timing uses
+Modes `quick`, `full`, and `bench` run individual stages. `full-bench` runs full accuracy then benchmarks, stopping on failure. Benchmark timing uses
 operator mode (host work and device execution), after explicitly warming up
 both functions. Separate results cover full selection against Torch, full
 selection against pinned vLLM, score against pinned vLLM, and Top-K against
@@ -378,3 +402,47 @@ After operator validation, the plugin's prefill path can call the exported
 function with the existing ten arguments. Keep compressed-index expansion
 and decode behavior in their existing caller. Confirm that this entry is
 actually reached in a model run before reporting end-to-end acceleration.
+
+## Running the persistent Top-K trial
+
+First check the current Python/runtime without installing or changing packages:
+
+```bash
+"${PYTHON:-python}" tools/check_qsa_tle_h800.py
+```
+
+The check prints actual Python/Torch/Triton/TLE source paths and probes rows
+1 and 33 twice with the same workspace, checking exact indices. Missing TLE,
+missing CUDA, compilation/execution failure or timeout returns nonzero. It is
+a readiness check; full QSA accuracy still needs to pass.
+
+```bash
+bash tools/run_qsa_prefill_h800.sh full-bench
+```
+
+If the current Python uses stock Triton without TLE, the trial cannot run.
+An existing TLE module directory may be explicitly selected (for example,
+if `/opt/flagtree/triton` exists); do not append inherited paths silently:
+
+```bash
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  "${PYTHON:-python}" tools/check_qsa_tle_h800.py
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  bash tools/run_qsa_prefill_h800.sh full-bench
+```
+
+The runner checks that Triton and TLE originate from that explicit directory
+and Torch from the selected Python prefix. This runtime also compiles the
+pinned vLLM score baseline, so old stock-Triton timings must not be used to
+isolate Top-K gains. The extra six-row stage benchmark directly compares old
+prefill Top-K with persistent Top-K using identical inputs/runtime. Its
+SpeedUp uses the old FlagGems stage as baseline, separately from vLLM results.
+The core benchmark now has 48 records across 11 tests; the full functional
+suite has 68 cases (static counts, not results for the new code).
+
+Local syntax/style checks, 27 mocked QSA host checks and 109 mocked persistent host/state-init checks passed. Those checks
+confirm one uint8 workspace per call, reuse across chunks, correct compressed
+width bound/K and unchanged empty/select-all paths; no GPU kernel ran on Mac.
+Persistent selection kernels, score kernels and tune candidates are unchanged.
+The only persistent implementation changes are an explicit TLE error and a
+fixed Triton scratch zero fill replacing the old Torch slice assignment.

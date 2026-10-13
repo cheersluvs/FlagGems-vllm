@@ -13,6 +13,7 @@ import pytest
 import torch
 
 import flaggems_vllm
+from flaggems_vllm.ops.top_k_per_row_prefill import top_k_per_row_prefill
 from tests.qsa_select_prefill_utils import (
     make_inputs,
     make_upstream_no_complete_blocks_inputs,
@@ -127,8 +128,20 @@ def _topk_inputs(shape, dtype, device):
 
 
 def _gems_topk(logits, visible, token_topk, ratio, output, workspace, starts):
+    del starts
+    op_module.persistent_topk(
+        logits,
+        visible,
+        output,
+        workspace,
+        k=token_topk // ratio,
+        max_seq_len=logits.shape[1],
+    )
+
+
+def _old_gems_topk(logits, visible, token_topk, ratio, output, workspace, starts):
     del workspace
-    op_module.top_k_per_row_prefill(
+    top_k_per_row_prefill(
         logits,
         starts,
         visible,
@@ -203,6 +216,17 @@ def test_topk_vs_vllm():
         reference._topk(logits, visible, token_topk, ratio, output, workspace)
 
     _run("qsa_prefill_topk_vs_vllm", baseline, _gems_topk, _topk_inputs)
+
+
+def test_topk_persistent_vs_prefill():
+    # Direct stage comparison in one runtime; baseline here is the old
+    # FlagGems prefill implementation, explicitly separate from vLLM results.
+    _run(
+        "qsa_prefill_topk_persistent_vs_old_prefill",
+        _old_gems_topk,
+        _gems_topk,
+        _topk_inputs,
+    )
 
 
 @pytest.mark.parametrize("force_chunk", [False, True], ids=["default", "one_row"])

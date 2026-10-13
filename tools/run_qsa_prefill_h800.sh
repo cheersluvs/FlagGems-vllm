@@ -10,14 +10,21 @@ cd "$qsa_repo_dir"
 qsa_python=${PYTHON:-python}
 qsa_mode=${1:-all}
 case "$qsa_mode" in
-  quick|full|bench|all|torch-only) ;;
-  *) echo "Usage: $0 [quick|full|bench|all|torch-only]" >&2; exit 2 ;;
+  quick|full|bench|all|full-bench|torch-only) ;;
+  *) echo "Usage: $0 [quick|full|bench|all|full-bench|torch-only]" >&2; exit 2 ;;
 esac
 
 # A container's Bash startup can reinsert /opt/flagtree even when the caller
 # unsets PYTHONPATH. Freeze paths here, after startup, just like the diagnostic
 # subprocesses: official vLLM and Triton must come from the selected Python.
-export PYTHONPATH="$qsa_repo_dir/src:$qsa_repo_dir"
+qsa_runtime_dir=${QSA_TRITON_RUNTIME_PATH:-}
+if [[ -n "$qsa_runtime_dir" ]]; then
+  if [[ "$qsa_runtime_dir" != /* || ! -d "$qsa_runtime_dir/triton" ]]; then
+    echo "QSA_TRITON_RUNTIME_PATH must be an absolute directory containing triton/." >&2
+    exit 2
+  fi
+fi
+export PYTHONPATH="$qsa_repo_dir/src:$qsa_repo_dir${qsa_runtime_dir:+:$qsa_runtime_dir}"
 unset PYTHONHOME
 export PYTHONNOUSERSITE=1
 export DNN_VENDOR=nvidia
@@ -29,6 +36,7 @@ qsa_report_dir=$(mktemp -d "${TMPDIR:-/tmp}/qsa-prefill-h800.XXXXXX")
 echo "Reports: $qsa_report_dir"
 git rev-parse HEAD | tee "$qsa_report_dir/commit.txt"
 git status --short -- src/flaggems_vllm/ops/qsa_select_paged_prefill.py \
+  src/flaggems_vllm/ops/persistent_topk.py \
   src/flaggems_vllm/ops/__init__.py src/flaggems_vllm/__init__.py \
   src/flaggems_vllm/runtime/backend/_nvidia/tune_configs.yaml \
   tests/qsa_select_prefill_utils.py tests/test_qsa_select_paged_prefill.py \
@@ -66,6 +74,10 @@ print("triton:", triton.__version__)
 print("torch source:", torch.__file__)
 print("triton source:", triton.__file__)
 try:
+    print("flagtree distribution:", importlib.metadata.version("flagtree"))
+except importlib.metadata.PackageNotFoundError:
+    print("flagtree distribution: not installed")
+try:
     print("triton distribution:", importlib.metadata.version("triton"))
 except importlib.metadata.PackageNotFoundError:
     print("triton distribution: not installed under this name")
@@ -75,8 +87,16 @@ except importlib.metadata.PackageNotFoundError:
     print("vllm: not installed")
 if sys.argv[1] != "torch-only":
     for name, module in (("torch", torch), ("triton", triton)):
-        installed = importlib.metadata.version(name)
         source = Path(module.__file__).resolve()
+        runtime_path = os.environ.get("QSA_TRITON_RUNTIME_PATH")
+        if name == "triton" and runtime_path:
+            assert source.is_relative_to(Path(runtime_path).resolve()), (
+                f"Selected TLE runtime {runtime_path}, but imported {source}"
+            )
+            print("Explicit TLE runtime:", runtime_path)
+            print("Both QSA score baselines use this runtime; rebuild timing baselines.")
+            continue
+        installed = importlib.metadata.version(name)
         assert source.is_relative_to(Path(sys.prefix).resolve()), (
             f"Mixed baseline environment: {name} imported from {source}, "
             f"outside selected Python prefix {sys.prefix}"
@@ -86,9 +106,23 @@ if sys.argv[1] != "torch-only":
             f"installed distribution {installed}"
         )
 print("source:", op.__file__)
+topk = importlib.import_module("flaggems_vllm.ops.persistent_topk")
+print("Top-K implementation: FlagGems persistent_topk", topk.__file__)
+print("Top-K HAS_TLE:", topk.HAS_TLE)
+assert op.persistent_topk is topk.persistent_topk
+assert topk.HAS_TLE, (
+    "FlagGems persistent_topk needs TLE; run tools/check_qsa_tle_h800.py "
+    "with the current Python before the QSA suite."
+)
+tle = importlib.import_module("triton.experimental.tle.language")
+assert Path(tle.__file__).resolve().is_relative_to(Path(triton.__file__).resolve().parent)
+print("TLE source:", tle.__file__)
 print("logits budget MiB:", os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"])
 print("score tune candidates:", len(flaggems_vllm.runtime.get_tuned_config("qsa_select_paged_prefill_score")))
 PY
+
+"$qsa_python" tools/check_qsa_tle_h800.py \
+  2>&1 | tee "$qsa_report_dir/tle-preflight.txt"
 
 if [[ "$qsa_mode" != torch-only ]]; then
   export QSA_REQUIRE_VLLM_REFERENCE=1
@@ -125,12 +159,12 @@ if [[ "$qsa_mode" == quick || "$qsa_mode" == all || "$qsa_mode" == torch-only ]]
     --record json --output "$qsa_report_dir/accuracy-quick.json" \
     2>&1 | tee "$qsa_report_dir/accuracy-quick.txt"
 fi
-if [[ "$qsa_mode" == full || "$qsa_mode" == all ]]; then
+if [[ "$qsa_mode" == full || "$qsa_mode" == all || "$qsa_mode" == full-bench ]]; then
   "$qsa_python" -m pytest -q -ra -x tests/test_qsa_select_paged_prefill.py \
     --record json --output "$qsa_report_dir/accuracy-full.json" \
     2>&1 | tee "$qsa_report_dir/accuracy-full.txt"
 fi
-if [[ "$qsa_mode" == bench || "$qsa_mode" == all ]]; then
+if [[ "$qsa_mode" == bench || "$qsa_mode" == all || "$qsa_mode" == full-bench ]]; then
   "$qsa_python" -m pytest -q -s benchmark/test_qsa_select_paged_prefill_perf.py \
     --level core --mode operator --warmup 100 --iter 500 \
     --record json --output "$qsa_report_dir/benchmark-core.json" \

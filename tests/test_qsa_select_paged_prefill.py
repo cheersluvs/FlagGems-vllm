@@ -189,7 +189,7 @@ def test_empty_and_select_all_do_not_launch_score(sm90, monkeypatch, dtype):
         )
 
     monkeypatch.setattr(op_module, "_prefill_logits", forbidden)
-    monkeypatch.setattr(op_module, "top_k_per_row_prefill", forbidden)
+    monkeypatch.setattr(op_module, "persistent_topk", forbidden)
     empty = make_inputs((0,), (17,), dtype=dtype)
     assert op(*empty) is None
     args = make_inputs((5,), (17,), visible=[0, 1, 3, 16, 17], dtype=dtype)
@@ -206,6 +206,30 @@ def test_bad_workspace_budget(sm90, monkeypatch, bad_budget):
     monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", bad_budget)
     with pytest.raises(ValueError, match="VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"):
         op(*make_inputs((1,), (1025,)))
+
+
+def test_persistent_topk_workspace_reused_across_chunks(sm90, monkeypatch):
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "1")
+    args = make_inputs((39, 34), (4096, 8192), query_base=113)
+    expected = torch_logits(*args[:5])
+    original = op_module.persistent_topk
+    launches = []
+
+    def checked_topk(logits, lengths, output, workspace, *, k, max_seq_len):
+        assert workspace.dtype == torch.uint8
+        assert workspace.numel() == 1024 * 1024
+        assert max_seq_len == logits.shape[1] == 8192
+        assert k == 512
+        launches.append((logits.shape[0], workspace.data_ptr()))
+        return original(
+            logits, lengths, output, workspace, k=k, max_seq_len=max_seq_len
+        )
+
+    monkeypatch.setattr(op_module, "persistent_topk", checked_topk)
+    op(*args)
+    assert [rows for rows, _ in launches] == [32, 32, 9]
+    assert len({pointer for _, pointer in launches}) == 1
+    assert_selection(expected, args[4], args[8])
 
 
 @pytest.mark.parametrize(

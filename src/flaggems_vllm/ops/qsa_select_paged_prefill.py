@@ -20,7 +20,7 @@ import triton
 import triton.language as tl
 
 from flaggems_vllm import runtime
-from flaggems_vllm.ops.top_k_per_row_prefill import top_k_per_row_prefill
+from flaggems_vllm.ops.persistent_topk import persistent_topk
 from flaggems_vllm.utils import libentry, libtuner
 
 
@@ -35,12 +35,6 @@ def _select_all_kernel(visible_ptr, output_ptr, K: tl.constexpr, BLOCK: tl.const
         tl.where(columns < visible, columns, -1),
         mask=columns < K,
     )
-
-
-@triton.jit
-def _zero_row_starts_kernel(starts_ptr, rows, BLOCK: tl.constexpr):
-    offsets = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
-    tl.store(starts_ptr + offsets, 0, mask=offsets < rows)
 
 
 @libentry()
@@ -374,10 +368,7 @@ def qsa_select_paged_prefill(
         workspace = torch.empty(
             (rows_per_chunk * logits_width,), dtype=torch.float32, device=q.device
         )
-        row_starts = torch.empty((rows_per_chunk,), dtype=torch.int32, device=q.device)
-        _zero_row_starts_kernel[(triton.cdiv(rows_per_chunk, 256),)](
-            row_starts, rows_per_chunk, BLOCK=256, num_warps=4
-        )
+        topk_workspace = torch.empty((1024 * 1024,), dtype=torch.uint8, device=q.device)
         for query_offset in range(0, rows, rows_per_chunk):
             num_queries = min(rows_per_chunk, rows - query_offset)
             logits = _prefill_logits(
@@ -393,15 +384,13 @@ def qsa_select_paged_prefill(
                 num_queries,
             )
             query_slice = slice(query_offset, query_offset + num_queries)
-            top_k_per_row_prefill(
+            persistent_topk(
                 logits,
-                row_starts[:num_queries],
                 visible_blocks[query_slice],
                 block_indices[query_slice],
-                num_queries,
-                logits.stride(0),
-                logits.stride(1),
-                k,
+                topk_workspace,
+                k=k,
+                max_seq_len=logits_width,
             )
 
 

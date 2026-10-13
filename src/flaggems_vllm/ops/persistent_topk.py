@@ -2176,6 +2176,13 @@ def _per_row_cta_topk_wrapper(
     )
 
 
+# Fixed byte-zero fill: initializes radix state, no selection/tuning parameters.
+@triton.jit
+def _zero_persistent_topk_workspace(workspace_ptr, size, BLOCK: tl.constexpr):
+    offsets = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    tl.store(workspace_ptr + offsets, 0, mask=offsets < size)
+
+
 def persistent_topk(
     logits: torch.Tensor,
     lengths: torch.Tensor,
@@ -2196,6 +2203,8 @@ def persistent_topk(
         k:       number of top elements to select. Must be 512/1024/2048.
         max_seq_len: global max seq_len across all rows.
     """
+    if not HAS_TLE:
+        raise NotImplementedError("FlagGems persistent_topk requires Triton TLE")
     assert logits.is_cuda, "persistent_topk: logits must be CUDA tensor"
     assert lengths.is_cuda, "persistent_topk: lengths must be CUDA tensor"
     assert output.is_cuda, "persistent_topk: output must be CUDA tensor"
@@ -2311,7 +2320,10 @@ def persistent_topk(
     histogram_bytes = RADIX * 3 * 4
     radix_row_state_bytes = histogram_bytes + 4 * 4
     assert workspace.size(0) >= num_groups * radix_row_state_bytes
-    workspace[: (num_groups * radix_row_state_bytes)] = 0
+    state_bytes = num_groups * radix_row_state_bytes
+    _zero_persistent_topk_workspace[(triton.cdiv(state_bytes, 256),)](
+        workspace, state_bytes, BLOCK=256, num_warps=4
+    )
     g_histogram_size = num_groups * histogram_bytes
     g_state_size = num_groups * 4 * 4
     g_histogram = (
