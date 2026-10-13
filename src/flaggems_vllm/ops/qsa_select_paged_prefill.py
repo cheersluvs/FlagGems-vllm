@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
-"""BF16 QSA paged prefill selection for NVIDIA SM90.
+"""BF16/FP8 QSA paged prefill selection for NVIDIA SM90.
 
 API/semantics reference: vllm-project/vllm, commit
 7a877ae34dcf4a7d46de08eb16db4699e1e0047c,
@@ -10,7 +10,7 @@ The score kernel uses request-local query tiles and reuses keys across queries.
 Top-K is provided by this repository, without a vLLM extension dependency.
 Selection order and tie-breaking are unspecified. Device-resident metadata
 must satisfy the documented value preconditions; validation does not copy it
-to the host. FP8 and autograd are not supported in this first implementation.
+to the host. Autograd is not supported.
 """
 
 import os
@@ -52,6 +52,8 @@ def _zero_row_starts_kernel(starts_ptr, rows, BLOCK: tl.constexpr):
         "logits_width",
         "num_requests",
         "PAGE_SIZE",
+        "HEAD_DIM",
+        "IS_FP8",
         "stride_q_row",
         "stride_q_head",
         "stride_cache_block",
@@ -83,6 +85,8 @@ def _qsa_prefill_score_kernel(
     num_pages,
     table_width,
     PAGE_SIZE: tl.constexpr,
+    HEAD_DIM: tl.constexpr,
+    IS_FP8: tl.constexpr,
     TILE_R: tl.constexpr,
     BLOCK_N: tl.constexpr,
     K_TILES: tl.constexpr,
@@ -110,13 +114,15 @@ def _qsa_prefill_score_kernel(
     query_lanes = tl.arange(0, TILE_R * 4)
     query_rows = row_start + query_lanes // 4
     heads = query_lanes % 4
-    dims = tl.arange(0, 128)
+    # Pad the reduction dimension to the native dot instruction's minimum.
+    BLOCK_D: tl.constexpr = max(32 if IS_FP8 else 16, triton.next_power_of_2(HEAD_DIM))
+    dims = tl.arange(0, BLOCK_D)
     query = tl.load(
         q_ptr
         + query_rows[:, None] * stride_q_row
         + heads[:, None] * stride_q_head
         + dims[None, :],
-        mask=query_rows[:, None] < request_end,
+        mask=(query_rows[:, None] < request_end) & (dims[None, :] < HEAD_DIM),
         other=0.0,
     )
     column_lanes = tl.arange(0, BLOCK_N)
@@ -136,7 +142,7 @@ def _qsa_prefill_score_kernel(
             + physical_page[None, :].to(tl.int64) * stride_cache_block
             + page_offset[None, :] * stride_cache_token
             + dims[:, None],
-            mask=live[None, :],
+            mask=live[None, :] & (dims[:, None] < HEAD_DIM),
             other=0.0,
         )
         scores = tl.dot(query, keys, out_dtype=tl.float32)
@@ -198,13 +204,15 @@ def _validate_inputs(
         raise ValueError("QSA prefill tensors must be on the same device")
     if torch.cuda.get_device_capability(q.device) != (9, 0):
         raise NotImplementedError("QSA prefill currently supports SM90 (H800/H100)")
-    if q.dtype != torch.bfloat16 or k_cache.dtype != torch.bfloat16:
-        raise NotImplementedError("QSA prefill currently supports BF16 query/cache")
-    if q.ndim != 3 or q.shape[1:] != (4, 128):
-        raise NotImplementedError("QSA prefill query must be [tokens, 4, 128]")
-    if k_cache.ndim != 4 or k_cache.shape[2:] != (1, 128):
+    if q.dtype != k_cache.dtype:
+        raise ValueError("Q and the compressed K cache must match dtype")
+    if q.dtype not in (torch.bfloat16, torch.float8_e4m3fn):
+        raise NotImplementedError("QSA prefill supports BF16/FP8 E4M3FN query/cache")
+    if q.ndim != 3 or q.shape[1] != 4 or q.shape[2] not in (8, 128):
+        raise NotImplementedError("QSA prefill query must be [tokens, 4, D], D=8/128")
+    if k_cache.ndim != 4 or k_cache.shape[2:] != (1, q.shape[2]):
         raise NotImplementedError(
-            "QSA prefill cache must be [pages, page_size, 1, 128]"
+            "QSA prefill cache must be [pages, page_size, 1, D] matching Q"
         )
     if q.requires_grad or k_cache.requires_grad:
         raise NotImplementedError("QSA prefill is inference-only")
@@ -299,6 +307,8 @@ def _prefill_logits(
         k_cache.shape[0],
         page_table.shape[1],
         PAGE_SIZE=k_cache.shape[1],
+        HEAD_DIM=q.shape[2],
+        IS_FP8=q.dtype == torch.float8_e4m3fn,
     )
     return logits
 
@@ -317,7 +327,8 @@ def qsa_select_paged_prefill(
 ) -> None:
     """Write logical compressed-block indices selected for packed prefill Q.
 
-    BF16 Q is [tokens,4,128], K is [pages,page_size,1,128]. ``query_start_loc``
+    Matching BF16/FP8 Q is [tokens,4,D], K is [pages,page_size,1,D], D=8/128.
+    ``query_start_loc``
     is [requests+1] and its first entry may be nonzero. Caller-provided
     ``visible_blocks`` is int32 [tokens]. ``block_indices`` is contiguous
     int32 [tokens,token_topk//compress_ratio]. Short rows are padded with -1.

@@ -29,6 +29,8 @@ def make_inputs(
     padded=False,
     device="cuda",
     seed=20261013,
+    dtype=torch.bfloat16,
+    head_dim=128,
 ):
     """Build request-major packed queries and shuffled physical pages."""
     torch.manual_seed(seed)
@@ -38,10 +40,10 @@ def make_inputs(
     ]
     width = max(pages_per_req)
     num_pages = sum(pages_per_req)
-    q = torch.randn((rows, 4, 128), dtype=torch.bfloat16, device=device)
+    q = torch.randn((rows, 4, head_dim), dtype=torch.bfloat16, device=device).to(dtype)
     cache = torch.randn(
-        (num_pages, page_size, 1, 128), dtype=torch.bfloat16, device=device
-    )
+        (num_pages, page_size, 1, head_dim), dtype=torch.bfloat16, device=device
+    ).to(dtype)
     page_order = torch.randperm(num_pages, device=device).to(torch.int32)
     table = torch.full(
         (len(query_lengths), width), -1, dtype=torch.int32, device=device
@@ -66,11 +68,11 @@ def make_inputs(
         device=device,
     )
     if padded:
-        q_storage = torch.empty((rows, 5, 128), dtype=q.dtype, device=device)
+        q_storage = torch.empty((rows, 5, head_dim), dtype=q.dtype, device=device)
         q_storage[:, :4].copy_(q)
         q = q_storage[:, :4]
         cache_storage = torch.empty(
-            (num_pages, page_size + 1, 1, 128), dtype=cache.dtype, device=device
+            (num_pages, page_size + 1, 1, head_dim), dtype=cache.dtype, device=device
         )
         cache_storage[:, :page_size].copy_(cache)
         cache = cache_storage[:, :page_size]
@@ -94,8 +96,10 @@ def make_inputs(
     )
 
 
-def make_upstream_prefill_inputs(*, seq_len_slack=0, device="cuda"):
-    """Exact BF16 inputs from upstream test_qsa_prefill_selection_correctness.
+def make_upstream_prefill_inputs(
+    *, seq_len_slack=0, device="cuda", dtype=torch.bfloat16
+):
+    """Exact BF16/FP8 inputs from upstream test_qsa_prefill_selection_correctness.
 
     Source: REFERENCE_COMMIT, tests/models/qwen4_exp/test_qsa_reference.py.
     The oversized page table and page size 24 exercise clipped logits widths
@@ -103,8 +107,10 @@ def make_upstream_prefill_inputs(*, seq_len_slack=0, device="cuda"):
     """
     torch.manual_seed(2)
     query_lengths = [3, 33]
-    q = torch.randn((36, 4, 128), device=device, dtype=torch.bfloat16)
-    cache = torch.randn((128, 24, 1, 128), device=device, dtype=torch.bfloat16)
+    q = torch.randn((36, 4, 128), device=device, dtype=torch.bfloat16).to(dtype)
+    cache = torch.randn((128, 24, 1, 128), device=device, dtype=torch.bfloat16).to(
+        dtype
+    )
     table = torch.randperm(128, device=device, dtype=torch.int32).reshape(2, 64)
     starts = torch.tensor([0, 3, 36], device=device, dtype=torch.int32)
     sequence_lengths = torch.tensor([5120, 4224], device=device, dtype=torch.int32)
@@ -172,6 +178,22 @@ def make_upstream_split_prefill_inputs(decode_query_len, *, device="cuda"):
     )
 
 
+def make_upstream_no_complete_blocks_inputs(*, device="cuda"):
+    """Exact selection inputs from the upstream D=8 zero-visible fixture."""
+    return (
+        torch.zeros((2, 4, 8), device=device, dtype=torch.bfloat16),
+        torch.zeros((1, 16, 1, 8), device=device, dtype=torch.bfloat16),
+        torch.zeros((1, 1), device=device, dtype=torch.int32),
+        torch.tensor([0, 2], device=device, dtype=torch.int32),
+        torch.zeros((2,), device=device, dtype=torch.int32),
+        2048,
+        4,
+        2,
+        torch.empty((2, 512), device=device, dtype=torch.int32),
+        64,
+    )
+
+
 def torch_logits(q, cache, table, starts, visible, width=None):
     """Independent FP32 reference, with inactive columns set to -inf."""
     width = table.shape[1] * cache.shape[1] if width is None else width
@@ -221,6 +243,24 @@ def torch_select(
     output[:, : selected.shape[1]].copy_(selected.to(torch.int32))
 
 
+def upstream_torch_logits(q, cache, table, starts, visible):
+    """Upstream fixture's exact FP32 einsum/reduction, before sqrt(D) scaling.
+
+    Only use with the upstream fixtures whose entire page tables are valid.
+    Keep the original synthetic Torch baseline unchanged.
+    """
+    lengths = starts[1:] - starts[:-1]
+    token_to_req = torch.repeat_interleave(
+        torch.arange(table.shape[0], device=q.device, dtype=torch.int32), lengths
+    )
+    pages = table.index_select(0, token_to_req.long()).long()
+    keys = cache[pages, :, 0, :].flatten(1, 2)
+    scores = torch.einsum("rhd,rnd->rnh", q.float(), keys.float())
+    logits = torch.relu(scores).sum(dim=-1)
+    columns = torch.arange(keys.shape[1], device=q.device).unsqueeze(0)
+    return logits.masked_fill(columns >= visible.unsqueeze(1), -torch.inf)
+
+
 def assert_selection(logits, visible, output, *, rtol=2e-4, atol=2e-3):
     """Check count, range, uniqueness, padding and the selected score multiset."""
     k = output.shape[1]
@@ -238,6 +278,43 @@ def assert_selection(logits, visible, output, *, rtol=2e-4, atol=2e-3):
             actual = logits[row, valid].sort().values
             expected = logits[row, :length].topk(count).values.sort().values
             torch.testing.assert_close(actual, expected, rtol=rtol, atol=atol)
+
+
+def assert_upstream_selection(logits, visible, output, *, dtype, head_dim=128):
+    """Match upstream BF16 index equality and SM90 FP8 value tolerances.
+
+    The upstream Torch reference divides scores by sqrt(D); production scores
+    are unscaled. Scaling here reproduces its FP8 absolute tolerance and BF16
+    reference Top-K without changing the production scoring contract.
+    """
+    fp8 = dtype == torch.float8_e4m3fn
+    scale = head_dim**-0.5
+    assert_selection(
+        logits,
+        visible,
+        output,
+        rtol=1e-3 if fp8 else 2e-4,
+        atol=1e-3 / scale if fp8 else 2e-3,
+    )
+    for row, length in enumerate(visible.cpu().tolist()):
+        count = min(length, output.shape[1])
+        scores = logits[row, :length] / head_dim**0.5
+        if fp8:
+            if count:
+                selected = output[row][output[row] >= 0].long()
+                torch.testing.assert_close(
+                    scores[selected].sort().values,
+                    scores.topk(count).values.sort().values,
+                    rtol=1e-3,
+                    atol=1e-3,
+                )
+        else:
+            expected = torch.full_like(output[row], -1)
+            if count:
+                expected[:count] = scores.topk(count).indices.to(torch.int32)
+            torch.testing.assert_close(
+                output[row].sort().values, expected.sort().values, rtol=0, atol=0
+            )
 
 
 def vllm_reference():

@@ -12,10 +12,13 @@ import flaggems_vllm
 from . import conftest as cfg
 from .qsa_select_prefill_utils import (
     assert_selection,
+    assert_upstream_selection,
     make_inputs,
+    make_upstream_no_complete_blocks_inputs,
     make_upstream_prefill_inputs,
     make_upstream_split_prefill_inputs,
     torch_logits,
+    upstream_torch_logits,
     vllm_reference,
 )
 
@@ -102,8 +105,12 @@ def _scores(args, offset, count, workspace=None):
     )
 
 
-def test_every_autotune_candidate(sm90):
-    args = make_inputs((3, 0, 6), (1025, 16, 1537), query_base=97)
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+@pytest.mark.parametrize("head_dim", [8, 128])
+def test_every_autotune_candidate(sm90, dtype, head_dim):
+    args = make_inputs(
+        (3, 0, 6), (1025, 16, 1537), query_base=97, dtype=dtype, head_dim=head_dim
+    )
     width = args[2].shape[1] * args[1].shape[1]
     expected = torch_logits(*args[:5])
     kernel = op_module._qsa_prefill_score_kernel
@@ -136,12 +143,20 @@ def test_every_autotune_candidate(sm90):
             args[1].shape[0],
             args[2].shape[1],
             PAGE_SIZE=args[1].shape[1],
+            HEAD_DIM=head_dim,
+            IS_FP8=dtype == torch.float8_e4m3fn,
             **meta,
             num_warps=config.num_warps,
             num_stages=config.num_stages,
         )
         mask = torch.arange(width, device="cuda")[None, :] < args[4][:, None]
-        torch.testing.assert_close(scores[mask], expected[mask], rtol=2e-4, atol=2e-3)
+        fp8 = dtype == torch.float8_e4m3fn
+        torch.testing.assert_close(
+            scores[mask],
+            expected[mask],
+            rtol=1e-3 if fp8 else 2e-4,
+            atol=1e-3 * head_dim**0.5 if fp8 else 2e-3,
+        )
 
 
 def test_workspace_reuse_and_cross_request_chunks(sm90, monkeypatch):
@@ -166,7 +181,8 @@ def test_workspace_reuse_and_cross_request_chunks(sm90, monkeypatch):
         )
 
 
-def test_empty_and_select_all_do_not_launch_score(sm90, monkeypatch):
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+def test_empty_and_select_all_do_not_launch_score(sm90, monkeypatch, dtype):
     def forbidden(*args, **kwargs):
         raise AssertionError(
             "score/Top-K must not run for an empty or select-all batch"
@@ -174,9 +190,9 @@ def test_empty_and_select_all_do_not_launch_score(sm90, monkeypatch):
 
     monkeypatch.setattr(op_module, "_prefill_logits", forbidden)
     monkeypatch.setattr(op_module, "top_k_per_row_prefill", forbidden)
-    empty = make_inputs((0,), (17,))
+    empty = make_inputs((0,), (17,), dtype=dtype)
     assert op(*empty) is None
-    args = make_inputs((5,), (17,), visible=[0, 1, 3, 16, 17])
+    args = make_inputs((5,), (17,), visible=[0, 1, 3, 16, 17], dtype=dtype)
     op(*args)
     for row, count in enumerate([0, 1, 3, 16, 17]):
         torch.testing.assert_close(
@@ -196,7 +212,9 @@ def test_bad_workspace_budget(sm90, monkeypatch, bad_budget):
     "case",
     [
         "dtype",
+        "mixed_dtype",
         "heads",
+        "head_dim",
         "dim_stride",
         "output_stride",
         "visible_dtype",
@@ -211,8 +229,15 @@ def test_invalid_contract(sm90, case):
     error = NotImplementedError
     if case == "dtype":
         args[0] = args[0].float()
+        args[1] = args[1].float()
+    elif case == "mixed_dtype":
+        args[1] = args[1].to(torch.float8_e4m3fn)
+        error = ValueError
     elif case == "heads":
         args[0] = args[0][:, :2]
+    elif case == "head_dim":
+        args[0] = args[0][..., :64]
+        args[1] = args[1][..., :64]
     elif case == "dim_stride":
         args[0] = torch.empty((8, 4, 256), device="cuda", dtype=torch.bfloat16)[
             ..., ::2
@@ -264,12 +289,15 @@ def test_against_pinned_vllm(sm90, monkeypatch):
 
 @pytest.mark.parametrize("seq_len_slack", [0, 1792])
 @pytest.mark.parametrize("force_chunk", [False, True])
-def test_upstream_prefill_scenarios(sm90, monkeypatch, seq_len_slack, force_chunk):
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+def test_upstream_prefill_scenarios(
+    sm90, monkeypatch, seq_len_slack, force_chunk, dtype
+):
     monkeypatch.setenv(
         "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
     )
-    args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
-    expected = torch_logits(*args[:5])
+    args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack, dtype=dtype)
+    expected = upstream_torch_logits(*args[:5])
     chunks = []
     score = op_module._prefill_logits
 
@@ -284,8 +312,8 @@ def test_upstream_prefill_scenarios(sm90, monkeypatch, seq_len_slack, force_chun
         torch.testing.assert_close(
             logits[mask],
             expected[offset : offset + count, :width][mask],
-            rtol=2e-4,
-            atol=2e-3,
+            rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
+            atol=1e-3 * 128**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
         )
         return logits
 
@@ -300,24 +328,31 @@ def test_upstream_prefill_scenarios(sm90, monkeypatch, seq_len_slack, force_chun
         else [(expected_width, 0, 36)]
     )
     assert chunks == expected_chunks
-    assert_selection(expected, args[4], args[8])
+    assert_upstream_selection(expected, args[4], args[8], dtype=dtype)
 
 
 @pytest.mark.parametrize("seq_len_slack", [0, 1792])
 @pytest.mark.parametrize("force_chunk", [False, True])
-def test_upstream_prefill_against_vllm(sm90, monkeypatch, seq_len_slack, force_chunk):
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+def test_upstream_prefill_against_vllm(
+    sm90, monkeypatch, seq_len_slack, force_chunk, dtype
+):
     reference = vllm_reference()
     budget = 0 if force_chunk else 512
     monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
     monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
-    args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
-    expected = torch_logits(*args[:5])
+    args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack, dtype=dtype)
+    expected = upstream_torch_logits(*args[:5])
     baseline_args = list(args)
     baseline_args[8] = torch.empty_like(args[8])
     reference.qsa_select_paged_prefill(*baseline_args)
     op(*args)
-    assert_selection(expected, args[4], baseline_args[8])
-    assert_selection(expected, args[4], args[8])
+    assert_upstream_selection(expected, args[4], baseline_args[8], dtype=dtype)
+    assert_upstream_selection(expected, args[4], args[8], dtype=dtype)
+    if dtype == torch.bfloat16:
+        torch.testing.assert_close(
+            args[8].sort().values, baseline_args[8].sort().values, rtol=0, atol=0
+        )
 
 
 @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
@@ -325,40 +360,46 @@ def test_upstream_prefill_against_vllm(sm90, monkeypatch, seq_len_slack, force_c
 def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
     reference = vllm_reference() if compare_vllm else None
     args = make_upstream_split_prefill_inputs(decode_query_len)
-    expected = torch_logits(*args[:5])
+    expected = upstream_torch_logits(*args[:5])
     op(*args)
-    assert_selection(expected, args[4], args[8])
+    assert_upstream_selection(expected, args[4], args[8], dtype=torch.bfloat16)
     if reference is not None:
         baseline_args = list(args)
         baseline_args[8] = torch.empty_like(args[8])
         reference.qsa_select_paged_prefill(*baseline_args)
-        assert_selection(expected, args[4], baseline_args[8])
+        assert_upstream_selection(
+            expected, args[4], baseline_args[8], dtype=torch.bfloat16
+        )
+        torch.testing.assert_close(
+            args[8].sort().values, baseline_args[8].sort().values, rtol=0, atol=0
+        )
 
 
-def test_upstream_fp8_is_explicitly_unsupported(sm90):
-    args = list(make_upstream_prefill_inputs())
-    args[0] = args[0].to(torch.float8_e4m3fn)
-    args[1] = args[1].to(torch.float8_e4m3fn)
-    with pytest.raises(NotImplementedError, match="BF16"):
-        op(*args)
+@pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+def test_upstream_no_complete_blocks_dim8(sm90, compare_vllm):
+    reference = vllm_reference() if compare_vllm else None
+    args = make_upstream_no_complete_blocks_inputs()
+    assert op(*args) is None
+    torch.testing.assert_close(args[8], torch.full_like(args[8], -1), rtol=0, atol=0)
+    if reference is not None:
+        baseline_args = list(args)
+        baseline_args[8] = torch.empty_like(args[8])
+        reference.qsa_select_paged_prefill(*baseline_args)
+        torch.testing.assert_close(args[8], baseline_args[8], rtol=0, atol=0)
 
 
-def test_upstream_no_complete_blocks_dim8_is_explicitly_unsupported(sm90):
-    # Exact selection inputs from the upstream no-complete-blocks fixture.
-    args = (
-        torch.zeros((2, 4, 8), device="cuda", dtype=torch.bfloat16),
-        torch.zeros((1, 16, 1, 8), device="cuda", dtype=torch.bfloat16),
-        torch.zeros((1, 1), device="cuda", dtype=torch.int32),
-        torch.tensor([0, 2], device="cuda", dtype=torch.int32),
-        torch.zeros((2,), device="cuda", dtype=torch.int32),
-        2048,
-        4,
-        2,
-        torch.empty((2, 512), device="cuda", dtype=torch.int32),
-        64,
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+def test_dim8_scored_selection(sm90, dtype):
+    # D=8 must also work when the score and existing Top-K paths are necessary.
+    args = make_inputs((7,), (1025,), dtype=dtype, head_dim=8)
+    op(*args)
+    assert_selection(
+        torch_logits(*args[:5]),
+        args[4],
+        args[8],
+        rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
+        atol=1e-3 * 8**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
     )
-    with pytest.raises(NotImplementedError, match="query must be"):
-        op(*args)
 
 
 def test_noncurrent_cuda_device(sm90):

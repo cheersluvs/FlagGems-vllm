@@ -1,7 +1,8 @@
 # QSA paged prefill: H800 implementation and validation
 
-Status: H800 quick accuracy report records 38 passed and 9 unavailable-vLLM
-skips. Full accuracy, official comparisons and performance remain pending.
+Status: code `b5fae92` passed H800 quick (47) and full (51) tests without
+skips in report `892186e`; its official full-operator speedups are below 0.9.
+The new FP8/D=8 coverage and stricter BF16 checks below await an H800 run.
 The Mac has no Torch, Triton, or CUDA device. GPU correctness and performance
 must not be inferred from static checks.
 
@@ -14,7 +15,35 @@ must not be inferred from static checks.
 - Branch: `codex/qsa-select-paged-prefill-h800`.
 - `optimization.md` and `deep_opt.md` referenced by `workflow.md` are absent
   from the checkout and were not found in the workspace. The design below
-  follows the available workflow. Deep optimization awaits measured evidence.
+  follows the available workflow. Performance optimization is deferred at the user's request.
+
+## FP8 and strict upstream coverage follow-up (before editing)
+
+| Project field | Frozen choice |
+| --- | --- |
+| Editable | QSA prefill score/validation, test helper/tests, upstream benchmark groups, this guide |
+| Read-only | Existing Top-K implementation/configuration, pinned upstream source/tests, original BF16 benchmark tuples |
+| Build/environment | Python-only; Mac has no Torch/Triton/CUDA. Static/style checks locally, actual compilation and tests on the user's H800 with the existing official vLLM 0.31 environment |
+| Validation | Existing quick/full runner; reproduce upstream BF16/FP8 x slack 0/1792 x default/one-row fixtures, BF16 sorted index equality, FP8 SM90 value comparison; D=8 zero-visible fixture |
+| Benchmark | Preserve existing BF16 rows; add FP8 to separate upstream groups and D=8 zero-visible group. Operator mean host-inclusive latency in ms, per-case SpeedUp; no acceptance claims before card results |
+| Autotune | Retain six score candidates; add HEAD_DIM and IS_FP8 to specialization/tuning keys. Fixed fills remain exempt; existing Top-K remains unchanged |
+| Scope | Functional coverage only; user deferred Top-K optimization and performance work. No Torch compute fallback; no new exports or registration needed |
+
+| Contract field | Choice |
+| --- | --- |
+| Reference | Same SHA256-pinned upstream commit; no reference or tolerance relaxation |
+| Dtype/shape | Matching BF16 or float8_e4m3fn Q/cache; H=4, D=8/128; same strides, metadata, output and K contract as before |
+| Accumulation | Native Triton dot to FP32; pad D=8 reduction dimension to >=16 (>=32 for FP8). FP8 SM90 dot can use reduced-precision internal accumulation, as upstream |
+| BF16 check | Upstream fixtures require exact sorted index sets, including -1 padding, against Torch and pinned vLLM; random exact-tie fixtures retain set-valued checks |
+| FP8 check | On SM90 compare selected score multisets scaled by 1/sqrt(D), rtol=atol=1e-3, matching upstream tests; production scoring remains unscaled |
+| Unsupported | Other dtypes/H/D, gradients, non-SM90, unsupported layouts, nonfinite scores; explicit exceptions, no cast/fallback |
+
+| Path | Change | Verification/risk |
+| --- | --- | --- |
+| Host validation | Admit matching BF16/FP8 and D=8/128 | Mixed-dtype and unsupported-shape error tests |
+| Score | Parameterize D and pad loads; keep H=4 and existing tiling | Every candidate checked for BF16/FP8 and D=8/128; CUDA compilation pending |
+| Select all | Existing index fill, now accepts D=8/FP8 | Exact upstream zero-visible output and positive D=8 cases |
+| Top-K | Reuse unchanged repository operator | Strict BF16 and upstream FP8 value checks |
 
 ## Project truth table (before implementation)
 
@@ -25,7 +54,7 @@ must not be inferred from static checks.
 | Read-only | Existing QSA/Top-K operators, upstream reference, input/reference helpers after first validation; existing dirty FP8 gate files in the primary checkout |
 | Build | Python-only change. Card: `python -m pip install --no-build-isolation --no-deps -e .`; development/validation uses `PYTHONPATH=$PWD/src` |
 | Validation | `python -m pytest -q tests/test_qsa_select_paged_prefill.py --quick`, then full file; value-based Top-K and score comparison |
-| Benchmark | `python -m pytest -s -q benchmark/test_qsa_select_paged_prefill_perf.py --level core --mode operator --warmup 100 --iter 500 --record json`; median latency in ms, smaller is better |
+| Benchmark | `python -m pytest -s -q benchmark/test_qsa_select_paged_prefill_perf.py --level core --mode operator --warmup 100 --iter 500 --record json`; mean host-inclusive operator latency in ms, smaller is better |
 | Active set | BF16, H=4, D=128, page=16/64, requests=1/4, total query rows=1/64/512/2048, compressed width=2048/4096/16384/65536, block K=512/1024/2048; exact tuples in benchmark |
 | Aggregation | Report per-shape latency and SpeedUp separately for Torch and pinned vLLM; no aggregation may hide a key-shape regression |
 | Acceptance | All functional cases pass; each key shape has baseline/FlagGems latency >=0.9; no measured claims before H800 results |
@@ -39,7 +68,7 @@ must not be inferred from static checks.
 | Field | Contract |
 | --- | --- |
 | Device | NVIDIA CUDA SM90 (H800/H100); first acceptance target H800 |
-| Q/cache | BF16 Q `[T,4,128]`; BF16 compressed K `[physical_pages,page_size,1,128]`; forward only, no gradients |
+| Q/cache | Matching BF16/FP8 E4M3FN Q `[T,4,D]` and K `[physical_pages,page_size,1,D]`, D=8/128; forward only, no gradients |
 | Layout | Unit innermost stride; positive, non-overlapping outer strides; Q/cache/page-table row padding and input slices supported; contiguous metadata and output |
 | Metadata | Same device; page table int32/int64 `[B,P]`; `query_start_loc` int32/int64 `[B+1]`; visible counts int32 `[T]` |
 | Metadata values | Caller supplies monotone offsets whose terminal-minus-first value is T; request lengths <= max_query_len; visible counts in `[0,min(capacity,ceil(max_seq_len/ratio))]`; active physical page IDs valid. These device-resident value preconditions avoid host synchronization |
@@ -47,9 +76,9 @@ must not be inferred from static checks.
 | Parameters | Positive integer compression ratio, divisible token_topk; actual block K in 512/1024/2048; positive max lengths for nonempty input |
 | Score | FP32 accumulation; sum across heads of ReLU of each head's Q.K, without sqrt(D) scaling |
 | Selection | Logical compressed indices, not physical pages or expanded tokens; valid count min(visible,K), remaining positions -1; order and choice among exact ties unspecified |
-| Numerics | BF16 inputs with finite FP32 scores; NaN/Inf and overflow outside supported contract. Signed zero behaves as tied zero. Score comparison uses FP32 tolerance; exact index equality is not required for near ties |
+| Numerics | BF16/FP8 inputs with finite scores; NaN/Inf and overflow outside supported contract. Signed zero behaves as tied zero. Upstream BF16 fixtures require exact sorted index sets; FP8 uses upstream SM90 score tolerances; exact ties in synthetic inputs allow set-valued selection |
 | Empty | T=0 returns without allocation/launch after shape/type checks; zero visible rows emit -1 |
-| Unsupported | FP8/FP16/FP32, H/D other than 4/128, gradients, non-SM90/non-NVIDIA, non-unit inner stride, noncontiguous metadata/output, overlapping output |
+| Unsupported | FP16/FP32, H other than 4 or D outside 8/128, gradients, non-SM90/non-NVIDIA, non-unit inner stride, noncontiguous metadata/output, overlapping output |
 | Reference | Torch compute only in tests/benchmark helper. Pinned vLLM reference only in tests/benchmark; never imported by production |
 
 ## Upstream coverage follow-up (before editing)
@@ -86,7 +115,7 @@ must not be inferred from static checks.
 | Prefill score | Visible upper bound > K | Request/tiled-query/tiled-key `tl.dot`, explicit strides and nonzero query base | YAML + libtuner | Ragged requests, shuffled pages, chunks, score reference | Tensor-core rounding and incomplete coverage |
 | Top-K | Per-row score selection | Existing `top_k_per_row_prefill` on `[0,visible)` | Existing operator's policy; no changes | Random/tied/short rows and K sweep | Existing TLE/non-TLE scratch and tie behavior |
 | Workspace | Nontrivial selection | One per-call logits allocation reused across chunks; Triton zero row starts | Fill exempt; score tuned | Force 1 MiB budget and cross-request chunks | Only logits is bounded by configured budget; Top-K scratch is additional |
-| Unsupported | Outside contract | Explicit exceptions, no conversions or compute fallback | None | Error tests | FP8 is deferred |
+| Unsupported | Outside contract | Explicit exceptions, no conversions or compute fallback | None | Error tests | Unsupported types/shapes raise |
 
 The public Python entry is exported through `ops.__all__` and the existing
 top-level export mechanism. It has no ATen schema, so it must be called
@@ -158,7 +187,7 @@ upstream fixture; K=1024/2048, page=64 and the long-context tuples are additiona
 implementation coverage. Context lengths in those tuples are compressed block
 counts: 65536 blocks at ratio=4 represent 262144 logical tokens.
 
-The new named input builders reproduce the BF16 selection inputs from
+The named input builders reproduce the BF16/FP8 selection inputs from
 `test_qsa_prefill_selection_correctness` and the prefill slice of
 `test_qsa_split_selection_correctness` at the pinned upstream commit.
 All these functional cases run in both quick and full modes:
@@ -171,15 +200,23 @@ All these functional cases run in both quick and full modes:
 - decode lengths 1/2/3/4 preceding a 33-row prefill slice, retaining its
   nonzero query_start_loc base;
 - independent Torch score/selection checks and separate pinned-vLLM selection
-  comparisons; FP8 and upstream D=8 inputs explicitly test unsupported errors.
+  comparisons; FP8 now runs the same 8-case prefill matrix. The upstream D=8 zero-visible fixture checks exact -1 output, with additional D=8 scored-selection and every-candidate checks.
 
 The benchmark adds a separate upstream full-operator group with slack 0/1792
 and default/one-row chunks, against both Torch and pinned vLLM. It preserves
 the original synthetic tuples and reports the chunk modes under distinct
-operator names. These are upstream regression fixtures, not evidence of
-production workload frequency. No H800 results are available yet.
+operator names. FP8 uses the same groups with its dtype recorded separately; the D=8 zero-visible fixture has a separate group. These are regression fixtures, not model traces. New coverage awaits H800 results.
 
 ## Current verification and delivery limits
+
+FP8/D=8 follow-up local checks: Python syntax and all configured style hooks
+passed; 27 checks executed the actual host functions with mocked allocations
+and launchers (not GPU kernels). The static matrix has 63 quick / 67 full
+cases; collection and CUDA execution still require H800. Every score candidate
+is exercised for BF16/FP8 and D=8/128. The benchmark preserves the original
+BF16 groups and adds eight FP8 upstream rows plus two D=8 zero-visible rows
+(42 records total). Existing Top-K code/configs are unchanged.
+
 
 - Mac: Python compilation, exact upstream argument-name/order comparison,
   YAML config validation, no-Torch-compute host audit, shell syntax checks,
@@ -189,15 +226,12 @@ production workload frequency. No H800 results are available yet.
   allocations/launchers confirms widths 1280/1536 and 1/36 chunks for the
   four slack/budget combinations, plus negative/invalid budget rejection.
   This exercises no GPU kernels and is not a GPU correctness result.
-- H800: the user's quick report records supported-case accuracy passes and
-  explicit unsupported/error checks; official comparisons were skipped.
-  Full accuracy and performance acceptance are pending. No speedup claim is
-  made; deep optimization awaits performance evidence.
+- H800 baseline b5fae92: quick 47/full 51 passed with no skips. Official core full-operator speedups 0.389–0.425, upstream default 0.368–0.373, one-row 0.630–0.638; performance is below 0.9. This coverage-only change needs a new H800 run. Top-K optimization was reverted at the user's request.
 - Autotune: six score candidates; fill kernels use fixed launches because
   they only initialize indices/row starts. Reused Top-K retains its existing
   tuning/dispatch policy; this change does not retune it.
-- No external library production path; no Torch compute fallback. FP8,
-  autograd, other head configurations, other devices, model memory profiling,
+- No external library production path; no Torch compute fallback. Autograd,
+  other head configurations, other devices, model memory profiling,
   CUDA graph integration and vLLM plugin wiring are outside this first scope.
 - Export/integration: `flaggems_vllm.qsa_select_paged_prefill` is callable;
   excluded from ATen registration because this API has no ATen schema.

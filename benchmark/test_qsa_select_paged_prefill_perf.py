@@ -15,6 +15,7 @@ import torch
 import flaggems_vllm
 from tests.qsa_select_prefill_utils import (
     make_inputs,
+    make_upstream_no_complete_blocks_inputs,
     make_upstream_prefill_inputs,
     torch_select,
     vllm_reference,
@@ -65,7 +66,7 @@ class QSAPrefillBenchmark(base.GenericBenchmark):
 
 class QSAUpstreamPrefillBenchmark(base.GenericBenchmark):
     def set_shapes(self, shape_file_path=None):
-        # Exact BF16 upstream prefill fixture, with both max_seq_len bounds.
+        # Exact BF16/FP8 upstream prefill fixture, with both max_seq_len bounds.
         self.shapes = [(0,), (1792,)]
         self.shape_desc = "seq_len_slack (Q=36x4x128, cache=128x24x1x128, table=2x64)"
 
@@ -74,8 +75,23 @@ class QSAUpstreamPrefillBenchmark(base.GenericBenchmark):
 
 
 def _upstream_inputs(shape, dtype, device):
+    yield make_upstream_prefill_inputs(
+        seq_len_slack=shape[0], device=device, dtype=dtype
+    )
+
+
+class QSANoCompleteBlocksBenchmark(base.GenericBenchmark):
+    def set_shapes(self, shape_file_path=None):
+        self.shapes = [()]
+        self.shape_desc = "upstream zero-visible (Q=2x4x8, cache=1x16x1x8)"
+
+    def set_more_shapes(self):
+        return []
+
+
+def _no_complete_blocks_inputs(shape, dtype, device):
     assert dtype == torch.bfloat16
-    yield make_upstream_prefill_inputs(seq_len_slack=shape[0], device=device)
+    yield make_upstream_no_complete_blocks_inputs(device=device)
 
 
 def _inputs(shape, dtype, device):
@@ -124,7 +140,14 @@ def _gems_topk(logits, visible, token_topk, ratio, output, workspace, starts):
     )
 
 
-def _run(name, reference, gems, input_fn, benchmark_cls=QSAPrefillBenchmark):
+def _run(
+    name,
+    reference,
+    gems,
+    input_fn,
+    benchmark_cls=QSAPrefillBenchmark,
+    dtypes=(torch.bfloat16,),
+):
     # Warm both functions on each input before timing to exclude compilation
     # and autotuning. The common runner then measures operator-level latency.
     def warmed_inputs(shape, dtype, device):
@@ -139,7 +162,7 @@ def _run(name, reference, gems, input_fn, benchmark_cls=QSAPrefillBenchmark):
         torch_op=reference,
         gems_op=gems,
         input_fn=warmed_inputs,
-        dtypes=[torch.bfloat16],
+        dtypes=list(dtypes),
     ).run()
 
 
@@ -194,6 +217,7 @@ def test_upstream_full_vs_torch(monkeypatch, force_chunk):
         flaggems_vllm.qsa_select_paged_prefill,
         _upstream_inputs,
         QSAUpstreamPrefillBenchmark,
+        dtypes=(torch.bfloat16, torch.float8_e4m3fn),
     )
 
 
@@ -210,4 +234,21 @@ def test_upstream_full_vs_vllm(monkeypatch, force_chunk):
         flaggems_vllm.qsa_select_paged_prefill,
         _upstream_inputs,
         QSAUpstreamPrefillBenchmark,
+        dtypes=(torch.bfloat16, torch.float8_e4m3fn),
+    )
+
+
+@pytest.mark.parametrize("baseline", ["torch", "vllm"])
+def test_upstream_no_complete_blocks(baseline):
+    reference = (
+        torch_select
+        if baseline == "torch"
+        else vllm_reference().qsa_select_paged_prefill
+    )
+    _run(
+        f"qsa_prefill_upstream_no_complete_blocks_vs_{baseline}",
+        reference,
+        flaggems_vllm.qsa_select_paged_prefill,
+        _no_complete_blocks_inputs,
+        QSANoCompleteBlocksBenchmark,
     )
