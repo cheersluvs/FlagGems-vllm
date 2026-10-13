@@ -1,0 +1,884 @@
+...........................FFFFFFFFFFFFFFFFFFFF                          [100%]
+=================================== FAILURES ===================================
+___________________________ test_against_pinned_vllm ___________________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e95fd4e00>
+
+    def test_against_pinned_vllm(sm90, monkeypatch):
+        reference = vllm_reference()
+        monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "1")
+        # Also handle a vLLM build that has already cached its environment registry.
+        monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 1)
+        args = make_inputs((39, 34), (4096, 8192), query_base=113)
+        expected = torch_logits(*args[:5])
+        vllm_output = torch.empty_like(args[8])
+        vllm_args = list(args)
+        vllm_args[8] = vllm_output
+>       reference.qsa_select_paged_prefill(*vllm_args)
+
+tests/test_qsa_select_paged_prefill.py:259: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../qsa-prefill-h800.i1UfvD/qsa_indexer_vllm.py:644: in qsa_select_paged_prefill
+    _topk(
+../qsa-prefill-h800.i1UfvD/qsa_indexer_vllm.py:497: in _topk
+    topk_op(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <OpOverloadPacket(op='_C.cooperative_topk')>
+args = (<[AcceleratorError("CUDA error: an illegal instruction was encountered\nSearch for `cudaErrorIllegalInstruction' in h...or debugging consider passing CUDA_LAUNCH_BLOCKING=1\n") raised in repr()] Tensor object at 0x7f2e18180460>, 512, 8192)
+kwargs = {}
+
+    def __call__(self, /, *args: _P.args, **kwargs: _P.kwargs) -> _T:
+        # overloading __call__ to ensure torch.ops.foo.bar()
+        # is still callable from JIT
+        # We save the function ptr as the `op` attribute on
+        # OpOverloadPacket to access it here.
+    
+        # Directly calling OverloadPacket goes into C++, which will check
+        # the schema and cause an error for torchbind op when inputs consist of FakeScriptObject so we
+        # intercept it here and call TorchBindOpverload instead.
+        if self._has_torchbind_op_overload and _must_dispatch_in_python(args, kwargs):
+            # pyrefly: ignore [bad-argument-type]
+            return _call_overload_packet_from_python(self, *args, **kwargs)
+>       return self._op(*args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       RuntimeError: launch_cooperative_cluster, /workspace/csrc/libtorch_stable/cooperative_topk.cu:48, cooperative_topk launch failed: an illegal instruction was encountered
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_ops.py:1279: RuntimeError
+___________________ test_upstream_prefill_scenarios[False-0] ___________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e17cdd2e0>
+seq_len_slack = 0, force_chunk = False
+
+    @pytest.mark.parametrize("seq_len_slack", [0, 1792])
+    @pytest.mark.parametrize("force_chunk", [False, True])
+    def test_upstream_prefill_scenarios(sm90, monkeypatch, seq_len_slack, force_chunk):
+        monkeypatch.setenv(
+            "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
+        )
+>       args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:271: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_________________ test_upstream_prefill_scenarios[False-1792] __________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e0328f200>
+seq_len_slack = 1792, force_chunk = False
+
+    @pytest.mark.parametrize("seq_len_slack", [0, 1792])
+    @pytest.mark.parametrize("force_chunk", [False, True])
+    def test_upstream_prefill_scenarios(sm90, monkeypatch, seq_len_slack, force_chunk):
+        monkeypatch.setenv(
+            "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
+        )
+>       args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:271: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+___________________ test_upstream_prefill_scenarios[True-0] ____________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e0328e060>
+seq_len_slack = 0, force_chunk = True
+
+    @pytest.mark.parametrize("seq_len_slack", [0, 1792])
+    @pytest.mark.parametrize("force_chunk", [False, True])
+    def test_upstream_prefill_scenarios(sm90, monkeypatch, seq_len_slack, force_chunk):
+        monkeypatch.setenv(
+            "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
+        )
+>       args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:271: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+__________________ test_upstream_prefill_scenarios[True-1792] __________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e0328e6c0>
+seq_len_slack = 1792, force_chunk = True
+
+    @pytest.mark.parametrize("seq_len_slack", [0, 1792])
+    @pytest.mark.parametrize("force_chunk", [False, True])
+    def test_upstream_prefill_scenarios(sm90, monkeypatch, seq_len_slack, force_chunk):
+        monkeypatch.setenv(
+            "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
+        )
+>       args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:271: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_________________ test_upstream_prefill_against_vllm[False-0] __________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e0328d100>
+seq_len_slack = 0, force_chunk = False
+
+    @pytest.mark.parametrize("seq_len_slack", [0, 1792])
+    @pytest.mark.parametrize("force_chunk", [False, True])
+    def test_upstream_prefill_against_vllm(sm90, monkeypatch, seq_len_slack, force_chunk):
+        reference = vllm_reference()
+        budget = 0 if force_chunk else 512
+        monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
+        monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
+>       args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:313: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+________________ test_upstream_prefill_against_vllm[False-1792] ________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e181a1d00>
+seq_len_slack = 1792, force_chunk = False
+
+    @pytest.mark.parametrize("seq_len_slack", [0, 1792])
+    @pytest.mark.parametrize("force_chunk", [False, True])
+    def test_upstream_prefill_against_vllm(sm90, monkeypatch, seq_len_slack, force_chunk):
+        reference = vllm_reference()
+        budget = 0 if force_chunk else 512
+        monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
+        monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
+>       args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:313: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+__________________ test_upstream_prefill_against_vllm[True-0] __________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e0328e1b0>
+seq_len_slack = 0, force_chunk = True
+
+    @pytest.mark.parametrize("seq_len_slack", [0, 1792])
+    @pytest.mark.parametrize("force_chunk", [False, True])
+    def test_upstream_prefill_against_vllm(sm90, monkeypatch, seq_len_slack, force_chunk):
+        reference = vllm_reference()
+        budget = 0 if force_chunk else 512
+        monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
+        monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
+>       args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:313: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+________________ test_upstream_prefill_against_vllm[True-1792] _________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f2e1941aed0>
+seq_len_slack = 1792, force_chunk = True
+
+    @pytest.mark.parametrize("seq_len_slack", [0, 1792])
+    @pytest.mark.parametrize("force_chunk", [False, True])
+    def test_upstream_prefill_against_vllm(sm90, monkeypatch, seq_len_slack, force_chunk):
+        reference = vllm_reference()
+        budget = 0 if force_chunk else 512
+        monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
+        monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
+>       args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:313: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_____________________ test_upstream_split_prefill[torch-1] _____________________
+
+sm90 = None, decode_query_len = 1, compare_vllm = False
+
+    @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+    @pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+    def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+        reference = vllm_reference() if compare_vllm else None
+>       args = make_upstream_split_prefill_inputs(decode_query_len)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:145: in make_upstream_split_prefill_inputs
+    torch.manual_seed(13)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_____________________ test_upstream_split_prefill[torch-2] _____________________
+
+sm90 = None, decode_query_len = 2, compare_vllm = False
+
+    @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+    @pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+    def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+        reference = vllm_reference() if compare_vllm else None
+>       args = make_upstream_split_prefill_inputs(decode_query_len)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:145: in make_upstream_split_prefill_inputs
+    torch.manual_seed(13)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_____________________ test_upstream_split_prefill[torch-3] _____________________
+
+sm90 = None, decode_query_len = 3, compare_vllm = False
+
+    @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+    @pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+    def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+        reference = vllm_reference() if compare_vllm else None
+>       args = make_upstream_split_prefill_inputs(decode_query_len)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:145: in make_upstream_split_prefill_inputs
+    torch.manual_seed(13)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_____________________ test_upstream_split_prefill[torch-4] _____________________
+
+sm90 = None, decode_query_len = 4, compare_vllm = False
+
+    @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+    @pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+    def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+        reference = vllm_reference() if compare_vllm else None
+>       args = make_upstream_split_prefill_inputs(decode_query_len)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:145: in make_upstream_split_prefill_inputs
+    torch.manual_seed(13)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_____________________ test_upstream_split_prefill[vllm-1] ______________________
+
+sm90 = None, decode_query_len = 1, compare_vllm = True
+
+    @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+    @pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+    def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+        reference = vllm_reference() if compare_vllm else None
+>       args = make_upstream_split_prefill_inputs(decode_query_len)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:145: in make_upstream_split_prefill_inputs
+    torch.manual_seed(13)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_____________________ test_upstream_split_prefill[vllm-2] ______________________
+
+sm90 = None, decode_query_len = 2, compare_vllm = True
+
+    @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+    @pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+    def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+        reference = vllm_reference() if compare_vllm else None
+>       args = make_upstream_split_prefill_inputs(decode_query_len)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:145: in make_upstream_split_prefill_inputs
+    torch.manual_seed(13)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_____________________ test_upstream_split_prefill[vllm-3] ______________________
+
+sm90 = None, decode_query_len = 3, compare_vllm = True
+
+    @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+    @pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+    def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+        reference = vllm_reference() if compare_vllm else None
+>       args = make_upstream_split_prefill_inputs(decode_query_len)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:145: in make_upstream_split_prefill_inputs
+    torch.manual_seed(13)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_____________________ test_upstream_split_prefill[vllm-4] ______________________
+
+sm90 = None, decode_query_len = 4, compare_vllm = True
+
+    @pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+    @pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+    def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+        reference = vllm_reference() if compare_vllm else None
+>       args = make_upstream_split_prefill_inputs(decode_query_len)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:327: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:145: in make_upstream_split_prefill_inputs
+    torch.manual_seed(13)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_________________ test_upstream_fp8_is_explicitly_unsupported __________________
+
+sm90 = None
+
+    def test_upstream_fp8_is_explicitly_unsupported(sm90):
+>       args = list(make_upstream_prefill_inputs())
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:339: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:104: in make_upstream_prefill_inputs
+    torch.manual_seed(2)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+_______ test_upstream_no_complete_blocks_dim8_is_explicitly_unsupported ________
+
+sm90 = None
+
+    def test_upstream_no_complete_blocks_dim8_is_explicitly_unsupported(sm90):
+        # Exact selection inputs from the upstream no-complete-blocks fixture.
+        args = (
+>           torch.zeros((2, 4, 8), device="cuda", dtype=torch.bfloat16),
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            torch.zeros((1, 16, 1, 8), device="cuda", dtype=torch.bfloat16),
+            torch.zeros((1, 1), device="cuda", dtype=torch.int32),
+            torch.tensor([0, 2], device="cuda", dtype=torch.int32),
+            torch.zeros((2,), device="cuda", dtype=torch.int32),
+            2048,
+            4,
+            2,
+            torch.empty((2, 512), device="cuda", dtype=torch.int32),
+            64,
+        )
+E       torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E       Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E       CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E       For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+tests/test_qsa_select_paged_prefill.py:349: AcceleratorError
+_________________________ test_noncurrent_cuda_device __________________________
+
+sm90 = None
+
+    def test_noncurrent_cuda_device(sm90):
+        if torch.cuda.device_count() < 2 or torch.cuda.get_device_capability(1) != (9, 0):
+            pytest.skip("a second SM90 device is needed for device-guard validation")
+        previous = torch.cuda.current_device()
+>       args = make_inputs((5,), (1025,), device="cuda:1")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_qsa_select_paged_prefill.py:368: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/qsa_select_prefill_utils.py:34: in make_inputs
+    torch.manual_seed(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_compile.py:54: in inner
+    return disable_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_dynamo/eval_frame.py:1446: in _fn
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:59: in manual_seed
+    return _manual_seed_impl(seed)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/random.py:67: in _manual_seed_impl
+    torch.cuda.manual_seed_all(seed)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:128: in manual_seed_all
+    _lazy_call(cb, seed_all=True)
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:460: in _lazy_call
+    callable()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def cb():
+        for i in range(device_count()):
+            default_generator = torch.cuda.default_generators[i]
+>           default_generator.manual_seed(seed)
+E           torch.AcceleratorError: CUDA error: an illegal instruction was encountered
+E           Search for `cudaErrorIllegalInstruction' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+E           CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E           For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/random.py:126: AcceleratorError
+=========================== short test summary info ============================
+FAILED tests/test_qsa_select_paged_prefill.py::test_against_pinned_vllm - Run...
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_prefill_scenarios[False-0]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_prefill_scenarios[False-1792]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_prefill_scenarios[True-0]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_prefill_scenarios[True-1792]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_prefill_against_vllm[False-0]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_prefill_against_vllm[False-1792]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_prefill_against_vllm[True-0]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_prefill_against_vllm[True-1792]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_split_prefill[torch-1]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_split_prefill[torch-2]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_split_prefill[torch-3]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_split_prefill[torch-4]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_split_prefill[vllm-1]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_split_prefill[vllm-2]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_split_prefill[vllm-3]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_split_prefill[vllm-4]
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_fp8_is_explicitly_unsupported
+FAILED tests/test_qsa_select_paged_prefill.py::test_upstream_no_complete_blocks_dim8_is_explicitly_unsupported
+FAILED tests/test_qsa_select_paged_prefill.py::test_noncurrent_cuda_device - ...
+20 failed, 27 passed in 4.98s
