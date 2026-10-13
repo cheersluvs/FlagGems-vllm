@@ -308,6 +308,33 @@ and the runner's appended inherited PYTHONPATH. A separate launch-environment
 JSON records the inherited PYTHON/PYTHONPATH and selected interpreter. These
 are diagnostic runs; no performance numbers are collected.
 
+Report `f0a2a09b4d4ee873a172a361a78f8abbd0563b25` (results branch
+`codex/qsa-h800-results-20261013-083350`) ran code `f152286` and passed all
+13 matrix checks. Async full Torch accuracy was **42 passed**, including
+the second-device guard. Combined quick accuracy was **47 passed** in both
+async and sync modes, including all nine pinned-vLLM comparisons. All import
+probes and pytest fingerprints used Triton 3.7.1 from the selected venv.
+The pinned reference hash and extracted libcuda path matched the setup.
+
+Report `4d1181491307280f4fa4d3e53c15e28c2994115c` (results branch
+`codex/qsa-h800-results-20261013-083900`) ran the normal runner on `f152286`:
+**27 passed / 1 failed**, again stopping before full accuracy or benchmarks.
+Its new fingerprints expose the environment mismatch: PYTHONPATH contained
+`/opt/flagtree`, and Triton was imported from `/opt/flagtree/triton/__init__.py`
+with module version 3.6.0, while installed distribution metadata reported
+3.7.1. Clearing PYTHONPATH before launching Bash did not remove this path
+inside the runner; the exact reinsertion mechanism has not been inspected.
+
+The runner now sets PYTHONPATH to only the current repository's `src` and
+root **inside the script**, after shell startup, rather than appending inherited
+paths. It clears PYTHONHOME and disables the user site. Official-reference
+modes fail preflight if Torch or Triton imports from outside the selected
+Python prefix or its module version differs from distribution metadata.
+`torch-only` can still use the selected Python's installed FlagTree without
+this official-baseline check. No operator, autotune candidate or pinned
+reference changed. The path isolation has a local shell-startup regression
+check; corrected full accuracy and performance still require a card run.
+
 Official installation sources:
 - https://github.com/vllm-project/vllm/releases/tag/v0.31.0
 - https://docs.nvidia.com/deploy/cuda-compatibility/forward-compatibility.html

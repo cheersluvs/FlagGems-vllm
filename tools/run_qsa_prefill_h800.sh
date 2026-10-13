@@ -14,7 +14,12 @@ case "$qsa_mode" in
   *) echo "Usage: $0 [quick|full|bench|all|torch-only]" >&2; exit 2 ;;
 esac
 
-export PYTHONPATH="$qsa_repo_dir/src:$qsa_repo_dir${PYTHONPATH:+:$PYTHONPATH}"
+# A container's Bash startup can reinsert /opt/flagtree even when the caller
+# unsets PYTHONPATH. Freeze paths here, after startup, just like the diagnostic
+# subprocesses: official vLLM and Triton must come from the selected Python.
+export PYTHONPATH="$qsa_repo_dir/src:$qsa_repo_dir"
+unset PYTHONHOME
+export PYTHONNOUSERSITE=1
 export DNN_VENDOR=nvidia
 # Keep the official baseline free from plugin operator replacement.
 export VLLM_PLUGINS=""
@@ -29,7 +34,7 @@ git status --short -- src/flaggems_vllm/ops/qsa_select_paged_prefill.py \
   tests/qsa_select_prefill_utils.py tests/test_qsa_select_paged_prefill.py \
   benchmark/test_qsa_select_paged_prefill_perf.py
 
-"$qsa_python" - <<'PY' | tee "$qsa_report_dir/environment.txt"
+"$qsa_python" - "$qsa_mode" <<'PY' | tee "$qsa_report_dir/environment.txt"
 import importlib
 import importlib.metadata
 import os
@@ -42,7 +47,7 @@ import triton
 print("python:", sys.executable)
 print("prefix:", sys.prefix)
 print("sys.path:", sys.path)
-for name in ("PYTHONPATH", "PYTHONHOME", "PYTHONNOUSERSITE", "LD_LIBRARY_PATH", "CUDA_VISIBLE_DEVICES", "CUDA_LAUNCH_BLOCKING"):
+for name in ("PYTHONPATH", "PYTHONHOME", "PYTHONNOUSERSITE", "LD_LIBRARY_PATH", "CUDA_VISIBLE_DEVICES", "CUDA_LAUNCH_BLOCKING", "BASH_ENV"):
     print(name + ":", os.environ.get(name))
 print("triton before FlagGems import:", triton.__version__, triton.__file__)
 import flaggems_vllm
@@ -68,6 +73,18 @@ try:
     print("vllm:", importlib.metadata.version("vllm"))
 except importlib.metadata.PackageNotFoundError:
     print("vllm: not installed")
+if sys.argv[1] != "torch-only":
+    for name, module in (("torch", torch), ("triton", triton)):
+        installed = importlib.metadata.version(name)
+        source = Path(module.__file__).resolve()
+        assert source.is_relative_to(Path(sys.prefix).resolve()), (
+            f"Mixed baseline environment: {name} imported from {source}, "
+            f"outside selected Python prefix {sys.prefix}"
+        )
+        assert module.__version__ == installed, (
+            f"Mixed baseline environment: {name} module {module.__version__}, "
+            f"installed distribution {installed}"
+        )
 print("source:", op.__file__)
 print("logits budget MiB:", os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"])
 print("score tune candidates:", len(flaggems_vllm.runtime.get_tuned_config("qsa_select_paged_prefill_score")))
