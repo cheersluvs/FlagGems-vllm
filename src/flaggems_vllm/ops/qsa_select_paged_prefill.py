@@ -323,7 +323,8 @@ def qsa_select_paged_prefill(
     int32 [tokens,token_topk//compress_ratio]. Short rows are padded with -1.
     The caller must supply valid device-resident metadata and finite Q/K.
     Only logits workspace is limited by VLLM_SPARSE_INDEXER_MAX_LOGITS_MB;
-    the existing Top-K operator allocates additional scratch.
+    zero requests one row per chunk, as in vLLM. At least one logits row is
+    allocated, and the existing Top-K operator allocates additional scratch.
     """
     rows, k = _validate_inputs(
         q,
@@ -353,8 +354,8 @@ def qsa_select_paged_prefill(
             raise ValueError(
                 "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB must be an integer"
             ) from exc
-        if budget_mb <= 0:
-            raise ValueError("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB must be positive")
+        if budget_mb < 0:
+            raise ValueError("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB must be nonnegative")
         logits_width = min(capacity, triton.cdiv(max(64, visible_bound), 64) * 64)
         rows_per_chunk = min(
             rows, max(1, budget_mb * 1024 * 1024 // (logits_width * 4))

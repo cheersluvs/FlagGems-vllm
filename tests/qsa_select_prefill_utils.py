@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 """Frozen inputs/references shared by QSA tests and benchmarks only."""
 
 import hashlib
@@ -90,6 +91,84 @@ def make_inputs(
         max(query_lengths),
         output,
         max(compressed_lengths) * ratio,
+    )
+
+
+def make_upstream_prefill_inputs(*, seq_len_slack=0, device="cuda"):
+    """Exact BF16 inputs from upstream test_qsa_prefill_selection_correctness.
+
+    Source: REFERENCE_COMMIT, tests/models/qwen4_exp/test_qsa_reference.py.
+    The oversized page table and page size 24 exercise clipped logits widths
+    that need not coincide with the physical page geometry.
+    """
+    torch.manual_seed(2)
+    query_lengths = [3, 33]
+    q = torch.randn((36, 4, 128), device=device, dtype=torch.bfloat16)
+    cache = torch.randn((128, 24, 1, 128), device=device, dtype=torch.bfloat16)
+    table = torch.randperm(128, device=device, dtype=torch.int32).reshape(2, 64)
+    starts = torch.tensor([0, 3, 36], device=device, dtype=torch.int32)
+    sequence_lengths = torch.tensor([5120, 4224], device=device, dtype=torch.int32)
+    token_to_req = torch.repeat_interleave(
+        torch.arange(2, device=device, dtype=torch.int32),
+        torch.tensor(query_lengths, device=device),
+    )
+    positions = torch.cat(
+        [
+            torch.arange(length - queries, length, device=device, dtype=torch.int32)
+            for queries, length in zip(query_lengths, [5120, 4224])
+        ]
+    )
+    visible = torch.minimum(
+        (positions + 1) // 4,
+        sequence_lengths.index_select(0, token_to_req.long()) // 4,
+    )
+    return (
+        q,
+        cache,
+        table,
+        starts,
+        visible,
+        2048,
+        4,
+        33,
+        torch.full((36, 512), -17, device=device, dtype=torch.int32),
+        5120 + seq_len_slack,
+    )
+
+
+def make_upstream_split_prefill_inputs(decode_query_len, *, device="cuda"):
+    """Prefill slice from upstream test_qsa_split_selection_correctness.
+
+    Preserve the preceding decode rows so query_start_loc has its original
+    nonzero base. Decode and compressed-index expansion are separate APIs.
+    """
+    torch.manual_seed(13)
+    query_lengths = [decode_query_len, decode_query_len, 33]
+    rows = sum(query_lengths)
+    q = torch.randn((rows, 4, 128), device=device, dtype=torch.bfloat16)
+    cache = torch.randn((120, 16, 1, 128), device=device, dtype=torch.bfloat16)
+    table = torch.arange(120, device=device, dtype=torch.int32).view(3, 40)
+    starts = torch.tensor(
+        [0, decode_query_len, 2 * decode_query_len, rows],
+        device=device,
+        dtype=torch.int32,
+    )
+    positions = torch.cat(
+        [torch.arange(2560 - queries, 2560, device=device) for queries in query_lengths]
+    )
+    visible = ((positions + 1) // 4).to(torch.int32)
+    prefill = slice(2 * decode_query_len, rows)
+    return (
+        q[prefill],
+        cache,
+        table[2:],
+        starts[2:],
+        visible[prefill],
+        2048,
+        4,
+        33,
+        torch.full((33, 512), -17, device=device, dtype=torch.int32),
+        2560,
     )
 
 

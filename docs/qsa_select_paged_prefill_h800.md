@@ -51,6 +51,31 @@ must not be inferred from static checks.
 | Unsupported | FP8/FP16/FP32, H/D other than 4/128, gradients, non-SM90/non-NVIDIA, non-unit inner stride, noncontiguous metadata/output, overlapping output |
 | Reference | Torch compute only in tests/benchmark helper. Pinned vLLM reference only in tests/benchmark; never imported by production |
 
+## Upstream coverage follow-up (before editing)
+
+| Project field | Frozen choice |
+| --- | --- |
+| Editable | Test input helper, functional tests, benchmark, this guide; only the production logits-budget validation |
+| Read-only | Pinned upstream implementation/test source, score/Top-K kernels, tuning candidates, existing synthetic benchmark tuples |
+| Validation | Existing quick/full card runner; add exact upstream BF16 prefill inputs and Torch/pinned-vLLM comparisons |
+| Benchmark | Separate upstream full-operator group: slack 0/1792, default/one-row chunks; same timing/aggregation as existing benchmark |
+| Environment | Mac has no Torch/Triton/CUDA; local static/style checks only, H800 execution pending |
+
+| Contract field | Choice |
+| --- | --- |
+| Upstream source | `tests/models/qwen4_exp/test_qsa_reference.py` at frozen commit `7a877ae34dcf4a7d46de08eb16db4699e1e0047c` |
+| Prefill inputs | BF16 Q `[36,4,128]`, cache `[128,24,1,128]`, shuffled table `[2,64]`, query lengths `[3,33]`, sequence lengths `[5120,4224]`, token_topk 2048, ratio 4 |
+| Bounds | max_seq_len 5120/6912; expected clipped logits widths 1280/1536, versus page-table capacity 1536 |
+| Mixed batch | Preserve upstream decode query length 1/2/3/4, then pass only the 33-row prefill slice with nonzero query_start_loc base |
+| Scope | BF16 H=4/D=128 only; upstream FP8 and D=8 cases remain outside the production contract |
+
+| Path | Change | Verification |
+| --- | --- | --- |
+| Score/Top-K | Existing kernels/configs | Selected values, score values, ranges, uniqueness and padding against independent Torch reference |
+| Workspace | Accept budget 0 to match upstream one-row chunk behavior; negative/invalid budgets still raise | Assert actual chunk offsets/counts and clipped widths for all four upstream prefill cases |
+| Official comparison | Exact upstream BF16 input builders, pinned implementation | Both implementations independently checked against Torch |
+| Performance | Separate full-operator upstream group | Report default and one-row chunks separately; no measured claims before H800 results |
+
 ## Implementation paths (before implementation)
 
 | Path | Trigger | Implementation | Tuning | Validation/benchmark | Risk |
@@ -68,7 +93,8 @@ explicitly by the vLLM plugin/model integration; registering an invented ATen
 name would not activate it. Plugin changes are outside this repository change.
 
 The score workspace is bounded by `VLLM_SPARSE_INDEXER_MAX_LOGITS_MB` (default
-512 MiB), except that at least one logits row must fit. Top-K scratch is
+512 MiB), except that at least one logits row must fit. A zero budget forces
+one row per chunk, matching upstream; negative/invalid budgets raise. Top-K scratch is
 additional and must be included in model memory profiling. Workspaces are
 reused within a call, not cached globally. CUDA graph/model memory-profiler
 integration is not claimed by this operator-only change.
@@ -122,11 +148,46 @@ The score/Top-K stage measurements use a full preallocated logits matrix and
 isolate those stages; they are not a replacement for the chunked full-operator
 measurements. Full benchmark defaults to a 512 MiB logits budget.
 
+### Shape provenance and upstream coverage
+
+The original `CASES`, `CORE_SHAPES` and `EXTRA_SHAPES` are synthetic coverage
+and performance sweeps. They are not model traces or a verbatim copy of the
+upstream test matrix. BF16, H=4, D=128, ratio=4 and block K=512 agree with the
+upstream fixture; K=1024/2048, page=64 and the long-context tuples are additional
+implementation coverage. Context lengths in those tuples are compressed block
+counts: 65536 blocks at ratio=4 represent 262144 logical tokens.
+
+The new named input builders reproduce the BF16 selection inputs from
+`test_qsa_prefill_selection_correctness` and the prefill slice of
+`test_qsa_split_selection_correctness` at the pinned upstream commit.
+All these functional cases run in both quick and full modes:
+
+- page=24, cache `[128,24,1,128]`, table `[2,64]`, Q `[36,4,128]`, query
+  lengths `[3,33]`, logical sequence lengths `[5120,4224]`;
+- max_seq_len slack 0/1792, checking clipped logits widths 1280/1536;
+- default 512 MiB budget and budget 0, checking all one-row chunk offsets,
+  including the transition between requests;
+- decode lengths 1/2/3/4 preceding a 33-row prefill slice, retaining its
+  nonzero query_start_loc base;
+- independent Torch score/selection checks and separate pinned-vLLM selection
+  comparisons; FP8 and upstream D=8 inputs explicitly test unsupported errors.
+
+The benchmark adds a separate upstream full-operator group with slack 0/1792
+and default/one-row chunks, against both Torch and pinned vLLM. It preserves
+the original synthetic tuples and reports the chunk modes under distinct
+operator names. These are upstream regression fixtures, not evidence of
+production workload frequency. No H800 results are available yet.
+
 ## Current verification and delivery limits
 
 - Mac: Python compilation, exact upstream argument-name/order comparison,
   YAML config validation, no-Torch-compute host audit, shell syntax checks,
   and all configured pre-commit hooks passed.
+- Upstream coverage follow-up: changed Python sources compile and configured
+  style hooks pass. Executing the actual Python host function with mocked
+  allocations/launchers confirms widths 1280/1536 and 1/36 chunks for the
+  four slack/budget combinations, plus negative/invalid budget rejection.
+  This exercises no GPU kernels and is not a GPU correctness result.
 - H800: tests and benchmark are prepared but have not been executed here.
   No speedup or GPU correctness claim is made. The user supplies the card
   reports before any performance acceptance or deep-optimization decision.

@@ -13,7 +13,12 @@ import pytest
 import torch
 
 import flaggems_vllm
-from tests.qsa_select_prefill_utils import make_inputs, torch_select, vllm_reference
+from tests.qsa_select_prefill_utils import (
+    make_inputs,
+    make_upstream_prefill_inputs,
+    torch_select,
+    vllm_reference,
+)
 
 from . import base, conftest, consts
 
@@ -56,6 +61,21 @@ class QSAPrefillBenchmark(base.GenericBenchmark):
 
     def set_more_shapes(self):
         return []
+
+
+class QSAUpstreamPrefillBenchmark(base.GenericBenchmark):
+    def set_shapes(self, shape_file_path=None):
+        # Exact BF16 upstream prefill fixture, with both max_seq_len bounds.
+        self.shapes = [(0,), (1792,)]
+        self.shape_desc = "seq_len_slack (Q=36x4x128, cache=128x24x1x128, table=2x64)"
+
+    def set_more_shapes(self):
+        return []
+
+
+def _upstream_inputs(shape, dtype, device):
+    assert dtype == torch.bfloat16
+    yield make_upstream_prefill_inputs(seq_len_slack=shape[0], device=device)
 
 
 def _inputs(shape, dtype, device):
@@ -104,7 +124,7 @@ def _gems_topk(logits, visible, token_topk, ratio, output, workspace, starts):
     )
 
 
-def _run(name, reference, gems, input_fn):
+def _run(name, reference, gems, input_fn, benchmark_cls=QSAPrefillBenchmark):
     # Warm both functions on each input before timing to exclude compilation
     # and autotuning. The common runner then measures operator-level latency.
     def warmed_inputs(shape, dtype, device):
@@ -114,7 +134,7 @@ def _run(name, reference, gems, input_fn):
             torch.cuda.synchronize()
             yield args
 
-    QSAPrefillBenchmark(
+    benchmark_cls(
         op_name=name,
         torch_op=reference,
         gems_op=gems,
@@ -160,3 +180,34 @@ def test_topk_vs_vllm():
         reference._topk(logits, visible, token_topk, ratio, output, workspace)
 
     _run("qsa_prefill_topk_vs_vllm", baseline, _gems_topk, _topk_inputs)
+
+
+@pytest.mark.parametrize("force_chunk", [False, True], ids=["default", "one_row"])
+def test_upstream_full_vs_torch(monkeypatch, force_chunk):
+    monkeypatch.setenv(
+        "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
+    )
+    chunk_name = "one_row" if force_chunk else "default"
+    _run(
+        f"qsa_prefill_upstream_vs_torch_{chunk_name}",
+        torch_select,
+        flaggems_vllm.qsa_select_paged_prefill,
+        _upstream_inputs,
+        QSAUpstreamPrefillBenchmark,
+    )
+
+
+@pytest.mark.parametrize("force_chunk", [False, True], ids=["default", "one_row"])
+def test_upstream_full_vs_vllm(monkeypatch, force_chunk):
+    reference = vllm_reference()
+    budget = 0 if force_chunk else 512
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
+    monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
+    chunk_name = "one_row" if force_chunk else "default"
+    _run(
+        f"qsa_prefill_upstream_vs_vllm_{chunk_name}",
+        reference.qsa_select_paged_prefill,
+        flaggems_vllm.qsa_select_paged_prefill,
+        _upstream_inputs,
+        QSAUpstreamPrefillBenchmark,
+    )

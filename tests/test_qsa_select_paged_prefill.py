@@ -13,6 +13,8 @@ from . import conftest as cfg
 from .qsa_select_prefill_utils import (
     assert_selection,
     make_inputs,
+    make_upstream_prefill_inputs,
+    make_upstream_split_prefill_inputs,
     torch_logits,
     vllm_reference,
 )
@@ -183,7 +185,7 @@ def test_empty_and_select_all_do_not_launch_score(sm90, monkeypatch):
         assert (args[8][row, count:] == -1).all()
 
 
-@pytest.mark.parametrize("bad_budget", ["0", "-1", "invalid"])
+@pytest.mark.parametrize("bad_budget", ["-1", "invalid"])
 def test_bad_workspace_budget(sm90, monkeypatch, bad_budget):
     monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", bad_budget)
     with pytest.raises(ValueError, match="VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"):
@@ -258,6 +260,105 @@ def test_against_pinned_vllm(sm90, monkeypatch):
     op(*args)
     assert_selection(expected, args[4], vllm_output)
     assert_selection(expected, args[4], args[8])
+
+
+@pytest.mark.parametrize("seq_len_slack", [0, 1792])
+@pytest.mark.parametrize("force_chunk", [False, True])
+def test_upstream_prefill_scenarios(sm90, monkeypatch, seq_len_slack, force_chunk):
+    monkeypatch.setenv(
+        "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
+    )
+    args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+    expected = torch_logits(*args[:5])
+    chunks = []
+    score = op_module._prefill_logits
+
+    def checked_score(*score_args):
+        logits = score(*score_args)
+        width, offset, count = score_args[-3:]
+        chunks.append((width, offset, count))
+        mask = (
+            torch.arange(width, device=args[0].device)[None, :]
+            < args[4][offset : offset + count, None]
+        )
+        torch.testing.assert_close(
+            logits[mask],
+            expected[offset : offset + count, :width][mask],
+            rtol=2e-4,
+            atol=2e-3,
+        )
+        return logits
+
+    monkeypatch.setattr(op_module, "_prefill_logits", checked_score)
+    op(*args)
+    # slack=0 clips inside a page: 1280 % 24 != 0. With slack=1792 the
+    # max_seq_len bound exceeds the 1536-column page-table capacity.
+    expected_width = 1280 if seq_len_slack == 0 else 1536
+    expected_chunks = (
+        [(expected_width, row, 1) for row in range(36)]
+        if force_chunk
+        else [(expected_width, 0, 36)]
+    )
+    assert chunks == expected_chunks
+    assert_selection(expected, args[4], args[8])
+
+
+@pytest.mark.parametrize("seq_len_slack", [0, 1792])
+@pytest.mark.parametrize("force_chunk", [False, True])
+def test_upstream_prefill_against_vllm(sm90, monkeypatch, seq_len_slack, force_chunk):
+    reference = vllm_reference()
+    budget = 0 if force_chunk else 512
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
+    monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
+    args = make_upstream_prefill_inputs(seq_len_slack=seq_len_slack)
+    expected = torch_logits(*args[:5])
+    baseline_args = list(args)
+    baseline_args[8] = torch.empty_like(args[8])
+    reference.qsa_select_paged_prefill(*baseline_args)
+    op(*args)
+    assert_selection(expected, args[4], baseline_args[8])
+    assert_selection(expected, args[4], args[8])
+
+
+@pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
+@pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
+def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
+    reference = vllm_reference() if compare_vllm else None
+    args = make_upstream_split_prefill_inputs(decode_query_len)
+    expected = torch_logits(*args[:5])
+    op(*args)
+    assert_selection(expected, args[4], args[8])
+    if reference is not None:
+        baseline_args = list(args)
+        baseline_args[8] = torch.empty_like(args[8])
+        reference.qsa_select_paged_prefill(*baseline_args)
+        assert_selection(expected, args[4], baseline_args[8])
+
+
+def test_upstream_fp8_is_explicitly_unsupported(sm90):
+    args = list(make_upstream_prefill_inputs())
+    args[0] = args[0].to(torch.float8_e4m3fn)
+    args[1] = args[1].to(torch.float8_e4m3fn)
+    with pytest.raises(NotImplementedError, match="BF16"):
+        op(*args)
+
+
+def test_upstream_no_complete_blocks_dim8_is_explicitly_unsupported(sm90):
+    # Exact selection inputs from the upstream no-complete-blocks fixture.
+    args = (
+        torch.zeros((2, 4, 8), device="cuda", dtype=torch.bfloat16),
+        torch.zeros((1, 16, 1, 8), device="cuda", dtype=torch.bfloat16),
+        torch.zeros((1, 1), device="cuda", dtype=torch.int32),
+        torch.tensor([0, 2], device="cuda", dtype=torch.int32),
+        torch.zeros((2,), device="cuda", dtype=torch.int32),
+        2048,
+        4,
+        2,
+        torch.empty((2, 512), device="cuda", dtype=torch.int32),
+        64,
+    )
+    with pytest.raises(NotImplementedError, match="query must be"):
+        op(*args)
 
 
 def test_noncurrent_cuda_device(sm90):
