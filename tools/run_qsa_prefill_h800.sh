@@ -33,10 +33,18 @@ git status --short -- src/flaggems_vllm/ops/qsa_select_paged_prefill.py \
 import importlib
 import importlib.metadata
 import os
+import sys
 from pathlib import Path
 
 import torch
 import triton
+
+print("python:", sys.executable)
+print("prefix:", sys.prefix)
+print("sys.path:", sys.path)
+for name in ("PYTHONPATH", "PYTHONHOME", "PYTHONNOUSERSITE", "LD_LIBRARY_PATH", "CUDA_VISIBLE_DEVICES", "CUDA_LAUNCH_BLOCKING"):
+    print(name + ":", os.environ.get(name))
+print("triton before FlagGems import:", triton.__version__, triton.__file__)
 import flaggems_vllm
 
 op = importlib.import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
@@ -50,6 +58,12 @@ print("device:", torch.cuda.get_device_name())
 print("capability:", torch.cuda.get_device_capability())
 print("torch:", torch.__version__, "CUDA:", torch.version.cuda)
 print("triton:", triton.__version__)
+print("torch source:", torch.__file__)
+print("triton source:", triton.__file__)
+try:
+    print("triton distribution:", importlib.metadata.version("triton"))
+except importlib.metadata.PackageNotFoundError:
+    print("triton distribution: not installed under this name")
 try:
     print("vllm:", importlib.metadata.version("vllm"))
 except importlib.metadata.PackageNotFoundError:

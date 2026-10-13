@@ -275,6 +275,39 @@ The normal runner now stops at the first accuracy failure to avoid noisy
 cascading CUDA errors. Its `torch-only` mode explicitly deselects official
 comparisons even when vLLM imports successfully.
 
+Report `74a94a1fb71b50a30443dc557921bd1ec0215af4` (results branch
+`codex/qsa-h800-results-20261013-081043`) ran code `1cd2c01` with
+`CUDA_LAUNCH_BLOCKING=1`. All six independent diagnostic jobs succeeded:
+three direct Top-K checks, **41 passed / 1 skipped** in full Torch comparisons,
+and **1 passed** in the isolated first vLLM comparison. The skip required a
+second visible SM90 GPU; nine official comparisons were deselected in the
+Torch-only run. Import fingerprints consistently showed Triton 3.7.1 from
+the new venv, and the loaded libcuda was the extracted 575.57.08 library.
+
+Report `f294c179062eef92d22b347ef61e10de7afd39a3` (results branch
+`codex/qsa-h800-results-20261013-081721`) reran the normal runner on the same
+code: **27 passed / 1 failed** at the original cooperative Top-K call.
+Its environment log again showed Triton 3.6.0. It stopped before full accuracy
+or benchmarks. These reports do not establish whether synchronization,
+import-path differences or preceding tests caused the differing outcomes.
+Normal asynchronous execution and performance acceptance remain unresolved.
+
+The next diagnostic keeps the operator and upstream reference unchanged:
+
+```bash
+"$PYTHON" tools/diagnose_qsa_prefill_h800.py --mode matrix
+```
+
+`--mode async` removes `CUDA_LAUNCH_BLOCKING`; `--mode sync` sets it to 1
+(the default). Matrix mode runs independent async checks and the combined
+quick suite, then sync environment checks and the combined quick suite.
+It records actual Torch/Triton versions and source paths inside pytest after
+collection, without introducing synchronization there. Environment probes
+compare file execution, the current-directory import path used by `python -`,
+and the runner's appended inherited PYTHONPATH. A separate launch-environment
+JSON records the inherited PYTHON/PYTHONPATH and selected interpreter. These
+are diagnostic runs; no performance numbers are collected.
+
 Official installation sources:
 - https://github.com/vllm-project/vllm/releases/tag/v0.31.0
 - https://docs.nvidia.com/deploy/cuda-compatibility/forward-compatibility.html

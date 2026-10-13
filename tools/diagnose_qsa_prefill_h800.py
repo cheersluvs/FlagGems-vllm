@@ -19,8 +19,18 @@ def fingerprint(stage):
 
     print("stage:", stage, flush=True)
     print("python:", sys.executable)
+    print("prefix:", sys.prefix)
     print("sys.path:", sys.path)
-    print("LD_LIBRARY_PATH:", os.environ.get("LD_LIBRARY_PATH"))
+    for name in (
+        "LD_LIBRARY_PATH",
+        "PYTHONPATH",
+        "PYTHONHOME",
+        "PYTHONNOUSERSITE",
+        "CUDA_VISIBLE_DEVICES",
+        "CUDA_LAUNCH_BLOCKING",
+        "TRITON_CACHE_DIR",
+    ):
+        print(name + ":", os.environ.get(name))
     for name, module in (("torch", torch), ("triton", triton)):
         path = Path(module.__file__).resolve()
         print(name, "module version:", module.__version__)
@@ -100,7 +110,13 @@ def child_topk(args):
     print("PASS: exact selected index sets", flush=True)
 
 
-def diagnose():
+def pytest_collection_finish(session):
+    # Loaded only via pytest -p below. Observe the actual test process after
+    # conftest/collection imports; do not synchronize or change execution.
+    fingerprint("pytest collection finished")
+
+
+def diagnose(mode):
     root = Path(__file__).resolve().parents[1]
     report = Path(tempfile.mkdtemp(prefix="qsa-prefill-h800."))
     print("Reports:", report, flush=True)
@@ -114,14 +130,38 @@ def diagnose():
         PYTHONUNBUFFERED="1",
         DNN_VENDOR="nvidia",
         VLLM_PLUGINS="",
-        CUDA_LAUNCH_BLOCKING="1",
         QSA_REQUIRE_VLLM_REFERENCE="1",
     )
     probe = [sys.executable, str(Path(__file__).resolve())]
-    pytest = [sys.executable, "-m", "pytest", "-q", "-ra", "-x"]
+    pytest = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-q",
+        "-ra",
+        "-x",
+        "-p",
+        "tools.diagnose_qsa_prefill_h800",
+    ]
     tests = "tests/test_qsa_select_paged_prefill.py"
     jobs = [
         ("environment", probe + ["--child", "environment"]),
+        (
+            "environment-stdin-path",
+            [
+                sys.executable,
+                "-c",
+                "from tools.diagnose_qsa_prefill_h800 import child_environment; child_environment()",
+            ],
+        ),
+        (
+            "environment-runner-path",
+            [
+                sys.executable,
+                "-c",
+                "from tools.diagnose_qsa_prefill_h800 import child_environment; child_environment()",
+            ],
+        ),
         ("cooperative-topk", probe + ["--child", "topk"]),
         ("persistent-topk", probe + ["--child", "topk", "--op", "persistent_topk"]),
         ("cooperative-topk-with-gems", probe + ["--child", "topk", "--import-gems"]),
@@ -150,18 +190,73 @@ def diagnose():
                 str(report / "accuracy-first-vllm.json"),
             ],
         ),
+        (
+            "accuracy-combined-quick",
+            pytest + [tests, "--quick", "--record", "json"],
+        ),
     ]
     outcomes = []
-    for name, command in jobs:
+    modes = ("async", "sync") if mode == "matrix" else (mode,)
+    (report / "launch-environment.json").write_text(
+        json.dumps(
+            {
+                "mode": mode,
+                "python": sys.executable,
+                "inherited_python": os.environ.get("PYTHON"),
+                "inherited_pythonpath": os.environ.get("PYTHONPATH"),
+                "inherited_launch_blocking": os.environ.get("CUDA_LAUNCH_BLOCKING"),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    scheduled = []
+    for launch_mode in modes:
+        for name, command in jobs:
+            if (
+                mode == "matrix"
+                and launch_mode == "sync"
+                and name
+                not in (
+                    "environment",
+                    "environment-stdin-path",
+                    "environment-runner-path",
+                    "accuracy-combined-quick",
+                )
+            ):
+                continue  # Prior report already covered isolated sync checks.
+            command = list(command)
+            name = f"{launch_mode}-{name}"
+            if "--output" in command:
+                command[command.index("--output") + 1] = str(report / f"{name}.json")
+            elif "--record" in command:
+                command += ["--output", str(report / f"{name}.json")]
+            scheduled.append((launch_mode, name, command))
+    for launch_mode, name, command in scheduled:
+        if launch_mode == "sync":
+            env["CUDA_LAUNCH_BLOCKING"] = "1"
+        else:
+            env.pop("CUDA_LAUNCH_BLOCKING", None)
+        job_env = env.copy()
+        if name.endswith("environment-runner-path"):
+            inherited_path = os.environ.get("PYTHONPATH")
+            if inherited_path:
+                job_env["PYTHONPATH"] += ":" + inherited_path
         print("Running in fresh process:", name, flush=True)
         with (report / f"{name}.txt").open("w") as log:
-            log.write("command: " + repr(command) + "\nCUDA_LAUNCH_BLOCKING=1\n")
+            log.write(
+                "command: "
+                + repr(command)
+                + "\nCUDA_LAUNCH_BLOCKING="
+                + str(env.get("CUDA_LAUNCH_BLOCKING"))
+                + "\n"
+            )
             log.flush()
             try:
                 result = subprocess.run(
                     command,
                     cwd=root,
-                    env=env,
+                    env=job_env,
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     timeout=900,
@@ -184,6 +279,7 @@ def diagnose():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mode", choices=("sync", "async", "matrix"), default="sync")
     parser.add_argument(
         "--child", choices=("environment", "topk"), help=argparse.SUPPRESS
     )
@@ -205,7 +301,7 @@ def main():
     if args.child == "topk":
         child_topk(args)
         return 0
-    return diagnose()
+    return diagnose(args.mode)
 
 
 if __name__ == "__main__":
