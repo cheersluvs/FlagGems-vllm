@@ -222,9 +222,8 @@ than installing system packages. Both package and wheel are SHA256-pinned.
 NVIDIA's forward-compatibility matrix lists
 this package as compatible with the 570 driver family on data-center GPUs.
 It then checks CUDA extension symbols, BF16 matmul and Triton JIT before
-running the original pinned-reference runner. This setup has only been
-checked statically on the Mac; actual container installation and execution
-are pending. The downloaded compatibility package's SHA256, library paths
+running the original pinned-reference runner. Installation and preflight
+succeeded in the second H800 report below. The compatibility package's SHA256, library paths
 and symlinks were checked on the Mac; shell syntax and embedded Python compile.
 
 ```bash
@@ -239,6 +238,42 @@ FlagOS Python environment and host driver. Reusing the printed activation
 file selects the extracted compatibility libraries for subsequent QSA runs.
 Changing the environment changes the benchmark baseline; compare FlagGems
 and vLLM in the same new environment and record its version details.
+
+Report commit `31dfdec27c637d60db5c0fc9073945760237bda3` on
+`codex/qsa-h800-results-20261013-074711` records code commit
+`9395ef639d27bf90473b9623667f6ad9506079b6`. The official environment installed
+Torch 2.13.0+cu129, Triton 3.7.1 and vLLM 0.31.0+cu129. Extension-symbol,
+BF16 matmul and simple Triton JIT preflight checks passed. Quick accuracy
+reported **27 passed, 20 failed**. The first failure occurred while calling
+the pinned upstream reference's `cooperative_topk`: CUDA illegal instruction.
+Later cases failed during input preparation with the same CUDA error, so
+they do not establish independent numerical failures. CUDA launches were
+asynchronous; the reported call alone does not identify the failing kernel.
+The runner stopped at quick accuracy; full accuracy and benchmarks did not
+run. Preflight logged Triton 3.7.1, whereas the runner logged 3.6.0; the actual
+import paths and any version changes still need diagnosis.
+
+Reuse the printed environment activation file, then run:
+
+```bash
+"$PYTHON" tools/diagnose_qsa_prefill_h800.py
+```
+
+This diagnostic writes a new `/tmp/qsa-prefill-h800.*` report directory and
+runs each check in a fresh process with `CUDA_LAUNCH_BLOCKING=1`: import
+fingerprints and loaded CUDA driver libraries; direct official cooperative
+and persistent Top-K calls on `[32, 8192]`, K=512; cooperative Top-K after
+FlagGems import; full independent Torch comparisons; and the original first
+pinned-vLLM comparison. Direct Top-K checks use distinct nonnegative FP32
+scores and validate the selected index sets. Each check has a 900-second
+timeout, and remaining independent checks run after a failure. The final
+exit code is nonzero if any check fails. This is diagnostic evidence, not a
+performance run or a replacement for full official comparisons. It does
+not change upstream dispatch or any operator implementation.
+
+The normal runner now stops at the first accuracy failure to avoid noisy
+cascading CUDA errors. Its `torch-only` mode explicitly deselects official
+comparisons even when vLLM imports successfully.
 
 Official installation sources:
 - https://github.com/vllm-project/vllm/releases/tag/v0.31.0

@@ -82,13 +82,20 @@ else
   export QSA_REQUIRE_VLLM_REFERENCE=0
 fi
 
+qsa_accuracy_filter=()
+if [[ "$qsa_mode" == torch-only ]]; then
+  # Exclude official comparisons even when vLLM imports successfully: a broken
+  # CUDA baseline must not prevent independent FlagGems validation.
+  qsa_accuracy_filter=(-k 'not vllm')
+fi
 if [[ "$qsa_mode" == quick || "$qsa_mode" == all || "$qsa_mode" == torch-only ]]; then
-  "$qsa_python" -m pytest -q -ra tests/test_qsa_select_paged_prefill.py --quick \
+  "$qsa_python" -m pytest -q -ra -x tests/test_qsa_select_paged_prefill.py --quick \
+    "${qsa_accuracy_filter[@]}" \
     --record json --output "$qsa_report_dir/accuracy-quick.json" \
     2>&1 | tee "$qsa_report_dir/accuracy-quick.txt"
 fi
 if [[ "$qsa_mode" == full || "$qsa_mode" == all ]]; then
-  "$qsa_python" -m pytest -q -ra tests/test_qsa_select_paged_prefill.py \
+  "$qsa_python" -m pytest -q -ra -x tests/test_qsa_select_paged_prefill.py \
     --record json --output "$qsa_report_dir/accuracy-full.json" \
     2>&1 | tee "$qsa_report_dir/accuracy-full.txt"
 fi
