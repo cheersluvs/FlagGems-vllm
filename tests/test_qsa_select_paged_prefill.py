@@ -1,0 +1,270 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 FlagOS Contributors
+
+from importlib import import_module
+
+import pytest
+import torch
+import triton
+
+import flaggems_vllm
+
+from . import conftest as cfg
+from .qsa_select_prefill_utils import (
+    assert_selection,
+    make_inputs,
+    torch_logits,
+    vllm_reference,
+)
+
+op_module = import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
+op = flaggems_vllm.qsa_select_paged_prefill
+pytestmark = pytest.mark.qsa_select_paged_prefill
+
+
+@pytest.fixture
+def sm90():
+    if (
+        flaggems_vllm.vendor_name != "nvidia"
+        or not torch.cuda.is_available()
+        or torch.cuda.get_device_capability() != (9, 0)
+    ):
+        pytest.skip("NVIDIA SM90 accelerator required")
+    old = torch.backends.cuda.matmul.allow_tf32
+    torch.backends.cuda.matmul.allow_tf32 = False
+    yield
+    torch.backends.cuda.matmul.allow_tf32 = old
+
+
+CASES = [
+    ((1,), (17,), 512, 16, 0, False),
+    ((7, 0, 13), (1536, 17, 2048), 512, 16, 19, True),
+    ((33, 19), (1537, 4097), 1024, 64, 61, False),
+    ((17,), (4097,), 2048, 16, 0, False),
+]
+if not cfg.QUICK_MODE:
+    CASES += [
+        ((129, 67, 31), (8193, 4097, 1025), 512, 64, 97, True),
+        ((512,), (16385,), 1024, 16, 0, False),
+    ]
+
+
+@pytest.mark.parametrize("lengths,contexts,k,page_size,base,padded", CASES)
+@pytest.mark.parametrize("metadata_dtype", [torch.int32, torch.int64])
+def test_matches_torch(
+    sm90, lengths, contexts, k, page_size, base, padded, metadata_dtype
+):
+    args = list(
+        make_inputs(
+            lengths, contexts, k=k, page_size=page_size, query_base=base, padded=padded
+        )
+    )
+    args[2] = args[2].to(metadata_dtype)
+    args[3] = args[3].to(metadata_dtype)
+    reference = torch_logits(*args[:5])
+    pointer = args[8].data_ptr()
+    assert op(*args) is None
+    assert args[8].data_ptr() == pointer
+    assert_selection(reference, args[4], args[8])
+
+
+@pytest.mark.parametrize("page_size", [16, 64])
+def test_visible_counts_and_ties(sm90, page_size):
+    counts = [0, 1, 511, 512, 513, 1024, 1537]
+    args = make_inputs((len(counts),), (1537,), page_size=page_size, visible=counts)
+    args[0].zero_()  # Equal scores: valid unique selection matters, not tie order.
+    op(*args)
+    assert_selection(torch_logits(*args[:5]), args[4], args[8], rtol=0, atol=0)
+
+
+def test_relu_precedes_head_sum_and_score_is_unscaled(sm90):
+    args = make_inputs((5,), (1025,), visible=[0, 1, 512, 1024, 1025])
+    args[0].zero_()
+    args[1].zero_()
+    args[0][:, 0, 0] = 2
+    args[0][:, 1, 0] = -3
+    args[1][..., 0] = 1
+    scores = _scores(args, 0, 5)
+    mask = torch.arange(scores.shape[1], device="cuda")[None, :] < args[4][:, None]
+    torch.testing.assert_close(
+        scores[mask], torch.full_like(scores[mask], 2), rtol=0, atol=0
+    )
+
+
+def _scores(args, offset, count, workspace=None):
+    width = args[2].shape[1] * args[1].shape[1]
+    if workspace is None:
+        workspace = torch.full((count * width,), 12345.0, device="cuda")
+    return op_module._prefill_logits(
+        *args[:5], workspace, args[7], width, offset, count
+    )
+
+
+def test_every_autotune_candidate(sm90):
+    args = make_inputs((3, 0, 6), (1025, 16, 1537), query_base=97)
+    width = args[2].shape[1] * args[1].shape[1]
+    expected = torch_logits(*args[:5])
+    kernel = op_module._qsa_prefill_score_kernel
+    while not isinstance(kernel, triton.runtime.JITFunction):
+        kernel = kernel.fn
+    configs = flaggems_vllm.runtime.get_tuned_config("qsa_select_paged_prefill_score")
+    assert configs
+    for config in configs:
+        scores = torch.full((args[0].shape[0], width), 12345.0, device="cuda")
+        meta = config.kwargs
+        grid = (
+            args[2].shape[0],
+            triton.cdiv(args[7], meta["TILE_R"]),
+            triton.cdiv(width, meta["BLOCK_N"] * meta["K_TILES"]),
+        )
+        kernel[grid](
+            *args[:5],
+            scores,
+            args[0].stride(0),
+            args[0].stride(1),
+            args[1].stride(0),
+            args[1].stride(1),
+            args[2].stride(0),
+            args[2].stride(1),
+            args[0].shape[0],
+            0,
+            args[7],
+            width,
+            args[2].shape[0],
+            args[1].shape[0],
+            args[2].shape[1],
+            PAGE_SIZE=args[1].shape[1],
+            **meta,
+            num_warps=config.num_warps,
+            num_stages=config.num_stages,
+        )
+        mask = torch.arange(width, device="cuda")[None, :] < args[4][:, None]
+        torch.testing.assert_close(scores[mask], expected[mask], rtol=2e-4, atol=2e-3)
+
+
+def test_workspace_reuse_and_cross_request_chunks(sm90, monkeypatch):
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "1")
+    # width 8192 => 32 rows/chunk, splitting both requests and the last chunk.
+    args = make_inputs((39, 34), (4096, 8192), query_base=113)
+    expected = torch_logits(*args[:5])
+    op(*args)
+    assert_selection(expected, args[4], args[8])
+    # The same buffer may contain larger scores from an earlier request.
+    width = args[2].shape[1] * args[1].shape[1]
+    workspace = torch.full((32 * width,), 98765.0, device="cuda")
+    for offset in range(0, args[0].shape[0], 32):
+        count = min(32, args[0].shape[0] - offset)
+        scores = _scores(args, offset, count, workspace)
+        mask = (
+            torch.arange(width, device="cuda")[None, :]
+            < args[4][offset : offset + count, None]
+        )
+        torch.testing.assert_close(
+            scores[mask], expected[offset : offset + count][mask], rtol=2e-4, atol=2e-3
+        )
+
+
+def test_empty_and_select_all_do_not_launch_score(sm90, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError(
+            "score/Top-K must not run for an empty or select-all batch"
+        )
+
+    monkeypatch.setattr(op_module, "_prefill_logits", forbidden)
+    monkeypatch.setattr(op_module, "top_k_per_row_prefill", forbidden)
+    empty = make_inputs((0,), (17,))
+    assert op(*empty) is None
+    args = make_inputs((5,), (17,), visible=[0, 1, 3, 16, 17])
+    op(*args)
+    for row, count in enumerate([0, 1, 3, 16, 17]):
+        torch.testing.assert_close(
+            args[8][row, :count], torch.arange(count, device="cuda", dtype=torch.int32)
+        )
+        assert (args[8][row, count:] == -1).all()
+
+
+@pytest.mark.parametrize("bad_budget", ["0", "-1", "invalid"])
+def test_bad_workspace_budget(sm90, monkeypatch, bad_budget):
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", bad_budget)
+    with pytest.raises(ValueError, match="VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"):
+        op(*make_inputs((1,), (1025,)))
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "dtype",
+        "heads",
+        "dim_stride",
+        "output_stride",
+        "visible_dtype",
+        "ratio",
+        "k",
+        "grad",
+        "overlap",
+    ],
+)
+def test_invalid_contract(sm90, case):
+    args = list(make_inputs((8,), (1025,)))
+    error = NotImplementedError
+    if case == "dtype":
+        args[0] = args[0].float()
+    elif case == "heads":
+        args[0] = args[0][:, :2]
+    elif case == "dim_stride":
+        args[0] = torch.empty((8, 4, 256), device="cuda", dtype=torch.bfloat16)[
+            ..., ::2
+        ]
+    elif case == "output_stride":
+        args[8] = torch.empty((8, 1024), device="cuda", dtype=torch.int32)[:, ::2]
+    elif case == "visible_dtype":
+        args[4] = args[4].long()
+        error = ValueError
+    elif case == "ratio":
+        args[6] = 0
+        error = ValueError
+    elif case == "k":
+        args[5] = 256 * args[6]
+    elif case == "grad":
+        args[0].requires_grad_(True)
+    elif case == "overlap":
+        args[4] = args[8].view(-1)[:8]
+        error = ValueError
+    with pytest.raises(error):
+        op(*args)
+
+
+def test_cpu_is_explicitly_unsupported():
+    with pytest.raises(NotImplementedError, match="NVIDIA CUDA SM90"):
+        op(*make_inputs((1,), (17,), device="cpu"))
+
+
+def test_top_level_export():
+    assert op is op_module.qsa_select_paged_prefill
+    assert "qsa_select_paged_prefill" not in dict(flaggems_vllm._FULL_CONFIG)
+
+
+def test_against_pinned_vllm(sm90, monkeypatch):
+    reference = vllm_reference()
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "1")
+    # Also handle a vLLM build that has already cached its environment registry.
+    monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 1)
+    args = make_inputs((39, 34), (4096, 8192), query_base=113)
+    expected = torch_logits(*args[:5])
+    vllm_output = torch.empty_like(args[8])
+    vllm_args = list(args)
+    vllm_args[8] = vllm_output
+    reference.qsa_select_paged_prefill(*vllm_args)
+    op(*args)
+    assert_selection(expected, args[4], vllm_output)
+    assert_selection(expected, args[4], args[8])
+
+
+def test_noncurrent_cuda_device(sm90):
+    if torch.cuda.device_count() < 2 or torch.cuda.get_device_capability(1) != (9, 0):
+        pytest.skip("a second SM90 device is needed for device-guard validation")
+    previous = torch.cuda.current_device()
+    args = make_inputs((5,), (1025,), device="cuda:1")
+    op(*args)
+    assert torch.cuda.current_device() == previous
+    assert_selection(torch_logits(*args[:5]), args[4], args[8])

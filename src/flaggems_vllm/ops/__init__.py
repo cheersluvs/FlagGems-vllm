@@ -120,6 +120,7 @@ from flaggems_vllm.ops.per_token_group_quant_fp8 import (
 )
 from flaggems_vllm.ops.permute_copy import permute_copy
 from flaggems_vllm.ops.persistent_topk import persistent_topk
+from flaggems_vllm.ops.qsa_select_paged_prefill import qsa_select_paged_prefill
 from flaggems_vllm.ops.reglu import dreglu, reglu
 from flaggems_vllm.ops.reshape_and_cache import reshape_and_cache
 from flaggems_vllm.ops.reshape_and_cache_flash import reshape_and_cache_flash
@@ -227,6 +228,7 @@ __all__ = [
     "per_token_group_quant_fp8",
     "permute_copy",
     "persistent_topk",
+    "qsa_select_paged_prefill",
     "qwen4_compress_norm_mrope_store_groups",
     "qwen4_grouped_gemma_rmsnorm",
     "qwen4_hc_gate_reduce",
