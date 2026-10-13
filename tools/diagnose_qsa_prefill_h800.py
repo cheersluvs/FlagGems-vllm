@@ -21,6 +21,15 @@ def fingerprint(stage):
     print("python:", sys.executable)
     print("prefix:", sys.prefix)
     print("sys.path:", sys.path)
+    runtime = os.environ.get("QSA_TRITON_RUNTIME_PATH")
+    print("explicit TLE runtime:", runtime)
+    if runtime:
+        assert Path(triton.__file__).resolve().is_relative_to(Path(runtime).resolve())
+    elif os.environ.get("QSA_DIAGNOSTIC_STOCK_RUNTIME") == "1":
+        assert (
+            Path(triton.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+        )
+        assert triton.__version__ == importlib.metadata.version("triton")
     for name in (
         "LD_LIBRARY_PATH",
         "PYTHONPATH",
@@ -110,6 +119,64 @@ def child_topk(args):
     print("PASS: exact selected index sets", flush=True)
 
 
+def child_qsa(args):
+    import torch
+
+    from tests.qsa_select_prefill_utils import (
+        assert_selection,
+        make_inputs,
+        torch_logits,
+        vllm_reference,
+    )
+
+    fingerprint("QSA before launches")
+    # Reproduce the first failed native comparison: 1 MiB gives 32/32/9 rows.
+    os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = "1"
+    reference = vllm_reference()
+    source = Path(reference.__file__)
+    print("pinned upstream source:", source, flush=True)
+    print(
+        "pinned upstream SHA256:",
+        hashlib.sha256(source.read_bytes()).hexdigest(),
+        flush=True,
+    )
+    reference.envs.VLLM_SPARSE_INDEXER_MAX_LOGITS_MB = 1
+    inputs = make_inputs((39, 34), (4096, 8192), query_base=113)
+    expected = torch_logits(*inputs[:5])
+    torch.cuda.synchronize()
+    print("input and Torch reference synchronized", flush=True)
+    if args.warm_gems:
+        import flaggems_vllm
+
+        print("launch FlagGems QSA before upstream", flush=True)
+        flaggems_vllm.qsa_select_paged_prefill(*inputs)
+        torch.cuda.synchronize()
+        assert_selection(expected, inputs[4], inputs[8])
+        print("FlagGems QSA synchronized and validated", flush=True)
+
+    original_topk = reference._topk
+    chunk = 0
+
+    def synchronized_topk(*topk_args, **kwargs):
+        nonlocal chunk
+        print("upstream chunk:", chunk, "score synchronization begins", flush=True)
+        torch.cuda.synchronize()
+        print("upstream score synchronized; native Top-K begins", flush=True)
+        original_topk(*topk_args, **kwargs)
+        torch.cuda.synchronize()
+        print("upstream native Top-K synchronized", flush=True)
+        chunk += 1
+
+    # Add observation boundaries only in this diagnostic process; dispatch,
+    # kernels and the hash-pinned source remain unchanged. Never time this run.
+    reference._topk = synchronized_topk
+    print("launch upstream QSA", flush=True)
+    reference.qsa_select_paged_prefill(*inputs)
+    torch.cuda.synchronize()
+    assert_selection(expected, inputs[4], inputs[8])
+    print("PASS: upstream QSA synchronized and validated", flush=True)
+
+
 def pytest_collection_finish(session):
     # Loaded only via pytest -p below. Observe the actual test process after
     # conftest/collection imports; do not synchronize or change execution.
@@ -131,7 +198,15 @@ def diagnose(mode):
         DNN_VENDOR="nvidia",
         VLLM_PLUGINS="",
         QSA_REQUIRE_VLLM_REFERENCE="1",
+        PYTHONNOUSERSITE="1",
     )
+    env.pop("PYTHONHOME", None)
+    runtime = os.environ.get("QSA_TRITON_RUNTIME_PATH")
+    if runtime:
+        runtime = str(Path(runtime).resolve())
+        if not Path(runtime, "triton").is_dir():
+            raise ValueError("QSA_TRITON_RUNTIME_PATH must contain triton/")
+        env["PYTHONPATH"] += ":" + runtime
     probe = [sys.executable, str(Path(__file__).resolve())]
     pytest = [
         sys.executable,
@@ -195,8 +270,37 @@ def diagnose(mode):
             pytest + [tests, "--quick", "--record", "json"],
         ),
     ]
+    if mode == "tle":
+        if not runtime:
+            raise ValueError("--mode tle needs explicit QSA_TRITON_RUNTIME_PATH")
+        jobs = [
+            ("stock-cooperative-topk", probe + ["--child", "topk"]),
+            ("stock-upstream-qsa", probe + ["--child", "qsa"]),
+            ("tle-cooperative-topk", probe + ["--child", "topk"]),
+            (
+                "tle-persistent-topk-native",
+                probe + ["--child", "topk", "--op", "persistent_topk"],
+            ),
+            ("tle-upstream-qsa", probe + ["--child", "qsa"]),
+            (
+                "tle-gems-then-upstream-qsa",
+                probe + ["--child", "qsa", "--warm-gems"],
+            ),
+            (
+                "tle-combined-first-vllm",
+                pytest
+                + [
+                    tests,
+                    "-k",
+                    "not upstream and not dim8 and not noncurrent",
+                    "--quick",
+                ],
+            ),
+        ]
     outcomes = []
-    modes = ("async", "sync") if mode == "matrix" else (mode,)
+    modes = (
+        ("async", "sync") if mode == "matrix" else ("async" if mode == "tle" else mode,)
+    )
     (report / "launch-environment.json").write_text(
         json.dumps(
             {
@@ -205,6 +309,7 @@ def diagnose(mode):
                 "inherited_python": os.environ.get("PYTHON"),
                 "inherited_pythonpath": os.environ.get("PYTHONPATH"),
                 "inherited_launch_blocking": os.environ.get("CUDA_LAUNCH_BLOCKING"),
+                "explicit_tle_runtime": runtime,
             },
             indent=2,
         )
@@ -238,6 +343,10 @@ def diagnose(mode):
         else:
             env.pop("CUDA_LAUNCH_BLOCKING", None)
         job_env = env.copy()
+        if "-stock-" in name:
+            job_env["PYTHONPATH"] = f"{root / 'src'}:{root}"
+            job_env.pop("QSA_TRITON_RUNTIME_PATH", None)
+            job_env["QSA_DIAGNOSTIC_STOCK_RUNTIME"] = "1"
         if name.endswith("environment-runner-path"):
             inherited_path = os.environ.get("PYTHONPATH")
             if inherited_path:
@@ -249,6 +358,8 @@ def diagnose(mode):
                 + repr(command)
                 + "\nCUDA_LAUNCH_BLOCKING="
                 + str(env.get("CUDA_LAUNCH_BLOCKING"))
+                + "\nPYTHONPATH="
+                + job_env["PYTHONPATH"]
                 + "\n"
             )
             log.flush()
@@ -279,9 +390,11 @@ def diagnose(mode):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("sync", "async", "matrix"), default="sync")
     parser.add_argument(
-        "--child", choices=("environment", "topk"), help=argparse.SUPPRESS
+        "--mode", choices=("sync", "async", "matrix", "tle"), default="sync"
+    )
+    parser.add_argument(
+        "--child", choices=("environment", "topk", "qsa"), help=argparse.SUPPRESS
     )
     parser.add_argument(
         "--op",
@@ -292,6 +405,7 @@ def main():
     parser.add_argument("--cols", type=int, default=8192)
     parser.add_argument("--topk", type=int, choices=(512, 1024, 2048), default=512)
     parser.add_argument("--import-gems", action="store_true")
+    parser.add_argument("--warm-gems", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.cols < args.topk or args.cols % 4 or not 1 <= args.rows <= 64:
         parser.error("require cols >= K, cols divisible by 4, and 1 <= rows <= 64")
@@ -300,6 +414,9 @@ def main():
         return 0
     if args.child == "topk":
         child_topk(args)
+        return 0
+    if args.child == "qsa":
+        child_qsa(args)
         return 0
     return diagnose(args.mode)
 

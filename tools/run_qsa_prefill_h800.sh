@@ -10,9 +10,13 @@ cd "$qsa_repo_dir"
 qsa_python=${PYTHON:-python}
 qsa_mode=${1:-all}
 case "$qsa_mode" in
-  quick|full|bench|all|full-bench|torch-only) ;;
-  *) echo "Usage: $0 [quick|full|bench|all|full-bench|torch-only]" >&2; exit 2 ;;
+  quick|full|bench|all|full-bench|torch-only|torch-bench) ;;
+  *) echo "Usage: $0 [quick|full|bench|all|full-bench|torch-only|torch-bench]" >&2; exit 2 ;;
 esac
+qsa_independent=0
+if [[ "$qsa_mode" == torch-only || "$qsa_mode" == torch-bench ]]; then
+  qsa_independent=1
+fi
 
 # A container's Bash startup can reinsert /opt/flagtree even when the caller
 # unsets PYTHONPATH. Freeze paths here, after startup, just like the diagnostic
@@ -34,6 +38,17 @@ export VLLM_SPARSE_INDEXER_MAX_LOGITS_MB=${VLLM_SPARSE_INDEXER_MAX_LOGITS_MB:-51
 
 qsa_report_dir=$(mktemp -d "${TMPDIR:-/tmp}/qsa-prefill-h800.XXXXXX")
 echo "Reports: $qsa_report_dir"
+{
+  echo "mode: $qsa_mode"
+  if [[ "$qsa_independent" == 1 ]]; then
+    echo "selection: not vllm"
+    echo "baselines: independent Torch and old FlagGems prefill Top-K"
+    echo "Official vLLM comparisons are excluded; this does not establish vLLM alignment."
+  else
+    echo "selection: all"
+    echo "baselines: pinned vLLM, independent Torch and old FlagGems prefill Top-K"
+  fi
+} | tee "$qsa_report_dir/selection.txt"
 git rev-parse HEAD | tee "$qsa_report_dir/commit.txt"
 git status --short -- src/flaggems_vllm/ops/qsa_select_paged_prefill.py \
   src/flaggems_vllm/ops/persistent_topk.py \
@@ -85,7 +100,7 @@ try:
     print("vllm:", importlib.metadata.version("vllm"))
 except importlib.metadata.PackageNotFoundError:
     print("vllm: not installed")
-if sys.argv[1] != "torch-only":
+if sys.argv[1] not in ("torch-only", "torch-bench"):
     for name, module in (("torch", torch), ("triton", triton)):
         source = Path(module.__file__).resolve()
         runtime_path = os.environ.get("QSA_TRITON_RUNTIME_PATH")
@@ -124,7 +139,7 @@ PY
 "$qsa_python" tools/check_qsa_tle_h800.py \
   2>&1 | tee "$qsa_report_dir/tle-preflight.txt"
 
-if [[ "$qsa_mode" != torch-only ]]; then
+if [[ "$qsa_independent" == 0 ]]; then
   export QSA_REQUIRE_VLLM_REFERENCE=1
   qsa_ref_commit=7a877ae34dcf4a7d46de08eb16db4699e1e0047c
   qsa_ref_file="$qsa_report_dir/qsa_indexer_vllm.py"
@@ -148,7 +163,7 @@ else
 fi
 
 qsa_accuracy_filter=()
-if [[ "$qsa_mode" == torch-only ]]; then
+if [[ "$qsa_independent" == 1 ]]; then
   # Exclude official comparisons even when vLLM imports successfully: a broken
   # CUDA baseline must not prevent independent FlagGems validation.
   qsa_accuracy_filter=(-k 'not vllm')
@@ -159,13 +174,15 @@ if [[ "$qsa_mode" == quick || "$qsa_mode" == all || "$qsa_mode" == torch-only ]]
     --record json --output "$qsa_report_dir/accuracy-quick.json" \
     2>&1 | tee "$qsa_report_dir/accuracy-quick.txt"
 fi
-if [[ "$qsa_mode" == full || "$qsa_mode" == all || "$qsa_mode" == full-bench ]]; then
+if [[ "$qsa_mode" == full || "$qsa_mode" == all || "$qsa_mode" == full-bench || "$qsa_mode" == torch-bench ]]; then
   "$qsa_python" -m pytest -q -ra -x tests/test_qsa_select_paged_prefill.py \
+    "${qsa_accuracy_filter[@]}" \
     --record json --output "$qsa_report_dir/accuracy-full.json" \
     2>&1 | tee "$qsa_report_dir/accuracy-full.txt"
 fi
-if [[ "$qsa_mode" == bench || "$qsa_mode" == all || "$qsa_mode" == full-bench ]]; then
+if [[ "$qsa_mode" == bench || "$qsa_mode" == all || "$qsa_mode" == full-bench || "$qsa_mode" == torch-bench ]]; then
   "$qsa_python" -m pytest -q -s benchmark/test_qsa_select_paged_prefill_perf.py \
+    "${qsa_accuracy_filter[@]}" \
     --level core --mode operator --warmup 100 --iter 500 \
     --record json --output "$qsa_report_dir/benchmark-core.json" \
     2>&1 | tee "$qsa_report_dir/benchmark-core.txt"

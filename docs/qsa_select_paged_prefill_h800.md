@@ -446,3 +446,45 @@ width bound/K and unchanged empty/select-all paths; no GPU kernel ran on Mac.
 Persistent selection kernels, score kernels and tune candidates are unchanged.
 The only persistent implementation changes are an explicit TLE error and a
 fixed Triton scratch zero fill replacing the old Torch slice assignment.
+
+## TLE trial: isolate native baseline failures
+
+The supplied log for code `2701be8` reports successful TLE readiness probes
+(rows 1/33, workspace reused twice), followed by **38 passed / 1 failed** in
+full accuracy. The failure is reported at native vLLM `cooperative_topk` under
+explicit FlagTree 0.6.1 / Triton 3.6.0. An asynchronous score-kernel failure
+can also surface at this launch. The full suite stopped before benchmarks;
+this log does not establish complete QSA alignment or performance.
+
+Use the same Python and CUDA compatibility-library environment as that run:
+
+```bash
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  "$PYTHON" tools/diagnose_qsa_prefill_h800.py --mode tle
+```
+
+Seven fresh processes compare stock Triton with explicit TLE: pure native
+cooperative Top-K, upstream QSA, native persistent Top-K under TLE, upstream
+QSA after a validated FlagGems QSA call, and the preceding quick tests plus
+the first native comparison. The upstream QSA probes synchronize before and
+after each original `_topk` call, recording whether the score stage or native
+selection first fails. No native dispatch is replaced. Diagnostic failures
+are recorded and later jobs continue; the final exit code is nonzero if any
+job fails. These synchronized probes must not be used as performance data.
+The old diagnostic modes now also preserve an explicitly selected TLE path.
+
+For independent full correctness followed by performance in the TLE runtime:
+
+```bash
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  bash tools/run_qsa_prefill_h800.sh torch-bench
+```
+
+This mode explicitly selects `not vllm` for both suites and records that
+selection in `selection.txt`. It retains the independent upstream fixtures,
+BF16/FP8, D=8/128 and chunking tests, and only proceeds to timing if they pass.
+It collects full-operator versus Torch and persistent versus old FlagGems
+prefill Top-K measurements in the same runtime. These results do not provide
+a speedup against vLLM or a passed native-comparison gate. `full-bench` retains
+all native comparisons and still stops on failure. No production kernel,
+selection algorithm, tune candidate or pinned reference changed in this fix.
