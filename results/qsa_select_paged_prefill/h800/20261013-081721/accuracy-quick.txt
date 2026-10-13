@@ -1,0 +1,52 @@
+...........................F
+=================================== FAILURES ===================================
+___________________________ test_against_pinned_vllm ___________________________
+
+sm90 = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fe0842def00>
+
+    def test_against_pinned_vllm(sm90, monkeypatch):
+        reference = vllm_reference()
+        monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "1")
+        # Also handle a vLLM build that has already cached its environment registry.
+        monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 1)
+        args = make_inputs((39, 34), (4096, 8192), query_base=113)
+        expected = torch_logits(*args[:5])
+        vllm_output = torch.empty_like(args[8])
+        vllm_args = list(args)
+        vllm_args[8] = vllm_output
+>       reference.qsa_select_paged_prefill(*vllm_args)
+
+tests/test_qsa_select_paged_prefill.py:259: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../qsa-prefill-h800.bxEu7l/qsa_indexer_vllm.py:644: in qsa_select_paged_prefill
+    _topk(
+../qsa-prefill-h800.bxEu7l/qsa_indexer_vllm.py:497: in _topk
+    topk_op(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <OpOverloadPacket(op='_C.cooperative_topk')>
+args = (<[AcceleratorError("CUDA error: an illegal instruction was encountered\nSearch for `cudaErrorIllegalInstruction' in h...or debugging consider passing CUDA_LAUNCH_BLOCKING=1\n") raised in repr()] Tensor object at 0x7fe031289810>, 512, 8192)
+kwargs = {}
+
+    def __call__(self, /, *args: _P.args, **kwargs: _P.kwargs) -> _T:
+        # overloading __call__ to ensure torch.ops.foo.bar()
+        # is still callable from JIT
+        # We save the function ptr as the `op` attribute on
+        # OpOverloadPacket to access it here.
+    
+        # Directly calling OverloadPacket goes into C++, which will check
+        # the schema and cause an error for torchbind op when inputs consist of FakeScriptObject so we
+        # intercept it here and call TorchBindOpverload instead.
+        if self._has_torchbind_op_overload and _must_dispatch_in_python(args, kwargs):
+            # pyrefly: ignore [bad-argument-type]
+            return _call_overload_packet_from_python(self, *args, **kwargs)
+>       return self._op(*args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       RuntimeError: launch_cooperative_cluster, /workspace/csrc/libtorch_stable/cooperative_topk.cu:48, cooperative_topk launch failed: an illegal instruction was encountered
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_ops.py:1279: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/test_qsa_select_paged_prefill.py::test_against_pinned_vllm - Run...
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 27 passed in 4.38s
