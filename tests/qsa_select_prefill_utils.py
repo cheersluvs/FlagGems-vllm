@@ -5,6 +5,7 @@
 
 import hashlib
 import importlib.util
+import json
 import os
 import sys
 from importlib import import_module
@@ -325,6 +326,14 @@ def assert_upstream_selection(logits, visible, output, *, dtype, head_dim=128):
 def vllm_reference():
     """Load only the pinned upstream file; never silently relabel a baseline."""
     path = os.environ.get("QSA_VLLM_REFERENCE_FILE")
+    if os.environ.get("QSA_NATIVE_REFERENCE_PYTHON"):
+        if not path:
+            raise RuntimeError(
+                "Isolated native comparisons require the pinned source file"
+            )
+        from tests.qsa_native_reference import NativePrefillReference
+
+        return NativePrefillReference(path, REFERENCE_SHA256)
     try:
         if path:
             source_path = Path(path)
@@ -354,3 +363,35 @@ def vllm_reference():
             pytest.fail(message)
         pytest.skip(message)
     return module
+
+
+def assert_native_selection(logits, visible, actual, native, *, dtype, head_dim):
+    """Direct comparison under the existing score/tie tolerance contract.
+
+    Strict BF16 upstream index comparisons remain in their original tests.
+    Synthetic ties may choose different equivalent indices; compare their
+    selected score multisets directly, including valid counts and -1 padding.
+    """
+    from tests.qsa_native_reference import record_native_outputs
+
+    case = record_native_outputs(actual, native)
+    for row, length in enumerate(visible.cpu().tolist()):
+        count = min(length, actual.shape[1])
+        a = actual[row][actual[row] >= 0].long()
+        b = native[row][native[row] >= 0].long()
+        assert a.numel() == b.numel() == count
+        assert (actual[row] == -1).sum() == (native[row] == -1).sum()
+        scores = logits[row]
+        if dtype == torch.float8_e4m3fn:
+            scores = scores / head_dim**0.5
+        torch.testing.assert_close(
+            scores[a].sort().values,
+            scores[b].sort().values,
+            rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
+            atol=1e-3 if dtype == torch.float8_e4m3fn else 2e-3,
+        )
+    if case is not None:
+        path = case / "alignment.json"
+        metadata = json.loads(path.read_text())
+        metadata["selected_value_check"] = "passed"
+        path.write_text(json.dumps(metadata, indent=2) + "\n")

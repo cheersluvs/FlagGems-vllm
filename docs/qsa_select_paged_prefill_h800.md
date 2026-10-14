@@ -1,5 +1,33 @@
 # QSA paged prefill: H800 implementation and validation
 
+## Native-vLLM direct alignment (before editing, 2026-10-14)
+
+| Project field | Frozen choice |
+| --- | --- |
+| Evidence | Code 2cc74c9 passed 105 independent H800 cases in report 8e68728; 22 native comparisons excluded. Native cooperative Top-K had failed in the shared TLE process; no stage diagnostic report was returned |
+| Editable | Validation-only subprocess adapter/worker, native comparisons, card runner, this guide |
+| Read-only | Production QSA/Top-K kernels, six score candidates, original input builders/references/tolerances, hash-pinned vLLM implementation |
+| Build/validation | Python-only. Add native-align mode: same full suite with no exclusions; native preflight before tests. Mac static/orchestration tests; H800 execution required |
+| Runtime | Existing Python venv: stock Triton for native child processes; explicit FlagTree/TLE for FlagGems tests. Preserve CUDA compatibility libs and selected GPU. No package install or upstream dispatch replacement |
+| Scope/timeout | Functional comparison only, no timing through IPC. Each native case runs fresh with a 300 s timeout; failures are hard failures with logs, never Torch substitution or skip |
+| Benchmark/autotune | No production/benchmark/autotune changes. Separate-process results establish functional agreement, not shared-process compatibility or kernel performance |
+
+| Contract field | Choice |
+| --- | --- |
+| Same inputs | Transfer actual tensor values, dtypes, shapes and strides plus scalar arguments, compression/budget/device. Reconstruct tensors on the same GPU; compare supplied-buffer output against original native output |
+| Native source | SHA256-pinned file; original qsa_select_paged_prefill and CUDA cooperative/persistent dispatch. Stock Torch/Triton must import from selected prefix and match metadata |
+| Comparison | Preserve all original independent and strict upstream BF16/FP8 checks. Add direct selected-score multiset comparison for synthetic cases using the same tolerances; exact BF16 upstream index sets and -1 padding remain mandatory |
+| Coverage | Existing 22 native cases plus BF16/FP8 x (rows=1,K=1024/2048 and rows=65,K=512/1024/2048); native both <=64 cooperative and >64 persistent branches |
+| Failure behavior | Input/source/runtime mismatch, timeout, native error or output mismatch fails the suite. Save per-case input/output, fingerprint, manifest and log under the single Reports directory |
+| No Torch compute | Production unchanged; CPU/GPU serialization, copies and references belong only to validation helpers |
+
+| Path | Change | Evidence required |
+| --- | --- | --- |
+| Native subprocess | Explicit opt-in adapter under native-align; no vLLM import in the TLE pytest process | Native actual source/version/hash, original CUDA ops, serialized input identity and native output |
+| Existing native comparisons | Run original 22 cases; add explicit direct value comparisons where tests previously only checked each against Torch | Original exact upstream fixtures/tolerances preserved |
+| Additional native coverage | K sweep and 65-row batches | Both native Top-K dispatch regimes, BF16/FP8 |
+| Shared-process mode | Retain existing full/full-bench behavior | Existing compatibility diagnostic remains separate; no claim of resolving that fault |
+
 ## Parameterized heads and dimensions (before editing, 2026-10-14)
 
 | Project field | Frozen choice |
@@ -540,3 +568,54 @@ Static collection counts: full 127 cases (105 independent / 22 native vLLM),
 quick 99 (77 independent / 22 native). The core benchmark adds eight rows each
 to separate Torch/vLLM parameterized groups; torch-bench selects six tests and
 29 measurements. Existing upstream fixtures and all their checks are unchanged.
+
+## Run native direct alignment
+
+Use the existing official vLLM 0.31.0 Python/CUDA compatibility environment:
+
+```bash
+source /tmp/qsa-vllm031-h800.PQnVpV/activate_qsa.sh
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  bash tools/run_qsa_prefill_h800.sh native-align
+```
+
+`QSA_NATIVE_REFERENCE_PYTHON` optionally selects another existing official
+Python; otherwise the runner uses the same interpreter with a clean import
+path for each native child. It does not install packages. The worker validates
+actual Torch/Triton source paths/versions, SM90, native extension location,
+vLLM version and the unchanged QSA source hash, and rejects a TLE override or
+recursive adapter. A native cooperative Top-K preflight runs before pytest.
+
+The mode runs all **139 full cases**, including **34 native comparison
+cases** and the 105 independently validated cases. The native cases require
+36 reference executions because each empty/select-all test contains two calls.
+Coverage includes the previous 22 cases, ten dtype/K/batch-routing cases, and
+two empty/select-all cases. One failed child does not stop later comparisons;
+any failure still yields a nonzero exit status. Native compiler/resource limits
+are reported as failures, not skipped or hidden by changing upstream tiling.
+
+Both runtime fingerprints and original native outputs are saved per case.
+The adapter transfers actual tensor values/shape/stride/dtype and scalar
+arguments rather than regenerating inputs from a seed. The native child uses
+CUDA_LAUNCH_BLOCKING=1 for accuracy/error localization; the FlagGems process
+retains its normal launch mode. Production kernels/configuration are unchanged.
+Strict upstream BF16 sorted-index equality and FP8 score tolerances remain.
+Additional direct score comparisons use the existing tolerance/tie contract.
+The adapter explicitly rejects benchmark use, and native-align performs no
+benchmark. This run establishes functional agreement only; shared-process
+TLE/native compatibility and performance comparison remain separate work.
+
+Return the whole printed Reports directory, including `native/`: per-case
+`input.pt`, `output.pt`, `gems-output.pt`, native fingerprint/log, input manifest
+and alignment metadata. `native-summary.json` at the top level aggregates
+fingerprints, log tails, comparison results and whether sorted indices match;
+it distinguishes completed native executions from passed pytest comparisons.
+The summary is written on failure as well, preserving the original exit code.
+
+Local syntax/style and orchestration checks passed: real adapter/worker code
+under mocked Torch/CUDA preserves values/strides/device/budget and checks all
+hashes; native errors/timeouts/mismatches fail; benchmark misuse is rejected;
+runner selects every case, saves summaries on success/failure and performs no
+IPC timing. Existing input builders/reference functions/tolerances and all
+production operator files are unchanged. No GPU ran on Mac; H800 results for
+this native mode are pending.

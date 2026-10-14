@@ -11,6 +11,7 @@ import flaggems_vllm
 
 from . import conftest as cfg
 from .qsa_select_prefill_utils import (
+    assert_native_selection,
     assert_selection,
     assert_upstream_selection,
     make_inputs,
@@ -187,6 +188,72 @@ def test_parameterized_against_vllm(sm90, num_heads, head_dim, dtype):
             )
         else:
             assert_selection(expected, args[4], output)
+    assert_native_selection(
+        expected, args[4], args[8], native_args[8], dtype=dtype, head_dim=head_dim
+    )
+
+
+@pytest.mark.parametrize(
+    "rows,context,k",
+    [
+        (1, 4096, 1024),
+        (1, 8192, 2048),
+        (65, 8192, 512),
+        (65, 8192, 1024),
+        (65, 8192, 2048),
+    ],
+)
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+def test_native_vllm_topk_dispatch(sm90, monkeypatch, rows, context, k, dtype):
+    # One unsplit chunk: <=64 rows uses native cooperative_topk; 65 rows
+    # uses native persistent_topk, with both additional supported K values.
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "512")
+    reference = vllm_reference()
+    monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 512)
+    args = make_inputs((rows,), (context,), k=k, dtype=dtype, query_base=53)
+    expected = torch_logits(*args[:5])
+    native_args = list(args)
+    native_args[8] = torch.empty_like(args[8])
+    reference.qsa_select_paged_prefill(*native_args)
+    op(*args)
+    for output in (native_args[8], args[8]):
+        if dtype == torch.float8_e4m3fn:
+            assert_upstream_selection(expected, args[4], output, dtype=dtype)
+        else:
+            assert_selection(expected, args[4], output)
+    assert_native_selection(
+        expected, args[4], args[8], native_args[8], dtype=dtype, head_dim=128
+    )
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+def test_native_vllm_empty_and_select_all(sm90, dtype):
+    reference = vllm_reference()
+    empty = make_inputs((0,), (17,), dtype=dtype, num_heads=3, head_dim=64)
+    assert reference.qsa_select_paged_prefill(*empty) is None
+    assert op(*empty) is None
+    assert empty[8].numel() == 0
+    assert_native_selection(
+        torch_logits(*empty[:5]), empty[4], empty[8], empty[8], dtype=dtype, head_dim=64
+    )
+    args = make_inputs(
+        (5,), (17,), visible=[0, 1, 3, 16, 17], dtype=dtype, num_heads=3, head_dim=64
+    )
+    native_args = list(args)
+    native_args[8] = torch.empty_like(args[8])
+    reference.qsa_select_paged_prefill(*native_args)
+    op(*args)
+    torch.testing.assert_close(
+        args[8].sort().values, native_args[8].sort().values, rtol=0, atol=0
+    )
+    assert_native_selection(
+        torch_logits(*args[:5]),
+        args[4],
+        args[8],
+        native_args[8],
+        dtype=dtype,
+        head_dim=64,
+    )
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
@@ -418,6 +485,14 @@ def test_against_pinned_vllm(sm90, monkeypatch):
     op(*args)
     assert_selection(expected, args[4], vllm_output)
     assert_selection(expected, args[4], args[8])
+    assert_native_selection(
+        expected,
+        args[4],
+        args[8],
+        vllm_output,
+        dtype=args[0].dtype,
+        head_dim=args[0].shape[2],
+    )
 
 
 @pytest.mark.parametrize("seq_len_slack", [0, 1792])
@@ -480,6 +555,9 @@ def test_upstream_prefill_against_vllm(
     baseline_args[8] = torch.empty_like(args[8])
     reference.qsa_select_paged_prefill(*baseline_args)
     op(*args)
+    assert_native_selection(
+        expected, args[4], args[8], baseline_args[8], dtype=dtype, head_dim=128
+    )
     assert_upstream_selection(expected, args[4], baseline_args[8], dtype=dtype)
     assert_upstream_selection(expected, args[4], args[8], dtype=dtype)
     if dtype == torch.bfloat16:
@@ -500,6 +578,14 @@ def test_upstream_split_prefill(sm90, decode_query_len, compare_vllm):
         baseline_args = list(args)
         baseline_args[8] = torch.empty_like(args[8])
         reference.qsa_select_paged_prefill(*baseline_args)
+        assert_native_selection(
+            expected,
+            args[4],
+            args[8],
+            baseline_args[8],
+            dtype=torch.bfloat16,
+            head_dim=128,
+        )
         assert_upstream_selection(
             expected, args[4], baseline_args[8], dtype=torch.bfloat16
         )
@@ -519,6 +605,14 @@ def test_upstream_no_complete_blocks_dim8(sm90, compare_vllm):
         baseline_args[8] = torch.empty_like(args[8])
         reference.qsa_select_paged_prefill(*baseline_args)
         torch.testing.assert_close(args[8], baseline_args[8], rtol=0, atol=0)
+        assert_native_selection(
+            torch_logits(*args[:5]),
+            args[4],
+            args[8],
+            baseline_args[8],
+            dtype=torch.bfloat16,
+            head_dim=8,
+        )
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])

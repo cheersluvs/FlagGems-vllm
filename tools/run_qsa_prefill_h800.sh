@@ -10,8 +10,8 @@ cd "$qsa_repo_dir"
 qsa_python=${PYTHON:-python}
 qsa_mode=${1:-all}
 case "$qsa_mode" in
-  quick|full|bench|all|full-bench|torch-only|torch-bench) ;;
-  *) echo "Usage: $0 [quick|full|bench|all|full-bench|torch-only|torch-bench]" >&2; exit 2 ;;
+  quick|full|bench|all|full-bench|torch-only|torch-bench|native-align) ;;
+  *) echo "Usage: $0 [quick|full|bench|all|full-bench|torch-only|torch-bench|native-align]" >&2; exit 2 ;;
 esac
 qsa_independent=0
 if [[ "$qsa_mode" == torch-only || "$qsa_mode" == torch-bench ]]; then
@@ -38,12 +38,31 @@ export VLLM_SPARSE_INDEXER_MAX_LOGITS_MB=${VLLM_SPARSE_INDEXER_MAX_LOGITS_MB:-51
 
 qsa_report_dir=$(mktemp -d "${TMPDIR:-/tmp}/qsa-prefill-h800.XXXXXX")
 echo "Reports: $qsa_report_dir"
+if [[ "$qsa_mode" == native-align ]]; then
+  export QSA_NATIVE_REFERENCE_PYTHON=${QSA_NATIVE_REFERENCE_PYTHON:-$qsa_python}
+  export QSA_NATIVE_REPORT_DIR="$qsa_report_dir/native"
+  qsa_finalize_native() {
+    qsa_exit_code=$?
+    "$qsa_python" tools/qsa_native_reference_worker.py --summarize "$qsa_report_dir" || true
+    echo "Return reports, including native/: $qsa_report_dir"
+    exit "$qsa_exit_code"
+  }
+  trap qsa_finalize_native EXIT
+elif [[ -n "${QSA_NATIVE_REFERENCE_PYTHON:-}" ]]; then
+  echo "Isolated native adapter may only be used in native-align accuracy mode." >&2
+  exit 2
+fi
 {
   echo "mode: $qsa_mode"
   if [[ "$qsa_independent" == 1 ]]; then
     echo "selection: not vllm"
     echo "baselines: independent Torch and old FlagGems prefill Top-K"
     echo "Official vLLM comparisons are excluded; this does not establish vLLM alignment."
+  elif [[ "$qsa_mode" == native-align ]]; then
+    echo "selection: all; no native comparisons excluded"
+    echo "baseline: original pinned vLLM in stock-Triton subprocesses"
+    echo "implementation: FlagGems persistent_topk in the explicit TLE runtime"
+    echo "accuracy only; no IPC timing or shared-process compatibility claim"
   else
     echo "selection: all"
     echo "baselines: pinned vLLM, independent Torch and old FlagGems prefill Top-K"
@@ -56,6 +75,9 @@ git status --short -- src/flaggems_vllm/ops/qsa_select_paged_prefill.py \
   src/flaggems_vllm/runtime/backend/_nvidia/tune_configs.yaml \
   tests/qsa_select_prefill_utils.py tests/test_qsa_select_paged_prefill.py \
   benchmark/test_qsa_select_paged_prefill_perf.py
+git status --short -- tools/run_qsa_prefill_h800.sh \
+  tools/qsa_native_reference_worker.py tests/qsa_native_reference.py \
+  tests/qsa_select_prefill_utils.py > "$qsa_report_dir/worktree-status.txt"
 
 "$qsa_python" - "$qsa_mode" <<'PY' | tee "$qsa_report_dir/environment.txt"
 import importlib
@@ -109,7 +131,11 @@ if sys.argv[1] not in ("torch-only", "torch-bench"):
                 f"Selected TLE runtime {runtime_path}, but imported {source}"
             )
             print("Explicit TLE runtime:", runtime_path)
-            print("Both QSA score baselines use this runtime; rebuild timing baselines.")
+            if sys.argv[1] == "native-align":
+                print("FlagGems uses TLE; native vLLM uses stock Triton in isolated processes.")
+                print("native Python:", os.environ["QSA_NATIVE_REFERENCE_PYTHON"])
+            else:
+                print("Both QSA score baselines use this runtime; rebuild timing baselines.")
             continue
         installed = importlib.metadata.version(name)
         assert source.is_relative_to(Path(sys.prefix).resolve()), (
@@ -162,7 +188,33 @@ else
   export QSA_REQUIRE_VLLM_REFERENCE=0
 fi
 
+if [[ "$qsa_mode" == native-align ]]; then
+  # Freeze native imports inside Python, after Bash startup. Keep the selected
+  # GPU and CUDA compatibility libraries, but remove the explicit TLE path.
+  "$qsa_python" - <<'PY' 2>&1 | tee "$qsa_report_dir/native-preflight.txt"
+import os
+import subprocess
+from pathlib import Path
+from tests.qsa_native_reference import native_environment
+
+root = Path.cwd()
+result = subprocess.run(
+    [os.environ["QSA_NATIVE_REFERENCE_PYTHON"], str(root / "tools/qsa_native_reference_worker.py")],
+    cwd=root, env=native_environment(root), timeout=300,
+)
+if result.returncode:
+    raise SystemExit(result.returncode)
+PY
+fi
+
 qsa_accuracy_filter=()
+qsa_accuracy_args=(-q -ra -x)
+if [[ "$qsa_mode" == native-align ]]; then
+  # A failed native child cannot contaminate later child CUDA contexts.
+  # Collect every comparison so one unsupported native shape does not hide
+  # the results of the remaining cases; any failure still makes pytest fail.
+  qsa_accuracy_args=(-q -ra)
+fi
 if [[ "$qsa_independent" == 1 ]]; then
   # Exclude official comparisons even when vLLM imports successfully: a broken
   # CUDA baseline must not prevent independent FlagGems validation.
@@ -170,19 +222,19 @@ if [[ "$qsa_independent" == 1 ]]; then
 fi
 if [[ "$qsa_mode" == quick || "$qsa_mode" == all || "$qsa_mode" == torch-only ]]; then
   "$qsa_python" -m pytest -q -ra -x tests/test_qsa_select_paged_prefill.py --quick \
-    "${qsa_accuracy_filter[@]}" \
+    ${qsa_accuracy_filter[@]+"${qsa_accuracy_filter[@]}"} \
     --record json --output "$qsa_report_dir/accuracy-quick.json" \
     2>&1 | tee "$qsa_report_dir/accuracy-quick.txt"
 fi
-if [[ "$qsa_mode" == full || "$qsa_mode" == all || "$qsa_mode" == full-bench || "$qsa_mode" == torch-bench ]]; then
-  "$qsa_python" -m pytest -q -ra -x tests/test_qsa_select_paged_prefill.py \
-    "${qsa_accuracy_filter[@]}" \
+if [[ "$qsa_mode" == full || "$qsa_mode" == all || "$qsa_mode" == full-bench || "$qsa_mode" == torch-bench || "$qsa_mode" == native-align ]]; then
+  "$qsa_python" -m pytest "${qsa_accuracy_args[@]}" tests/test_qsa_select_paged_prefill.py \
+    ${qsa_accuracy_filter[@]+"${qsa_accuracy_filter[@]}"} \
     --record json --output "$qsa_report_dir/accuracy-full.json" \
     2>&1 | tee "$qsa_report_dir/accuracy-full.txt"
 fi
 if [[ "$qsa_mode" == bench || "$qsa_mode" == all || "$qsa_mode" == full-bench || "$qsa_mode" == torch-bench ]]; then
   "$qsa_python" -m pytest -q -s benchmark/test_qsa_select_paged_prefill_perf.py \
-    "${qsa_accuracy_filter[@]}" \
+    ${qsa_accuracy_filter[@]+"${qsa_accuracy_filter[@]}"} \
     --level core --mode operator --warmup 100 --iter 500 \
     --record json --output "$qsa_report_dir/benchmark-core.json" \
     2>&1 | tee "$qsa_report_dir/benchmark-core.txt"
