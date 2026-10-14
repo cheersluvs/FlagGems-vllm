@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
-"""Candidate source reduction. GPU reproduction is not yet verified."""
+"""Reduced source reproducer confirmed on H800; see validation.md."""
 
 import argparse
 import json

@@ -1,8 +1,9 @@
 # [NVIDIA SM90] cp.async fractional L2 cache policy triggers illegal instructions with ptxas 12.8.93
 
-Draft only; not submitted. The original kernel/PTX experiments below are
-GPU-verified. The newly extracted standalone replay harness and short source
-candidate still need an H800 recheck before submission.
+Draft only; not submitted. Both the standalone reduced source and captured-PTX
+replay were confirmed on H800 by the user on 2026-10-14, using reproducer commit
+`763904a758e01696933d35ca15651e5bf1d070c8`. See [validation.md](validation.md)
+for the transcribed results and their provenance.
 
 ## Problem
 
@@ -71,6 +72,9 @@ git clone --single-branch --branch codex/qsa-cp-async-issue-repro-h800 \
 cd qsa-cp-async-repro
 # Activate your compatible PyTorch/FlagTree environment first.
 # /opt/flagtree must contain the intended triton package.
+# Primary minimal reproduction (expected: illegal instruction at synchronize):
+PYTHONPATH=/opt/flagtree python repros/qsa_cp_async_cache_hint/minimal.py
+# Run all six reproduction/control jobs:
 PYTHONPATH=/opt/flagtree python repros/qsa_cp_async_cache_hint/run.py
 ```
 
@@ -79,13 +83,12 @@ runner records raw return codes, compiler artifacts, and failure phase;
 expected failing cases cause a nonzero overall exit code. Please inspect
 `summary.json` and each job's `run.log` / `result.json`.
 
-For captured-PTX replay the expected pattern, based on the original experiments,
-is: `original` fails at synchronization, `no-hint` passes numerical validation,
-and `fraction-half` fails. The new standalone packaging still requires recheck.
-Binary-load/ABI errors are harness issues, not confirmation of this bug.
+The standalone H800 run confirmed: `original` and `fraction-half` fail at
+synchronization with an illegal instruction; `no-hint` exits successfully.
+The original replay reproduces the captured CUBIN SHA256 exactly.
 Replaying captured PTX bypasses source compilation, even under stock Triton.
 
-### Short source candidate (not yet a confirmed minimal reproducer)
+### Confirmed minimal source reproduction
 
 `minimal.py` provides allocation, numerical reference, and artifact collection
 around this reduced kernel:
@@ -105,9 +108,14 @@ def async_dot(Q, K, Out, STAGES: tl.constexpr, POLICY: tl.constexpr):
 
 Q is BF16 `[64,32]`, K is BF16 `[1024,32]`, Out is FP32 `[1024,64]`;
 grid `(1,)`, `num_warps=4`, `STAGES=2`, `POLICY="evict_first"`.
-Controls are `STAGES=1` or `POLICY=""`. A passing candidate does not invalidate
-the captured-PTX evidence: reduction may change the compiler/assembler trigger.
-Its emitted PTX and `async_cache_hints` count must be checked first.
+The H800 run confirms that this source compiles and launches, emits four
+`cp.async` cache-hint sites, and fails at `torch.cuda.synchronize()` with
+`CUDA error: an illegal instruction was encountered`. Both controls
+(`STAGES=1` or `POLICY=""`) exit successfully, after numerical validation.
+The original native source was tested under stock Triton; this newly reduced
+source has not yet been tested under stock Triton. Its own SASS/faulting PC
+has not been inspected, so descriptor-register evidence below refers to the
+captured native kernel, not this reduced kernel.
 
 ## Verified controlled experiments
 

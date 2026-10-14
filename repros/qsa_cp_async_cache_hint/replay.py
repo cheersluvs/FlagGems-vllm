@@ -2,8 +2,8 @@
 # Copyright 2026 FlagOS Contributors
 """Replay a captured failing SM90 kernel without vLLM or FlagGems.
 
-The captured PTX/control experiments are GPU-verified; this standalone
-packaging still needs a card recheck. Run each variant in a fresh process.
+The captured PTX and this standalone packaging were confirmed on H800;
+see validation.md. Run each variant in a fresh process.
 """
 
 import argparse

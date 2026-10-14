@@ -12,16 +12,18 @@ instructions passes. Changing the fractional policy from 1.0 to 0.5 still fails.
 
 `captured.ptx` is byte-for-byte the verified failing H=1, D=32 artifact.
 `captured.json` records its ABI, launch metadata, hashes, and provenance.
-`replay.py` packages it for independent execution. **This new standalone
-packaging still needs a GPU recheck.** It uses Triton's internal binary loader
+`replay.py` packages it for independent execution and was confirmed on H800
+on 2026-10-14. It uses Triton's internal binary loader
 APIs observed in Triton 3.6.0 / 3.7.1; other versions may require adaptation.
 The ABI stub is never compiled; only the captured PTX is assembled and loaded.
 
-`minimal.py` is a short **candidate source reduction, not yet GPU verified**.
-It retains a staged dot loop and `evict_first` load policy, removing paging,
-causal masking, head reduction, and integration dependencies. A successful run
-means that this candidate did not reproduce the failure. Inspect its saved PTX
-and `async_cache_hints` before treating it as evidence for the same code path.
+`minimal.py` is a **confirmed source reproduction on H800**. It retains a
+staged dot loop and `evict_first` load policy, removing paging, causal masking,
+head reduction, and integration dependencies. The default case emits four async
+cache hints and fails at synchronization with an illegal instruction. Removing
+the policy or using STAGES=1 passes. See [validation.md](validation.md) for all
+six results. A successful default run on another environment means that the
+failure was not reproduced there; inspect its PTX and `async_cache_hints`.
 
 ## Run on the existing H800 container
 
@@ -76,5 +78,5 @@ tar -czf qsa-cp-async-report.tar.gz -C /tmp flagtree-cp-async.REPLACE_WITH_PRINT
 ## Issue draft
 
 [issue.md](issue.md) is an English draft for FlagTree. It has not been posted.
-Update its standalone-reproducer validation status after the H800 run; do not
-describe the candidate source as a confirmed minimal reproducer before then.
+It includes the H800 validation of both standalone paths. The reduced source
+has not yet been tested under stock Triton, and its SASS has not been inspected.
