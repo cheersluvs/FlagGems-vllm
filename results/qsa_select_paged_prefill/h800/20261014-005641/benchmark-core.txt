@@ -1,0 +1,77 @@
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+
+Operator: qsa_prefill_vs_torch  Performance Test (dtype=torch.bfloat16, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.281471            0.160396               1.755          [torch.Size([1, 4, 128]), torch.Size([128, 16, 1, 128]), torch.Size([1, 128]), torch.Size([2]), torch.Size([1]), 2048, 4, 1, torch.Size([1, 512]), 8192]
+SUCCESS               0.294736            0.121549               2.425          [torch.Size([64, 4, 128]), torch.Size([256, 16, 1, 128]), torch.Size([1, 256]), torch.Size([2]), torch.Size([64]), 2048, 4, 64, torch.Size([64, 512]), 16384]
+SUCCESS               1.210678            0.123608               9.794          [torch.Size([512, 4, 128]), torch.Size([1024, 64, 1, 128]), torch.Size([4, 256]), torch.Size([5]), torch.Size([512]), 2048, 4, 128, torch.Size([512, 512]), 65536]
+SUCCESS              10.922970            1.304548               8.373          [torch.Size([2048, 4, 128]), torch.Size([1024, 64, 1, 128]), torch.Size([1, 1024]), torch.Size([2]), torch.Size([2048]), 2048, 4, 2048, torch.Size([2048, 512]), 262144]
+SUCCESS               0.296220            0.121850               2.431          [torch.Size([64, 4, 128]), torch.Size([256, 16, 1, 128]), torch.Size([1, 256]), torch.Size([2]), torch.Size([64]), 4096, 4, 64, torch.Size([64, 1024]), 16384]
+SUCCESS               0.371713            0.122613               3.032          [torch.Size([64, 4, 128]), torch.Size([512, 16, 1, 128]), torch.Size([1, 512]), torch.Size([2]), torch.Size([64]), 8192, 4, 64, torch.Size([64, 2048]), 32768]
+
+.
+Operator: qsa_prefill_parameterized_vs_torch  Performance Test (dtype=torch.bfloat16, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.477597            0.124875               3.825          [torch.Size([36, 1, 32]), torch.Size([384, 16, 1, 32]), torch.Size([2, 256]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 16384]
+SUCCESS               0.476901            0.123351               3.866          [torch.Size([36, 3, 64]), torch.Size([384, 16, 1, 64]), torch.Size([2, 256]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 16384]
+SUCCESS               0.486058            0.124068               3.918          [torch.Size([36, 5, 96]), torch.Size([384, 16, 1, 96]), torch.Size([2, 256]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 16384]
+SUCCESS               0.488053            0.123963               3.937          [torch.Size([36, 8, 256]), torch.Size([384, 16, 1, 256]), torch.Size([2, 256]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 16384]
+
+
+Operator: qsa_prefill_parameterized_vs_torch  Performance Test (dtype=torch.float8_e4m3fn, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.479872            0.123429               3.888          [torch.Size([36, 1, 32]), torch.Size([384, 16, 1, 32]), torch.Size([2, 256]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 16384]
+SUCCESS               0.480463            0.123891               3.878          [torch.Size([36, 3, 64]), torch.Size([384, 16, 1, 64]), torch.Size([2, 256]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 16384]
+SUCCESS               0.480814            0.125554               3.830          [torch.Size([36, 5, 96]), torch.Size([384, 16, 1, 96]), torch.Size([2, 256]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 16384]
+SUCCESS               0.482636            0.123122               3.920          [torch.Size([36, 8, 256]), torch.Size([384, 16, 1, 256]), torch.Size([2, 256]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 16384]
+
+.
+Operator: qsa_prefill_topk_persistent_vs_old_prefill  Performance Test (dtype=torch.bfloat16, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.017339            0.044379               0.391          [torch.Size([1, 2048]), torch.Size([1]), 2048, 4, torch.Size([1, 512]), torch.Size([1048576]), torch.Size([1])]
+SUCCESS               0.017101            0.016238               1.053          [torch.Size([64, 4096]), torch.Size([64]), 2048, 4, torch.Size([64, 512]), torch.Size([1048576]), torch.Size([64])]
+SUCCESS               0.040769            0.044567               0.915          [torch.Size([512, 16384]), torch.Size([512]), 2048, 4, torch.Size([512, 512]), torch.Size([1048576]), torch.Size([512])]
+SUCCESS               0.553606            0.476317               1.162          [torch.Size([2048, 65536]), torch.Size([2048]), 2048, 4, torch.Size([2048, 512]), torch.Size([1048576]), torch.Size([2048])]
+SUCCESS               0.017567            0.016409               1.071          [torch.Size([64, 4096]), torch.Size([64]), 4096, 4, torch.Size([64, 1024]), torch.Size([1048576]), torch.Size([64])]
+SUCCESS               0.017635            0.016546               1.066          [torch.Size([64, 8192]), torch.Size([64]), 8192, 4, torch.Size([64, 2048]), torch.Size([1048576]), torch.Size([64])]
+
+.
+Operator: qsa_prefill_upstream_vs_torch_default  Performance Test (dtype=torch.bfloat16, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.478222            0.124805               3.832          [torch.Size([36, 4, 128]), torch.Size([128, 24, 1, 128]), torch.Size([2, 64]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 5120]
+SUCCESS               0.484498            0.124369               3.896          [torch.Size([36, 4, 128]), torch.Size([128, 24, 1, 128]), torch.Size([2, 64]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 6912]
+
+
+Operator: qsa_prefill_upstream_vs_torch_default  Performance Test (dtype=torch.float8_e4m3fn, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.478826            0.123397               3.880          [torch.Size([36, 4, 128]), torch.Size([128, 24, 1, 128]), torch.Size([2, 64]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 5120]
+SUCCESS               0.475994            0.122620               3.882          [torch.Size([36, 4, 128]), torch.Size([128, 24, 1, 128]), torch.Size([2, 64]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 6912]
+
+.
+Operator: qsa_prefill_upstream_vs_torch_one_row  Performance Test (dtype=torch.bfloat16, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.472031            3.825204               0.123          [torch.Size([36, 4, 128]), torch.Size([128, 24, 1, 128]), torch.Size([2, 64]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 5120]
+SUCCESS               0.478378            3.921497               0.122          [torch.Size([36, 4, 128]), torch.Size([128, 24, 1, 128]), torch.Size([2, 64]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 6912]
+
+
+Operator: qsa_prefill_upstream_vs_torch_one_row  Performance Test (dtype=torch.float8_e4m3fn, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.474749            3.866037               0.123          [torch.Size([36, 4, 128]), torch.Size([128, 24, 1, 128]), torch.Size([2, 64]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 5120]
+SUCCESS               0.474615            3.866629               0.123          [torch.Size([36, 4, 128]), torch.Size([128, 24, 1, 128]), torch.Size([2, 64]), torch.Size([3]), torch.Size([36]), 2048, 4, 33, torch.Size([36, 512]), 6912]
+
+.
+Operator: qsa_prefill_upstream_no_complete_blocks_vs_torch  Performance Test (dtype=torch.bfloat16, mode=operator,level=core)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               0.098824            0.041844               2.362          [torch.Size([2, 4, 8]), torch.Size([1, 16, 1, 8]), torch.Size([1, 1]), torch.Size([2]), torch.Size([2]), 2048, 4, 2, torch.Size([2, 512]), 64]
+
+.
+6 passed, 7 deselected in 76.87s (0:01:16)
