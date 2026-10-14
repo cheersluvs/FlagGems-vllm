@@ -1,0 +1,165 @@
+..........................................................F............. [ 51%]
+...................................................................      [100%]
+=================================== FAILURES ===================================
+________________ test_parameterized_against_vllm[dtype0-8-256] _________________
+
+sm90 = None, num_heads = 8, head_dim = 256, dtype = torch.bfloat16
+
+    @pytest.mark.parametrize("num_heads,head_dim", [(1, 32), (3, 64), (5, 96), (8, 256)])
+    @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+    def test_parameterized_against_vllm(sm90, num_heads, head_dim, dtype):
+        reference = vllm_reference()
+        args = make_inputs(
+            (3, 7),
+            (1025, 1537),
+            query_base=19,
+            dtype=dtype,
+            num_heads=num_heads,
+            head_dim=head_dim,
+        )
+        expected = torch_logits(*args[:5])
+        native_args = list(args)
+        native_args[8] = torch.empty_like(args[8])
+>       reference.qsa_select_paged_prefill(*native_args)
+
+tests/test_qsa_select_paged_prefill.py:182: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <tests.qsa_native_reference.NativePrefillReference object at 0x7ff1be5675f0>
+args = (tensor([[[-1.1953e+00,  7.7734e-01,  1.2969e+00,  ..., -4.1602e-01,
+          -1.7969e-01,  2.6611e-02],
+         [-2...or([1024, 1024, 1025, 1535, 1535, 1536, 1536, 1536, 1536, 1537],
+       device='cuda:0', dtype=torch.int32), 2048, ...)
+
+    def qsa_select_paged_prefill(self, *args):
+        if len(args) != 10:
+            raise TypeError("QSA prefill needs ten arguments")
+        case = Path(tempfile.mkdtemp(prefix="case-", dir=self.reports))
+        packed = []
+        for index, value in enumerate(args):
+            if isinstance(value, torch.Tensor):
+                cpu = torch.empty_strided(
+                    value.shape, value.stride(), dtype=value.dtype, device="cpu"
+                )
+                if index != 8:
+                    cpu.copy_(value.detach().cpu())
+                else:
+                    cpu.fill_(-17)
+                packed.append(cpu)
+            else:
+                packed.append(value)
+        device_index = args[0].device.index
+        if device_index is None:
+            device_index = torch.cuda.current_device()
+        budget = self.envs.VLLM_SPARSE_INDEXER_MAX_LOGITS_MB
+        input_file = case / "input.pt"
+        torch.save(
+            {"args": packed, "device_index": device_index, "budget_mb": budget},
+            input_file,
+        )
+        manifest = {
+            "pytest_test": os.environ.get("PYTEST_CURRENT_TEST"),
+            "input_sha256": hashlib.sha256(input_file.read_bytes()).hexdigest(),
+            "source_sha256": hashlib.sha256(
+                Path(self.__file__).read_bytes()
+            ).hexdigest(),
+            "device_index": device_index,
+            "budget_mb": budget,
+            "args": [
+                tensor_manifest(value) if isinstance(value, torch.Tensor) else value
+                for value in args
+            ],
+        }
+        (case / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        env = native_environment(self.root)
+        env["QSA_VLLM_REFERENCE_FILE"] = self.__file__
+        timeout = int(os.environ.get("QSA_NATIVE_TIMEOUT_S", "300"))
+        if timeout <= 0:
+            raise ValueError("QSA_NATIVE_TIMEOUT_S must be positive")
+        command = [
+            self.python,
+            str(self.root / "tools/qsa_native_reference_worker.py"),
+            "--case",
+            str(case),
+        ]
+        with (case / "native.txt").open("w") as log:
+            try:
+                result = subprocess.run(
+                    command,
+                    cwd=self.root,
+                    env=env,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    timeout=timeout,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(
+                    f"Native vLLM timed out after {timeout}s; reports: {case}"
+                ) from exc
+        if result.returncode:
+>           raise RuntimeError(
+                f"Native vLLM failed ({result.returncode}); reports: {case}\n"
+                + (case / "native.txt").read_text()[-4000:]
+            )
+E           RuntimeError: Native vLLM failed (1); reports: /tmp/qsa-prefill-h800.UBvV0t/native/case-f0kelr43
+E           {
+E             "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+E             "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv",
+E             "sys_path": [
+E               "/tmp/flaggems-qsa-native.PV5yUq/tools",
+E               "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages",
+E               "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages",
+E               "/tmp/flaggems-qsa-native.PV5yUq/src",
+E               "/tmp/flaggems-qsa-native.PV5yUq",
+E               "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python312.zip",
+E               "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12",
+E               "/root/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/lib/python3.12/lib-dynload",
+E               "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages"
+E             ],
+E             "torch": {
+E               "version": "2.13.0+cu129",
+E               "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py"
+E             },
+E             "triton": {
+E               "version": "3.7.1",
+E               "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/__init__.py"
+E             },
+E             "device": "NVIDIA H800",
+E             "device_index": 0,
+E             "vllm": "0.31.0+cu129",
+E             "source": "/tmp/qsa-prefill-h800.UBvV0t/qsa_indexer_vllm.py",
+E             "source_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+E             "cuda_launch_blocking": "1",
+E             "ld_library_path": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+E             "baseline": "original pinned vLLM QSA; stock Triton; original native CUDA Top-K dispatch",
+E             "native_extension": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_C_stable_libtorch.abi3.so"
+E           }
+E           inputs synchronized; original native QSA begins
+E           Traceback (most recent call last):
+E             File "/tmp/flaggems-qsa-native.PV5yUq/tools/qsa_native_reference_worker.py", line 144, in <module>
+E               run(args.case)
+E             File "/tmp/flaggems-qsa-native.PV5yUq/tools/qsa_native_reference_worker.py", line 91, in run
+E               reference.qsa_select_paged_prefill(*args)
+E             File "/tmp/qsa-prefill-h800.UBvV0t/qsa_indexer_vllm.py", line 632, in qsa_select_paged_prefill
+E               logits = _prefill_logits(
+E                        ^^^^^^^^^^^^^^^^
+E             File "/tmp/qsa-prefill-h800.UBvV0t/qsa_indexer_vllm.py", line 416, in _prefill_logits
+E               _qsa_mqa_paged_prefill_kernel[grid](
+E             File "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/runtime/jit.py", line 370, in <lambda>
+E               return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+E                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/runtime/jit.py", line 760, in run
+E               launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+E                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E             File "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/compiler/compiler.py", line 485, in launch_metadata
+E               self._init_handles()
+E             File "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/compiler/compiler.py", line 459, in _init_handles
+E               raise_(OutOfResources(self.metadata.shared, max_shared, "shared memory"))
+E             File "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/compiler/compiler.py", line 451, in raise_
+E               raise err
+E           triton.runtime.errors.OutOfResources: out of resource: shared memory, Required: 335872, Hardware limit: 232448. Reducing block sizes or `num_stages` may help.
+
+tests/qsa_native_reference.py:147: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/test_qsa_select_paged_prefill.py::test_parameterized_against_vllm[dtype0-8-256]
+1 failed, 138 passed in 259.50s (0:04:19)
