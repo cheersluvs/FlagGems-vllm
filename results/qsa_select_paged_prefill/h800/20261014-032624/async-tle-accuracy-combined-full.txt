@@ -1,0 +1,91 @@
+command: ['/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python', '-m', 'pytest', '-q', '-ra', '-x', '-p', 'tools.diagnose_qsa_prefill_h800', 'tests/test_qsa_select_paged_prefill.py', '--record', 'json', '--output', '/tmp/qsa-prefill-h800.75qglfov/async-tle-accuracy-combined-full.json']
+CUDA_LAUNCH_BLOCKING=None
+PYTHONPATH=/tmp/flaggems-qsa-compat.spL8eo/src:/tmp/flaggems-qsa-compat.spL8eo:/opt/flagtree
+stage: pytest collection finished
+python: /tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python
+pid: 1478789
+prefix: /tmp/qsa-vllm031-h800.PQnVpV/venv
+sys.path: ['/tmp/flaggems-qsa-compat.spL8eo', '/tmp/flaggems-qsa-compat.spL8eo/src', '/tmp/flaggems-qsa-compat.spL8eo', '/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages', '/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages', '/tmp/flaggems-qsa-compat.spL8eo/src', '/tmp/flaggems-qsa-compat.spL8eo', '/opt/flagtree', '/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python312.zip', '/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12', '/root/.local/share/uv/python/cpython-3.12-linux-x86_64-gnu/lib/python3.12/lib-dynload', '/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages']
+explicit TLE runtime: /opt/flagtree
+TLE source: /opt/flagtree/triton/experimental/tle/language/__init__.py
+LD_LIBRARY_PATH: /tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+PYTHONPATH: /tmp/flaggems-qsa-compat.spL8eo/src:/tmp/flaggems-qsa-compat.spL8eo:/opt/flagtree
+PYTHONHOME: None
+PYTHONNOUSERSITE: 1
+CUDA_VISIBLE_DEVICES: None
+CUDA_LAUNCH_BLOCKING: None
+TRITON_CACHE_DIR: None
+torch module version: 2.13.0+cu129
+torch distribution version: 2.13.0+cu129
+torch source: /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py
+torch source SHA256: cf40c075c95864036e835795756d69b8cccfafa76f3bcde5eba9d06065ccd3d1
+triton module version: 3.6.0
+triton distribution version: 3.7.1
+triton source: /opt/flagtree/triton/__init__.py
+triton source SHA256: df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30
+torch CUDA: 12.9
+.......................................................F
+=================================== FAILURES ===================================
+_________________ test_parameterized_against_vllm[1-32-dtype0] _________________
+
+sm90 = None, num_heads = 1, head_dim = 32, dtype = torch.bfloat16
+
+    @pytest.mark.parametrize(
+        "num_heads,head_dim,dtype",
+        [
+            (heads, dim, dtype)
+            for dtype in (torch.bfloat16, torch.float8_e4m3fn)
+            for heads, dim in ((1, 32), (3, 64), (5, 96), (8, 256))
+            # Original vLLM BF16 H8/D256 exceeds H800 shared memory. Keep this
+            # shape in our independent default/one-row tests above.
+            if not (dtype == torch.bfloat16 and (heads, dim) == (8, 256))
+        ],
+    )
+    def test_parameterized_against_vllm(sm90, num_heads, head_dim, dtype):
+        reference = vllm_reference()
+        args = make_inputs(
+            (3, 7),
+            (1025, 1537),
+            query_base=19,
+            dtype=dtype,
+            num_heads=num_heads,
+            head_dim=head_dim,
+        )
+        expected = torch_logits(*args[:5])
+        native_args = list(args)
+        native_args[8] = torch.empty_like(args[8])
+>       reference.qsa_select_paged_prefill(*native_args)
+
+tests/test_qsa_select_paged_prefill.py:191: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../qsa-prefill-h800.vCgGPz/qsa_indexer_vllm.py:644: in qsa_select_paged_prefill
+    _topk(
+../qsa-prefill-h800.vCgGPz/qsa_indexer_vllm.py:497: in _topk
+    topk_op(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <OpOverloadPacket(op='_C.cooperative_topk')>
+args = (<[AcceleratorError("CUDA error: an illegal instruction was encountered\nSearch for `cudaErrorIllegalInstruction' in h...or debugging consider passing CUDA_LAUNCH_BLOCKING=1\n") raised in repr()] Tensor object at 0x7f7940c57e80>, 512, 1552)
+kwargs = {}
+
+    def __call__(self, /, *args: _P.args, **kwargs: _P.kwargs) -> _T:
+        # overloading __call__ to ensure torch.ops.foo.bar()
+        # is still callable from JIT
+        # We save the function ptr as the `op` attribute on
+        # OpOverloadPacket to access it here.
+    
+        # Directly calling OverloadPacket goes into C++, which will check
+        # the schema and cause an error for torchbind op when inputs consist of FakeScriptObject so we
+        # intercept it here and call TorchBindOpverload instead.
+        if self._has_torchbind_op_overload and _must_dispatch_in_python(args, kwargs):
+            # pyrefly: ignore [bad-argument-type]
+            return _call_overload_packet_from_python(self, *args, **kwargs)
+>       return self._op(*args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+E       RuntimeError: launch_cooperative_cluster, /workspace/csrc/libtorch_stable/cooperative_topk.cu:48, cooperative_topk launch failed: an illegal instruction was encountered
+
+../qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_ops.py:1279: RuntimeError
+=========================== short test summary info ============================
+FAILED tests/test_qsa_select_paged_prefill.py::test_parameterized_against_vllm[1-32-dtype0]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 55 passed in 4.63s
