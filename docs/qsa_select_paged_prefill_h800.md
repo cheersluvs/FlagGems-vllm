@@ -893,3 +893,48 @@ the interventions pass. Source/input/artifact hashes and the exact PTX
 interventions are recorded. Local actual-H800-PTX transformation checks and
 mocked worker/reassembly/eight-job orchestration passed; the hardware A/B
 result is pending.
+
+## Cache-policy report 957a8f4: trigger confirmed
+
+Code 65b6616 completed all eight targeted probes on the same H800 inputs.
+Both H4/D128 and H1/D32 have the same results:
+
+| Binary / intervention | Stock runtime | FlagTree runtime |
+| --- | --- | --- |
+| Original FlagTree CUBIN | Illegal instruction | Failed in prior report a4685e8 |
+| Remove only cp.async L2 cache hint and policy operand | Score validation passed | Score validation passed |
+| Change only fractional policy 1.0 to 0.5 | Illegal instruction | Not scheduled |
+
+Four runs pass and four retained controls fail; the overall nonzero exit is
+expected. Verified artifact bundles show that no-hint PTX differs only at
+the 16/4 async-copy cache qualifier/operand sites. Original source and input
+hashes, signature, constants, grid and metadata are unchanged. In particular
+loop STAGES=2, asynchronous copies and WGMMA remain enabled. Both runtimes
+execute byte-identical no-hint CUBINs for each shape.
+
+The no-hint SASS has no `desc[UR1]` reads. The fraction-half SASS retains
+the same dangling `desc[UR1]` reads, without an initializing write, and
+fails. Keeping the now-unused createpolicy definitions in the no-hint PTX
+does not prevent success: the trigger is the use of the fractional policy
+as an async-copy cache descriptor, not executing WGMMA or the pipeline alone.
+
+This closes the controlled GPU diagnosis for these two reproducers: the
+FlagTree/Triton 3.6.0 lowering emits fractional L2 cache policies for
+`cp.async`, and ptxas 12.8.93 drops descriptor initialization while retaining
+descriptor-dependent LDGSTS instructions. The resulting invalid descriptor
+causes the illegal-instruction failure. Stock Triton 3.7.1 avoids this async
+cache-policy path in its original QSA PTX and therefore avoids the trigger.
+Fresh-cache, import-only, cross-runtime binary and same-PTX assembler controls
+in a4685e8 support that conclusion.
+
+The compiler-side remedy is to suppress the affected fractional-policy
+operand/qualifier in async-copy lowering for this toolchain, analogous to
+Triton's upstream workaround. Changing the fraction to 0.5 is insufficient.
+No FlagTree installation, production operator, native source or Top-K code
+has been changed here. These diagnostic PTX binaries establish the root
+cause, not full native-QSA compatibility acceptance. The original same-process
+suite still needs rerunning after a compiler-side fix; no performance or
+whole-model claim follows from the score-only experiments.
+
+Source: [H800 cache-policy summary](https://github.com/cheersluvs/FlagGems-vllm/blob/957a8f437e99f29816044953d19dc2a338f41e99/results/qsa_select_paged_prefill/h800/20261014-074706/cache-policy-summary.json),
+plus all eight checked compiler-artifact bundles in that report directory.
