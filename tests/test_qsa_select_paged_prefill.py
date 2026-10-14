@@ -105,11 +105,102 @@ def _scores(args, offset, count, workspace=None):
     )
 
 
+PARAMETERIZED_SHAPES = [(1, 7), (3, 24), (5, 96), (8, 256)]
+if not cfg.QUICK_MODE:
+    PARAMETERIZED_SHAPES += [(1, 1), (2, 16), (5, 40), (12, 192), (17, 33), (3, 160)]
+
+
+@pytest.mark.parametrize("num_heads,head_dim", PARAMETERIZED_SHAPES)
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-@pytest.mark.parametrize("head_dim", [8, 128])
-def test_every_autotune_candidate(sm90, dtype, head_dim):
+@pytest.mark.parametrize("force_chunk", [False, True])
+def test_parameterized_heads_and_dims(
+    sm90, monkeypatch, num_heads, head_dim, dtype, force_chunk
+):
+    monkeypatch.setenv(
+        "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
+    )
     args = make_inputs(
-        (3, 0, 6), (1025, 16, 1537), query_base=97, dtype=dtype, head_dim=head_dim
+        (4, 0, 5),
+        (1025, 16, 1537),
+        query_base=37,
+        padded=True,
+        visible=[0, 1, 511, 1025, 512, 513, 800, 1024, 1537],
+        dtype=dtype,
+        num_heads=num_heads,
+        head_dim=head_dim,
+    )
+    expected = torch_logits(*args[:5])
+    original_score = op_module._prefill_logits
+    chunks = []
+
+    def checked_score(*score_args):
+        scores = original_score(*score_args)
+        width, offset, count = score_args[-3:]
+        chunks.append((offset, count))
+        mask = (
+            torch.arange(width, device=args[0].device)[None, :]
+            < args[4][offset : offset + count, None]
+        )
+        fp8 = dtype == torch.float8_e4m3fn
+        torch.testing.assert_close(
+            scores[mask],
+            expected[offset : offset + count, :width][mask],
+            rtol=1e-3 if fp8 else 2e-4,
+            atol=1e-3 * head_dim**0.5 if fp8 else 2e-3,
+        )
+        return scores
+
+    monkeypatch.setattr(op_module, "_prefill_logits", checked_score)
+    op(*args)
+    assert chunks == ([(row, 1) for row in range(9)] if force_chunk else [(0, 9)])
+    if dtype == torch.float8_e4m3fn:
+        assert_upstream_selection(
+            expected, args[4], args[8], dtype=dtype, head_dim=head_dim
+        )
+    else:
+        # Small D produces exact ties. Check scores/count/unique indices rather
+        # than requiring the same choice among tied boundary indices.
+        assert_selection(expected, args[4], args[8])
+
+
+@pytest.mark.parametrize("num_heads,head_dim", [(1, 32), (3, 64), (5, 96), (8, 256)])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+def test_parameterized_against_vllm(sm90, num_heads, head_dim, dtype):
+    reference = vllm_reference()
+    args = make_inputs(
+        (3, 7),
+        (1025, 1537),
+        query_base=19,
+        dtype=dtype,
+        num_heads=num_heads,
+        head_dim=head_dim,
+    )
+    expected = torch_logits(*args[:5])
+    native_args = list(args)
+    native_args[8] = torch.empty_like(args[8])
+    reference.qsa_select_paged_prefill(*native_args)
+    op(*args)
+    for output in (native_args[8], args[8]):
+        if dtype == torch.float8_e4m3fn:
+            assert_upstream_selection(
+                expected, args[4], output, dtype=dtype, head_dim=head_dim
+            )
+        else:
+            assert_selection(expected, args[4], output)
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+@pytest.mark.parametrize(
+    "num_heads,head_dim", [(4, 8), (4, 128), (1, 7), (3, 24), (2, 40)]
+)
+def test_every_autotune_candidate(sm90, dtype, num_heads, head_dim):
+    args = make_inputs(
+        (3, 0, 6),
+        (1025, 16, 1537),
+        query_base=97,
+        dtype=dtype,
+        head_dim=head_dim,
+        num_heads=num_heads,
     )
     width = args[2].shape[1] * args[1].shape[1]
     expected = torch_logits(*args[:5])
@@ -143,6 +234,7 @@ def test_every_autotune_candidate(sm90, dtype, head_dim):
             args[1].shape[0],
             args[2].shape[1],
             PAGE_SIZE=args[1].shape[1],
+            NUM_HEADS=num_heads,
             HEAD_DIM=head_dim,
             IS_FP8=dtype == torch.float8_e4m3fn,
             **meta,
@@ -182,7 +274,10 @@ def test_workspace_reuse_and_cross_request_chunks(sm90, monkeypatch):
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-def test_empty_and_select_all_do_not_launch_score(sm90, monkeypatch, dtype):
+@pytest.mark.parametrize("num_heads,head_dim", [(4, 128), (1, 1), (5, 96)])
+def test_empty_and_select_all_do_not_launch_score(
+    sm90, monkeypatch, dtype, num_heads, head_dim
+):
     def forbidden(*args, **kwargs):
         raise AssertionError(
             "score/Top-K must not run for an empty or select-all batch"
@@ -190,9 +285,18 @@ def test_empty_and_select_all_do_not_launch_score(sm90, monkeypatch, dtype):
 
     monkeypatch.setattr(op_module, "_prefill_logits", forbidden)
     monkeypatch.setattr(op_module, "persistent_topk", forbidden)
-    empty = make_inputs((0,), (17,), dtype=dtype)
+    empty = make_inputs(
+        (0,), (17,), dtype=dtype, num_heads=num_heads, head_dim=head_dim
+    )
     assert op(*empty) is None
-    args = make_inputs((5,), (17,), visible=[0, 1, 3, 16, 17], dtype=dtype)
+    args = make_inputs(
+        (5,),
+        (17,),
+        visible=[0, 1, 3, 16, 17],
+        dtype=dtype,
+        num_heads=num_heads,
+        head_dim=head_dim,
+    )
     op(*args)
     for row, count in enumerate([0, 1, 3, 16, 17]):
         torch.testing.assert_close(
@@ -239,6 +343,7 @@ def test_persistent_topk_workspace_reused_across_chunks(sm90, monkeypatch):
         "mixed_dtype",
         "heads",
         "head_dim",
+        "cache_dim",
         "dim_stride",
         "output_stride",
         "visible_dtype",
@@ -258,9 +363,13 @@ def test_invalid_contract(sm90, case):
         args[1] = args[1].to(torch.float8_e4m3fn)
         error = ValueError
     elif case == "heads":
-        args[0] = args[0][:, :2]
+        args[0] = args[0][:, :0]
+        error = ValueError
     elif case == "head_dim":
-        args[0] = args[0][..., :64]
+        args[0] = args[0][..., :0]
+        args[1] = args[1][..., :0]
+        error = ValueError
+    elif case == "cache_dim":
         args[1] = args[1][..., :64]
     elif case == "dim_stride":
         args[0] = torch.empty((8, 4, 256), device="cuda", dtype=torch.bfloat16)[

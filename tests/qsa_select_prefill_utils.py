@@ -31,6 +31,7 @@ def make_inputs(
     seed=20261013,
     dtype=torch.bfloat16,
     head_dim=128,
+    num_heads=4,
 ):
     """Build request-major packed queries and shuffled physical pages."""
     torch.manual_seed(seed)
@@ -40,7 +41,9 @@ def make_inputs(
     ]
     width = max(pages_per_req)
     num_pages = sum(pages_per_req)
-    q = torch.randn((rows, 4, head_dim), dtype=torch.bfloat16, device=device).to(dtype)
+    q = torch.randn(
+        (rows, num_heads, head_dim), dtype=torch.bfloat16, device=device
+    ).to(dtype)
     cache = torch.randn(
         (num_pages, page_size, 1, head_dim), dtype=torch.bfloat16, device=device
     ).to(dtype)
@@ -68,9 +71,11 @@ def make_inputs(
         device=device,
     )
     if padded:
-        q_storage = torch.empty((rows, 5, head_dim), dtype=q.dtype, device=device)
-        q_storage[:, :4].copy_(q)
-        q = q_storage[:, :4]
+        q_storage = torch.empty(
+            (rows, num_heads + 1, head_dim), dtype=q.dtype, device=device
+        )
+        q_storage[:, :num_heads].copy_(q)
+        q = q_storage[:, :num_heads]
         cache_storage = torch.empty(
             (num_pages, page_size + 1, 1, head_dim), dtype=cache.dtype, device=device
         )

@@ -90,6 +90,31 @@ class QSANoCompleteBlocksBenchmark(base.GenericBenchmark):
         return []
 
 
+class QSAParameterizedBenchmark(base.GenericBenchmark):
+    def set_shapes(self, shape_file_path=None):
+        # Synthetic parameter coverage, separately reported from upstream H4.
+        self.shapes = [(1, 32), (3, 64), (5, 96), (8, 256)]
+        if conftest.Config.bench_level == consts.BenchLevel.COMPREHENSIVE:
+            self.shapes += [(12, 192), (17, 33)]
+        self.shape_desc = "num_heads, head_dim (36 queries, contexts=2048/4096)"
+
+    def set_more_shapes(self):
+        return []
+
+
+def _parameterized_inputs(shape, dtype, device):
+    heads, dim = shape
+    yield make_inputs(
+        (3, 33),
+        (2048, 4096),
+        query_base=31,
+        device=device,
+        num_heads=heads,
+        head_dim=dim,
+        dtype=dtype,
+    )
+
+
 def _no_complete_blocks_inputs(shape, dtype, device):
     assert dtype == torch.bfloat16
     yield make_upstream_no_complete_blocks_inputs(device=device)
@@ -185,6 +210,29 @@ def test_full_vs_torch():
         torch_select,
         flaggems_vllm.qsa_select_paged_prefill,
         _inputs,
+    )
+
+
+def test_parameterized_full_vs_torch():
+    _run(
+        "qsa_prefill_parameterized_vs_torch",
+        torch_select,
+        flaggems_vllm.qsa_select_paged_prefill,
+        _parameterized_inputs,
+        QSAParameterizedBenchmark,
+        dtypes=(torch.bfloat16, torch.float8_e4m3fn),
+    )
+
+
+def test_parameterized_full_vs_vllm():
+    reference = vllm_reference()
+    _run(
+        "qsa_prefill_parameterized_vs_vllm",
+        reference.qsa_select_paged_prefill,
+        flaggems_vllm.qsa_select_paged_prefill,
+        _parameterized_inputs,
+        QSAParameterizedBenchmark,
+        dtypes=(torch.bfloat16, torch.float8_e4m3fn),
     )
 
 

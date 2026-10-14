@@ -1,5 +1,36 @@
 # QSA paged prefill: H800 implementation and validation
 
+## Parameterized heads and dimensions (before editing, 2026-10-14)
+
+| Project field | Frozen choice |
+| --- | --- |
+| Evidence | Code 6d5fdcb: H800 independent full accuracy 54 passed, 14 vLLM comparisons deselected; native baseline failure remains unresolved |
+| Editable | QSA score/validation, synthetic input helper/tests, separate generalized benchmark groups, this guide |
+| Read-only | Hash-pinned upstream source, exact upstream fixtures/reference checks, persistent Top-K implementation, six YAML candidates, existing benchmark groups |
+| Build/validation | Python-only; local syntax/style/host checks, H800 full independent suite before benchmark, native comparisons separately via full-bench |
+| Benchmark/active set | Existing mean operator latency (ms) and per-case baseline/Gems SpeedUp; separate synthetic benchmark H/D sweep (1,32), (3,64), (5,96), (8,256), plus comprehensive (12,192), (17,33), BF16/FP8 |
+| Environment/timeout | Mac has no GPU/Torch/Triton; user runs H800 via published branch. JIT/tests up to 30 min, benchmark up to 45 min externally; profiler availability unknown |
+| Autotune | Existing score config/six candidates; add NUM_HEADS to key beside HEAD_DIM/IS_FP8. Fixed index fills remain exempt; no new export/registration needed |
+| Fallback | No Torch compute fallback; same TLE persistent Top-K; optimization.md/deep_opt.md remain absent |
+
+| Contract field | Choice |
+| --- | --- |
+| API | Same ten arguments and None return; H and D inferred from Q.shape, no extra public parameters |
+| Inputs | Matching BF16/FP8 Q [T,H,D], H>0/D>0; cache [pages,page_size,1,D]; existing SM90/layout/metadata contract |
+| Numerics | Finite Q/K and scores; zero-pad heads and reduction dimension, sum ReLU of each real head's dot in FP32, unscaled; no gradients |
+| Output | Existing logical compressed indices, contiguous int32 [T,K], -1 padding, ties/order unspecified; K=512/1024/2048 |
+| Limits | Metadata accepts positive H/D without a fixed whitelist; actual Triton compilation must fit device resources. This is not a claim of testing arbitrarily large dimensions |
+| Reference | Frozen upstream checks unchanged. New synthetic shapes check visible scores and selected score multisets; exact ties can select different equivalent indices. FP8 retains upstream scaled-score rtol=atol=1e-3 |
+| Unsupported | H=0/D=0, mismatched cache D, existing unsupported dtype/device/layout/gradient paths; no copies/casts in production |
+
+| Path | Change | Verification/risk |
+| --- | --- | --- |
+| Host | Validate positive H/D and matching cache; infer launch constants | Invalid zero sizes/cache mismatch; mocked real dispatch |
+| Score | Pad H to power of two, D to native dot minimum/power of two; pad small row tiles to M>=16; mask fake rows/heads | Every candidate on original H4 and new small/odd H/D; extra lanes must not write adjacent tiles |
+| Empty/select all | Existing fill/return; admit generic H/D | No score/Top-K launch tests |
+| Top-K | No changes | Generic H/D selection, short rows, ties and forced one-row chunks |
+| Benchmark | Separate parameterized full-op versus Torch/vLLM groups | Preserve all existing shapes; no performance claims before card run |
+
 ## Persistent Top-K substitution (before editing)
 
 | Project field | Choice |
@@ -26,7 +57,7 @@
 | Scratch init | Fixed Triton byte-zero kernel | Mocked launch/host checks; existing persistent_topk tests on H800 |
 | Benchmark | Persistent stage with preallocated workspace; old-stage A/B | Same inputs/runtime, no new baseline relabeling |
 
-Status: code `b69506f` passed all 67 full H800 tests without skips in report `5f21e689`, including FP8/D=8 and strict BF16 index checks. The new persistent Top-K substitution awaits card validation and benchmarks. Previous code `b5fae92` has measured official speedups below 0.9.
+Status: code `6d5fdcb` passed 54 independent H800 cases (14 native comparisons deselected) in report `0cf70c5`; persistent Top-K performance was measured in the same FlagTree runtime. Native baseline alignment remains unresolved. The parameterized H/D change above awaits card validation. Historical code `b69506f` passed all 67 native-inclusive cases before the Top-K substitution; that result does not validate the new selection implementation.
 The Mac has no Torch, Triton, or CUDA device. GPU correctness and performance
 must not be inferred from static checks.
 
@@ -92,7 +123,7 @@ must not be inferred from static checks.
 | Field | Contract |
 | --- | --- |
 | Device | NVIDIA CUDA SM90 (H800/H100); first acceptance target H800 |
-| Q/cache | Matching BF16/FP8 E4M3FN Q `[T,4,D]` and K `[physical_pages,page_size,1,D]`, D=8/128; forward only, no gradients |
+| Q/cache | Matching BF16/FP8 E4M3FN Q `[T,H,D]` and K `[physical_pages,page_size,1,D]`, H,D>0 inferred from Q; forward only, no gradients; compilation must fit device resources |
 | Layout | Unit innermost stride; positive, non-overlapping outer strides; Q/cache/page-table row padding and input slices supported; contiguous metadata and output |
 | Metadata | Same device; page table int32/int64 `[B,P]`; `query_start_loc` int32/int64 `[B+1]`; visible counts int32 `[T]` |
 | Metadata values | Caller supplies monotone offsets whose terminal-minus-first value is T; request lengths <= max_query_len; visible counts in `[0,min(capacity,ceil(max_seq_len/ratio))]`; active physical page IDs valid. These device-resident value preconditions avoid host synchronization |
@@ -102,7 +133,7 @@ must not be inferred from static checks.
 | Selection | Logical compressed indices, not physical pages or expanded tokens; valid count min(visible,K), remaining positions -1; order and choice among exact ties unspecified |
 | Numerics | BF16/FP8 inputs with finite scores; NaN/Inf and overflow outside supported contract. Signed zero behaves as tied zero. Upstream BF16 fixtures require exact sorted index sets; FP8 uses upstream SM90 score tolerances; exact ties in synthetic inputs allow set-valued selection |
 | Empty | T=0 returns without allocation/launch after shape/type checks; zero visible rows emit -1 |
-| Unsupported | FP16/FP32, H other than 4 or D outside 8/128, gradients, non-SM90/non-NVIDIA, non-unit inner stride, noncontiguous metadata/output, overlapping output |
+| Unsupported | FP16/FP32, zero heads/dimensions, gradients, non-SM90/non-NVIDIA, non-unit inner stride, noncontiguous metadata/output, overlapping output |
 | Reference | Torch compute only in tests/benchmark helper. Pinned vLLM reference only in tests/benchmark; never imported by production |
 
 ## Upstream coverage follow-up (before editing)
@@ -488,3 +519,24 @@ prefill Top-K measurements in the same runtime. These results do not provide
 a speedup against vLLM or a passed native-comparison gate. `full-bench` retains
 all native comparisons and still stops on failure. No production kernel,
 selection algorithm, tune candidate or pinned reference changed in this fix.
+
+Parameterized H/D implementation: heads are padded to a power of two, small
+query-row tiles are padded so the dot M dimension is at least 16, and fake
+rows/heads/dimensions are masked. The H4/D8/D128 path uses the same tensor
+shapes and six YAML candidates. NUM_HEADS now separates autotune cache keys.
+Positive H/D are admitted by metadata validation; very large tensors remain
+subject to GPU compiler/resource limits, as in the parameterized upstream.
+No production Torch compute, Top-K change, or new registration is introduced.
+
+Local checks passed: 61 actual-host metadata/dispatch checks and 360 CPU
+executions of the actual kernel AST with NumPy across all six tiles, padded
+layouts, nonzero query base, empty requests, short rows and chunk tails. The
+CPU checks poison padding and verify both values and exact write masks; they
+do not exercise Triton JIT, Tensor Core instruction rounding or CUDA execution.
+Style/syntax checks passed. All new H/D cases await H800 compilation and
+accuracy/performance validation.
+
+Static collection counts: full 127 cases (105 independent / 22 native vLLM),
+quick 99 (77 independent / 22 native). The core benchmark adds eight rows each
+to separate Torch/vLLM parameterized groups; torch-bench selects six tests and
+29 measurements. Existing upstream fixtures and all their checks are unchanged.

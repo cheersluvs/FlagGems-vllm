@@ -46,6 +46,7 @@ def _select_all_kernel(visible_ptr, output_ptr, K: tl.constexpr, BLOCK: tl.const
         "logits_width",
         "num_requests",
         "PAGE_SIZE",
+        "NUM_HEADS",
         "HEAD_DIM",
         "IS_FP8",
         "stride_q_row",
@@ -79,6 +80,7 @@ def _qsa_prefill_score_kernel(
     num_pages,
     table_width,
     PAGE_SIZE: tl.constexpr,
+    NUM_HEADS: tl.constexpr,
     HEAD_DIM: tl.constexpr,
     IS_FP8: tl.constexpr,
     TILE_R: tl.constexpr,
@@ -95,8 +97,13 @@ def _qsa_prefill_score_kernel(
     if row_start >= request_end:
         return
 
-    rows = row_start + tl.arange(0, TILE_R)
-    valid_rows = rows < request_end
+    HEADS_PADDED: tl.constexpr = triton.next_power_of_2(NUM_HEADS)
+    # tl.dot requires M>=16 even when TILE_R * HEADS_PADDED is smaller.
+    # Fake rows do not read queries/metadata or write outside this query tile.
+    BLOCK_R: tl.constexpr = max(TILE_R, triton.cdiv(16, HEADS_PADDED))
+    row_lanes = tl.arange(0, BLOCK_R)
+    rows = row_start + row_lanes
+    valid_rows = (row_lanes < TILE_R) & (rows < request_end)
     visible = tl.load(visible_ptr + rows, mask=valid_rows, other=0)
     max_visible = tl.minimum(tl.max(visible, axis=0), logits_width)
     first_tile = tl.program_id(2) * K_TILES
@@ -104,10 +111,11 @@ def _qsa_prefill_score_kernel(
         return
     last_tile = tl.minimum(first_tile + K_TILES, tl.cdiv(max_visible, BLOCK_N))
 
-    # Four heads are adjacent in the dot result, so ReLU precedes head reduction.
-    query_lanes = tl.arange(0, TILE_R * 4)
-    query_rows = row_start + query_lanes // 4
-    heads = query_lanes % 4
+    # Padded heads are adjacent in the dot result. Mask them before reduction.
+    query_lanes = tl.arange(0, BLOCK_R * HEADS_PADDED)
+    query_row_lanes = query_lanes // HEADS_PADDED
+    query_rows = row_start + query_row_lanes
+    heads = query_lanes % HEADS_PADDED
     # Pad the reduction dimension to the native dot instruction's minimum.
     BLOCK_D: tl.constexpr = max(32 if IS_FP8 else 16, triton.next_power_of_2(HEAD_DIM))
     dims = tl.arange(0, BLOCK_D)
@@ -116,7 +124,10 @@ def _qsa_prefill_score_kernel(
         + query_rows[:, None] * stride_q_row
         + heads[:, None] * stride_q_head
         + dims[None, :],
-        mask=(query_rows[:, None] < request_end) & (dims[None, :] < HEAD_DIM),
+        mask=(query_row_lanes[:, None] < TILE_R)
+        & (query_rows[:, None] < request_end)
+        & (heads[:, None] < NUM_HEADS)
+        & (dims[None, :] < HEAD_DIM),
         other=0.0,
     )
     column_lanes = tl.arange(0, BLOCK_N)
@@ -140,8 +151,10 @@ def _qsa_prefill_score_kernel(
             other=0.0,
         )
         scores = tl.dot(query, keys, out_dtype=tl.float32)
-        scores = tl.reshape(scores, (TILE_R, 4, BLOCK_N))
-        scores = tl.sum(tl.maximum(scores, 0.0), axis=1)
+        scores = tl.reshape(scores, (BLOCK_R, HEADS_PADDED, BLOCK_N))
+        real_heads = tl.arange(0, HEADS_PADDED) < NUM_HEADS
+        scores = tl.where(real_heads[None, :, None], tl.maximum(scores, 0.0), 0.0)
+        scores = tl.sum(scores, axis=1)
         tl.store(
             logits_ptr
             + (rows - query_offset)[:, None] * logits_width
@@ -202,8 +215,10 @@ def _validate_inputs(
         raise ValueError("Q and the compressed K cache must match dtype")
     if q.dtype not in (torch.bfloat16, torch.float8_e4m3fn):
         raise NotImplementedError("QSA prefill supports BF16/FP8 E4M3FN query/cache")
-    if q.ndim != 3 or q.shape[1] != 4 or q.shape[2] not in (8, 128):
-        raise NotImplementedError("QSA prefill query must be [tokens, 4, D], D=8/128")
+    if q.ndim != 3:
+        raise NotImplementedError("QSA prefill query must be [tokens, heads, head_dim]")
+    if q.shape[1] <= 0 or q.shape[2] <= 0:
+        raise ValueError("QSA prefill heads and head_dim must be positive")
     if k_cache.ndim != 4 or k_cache.shape[2:] != (1, q.shape[2]):
         raise NotImplementedError(
             "QSA prefill cache must be [pages, page_size, 1, D] matching Q"
@@ -301,6 +316,7 @@ def _prefill_logits(
         k_cache.shape[0],
         page_table.shape[1],
         PAGE_SIZE=k_cache.shape[1],
+        NUM_HEADS=q.shape[1],
         HEAD_DIM=q.shape[2],
         IS_FP8=q.dtype == torch.float8_e4m3fn,
     )
@@ -321,7 +337,9 @@ def qsa_select_paged_prefill(
 ) -> None:
     """Write logical compressed-block indices selected for packed prefill Q.
 
-    Matching BF16/FP8 Q is [tokens,4,D], K is [pages,page_size,1,D], D=8/128.
+    Matching BF16/FP8 Q is [tokens,H,D], K is [pages,page_size,1,D], H,D>0.
+    Heads and dimensions are inferred from Q; compilation must fit device
+    resources. Padded head/dimension lanes do not contribute to the score.
     ``query_start_loc``
     is [requests+1] and its first entry may be nonzero. Caller-provided
     ``visible_blocks`` is int32 [tokens]. ``block_indices`` is contiguous
