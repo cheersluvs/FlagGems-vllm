@@ -1,5 +1,19 @@
 # QSA paged prefill: H800 implementation and validation
 
+## Native score illegal-instruction diagnosis (before editing, 2026-10-14)
+
+| Field | Choice |
+| --- | --- |
+| Evidence | Report e61086b: stock native QSA and both CUDA Top-K paths pass; FlagTree native score launch fails even before Gems runs. Async/sync full suites stop at BF16 H1/D32; H4/D128 also fails |
+| Editable | A standalone diagnostic tool and this guide only |
+| Read-only | All production operators, original source SHA256, reference tolerances, Top-K implementations and dispatch |
+| Inputs | Generate and serialize one set per reproducer with stock Torch on the selected H800; identical tensor values/strides/device shared by all probes |
+| Isolation | Fresh CUDA process/cache per compiler probe; score kernel only, no Top-K or Gems launch. Default probes do not import FlagGems; one explicit import-only control tests package initialization effects. Save IR/PTX/CUBIN/metadata before launching |
+| Ablations | One change at a time: loop STAGES=1, compiler num_stages=1, TILE_R=16, target sm80, stock ptxas. All are diagnostic configurations, never changed production/native baselines |
+| Replay | Launch the same original CUBIN under the opposite runtime without recompilation. Reassemble identical PTX with stock ptxas and observed original flags. Verify input/artifact hashes; reject unsupported launcher metadata |
+| Fault location | Optional existing compute-sanitizer memcheck/synccheck; retain PC and SASS. No tools installed, no existing cache deleted, no performance measurements |
+| Completion | Mac checks validate transport/routing/artifacts; hardware-specific root cause requires H800 report, not inferred from an illegal-instruction message alone |
+
 ## Same-process compatibility (before editing, 2026-10-14)
 
 | Field | Choice |
@@ -720,3 +734,91 @@ orders, output validations, failure/timeout continuation, summary classification
 and isolated-adapter rejection. The previous diagnostic/independent benchmark
 routing checks also passed. No CUDA kernel executed on Mac; the H800
 compatibility matrix result is pending.
+
+## Compatibility evidence e61086b and score fault probes
+
+Code 5e39c8d ran all 18 compatibility jobs: 12 passed, six failed. All stock
+controls, FlagTree imports and direct native cooperative/persistent Top-K
+checks passed. Both alternating QSA orders failed under both launch modes.
+Each full pytest process stopped at BF16 H1/D32 with 55 passed / 1 failed;
+the remaining tests were not executed in that process. The removed native
+BF16 H8/D256 case was absent.
+
+The blocking H4/D128 native-first probe reports the illegal instruction at
+the original `_qsa_mqa_paged_prefill_kernel` launch, before any Gems launch or
+native Top-K. The asynchronous error surfaces later at cooperative Top-K.
+This identifies the failing score stage, but does not yet distinguish invalid
+generated instructions, synchronization/operand encoding, a launcher fault,
+or cached binary/toolchain issues.
+
+Run the score-only diagnostic in the selected card virtualenv:
+
+```bash
+source /tmp/qsa-vllm031-h800.PQnVpV/activate_qsa.sh
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  "$PYTHON" tools/diagnose_qsa_native_score_h800.py
+```
+
+The preparation process uses stock Triton/Torch to save exactly one input set
+for each reproducer: BF16 H4/D128 (3 rows, 8192 keys) and BF16 H1/D32 (packed
+3/7 queries, 1025/1537 keys, query base 19). Every probe verifies the same input
+SHA256 and reconstructs original strides/device. Default score probes import no
+FlagGems package; the explicit `import-gems` probe imports it before native QSA
+to detect initialization effects. No probe launches a Gems or Top-K kernel. The pinned original
+score kernel source is copied without edits and checked by SHA256.
+
+There are 22 score probes plus preparation. Eight per reproducer compile the
+original kernel with stock or FlagTree, or apply one explicitly labeled
+control/change under FlagTree: import FlagGems only, loop `STAGES=1`, compiler
+`num_stages=1`, `TILE_R=16`, target `sm80`, or stock ptxas. All other native
+BF16 defaults remain TILE_R64/BLOCK_N64/K_TILES16/STAGES2/warps4. The two
+stage experiments are separate. The sm80 experiment must actually have sm80
+metadata and no WGMMA; it changes the architecture's entire compiler path
+and alone cannot prove which specific Hopper lowering pass is defective.
+The ptxas override must resolve to the recorded stock assembler; compare
+PTX checksums before attributing a changed result to the assembler alone.
+
+Two more probes per reproducer replay the original Stock CUBIN under FlagTree
+and the original FlagTree CUBIN under Stock. They reconstruct saved
+signature/constants/metadata and verify binary checksums without recompiling.
+Unsupported cooperative/cluster/scratch ABIs are rejected explicitly.
+Reconstruction or binary-load errors are recorded separately from a GPU
+execution failure. A failing FlagTree CUBIN under both launchers, together
+with a working Stock CUBIN under both, would localize the defect to the
+produced binary/toolchain rather than requiring a FlagTree launcher.
+
+One additional probe per reproducer replaces only the assembler on the
+original FlagTree PTX: retain its bytes, target and all observed original
+ptxas options, use stock ptxas, and replay the resulting CUBIN under Stock.
+The tool observes the original assembler invocation during compilation and
+rejects missing/ambiguous invocation data; it never guesses options. It saves
+the reassembly command and output and verifies unchanged PTX bytes. This is
+stronger assembler evidence than changing the compiler's ptxas path, which
+can also change its selected PTX version. New SASS is captured when available.
+
+If `compute-sanitizer` already exists, four additional fresh-process jobs run
+memcheck/synccheck on the original FlagTree score probes, for fault PC and
+synchronization evidence. The tool and version are recorded; nothing is
+installed if unavailable. See the [NVIDIA Compute Sanitizer guide](https://docs.nvidia.com/compute-sanitizer/ComputeSanitizer/index.html).
+
+Each job uses a new cache directory and saves TTIR, TTGIR, LLVM IR, PTX, CUBIN,
+original metadata and available SASS before binary loading. Actual compiler,
+driver and libtriton sources/hashes and assembler versions are recorded. No
+existing cache or runtime file is changed. Failure stages are distinct:
+compilation, replay construction, binary load, launch, synchronization and
+FP32 reference validation. Failures/timeouts do not prevent later jobs.
+
+Return **all top-level `.txt` and `.json` files**, particularly
+`score-diagnostic-summary.json` and every `*-artifacts.json`. Those compressed
+JSON bundles include the full compiler artifacts even when a report uploader
+only copies top-level text/JSON files. The raw CUBINs and inputs remain under
+the printed card Reports directory for replay. A nonzero exit is expected if
+the fault reproduces. No performance numbers are collected.
+
+Mac syntax/style and mocked actual-worker/runner checks validate input binding,
+one-variable configurations, prelaunch artifact/checksum bundles, all failure
+stages, no-recompile replay and corruption rejection, identical-PTX reassembly
+with original options, stock/FlagTree import
+routing, unique caches, sanitizer availability and continuation. These checks
+do not determine the faulting GPU instruction. The specific root cause is
+pending this H800 report.
