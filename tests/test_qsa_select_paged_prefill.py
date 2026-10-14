@@ -164,8 +164,17 @@ def test_parameterized_heads_and_dims(
         assert_selection(expected, args[4], args[8])
 
 
-@pytest.mark.parametrize("num_heads,head_dim", [(1, 32), (3, 64), (5, 96), (8, 256)])
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+@pytest.mark.parametrize(
+    "num_heads,head_dim,dtype",
+    [
+        (heads, dim, dtype)
+        for dtype in (torch.bfloat16, torch.float8_e4m3fn)
+        for heads, dim in ((1, 32), (3, 64), (5, 96), (8, 256))
+        # Original vLLM BF16 H8/D256 exceeds H800 shared memory. Keep this
+        # shape in our independent default/one-row tests above.
+        if not (dtype == torch.bfloat16 and (heads, dim) == (8, 256))
+    ],
+)
 def test_parameterized_against_vllm(sm90, num_heads, head_dim, dtype):
     reference = vllm_reference()
     args = make_inputs(

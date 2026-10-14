@@ -19,6 +19,7 @@ def fingerprint(stage):
 
     print("stage:", stage, flush=True)
     print("python:", sys.executable)
+    print("pid:", os.getpid())
     print("prefix:", sys.prefix)
     print("sys.path:", sys.path)
     runtime = os.environ.get("QSA_TRITON_RUNTIME_PATH")
@@ -30,6 +31,27 @@ def fingerprint(stage):
             Path(triton.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
         )
         assert triton.__version__ == importlib.metadata.version("triton")
+    if os.environ.get("QSA_DIAGNOSTIC_COMPAT") == "1":
+        assert Path(torch.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+        assert torch.__version__ == importlib.metadata.version("torch")
+        if runtime:
+            from triton.experimental.tle import language as tle
+
+            assert (
+                Path(tle.__file__)
+                .resolve()
+                .is_relative_to(Path(triton.__file__).resolve().parent)
+            )
+            print("TLE source:", tle.__file__)
+        if "vllm" in sys.modules:
+            import vllm
+            import vllm._C_stable_libtorch as native_extension
+
+            assert importlib.metadata.version("vllm").split("+")[0] == "0.31.0"
+            for module in (vllm, native_extension):
+                source = Path(module.__file__).resolve()
+                assert source.is_relative_to(Path(sys.prefix).resolve()), source
+                print("native vLLM source:", source)
     for name in (
         "LD_LIBRARY_PATH",
         "PYTHONPATH",
@@ -183,6 +205,83 @@ def pytest_collection_finish(session):
     fingerprint("pytest collection finished")
 
 
+def child_compat_qsa(args):
+    """Alternate both implementations in one CUDA context, without patching vLLM."""
+    import torch
+
+    import flaggems_vllm
+    from tests.qsa_select_prefill_utils import (
+        assert_native_selection,
+        assert_selection,
+        assert_upstream_selection,
+        make_inputs,
+        torch_logits,
+        vllm_reference,
+    )
+
+    fingerprint("same-process QSA compatibility")
+    assert torch.cuda.get_device_capability() == (9, 0)
+    assert importlib.metadata.version("vllm").split("+")[0] == "0.31.0"
+    # Set envs after import too: vLLM may cache its environment lookups.
+    reference = vllm_reference()
+    fingerprint("after original native QSA import")
+    torch.backends.cuda.matmul.allow_tf32 = False
+    print("original pinned QSA:", reference.__file__, flush=True)
+    print("original Top-K dispatch:", reference._topk, flush=True)
+    order = ("native", "gems") if args.native_first else ("gems", "native")
+    calls = {
+        "gems": flaggems_vllm.qsa_select_paged_prefill,
+        "native": reference.qsa_select_paged_prefill,
+    }
+    for dtype in (torch.bfloat16, torch.float8_e4m3fn):
+        for rows in (3, 65):
+            for k in (512, 1024, 2048):
+                for budget in (512, 1):
+                    os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = str(budget)
+                    reference.envs.VLLM_SPARSE_INDEXER_MAX_LOGITS_MB = budget
+                    inputs = make_inputs((rows,), (8192,), dtype=dtype, k=k)
+                    expected = torch_logits(*inputs[:5])
+                    outputs = {name: torch.empty_like(inputs[8]) for name in order}
+                    torch.cuda.synchronize()
+                    for repeat in range(2):
+                        for name in order:
+                            launch_args = list(inputs)
+                            launch_args[8] = outputs[name]
+                            print(
+                                "launch:",
+                                name,
+                                "dtype:",
+                                dtype,
+                                "rows:",
+                                rows,
+                                "K:",
+                                k,
+                                "budget MiB:",
+                                budget,
+                                "repeat:",
+                                repeat,
+                                flush=True,
+                            )
+                            calls[name](*launch_args)
+                            torch.cuda.synchronize()
+                            if dtype == torch.float8_e4m3fn:
+                                assert_upstream_selection(
+                                    expected, inputs[4], outputs[name], dtype=dtype
+                                )
+                            else:
+                                assert_selection(expected, inputs[4], outputs[name])
+                            print(name, "synchronized and validated", flush=True)
+                        assert_native_selection(
+                            expected,
+                            inputs[4],
+                            outputs["gems"],
+                            outputs["native"],
+                            dtype=dtype,
+                            head_dim=128,
+                        )
+    print("PASS: repeated same-process QSA in order", order, flush=True)
+
+
 def diagnose(mode):
     root = Path(__file__).resolve().parents[1]
     report = Path(tempfile.mkdtemp(prefix="qsa-prefill-h800."))
@@ -201,6 +300,14 @@ def diagnose(mode):
         PYTHONNOUSERSITE="1",
     )
     env.pop("PYTHONHOME", None)
+    if mode == "compat":
+        # Reject subprocess adapters rather than claiming compatibility from
+        # comparisons that actually execute native vLLM in another process.
+        if os.environ.get("QSA_NATIVE_REFERENCE_PYTHON"):
+            raise ValueError("--mode compat cannot use QSA_NATIVE_REFERENCE_PYTHON")
+        for name in ("QSA_NATIVE_REPORT_DIR", "QSA_DIAGNOSTIC_STOCK_RUNTIME"):
+            env.pop(name, None)
+        env["QSA_DIAGNOSTIC_COMPAT"] = "1"
     runtime = os.environ.get("QSA_TRITON_RUNTIME_PATH")
     if runtime:
         runtime = str(Path(runtime).resolve())
@@ -297,9 +404,49 @@ def diagnose(mode):
                 ],
             ),
         ]
+    if mode == "compat":
+        if not runtime:
+            raise ValueError("--mode compat needs explicit QSA_TRITON_RUNTIME_PATH")
+        jobs = [
+            ("stock-cooperative-topk", probe + ["--child", "topk"]),
+            (
+                "stock-persistent-topk",
+                probe + ["--child", "topk", "--op", "persistent_topk", "--rows", "65"],
+            ),
+            ("stock-upstream-qsa", probe + ["--child", "qsa"]),
+            ("tle-environment", probe + ["--child", "environment"]),
+            (
+                "tle-cooperative-topk-with-gems",
+                probe + ["--child", "topk", "--import-gems"],
+            ),
+            (
+                "tle-persistent-topk-with-gems",
+                probe
+                + [
+                    "--child",
+                    "topk",
+                    "--op",
+                    "persistent_topk",
+                    "--rows",
+                    "65",
+                    "--import-gems",
+                ],
+            ),
+            ("tle-gems-then-native-qsa", probe + ["--child", "compat-qsa"]),
+            (
+                "tle-native-then-gems-qsa",
+                probe + ["--child", "compat-qsa", "--native-first"],
+            ),
+            (
+                "tle-accuracy-combined-full",
+                pytest + [tests, "--record", "json"],
+            ),
+        ]
     outcomes = []
     modes = (
-        ("async", "sync") if mode == "matrix" else ("async" if mode == "tle" else mode,)
+        ("async", "sync")
+        if mode in ("matrix", "compat")
+        else ("async" if mode == "tle" else mode,)
     )
     (report / "launch-environment.json").write_text(
         json.dumps(
@@ -381,6 +528,32 @@ def diagnose(mode):
     (report / "diagnostic-summary.json").write_text(
         json.dumps(outcomes, indent=2) + "\n"
     )
+    if mode == "compat":
+        stock = [item for item in outcomes if "-stock-" in item["name"]]
+        tle = [item for item in outcomes if "-tle-" in item["name"]]
+        (report / "compatibility-summary.json").write_text(
+            json.dumps(
+                {
+                    "scope": "same-process FlagTree/native-vLLM functional compatibility; no timing",
+                    "stock_controls_passed": all(
+                        item["returncode"] == 0 for item in stock
+                    ),
+                    "async_tle_passed": all(
+                        item["returncode"] == 0
+                        for item in tle
+                        if item["name"].startswith("async-")
+                    ),
+                    "sync_tle_passed": all(
+                        item["returncode"] == 0
+                        for item in tle
+                        if item["name"].startswith("sync-")
+                    ),
+                    "cases": outcomes,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
     print("Diagnostics finished. Return all text/JSON files in:", report, flush=True)
     print(
         "No performance measurements; upstream dispatch was not modified.", flush=True
@@ -391,10 +564,12 @@ def diagnose(mode):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--mode", choices=("sync", "async", "matrix", "tle"), default="sync"
+        "--mode", choices=("sync", "async", "matrix", "tle", "compat"), default="sync"
     )
     parser.add_argument(
-        "--child", choices=("environment", "topk", "qsa"), help=argparse.SUPPRESS
+        "--child",
+        choices=("environment", "topk", "qsa", "compat-qsa"),
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--op",
@@ -406,9 +581,13 @@ def main():
     parser.add_argument("--topk", type=int, choices=(512, 1024, 2048), default=512)
     parser.add_argument("--import-gems", action="store_true")
     parser.add_argument("--warm-gems", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--native-first", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    if args.cols < args.topk or args.cols % 4 or not 1 <= args.rows <= 64:
-        parser.error("require cols >= K, cols divisible by 4, and 1 <= rows <= 64")
+    max_rows = 64 if args.op == "cooperative_topk" else 2048
+    if args.cols < args.topk or args.cols % 4 or not 1 <= args.rows <= max_rows:
+        parser.error(
+            f"require cols >= K, cols divisible by 4, and 1 <= rows <= {max_rows}"
+        )
     if args.child == "environment":
         child_environment()
         return 0
@@ -417,6 +596,9 @@ def main():
         return 0
     if args.child == "qsa":
         child_qsa(args)
+        return 0
+    if args.child == "compat-qsa":
+        child_compat_qsa(args)
         return 0
     return diagnose(args.mode)
 

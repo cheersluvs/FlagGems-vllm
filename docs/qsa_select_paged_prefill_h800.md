@@ -1,5 +1,16 @@
 # QSA paged prefill: H800 implementation and validation
 
+## Same-process compatibility (before editing, 2026-10-14)
+
+| Field | Choice |
+| --- | --- |
+| Evidence | Report 2ae99ce confirms the one BF16 index-set difference is exact zero-score ties; four FP8 differences pass the established tolerance. Native BF16 H8/D256 cannot execute on H800 |
+| Editable | Native test parameter list, diagnostic runner, this guide |
+| Read-only | Production kernels/autotune/benchmarks, pinned native QSA and CUDA Top-K dispatch, all reference tolerances |
+| Native coverage | Remove only BF16 H8/D256 from native comparisons at the user's request. Preserve FP8 H8/D256 and independent BF16 default/one-row tests. Full suite now 138 tests, including 33 native comparisons |
+| Compatibility | Fresh processes per diagnostic job; each TLE QSA job alternates actual FlagGems and original native QSA in one process/context. Run both launch orders and full suite, async and launch-blocking |
+| Failure/reporting | Continue other independent jobs after failure/timeout; nonzero overall exit, logs and summary. No adapter, upstream patch, skip, performance timing or installation |
+
 ## Native-vLLM direct alignment (before editing, 2026-10-14)
 
 | Project field | Frozen choice |
@@ -656,3 +667,56 @@ changed scores outside the existing tolerance return nonzero. FP8 retains the
 existing scaled-score tolerance. It writes native-output-audit.json into the
 original report directory; return that JSON. This is a saved-output audit,
 not a rerun of either implementation or a performance measurement.
+
+## Saved-output audit 2ae99ce and compatibility run
+
+The audit of the previous native run reports `needs_followup=false`: 29
+completed executions have identical index sets, two differ only at exact
+zero-score ties (one BF16, one FP8), and four FP8 cases differ within the
+existing `score/sqrt(D)` tolerance (`rtol=atol=1e-3`, maximum absolute delta
+0.00125432). This audits saved outputs and does not add another GPU test run.
+
+At the user's request, BF16 H8/D256 is now removed from the native test
+parameter list, rather than marked skipped or changing upstream tiling.
+Independent BF16 H8/D256 default/one-row tests and native FP8 H8/D256 remain.
+The full suite is expected to collect 138 cases, including 33 native
+comparisons (35 native executions in isolated native-align mode).
+
+Run shared-process compatibility using the existing vLLM 0.31.0 environment:
+
+```bash
+source /tmp/qsa-vllm031-h800.PQnVpV/activate_qsa.sh
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  "$PYTHON" tools/diagnose_qsa_prefill_h800.py --mode compat
+```
+
+This schedules 18 fresh processes: nine normal asynchronous checks, then the
+same nine with `CUDA_LAUNCH_BLOCKING=1`. Three stock-Triton controls exercise
+native cooperative Top-K, native persistent Top-K (65 rows), and original QSA.
+The six FlagTree checks inspect imports, exercise both native Top-K paths after
+FlagGems import, alternate Gems/native QSA in both orders, and run the full
+138-case accuracy suite in one process. The isolated native adapter is
+rejected. Source paths, runtime versions, PIDs and launch environment appear
+in the logs. No production implementation or upstream dispatch is patched.
+
+Each alternating QSA probe uses BF16/FP8, H4/D128, rows 3/65, K
+512/1024/2048 and logits budgets 512/1 MiB, twice in the selected order. Each
+whole operator call is synchronized and validated, without inserting waits
+between the original native score/Top-K kernels. The ordinary full pytest
+process remains asynchronous in the first half of the matrix and is the
+stronger check for normal execution. Both halves must pass to claim
+compatibility within this test scope; sync-only success is insufficient.
+
+Return the printed Reports directory, especially `compatibility-summary.json`,
+`diagnostic-summary.json`, both `accuracy` JSONs and all job logs. A failed
+job or a 900-second job timeout produces a nonzero overall exit while later
+jobs continue in fresh CUDA contexts. The report distinguishes stock controls,
+async FlagTree checks and sync FlagTree checks. This run collects no timings;
+model integration and CUDA Graph compatibility are outside its scope.
+
+Mac syntax/style checks and actual-runner mock checks passed: exact native
+parameter removal, 18-job runtime/environment routing, both repeated QSA
+orders, output validations, failure/timeout continuation, summary classification
+and isolated-adapter rejection. The previous diagnostic/independent benchmark
+routing checks also passed. No CUDA kernel executed on Mac; the H800
+compatibility matrix result is pending.
