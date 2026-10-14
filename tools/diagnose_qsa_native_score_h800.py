@@ -10,6 +10,7 @@ import importlib
 import importlib.metadata
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -294,8 +295,46 @@ def replay_kernel(folder, fn):
     return CompiledKernel(src, group, info["hash"]), info["grid"]
 
 
-def reassemble(origin, folder, assembler):
-    """Reuse the exact producer PTX/options, replacing only the assembler."""
+def transform_cache_hint(ptx, mode):
+    """Change only async cache hints, retaining pipeline and dot instructions."""
+    if mode == "original":
+        return ptx, 0
+    if mode == "no-hint":
+        pattern = re.compile(
+            r"^(\s*)(cp\.async\.(?:ca|cg)\.shared(?:::\w+)?\.global)"
+            r"\.L2::cache_hint\s+(.+);[ \t]*$",
+            re.MULTILINE,
+        )
+
+        def replace(match):
+            operands, policy = match[3].rsplit(",", 1)
+            assert re.fullmatch(r"\s*%rd\d+\s*", policy), "unexpected policy operand"
+            assert operands.count(",") == 3, "expected dst/src/size/src-size"
+            return match[1] + match[2] + " " + operands + ";"
+
+        result, count = pattern.subn(replace, ptx)
+        assert count > 0 and "cp.async.cg.shared.global.L2::cache_hint" not in result
+    elif mode == "fraction-half":
+        result, count = re.subn(
+            r"(createpolicy\.fractional\.L2::evict_first\.b64\s+%rd\d+,\s*)1\.0;",
+            r"\g<1>0.5;",
+            ptx,
+        )
+        assert count > 0, "no full-fraction evict_first policy found"
+    else:
+        raise ValueError(mode)
+    for opcode in (
+        "cp.async.commit_group",
+        "cp.async.wait_group",
+        "wgmma.",
+        "mma.sync",
+    ):
+        assert result.count(opcode) == ptx.count(opcode), "pipeline/dot changed"
+    return result, count
+
+
+def reassemble(origin, folder, assembler, mode="original"):
+    """Retain producer assembler options and explicitly record any PTX edit."""
     info = json.loads((origin / "replay.json").read_text())
     for filename, expected in info["files"].items():
         assert sha(origin / filename) == expected, filename
@@ -307,6 +346,10 @@ def reassemble(origin, folder, assembler):
     assert len(ptx_positions) == 1
     for filename in info["files"]:
         shutil.copyfile(origin / filename, folder / filename)
+    original_ptx = (folder / "kernel.ptx").read_text()
+    patched_ptx, edits = transform_cache_hint(original_ptx, mode)
+    if edits:
+        (folder / "kernel.ptx").write_text(patched_ptx)
     command[0] = assembler
     command[ptx_positions[0]] = str(folder / "kernel.ptx")
     command[command.index("-o") + 1] = str(folder / "kernel.cubin")
@@ -315,7 +358,10 @@ def reassemble(origin, folder, assembler):
         repr(command) + "\n" + result.stdout + result.stderr
     )
     assert result.returncode == 0, "ptxas reassembly failed: " + result.stderr
-    assert sha(folder / "kernel.ptx") == info["files"]["kernel.ptx"]
+    original_ptx_sha256 = info["files"]["kernel.ptx"]
+    if mode == "original":
+        assert sha(folder / "kernel.ptx") == original_ptx_sha256
+    info["files"]["kernel.ptx"] = sha(folder / "kernel.ptx")
     info["files"]["kernel.cubin"] = sha(folder / "kernel.cubin")
     info["assembler_commands"] = [command]
     write_json(folder / "replay.json", info)
@@ -323,6 +369,9 @@ def reassemble(origin, folder, assembler):
         "ptx_sha256": sha(folder / "kernel.ptx"),
         "cubin_sha256": sha(folder / "kernel.cubin"),
         "reassembly_command": command,
+        "ptx_intervention": mode,
+        "ptx_edits": edits,
+        "original_ptx_sha256": original_ptx_sha256,
     }
 
 
@@ -377,8 +426,20 @@ def worker(args):
             mark("artifact replay construction")
             origin = report / args.replay
             if args.reassemble:
-                mark("identical PTX reassembly")
-                state.update(reassemble(origin, folder, manifest["stock_ptxas"]))
+                mode = getattr(args, "ptx_cache_hint", "original")
+                mark(
+                    "identical PTX reassembly"
+                    if mode == "original"
+                    else "cache-policy PTX intervention"
+                )
+                state.update(
+                    reassemble(
+                        origin,
+                        folder,
+                        manifest["stock_ptxas"],
+                        mode,
+                    )
+                )
                 origin = folder
                 mark("artifact replay construction")
             compiled, original_grid = replay_kernel(origin, fn)
@@ -694,6 +755,91 @@ def diagnose():
     return int(any(item["returncode"] != 0 for item in outcomes))
 
 
+def diagnose_cache_hint(source_report):
+    """Target the saved failing binaries; never change the original report."""
+    source_report = source_report.resolve()
+    runtime = os.environ.get("QSA_TRITON_RUNTIME_PATH")
+    if not runtime or not Path(runtime, "triton").is_dir():
+        raise ValueError(
+            "set QSA_TRITON_RUNTIME_PATH to the existing FlagTree directory"
+        )
+    runtime = str(Path(runtime).resolve())
+    report = Path(tempfile.mkdtemp(prefix="qsa-prefill-h800."))
+    print("Reports:", report, flush=True)
+    for filename in ("inputs.json", "qsa_indexer_vllm.py"):
+        shutil.copyfile(source_report / filename, report / filename)
+    for case in CASES:
+        shutil.copyfile(
+            source_report / (case + "-input.pt"), report / (case + "-input.pt")
+        )
+        producer = case + "-flagtree-original"
+        shutil.copytree(source_report / producer, report / producer)
+    (report / "commit.txt").write_text(
+        subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            text=True,
+        )
+    )
+    (report / "worktree-status.txt").write_text(
+        subprocess.check_output(
+            ["git", "status", "--short"],
+            cwd=ROOT,
+            text=True,
+        )
+    )
+    outcomes = []
+    for case in CASES:
+        for backend, mode in (
+            ("stock", "original"),
+            ("stock", "no-hint"),
+            ("stock", "fraction-half"),
+            ("flagtree", "no-hint"),
+        ):
+            name = case + "-" + backend + "-cache-policy-" + mode
+            env = child_env(report, runtime if backend == "flagtree" else None, name)
+            env["QSA_VLLM_REFERENCE_FILE"] = str(report / "qsa_indexer_vllm.py")
+            command = [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                "--report",
+                str(report),
+                "--name",
+                name,
+                "--case",
+                case,
+                "--replay",
+                case + "-flagtree-original",
+            ]
+            if mode != "original":
+                command += ["--reassemble", "--ptx-cache-hint", mode]
+            outcomes.append(run_job(report, name, command, env))
+    states = []
+    for item in outcomes:
+        path = report / (item["name"] + ".json")
+        states.append(
+            {
+                **item,
+                "evidence": json.loads(path.read_text()) if path.exists() else None,
+            }
+        )
+    write_json(
+        report / "cache-policy-summary.json",
+        {
+            "scope": "saved original FlagTree binary controls and explicitly patched async cache-policy PTX; no timing",
+            "source_report": str(source_report),
+            "cases": states,
+        },
+    )
+    print(
+        "Return all top-level text/JSON files including *-artifacts.json:",
+        report,
+        flush=True,
+    )
+    # The original binary should still fail; retain that failure and return it.
+    return int(any(item["returncode"] != 0 for item in outcomes))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prepare", action="store_true", help=argparse.SUPPRESS)
@@ -718,7 +864,20 @@ def main():
     )
     parser.add_argument("--replay", help=argparse.SUPPRESS)
     parser.add_argument("--reassemble", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--ptx-cache-hint",
+        choices=("original", "no-hint", "fraction-half"),
+        default="original",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--cache-hint-report",
+        type=Path,
+        help="target cache-policy probes using a previous score report",
+    )
     args = parser.parse_args()
+    if args.cache_hint_report:
+        return diagnose_cache_hint(args.cache_hint_report)
     if args.prepare:
         prepare(args.report.resolve())
         return 0

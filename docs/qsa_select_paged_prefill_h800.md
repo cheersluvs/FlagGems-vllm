@@ -14,6 +14,14 @@
 | Fault location | Optional existing compute-sanitizer memcheck/synccheck; retain PC and SASS. No tools installed, no existing cache deleted, no performance measurements |
 | Completion | Mac checks validate transport/routing/artifacts; hardware-specific root cause requires H800 report, not inferred from an illegal-instruction message alone |
 
+| Cache-policy follow-up field | Choice frozen from a4685e8 before GPU follow-up |
+| --- | --- |
+| Evidence | Both failing CUBINs contain LDGSTS reads of desc[UR1] with no SASS write initializing UR1; PTX contains fractional evict_first createpolicy. Original Stock PTX omits async L2 hints |
+| Editable | Diagnostic PTX intervention helper/mode and this guide only |
+| Fixed | Original source/input hashes, two reproducer shapes, STAGES=2, pipeline, dot instructions, original ptxas flags and ABI; original report remains read-only |
+| Experiments | Original failing CUBIN under Stock; strip only cp.async cache-hint qualifier/operand under Stock and FlagTree; separately change policy fraction 1.0 to 0.5 under Stock |
+| Interpretation | Original binary failures stay visible. Patched PTX is explicitly labeled and cannot stand in for native-vLLM correctness/compatibility acceptance |
+
 ## Same-process compatibility (before editing, 2026-10-14)
 
 | Field | Choice |
@@ -822,3 +830,66 @@ with original options, stock/FlagTree import
 routing, unique caches, sanitizer availability and continuation. These checks
 do not determine the faulting GPU instruction. The specific root cause is
 pending this H800 report.
+
+## Score report a4685e8: fractional async cache policy
+
+Code ac2ce7d completed 22 score probes (6 passed, 16 failed), with no sanitizer
+installed. Every original Stock score binary passed. Both original FlagTree
+score binaries failed at score launch, with or without FlagGems import and
+with fresh caches. Stock CUBIN replay under FlagTree passed; FlagTree CUBIN
+replay under Stock failed. Both assemblers are CUDA 12.8.93; reassembling the
+same original FlagTree PTX with Stock ptxas yielded byte-identical CUBINs and
+the same error. This excludes a FlagTree-launcher-only defect or different
+assembler output in these controls.
+
+Loop `STAGES=1` passed both inputs and removed the asynchronous copies.
+Setting only compiler `num_stages=1`, reducing TILE_R to 16, or targeting
+sm80 did not help. The sm80 binaries contain no WGMMA and still fail, so
+WGMMA is not required to reproduce the fault. The original H4 and H1 shared
+memory allocations are 106496 and 20480 bytes, respectively, within H800's
+limit.
+
+The more specific static finding is in the async-copy cache-policy path:
+original FlagTree PTX contains respectively 16/4 copies with
+`cp.async.cg.shared.global.L2::cache_hint`, plus two
+`createpolicy.fractional.L2::evict_first.b64 ..., 1.0` instructions. In both
+SASS files their LDGSTS instructions consume `desc[UR1]`, while no instruction
+writes UR1; the policy initialization has disappeared. Original Stock PTX
+has no fractional policies/async L2 hints and its SASS has no such undefined
+descriptor read.
+
+This matches the mechanism in the [NVIDIA user report](https://forums.developer.nvidia.com/t/nvcc-13-1-ptxas-codegen-bug-createpolicy-fractional-dropped-on-sm-90/368663)
+of ptxas dropping fractional-policy initialization while retaining the async
+cache descriptor. That report used CUDA 13.1/H20; our observed tool is
+12.8.93/H800, so it does not establish identical version boundaries.
+[Triton PR 11660](https://github.com/triton-lang/triton/pull/11660) disables
+fractional policies for cp.async to work around a ptxas miscompile; its source
+comment identifies Blackwell/13.3.33. This supports the class of failure but
+does not replace a controlled test of our binary.
+
+Complete that test using the original card report including its raw inputs:
+
+```bash
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  "$PYTHON" tools/diagnose_qsa_native_score_h800.py \
+  --cache-hint-report /tmp/qsa-prefill-h800.kwkjy154
+```
+
+Eight fresh processes reuse the saved input/ABI/binary artifacts. For each
+reproducer they replay the original FlagTree CUBIN under Stock as a failing
+control; separately reassemble PTX after removing only the cp.async cache
+qualifier and policy operand, or changing only the two policy fractions from
+1.0 to 0.5. The no-hint binary is tested under both Stock and FlagTree.
+Pipeline stages, cp.async commit/wait and WGMMA/MMA instructions remain
+unchanged; all original assembler flags are retained. The original source
+file and report are copied without modification. These are explicit PTX
+experiments, not an upstream source patch, native baseline replacement or
+performance measurement.
+
+Return all top-level text/JSON files from the new Reports directory, including
+`cache-policy-summary.json` and every `*-artifacts.json`. Original binary
+controls are expected to fail, so the overall exit can remain nonzero when
+the interventions pass. Source/input/artifact hashes and the exact PTX
+interventions are recorded. Local actual-H800-PTX transformation checks and
+mocked worker/reassembly/eight-job orchestration passed; the hardware A/B
+result is pending.
