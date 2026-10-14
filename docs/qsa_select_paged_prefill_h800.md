@@ -619,3 +619,40 @@ runner selects every case, saves summaries on success/failure and performs no
 IPC timing. Existing input builders/reference functions/tolerances and all
 production operator files are unchanged. No GPU ran on Mac; H800 results for
 this native mode are pending.
+
+## Native alignment report 4265a12 (2026-10-14)
+
+Code ae3c122 completed **138 passed / 1 failed** in 259.50 s: all 105
+independent cases passed; 33 native comparison cases passed and one failed.
+There were 36 native executions, 35 completed. Their input/source hashes,
+stock Triton 3.7.1 source paths, SM90/device index and native extension paths
+were checked against the report manifests; FlagGems used FlagTree/Triton 3.6.0.
+
+The sole failure is original vLLM's BF16 H8/D256 scoring kernel, before Top-K:
+shared memory required **335872 bytes**, H800 limit **232448 bytes**. No native
+output exists for this case. The identical H/D dtype scope passed our prior
+independent default/one-row tests. This establishes a native resource limit
+for that pinned implementation/configuration on H800, not an output mismatch;
+the failing comparison remains visible and the full native suite is not marked
+fully passed. No upstream tiling change or skip was introduced.
+
+All strict BF16 upstream fixture comparisons passed. Across 35 completed
+executions, 29 had identical sorted index sets and six differed but passed the
+existing direct selected-score checks: five FP8 and one synthetic BF16 H1/D32.
+The results branch contains the top-level summary but omits the native/ raw
+tensors, so exact ties versus tolerated numeric differences cannot yet be
+confirmed for that BF16 case.
+
+Audit the saved card tensors without executing QSA again:
+
+```bash
+"$PYTHON" tools/audit_qsa_native_outputs.py /tmp/qsa-prefill-h800.UBvV0t
+```
+
+The tool reads the six differing cases, validates input/output checksums,
+recomputes the independent FP32 Torch scores with TF32 disabled, and records
+both full-selected and changed-only score differences. BF16 non-exact ties or
+changed scores outside the existing tolerance return nonzero. FP8 retains the
+existing scaled-score tolerance. It writes native-output-audit.json into the
+original report directory; return that JSON. This is a saved-output audit,
+not a rerun of either implementation or a performance measurement.
