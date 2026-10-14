@@ -309,7 +309,7 @@ def transform_cache_hint(ptx, mode):
         def replace(match):
             operands, policy = match[3].rsplit(",", 1)
             assert re.fullmatch(r"\s*%rd\d+\s*", policy), "unexpected policy operand"
-            assert operands.count(",") == 3, "expected dst/src/size/src-size"
+            assert operands.count(",") in (2, 3), "expected dst/src/size[/src-size]"
             return match[1] + match[2] + " " + operands + ";"
 
         result, count = pattern.subn(replace, ptx)
@@ -375,7 +375,11 @@ def reassemble(origin, folder, assembler, mode="original"):
     }
 
 
-def worker(args):
+def worker(
+    args,
+    argument_builder=score_arguments,
+    kernel_name="_qsa_mqa_paged_prefill_kernel",
+):
     report = args.report.resolve()
     folder = report / args.name
     folder.mkdir(exist_ok=True)
@@ -383,6 +387,7 @@ def worker(args):
         "name": args.name,
         "case": args.case,
         "variant": args.variant,
+        "kernel": kernel_name,
         "stage": "imports",
         "passed": False,
     }
@@ -413,12 +418,12 @@ def worker(args):
         state["reference_sha256"] = sha(reference.__file__)
         payload = torch.load(path, map_location="cpu", weights_only=True)
         mark("input preparation")
-        runtime, constants, options, grid, logits, visible = score_arguments(
+        runtime, constants, options, grid, logits, visible = argument_builder(
             payload, torch, args.variant
         )
         torch.cuda.synchronize()
         state.update(constants=constants, options=options, grid=grid)
-        fn = reference._qsa_mqa_paged_prefill_kernel
+        fn = getattr(reference, kernel_name)
         bound = [
             dict(zip(fn.arg_names, runtime), **constants)[name] for name in fn.arg_names
         ]
@@ -436,7 +441,7 @@ def worker(args):
                     reassemble(
                         origin,
                         folder,
-                        manifest["stock_ptxas"],
+                        getattr(args, "assembler", None) or manifest["stock_ptxas"],
                         mode,
                     )
                 )
@@ -503,10 +508,18 @@ def worker(args):
             < visible[:, None]
         )
         expected = payload["expected"].to(logits.device)
-        torch.testing.assert_close(logits[mask], expected[mask], rtol=2e-4, atol=2e-3)
+        scale = payload.get("score_scale", 1.0)
+        torch.testing.assert_close(
+            logits[mask] * scale,
+            expected[mask] * scale,
+            rtol=payload.get("score_rtol", 2e-4),
+            atol=payload.get("score_atol", 2e-3),
+        )
+        if payload.get("check_masked_logits", False):
+            assert torch.isneginf(logits[~mask]).all(), "masked logits overwritten"
         state.update(stage="passed", passed=True)
         print(
-            "PASS: original score validated; no Top-K or Gems kernel executed",
+            "PASS: score validated; no Top-K or Gems kernel executed",
             flush=True,
         )
         return 0
