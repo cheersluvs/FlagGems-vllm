@@ -107,3 +107,62 @@ Mac validation checks syntax/style, input/reference construction, original
 decode launch binding, one-variable interventions, process/environment
 routing, failure continuation and portable summaries. These checks cannot
 establish the GPU result; H800 execution is still required.
+
+## Report 4ef5279: original decode fault reproduced
+
+Code `28bcd718b025820a610ed1b1628223c10e28746a` completed the default eight
+H4/D128/query-length-3 inputs on H800. All 186 uploaded files and all 56
+compiler-artifact bundles were checksum-verified.
+
+| Check | BF16, tiles 1/2/4/8 | FP8, tiles 1/2/4/8 |
+| --- | --- | --- |
+| Original, stock Triton 3.7.1 | 4 score checks passed | 4 score checks passed |
+| Original, FlagTree 0.6.1 / Triton 3.6.0 | 4 illegal-instruction failures | 4 illegal-instruction failures |
+| FlagTree, loop STAGES=1 | 4 score checks passed | 4 score checks passed |
+| Four binary replay checks per input | 16 launcher IndexErrors | 16 launcher IndexErrors |
+
+The 32 replay failures are a diagnostic-script defect rather than GPU kernel
+results. Decode has a two-dimensional JIT grid. `JITFunction` pads its grid,
+but the raw `CompiledKernel` runner reads all three grid dimensions directly;
+our replay path omitted the third dimension and raised `IndexError` before
+launching. The corrected path retains the original grid for ABI comparison
+and pads only the raw replay launch to `(grid_x, grid_y, 1)`. The original
+JIT executions and saved binaries are unaffected.
+
+All eight original FlagTree PTX files contain 32 async L2 cache-hint copies
+and two full-fraction evict_first policy definitions. Their SASS consumes
+UR0/UR1 in LDGSTS operands without any initializing writes. Stock PTX
+retains async copies but has no fractional async cache-policy definitions;
+Stock and no-hint SASS have no UR0/UR1 references. There is no WGMMA in these
+decode kernels. Shared memory is 21504 bytes for BF16 and 13312 for FP8.
+This matches the prefill fault's static mechanism, but the decode-specific
+no-hint GPU A/B has not executed yet. Every identical-PTX stock reassembly
+produced the original FlagTree CUBIN byte for byte; the saved no-hint CUBIN
+was also identical in both replay-runtime records.
+
+Source: [original decode report](https://github.com/cheersluvs/FlagGems-vllm/blob/4ef5279f59d390bb072c5a1bc75d131f1d7e1af2/results/qsa_select_paged_decode/h800/20261014-093323/decode-diagnostic-summary.json)
+and its compiler-artifact bundles. Original failure reproduction is confirmed
+for these eight inputs; a controlled decode cache-hint conclusion remains
+pending the corrected replay run.
+
+### Complete the saved binary controls
+
+With the corrected scripts in the checkout, reuse the raw card report:
+
+```bash
+QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  "$PYTHON" tools/diagnose_qsa_native_decode_h800.py \
+  --replay-report /tmp/qsa-decode-h800.jeoxayk0
+```
+
+This schedules exactly 32 fresh-process binary replays, using the saved
+inputs, original FlagTree binaries, identical-PTX stock reassemblies and
+producer-assembled no-hint binaries. It generates no new inputs, JIT kernels
+or assembled binaries. Original source/input/artifact hashes are checked;
+the saved no-hint PTX must equal the exact one-variable transformation of
+original PTX, with unchanged metadata, signature, constants and grid.
+The original report is copied without modification. Earlier original and
+STAGES=1 results are retained and labeled `reused_from`, rather than counted
+as new GPU runs. New reports include all saved producer bundles and
+`previous-summary.json`, so an uploader copying top-level text/JSON preserves
+the evidence. A full diagnostic run also uses the corrected grid padding.

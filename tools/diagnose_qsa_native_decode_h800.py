@@ -259,7 +259,65 @@ def classify(probes):
     return "inconclusive: inspect failure stages and compiler artifacts"
 
 
-def diagnose(args):
+def run_probe(
+    report,
+    case,
+    label,
+    backend,
+    runtime,
+    variant="original",
+    replay=None,
+    assembler=None,
+    ptx_mode="no-hint",
+):
+    name = case + "-" + label
+    origin = report / replay if replay else None
+    if origin and not (origin / "replay.json").exists():
+        return {"name": name, "unavailable": "no producer binary"}
+    if (
+        assembler
+        and ptx_mode == "no-hint"
+        and not artifact_evidence(origin)["async_l2_hint_count"]
+    ):
+        return {
+            "name": name,
+            "not_applicable": "producer PTX has no async L2 cache hint",
+        }
+    env = shared.child_env(report, runtime if backend == "flagtree" else None, name)
+    env["QSA_VLLM_REFERENCE_FILE"] = str(report / "qsa_indexer_vllm.py")
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--report",
+        str(report),
+        "--name",
+        name,
+        "--case",
+        case,
+        "--variant",
+        variant,
+    ]
+    if replay:
+        command += ["--replay", replay]
+    if assembler:
+        command += [
+            "--reassemble",
+            "--assembler",
+            assembler,
+            "--ptx-cache-hint",
+            ptx_mode,
+        ]
+    outcome = shared.run_job(report, name, command, env)
+    state_path = report / (name + ".json")
+    return {
+        **outcome,
+        "evidence": json.loads(state_path.read_text()) if state_path.exists() else {},
+        "artifact_evidence": artifact_evidence(report / name),
+        "log_tail": (report / (name + ".txt")).read_text()[-8000:],
+    }
+
+
+def flagtree_runtime():
     runtime = os.environ.get("QSA_TRITON_RUNTIME_PATH")
     if (
         not runtime
@@ -267,11 +325,12 @@ def diagnose(args):
         or not Path(runtime, "triton").is_dir()
     ):
         raise ValueError("set QSA_TRITON_RUNTIME_PATH to the FlagTree directory")
-    runtime = str(Path(runtime).resolve())
+    return str(Path(runtime).resolve())
+
+
+def new_report():
     report = Path(tempfile.mkdtemp(prefix="qsa-decode-h800."))
     print("Reports:", report, flush=True)
-    cases = case_matrix(args)
-    shared.write_json(report / "cases.json", cases)
     for command, filename in (
         (["git", "rev-parse", "HEAD"], "commit.txt"),
         (["git", "status", "--short"], "worktree-status.txt"),
@@ -279,6 +338,14 @@ def diagnose(args):
         (report / filename).write_text(
             subprocess.check_output(command, cwd=ROOT, text=True)
         )
+    return report
+
+
+def diagnose(args):
+    runtime = flagtree_runtime()
+    report = new_report()
+    cases = case_matrix(args)
+    shared.write_json(report / "cases.json", cases)
     script = [sys.executable, str(Path(__file__).resolve())]
     prepare_env = shared.child_env(report, None, "prepare")
     # Preserve an explicitly supplied frozen source only for preparation.
@@ -309,55 +376,17 @@ def diagnose(args):
             assembler=None,
             ptx_mode="no-hint",
         ):
-            name = case + "-" + label
-            origin = report / replay if replay else None
-            if origin and not (origin / "replay.json").exists():
-                probes[label] = {"name": name, "unavailable": "no producer binary"}
-                return
-            if (
-                assembler
-                and ptx_mode == "no-hint"
-                and not artifact_evidence(origin)["async_l2_hint_count"]
-            ):
-                probes[label] = {
-                    "name": name,
-                    "not_applicable": "producer PTX has no async L2 cache hint",
-                }
-                return
-            env = shared.child_env(
-                report, runtime if backend == "flagtree" else None, name
-            )
-            env["QSA_VLLM_REFERENCE_FILE"] = str(report / "qsa_indexer_vllm.py")
-            command = script + [
-                "--report",
-                str(report),
-                "--name",
-                name,
-                "--case",
+            probes[label] = run_probe(
+                report,
                 case,
-                "--variant",
+                label,
+                backend,
+                runtime,
                 variant,
-            ]
-            if replay:
-                command += ["--replay", replay]
-            if assembler:
-                command += [
-                    "--reassemble",
-                    "--assembler",
-                    assembler,
-                    "--ptx-cache-hint",
-                    ptx_mode,
-                ]
-            outcome = shared.run_job(report, name, command, env)
-            state_path = report / (name + ".json")
-            probes[label] = {
-                **outcome,
-                "evidence": (
-                    json.loads(state_path.read_text()) if state_path.exists() else {}
-                ),
-                "artifact_evidence": artifact_evidence(report / name),
-                "log_tail": (report / (name + ".txt")).read_text()[-8000:],
-            }
+                replay,
+                assembler,
+                ptx_mode,
+            )
 
         run("stock-original", "stock")
         run("flagtree-original", "flagtree")
@@ -409,6 +438,130 @@ def diagnose(args):
     )
 
 
+def verify_artifacts(folder):
+    info = json.loads((folder / "replay.json").read_text())
+    for name, digest in info["files"].items():
+        assert Path(name).name == name, "unsafe artifact filename"
+        assert shared.sha(folder / name) == digest, "corrupt artifact: " + name
+    return info
+
+
+def diagnose_replay(source_report):
+    """Finish saved decode binary controls with a normalized 3D launch grid."""
+    runtime = flagtree_runtime()
+    source_report = source_report.resolve()
+    report = new_report()
+    manifest = json.loads((source_report / "inputs.json").read_text())
+    cases = json.loads((source_report / "cases.json").read_text())
+    previous = json.loads(
+        (source_report / "decode-diagnostic-summary.json").read_text()
+    )
+    assert cases and previous["complete"], "need a completed original diagnostic"
+    assert (
+        shared.sha(source_report / "qsa_indexer_vllm.py")
+        == manifest["reference_sha256"]
+    )
+    for name in ("inputs.json", "cases.json", "qsa_indexer_vllm.py"):
+        shutil.copyfile(source_report / name, report / name)
+    shutil.copyfile(
+        source_report / "decode-diagnostic-summary.json",
+        report / "previous-summary.json",
+    )
+    results = {}
+    for case, config in cases.items():
+        assert re.fullmatch(r"(?:bf16|fp8)-h\d+d\d+-q\d+-tiles[1248]", case)
+        input_name = case + "-input.pt"
+        assert (
+            shared.sha(source_report / input_name) == manifest["inputs"][case]["sha256"]
+        )
+        shutil.copyfile(source_report / input_name, report / input_name)
+        saved = {}
+        for label in (
+            "flagtree-original",
+            "identical-ptx-stock-assembler",
+            "flagtree-no-hint",
+        ):
+            origin = source_report / (case + "-" + label)
+            verify_artifacts(origin)
+            saved[label] = "saved-" + case + "-" + label
+            folder = report / saved[label]
+            shutil.copytree(origin, folder)
+            shared.bundle(folder, report, saved[label])
+        original = report / saved["flagtree-original"]
+        patched = report / saved["flagtree-no-hint"]
+        old_info, new_info = verify_artifacts(original), verify_artifacts(patched)
+        for field in ("arg_names", "signature", "constants", "grid"):
+            assert old_info[field] == new_info[field], "patched ABI changed: " + field
+        assert (original / "kernel.json").read_bytes() == (
+            patched / "kernel.json"
+        ).read_bytes()
+        expected_ptx, edits = shared.transform_cache_hint(
+            (original / "kernel.ptx").read_text(), "no-hint"
+        )
+        assert (
+            patched / "kernel.ptx"
+        ).read_text() == expected_ptx, "unexpected PTX edits"
+        probes = {}
+        for label in ("stock-original", "flagtree-original", "flagtree-loop-stage1"):
+            probes[label] = {**previous["cases"][case]["probes"][label]}
+            evidence = probes[label]["evidence"]
+            assert evidence["kernel"] == KERNEL
+            assert evidence["case"] == case
+            assert evidence["reference_sha256"] == manifest["reference_sha256"]
+            assert evidence["input_sha256"] == manifest["inputs"][case]["sha256"]
+            probes[label]["reused_from"] = str(source_report)
+            for suffix in (".json", ".txt"):
+                name = case + "-" + label + suffix
+                shutil.copyfile(source_report / name, report / name)
+        for label, backend, producer in (
+            ("flagtree-cubin-stock", "stock", "flagtree-original"),
+            ("identical-ptx-stock-assembler", "stock", "identical-ptx-stock-assembler"),
+            ("flagtree-no-hint", "flagtree", "flagtree-no-hint"),
+            ("no-hint-cubin-stock", "stock", "flagtree-no-hint"),
+        ):
+            probes[label] = run_probe(
+                report, case, label, backend, runtime, replay=saved[producer]
+            )
+        intervention = probes["flagtree-no-hint"]["evidence"]
+        intervention.update(
+            ptx_intervention="no-hint",
+            ptx_edits=edits,
+            original_ptx_sha256=shared.sha(original / "kernel.ptx"),
+            saved_binary_replay=True,
+        )
+        shared.write_json(report / (case + "-flagtree-no-hint.json"), intervention)
+        results[case] = {
+            "config": config,
+            "input_sha256": manifest["inputs"][case]["sha256"],
+            "conclusion": classify(probes),
+            "probes": probes,
+        }
+        shared.write_json(
+            report / "decode-diagnostic-summary.json",
+            {
+                "scope": "saved decode binary controls; original baseline results reused; no compilation or timing",
+                "source_report": str(source_report),
+                "baselines_reused": True,
+                "new_probes_per_case": 4,
+                "complete": len(results) == len(cases),
+                "fresh_cache_per_job": True,
+                "reference_commit": manifest["reference_commit"],
+                "reference_sha256": manifest["reference_sha256"],
+                "cases": results,
+            },
+        )
+        print(case + ": " + results[case]["conclusion"], flush=True)
+    print("Return all top-level *.txt and *.json, including *-artifacts.json:", report)
+    return int(
+        any(
+            probe.get("returncode") not in (None, 0)
+            for result in results.values()
+            for probe in result["probes"].values()
+            if "reused_from" not in probe
+        )
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -419,6 +572,11 @@ def main():
     parser.add_argument("--head-dim", type=int, default=128)
     parser.add_argument(
         "--tiles", nargs="+", type=int, choices=(1, 2, 4, 8), default=[1, 2, 4, 8]
+    )
+    parser.add_argument(
+        "--replay-report",
+        type=Path,
+        help="finish binary controls using a previous decode report's raw inputs/artifacts",
     )
     parser.add_argument("--prepare", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--report", type=Path, help=argparse.SUPPRESS)
@@ -442,6 +600,8 @@ def main():
     args = parser.parse_args()
     if min(args.query_lengths + [args.heads, args.head_dim]) <= 0:
         parser.error("query lengths, heads and head dimension must be positive")
+    if args.replay_report:
+        return diagnose_replay(args.replay_report)
     if args.prepare:
         prepare(args.report.resolve())
         return 0

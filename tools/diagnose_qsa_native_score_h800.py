@@ -449,6 +449,11 @@ def worker(
                 mark("artifact replay construction")
             compiled, original_grid = replay_kernel(origin, fn)
             assert list(grid) == original_grid
+            # JITFunction pads a 1D/2D grid automatically; CompiledKernel's
+            # raw runner directly indexes grid[0], grid[1], grid[2].
+            assert 1 <= len(grid) <= 3, "unsupported replay grid rank"
+            replay_grid = tuple(grid) + (1,) * (3 - len(grid))
+            state["replay_launch_grid"] = replay_grid
             if args.reassemble:
                 try:
                     (folder / "kernel.sass.txt").write_text(compiled.asm["sass"])
@@ -497,7 +502,7 @@ def worker(
         mark("score launch")
         print("native score-only launch:", args.name, flush=True)
         if args.replay:
-            compiled[grid](*bound)
+            compiled[replay_grid](*bound)
         else:
             fn[grid](*runtime, **constants, **options)
         mark("score synchronize")
