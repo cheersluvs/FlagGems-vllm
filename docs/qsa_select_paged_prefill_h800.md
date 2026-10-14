@@ -1,5 +1,31 @@
 # QSA paged prefill: H800 implementation and validation
 
+## Performance acceptance policy (2026-10-14)
+
+The user does not accept a cross-compiler native-vLLM benchmark as operator
+performance evidence. The current production implementation requires
+FlagTree/TLE, while the unchanged native QSA currently needs Stock Triton
+to execute correctly. Their isolated-process output comparisons establish
+tested functional agreement only. No cross-compiler or IPC timing may be
+adopted as a native-vLLM speedup or current performance-acceptance result.
+
+| Existing measurements | Status for current native-vLLM performance acceptance |
+| --- | --- |
+| Early native timings using Stock Triton on both sides and the old prefill Top-K implementation | Historical old-implementation results only; not the current persistent_topk implementation |
+| Reports 0cf70c5 / 8e68728, full operator versus independent Torch | Internal reference only; native groups were excluded, so these are not vLLM speedups |
+| Reports 0cf70c5 / 8e68728, persistent versus old FlagGems Top-K | Internal same-runtime stage comparison only; not native full-operator evidence |
+| Native-align, shared-process diagnostics and patched-PTX probes | Correctness/fault diagnosis only; no benchmark collected |
+
+Current native-vLLM performance acceptance remains **unavailable**. The raw
+numbers are preserved for audit and are not adopted for acceptance or a
+current native-vLLM performance claim. After fixing the compiler-side async
+cache-policy issue, rerun unchanged native QSA and our current production
+implementation in the same FlagTree environment, pass full correctness on
+the common executable scope, then benchmark identical inputs/settings on
+the same GPU. Native CUDA Top-K remains the same precompiled extension;
+it is not JIT-compiled by either Triton runtime. Diagnostic PTX edits cannot
+stand in for the unchanged native baseline.
+
 ## Native score illegal-instruction diagnosis (before editing, 2026-10-14)
 
 | Field | Choice |
