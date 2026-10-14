@@ -1,0 +1,3528 @@
+{
+  "scope": "native BF16 score fault diagnosis; original and explicitly labeled ablations; no Top-K/timing",
+  "fresh_cache_per_job": true,
+  "complete": true,
+  "sanitizer_available": false,
+  "cases": [
+    {
+      "name": "h4d128-stock-original",
+      "returncode": 0,
+      "evidence": {
+        "name": "h4d128-stock-original",
+        "case": "h4d128",
+        "variant": "original",
+        "stage": "passed",
+        "passed": true,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1853033,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.7.1",
+          "triton_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-stock-original",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": null
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/compiler.py",
+              "sha256": "d012f2a7e705592e590630a0df58099ceeb9ef71517c561fc81644c0c9399658"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py",
+              "sha256": "992ba21e12ee170a904f3a1caca24a78ce3dd66b661087faea5973b995480f63"
+            },
+            "triton.knobs": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/knobs.py",
+              "sha256": "b0e6a0a241cbc52067b04c230b2ec149ae109ee4bf48d3b7706a18a8e526fc60"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": null,
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/_C/libtriton.so",
+            "sha256": "ca632c8dba2ec41fe7b24424f071278c787559b0c75dbbd0ba8a854dce99c6da"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "kernel_hash": "df0d191d691fef06edb1a416756172eb9832a9e7b543ea8ab20a3ef38451be94",
+        "ptx_sha256": "49fa51461dc2c551c96f4bd949c4f33fdf9e26425fd716f1b6968ad3e413fa3d",
+        "cubin_sha256": "95f25ce22b9da87e2ed4fe9e9ab0861bd960007b896556921877484c2e4d19b5",
+        "metadata": {
+          "hash": "df0d191d691fef06edb1a416756172eb9832a9e7b543ea8ab20a3ef38451be94",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.7.1",
+          "tensordesc_meta": [],
+          "shared": 106496,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 11,
+          "mma.sync": 0,
+          "cp.async": 20,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true
+      }
+    },
+    {
+      "name": "h4d128-flagtree-original",
+      "returncode": 1,
+      "evidence": {
+        "name": "h4d128-flagtree-original",
+        "case": "h4d128",
+        "variant": "original",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1853307,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-flagtree-original",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "kernel_hash": "af608d82fce38847d2f7034154681bd21769a65d656893da98fe2b8ec024f667",
+        "ptx_sha256": "32e436b95a954181c30d4563db5ba54d439078491a122b3c58a41154c6cc7f12",
+        "cubin_sha256": "ebc40031d8167e09e600848ac5087d62bd7f383a5cdfc95096c09ac95cbc200f",
+        "metadata": {
+          "hash": "af608d82fce38847d2f7034154681bd21769a65d656893da98fe2b8ec024f667",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 106496,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 11,
+          "mma.sync": 0,
+          "cp.async": 20,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h4d128-flagtree-import-gems",
+      "returncode": 1,
+      "evidence": {
+        "name": "h4d128-flagtree-import-gems",
+        "case": "h4d128",
+        "variant": "import-gems",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1853782,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-flagtree-import-gems",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": true,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "kernel_hash": "af608d82fce38847d2f7034154681bd21769a65d656893da98fe2b8ec024f667",
+        "ptx_sha256": "32e436b95a954181c30d4563db5ba54d439078491a122b3c58a41154c6cc7f12",
+        "cubin_sha256": "ebc40031d8167e09e600848ac5087d62bd7f383a5cdfc95096c09ac95cbc200f",
+        "metadata": {
+          "hash": "af608d82fce38847d2f7034154681bd21769a65d656893da98fe2b8ec024f667",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 106496,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 11,
+          "mma.sync": 0,
+          "cp.async": 20,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h4d128-flagtree-loop-stage1",
+      "returncode": 0,
+      "evidence": {
+        "name": "h4d128-flagtree-loop-stage1",
+        "case": "h4d128",
+        "variant": "loop-stage1",
+        "stage": "passed",
+        "passed": true,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1854143,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-flagtree-loop-stage1",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 1
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "kernel_hash": "e280f3044bf033b189154785ec8ec4cebac4f4e3293da133136f188339fdad08",
+        "ptx_sha256": "099294ad1511e01c9f3e3909b4b19ccabfb6e6c019875a233ac1871caf0e925b",
+        "cubin_sha256": "46e01a1707ec2e716c97c79d83c7f0d6ccab245aeec2076fe02c278ad6918e1c",
+        "metadata": {
+          "hash": "e280f3044bf033b189154785ec8ec4cebac4f4e3293da133136f188339fdad08",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 81920,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 11,
+          "mma.sync": 0,
+          "cp.async": 0,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true
+      }
+    },
+    {
+      "name": "h4d128-flagtree-compiler-stage1",
+      "returncode": 1,
+      "evidence": {
+        "name": "h4d128-flagtree-compiler-stage1",
+        "case": "h4d128",
+        "variant": "compiler-stage1",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1855110,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-flagtree-compiler-stage1",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4,
+          "num_stages": 1
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "kernel_hash": "d25df2dd88b82ab7aa2c0d184316988022457ccc5cf930bda6a4e38287ed5a5b",
+        "ptx_sha256": "32e436b95a954181c30d4563db5ba54d439078491a122b3c58a41154c6cc7f12",
+        "cubin_sha256": "ebc40031d8167e09e600848ac5087d62bd7f383a5cdfc95096c09ac95cbc200f",
+        "metadata": {
+          "hash": "d25df2dd88b82ab7aa2c0d184316988022457ccc5cf930bda6a4e38287ed5a5b",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 1,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 106496,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 11,
+          "mma.sync": 0,
+          "cp.async": 20,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h4d128-flagtree-tile16",
+      "returncode": 1,
+      "evidence": {
+        "name": "h4d128-flagtree-tile16",
+        "case": "h4d128",
+        "variant": "tile16",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1855666,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-flagtree-tile16",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 16,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "kernel_hash": "73073f7536d9a6f753e37151a6eba52bf4b1463e203dbf49a052d7659f735175",
+        "ptx_sha256": "1e205bc0952aa15cb1bc767f334a0410965f5df83f5f83f45f8a0e89a3edcc60",
+        "cubin_sha256": "6dd243bc1867224e4fafcec410414f1504541ce3408169f67efc4966f2b762a1",
+        "metadata": {
+          "hash": "73073f7536d9a6f753e37151a6eba52bf4b1463e203dbf49a052d7659f735175",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 53248,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 11,
+          "mma.sync": 0,
+          "cp.async": 20,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h4d128-flagtree-sm80",
+      "returncode": 1,
+      "evidence": {
+        "name": "h4d128-flagtree-sm80",
+        "case": "h4d128",
+        "variant": "sm80",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1856024,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-flagtree-sm80",
+            "TRITON_OVERRIDE_ARCH": "sm80",
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "kernel_hash": "fecd427a0a12aca665267e3ca4308b829b189c6a828d030fd1df7f2046119a3d",
+        "ptx_sha256": "729edecee2780e51b26203a9a5dbc3155543c1eab6a91759d2419846dbfeb6a7",
+        "cubin_sha256": "cb0cafb81c178e5e18259d88ea3803e712d4e078751edef95024fb46dac8da16",
+        "metadata": {
+          "hash": "fecd427a0a12aca665267e3ca4308b829b189c6a828d030fd1df7f2046119a3d",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 0,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm80",
+          "instrumentation_mode": "",
+          "TRITON_OVERRIDE_ARCH": "sm80",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 90112,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 0,
+          "mma.sync": 256,
+          "cp.async": 20,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h4d128-flagtree-stock-ptxas",
+      "returncode": 1,
+      "evidence": {
+        "name": "h4d128-flagtree-stock-ptxas",
+        "case": "h4d128",
+        "variant": "stock-ptxas",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1856339,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-flagtree-stock-ptxas",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "kernel_hash": "af608d82fce38847d2f7034154681bd21769a65d656893da98fe2b8ec024f667",
+        "ptx_sha256": "32e436b95a954181c30d4563db5ba54d439078491a122b3c58a41154c6cc7f12",
+        "cubin_sha256": "ebc40031d8167e09e600848ac5087d62bd7f383a5cdfc95096c09ac95cbc200f",
+        "metadata": {
+          "hash": "af608d82fce38847d2f7034154681bd21769a65d656893da98fe2b8ec024f667",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 106496,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 11,
+          "mma.sync": 0,
+          "cp.async": 20,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h4d128-stock-cubin-via-flagtree",
+      "returncode": 0,
+      "evidence": {
+        "name": "h4d128-stock-cubin-via-flagtree",
+        "case": "h4d128",
+        "variant": "original",
+        "stage": "passed",
+        "passed": true,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1856685,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-stock-cubin-via-flagtree",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "replay_origin": "h4d128-stock-original",
+        "cubin_sha256": "95f25ce22b9da87e2ed4fe9e9ab0861bd960007b896556921877484c2e4d19b5",
+        "metadata": {
+          "hash": "df0d191d691fef06edb1a416756172eb9832a9e7b543ea8ab20a3ef38451be94",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.7.1",
+          "tensordesc_meta": [],
+          "shared": 106496,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "loaded": true
+      }
+    },
+    {
+      "name": "h4d128-flagtree-cubin-via-stock",
+      "returncode": 1,
+      "evidence": {
+        "name": "h4d128-flagtree-cubin-via-stock",
+        "case": "h4d128",
+        "variant": "original",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1857084,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.7.1",
+          "triton_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-flagtree-cubin-via-stock",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": null
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/compiler.py",
+              "sha256": "d012f2a7e705592e590630a0df58099ceeb9ef71517c561fc81644c0c9399658"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py",
+              "sha256": "992ba21e12ee170a904f3a1caca24a78ce3dd66b661087faea5973b995480f63"
+            },
+            "triton.knobs": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/knobs.py",
+              "sha256": "b0e6a0a241cbc52067b04c230b2ec149ae109ee4bf48d3b7706a18a8e526fc60"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": null,
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/_C/libtriton.so",
+            "sha256": "ca632c8dba2ec41fe7b24424f071278c787559b0c75dbbd0ba8a854dce99c6da"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "replay_origin": "h4d128-flagtree-original",
+        "cubin_sha256": "ebc40031d8167e09e600848ac5087d62bd7f383a5cdfc95096c09ac95cbc200f",
+        "metadata": {
+          "hash": "af608d82fce38847d2f7034154681bd21769a65d656893da98fe2b8ec024f667",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 106496,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h4d128-identical-ptx-stock-assembler",
+      "returncode": 1,
+      "evidence": {
+        "name": "h4d128-identical-ptx-stock-assembler",
+        "case": "h4d128",
+        "variant": "original",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1857347,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.7.1",
+          "triton_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h4d128-identical-ptx-stock-assembler",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": null
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/compiler.py",
+              "sha256": "d012f2a7e705592e590630a0df58099ceeb9ef71517c561fc81644c0c9399658"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py",
+              "sha256": "992ba21e12ee170a904f3a1caca24a78ce3dd66b661087faea5973b995480f63"
+            },
+            "triton.knobs": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/knobs.py",
+              "sha256": "b0e6a0a241cbc52067b04c230b2ec149ae109ee4bf48d3b7706a18a8e526fc60"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": null,
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/_C/libtriton.so",
+            "sha256": "ca632c8dba2ec41fe7b24424f071278c787559b0c75dbbd0ba8a854dce99c6da"
+          }
+        },
+        "input_sha256": "b6ecda05802207852a0ebb94247a8bb808fee696614703fd0aa98cad1069c78c",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 4,
+          "HEAD_DIM": 128,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          1,
+          1,
+          8
+        ],
+        "ptx_sha256": "32e436b95a954181c30d4563db5ba54d439078491a122b3c58a41154c6cc7f12",
+        "cubin_sha256": "ebc40031d8167e09e600848ac5087d62bd7f383a5cdfc95096c09ac95cbc200f",
+        "reassembly_command": [
+          "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+          "-lineinfo",
+          "-v",
+          "--gpu-name=sm_90a",
+          "/tmp/qsa-prefill-h800.kwkjy154/h4d128-identical-ptx-stock-assembler/kernel.ptx",
+          "-o",
+          "/tmp/qsa-prefill-h800.kwkjy154/h4d128-identical-ptx-stock-assembler/kernel.cubin"
+        ],
+        "replay_origin": "h4d128-flagtree-original",
+        "metadata": {
+          "hash": "af608d82fce38847d2f7034154681bd21769a65d656893da98fe2b8ec024f667",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 106496,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h1d32-stock-original",
+      "returncode": 0,
+      "evidence": {
+        "name": "h1d32-stock-original",
+        "case": "h1d32",
+        "variant": "original",
+        "stage": "passed",
+        "passed": true,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1858279,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.7.1",
+          "triton_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-stock-original",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": null
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/compiler.py",
+              "sha256": "d012f2a7e705592e590630a0df58099ceeb9ef71517c561fc81644c0c9399658"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py",
+              "sha256": "992ba21e12ee170a904f3a1caca24a78ce3dd66b661087faea5973b995480f63"
+            },
+            "triton.knobs": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/knobs.py",
+              "sha256": "b0e6a0a241cbc52067b04c230b2ec149ae109ee4bf48d3b7706a18a8e526fc60"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": null,
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/_C/libtriton.so",
+            "sha256": "ca632c8dba2ec41fe7b24424f071278c787559b0c75dbbd0ba8a854dce99c6da"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "kernel_hash": "59e8d2b14ead076e09345f5614ad118aaacb74684d63476d93dffec069ed7b46",
+        "ptx_sha256": "43c63fa43f304bf71f15e419b0bfbb70ff34b74b32a46eb1b022c355ed122d85",
+        "cubin_sha256": "f2fd32db43391e20c4a018e8a0303f3fbde2e93ea2db86aa7c1266f90e2879fd",
+        "metadata": {
+          "hash": "59e8d2b14ead076e09345f5614ad118aaacb74684d63476d93dffec069ed7b46",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.7.1",
+          "tensordesc_meta": [],
+          "shared": 20480,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 5,
+          "mma.sync": 0,
+          "cp.async": 8,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true
+      }
+    },
+    {
+      "name": "h1d32-flagtree-original",
+      "returncode": 1,
+      "evidence": {
+        "name": "h1d32-flagtree-original",
+        "case": "h1d32",
+        "variant": "original",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1858659,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-flagtree-original",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "kernel_hash": "81ff73991b8738eab6e67f3f62ddb50d9754ec925e57d19424355574fe2dc0ea",
+        "ptx_sha256": "b865d6c3114eb7f8d9dcd1b2e8253c7fcbb1e0c835ca3c18952d4877fce1f819",
+        "cubin_sha256": "dd097a244194ef3a4e13a7e6bf0a271be4421fd3ecd1d2a9188fd4c2ff5aa9b7",
+        "metadata": {
+          "hash": "81ff73991b8738eab6e67f3f62ddb50d9754ec925e57d19424355574fe2dc0ea",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 20480,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 5,
+          "mma.sync": 0,
+          "cp.async": 8,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h1d32-flagtree-import-gems",
+      "returncode": 1,
+      "evidence": {
+        "name": "h1d32-flagtree-import-gems",
+        "case": "h1d32",
+        "variant": "import-gems",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1859117,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-flagtree-import-gems",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": true,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "kernel_hash": "81ff73991b8738eab6e67f3f62ddb50d9754ec925e57d19424355574fe2dc0ea",
+        "ptx_sha256": "b865d6c3114eb7f8d9dcd1b2e8253c7fcbb1e0c835ca3c18952d4877fce1f819",
+        "cubin_sha256": "dd097a244194ef3a4e13a7e6bf0a271be4421fd3ecd1d2a9188fd4c2ff5aa9b7",
+        "metadata": {
+          "hash": "81ff73991b8738eab6e67f3f62ddb50d9754ec925e57d19424355574fe2dc0ea",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 20480,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 5,
+          "mma.sync": 0,
+          "cp.async": 8,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h1d32-flagtree-loop-stage1",
+      "returncode": 0,
+      "evidence": {
+        "name": "h1d32-flagtree-loop-stage1",
+        "case": "h1d32",
+        "variant": "loop-stage1",
+        "stage": "passed",
+        "passed": true,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1859491,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-flagtree-loop-stage1",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 1
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "kernel_hash": "835d5df04a04ba5fae3b17651ce1d30d71951f98cc262775f43c25de58e2e341",
+        "ptx_sha256": "43a2ff3755e72196b53dd663dab774d9781a4e0e420a7534e8a21fe0be189645",
+        "cubin_sha256": "d56f16c8136e87557b670683154a60f2b06324bcec0510544a5a485ff08e243c",
+        "metadata": {
+          "hash": "835d5df04a04ba5fae3b17651ce1d30d71951f98cc262775f43c25de58e2e341",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 12288,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 5,
+          "mma.sync": 0,
+          "cp.async": 0,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true
+      }
+    },
+    {
+      "name": "h1d32-flagtree-compiler-stage1",
+      "returncode": 1,
+      "evidence": {
+        "name": "h1d32-flagtree-compiler-stage1",
+        "case": "h1d32",
+        "variant": "compiler-stage1",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1859821,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-flagtree-compiler-stage1",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4,
+          "num_stages": 1
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "kernel_hash": "6e1a43658551c1f8923acf452f0ffaaff39c0d7fa967c0fedefb4fa66b6b0877",
+        "ptx_sha256": "b865d6c3114eb7f8d9dcd1b2e8253c7fcbb1e0c835ca3c18952d4877fce1f819",
+        "cubin_sha256": "dd097a244194ef3a4e13a7e6bf0a271be4421fd3ecd1d2a9188fd4c2ff5aa9b7",
+        "metadata": {
+          "hash": "6e1a43658551c1f8923acf452f0ffaaff39c0d7fa967c0fedefb4fa66b6b0877",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 1,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 20480,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 5,
+          "mma.sync": 0,
+          "cp.async": 8,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h1d32-flagtree-tile16",
+      "returncode": 1,
+      "evidence": {
+        "name": "h1d32-flagtree-tile16",
+        "case": "h1d32",
+        "variant": "tile16",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1860228,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-flagtree-tile16",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 16,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "kernel_hash": "3e360c55ff2ac429b80557abb7fc556c097e6a1549f989f59dd686147ec7588f",
+        "ptx_sha256": "1dffabc5f31292cfa1b80bb58a13ee2d16be698bfd57813d7c5cabc06ccfb33f",
+        "cubin_sha256": "668dc5a5d7b482e9a1f344049ee35a1c14f8328b0a0aa168493f692bea89718a",
+        "metadata": {
+          "hash": "3e360c55ff2ac429b80557abb7fc556c097e6a1549f989f59dd686147ec7588f",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 13312,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 5,
+          "mma.sync": 0,
+          "cp.async": 8,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h1d32-flagtree-sm80",
+      "returncode": 1,
+      "evidence": {
+        "name": "h1d32-flagtree-sm80",
+        "case": "h1d32",
+        "variant": "sm80",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1860684,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-flagtree-sm80",
+            "TRITON_OVERRIDE_ARCH": "sm80",
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "kernel_hash": "0a78604c563d81eb4eb2f6d38a8f1e30a7bff8d772f1659e5bf3fb827fb6d908",
+        "ptx_sha256": "b782c62a172478e55681a5ce7c6c016de60261e36ccbefa63d3259e343785421",
+        "cubin_sha256": "71f71fe12fce3138b7c343b1921caa36868381b25c97e65a1ae29daca92d2da6",
+        "metadata": {
+          "hash": "0a78604c563d81eb4eb2f6d38a8f1e30a7bff8d772f1659e5bf3fb827fb6d908",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 0,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm80",
+          "instrumentation_mode": "",
+          "TRITON_OVERRIDE_ARCH": "sm80",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 24576,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 0,
+          "mma.sync": 16,
+          "cp.async": 8,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h1d32-flagtree-stock-ptxas",
+      "returncode": 1,
+      "evidence": {
+        "name": "h1d32-flagtree-stock-ptxas",
+        "case": "h1d32",
+        "variant": "stock-ptxas",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1861034,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-flagtree-stock-ptxas",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "kernel_hash": "81ff73991b8738eab6e67f3f62ddb50d9754ec925e57d19424355574fe2dc0ea",
+        "ptx_sha256": "b865d6c3114eb7f8d9dcd1b2e8253c7fcbb1e0c835ca3c18952d4877fce1f819",
+        "cubin_sha256": "dd097a244194ef3a4e13a7e6bf0a271be4421fd3ecd1d2a9188fd4c2ff5aa9b7",
+        "metadata": {
+          "hash": "81ff73991b8738eab6e67f3f62ddb50d9754ec925e57d19424355574fe2dc0ea",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 20480,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "instructions": {
+          "wgmma.": 5,
+          "mma.sync": 0,
+          "cp.async": 8,
+          "mbarrier": 0,
+          "tcgen05": 0,
+          "trap;": 0
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h1d32-stock-cubin-via-flagtree",
+      "returncode": 0,
+      "evidence": {
+        "name": "h1d32-stock-cubin-via-flagtree",
+        "case": "h1d32",
+        "variant": "original",
+        "stage": "passed",
+        "passed": true,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1862115,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.6.0",
+          "triton_source": "/opt/flagtree/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W:/opt/flagtree",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-stock-cubin-via-flagtree",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+              "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+              "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+            },
+            "triton.knobs": {
+              "source": "/opt/flagtree/triton/knobs.py",
+              "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": "0.6.1",
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/opt/flagtree/triton/_C/libtriton.so",
+            "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "replay_origin": "h1d32-stock-original",
+        "cubin_sha256": "f2fd32db43391e20c4a018e8a0303f3fbde2e93ea2db86aa7c1266f90e2879fd",
+        "metadata": {
+          "hash": "59e8d2b14ead076e09345f5614ad118aaacb74684d63476d93dffec069ed7b46",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.7.1",
+          "tensordesc_meta": [],
+          "shared": 20480,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "loaded": true
+      }
+    },
+    {
+      "name": "h1d32-flagtree-cubin-via-stock",
+      "returncode": 1,
+      "evidence": {
+        "name": "h1d32-flagtree-cubin-via-stock",
+        "case": "h1d32",
+        "variant": "original",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1862535,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.7.1",
+          "triton_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-flagtree-cubin-via-stock",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": null
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/compiler.py",
+              "sha256": "d012f2a7e705592e590630a0df58099ceeb9ef71517c561fc81644c0c9399658"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py",
+              "sha256": "992ba21e12ee170a904f3a1caca24a78ce3dd66b661087faea5973b995480f63"
+            },
+            "triton.knobs": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/knobs.py",
+              "sha256": "b0e6a0a241cbc52067b04c230b2ec149ae109ee4bf48d3b7706a18a8e526fc60"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": null,
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/_C/libtriton.so",
+            "sha256": "ca632c8dba2ec41fe7b24424f071278c787559b0c75dbbd0ba8a854dce99c6da"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "replay_origin": "h1d32-flagtree-original",
+        "cubin_sha256": "dd097a244194ef3a4e13a7e6bf0a271be4421fd3ecd1d2a9188fd4c2ff5aa9b7",
+        "metadata": {
+          "hash": "81ff73991b8738eab6e67f3f62ddb50d9754ec925e57d19424355574fe2dc0ea",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 20480,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    },
+    {
+      "name": "h1d32-identical-ptx-stock-assembler",
+      "returncode": 1,
+      "evidence": {
+        "name": "h1d32-identical-ptx-stock-assembler",
+        "case": "h1d32",
+        "variant": "original",
+        "stage": "score launch",
+        "passed": false,
+        "runtime": {
+          "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+          "pid": 1862868,
+          "torch": "2.13.0+cu129",
+          "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+          "triton": "3.7.1",
+          "triton_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/__init__.py",
+          "device": "NVIDIA H800",
+          "device_index": 0,
+          "capability": [
+            9,
+            0
+          ],
+          "ptxas": {
+            "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+            "returncode": 0,
+            "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+          },
+          "environment": {
+            "PYTHONPATH": "/tmp/flaggems-qsa-score.Y1uC2W/src:/tmp/flaggems-qsa-score.Y1uC2W",
+            "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+            "CUDA_VISIBLE_DEVICES": null,
+            "CUDA_LAUNCH_BLOCKING": "1",
+            "TRITON_CACHE_DIR": "/tmp/qsa-prefill-h800.kwkjy154/caches/h1d32-identical-ptx-stock-assembler",
+            "TRITON_OVERRIDE_ARCH": null,
+            "TRITON_PTXAS_PATH": null,
+            "DISABLE_PTXAS_OPT": null,
+            "PTXAS_OPTIONS": null,
+            "QSA_TRITON_RUNTIME_PATH": null
+          },
+          "compiler_files": {
+            "triton.backends.nvidia.compiler": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/compiler.py",
+              "sha256": "d012f2a7e705592e590630a0df58099ceeb9ef71517c561fc81644c0c9399658"
+            },
+            "triton.backends.nvidia.driver": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/driver.py",
+              "sha256": "992ba21e12ee170a904f3a1caca24a78ce3dd66b661087faea5973b995480f63"
+            },
+            "triton.knobs": {
+              "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/knobs.py",
+              "sha256": "b0e6a0a241cbc52067b04c230b2ec149ae109ee4bf48d3b7706a18a8e526fc60"
+            }
+          },
+          "gems_imported": false,
+          "distributions": {
+            "torch": "2.13.0+cu129",
+            "triton": "3.7.1",
+            "flagtree": null,
+            "vllm": "0.31.0+cu129"
+          },
+          "libtriton": {
+            "source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/_C/libtriton.so",
+            "sha256": "ca632c8dba2ec41fe7b24424f071278c787559b0c75dbbd0ba8a854dce99c6da"
+          }
+        },
+        "input_sha256": "3e90afdada29b007f9780f4e3149deac4769c8aa5594628e101c1a5881b11913",
+        "vllm_version": "0.31.0+cu129",
+        "reference_sha256": "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b",
+        "constants": {
+          "PAGE_SIZE": 16,
+          "NUM_HEADS": 1,
+          "HEAD_DIM": 32,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "STAGES": 2
+        },
+        "options": {
+          "num_warps": 4
+        },
+        "grid": [
+          2,
+          1,
+          2
+        ],
+        "ptx_sha256": "b865d6c3114eb7f8d9dcd1b2e8253c7fcbb1e0c835ca3c18952d4877fce1f819",
+        "cubin_sha256": "dd097a244194ef3a4e13a7e6bf0a271be4421fd3ecd1d2a9188fd4c2ff5aa9b7",
+        "reassembly_command": [
+          "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/triton/backends/nvidia/bin/ptxas",
+          "-lineinfo",
+          "-v",
+          "--gpu-name=sm_90a",
+          "/tmp/qsa-prefill-h800.kwkjy154/h1d32-identical-ptx-stock-assembler/kernel.ptx",
+          "-o",
+          "/tmp/qsa-prefill-h800.kwkjy154/h1d32-identical-ptx-stock-assembler/kernel.cubin"
+        ],
+        "replay_origin": "h1d32-flagtree-original",
+        "metadata": {
+          "hash": "81ff73991b8738eab6e67f3f62ddb50d9754ec925e57d19424355574fe2dc0ea",
+          "target": {
+            "backend": "cuda",
+            "arch": 90,
+            "warp_size": 32
+          },
+          "num_warps": 4,
+          "num_ctas": 1,
+          "cluster_dims": [
+            1,
+            1,
+            1
+          ],
+          "num_stages": 3,
+          "warp_size": 32,
+          "maxnreg": null,
+          "ptx_version": null,
+          "ptx_options": null,
+          "ir_override": null,
+          "enable_fp_fusion": true,
+          "enable_reflect_ftz": true,
+          "launch_cooperative_grid": false,
+          "launch_pdl": false,
+          "supported_fp8_dtypes": [
+            "fp8e4b15",
+            "fp8e4nv",
+            "fp8e5"
+          ],
+          "deprecated_fp8_dot_operand_dtypes": [
+            "fp8e4b15"
+          ],
+          "default_dot_input_precision": "tf32",
+          "allowed_dot_input_precisions": [
+            "tf32",
+            "tf32x3",
+            "ieee",
+            "bf16x3",
+            "bf16x6"
+          ],
+          "max_num_imprecise_acc_default": 1073741824,
+          "extern_libs": [
+            [
+              "libdevice",
+              "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc"
+            ]
+          ],
+          "debug": false,
+          "backend_name": "cuda",
+          "sanitize_overflow": true,
+          "arch": "sm90",
+          "instrumentation_mode": "",
+          "triton_version": "3.6.0",
+          "kernel_init_hooks": [],
+          "tensordesc_meta": [],
+          "shared": 20480,
+          "tmem_size": 0,
+          "global_scratch_size": 0,
+          "global_scratch_align": 1,
+          "profile_scratch_size": 0,
+          "profile_scratch_align": 1,
+          "name": "_qsa_mqa_paged_prefill_kernel"
+        },
+        "loaded": true,
+        "error": "RuntimeError('Triton Error [CUDA]: an illegal instruction was encountered')"
+      }
+    }
+  ]
+}
