@@ -13,7 +13,7 @@ RUNNER = Path(__file__).with_name("run_qsa_prefill_validation_ab_h800.sh").resol
 
 
 class RunnerTests(unittest.TestCase):
-    def exercise(self, status, baseline=None, kind="validation"):
+    def exercise(self, status, baseline=None, kind="validation", guarded=False):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             binaries = root / "bin"
@@ -27,6 +27,7 @@ a=sys.argv[1:]
 flag={'host':'--host-ab', 'single-row':'--single-row-ab', 'validation':'--validation-ab'}[os.environ['MOCK_AB_KIND']]
 assert flag in a and '--host-profile' in a
 assert sum(f in a for f in ('--validation-ab','--host-ab','--single-row-ab')) == 1
+assert ('--require-idle-gpu' in a) == (os.environ['MOCK_GUARDED']=='1')
 if os.environ.get('MOCK_BASELINE'):
     assert a[a.index('--validation-baseline')+1] == os.environ['MOCK_BASELINE']
 p=Path(a[a.index('--report-dir')+1])
@@ -65,10 +66,12 @@ if a[:2]==['rev-parse','HEAD']:
                 MOCK_BASELINE=baseline or "",
                 MOCK_AB_KIND=kind,
                 QSA_PREFILL_AB_KIND=kind,
+                MOCK_GUARDED="1" if guarded else "0",
             )
             result = subprocess.run(
                 ["bash", str(RUNNER)]
-                + (["--validation-baseline", baseline] if baseline else []),
+                + (["--validation-baseline", baseline] if baseline else [])
+                + (["--require-idle-gpu"] if guarded else []),
                 env=env,
                 text=True,
                 capture_output=True,
@@ -113,6 +116,10 @@ if a[:2]==['rev-parse','HEAD']:
     def test_single_row_mode_runs_and_uploads(self):
         for status in (0, 1):
             self.exercise(status, kind="single-row")
+
+    def test_guarded_run_forwards_gate_and_uploads_rejection_with_exit_two(self):
+        for status in (0, 2):
+            self.exercise(status, kind="single-row", guarded=True)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import types
 import unittest
@@ -325,9 +326,202 @@ class BenchmarkTests(unittest.TestCase):
             validation_baseline="original",
             host_ab=False,
             single_row_ab=False,
+            require_idle_gpu=False,
         )
         values.update(kwargs)
         return argparse.Namespace(**values)
+
+    def test_idle_rejection_prevents_correctness_and_workers_but_saves_report(self):
+        guard = types.SimpleNamespace(
+            idle=lambda *_: dict(status="rejected", reasons=["occupied"])
+        )
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+            os.environ, {"QSA_TRITON_RUNTIME_PATH": "", "CUDA_LAUNCH_BLOCKING": "0"}
+        ), patch.object(bench, "command", return_value={}), patch.object(
+            bench, "gpu_guard_module", return_value=guard
+        ), patch.object(
+            bench.subprocess, "run"
+        ) as run, contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            directory = Path(folder)
+            self.assertEqual(
+                bench.parent(
+                    self.options(require_idle_gpu=True), bench.cases()[:1], directory
+                ),
+                2,
+            )
+            run.assert_not_called()
+            summary = json.loads((directory / "stage-summary.json").read_text())
+            self.assertTrue(summary["environment_rejected"])
+            self.assertEqual(
+                summary["accuracy"]["status"], "not_run_environment_rejected"
+            )
+            self.assertEqual(summary["cases"], [])
+
+    def test_real_cli_rejects_numeric_device_without_gpu_imports(self):
+        with tempfile.TemporaryDirectory() as folder:
+            env = os.environ.copy()
+            env.update(
+                QSA_TRITON_RUNTIME_PATH="",
+                CUDA_LAUNCH_BLOCKING="0",
+                CUDA_VISIBLE_DEVICES="0",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(bench.ROOT / "tools/benchmark_qsa_prefill_stages.py"),
+                    "--single-row-ab",
+                    "--require-idle-gpu",
+                    "--report-dir",
+                    folder,
+                ],
+                env=env,
+                text=True,
+                capture_output=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertIn("complete GPU UUID", result.stdout)
+            summary = json.loads((Path(folder) / "stage-summary.json").read_text())
+            self.assertTrue(summary["environment_rejected"])
+            self.assertEqual(summary["cases"], [])
+            self.assertEqual(len(summary["manifest"]["cases"]), 38)
+
+    def test_trailing_utilization_retries_are_bounded_and_saved(self):
+        for eventually_idle in (True, False):
+            verdicts = iter(
+                [dict(status="rejected", reasons=["util"], retryable_utilization=True)]
+                + [
+                    dict(
+                        status="passed" if eventually_idle else "rejected",
+                        reasons=[] if eventually_idle else ["util"],
+                        retryable_utilization=not eventually_idle,
+                    )
+                    for _ in range(2)
+                ]
+            )
+            guard = types.SimpleNamespace(idle=lambda *_: next(verdicts))
+            with tempfile.TemporaryDirectory() as folder, patch.object(
+                bench.time, "sleep"
+            ) as sleep, contextlib.redirect_stdout(io.StringIO()):
+                summary = {}
+                self.assertEqual(
+                    bench.idle_gpu_gate(summary, Path(folder), {}, "start", guard),
+                    eventually_idle,
+                )
+                self.assertEqual(sleep.call_count, 1 if eventually_idle else 2)
+                saved = json.loads((Path(folder) / "stage-summary.json").read_text())
+                self.assertEqual(
+                    len(saved["idle_gpu_checks"]), 2 if eventually_idle else 3
+                )
+                self.assertEqual(
+                    bool(saved.get("environment_rejected")), not eventually_idle
+                )
+
+    def test_gpu_is_rechecked_before_each_worker_and_guard_flag_is_forwarded(self):
+        checks = iter(
+            [
+                dict(status="passed", reasons=[]),
+                dict(status="passed", reasons=[]),
+                dict(status="rejected", reasons=["new job"]),
+            ]
+        )
+        guard = types.SimpleNamespace(idle=lambda *_: next(checks))
+
+        def worker(command, **kwargs):
+            self.assertIn("--require-idle-gpu", command)
+            name = command[command.index("--worker") + 1]
+            directory = Path(command[command.index("--report-dir") + 1])
+            bench.write_json(
+                directory / f"{name}.json",
+                dict(case=dict(name=name), status="passed", stages={}),
+            )
+            return types.SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+            os.environ, {"QSA_TRITON_RUNTIME_PATH": "", "CUDA_LAUNCH_BLOCKING": "0"}
+        ), patch.object(bench, "command", return_value={}), patch.object(
+            bench, "gpu_guard_module", return_value=guard
+        ), patch.object(
+            bench.subprocess, "run", side_effect=worker
+        ) as run, contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            directory = Path(folder)
+            self.assertEqual(
+                bench.parent(
+                    self.options(require_idle_gpu=True, skip_accuracy=True),
+                    bench.cases()[:2],
+                    directory,
+                ),
+                2,
+            )
+            self.assertEqual(run.call_count, 1)
+            summary = json.loads((directory / "stage-summary.json").read_text())
+            self.assertEqual(len(summary["cases"]), 1)
+            self.assertEqual(summary["stopped_before_case"], "core_1")
+
+    def test_mid_timing_rejection_stops_all_later_cases(self):
+        guard = types.SimpleNamespace(idle=lambda *_: dict(status="passed", reasons=[]))
+
+        def worker(command, **kwargs):
+            name = command[command.index("--worker") + 1]
+            directory = Path(command[command.index("--report-dir") + 1])
+            bench.write_json(
+                directory / f"{name}.json",
+                dict(
+                    case=dict(name=name),
+                    status="failed",
+                    stages={},
+                    performance_guard=dict(status="rejected", reasons=["thermal"]),
+                ),
+            )
+            return types.SimpleNamespace(returncode=1)
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+            os.environ, {"QSA_TRITON_RUNTIME_PATH": "", "CUDA_LAUNCH_BLOCKING": "0"}
+        ), patch.object(bench, "command", return_value={}), patch.object(
+            bench, "gpu_guard_module", return_value=guard
+        ), patch.object(
+            bench.subprocess, "run", side_effect=worker
+        ) as run, contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            directory = Path(folder)
+            self.assertEqual(
+                bench.parent(
+                    self.options(require_idle_gpu=True, skip_accuracy=True),
+                    bench.cases()[:2],
+                    directory,
+                ),
+                2,
+            )
+            self.assertEqual(run.call_count, 1)
+            summary = json.loads((directory / "stage-summary.json").read_text())
+            self.assertTrue(summary["environment_rejected"])
+            self.assertEqual(
+                summary["cases"][0]["performance_guard"]["status"], "rejected"
+            )
+
+    def test_guarded_monitor_saves_rejection_evidence_before_raising(self):
+        point = dict(label="after_round_1")
+        verdict = dict(status="rejected", reasons=["thermal"])
+        guard = types.SimpleNamespace(
+            timing=lambda *_: verdict,
+            process_query=lambda *_: {},
+            self_pids=lambda: [123],
+        )
+        with tempfile.TemporaryDirectory() as folder, patch.object(
+            bench, "telemetry", return_value=point
+        ):
+            report = Path(folder) / "case.json"
+            result = dict(status="running")
+            with self.assertRaisesRegex(RuntimeError, "GPU environment rejected"):
+                bench.guarded_telemetry("uuid", "after_round_1", result, report, guard)
+            saved = json.loads(report.read_text())
+            self.assertEqual(saved["telemetry"][0]["gpu_guard"], verdict)
+            self.assertEqual(saved["performance_guard"]["status"], "rejected")
 
     def test_failed_accuracy_blocks_all_timings(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(

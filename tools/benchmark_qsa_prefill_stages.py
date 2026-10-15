@@ -11,6 +11,7 @@ import cProfile
 import hashlib
 import importlib
 import importlib.metadata
+import importlib.util
 import io
 import json
 import math
@@ -35,6 +36,7 @@ SOURCES = [
     "tools/qsa_prefill_stride_baseline.py",
     "tools/qsa_prefill_chunk_baseline.py",
     "tools/qsa_prefill_single_row_trial.py",
+    "tools/qsa_prefill_gpu_guard.py",
     "tools/run_qsa_prefill_validation_ab_h800.sh",
     "tests/qsa_select_prefill_utils.py",
     "tests/test_qsa_select_paged_prefill.py",
@@ -185,6 +187,58 @@ def command(args):
 
 def sha256(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def gpu_guard_module():
+    spec = importlib.util.spec_from_file_location(
+        "qsa_prefill_gpu_guard", ROOT / "tools/qsa_prefill_gpu_guard.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def idle_gpu_gate(summary, directory, env, label, guard):
+    for attempt in range(1, 4):
+        check = guard.idle(env.get("CUDA_VISIBLE_DEVICES", ""), command)
+        check.update(label=label, attempt=attempt)
+        summary.setdefault("idle_gpu_checks", []).append(check)
+        write_json(directory / "stage-summary.json", summary)
+        if check["status"] == "passed":
+            return True
+        if not check.get("retryable_utilization") or attempt == 3:
+            break
+        print(
+            "No GPU processes; rechecking trailing utilization in one second",
+            flush=True,
+        )
+        time.sleep(1)
+    if check["status"] != "passed":
+        summary["environment_rejected"] = True
+        summary.setdefault("accuracy", dict(status="not_run_environment_rejected"))
+        print(f"GPU environment rejected: {check['reasons']}", flush=True)
+    write_json(directory / "stage-summary.json", summary)
+    return check["status"] == "passed"
+
+
+def guarded_telemetry(uuid, label, result, report, guard):
+    point = telemetry(uuid, label)
+    device_id = uuid if uuid.startswith("GPU-") else f"GPU-{uuid}"
+    check = guard.timing(
+        point, guard.process_query(device_id, command), device_id, guard.self_pids()
+    )
+    point["gpu_guard"] = check
+    result.setdefault("telemetry", []).append(point)
+    result["performance_guard"] = dict(
+        status="observed_clean" if check["status"] == "passed" else "rejected",
+        last_label=label,
+        reasons=check["reasons"],
+    )
+    # Persist rejection evidence before the worker exception handler runs.
+    write_json(report, result)
+    if check["status"] != "passed":
+        raise RuntimeError(f"GPU environment rejected: {check['reasons']}")
+    return point
 
 
 def stats(samples):
@@ -735,6 +789,15 @@ def worker(options, case, report):
         runtime=runtime_info(torch, triton, flaggems_vllm.runtime),
     )
     write_json(report, result)
+    guard = gpu_guard_module() if options.require_idle_gpu else None
+    if guard:
+        actual_uuid = result["runtime"]["uuid"]
+        if not actual_uuid.startswith("GPU-"):
+            actual_uuid = f"GPU-{actual_uuid}"
+        if actual_uuid != os.environ.get("CUDA_VISIBLE_DEVICES"):
+            raise RuntimeError(
+                "Actual CUDA device differs from selected guard GPU UUID"
+            )
     baseline = None
     ab = ab_configuration(options)
     if options.single_row_ab:
@@ -859,7 +922,13 @@ def worker(options, case, report):
             graphs,
             device,
             options,
-            lambda label: telemetry(result["runtime"]["uuid"], label),
+            lambda label: (
+                guarded_telemetry(
+                    result["runtime"]["uuid"], label, result, report, guard
+                )
+                if guard
+                else telemetry(result["runtime"]["uuid"], label)
+            ),
         )
         result["telemetry"] = observations
         result["measurement_order"] = order
@@ -960,6 +1029,9 @@ def parent(options, selected, directory):
     )
     write_json(directory / "manifest.json", manifest)
     summary = dict(schema=SCHEMA, manifest=manifest, cases=[])
+    guard = gpu_guard_module() if options.require_idle_gpu else None
+    if guard and not idle_gpu_gate(summary, directory, env, "before_accuracy", guard):
+        return 2
     if options.skip_accuracy:
         summary["accuracy"] = dict(status="not_run_explicit_request")
     else:
@@ -1016,6 +1088,12 @@ def parent(options, selected, directory):
             return 1
     for case in selected:
         name = case["name"]
+        if guard and not idle_gpu_gate(
+            summary, directory, env, f"before_{name}", guard
+        ):
+            summary["stopped_before_case"] = name
+            write_json(directory / "stage-summary.json", summary)
+            break
         output = directory / f"{name}.json"
         case_env = env.copy()
         case_env.update(
@@ -1056,6 +1134,8 @@ def parent(options, selected, directory):
             cmd.append("--host-ab")
         if options.single_row_ab:
             cmd.append("--single-row-ab")
+        if options.require_idle_gpu:
+            cmd.append("--require-idle-gpu")
         print(f"Running {name}", flush=True)
         with (directory / f"{name}.txt").open("w") as log:
             try:
@@ -1078,6 +1158,13 @@ def parent(options, selected, directory):
         summary["cases"].append(result)
         write_json(directory / "stage-summary.json", summary)
         print(f"{name}: {result['status']}", flush=True)
+        if result.get("performance_guard", {}).get("status") == "rejected":
+            summary["environment_rejected"] = True
+            write_json(directory / "stage-summary.json", summary)
+            print(
+                "Stopping remaining cases after GPU environment rejection", flush=True
+            )
+            break
     lines = [
         "case\tcase_status\tstage\tstage_status\twall_median_us\t"
         "event_median_us\tgraph_median_us\tgraph_status"
@@ -1157,7 +1244,11 @@ def parent(options, selected, directory):
         )
         (directory / filename).write_text("\n".join(rows) + "\n")
     print(f"Return top-level JSON/TXT/TSV files from: {directory}", flush=True)
-    return int(any(case["status"] != "passed" for case in summary["cases"]))
+    return (
+        2
+        if summary.get("environment_rejected")
+        else int(any(case["status"] != "passed" for case in summary["cases"]))
+    )
 
 
 def main():
@@ -1167,6 +1258,11 @@ def main():
     )
     parser.add_argument(
         "--cases", nargs="+", help="Explicit case names; overrides suite"
+    )
+    parser.add_argument(
+        "--require-idle-gpu",
+        action="store_true",
+        help="Require one full GPU UUID; reject contention/thermal slowdown and save diagnostics",
     )
     parser.add_argument("--list-cases", action="store_true")
     parser.add_argument("--report-dir")
