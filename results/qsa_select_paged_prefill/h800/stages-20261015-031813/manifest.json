@@ -1,0 +1,135 @@
+{
+  "schema": 2,
+  "options": {
+    "suite": "comprehensive",
+    "cases": [
+      "core_0",
+      "core_1",
+      "core_2",
+      "core_3",
+      "upstream_bfloat16_s0",
+      "upstream_float8_e4m3fn_s0",
+      "mixed_padded",
+      "zero_visible"
+    ],
+    "list_cases": false,
+    "report_dir": "/tmp/qsa-stage-h800.YGjud2",
+    "warmup": 25,
+    "iterations": 100,
+    "rounds": 7,
+    "graph_batch": 8,
+    "timeout": 900,
+    "no_graph": false,
+    "host_profile": true,
+    "profile_iterations": 200,
+    "skip_accuracy": false,
+    "worker": null
+  },
+  "cases": [
+    {
+      "name": "core_0",
+      "kind": "core",
+      "shape": [
+        1,
+        1,
+        2048,
+        16,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "core_1",
+      "kind": "core",
+      "shape": [
+        1,
+        64,
+        4096,
+        16,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "core_2",
+      "kind": "core",
+      "shape": [
+        4,
+        128,
+        16384,
+        64,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "core_3",
+      "kind": "core",
+      "shape": [
+        1,
+        2048,
+        65536,
+        64,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "upstream_bfloat16_s0",
+      "kind": "upstream",
+      "slack": 0,
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "upstream_float8_e4m3fn_s0",
+      "kind": "upstream",
+      "slack": 0,
+      "dtype": "float8_e4m3fn"
+    },
+    {
+      "name": "zero_visible",
+      "kind": "zero",
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "mixed_padded",
+      "kind": "mixed",
+      "dtype": "bfloat16",
+      "extended": true
+    }
+  ],
+  "methods": {
+    "wall_us": "perf_counter, synchronize before/after a batch; host inclusive",
+    "event_us": "device events around an eager batch; includes host supply gaps",
+    "graph_us": "device events around graph replays / captured calls per replay"
+  },
+  "timing_plan": {
+    "calls_per_round": 104,
+    "eager_iterations": 104,
+    "graph_replays": 13,
+    "graph_batch": 8,
+    "rounds": 7,
+    "order": "rotate_stages_and_modes_each_round"
+  },
+  "git_head": {
+    "returncode": 0,
+    "stdout": "416083e2ea03dc5695b53f53ec5042dd5fb6fd9a\n",
+    "stderr": ""
+  },
+  "git_status": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "source_hashes": {
+    "tools/benchmark_qsa_prefill_stages.py": "38b26d930ad00386b8bab112520c76dcd89370f755d238885e85b6487735d31f",
+    "tests/qsa_select_prefill_utils.py": "571412b118a27570f40182ba84ef37b3d3bd71260620588adc3b1a1d2d9155e4",
+    "tests/test_qsa_select_paged_prefill.py": "8c565122807cad376aed5e2ad6583c9e4a3db35ae9b9a20973fc282b66c0f3d6",
+    "tests/conftest.py": "358217de80629d13ec28fed8b01f8dbdb9175fa0d5658071f5bbdbdcc4979b18",
+    "src/flaggems_vllm/ops/qsa_select_paged_prefill.py": "1244de0fc2fdb7f67140c3156249d5e387c7ebc0fa026b59cacaa39b6cdc2b51",
+    "src/flaggems_vllm/ops/persistent_topk.py": "b8b87317b58aa503f6ba6161ab540df775b25ecf689eb2101647fc794cb7f66f",
+    "src/flaggems_vllm/utils/libentry.py": "5f5961ccd82dd3e83c95f5c7e456c0f03f26798ea1c08bdfcf0312cec2fd2bf5",
+    "src/flaggems_vllm/runtime/backend/_nvidia/tune_configs.yaml": "ed49e5080918b5a277e643f822b5964c111f3233fff4a056f58f3c30f2c56431"
+  },
+  "policy": "Production self baseline only; no native-vLLM speedup. Stage times are not additive. Warm repeated inputs, no cache flush."
+}
