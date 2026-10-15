@@ -1,5 +1,9 @@
 # QSA prefill production stage baseline
 
+After host report e760e9e, the current validation-only candidate and paired
+old/new runner are documented in the [validation trial](qsa_prefill_host_validation_trial.md).
+The diagnostic-only phase below remains recorded as its baseline rationale.
+
 ## Host investigation and balanced timing (2026-10-15)
 
 Report [9665cf3](https://github.com/cheersluvs/FlagGems-vllm/blob/9665cf30f03ca8aaaf8a46c099ab3e6cb081519c/results/qsa_select_paged_prefill/h800/stages-20261015-022905/stage-summary.json)

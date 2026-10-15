@@ -303,6 +303,7 @@ class BenchmarkTests(unittest.TestCase):
             graph_batch=4,
             host_profile=False,
             profile_iterations=200,
+            validation_ab=False,
         )
         values.update(kwargs)
         return argparse.Namespace(**values)

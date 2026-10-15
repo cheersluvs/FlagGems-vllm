@@ -475,6 +475,57 @@ def test_cpu_is_explicitly_unsupported():
         op(*make_inputs((1,), (17,), device="cpu"))
 
 
+@pytest.mark.parametrize("input_index", range(5))
+@pytest.mark.parametrize("placement", ["overlap", "touch", "after", "before"])
+def test_output_alias_byte_ranges(sm90, input_index, placement):
+    from tools.qsa_prefill_validation_baseline import _validate_inputs as old_validate
+
+    args = list(make_inputs((2,), (1025,)))
+    original = args[input_index]
+    input_bytes = original.numel() * original.element_size()
+    output_bytes = args[8].numel() * args[8].element_size()
+    storage = torch.empty(
+        input_bytes + output_bytes + 8, dtype=torch.uint8, device="cuda"
+    )
+    input_offset = output_bytes + 4 if placement == "before" else 0
+    output_offset = {
+        "overlap": 0,
+        "touch": input_bytes,
+        "after": input_bytes + 4,
+        "before": 0,
+    }[placement]
+    args[input_index] = (
+        storage[input_offset : input_offset + input_bytes]
+        .view(original.dtype)
+        .view(original.shape)
+    )
+    args[8] = (
+        storage[output_offset : output_offset + output_bytes]
+        .view(torch.int32)
+        .view(args[8].shape)
+    )
+    for validate in (old_validate, op_module._validate_inputs):
+        if placement == "overlap":
+            with pytest.raises(ValueError, match="must not overlap"):
+                validate(*args)
+        else:
+            assert validate(*args) == (2, 512)
+
+
+def test_output_in_strided_padding_hole_remains_rejected(sm90):
+    from tools.qsa_prefill_validation_baseline import _validate_inputs as old_validate
+
+    args = list(make_inputs((2,), (1025,)))
+    storage = torch.empty(262144 + 1024, dtype=torch.uint8, device="cuda")
+    args[0] = storage.view(torch.bfloat16).as_strided((2, 4, 128), (131072, 128, 1))
+    # No logical Q element is here, but the original conservative byte hull
+    # includes the hole between rows. Preserve that API restriction.
+    args[8] = storage[1024 : 1024 + 4096].view(torch.int32).view(2, 512)
+    for validate in (old_validate, op_module._validate_inputs):
+        with pytest.raises(ValueError, match="must not overlap"):
+            validate(*args)
+
+
 def test_top_level_export():
     assert op is op_module.qsa_select_paged_prefill
     assert "qsa_select_paged_prefill" not in dict(flaggems_vllm._FULL_CONFIG)

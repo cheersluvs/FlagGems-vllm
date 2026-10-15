@@ -175,21 +175,32 @@ def _check_nonoverlapping_strides(tensor, name):
             extent += (size - 1) * stride
 
 
-def _overlaps(a, b):
-    if not a.numel() or not b.numel():
+def _output_overlaps_inputs(output, inputs):
+    """Check conservative byte hulls after output contiguity validation.
+
+    Bounds are local to this call: no tensor/storage metadata is cached across
+    invocations. Padding holes in a strided input remain part of its hull.
+    """
+    count = output.numel()
+    if not count:
         return False
-    a_start, b_start = a.data_ptr(), b.data_ptr()
-    a_end = (
-        a_start
-        + (1 + sum((size - 1) * stride for size, stride in zip(a.shape, a.stride())))
-        * a.element_size()
-    )
-    b_end = (
-        b_start
-        + (1 + sum((size - 1) * stride for size, stride in zip(b.shape, b.stride())))
-        * b.element_size()
-    )
-    return a_start < b_end and b_start < a_end
+    output_start = output.data_ptr()
+    output_end = output_start + count * output.element_size()
+    for tensor in inputs:
+        count = tensor.numel()
+        if not count:
+            continue
+        start = tensor.data_ptr()
+        if start >= output_end:
+            continue
+        if not tensor.is_contiguous():
+            count = 1 + sum(
+                (size - 1) * stride
+                for size, stride in zip(tensor.shape, tensor.stride())
+            )
+        if output_start < start + count * tensor.element_size():
+            return True
+    return False
 
 
 def _validate_inputs(
@@ -269,7 +280,7 @@ def _validate_inputs(
     for tensor in (query_start_loc, visible_blocks, block_indices):
         if not tensor.is_contiguous():
             raise NotImplementedError("QSA metadata/output must be contiguous")
-    if any(_overlaps(block_indices, tensor) for tensor in tensors[:-1]):
+    if _output_overlaps_inputs(block_indices, tensors[:-1]):
         raise ValueError("block_indices must not overlap any input")
     return rows, k
 

@@ -30,6 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = 2
 SOURCES = [
     "tools/benchmark_qsa_prefill_stages.py",
+    "tools/qsa_prefill_validation_baseline.py",
+    "tools/run_qsa_prefill_validation_ab_h800.sh",
     "tests/qsa_select_prefill_utils.py",
     "tests/test_qsa_select_paged_prefill.py",
     "tests/conftest.py",
@@ -303,7 +305,7 @@ def python_profile(fn, device, iterations):
     )
 
 
-def host_diagnostics(op, args, chunks, torch, device, options):
+def host_diagnostics(op, args, chunks, torch, device, options, baseline=None):
     if args[0].shape[0] > 512:
         return dict(
             status="not_collected_large_case",
@@ -319,6 +321,10 @@ def host_diagnostics(op, args, chunks, torch, device, options):
             pass
 
     functions["device_guard"] = guard
+    if baseline is not None:
+        functions["validation_baseline"] = lambda: baseline.__globals__[
+            "_validate_inputs"
+        ](*args)
     if chunks:
         logits, scratch = chunks[0]["score_args"][5], chunks[0]["topk_args"][3]
 
@@ -332,7 +338,7 @@ def host_diagnostics(op, args, chunks, torch, device, options):
     for fn in functions.values():
         for _ in range(options.warmup):
             fn()
-    return dict(
+    result = dict(
         status="passed",
         iterations=options.profile_iterations,
         microbench={
@@ -352,6 +358,11 @@ def host_diagnostics(op, args, chunks, torch, device, options):
             ),
         },
     )
+    if baseline is not None:
+        result["profiles"]["validation_baseline"] = python_profile(
+            functions["validation_baseline"], device, options.profile_iterations
+        )
+    return result
 
 
 def make_case(case, torch, helpers):
@@ -658,6 +669,28 @@ def worker(options, case, report):
         for c in chunks
     ]
     functions = stage_functions(op, args, chunks)
+    baseline = None
+    if options.validation_ab:
+        from tools.qsa_prefill_validation_baseline import (
+            BASELINE_COMMIT,
+            BASELINE_OP_SHA256,
+            baseline_entry,
+        )
+
+        baseline = baseline_entry(op)
+        functions = dict(
+            full=functions.pop("full"),
+            full_validation_baseline=lambda: baseline(*args),
+            **functions,
+        )
+        result["validation_ab"] = dict(
+            baseline_commit=BASELINE_COMMIT,
+            baseline_op_sha256=BASELINE_OP_SHA256,
+            same_public_bytecode=baseline.__code__
+            is op.qsa_select_paged_prefill.__code__,
+            shared_score=baseline.__globals__["_prefill_logits"] is op._prefill_logits,
+            shared_topk=baseline.__globals__["persistent_topk"] is op.persistent_topk,
+        )
     result["stages"] = {name: {} for name in functions}
     if not chunks:
         result["stages"].update(
@@ -732,7 +765,7 @@ def worker(options, case, report):
     finally:
         graphs.clear()
     result["host_diagnostics"] = (
-        host_diagnostics(op, args, chunks, torch, device, options)
+        host_diagnostics(op, args, chunks, torch, device, options, baseline)
         if options.host_profile
         else dict(status="not_requested")
     )
@@ -749,6 +782,18 @@ def worker(options, case, report):
                 )
             )
     result.update(status="passed", peak_allocated_bytes=device.max_memory_allocated())
+    if baseline is not None:
+        result["validation_ab"]["speedup"] = {}
+        for method in METHODS:
+            old = result["stages"]["full_validation_baseline"].get(method, {})
+            new = result["stages"]["full"].get(method, {})
+            if "samples" in old and "samples" in new:
+                result["validation_ab"]["speedup"][method] = dict(
+                    ratio_of_medians=old["median"] / new["median"],
+                    paired_round_ratios=stats(
+                        [a / b for a, b in zip(old["samples"], new["samples"])]
+                    ),
+                )
     result["runtime"]["nvidia_smi_after"] = command(["nvidia-smi"])
     write_json(report, result)
 
@@ -883,6 +928,8 @@ def parent(options, selected, directory):
                 "--profile-iterations",
                 str(options.profile_iterations),
             ]
+        if options.validation_ab:
+            cmd.append("--validation-ab")
         print(f"Running {name}", flush=True)
         with (directory / f"{name}.txt").open("w") as log:
             try:
@@ -951,6 +998,33 @@ def parent(options, selected, directory):
                     )
                 )
         (directory / "host-summary.tsv").write_text("\n".join(host_lines) + "\n")
+    if options.validation_ab:
+        rows = [
+            "case\tstatus\tmetric\tbaseline_median_us\tcandidate_median_us\tratio_of_medians\tpaired_ratio_median"
+        ]
+        for case in summary["cases"]:
+            for method, comparison in (
+                case.get("validation_ab", {}).get("speedup", {}).items()
+            ):
+                old = case["stages"]["full_validation_baseline"][method]["median"]
+                new = case["stages"]["full"][method]["median"]
+                rows.append(
+                    "\t".join(
+                        map(
+                            str,
+                            [
+                                case["case"]["name"],
+                                case["status"],
+                                method,
+                                old,
+                                new,
+                                comparison["ratio_of_medians"],
+                                comparison["paired_round_ratios"]["median"],
+                            ],
+                        )
+                    )
+                )
+        (directory / "validation-ab.tsv").write_text("\n".join(rows) + "\n")
     print(f"Return top-level JSON/TXT/TSV files from: {directory}", flush=True)
     return int(any(case["status"] != "passed" for case in summary["cases"]))
 
@@ -996,6 +1070,11 @@ def main():
         help="Untimed Python CPU diagnostics after performance measurements",
     )
     parser.add_argument("--profile-iterations", type=int, default=200)
+    parser.add_argument(
+        "--validation-ab",
+        action="store_true",
+        help="Compare frozen old validation against production with shared GPU launchers",
+    )
     parser.add_argument(
         "--skip-accuracy",
         action="store_true",
