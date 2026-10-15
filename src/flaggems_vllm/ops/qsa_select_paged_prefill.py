@@ -167,6 +167,10 @@ def _qsa_prefill_score_kernel(
 
 
 def _check_nonoverlapping_strides(tensor, name):
+    # Empty tensors may report contiguous even when the conservative stride
+    # rule below rejects their layout. Keep that existing error behavior.
+    if tensor.is_contiguous() and tensor.numel():
+        return
     extent = 1
     for stride, size in sorted(zip(tensor.stride(), tensor.shape)):
         if size > 1:

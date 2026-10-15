@@ -106,6 +106,38 @@ def _scores(args, offset, count, workspace=None):
     )
 
 
+@pytest.mark.parametrize(
+    "shape,strides,rejected",
+    [
+        ((2, 3), (3, 1), False),
+        ((2, 3), (1, 2), False),
+        ((2, 3), (4, 1), False),
+        ((2, 3), (0, 1), True),
+        ((2, 1, 3), (3, 99, 1), False),
+        ((1, 1), (0, 0), False),
+        ((0, 3), (0, 0), True),
+        ((0, 3), (0, 1), False),
+    ],
+)
+def test_stride_validation_preserves_layout_contract(sm90, shape, strides, rejected):
+    from tools.qsa_prefill_stride_baseline import _check_nonoverlapping_strides
+
+    tensor = torch.empty(32, device="cuda").as_strided(shape, strides)
+    if not tensor.numel():
+        assert tensor.is_contiguous()
+    for check in (
+        _check_nonoverlapping_strides,
+        op_module._check_nonoverlapping_strides,
+    ):
+        if rejected:
+            with pytest.raises(
+                NotImplementedError, match="fixture must have nonoverlapping strides"
+            ):
+                check(tensor, "fixture")
+        else:
+            check(tensor, "fixture")
+
+
 PARAMETERIZED_SHAPES = [(1, 7), (3, 24), (5, 96), (8, 256)]
 if not cfg.QUICK_MODE:
     PARAMETERIZED_SHAPES += [(1, 1), (2, 16), (5, 40), (12, 192), (17, 33), (3, 160)]

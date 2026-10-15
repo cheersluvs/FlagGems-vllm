@@ -7,6 +7,7 @@ import ast
 import contextlib
 import importlib.util
 import io
+import itertools
 import json
 import os
 import re
@@ -187,9 +188,14 @@ class BenchmarkTests(unittest.TestCase):
             _validate_inputs=validator, qsa_select_paged_prefill=entry
         )
         options = self.options(warmup=3, rounds=2, profile_iterations=8)
-        result = bench.host_diagnostics(
-            op, (q,), chunks, types.SimpleNamespace(empty=empty), device, options
-        )
+        # Tiny fake functions can consume zero process-clock ticks on macOS.
+        # Real sample validation stays strict; use a clock with known progress.
+        with patch.object(
+            bench.time, "process_time", side_effect=itertools.count(0, 0.001)
+        ):
+            result = bench.host_diagnostics(
+                op, (q,), chunks, types.SimpleNamespace(empty=empty), device, options
+            )
         self.assertEqual(result["status"], "passed")
         self.assertEqual(calls, {"validation": 3 + 8 * 2 + 8, "entry": 8})
         self.assertEqual(len(allocations), (3 + 8 * 2) * 2)
@@ -304,6 +310,7 @@ class BenchmarkTests(unittest.TestCase):
             host_profile=False,
             profile_iterations=200,
             validation_ab=False,
+            validation_baseline="original",
         )
         values.update(kwargs)
         return argparse.Namespace(**values)
@@ -382,7 +389,13 @@ class BenchmarkTests(unittest.TestCase):
             directory = Path(folder)
             self.assertEqual(
                 bench.parent(
-                    self.options(skip_accuracy=True), bench.cases()[:2], directory
+                    self.options(
+                        skip_accuracy=True,
+                        validation_ab=True,
+                        validation_baseline="overlap-retained",
+                    ),
+                    bench.cases()[:2],
+                    directory,
                 ),
                 1,
             )
@@ -394,6 +407,12 @@ class BenchmarkTests(unittest.TestCase):
             paths = [x[1]["env"]["TRITON_CACHE_DIR"] for x in executions]
             self.assertNotEqual(*paths)
             self.assertNotIn("/wrong/runtime", executions[0][1]["env"]["PYTHONPATH"])
+            for command, _ in executions:
+                self.assertIn("--validation-ab", command)
+                self.assertEqual(
+                    command[command.index("--validation-baseline") + 1],
+                    "overlap-retained",
+                )
 
 
 if __name__ == "__main__":

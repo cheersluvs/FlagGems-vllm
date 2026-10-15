@@ -13,7 +13,7 @@ RUNNER = Path(__file__).with_name("run_qsa_prefill_validation_ab_h800.sh").resol
 
 
 class RunnerTests(unittest.TestCase):
-    def exercise(self, status):
+    def exercise(self, status, baseline=None):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             binaries = root / "bin"
@@ -25,6 +25,8 @@ import json, os, sys
 from pathlib import Path
 a=sys.argv[1:]
 assert '--validation-ab' in a and '--host-profile' in a
+if os.environ.get('MOCK_BASELINE'):
+    assert a[a.index('--validation-baseline')+1] == os.environ['MOCK_BASELINE']
 p=Path(a[a.index('--report-dir')+1])
 (p/'stage-summary.json').write_text(json.dumps({'mock':True}))
 (p/'host-summary.tsv').write_text('mock host report')
@@ -58,9 +60,11 @@ if a[:2]==['rev-parse','HEAD']:
                 TMPDIR=folder,
                 MOCK_STATUS=str(status),
                 MOCK_GIT_LOG=str(root / "git.jsonl"),
+                MOCK_BASELINE=baseline or "",
             )
             result = subprocess.run(
-                ["bash", str(RUNNER)],
+                ["bash", str(RUNNER)]
+                + (["--validation-baseline", baseline] if baseline else []),
                 env=env,
                 text=True,
                 capture_output=True,
@@ -94,6 +98,9 @@ if a[:2]==['rev-parse','HEAD']:
 
     def test_failed_benchmark_still_uploads_and_retains_failure_status(self):
         self.exercise(1)
+
+    def test_stride_baseline_selection_is_forwarded_and_uploaded(self):
+        self.exercise(0, baseline="overlap-retained")
 
 
 if __name__ == "__main__":

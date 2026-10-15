@@ -4,6 +4,7 @@
 
 import ast
 import hashlib
+import importlib.util
 import inspect
 import math
 import random
@@ -118,6 +119,89 @@ def outcome(fn, args):
 
 
 class ValidationTests(unittest.TestCase):
+    def test_random_stride_layouts_preserve_acceptance_and_errors(self):
+        rng = random.Random(20261016)
+        for _ in range(20000):
+            shape = tuple(rng.randrange(6) for _ in range(rng.randrange(5)))
+            strides = (
+                tuple(rng.randrange(-2, 32) for _ in shape)
+                if rng.randrange(2)
+                else None
+            )
+            tensor = Tensor(shape, strides=strides)
+            self.assertEqual(
+                outcome(NEW["_check_nonoverlapping_strides"], (tensor, "input")),
+                outcome(OLD["_check_nonoverlapping_strides"], (tensor, "input")),
+                (shape, strides),
+            )
+        # Empty tensors are contiguous according to Torch, but the original
+        # conservative rule still rejects their nontrivial overlapping axis.
+        empty = Tensor((0, 3), strides=(0, 0))
+        self.assertTrue(empty.is_contiguous())
+        self.assertEqual(
+            outcome(NEW["_check_nonoverlapping_strides"], (empty, "input")),
+            ("NotImplementedError", "input must have nonoverlapping strides"),
+        )
+
+    def test_stride_baseline_changes_only_its_private_validator_namespace(self):
+        path = FROZEN.with_name("qsa_prefill_stride_baseline.py")
+        spec = importlib.util.spec_from_file_location("stride_baseline", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        current = load_functions(PRODUCTION, NAMES | {"qsa_select_paged_prefill"})
+        for name in ("_prefill_logits", "persistent_topk", "_select_all_kernel"):
+            current[name] = object()
+        original_stride = current["_check_nonoverlapping_strides"]
+        original_validator = current["_validate_inputs"]
+        op = types.SimpleNamespace(
+            **{
+                k: v
+                for k, v in current.items()
+                if k in NAMES
+                or k
+                in {
+                    "qsa_select_paged_prefill",
+                    "_prefill_logits",
+                    "persistent_topk",
+                    "_select_all_kernel",
+                }
+            }
+        )
+        baseline = module.baseline_entry(op)
+        self.assertIs(baseline.__code__, op.qsa_select_paged_prefill.__code__)
+        old_validator = baseline.__globals__["_validate_inputs"]
+        self.assertIs(old_validator.__code__, original_validator.__code__)
+        self.assertIs(old_validator.__globals__, baseline.__globals__)
+        self.assertIs(
+            old_validator.__globals__["_check_nonoverlapping_strides"],
+            module._check_nonoverlapping_strides,
+        )
+        self.assertIs(current["_check_nonoverlapping_strides"], original_stride)
+        self.assertIs(current["_validate_inputs"], original_validator)
+        self.assertIsNot(baseline.__globals__, current)
+        for name in (
+            "_prefill_logits",
+            "persistent_topk",
+            "_select_all_kernel",
+            "_output_overlaps_inputs",
+        ):
+            self.assertIs(baseline.__globals__[name], current[name])
+        for rows in (0, 1, 36):
+            for padded in (False, True):
+                args = inputs(rows=rows, padded=padded)
+                self.assertEqual(
+                    outcome(old_validator, args), outcome(original_validator, args)
+                )
+        for name in (
+            "_validate_inputs",
+            "_output_overlaps_inputs",
+            "qsa_select_paged_prefill",
+        ):
+            mutated = types.SimpleNamespace(**vars(op))
+            setattr(mutated, name, outcome)
+            with self.assertRaisesRegex(RuntimeError, "pinned source"):
+                module.baseline_entry(mutated)
+
     def test_twenty_thousand_byte_hull_cases_match_old_checker(self):
         rng = random.Random(20261015)
         for _ in range(20000):

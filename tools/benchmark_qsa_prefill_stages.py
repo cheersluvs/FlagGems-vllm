@@ -31,6 +31,7 @@ SCHEMA = 2
 SOURCES = [
     "tools/benchmark_qsa_prefill_stages.py",
     "tools/qsa_prefill_validation_baseline.py",
+    "tools/qsa_prefill_stride_baseline.py",
     "tools/run_qsa_prefill_validation_ab_h800.sh",
     "tests/qsa_select_prefill_utils.py",
     "tests/test_qsa_select_paged_prefill.py",
@@ -671,25 +672,32 @@ def worker(options, case, report):
     functions = stage_functions(op, args, chunks)
     baseline = None
     if options.validation_ab:
-        from tools.qsa_prefill_validation_baseline import (
-            BASELINE_COMMIT,
-            BASELINE_OP_SHA256,
-            baseline_entry,
+        baseline_module = importlib.import_module(
+            "tools.qsa_prefill_stride_baseline"
+            if options.validation_baseline == "overlap-retained"
+            else "tools.qsa_prefill_validation_baseline"
         )
 
-        baseline = baseline_entry(op)
+        baseline = baseline_module.baseline_entry(op)
         functions = dict(
             full=functions.pop("full"),
             full_validation_baseline=lambda: baseline(*args),
             **functions,
         )
         result["validation_ab"] = dict(
-            baseline_commit=BASELINE_COMMIT,
-            baseline_op_sha256=BASELINE_OP_SHA256,
+            kind=options.validation_baseline,
+            baseline_commit=baseline_module.BASELINE_COMMIT,
+            baseline_op_sha256=baseline_module.BASELINE_OP_SHA256,
             same_public_bytecode=baseline.__code__
             is op.qsa_select_paged_prefill.__code__,
             shared_score=baseline.__globals__["_prefill_logits"] is op._prefill_logits,
             shared_topk=baseline.__globals__["persistent_topk"] is op.persistent_topk,
+            shared_validator_bytecode=baseline.__globals__["_validate_inputs"].__code__
+            is op._validate_inputs.__code__,
+            shared_overlap_helper=baseline.__globals__[
+                "_validate_inputs"
+            ].__globals__.get("_output_overlaps_inputs")
+            is op._output_overlaps_inputs,
         )
     result["stages"] = {name: {} for name in functions}
     if not chunks:
@@ -929,7 +937,11 @@ def parent(options, selected, directory):
                 str(options.profile_iterations),
             ]
         if options.validation_ab:
-            cmd.append("--validation-ab")
+            cmd += [
+                "--validation-ab",
+                "--validation-baseline",
+                options.validation_baseline,
+            ]
         print(f"Running {name}", flush=True)
         with (directory / f"{name}.txt").open("w") as log:
             try:
@@ -1074,6 +1086,12 @@ def main():
         "--validation-ab",
         action="store_true",
         help="Compare frozen old validation against production with shared GPU launchers",
+    )
+    parser.add_argument(
+        "--validation-baseline",
+        choices=("original", "overlap-retained"),
+        default="original",
+        help="Frozen validation baseline; overlap-retained isolates the stride trial",
     )
     parser.add_argument(
         "--skip-accuracy",
