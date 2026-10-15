@@ -1,0 +1,66 @@
+command: ['/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python', '/tmp/flaggems-qsa-decode.MtqSyF/tools/diagnose_qsa_native_decode_h800.py', '--report', '/tmp/qsa-decode-h800.jeoxayk0', '--name', 'bf16-h4d128-q3-tiles2-flagtree-loop-stage1', '--case', 'bf16-h4d128-q3-tiles2', '--variant', 'loop-stage1']
+stage: imports
+{
+  "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+  "pid": 2386972,
+  "torch": "2.13.0+cu129",
+  "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+  "triton": "3.6.0",
+  "triton_source": "/opt/flagtree/triton/__init__.py",
+  "device": "NVIDIA H800",
+  "device_index": 0,
+  "capability": [
+    9,
+    0
+  ],
+  "ptxas": {
+    "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+    "returncode": 0,
+    "text": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n"
+  },
+  "environment": {
+    "PYTHONPATH": "/tmp/flaggems-qsa-decode.MtqSyF/src:/tmp/flaggems-qsa-decode.MtqSyF:/opt/flagtree",
+    "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+    "CUDA_VISIBLE_DEVICES": null,
+    "CUDA_LAUNCH_BLOCKING": "1",
+    "TRITON_CACHE_DIR": "/tmp/qsa-decode-h800.jeoxayk0/caches/bf16-h4d128-q3-tiles2-flagtree-loop-stage1",
+    "TRITON_OVERRIDE_ARCH": null,
+    "TRITON_PTXAS_PATH": null,
+    "DISABLE_PTXAS_OPT": null,
+    "PTXAS_OPTIONS": null,
+    "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree"
+  },
+  "compiler_files": {
+    "triton.backends.nvidia.compiler": {
+      "source": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+      "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+    },
+    "triton.backends.nvidia.driver": {
+      "source": "/opt/flagtree/triton/backends/nvidia/driver.py",
+      "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+    },
+    "triton.knobs": {
+      "source": "/opt/flagtree/triton/knobs.py",
+      "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+    }
+  },
+  "gems_imported": false,
+  "distributions": {
+    "torch": "2.13.0+cu129",
+    "triton": "3.7.1",
+    "flagtree": "0.6.1",
+    "vllm": "0.31.0+cu129"
+  },
+  "libtriton": {
+    "source": "/opt/flagtree/triton/_C/libtriton.so",
+    "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+  }
+}
+stage: input preparation
+stage: compile only
+stage: binary load / launcher initialization
+stage: score launch
+native score-only launch: bf16-h4d128-q3-tiles2-flagtree-loop-stage1
+stage: score synchronize
+stage: score validation
+PASS: score validated; no Top-K or Gems kernel executed
