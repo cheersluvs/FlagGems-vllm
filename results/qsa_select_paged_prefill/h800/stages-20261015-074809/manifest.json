@@ -1,0 +1,263 @@
+{
+  "schema": 2,
+  "options": {
+    "suite": "comprehensive",
+    "cases": null,
+    "list_cases": false,
+    "report_dir": "/tmp/qsa-stage-h800.0daamo",
+    "warmup": 25,
+    "iterations": 100,
+    "rounds": 7,
+    "graph_batch": 8,
+    "timeout": 900,
+    "no_graph": false,
+    "host_profile": true,
+    "profile_iterations": 200,
+    "validation_ab": false,
+    "host_ab": true,
+    "validation_baseline": "original",
+    "skip_accuracy": false,
+    "worker": null
+  },
+  "cases": [
+    {
+      "name": "core_0",
+      "kind": "core",
+      "shape": [
+        1,
+        1,
+        2048,
+        16,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "core_1",
+      "kind": "core",
+      "shape": [
+        1,
+        64,
+        4096,
+        16,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "core_2",
+      "kind": "core",
+      "shape": [
+        4,
+        128,
+        16384,
+        64,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "core_3",
+      "kind": "core",
+      "shape": [
+        1,
+        2048,
+        65536,
+        64,
+        512
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "core_4",
+      "kind": "core",
+      "shape": [
+        1,
+        64,
+        4096,
+        16,
+        1024
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "core_5",
+      "kind": "core",
+      "shape": [
+        1,
+        64,
+        8192,
+        16,
+        2048
+      ],
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "upstream_bfloat16_s0",
+      "kind": "upstream",
+      "slack": 0,
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "upstream_bfloat16_s1792",
+      "kind": "upstream",
+      "slack": 1792,
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "upstream_float8_e4m3fn_s0",
+      "kind": "upstream",
+      "slack": 0,
+      "dtype": "float8_e4m3fn"
+    },
+    {
+      "name": "upstream_float8_e4m3fn_s1792",
+      "kind": "upstream",
+      "slack": 1792,
+      "dtype": "float8_e4m3fn"
+    },
+    {
+      "name": "zero_visible",
+      "kind": "zero",
+      "dtype": "bfloat16"
+    },
+    {
+      "name": "hd_1_32_bfloat16",
+      "kind": "hd",
+      "heads": 1,
+      "dim": 32,
+      "dtype": "bfloat16",
+      "extended": true
+    },
+    {
+      "name": "hd_3_64_bfloat16",
+      "kind": "hd",
+      "heads": 3,
+      "dim": 64,
+      "dtype": "bfloat16",
+      "extended": true
+    },
+    {
+      "name": "hd_5_96_bfloat16",
+      "kind": "hd",
+      "heads": 5,
+      "dim": 96,
+      "dtype": "bfloat16",
+      "extended": true
+    },
+    {
+      "name": "hd_8_256_bfloat16",
+      "kind": "hd",
+      "heads": 8,
+      "dim": 256,
+      "dtype": "bfloat16",
+      "extended": true
+    },
+    {
+      "name": "one_row_bfloat16",
+      "kind": "upstream",
+      "slack": 0,
+      "budget_mb": 0,
+      "dtype": "bfloat16",
+      "extended": true
+    },
+    {
+      "name": "hd_1_32_float8_e4m3fn",
+      "kind": "hd",
+      "heads": 1,
+      "dim": 32,
+      "dtype": "float8_e4m3fn",
+      "extended": true
+    },
+    {
+      "name": "hd_3_64_float8_e4m3fn",
+      "kind": "hd",
+      "heads": 3,
+      "dim": 64,
+      "dtype": "float8_e4m3fn",
+      "extended": true
+    },
+    {
+      "name": "hd_5_96_float8_e4m3fn",
+      "kind": "hd",
+      "heads": 5,
+      "dim": 96,
+      "dtype": "float8_e4m3fn",
+      "extended": true
+    },
+    {
+      "name": "hd_8_256_float8_e4m3fn",
+      "kind": "hd",
+      "heads": 8,
+      "dim": 256,
+      "dtype": "float8_e4m3fn",
+      "extended": true
+    },
+    {
+      "name": "one_row_float8_e4m3fn",
+      "kind": "upstream",
+      "slack": 0,
+      "budget_mb": 0,
+      "dtype": "float8_e4m3fn",
+      "extended": true
+    },
+    {
+      "name": "mixed_padded",
+      "kind": "mixed",
+      "dtype": "bfloat16",
+      "extended": true
+    },
+    {
+      "name": "tail_chunk_bfloat16",
+      "kind": "tail",
+      "dtype": "bfloat16",
+      "budget_mb": 1,
+      "extended": true
+    },
+    {
+      "name": "tail_chunk_float8_e4m3fn",
+      "kind": "tail",
+      "dtype": "float8_e4m3fn",
+      "budget_mb": 1,
+      "extended": true
+    }
+  ],
+  "methods": {
+    "wall_us": "perf_counter, synchronize before/after a batch; host inclusive",
+    "event_us": "device events around an eager batch; includes host supply gaps",
+    "graph_us": "device events around graph replays / captured calls per replay"
+  },
+  "timing_plan": {
+    "calls_per_round": 104,
+    "eager_iterations": 104,
+    "graph_replays": 13,
+    "graph_batch": 8,
+    "rounds": 7,
+    "order": "rotate_stages_and_modes_each_round"
+  },
+  "git_head": {
+    "returncode": 0,
+    "stdout": "85a78e6aacfb04e62ad919646f8f82c5178b97ce\n",
+    "stderr": ""
+  },
+  "git_status": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "source_hashes": {
+    "tools/benchmark_qsa_prefill_stages.py": "7bcb51d43a5c44a7a07fb6544c56510d15463f510c8c1d7c04ef166f793fed71",
+    "tools/qsa_prefill_validation_baseline.py": "84b7eacfeb4a3e728b078c48ac59d21f681f8a3b4a00c153da879a8ef1136446",
+    "tools/qsa_prefill_stride_baseline.py": "8e2e8831016409119f3dcf91eb3f3a814fbd8bc207256952e8f04cc3f7f897fb",
+    "tools/qsa_prefill_chunk_baseline.py": "8f82645cd3adc494a91d507efa86befd27e3db3869c5620e0a13e12ed80c2ddb",
+    "tools/run_qsa_prefill_validation_ab_h800.sh": "71254e1522385bff07ce2ec02380c28c0332869fa29660479b5c11150eb998fd",
+    "tests/qsa_select_prefill_utils.py": "571412b118a27570f40182ba84ef37b3d3bd71260620588adc3b1a1d2d9155e4",
+    "tests/test_qsa_select_paged_prefill.py": "ba47423ae1382703230a2a885893ddf1690d400495d36f239e6f02b8c417c91e",
+    "tests/conftest.py": "358217de80629d13ec28fed8b01f8dbdb9175fa0d5658071f5bbdbdcc4979b18",
+    "src/flaggems_vllm/ops/qsa_select_paged_prefill.py": "d70faeb6928c2c7a56636ded833f3359368871e353ecf4c66c6dfd35cae93e73",
+    "src/flaggems_vllm/ops/persistent_topk.py": "b8b87317b58aa503f6ba6161ab540df775b25ecf689eb2101647fc794cb7f66f",
+    "src/flaggems_vllm/utils/libentry.py": "5f5961ccd82dd3e83c95f5c7e456c0f03f26798ea1c08bdfcf0312cec2fd2bf5",
+    "src/flaggems_vllm/runtime/backend/_nvidia/tune_configs.yaml": "ed49e5080918b5a277e643f822b5964c111f3233fff4a056f58f3c30f2c56431"
+  },
+  "policy": "Production self baseline only; no native-vLLM speedup. Stage times are not additive. Warm repeated inputs, no cache flush."
+}
