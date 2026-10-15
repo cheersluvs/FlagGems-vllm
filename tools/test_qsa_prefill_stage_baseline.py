@@ -9,6 +9,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import subprocess
 import tempfile
 import types
@@ -49,6 +50,32 @@ class FakeDevice:
 
 
 class BenchmarkTests(unittest.TestCase):
+    def test_documented_upload_failure_keeps_errexit_parent_alive(self):
+        text = (bench.ROOT / "docs/qsa_prefill_stage_baseline.md").read_text()
+        block = next(
+            code
+            for code in re.findall(r"```bash\n(.*?)```", text, re.S)
+            if code.startswith("if bash <<'QSA_UPLOAD'")
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            # Force nonexistent paths; this test never reaches Git mutations.
+            block = block.replace(
+                "qsa_code_repo=/tmp/flaggems-qsa-stage.REPLACE",
+                f"qsa_code_repo={folder}/missing-repo",
+            ).replace(
+                "qsa_report=/tmp/qsa-stage-h800.REPLACE",
+                f"qsa_report={folder}/missing-report",
+            )
+            result = subprocess.run(
+                ["bash", "-c", "set -euo pipefail\n" + block + "\necho SESSION_ALIVE"],
+                text=True,
+                capture_output=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("SESSION_ALIVE", result.stdout)
+        self.assertIn("Replace qsa_code_repo", result.stderr)
+        self.assertNotIn("Result branch:", result.stdout)
+
     def test_timer_units_and_graph_normalization(self):
         device = FakeDevice()
 

@@ -118,13 +118,22 @@ assembler file hashes/version, GPU identity, input shapes/strides/value hashes,
 observed chunks, score configurations and timing samples.
 
 For example, upload through a new report worktree, using the printed report
-directory and the fresh code checkout from the run:
+directory and the fresh code checkout from the run. Replace both `.REPLACE`
+paths before executing. Copy the entire `if ... fi` block: the upload runs in
+a separate Bash process and its failure is handled, even if the interactive
+parent shell already has `set -e` enabled. It reports the failed command and
+keeps the current session open.
 
 ```bash
-(
+if bash <<'QSA_UPLOAD'
   set -euo pipefail
+  trap 'qsa_exit=$?; printf "Upload failed (rc=%s, line=%s): %s\n" "$qsa_exit" "$LINENO" "$BASH_COMMAND" >&2; exit "$qsa_exit"' ERR
   qsa_code_repo=/tmp/flaggems-qsa-stage.REPLACE
   qsa_report=/tmp/qsa-stage-h800.REPLACE
+  if [[ ! -d "$qsa_code_repo" || ! -f "$qsa_report/stage-summary.json" ]]; then
+    echo "Replace qsa_code_repo and qsa_report with the actual checkout and Reports paths." >&2
+    exit 2
+  fi
   test -f "$qsa_report/stage-summary.json"
   qsa_stamp=$(date -u +%Y%m%d-%H%M%S)
   qsa_branch="codex/qsa-h800-results-$qsa_stamp"
@@ -141,8 +150,20 @@ directory and the fresh code checkout from the run:
     https://github.com/cheersluvs/FlagGems-vllm.git "HEAD:refs/heads/$qsa_branch"
   echo "Result branch: $qsa_branch"
   git -C "$qsa_result_tree" rev-parse HEAD
-)
+QSA_UPLOAD
+then
+  echo "Report upload completed."
+else
+  echo "Report upload failed; this shell remains open. Check the error above." >&2
+fi
 ```
+
+The earlier subshell-only example could still terminate an interactive parent
+shell that already had `set -e` enabled when a report command failed. This is
+a shell-session exit; whether the container stops depends on whether that
+shell is the container's main process. It does not prove that the container
+itself was stopped. A missing report path, Git identity, credentials or remote
+access must be diagnosed from the actual command output.
 
 Later optimized runs must preserve the same GPU, compiler/assembler, input
 hashes, budget, timing settings, TF32 policy and correctness gate. Compare the
