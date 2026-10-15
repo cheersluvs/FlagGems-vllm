@@ -44,9 +44,11 @@ cores: FP32 reduction could be slower, especially for larger H/D or FP8.
 | Baseline | Actual production entry, exact current source hash pinned; both sides use identical validator, metadata preparation, Top-K, fill and compiler |
 | Tests | Every vector config vs FP32 Torch scores, zero/short/full visible lengths, nonzero base/empty requests/padded layouts; full selection; CPU fallback/routing/identity/source checks |
 
-Status: candidate implemented for on-card evaluation. GPU compilation,
-correctness, performance and keep/revert are pending; no production routing
-change or candidate performance claim.
+Status: candidate compiled and passed the H800 correctness gate in report
+`96d3f8c32956d789e83998f39f0f6ad2e8475786`. Performance acceptance remains
+pending: another GPU process and thermal slowdown invalidate this run for
+that purpose. Production routing is unchanged. See
+[qsa_prefill_single_row_results.md](qsa_prefill_single_row_results.md).
 
 ## Implementation and local verification
 
