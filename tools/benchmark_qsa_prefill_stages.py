@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
-"""Measure the unchanged production QSA prefill in one compiler/runtime.
+"""Measure production QSA prefill stages and pinned host A/B in one runtime.
 
 No native vLLM import, installation, source patch or alternative Top-K. Each
 case runs in a fresh process. Use --list-cases without GPU dependencies.
@@ -32,6 +32,7 @@ SOURCES = [
     "tools/benchmark_qsa_prefill_stages.py",
     "tools/qsa_prefill_validation_baseline.py",
     "tools/qsa_prefill_stride_baseline.py",
+    "tools/qsa_prefill_chunk_baseline.py",
     "tools/run_qsa_prefill_validation_ab_h800.sh",
     "tests/qsa_select_prefill_utils.py",
     "tests/test_qsa_select_paged_prefill.py",
@@ -46,6 +47,29 @@ METHODS = {
     "event_us": "device events around an eager batch; includes host supply gaps",
     "graph_us": "device events around graph replays / captured calls per replay",
 }
+
+
+def ab_configuration(options):
+    if options.host_ab:
+        return (
+            "host_ab",
+            "full_host_baseline",
+            "tools.qsa_prefill_chunk_baseline",
+            "chunk-setup",
+        )
+    if options.validation_ab:
+        module = (
+            "tools.qsa_prefill_stride_baseline"
+            if options.validation_baseline == "overlap-retained"
+            else "tools.qsa_prefill_validation_baseline"
+        )
+        return (
+            "validation_ab",
+            "full_validation_baseline",
+            module,
+            options.validation_baseline,
+        )
+    return None
 
 
 def cases():
@@ -98,6 +122,16 @@ def cases():
     result.append(
         dict(name="mixed_padded", kind="mixed", dtype="bfloat16", extended=True)
     )
+    for dtype in ("bfloat16", "float8_e4m3fn"):
+        result.append(
+            dict(
+                name=f"tail_chunk_{dtype}",
+                kind="tail",
+                dtype=dtype,
+                budget_mb=1,
+                extended=True,
+            )
+        )
     return result
 
 
@@ -363,11 +397,16 @@ def host_diagnostics(op, args, chunks, torch, device, options, baseline=None):
         result["profiles"]["validation_baseline"] = python_profile(
             functions["validation_baseline"], device, options.profile_iterations
         )
+        result["profiles"]["baseline_entry"] = python_profile(
+            lambda: baseline(*args), device, options.profile_iterations
+        )
     return result
 
 
 def make_case(case, torch, helpers):
     dtype = getattr(torch, case["dtype"])
+    if case["kind"] == "tail":
+        return helpers.make_inputs((39, 34), (4096, 8192), query_base=113, dtype=dtype)
     if case["kind"] == "core":
         requests, length, context, page, k = case["shape"]
         return helpers.make_inputs(
@@ -430,9 +469,9 @@ def observe_pipeline(op, args):
     chunks = []
     score, topk = op._prefill_logits, op.persistent_topk
 
-    def observe_score(*a):
-        logits = score(*a)
-        chunks.append(dict(score_args=a, frozen=logits.clone()))
+    def observe_score(*a, **kw):
+        logits = score(*a, **kw)
+        chunks.append(dict(score_args=a, score_kwargs=kw, frozen=logits.clone()))
         return logits
 
     def observe_topk(*a, **kw):
@@ -453,7 +492,7 @@ def observe_pipeline(op, args):
 def stage_functions(op, args, chunks):
     def scores():
         for chunk in chunks:
-            op._prefill_logits(*chunk["score_args"])
+            op._prefill_logits(*chunk["score_args"], **chunk.get("score_kwargs", {}))
 
     def topk():
         for chunk in chunks:
@@ -462,7 +501,9 @@ def stage_functions(op, args, chunks):
 
     def pipeline():
         for chunk in chunks:
-            logits = op._prefill_logits(*chunk["score_args"])
+            logits = op._prefill_logits(
+                *chunk["score_args"], **chunk.get("score_kwargs", {})
+            )
             op.persistent_topk(logits, *chunk["topk_args"][1:], **chunk["topk_kwargs"])
 
     functions = dict(full=lambda: op.qsa_select_paged_prefill(*args))
@@ -666,32 +707,38 @@ def worker(options, case, report):
             offset=c["score_args"][-2],
             rows=c["score_args"][-1],
             width=c["score_args"][-3],
+            workspace_shape=list(c["score_args"][5].shape),
+            prepared_metadata="launch_metadata" in c.get("score_kwargs", {}),
+            logits_is_workspace=c["topk_args"][0] is c["score_args"][5],
         )
         for c in chunks
     ]
     functions = stage_functions(op, args, chunks)
     baseline = None
-    if options.validation_ab:
-        baseline_module = importlib.import_module(
-            "tools.qsa_prefill_stride_baseline"
-            if options.validation_baseline == "overlap-retained"
-            else "tools.qsa_prefill_validation_baseline"
-        )
-
+    ab = ab_configuration(options)
+    if ab:
+        ab_field, baseline_stage, module_name, kind = ab
+        baseline_module = importlib.import_module(module_name)
         baseline = baseline_module.baseline_entry(op)
+        baseline(*args)
+        device.synchronize()
+        result["baseline_validation_rows"] = validate_outputs(args, torch, helpers)
         functions = dict(
             full=functions.pop("full"),
-            full_validation_baseline=lambda: baseline(*args),
-            **functions,
+            **{baseline_stage: lambda: baseline(*args), **functions},
         )
-        result["validation_ab"] = dict(
-            kind=options.validation_baseline,
+        result[ab_field] = dict(
+            kind=kind,
             baseline_commit=baseline_module.BASELINE_COMMIT,
             baseline_op_sha256=baseline_module.BASELINE_OP_SHA256,
             same_public_bytecode=baseline.__code__
             is op.qsa_select_paged_prefill.__code__,
             shared_score=baseline.__globals__["_prefill_logits"] is op._prefill_logits,
+            shared_score_kernel=baseline.__globals__["_qsa_prefill_score_kernel"]
+            is op._qsa_prefill_score_kernel,
             shared_topk=baseline.__globals__["persistent_topk"] is op.persistent_topk,
+            shared_fill_kernel=baseline.__globals__["_select_all_kernel"]
+            is op._select_all_kernel,
             shared_validator_bytecode=baseline.__globals__["_validate_inputs"].__code__
             is op._validate_inputs.__code__,
             shared_overlap_helper=baseline.__globals__[
@@ -791,12 +838,12 @@ def worker(options, case, report):
             )
     result.update(status="passed", peak_allocated_bytes=device.max_memory_allocated())
     if baseline is not None:
-        result["validation_ab"]["speedup"] = {}
+        result[ab_field]["speedup"] = {}
         for method in METHODS:
-            old = result["stages"]["full_validation_baseline"].get(method, {})
+            old = result["stages"][baseline_stage].get(method, {})
             new = result["stages"]["full"].get(method, {})
             if "samples" in old and "samples" in new:
-                result["validation_ab"]["speedup"][method] = dict(
+                result[ab_field]["speedup"][method] = dict(
                     ratio_of_medians=old["median"] / new["median"],
                     paired_round_ratios=stats(
                         [a / b for a, b in zip(old["samples"], new["samples"])]
@@ -942,6 +989,8 @@ def parent(options, selected, directory):
                 "--validation-baseline",
                 options.validation_baseline,
             ]
+        if options.host_ab:
+            cmd.append("--host-ab")
         print(f"Running {name}", flush=True)
         with (directory / f"{name}.txt").open("w") as log:
             try:
@@ -1010,15 +1059,15 @@ def parent(options, selected, directory):
                     )
                 )
         (directory / "host-summary.tsv").write_text("\n".join(host_lines) + "\n")
-    if options.validation_ab:
+    ab = ab_configuration(options)
+    if ab:
+        ab_field, baseline_stage, _, _ = ab
         rows = [
             "case\tstatus\tmetric\tbaseline_median_us\tcandidate_median_us\tratio_of_medians\tpaired_ratio_median"
         ]
         for case in summary["cases"]:
-            for method, comparison in (
-                case.get("validation_ab", {}).get("speedup", {}).items()
-            ):
-                old = case["stages"]["full_validation_baseline"][method]["median"]
+            for method, comparison in case.get(ab_field, {}).get("speedup", {}).items():
+                old = case["stages"][baseline_stage][method]["median"]
                 new = case["stages"]["full"][method]["median"]
                 rows.append(
                     "\t".join(
@@ -1036,7 +1085,8 @@ def parent(options, selected, directory):
                         )
                     )
                 )
-        (directory / "validation-ab.tsv").write_text("\n".join(rows) + "\n")
+        filename = "host-ab.tsv" if options.host_ab else "validation-ab.tsv"
+        (directory / filename).write_text("\n".join(rows) + "\n")
     print(f"Return top-level JSON/TXT/TSV files from: {directory}", flush=True)
     return int(any(case["status"] != "passed" for case in summary["cases"]))
 
@@ -1082,10 +1132,16 @@ def main():
         help="Untimed Python CPU diagnostics after performance measurements",
     )
     parser.add_argument("--profile-iterations", type=int, default=200)
-    parser.add_argument(
+    ab_group = parser.add_mutually_exclusive_group()
+    ab_group.add_argument(
         "--validation-ab",
         action="store_true",
         help="Compare frozen old validation against production with shared GPU launchers",
+    )
+    ab_group.add_argument(
+        "--host-ab",
+        action="store_true",
+        help="Compare prepared chunk setup against pinned old host entry/launcher with shared GPU kernels",
     )
     parser.add_argument(
         "--validation-baseline",
@@ -1100,6 +1156,8 @@ def main():
     )
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
+    if options.host_ab and options.validation_baseline != "original":
+        parser.error("--validation-baseline applies to --validation-ab, not --host-ab")
     all_cases = cases()
     if options.list_cases:
         print(json.dumps(all_cases, indent=2))

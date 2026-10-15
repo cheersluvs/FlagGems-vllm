@@ -237,6 +237,9 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(sum(c.get("budget_mb") == 0 for c in cases), 2)
         self.assertTrue(any(c["kind"] == "zero" for c in cases))
         self.assertTrue(any(c["kind"] == "mixed" for c in cases))
+        tail = [c for c in cases if c["kind"] == "tail"]
+        self.assertEqual({c["dtype"] for c in tail}, {"bfloat16", "float8_e4m3fn"})
+        self.assertTrue(all(c["budget_mb"] == 1 for c in tail))
 
     def test_observed_tail_chunks_and_frozen_topk_routing(self):
         calls = []
@@ -245,8 +248,8 @@ class BenchmarkTests(unittest.TestCase):
             def clone(self):
                 return object()
 
-        def score(*args):
-            calls.append(("score", args))
+        def score(*args, **kwargs):
+            calls.append(("score", args, kwargs))
             return Logits()
 
         def topk(*args, **kwargs):
@@ -256,7 +259,9 @@ class BenchmarkTests(unittest.TestCase):
 
         def full(*args):
             for offset, count in ((0, 3), (3, 1)):
-                logits = op._prefill_logits("q", "workspace", 4096, offset, count)
+                logits = op._prefill_logits(
+                    "q", "workspace", 4096, offset, count, launch_metadata="prepared"
+                )
                 op.persistent_topk(logits, "lengths", "out", "scratch", k=512)
 
         op.qsa_select_paged_prefill = full
@@ -275,6 +280,13 @@ class BenchmarkTests(unittest.TestCase):
         calls.clear()
         functions["pipeline_preallocated"]()
         self.assertEqual([c[0] for c in calls], ["score", "topk", "score", "topk"])
+        self.assertTrue(
+            all(
+                c[2] == {"launch_metadata": "prepared"}
+                for c in calls
+                if c[0] == "score"
+            )
+        )
 
     def test_observer_restores_globals_after_failure(self):
         def fail(*args):
@@ -311,6 +323,7 @@ class BenchmarkTests(unittest.TestCase):
             profile_iterations=200,
             validation_ab=False,
             validation_baseline="original",
+            host_ab=False,
         )
         values.update(kwargs)
         return argparse.Namespace(**values)
@@ -413,6 +426,55 @@ class BenchmarkTests(unittest.TestCase):
                     command[command.index("--validation-baseline") + 1],
                     "overlap-retained",
                 )
+
+    def test_host_ab_worker_selection_and_tsv_use_host_baseline(self):
+        commands = []
+
+        def execute(command, **kwargs):
+            commands.append(command)
+            directory = Path(command[command.index("--report-dir") + 1])
+            name = command[command.index("--worker") + 1]
+            bench.write_json(
+                directory / f"{name}.json",
+                dict(
+                    case=dict(name=name),
+                    status="passed",
+                    stages=dict(
+                        full=dict(wall_us=dict(median=10)),
+                        full_host_baseline=dict(wall_us=dict(median=12)),
+                    ),
+                    host_ab=dict(
+                        speedup=dict(
+                            wall_us=dict(
+                                ratio_of_medians=1.2,
+                                paired_round_ratios=dict(median=1.1),
+                            )
+                        )
+                    ),
+                ),
+            )
+            return types.SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+            os.environ, {"QSA_TRITON_RUNTIME_PATH": "", "CUDA_LAUNCH_BLOCKING": "0"}
+        ), patch.object(bench, "command", return_value={}), patch.object(
+            bench.subprocess, "run", side_effect=execute
+        ), contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            directory = Path(folder)
+            options = self.options(skip_accuracy=True, host_ab=True)
+            self.assertEqual(bench.parent(options, bench.cases()[:1], directory), 0)
+            self.assertIn("--host-ab", commands[0])
+            self.assertNotIn("--validation-ab", commands[0])
+            self.assertIn(
+                "core_0\tpassed\twall_us\t12\t10\t1.2\t1.1",
+                (directory / "host-ab.tsv").read_text(),
+            )
+            self.assertFalse((directory / "validation-ab.tsv").exists())
+            self.assertEqual(
+                bench.ab_configuration(options)[2], "tools.qsa_prefill_chunk_baseline"
+            )
 
 
 if __name__ == "__main__":

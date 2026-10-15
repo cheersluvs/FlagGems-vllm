@@ -95,6 +95,15 @@ OLD = load_functions(FROZEN, NAMES)
 NEW = load_functions(PRODUCTION, NAMES)
 
 
+def historical_entry_namespace():
+    # The earlier trials deliberately pin the pre-preparation public body.
+    namespace = load_functions(
+        FROZEN.with_name("qsa_prefill_chunk_baseline.py"), {"qsa_select_paged_prefill"}
+    )
+    namespace.update(load_functions(PRODUCTION, NAMES))
+    return namespace
+
+
 def inputs(rows=3, dtype="bf16", padded=False, k=512):
     tensors = [
         Tensor((rows, 4, 128), dtype, strides=(640, 128, 1) if padded else None),
@@ -148,7 +157,7 @@ class ValidationTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("stride_baseline", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        current = load_functions(PRODUCTION, NAMES | {"qsa_select_paged_prefill"})
+        current = historical_entry_namespace()
         for name in ("_prefill_logits", "persistent_topk", "_select_all_kernel"):
             current[name] = object()
         original_stride = current["_check_nonoverlapping_strides"]
@@ -201,6 +210,12 @@ class ValidationTests(unittest.TestCase):
             setattr(mutated, name, outcome)
             with self.assertRaisesRegex(RuntimeError, "pinned source"):
                 module.baseline_entry(mutated)
+        mutated = types.SimpleNamespace(**vars(op))
+        mutated.qsa_select_paged_prefill = load_functions(
+            PRODUCTION, {"qsa_select_paged_prefill"}
+        )["qsa_select_paged_prefill"]
+        with self.assertRaisesRegex(RuntimeError, "pinned source"):
+            module.baseline_entry(mutated)
 
     def test_twenty_thousand_byte_hull_cases_match_old_checker(self):
         rng = random.Random(20261015)
@@ -285,7 +300,7 @@ class ValidationTests(unittest.TestCase):
             compile(ast.Module(body=[node], type_ignores=[]), str(FROZEN), "exec"),
             namespace,
         )
-        current = load_functions(PRODUCTION, NAMES | {"qsa_select_paged_prefill"})
+        current = historical_entry_namespace()
         functions = {
             name: object()
             for name in ("_prefill_logits", "persistent_topk", "_select_all_kernel")
@@ -305,6 +320,14 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "public entry"):
             namespace["baseline_entry"](
                 types.SimpleNamespace(qsa_select_paged_prefill=outcome)
+            )
+        with self.assertRaisesRegex(RuntimeError, "public entry"):
+            namespace["baseline_entry"](
+                types.SimpleNamespace(
+                    qsa_select_paged_prefill=load_functions(
+                        PRODUCTION, {"qsa_select_paged_prefill"}
+                    )["qsa_select_paged_prefill"]
+                )
             )
 
 

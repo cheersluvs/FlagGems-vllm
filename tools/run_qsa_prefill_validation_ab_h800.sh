@@ -13,10 +13,15 @@ echo "报告目录：$qsa_report"
 git -C "$qsa_repo" status --short
 git -C "$qsa_repo" rev-parse HEAD
 unset CUDA_LAUNCH_BLOCKING
+case "${QSA_PREFILL_AB_KIND:-validation}" in
+  validation) qsa_ab_flag=--validation-ab ;;
+  host) qsa_ab_flag=--host-ab ;;
+  *) echo "QSA_PREFILL_AB_KIND must be validation or host" >&2; exit 2 ;;
+esac
 
 qsa_run_status=0
 if "$qsa_python" "$qsa_repo/tools/benchmark_qsa_prefill_stages.py" \
-  --validation-ab --host-profile --suite comprehensive \
+  "$qsa_ab_flag" --host-profile --suite comprehensive \
   --report-dir "$qsa_report" "$@"
 then
   echo "测试完成，开始回传。"
@@ -40,7 +45,7 @@ shopt -s nullglob
 qsa_files=("$qsa_report"/*.json "$qsa_report"/*.txt "$qsa_report"/*.tsv)
 cp -- "${qsa_files[@]}" "$qsa_tree/$qsa_dest/"
 git -C "$qsa_tree" add -- "$qsa_dest"
-git -C "$qsa_tree" commit -m "Report H800 QSA validation-only A/B"
+git -C "$qsa_tree" commit -m "Report H800 QSA host A/B"
 git -C "$qsa_tree" push https://github.com/cheersluvs/FlagGems-vllm.git \
   "HEAD:refs/heads/$qsa_branch"
 echo "报告回传完成。"

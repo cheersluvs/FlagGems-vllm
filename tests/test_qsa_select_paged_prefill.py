@@ -166,8 +166,8 @@ def test_parameterized_heads_and_dims(
     original_score = op_module._prefill_logits
     chunks = []
 
-    def checked_score(*score_args):
-        scores = original_score(*score_args)
+    def checked_score(*score_args, **score_kwargs):
+        scores = original_score(*score_args, **score_kwargs)
         width, offset, count = score_args[-3:]
         chunks.append((offset, count))
         mask = (
@@ -379,6 +379,70 @@ def test_workspace_reuse_and_cross_request_chunks(sm90, monkeypatch):
         torch.testing.assert_close(
             scores[mask], expected[offset : offset + count][mask], rtol=2e-4, atol=2e-3
         )
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+@pytest.mark.parametrize("budget,chunk_rows", [("512", 73), ("1", 32), ("0", 1)])
+def test_prepared_chunk_setup_matches_retained_host_path(
+    sm90, monkeypatch, dtype, budget, chunk_rows
+):
+    from tools.qsa_prefill_chunk_baseline import baseline_entry
+
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
+    args = make_inputs((39, 34), (4096, 8192), query_base=113, dtype=dtype)
+    expected = torch_logits(*args[:5])
+    check_selection = (
+        assert_upstream_selection if dtype == torch.float8_e4m3fn else assert_selection
+    )
+    baseline_entry(op_module)(*args)
+    if dtype == torch.float8_e4m3fn:
+        check_selection(expected, args[4], args[8], dtype=dtype, head_dim=128)
+    else:
+        check_selection(expected, args[4], args[8])
+
+    score, prepare = op_module._prefill_logits, op_module._prefill_score_metadata
+    prepared, chunks = [], []
+
+    def tracked_prepare(*a):
+        value = prepare(*a)
+        prepared.append(value)
+        return value
+
+    def checked_score(*a, **kw):
+        workspace = a[5]
+        width, offset, count = a[-3:]
+        assert workspace.shape == (chunk_rows, width)
+        assert kw["launch_metadata"] is prepared[0]
+        logits = score(*a, **kw)
+        assert logits.shape == (count, width)
+        assert logits.is_contiguous() and logits.stride() == (width, 1)
+        assert logits.data_ptr() == workspace.data_ptr()
+        assert (logits is workspace) == (count == chunk_rows)
+        chunks.append((offset, count, workspace.data_ptr()))
+        mask = (
+            torch.arange(width, device="cuda")[None, :]
+            < args[4][offset : offset + count, None]
+        )
+        torch.testing.assert_close(
+            logits[mask],
+            expected[offset : offset + count, :width][mask],
+            rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
+            atol=1e-3 * 128**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
+        )
+        return logits
+
+    monkeypatch.setattr(op_module, "_prefill_score_metadata", tracked_prepare)
+    monkeypatch.setattr(op_module, "_prefill_logits", checked_score)
+    op(*args)
+    assert len(prepared) == 1
+    assert [(offset, count) for offset, count, _ in chunks] == [
+        (offset, min(chunk_rows, 73 - offset)) for offset in range(0, 73, chunk_rows)
+    ]
+    assert len({pointer for _, _, pointer in chunks}) == 1
+    if dtype == torch.float8_e4m3fn:
+        check_selection(expected, args[4], args[8], dtype=dtype, head_dim=128)
+    else:
+        check_selection(expected, args[4], args[8])
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
@@ -601,8 +665,8 @@ def test_upstream_prefill_scenarios(
     chunks = []
     score = op_module._prefill_logits
 
-    def checked_score(*score_args):
-        logits = score(*score_args)
+    def checked_score(*score_args, **score_kwargs):
+        logits = score(*score_args, **score_kwargs)
         width, offset, count = score_args[-3:]
         chunks.append((width, offset, count))
         mask = (

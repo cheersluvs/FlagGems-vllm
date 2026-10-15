@@ -13,7 +13,7 @@ RUNNER = Path(__file__).with_name("run_qsa_prefill_validation_ab_h800.sh").resol
 
 
 class RunnerTests(unittest.TestCase):
-    def exercise(self, status, baseline=None):
+    def exercise(self, status, baseline=None, kind="validation"):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             binaries = root / "bin"
@@ -24,7 +24,9 @@ class RunnerTests(unittest.TestCase):
 import json, os, sys
 from pathlib import Path
 a=sys.argv[1:]
-assert '--validation-ab' in a and '--host-profile' in a
+flag='--host-ab' if os.environ['MOCK_AB_KIND']=='host' else '--validation-ab'
+assert flag in a and '--host-profile' in a
+assert ('--validation-ab' in a) != ('--host-ab' in a)
 if os.environ.get('MOCK_BASELINE'):
     assert a[a.index('--validation-baseline')+1] == os.environ['MOCK_BASELINE']
 p=Path(a[a.index('--report-dir')+1])
@@ -61,6 +63,8 @@ if a[:2]==['rev-parse','HEAD']:
                 MOCK_STATUS=str(status),
                 MOCK_GIT_LOG=str(root / "git.jsonl"),
                 MOCK_BASELINE=baseline or "",
+                MOCK_AB_KIND=kind,
+                QSA_PREFILL_AB_KIND=kind,
             )
             result = subprocess.run(
                 ["bash", str(RUNNER)]
@@ -101,6 +105,10 @@ if a[:2]==['rev-parse','HEAD']:
 
     def test_stride_baseline_selection_is_forwarded_and_uploaded(self):
         self.exercise(0, baseline="overlap-retained")
+
+    def test_host_mode_runs_and_uploads(self):
+        for status in (0, 1):
+            self.exercise(status, kind="host")
 
 
 if __name__ == "__main__":

@@ -289,6 +289,27 @@ def _validate_inputs(
     return rows, k
 
 
+def _prefill_score_metadata(q, k_cache, page_table):
+    """Scalar launch parameters, scoped to one validated public call."""
+    return (
+        (
+            q.stride(0),
+            q.stride(1),
+            k_cache.stride(0),
+            k_cache.stride(1),
+            page_table.stride(0),
+            page_table.stride(1),
+        ),
+        (page_table.shape[0], k_cache.shape[0], page_table.shape[1]),
+        dict(
+            PAGE_SIZE=k_cache.shape[1],
+            NUM_HEADS=q.shape[1],
+            HEAD_DIM=q.shape[2],
+            IS_FP8=q.dtype == torch.float8_e4m3fn,
+        ),
+    )
+
+
 def _prefill_logits(
     q,
     k_cache,
@@ -300,13 +321,26 @@ def _prefill_logits(
     logits_width,
     query_offset,
     num_queries,
+    *,
+    launch_metadata=None,
 ):
     """Internal score launcher; inputs have already passed host validation."""
-    logits = logits_workspace[: num_queries * logits_width].view(
-        num_queries, logits_width
-    )
+    if logits_workspace.ndim == 2:
+        logits = (
+            logits_workspace
+            if num_queries == logits_workspace.shape[0]
+            else logits_workspace[:num_queries]
+        )
+    else:
+        # Preserve direct private-helper calls using the original flat buffer.
+        logits = logits_workspace[: num_queries * logits_width].view(
+            num_queries, logits_width
+        )
+    if launch_metadata is None:
+        launch_metadata = _prefill_score_metadata(q, k_cache, page_table)
+    strides, layout, constants = launch_metadata
     grid = lambda meta: (
-        page_table.shape[0],
+        layout[0],
         triton.cdiv(min(num_queries, max_query_len), meta["TILE_R"]),
         triton.cdiv(logits_width, meta["BLOCK_N"] * meta["K_TILES"]),
     )
@@ -317,23 +351,13 @@ def _prefill_logits(
         query_start_loc,
         visible_blocks,
         logits,
-        q.stride(0),
-        q.stride(1),
-        k_cache.stride(0),
-        k_cache.stride(1),
-        page_table.stride(0),
-        page_table.stride(1),
+        *strides,
         num_queries,
         query_offset,
         max_query_len,
         logits_width,
-        page_table.shape[0],
-        k_cache.shape[0],
-        page_table.shape[1],
-        PAGE_SIZE=k_cache.shape[1],
-        NUM_HEADS=q.shape[1],
-        HEAD_DIM=q.shape[2],
-        IS_FP8=q.dtype == torch.float8_e4m3fn,
+        *layout,
+        **constants,
     )
     return logits
 
@@ -399,9 +423,10 @@ def qsa_select_paged_prefill(
             rows, max(1, budget_mb * 1024 * 1024 // (logits_width * 4))
         )
         workspace = torch.empty(
-            (rows_per_chunk * logits_width,), dtype=torch.float32, device=q.device
+            (rows_per_chunk, logits_width), dtype=torch.float32, device=q.device
         )
         topk_workspace = torch.empty((1024 * 1024,), dtype=torch.uint8, device=q.device)
+        launch_metadata = _prefill_score_metadata(q, k_cache, page_table)
         for query_offset in range(0, rows, rows_per_chunk):
             num_queries = min(rows_per_chunk, rows - query_offset)
             logits = _prefill_logits(
@@ -415,6 +440,7 @@ def qsa_select_paged_prefill(
                 logits_width,
                 query_offset,
                 num_queries,
+                launch_metadata=launch_metadata,
             )
             query_slice = slice(query_offset, query_offset + num_queries)
             persistent_topk(
