@@ -324,6 +324,7 @@ class BenchmarkTests(unittest.TestCase):
             validation_ab=False,
             validation_baseline="original",
             host_ab=False,
+            single_row_ab=False,
         )
         values.update(kwargs)
         return argparse.Namespace(**values)
@@ -475,6 +476,61 @@ class BenchmarkTests(unittest.TestCase):
             self.assertEqual(
                 bench.ab_configuration(options)[2], "tools.qsa_prefill_chunk_baseline"
             )
+
+    def test_single_row_mode_runs_extra_accuracy_and_writes_its_comparison(self):
+        calls = []
+
+        def execute(command, **kwargs):
+            calls.append(command)
+            if "pytest" in command:
+                output = Path(command[command.index("--output") + 1])
+                bench.write_json(output, {"fixture": {"result": "passed"}})
+            else:
+                directory = Path(command[command.index("--report-dir") + 1])
+                name = command[command.index("--worker") + 1]
+                bench.write_json(
+                    directory / f"{name}.json",
+                    dict(
+                        case=dict(name=name),
+                        status="passed",
+                        stages=dict(
+                            full=dict(wall_us=dict(median=10)),
+                            full_matmul_baseline=dict(wall_us=dict(median=12)),
+                        ),
+                        single_row_ab=dict(
+                            speedup=dict(
+                                wall_us=dict(
+                                    ratio_of_medians=1.2,
+                                    paired_round_ratios=dict(median=1.1),
+                                )
+                            )
+                        ),
+                    ),
+                )
+            return types.SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+            os.environ, {"QSA_TRITON_RUNTIME_PATH": "", "CUDA_LAUNCH_BLOCKING": "0"}
+        ), patch.object(bench, "command", return_value={}), patch.object(
+            bench.subprocess, "run", side_effect=execute
+        ), contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            options = self.options(single_row_ab=True)
+            directory = Path(folder)
+            self.assertEqual(bench.parent(options, bench.cases(True)[:1], directory), 0)
+            self.assertIn("tests/test_qsa_prefill_single_row_trial.py", calls[0])
+            self.assertIn("tests/test_qsa_select_paged_prefill.py", calls[0])
+            self.assertIn("--single-row-ab", calls[1])
+            self.assertNotIn("--host-ab", calls[1])
+            self.assertIn(
+                "core_0\tpassed\twall_us\t12\t10\t1.2\t1.1",
+                (directory / "single-row-ab.tsv").read_text(),
+            )
+        extra = bench.cases(True)[len(bench.cases()) :]
+        self.assertEqual(len(extra), 14)
+        self.assertEqual(sum(c["kind"] == "tail_one" for c in extra), 2)
+        self.assertEqual(bench.ab_configuration(options)[0], "single_row_ab")
 
 
 if __name__ == "__main__":

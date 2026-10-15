@@ -16,7 +16,8 @@ unset CUDA_LAUNCH_BLOCKING
 case "${QSA_PREFILL_AB_KIND:-validation}" in
   validation) qsa_ab_flag=--validation-ab ;;
   host) qsa_ab_flag=--host-ab ;;
-  *) echo "QSA_PREFILL_AB_KIND must be validation or host" >&2; exit 2 ;;
+  single-row) qsa_ab_flag=--single-row-ab ;;
+  *) echo "QSA_PREFILL_AB_KIND must be validation, host or single-row" >&2; exit 2 ;;
 esac
 
 qsa_run_status=0

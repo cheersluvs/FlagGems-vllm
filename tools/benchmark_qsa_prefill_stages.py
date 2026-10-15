@@ -17,6 +17,7 @@ import math
 import os
 import platform
 import pstats
+import shutil
 import statistics
 import subprocess
 import sys
@@ -33,9 +34,11 @@ SOURCES = [
     "tools/qsa_prefill_validation_baseline.py",
     "tools/qsa_prefill_stride_baseline.py",
     "tools/qsa_prefill_chunk_baseline.py",
+    "tools/qsa_prefill_single_row_trial.py",
     "tools/run_qsa_prefill_validation_ab_h800.sh",
     "tests/qsa_select_prefill_utils.py",
     "tests/test_qsa_select_paged_prefill.py",
+    "tests/test_qsa_prefill_single_row_trial.py",
     "tests/conftest.py",
     "src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
     "src/flaggems_vllm/ops/persistent_topk.py",
@@ -50,6 +53,13 @@ METHODS = {
 
 
 def ab_configuration(options):
+    if options.single_row_ab:
+        return (
+            "single_row_ab",
+            "full_matmul_baseline",
+            "tools.qsa_prefill_single_row_trial",
+            "single-row-vector",
+        )
     if options.host_ab:
         return (
             "host_ab",
@@ -72,7 +82,7 @@ def ab_configuration(options):
     return None
 
 
-def cases():
+def cases(single_row=False):
     # Same six BF16 tuples as benchmark/test_qsa_select_paged_prefill_perf.py.
     core = [
         (1, 1, 2048, 16, 512),
@@ -132,6 +142,28 @@ def cases():
                 extended=True,
             )
         )
+    if single_row:
+        for dtype in ("bfloat16", "float8_e4m3fn"):
+            for heads, dim in ((1, 32), (3, 64), (4, 128), (5, 96), (8, 256), (17, 33)):
+                result.append(
+                    dict(
+                        name=f"single_{heads}_{dim}_{dtype}",
+                        kind="single",
+                        heads=heads,
+                        dim=dim,
+                        dtype=dtype,
+                        extended=True,
+                    )
+                )
+            result.append(
+                dict(
+                    name=f"tail_one_{dtype}",
+                    kind="tail_one",
+                    dtype=dtype,
+                    budget_mb=1,
+                    extended=True,
+                )
+            )
     return result
 
 
@@ -405,6 +437,12 @@ def host_diagnostics(op, args, chunks, torch, device, options, baseline=None):
 
 def make_case(case, torch, helpers):
     dtype = getattr(torch, case["dtype"])
+    if case["kind"] == "single":
+        return helpers.make_inputs(
+            (1,), (8192,), dtype=dtype, num_heads=case["heads"], head_dim=case["dim"]
+        )
+    if case["kind"] == "tail_one":
+        return helpers.make_inputs((33, 32), (4096, 8192), query_base=113, dtype=dtype)
     if case["kind"] == "tail":
         return helpers.make_inputs((39, 34), (4096, 8192), query_base=113, dtype=dtype)
     if case["kind"] == "core":
@@ -572,11 +610,11 @@ def validate_stage(name, fn, args, chunks, torch, helpers, device):
         validate_outputs(args, torch, helpers)
 
 
-def score_configs(op):
+def score_configs(op, kernel_name="_qsa_prefill_score_kernel"):
     # Capture the actual LibEntry cache, not Autotuner.best_config, which may
     # describe only the last cache miss rather than every observed chunk size.
     records = []
-    for cache in op._qsa_prefill_score_kernel.kernel_cache:
+    for cache in getattr(op, kernel_name).kernel_cache:
         for entry in cache.values():
             kernel, constexprs = entry[:2]
             records.append(
@@ -697,6 +735,16 @@ def worker(options, case, report):
         runtime=runtime_info(torch, triton, flaggems_vllm.runtime),
     )
     write_json(report, result)
+    baseline = None
+    ab = ab_configuration(options)
+    if options.single_row_ab:
+        baseline_module = importlib.import_module(ab[2])
+        baseline = op.qsa_select_paged_prefill
+        op = baseline_module.candidate_module(op)
+        result["candidate_source"] = str(Path(op.__file__).resolve())
+        result["score_kernel_policy"] = (
+            "candidate vector for one query H<=8 D<=256; shared production matmul otherwise"
+        )
     args = make_case(case, torch, helpers)
     result["inputs"] = fingerprint(args, torch)
     chunks = observe_pipeline(op, args)
@@ -710,16 +758,23 @@ def worker(options, case, report):
             workspace_shape=list(c["score_args"][5].shape),
             prepared_metadata="launch_metadata" in c.get("score_kwargs", {}),
             logits_is_workspace=c["topk_args"][0] is c["score_args"][5],
+            score_path=(
+                "vector"
+                if options.single_row_ab
+                and c["score_args"][-1] == 1
+                and c["score_args"][0].shape[1] <= 8
+                and c["score_args"][0].shape[2] <= 256
+                else "matmul"
+            ),
         )
         for c in chunks
     ]
     functions = stage_functions(op, args, chunks)
-    baseline = None
-    ab = ab_configuration(options)
     if ab:
         ab_field, baseline_stage, module_name, kind = ab
         baseline_module = importlib.import_module(module_name)
-        baseline = baseline_module.baseline_entry(op)
+        if baseline is None:
+            baseline = baseline_module.baseline_entry(op)
         baseline(*args)
         device.synchronize()
         result["baseline_validation_rows"] = validate_outputs(args, torch, helpers)
@@ -759,6 +814,10 @@ def worker(options, case, report):
             fn()
     device.synchronize()
     result["score_configs"] = score_configs(op)
+    if options.single_row_ab:
+        result["vector_score_configs"] = score_configs(
+            op, "_qsa_prefill_single_row_score_kernel"
+        )
     write_json(report, result)
     # Prepare every optional graph before measurement so mode/stage order can
     # rotate within each round. Retain graph pools until all rounds complete.
@@ -889,6 +948,7 @@ def parent(options, selected, directory):
         options=vars(options),
         cases=selected,
         methods=METHODS,
+        profiler_tools=dict(ncu=shutil.which("ncu"), nsys=shutil.which("nsys")),
         timing_plan=timing_plan(options),
         git_head=command(["git", "rev-parse", "HEAD"]),
         git_status=command(["git", "status", "--porcelain"]),
@@ -914,6 +974,9 @@ def parent(options, selected, directory):
         )
         with (directory / "accuracy-full.txt").open("w") as log:
             try:
+                accuracy_tests = ["tests/test_qsa_select_paged_prefill.py"]
+                if options.single_row_ab:
+                    accuracy_tests.append("tests/test_qsa_prefill_single_row_trial.py")
                 proc = subprocess.run(
                     [
                         sys.executable,
@@ -922,7 +985,7 @@ def parent(options, selected, directory):
                         "-q",
                         "-ra",
                         "-x",
-                        "tests/test_qsa_select_paged_prefill.py",
+                        *accuracy_tests,
                         "-k",
                         "not vllm",
                         "--record",
@@ -991,6 +1054,8 @@ def parent(options, selected, directory):
             ]
         if options.host_ab:
             cmd.append("--host-ab")
+        if options.single_row_ab:
+            cmd.append("--single-row-ab")
         print(f"Running {name}", flush=True)
         with (directory / f"{name}.txt").open("w") as log:
             try:
@@ -1085,7 +1150,11 @@ def parent(options, selected, directory):
                         )
                     )
                 )
-        filename = "host-ab.tsv" if options.host_ab else "validation-ab.tsv"
+        filename = (
+            "single-row-ab.tsv"
+            if options.single_row_ab
+            else "host-ab.tsv" if options.host_ab else "validation-ab.tsv"
+        )
         (directory / filename).write_text("\n".join(rows) + "\n")
     print(f"Return top-level JSON/TXT/TSV files from: {directory}", flush=True)
     return int(any(case["status"] != "passed" for case in summary["cases"]))
@@ -1143,6 +1212,11 @@ def main():
         action="store_true",
         help="Compare prepared chunk setup against pinned old host entry/launcher with shared GPU kernels",
     )
+    ab_group.add_argument(
+        "--single-row-ab",
+        action="store_true",
+        help="Experimental one-query vector scorer vs unchanged production in the same compiler",
+    )
     parser.add_argument(
         "--validation-baseline",
         choices=("original", "overlap-retained"),
@@ -1156,9 +1230,11 @@ def main():
     )
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
-    if options.host_ab and options.validation_baseline != "original":
-        parser.error("--validation-baseline applies to --validation-ab, not --host-ab")
-    all_cases = cases()
+    if (
+        options.host_ab or options.single_row_ab
+    ) and options.validation_baseline != "original":
+        parser.error("--validation-baseline requires --validation-ab")
+    all_cases = cases(options.single_row_ab)
     if options.list_cases:
         print(json.dumps(all_cases, indent=2))
         return 0

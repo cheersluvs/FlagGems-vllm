@@ -24,9 +24,9 @@ class RunnerTests(unittest.TestCase):
 import json, os, sys
 from pathlib import Path
 a=sys.argv[1:]
-flag='--host-ab' if os.environ['MOCK_AB_KIND']=='host' else '--validation-ab'
+flag={'host':'--host-ab', 'single-row':'--single-row-ab', 'validation':'--validation-ab'}[os.environ['MOCK_AB_KIND']]
 assert flag in a and '--host-profile' in a
-assert ('--validation-ab' in a) != ('--host-ab' in a)
+assert sum(f in a for f in ('--validation-ab','--host-ab','--single-row-ab')) == 1
 if os.environ.get('MOCK_BASELINE'):
     assert a[a.index('--validation-baseline')+1] == os.environ['MOCK_BASELINE']
 p=Path(a[a.index('--report-dir')+1])
@@ -109,6 +109,10 @@ if a[:2]==['rev-parse','HEAD']:
     def test_host_mode_runs_and_uploads(self):
         for status in (0, 1):
             self.exercise(status, kind="host")
+
+    def test_single_row_mode_runs_and_uploads(self):
+        for status in (0, 1):
+            self.exercise(status, kind="single-row")
 
 
 if __name__ == "__main__":
