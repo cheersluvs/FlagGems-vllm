@@ -1,5 +1,10 @@
 # QSA paged prefill: H800 implementation and validation
 
+For the unchanged production implementation's self baseline, see the
+[stage timing guide](qsa_prefill_stage_baseline.md). It separates full, score,
+Top-K and a preallocated diagnostic pipeline in one compiler/runtime, without
+executing native-vLLM performance comparisons.
+
 ## Performance acceptance policy (2026-10-14)
 
 The user does not accept a cross-compiler native-vLLM benchmark as operator
