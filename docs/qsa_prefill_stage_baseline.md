@@ -1,7 +1,79 @@
 # QSA prefill production stage baseline
 
-This is step one of the portable optimization work: measure the unchanged
-production implementation before selecting an optimization. No production
+## Host investigation and balanced timing (2026-10-15)
+
+Report [9665cf3](https://github.com/cheersluvs/FlagGems-vllm/blob/9665cf30f03ca8aaaf8a46c099ab3e6cb081519c/results/qsa_select_paged_prefill/h800/stages-20261015-022905/stage-summary.json)
+completed 104 independent correctness passes, one expected second-GPU skip,
+and all 22 performance cases. Small-case wall/graph differences motivate
+profiling host validation, outer allocation and dispatch before changing
+production code. The largest case heated from 68 to 85 degrees Celsius;
+its mode-to-mode timing drift does not establish a specific throttling cause.
+
+The following tables freeze this investigation before code changes.
+
+| Project field | Choice |
+| --- | --- |
+| Editable | Stage benchmark, CPU harness tests, this guide |
+| Read-only | All production code, Top-K, six tuning candidates, existing functional tests/references and legacy pytest benchmark |
+| Hypothesis | Validation, allocation and Python launch costs explain part of small-case wall latency; repeated overlap metadata is a candidate, not an established bottleneck |
+| Build / validation | Python syntax, CPU routing/unit tests, pre-commit; card runs unchanged full independent correctness gate before timing |
+| Active set | Existing 22 cases; focused run core_0/core_1/core_2/core_3, upstream BF16/FP8 slack=0, mixed_padded and zero_visible |
+| Measurement | Schema 2, balanced calls per round and rotating (stage, mode) order. Rebuild baseline before any future candidate comparison; do not mix protocols for speedup |
+| Profiler | Optional stdlib cProfile on real validation and public entry; CPU elapsed microbench of validation, device guard and hot outer allocation. All run after formal timing, never in timed batches |
+| Timeout / scope | Same 900 s per case; large cases (>512 rows) omit host profiling to avoid heavy extra launches. No package install, clock/power change, compiler patch or production optimization |
+| Autotune / fallback | Original six candidates and policy; no new kernel or autotune exemption. No production Torch compute/fallback introduced |
+
+| Contract field | Preserved choice |
+| --- | --- |
+| API / output | Original QSA prefill signature, BF16/FP8 H/D inference, caller-owned int32 output, unordered tie-compatible selection and -1 padding |
+| Metadata / layout | Existing stride/device/alias validation, nonzero query base, ragged and nonmonotonic visibility, compressed pages and budget=0 one-row chunks |
+| Numerics / support | Existing FP32 score accumulation and reference tolerances; finite Q/K, inference-only, current SM90 restriction |
+| Reference-only Torch | Input generation, independent output checks, allocation microbench only; production unchanged |
+
+| Path | Implementation | Checks / risk |
+| --- | --- | --- |
+| Original full/score/Top-K/pipeline | Execute original callables and observed chunks | Existing correctness guards; no production path replacement |
+| Graph timing | Prepare optional graphs before rounds; every mode executes the same effective call count | Captured loops have no per-call Python validation; graph failures remain explicit |
+| Host diagnostics | Profile actual callables after formal measurements | Instrumentation distorts absolute latency; microbench values are not additive components of full wall |
+| Device monitoring | Untimed NVIDIA-SMI clock and performance-state queries before/after rounds | Query errors saved explicitly; monitoring does not prove steady state or change clocks |
+
+Schema 1 report 9665cf3 remains immutable. Its graph batches invoked the stage
+800 times versus 100 eager calls and all graph measurements followed eager
+measurements. Schema 2 rounds up `--iterations` to a multiple of graph batch
+size (default 100 becomes 104), uses 13 replays of eight calls, and uses 104
+calls for each eager mode as well. With `--no-graph`, no rounding is needed.
+All timing samples are normalized by the actual number of calls.
+
+`--host-profile` adds unprofiled CPU microbenchmarks and cProfile records for
+up to 512 query rows. Validation uses the actual `_validate_inputs`; the
+allocation probe uses the actual observed outer workspace shapes/dtypes and
+a hot allocator, without their in-flight kernel lifetimes. A device-guard
+probe measures only entering/exiting the current backend's device context.
+No-op call timing is included to expose loop/clock overhead. Profiles list
+primitive/total call counts, self/cumulative CPU wall time and source locations;
+these instrumented times are diagnostic, not production latency or GPU time.
+Clock/performance snapshots are taken with the selected physical GPU UUID
+outside timed intervals, using [NVIDIA-SMI queries](https://docs.nvidia.com/deploy/nvidia-smi/index.html).
+They are boundary snapshots, not a continuous in-kernel clock trace; an
+inactive limit reason after synchronization does not exclude an earlier limit.
+
+For the focused follow-up, use the safe fresh-checkout command below and add:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
+  "$PYTHON" /absolute/checkout/tools/benchmark_qsa_prefill_stages.py \
+  --cases core_0 core_1 core_2 core_3 upstream_bfloat16_s0 \
+    upstream_float8_e4m3fn_s0 mixed_padded zero_visible --host-profile
+```
+
+The default correctness gate remains enabled. Return all top-level reports,
+including the new `host-summary.tsv`, `*.host-profile.txt` and per-case JSON
+`host_diagnostics`, `timing_plan`, `telemetry` and `measurement_order` fields.
+No native-vLLM performance comparison or production speedup is claimed by this
+investigation. Baseline and candidate must both use schema 2 in subsequent A/B.
+
+This measures the unchanged production implementation before selecting an
+optimization. No production
 kernel, Top-K algorithm, dispatch, tuning candidate or tolerance is changed.
 The executable scope is currently NVIDIA SM90; using runtime device APIs in
 the harness does not establish support on another backend.
@@ -15,9 +87,9 @@ the harness does not establish support on another backend.
 | Correctness gate | Full independent suite (`-k 'not vllm'`) before timing; missing records, failures and unexpected skips block timing. The second-SM90 device-guard test may skip when only one GPU is visible; its count/reason remains in accuracy-full.json |
 | Active set | Core: six existing BF16 benchmark tuples, four upstream BF16/FP8 fixtures (slack 0/1792), zero-visible fixture. Comprehensive additionally covers H/D=(1,32),(3,64),(5,96),(8,256) in both dtypes, two one-row-chunk fixtures and mixed nonmonotonic visibility with padded strides |
 | Tuning | Original libtuner policy and candidates; fresh caches per case, JIT/autotuning excluded from timing, selected cache entries and PTX/CUBIN hashes recorded |
-| Timing | 25 warmup calls/stage, seven batches of 100 calls; graph captures eight calls/replay, seven batches of 100 replays. All numbers normalized to microseconds per complete invocation of that stage |
+| Timing | 25 warmup calls/stage, seven balanced rounds. Defaults: 104 eager calls or 13 graph replays of eight calls per round. All numbers normalized to microseconds per complete invocation of that stage |
 | Isolation | One fresh worker per case; timeout 900 seconds including JIT. A failed case cannot contaminate the next case's CUDA context |
-| Completion | Mac verifies harness behavior/style only. H800 correctness, graph support and actual latency remain pending until its report returns |
+| Completion | Schema 1 report 9665cf3 passed; schema 2 and host diagnostics have local harness checks only and require the next H800 report |
 
 ## What is measured
 
@@ -54,11 +126,14 @@ as `capture_unavailable`. An unhealthy CUDA context, replay failure or wrong
 output fails the case. `--no-graph` explicitly records `disabled`. Warmup on
 the capture stream and capture itself are untimed. Graph full-operator timing
 does not include executing its Python validation/allocation on each replay.
+All prepared graphs and their pools remain alive through the balanced rounds;
+reported peak allocation therefore describes the benchmark process, not the
+production operator's minimal workspace requirement.
 See [PyTorch events](https://docs.pytorch.org/docs/stable/generated/torch.cuda.Event.html)
 and [graph capture](https://docs.pytorch.org/docs/stable/generated/torch.cuda.graph.html).
 
-All modes reuse warm inputs without explicit cache flushing. Stage order
-rotates for eager rounds. JSON retains every batch average plus median, mean,
+All modes reuse warm inputs without explicit cache flushing. Stage and mode
+order rotate each round. JSON retains every batch average plus median, mean,
 min/max and standard deviation; these are not per-call tail percentiles.
 No GPU clock or power setting is modified. NVIDIA-SMI snapshots accompany
 the run so contention, power and thermal state can be considered during review.
@@ -77,7 +152,7 @@ leave existing card checkouts untouched. The activation path is the previously
 validated vLLM 0.31 environment; it supplies Torch and CUDA compatibility libs.
 
 ```bash
-(
+if bash <<'QSA_RUN'
   set -euo pipefail
   source /tmp/qsa-vllm031-h800.PQnVpV/activate_qsa.sh
   qsa_stage_repo=$(mktemp -d /tmp/flaggems-qsa-stage.XXXXXX)
@@ -89,7 +164,12 @@ validated vLLM 0.31 environment; it supplies Torch and CUDA compatibility libs.
   unset CUDA_LAUNCH_BLOCKING
   CUDA_VISIBLE_DEVICES=0 QSA_TRITON_RUNTIME_PATH=/opt/flagtree \
     "$PYTHON" "$qsa_stage_repo/tools/benchmark_qsa_prefill_stages.py"
-)
+QSA_RUN
+then
+  echo "QSA run completed."
+else
+  echo "QSA run failed; this shell remains open. Check the Reports path above." >&2
+fi
 ```
 
 The default comprehensive run has 22 cases. `--suite core` selects 11 cases;

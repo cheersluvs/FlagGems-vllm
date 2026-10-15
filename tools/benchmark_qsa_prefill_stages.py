@@ -7,13 +7,16 @@ case runs in a fresh process. Use --list-cases without GPU dependencies.
 """
 
 import argparse
+import cProfile
 import hashlib
 import importlib
 import importlib.metadata
+import io
 import json
 import math
 import os
 import platform
+import pstats
 import statistics
 import subprocess
 import sys
@@ -24,7 +27,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = 1
+SCHEMA = 2
 SOURCES = [
     "tools/benchmark_qsa_prefill_stages.py",
     "tests/qsa_select_prefill_utils.py",
@@ -174,6 +177,181 @@ def timed_batch(fn, device, iterations, method, divisor=1):
         end.synchronize()
         elapsed_us = begin.elapsed_time(end) * 1000
     return elapsed_us / (iterations * divisor)
+
+
+def timing_plan(options):
+    batch = options.graph_batch
+    calls = options.iterations
+    if not options.no_graph:
+        calls = (calls + batch - 1) // batch * batch
+    return dict(
+        calls_per_round=calls,
+        eager_iterations=calls,
+        graph_replays=0 if options.no_graph else calls // batch,
+        graph_batch=batch,
+        rounds=options.rounds,
+        order="rotate_stages_and_modes_each_round",
+    )
+
+
+def telemetry(uuid, label):
+    if uuid == "unavailable":
+        return dict(label=label, status="unavailable", reason="GPU UUID missing")
+    device_id = uuid if uuid.startswith("GPU-") else f"GPU-{uuid}"
+    fields = "timestamp,uuid,temperature.gpu,clocks.current.sm,clocks.current.memory,power.draw"
+    return dict(
+        label=label,
+        monotonic_seconds=time.monotonic(),
+        clocks=command(
+            [
+                "nvidia-smi",
+                "-i",
+                device_id,
+                f"--query-gpu={fields}",
+                "--format=csv",
+            ]
+        ),
+        performance=command(["nvidia-smi", "-i", device_id, "-q", "-d", "PERFORMANCE"]),
+    )
+
+
+def measure_rounds(functions, graphs, device, options, monitor):
+    """Equal work per mode, with no fixed wall -> event -> graph phase."""
+    plan = timing_plan(options)
+    names = list(functions)
+    modes = ["wall_us", "event_us", "graph_us"]
+    samples = {name: {mode: [] for mode in modes} for name in names}
+    observations = [monitor("before_timing")]
+    order = []
+    for repeat in range(options.rounds):
+        stage_order = names[repeat % len(names) :] + names[: repeat % len(names)]
+        mode_order = modes[repeat % 3 :] + modes[: repeat % 3]
+        measured = []
+        for name in stage_order:
+            for method in mode_order:
+                if method == "graph_us":
+                    if name not in graphs:
+                        continue
+                    fn = graphs[name].replay
+                    iterations = plan["graph_replays"]
+                    divisor = plan["graph_batch"]
+                else:
+                    fn = functions[name]
+                    iterations = plan["eager_iterations"]
+                    divisor = 1
+                samples[name][method].append(
+                    timed_batch(fn, device, iterations, method, divisor)
+                )
+                measured.append([name, method])
+        order.append(measured)
+        observations.append(monitor(f"after_round_{repeat + 1}"))
+    return samples, observations, order
+
+
+def host_microbench(fn, device, iterations, rounds):
+    # The CPU clock excludes sleeping; wall can include allocator/driver waits.
+    wall, cpu = [], []
+    for _ in range(rounds):
+        device.synchronize()
+        start_wall, start_cpu = time.perf_counter(), time.process_time()
+        for _ in range(iterations):
+            fn()
+        cpu.append((time.process_time() - start_cpu) * 1e6 / iterations)
+        wall.append((time.perf_counter() - start_wall) * 1e6 / iterations)
+        device.synchronize()
+    return dict(wall_us=stats(wall), process_cpu_us=stats(cpu))
+
+
+def python_profile(fn, device, iterations):
+    device.synchronize()
+    profile = cProfile.Profile()
+    profile.enable()
+    try:
+        for _ in range(iterations):
+            fn()
+    finally:
+        profile.disable()
+    device.synchronize()
+    stream = io.StringIO()
+    summary = pstats.Stats(profile, stream=stream).sort_stats("cumulative")
+    summary.print_stats(80)
+    rows = []
+    for (filename, line, name), (
+        primitive,
+        calls,
+        self_time,
+        cumulative,
+        _,
+    ) in summary.stats.items():
+        rows.append(
+            dict(
+                filename=filename,
+                line=line,
+                function=name,
+                primitive_calls=primitive,
+                total_calls=calls,
+                self_seconds=self_time,
+                cumulative_seconds=cumulative,
+            )
+        )
+    rows.sort(key=lambda row: row["cumulative_seconds"], reverse=True)
+    return dict(
+        invocations=iterations,
+        total_instrumented_seconds=summary.total_tt,
+        top_functions=rows[:100],
+        text=stream.getvalue(),
+    )
+
+
+def host_diagnostics(op, args, chunks, torch, device, options):
+    if args[0].shape[0] > 512:
+        return dict(
+            status="not_collected_large_case",
+            reason="Host investigation limited to <=512 rows",
+        )
+    functions = dict(
+        noop=lambda: None,
+        validation=lambda: op._validate_inputs(*args),
+    )
+
+    def guard():
+        with device.device(args[0].device):
+            pass
+
+    functions["device_guard"] = guard
+    if chunks:
+        logits, scratch = chunks[0]["score_args"][5], chunks[0]["topk_args"][3]
+
+        def allocate():
+            return (
+                torch.empty(logits.shape, dtype=logits.dtype, device=logits.device),
+                torch.empty(scratch.shape, dtype=scratch.dtype, device=scratch.device),
+            )
+
+        functions["outer_workspace_allocation"] = allocate
+    for fn in functions.values():
+        for _ in range(options.warmup):
+            fn()
+    return dict(
+        status="passed",
+        iterations=options.profile_iterations,
+        microbench={
+            name: host_microbench(
+                fn, device, options.profile_iterations, options.rounds
+            )
+            for name, fn in functions.items()
+        },
+        profiles={
+            "validation": python_profile(
+                functions["validation"], device, options.profile_iterations
+            ),
+            "public_entry": python_profile(
+                lambda: op.qsa_select_paged_prefill(*args),
+                device,
+                options.profile_iterations,
+            ),
+        },
+    )
 
 
 def make_case(case, torch, helpers):
@@ -494,19 +672,10 @@ def worker(options, case, report):
     device.synchronize()
     result["score_configs"] = score_configs(op)
     write_json(report, result)
-    # Rotate stage order each round; retain every batch average, never best-of.
-    names = list(functions)
-    for method in ("wall_us", "event_us"):
-        samples = {name: [] for name in names}
-        for repeat in range(options.rounds):
-            for name in names[repeat % len(names) :] + names[: repeat % len(names)]:
-                samples[name].append(
-                    timed_batch(functions[name], device, options.iterations, method)
-                )
-        for name in names:
-            result["stages"][name][method] = stats(samples[name])
-            validate_stage(name, functions[name], args, chunks, torch, helpers, device)
-        write_json(report, result)
+    # Prepare every optional graph before measurement so mode/stage order can
+    # rotate within each round. Retain graph pools until all rounds complete.
+    graphs = {}
+    graph = None
     for name, fn in functions.items():
         stage = result["stages"][name]
         if options.no_graph:
@@ -532,21 +701,53 @@ def worker(options, case, report):
             validate_stage(name, fn, args, chunks, torch, helpers, device)
         else:
             validate_stage(name, graph.replay, args, chunks, torch, helpers, device)
-            samples = [
-                timed_batch(
-                    graph.replay,
-                    device,
-                    options.iterations,
-                    "graph_us",
-                    options.graph_batch,
-                )
-                for _ in range(options.rounds)
-            ]
-            stage["graph_us"] = dict(status="passed", **stats(samples))
-            validate_stage(name, graph.replay, args, chunks, torch, helpers, device)
-        finally:
-            del graph
+            graphs[name] = graph
+            stage["graph_us"] = dict(status="captured_and_validated")
         write_json(report, result)
+    graph = None
+    result["timing_plan"] = timing_plan(options)
+    try:
+        samples, observations, order = measure_rounds(
+            functions,
+            graphs,
+            device,
+            options,
+            lambda label: telemetry(result["runtime"]["uuid"], label),
+        )
+        result["telemetry"] = observations
+        result["measurement_order"] = order
+        for name, metrics in samples.items():
+            for method, values in metrics.items():
+                if values:
+                    result["stages"][name][method] = dict(
+                        status="passed", **stats(values)
+                    )
+        write_json(report, result)
+        for name, fn in functions.items():
+            validate_stage(name, fn, args, chunks, torch, helpers, device)
+            if name in graphs:
+                validate_stage(
+                    name, graphs[name].replay, args, chunks, torch, helpers, device
+                )
+    finally:
+        graphs.clear()
+    result["host_diagnostics"] = (
+        host_diagnostics(op, args, chunks, torch, device, options)
+        if options.host_profile
+        else dict(status="not_requested")
+    )
+    if options.host_profile:
+        # Profiles execute the real entry after all formal timings and must
+        # retain the same output contract.
+        validate_outputs(args, torch, helpers)
+        profiles = result["host_diagnostics"].get("profiles", {})
+        if profiles:
+            (report.parent / f"{case['name']}.host-profile.txt").write_text(
+                "Instrumentation changes latency; these are CPU diagnostics.\n\n"
+                + "\n\n".join(
+                    f"{name}\n{entry['text']}" for name, entry in profiles.items()
+                )
+            )
     result.update(status="passed", peak_allocated_bytes=device.max_memory_allocated())
     result["runtime"]["nvidia_smi_after"] = command(["nvidia-smi"])
     write_json(report, result)
@@ -588,6 +789,7 @@ def parent(options, selected, directory):
         options=vars(options),
         cases=selected,
         methods=METHODS,
+        timing_plan=timing_plan(options),
         git_head=command(["git", "rev-parse", "HEAD"]),
         git_status=command(["git", "status", "--porcelain"]),
         source_hashes={path: value["sha256"] for path, value in sources.items()},
@@ -675,6 +877,12 @@ def parent(options, selected, directory):
         ]
         if options.no_graph:
             cmd.append("--no-graph")
+        if options.host_profile:
+            cmd += [
+                "--host-profile",
+                "--profile-iterations",
+                str(options.profile_iterations),
+            ]
         print(f"Running {name}", flush=True)
         with (directory / f"{name}.txt").open("w") as log:
             try:
@@ -726,6 +934,23 @@ def parent(options, selected, directory):
                 )
             )
     (directory / "stage-summary.tsv").write_text("\n".join(lines) + "\n")
+    if options.host_profile:
+        host_lines = ["case\tstatus\tprobe\twall_median_us\tprocess_cpu_median_us"]
+        for case in summary["cases"]:
+            info = case.get("host_diagnostics", {})
+            for name, values in info.get("microbench", {}).items():
+                host_lines.append(
+                    "\t".join(
+                        [
+                            case["case"]["name"],
+                            info["status"],
+                            name,
+                            str(values["wall_us"]["median"]),
+                            str(values["process_cpu_us"]["median"]),
+                        ]
+                    )
+                )
+        (directory / "host-summary.tsv").write_text("\n".join(host_lines) + "\n")
     print(f"Return top-level JSON/TXT/TSV files from: {directory}", flush=True)
     return int(any(case["status"] != "passed" for case in summary["cases"]))
 
@@ -744,7 +969,10 @@ def main():
         "--warmup", type=int, default=25, help="Untimed calls per stage after JIT"
     )
     parser.add_argument(
-        "--iterations", type=int, default=100, help="Calls/replays per measured batch"
+        "--iterations",
+        type=int,
+        default=100,
+        help="Minimum stage calls per round; rounded up to a graph-batch multiple for every mode",
     )
     parser.add_argument(
         "--rounds",
@@ -763,6 +991,12 @@ def main():
     )
     parser.add_argument("--no-graph", action="store_true")
     parser.add_argument(
+        "--host-profile",
+        action="store_true",
+        help="Untimed Python CPU diagnostics after performance measurements",
+    )
+    parser.add_argument("--profile-iterations", type=int, default=200)
+    parser.add_argument(
         "--skip-accuracy",
         action="store_true",
         help="Explicit smoke/diagnosis only; recorded in manifest",
@@ -775,10 +1009,17 @@ def main():
         return 0
     if any(
         getattr(options, name) <= 0
-        for name in ("warmup", "iterations", "rounds", "graph_batch", "timeout")
+        for name in (
+            "warmup",
+            "iterations",
+            "rounds",
+            "graph_batch",
+            "timeout",
+            "profile_iterations",
+        )
     ):
         parser.error(
-            "Warmup, iterations, rounds, graph batch and timeout must be positive"
+            "Warmup, iteration counts, rounds, graph batch and timeout must be positive"
         )
     names = {case["name"] for case in all_cases}
     if options.cases and (

@@ -90,6 +90,127 @@ class BenchmarkTests(unittest.TestCase):
             )
         self.assertEqual(device.synchronizations, 4)
 
+    def test_balanced_rounds_equalize_calls_and_rotate_modes(self):
+        device = FakeDevice()
+        calls = {"full": 0, "score": 0}
+
+        def function(name):
+            def fn():
+                calls[name] += 1
+                device.milliseconds += 0.5
+
+            return fn
+
+        functions = {name: function(name) for name in calls}
+        graphs = {
+            name: types.SimpleNamespace(replay=lambda fn=fn: [fn() for _ in range(8)])
+            for name, fn in functions.items()
+        }
+        options = self.options(no_graph=False, iterations=100, graph_batch=8, rounds=3)
+        samples, observations, order = bench.measure_rounds(
+            functions,
+            graphs,
+            device,
+            options,
+            lambda label: label,
+        )
+        self.assertEqual(bench.timing_plan(options)["calls_per_round"], 104)
+        self.assertEqual(bench.timing_plan(options)["graph_replays"], 13)
+        self.assertEqual(calls, {"full": 104 * 3 * 3, "score": 104 * 3 * 3})
+        self.assertEqual(len(observations), 4)
+        self.assertEqual(
+            [jobs[0][1] for jobs in order], ["wall_us", "event_us", "graph_us"]
+        )
+        self.assertEqual([jobs[0][0] for jobs in order], ["full", "score", "full"])
+        for stage in samples.values():
+            self.assertEqual(stage["event_us"], [500, 500, 500])
+            self.assertEqual(stage["graph_us"], [500, 500, 500])
+
+    def test_no_graph_needs_no_rounding_and_no_replays(self):
+        options = self.options(no_graph=True, iterations=101, rounds=2)
+        self.assertEqual(bench.timing_plan(options)["calls_per_round"], 101)
+        self.assertEqual(bench.timing_plan(options)["graph_replays"], 0)
+        device = FakeDevice()
+
+        def fn():
+            device.milliseconds += 1
+
+        samples, _, order = bench.measure_rounds(
+            {"full": fn}, {}, device, options, lambda x: x
+        )
+        self.assertEqual(samples["full"]["graph_us"], [])
+        self.assertTrue(
+            all(method != "graph_us" for jobs in order for _, method in jobs)
+        )
+
+    def test_profiles_report_real_callable_and_call_counts(self):
+        def actual_validator():
+            return sum(range(3))
+
+        profile = bench.python_profile(actual_validator, FakeDevice(), 17)
+        rows = [
+            row
+            for row in profile["top_functions"]
+            if row["function"] == "actual_validator"
+        ]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["total_calls"], 17)
+        self.assertEqual(profile["invocations"], 17)
+        self.assertIn("actual_validator", profile["text"])
+
+    def test_host_diagnostics_use_actual_validator_and_observed_allocations(self):
+        calls = {"validation": 0, "entry": 0}
+        allocations = []
+
+        def validator(*args):
+            calls["validation"] += 1
+
+        def entry(*args):
+            calls["entry"] += 1
+
+        def empty(shape, **kwargs):
+            allocations.append((shape, kwargs))
+
+        device = FakeDevice()
+        device.device = lambda _: contextlib.nullcontext()
+        q = types.SimpleNamespace(shape=(3, 4, 128), device="cuda:0")
+        logits = types.SimpleNamespace(
+            shape=(3 * 1280,), dtype="float32", device="cuda:0"
+        )
+        scratch = types.SimpleNamespace(
+            shape=(1024 * 1024,), dtype="uint8", device="cuda:0"
+        )
+        chunks = [
+            dict(score_args=(None,) * 5 + (logits,), topk_args=(None,) * 3 + (scratch,))
+        ]
+        op = types.SimpleNamespace(
+            _validate_inputs=validator, qsa_select_paged_prefill=entry
+        )
+        options = self.options(warmup=3, rounds=2, profile_iterations=8)
+        result = bench.host_diagnostics(
+            op, (q,), chunks, types.SimpleNamespace(empty=empty), device, options
+        )
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(calls, {"validation": 3 + 8 * 2 + 8, "entry": 8})
+        self.assertEqual(len(allocations), (3 + 8 * 2) * 2)
+        self.assertEqual(
+            allocations[0], (logits.shape, dict(dtype="float32", device="cuda:0"))
+        )
+        self.assertEqual(
+            allocations[1], (scratch.shape, dict(dtype="uint8", device="cuda:0"))
+        )
+        self.assertEqual(
+            set(result["microbench"]),
+            {"noop", "validation", "device_guard", "outer_workspace_allocation"},
+        )
+
+    def test_telemetry_selects_physical_gpu_by_uuid(self):
+        with patch.object(bench, "command", return_value={"returncode": 0}) as command:
+            bench.telemetry("198a9496-3d7a-f01d-ee60-190fe0bc5b51", "round")
+        self.assertEqual(command.call_count, 2)
+        for call in command.call_args_list:
+            self.assertIn("GPU-198a9496-3d7a-f01d-ee60-190fe0bc5b51", call.args[0])
+
     def test_case_provenance_and_boundary_coverage(self):
         tree = ast.parse(
             (bench.ROOT / "benchmark/test_qsa_select_paged_prefill_perf.py").read_text()
@@ -180,6 +301,8 @@ class BenchmarkTests(unittest.TestCase):
             iterations=2,
             rounds=3,
             graph_batch=4,
+            host_profile=False,
+            profile_iterations=200,
         )
         values.update(kwargs)
         return argparse.Namespace(**values)
