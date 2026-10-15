@@ -46,9 +46,12 @@ The following tables freeze this trial before production edits.
 | Empty public entry / select-all / scoring | All dispatch and kernels remain unchanged; full correctness and 22-case regression coverage |
 | Baseline | Clone current validator/public function with only stride helper replaced by exact frozen old helper; verify pinned helper, validator, overlap helper and public source hashes; share actual GPU launchers, never mutate production globals |
 
-Status: candidate implemented with local checks; not yet measured on H800. CPU microbench alone cannot
-justify keep; large device-bound cases may show no end-to-end benefit. The
-prior long-case instability remains a limitation, not an assumed speedup.
+Status: **keep** after H800 report `9962c891` from candidate `f8ad07e`.
+133 correctness tests passed with one expected second-device skip; all 22
+A/B cases completed. Sixteen short scored cases reduce wall medians by
+1.50–3.71%; mixed padded increases 0.66%, an explicitly accepted small
+tradeoff. Long-case and one-row-chunk benefits remain unresolved. See the
+[full results and limitations](qsa_prefill_stride_results.md).
 
 Local verification: 22 CPU test methods passed across the metadata differential,
 benchmark timing/failure/worker-propagation and run/upload suites. The stride
@@ -63,8 +66,8 @@ allocations; the trial adds only is_contiguous/numel metadata reads.
 H800 validation adds eight actual Torch layout fixtures, including both an
 accepted and a rejected empty-contiguous layout. The expected full gate is
 133 passes and one second-device skip with one visible GPU (33 native-vLLM
-cases excluded); unexpected skips/failures prevent timing. Actual card results
-and a keep/revert decision are pending.
+cases excluded); unexpected skips/failures prevent timing. The returned
+report met that correctness gate; see the result linked above.
 
 The runner below runs correctness, all 22 paired benchmark cases and automatic
 report upload. `--validation-baseline overlap-retained` is required for this
