@@ -51,7 +51,11 @@ These tables freeze scope before production changes.
 | Baseline | Exact old public entry and _prefill_logits sources pinned from ab50d7a, cloned into a private namespace sharing current validator, score kernel, fill kernel and Top-K; public/launcher bytecode intentionally differs |
 | Verification | Differential old/new kernel arguments and grids, allocation bytes, chunk offsets/counts, metadata identity per call, fresh metadata on new inputs, failure/no-global-mutation guards; actual BF16/FP8 score/selection checks |
 
-Status: candidate implemented with local checks; H800 correctness and performance acceptance are pending.
+Status: **keep** after H800 report `9e945b3d` from candidate `85a78e6`.
+139 correctness tests passed with one expected second-device skip; all 24
+performance cases completed. One-row BF16/FP8 wall medians decrease 5.31%/5.28%,
+and tail fixtures favor the candidate. See the
+[full results and limitations](qsa_prefill_chunk_setup_results.md).
 
 Implementation uses a two-dimensional empty allocation directly, so constructing
 its complete 2-D view requires no separate view operation. `_prefill_logits`
@@ -124,7 +128,8 @@ fi
 Defaults run the mandatory independent correctness gate and all 24 cases with
 balanced timing. Failed tests with an available summary are uploaded too, with
 their original failure status preserved. The parent shell's options are not
-changed. H800 acceptance and a keep/revert decision remain pending; the prior
-long-case drift still limits any claimed gain for that workload. Other vendors
+changed. H800 acceptance is recorded above. Long-case telemetry captured
+SW Thermal Slowdown active with a 1230 MHz SM boundary sample, so its gain
+remains unaccepted; see the full result. Other vendors
 are untested, the supported device gate remains SM90, and no native-vLLM or
 cross-compiler speed comparison is made.
