@@ -166,3 +166,51 @@ STAGES=1 results are retained and labeled `reused_from`, rather than counted
 as new GPU runs. New reports include all saved producer bundles and
 `previous-summary.json`, so an uploader copying top-level text/JSON preserves
 the evidence. A full diagnostic run also uses the corrected grid padding.
+
+## Report 441aba3: decode cache-policy trigger confirmed
+
+Code `76a810fffa8ef72c4700252a38e0d4f15791c10d` completed all 32 corrected
+binary replays. All 174 uploaded files and 56 artifact bundles were
+checksum-verified. The input manifest and copied previous summary are
+byte-identical to report 4ef5279. Earlier original/loop-STAGES=1 results are
+explicitly reused; they are not new runs in this report.
+
+For each of the eight BF16/FP8, H=4, D=128, decode_query_len=3,
+TILES_PER_PROG=1/2/4/8 inputs:
+
+| New binary replay | Runtime | Result |
+| --- | --- | --- |
+| Original FlagTree CUBIN | Stock Triton | Illegal instruction, 8/8 |
+| Identical original FlagTree PTX reassembled by stock ptxas | Stock Triton | Illegal instruction, 8/8 |
+| Remove only async-copy L2 cache-hint qualifier and policy operand | FlagTree | Score validation passed, 8/8 |
+| Same no-hint CUBIN | Stock Triton | Score validation passed, 8/8 |
+
+All raw replay grids have the expected third dimension of 1, all binaries
+load, and no new replay log contains the earlier IndexError. The 16 failures
+are intentional original-binary controls that reach the GPU; the other 16
+runs reach and pass score validation, including the invisible-logit sentinel
+checks. The overall nonzero exit correctly retains the reproduced faults.
+
+Verified saved artifacts establish that each no-hint PTX differs only at
+the 32 async-copy qualifier/operand sites. Original metadata, signature,
+constants and grid remain identical, including loop STAGES=2. Both runtimes
+execute the same patched CUBIN bytes. Identical-PTX stock reassembly produces
+the original failing FlagTree CUBIN byte for byte. Original SASS has 32
+LDGSTS uses of UR0/UR1 without initializing writes; patched SASS has no such
+UR0/UR1 references. Async copies and MMA remain present.
+
+This completes the decode-specific causal A/B for these inputs: the
+FlagTree 0.6.1 / Triton 3.6.0 lowering emits fractional L2 policies on async
+copies, and ptxas 12.8.93 drops policy initialization while retaining
+descriptor-dependent LDGSTS instructions. Removing only the affected async
+cache-policy use resolves the illegal instruction under both runtimes,
+matching the prefill failure mechanism. This is a runtime binary fault,
+not a compile-time rejection or a Top-K failure.
+
+Source: [corrected decode replay summary](https://github.com/cheersluvs/FlagGems-vllm/blob/441aba3acec450f5a2f27d5e0edcd1bcaa0f4f2e/results/qsa_select_paged_decode/h800/20261015-002706/decode-diagnostic-summary.json)
+and the saved producer/consumer artifact bundles in the same report.
+The PTX intervention remains diagnostic only. No compiler installation,
+production operator, original vLLM source or Top-K implementation has been
+modified, and no timings were collected. Full native-decode compatibility
+and same-compiler performance acceptance still require a compiler fix and
+the corresponding full-operator checks.
