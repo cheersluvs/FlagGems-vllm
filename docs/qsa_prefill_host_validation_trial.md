@@ -98,5 +98,9 @@ Ratios above one favor the candidate. CPU `host-summary.tsv` also includes
 `validation_baseline`; profiles run outside formal timing. The reported source
 snapshot and validation_ab identity fields expose which functions were shared.
 
-Trial status: candidate with local checks, awaiting H800 correctness and A/B.
-No measured speedup or final keep decision is available yet.
+Trial status: **keep** after H800 report `27f984c2` from code `7739abad`:
+125 correctness passes, one expected second-device skip, and all 22 A/B cases
+passed. Short scored cases reduced full wall medians by 6.47–9.31%; zero-visible
+by 25.71%. Core_2, long core_3 and one-row chunks have no resolved benefit.
+See the [full result and measurement limitations](qsa_prefill_host_validation_results.md).
+This is a host-validation gain, not a GPU kernel or native-vLLM speedup.
