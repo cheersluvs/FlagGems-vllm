@@ -313,6 +313,7 @@ class BenchmarkTests(unittest.TestCase):
 
     def options(self, **kwargs):
         values = dict(
+            suite="comprehensive",
             skip_accuracy=False,
             timeout=10,
             no_graph=True,

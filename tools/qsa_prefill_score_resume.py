@@ -56,6 +56,10 @@ def load(path, root, all_cases, options, gpu_uuid):
     saved = json.loads(raw)
     manifest = saved["manifest"]
     previous = manifest["options"]
+    if previous.get("suite", "comprehensive") != getattr(
+        options, "suite", "comprehensive"
+    ):
+        raise ValueError("Checkpoint benchmark suite changed")
     if (
         previous["mode"] != "kernel"
         or not previous["single_row_ab"]

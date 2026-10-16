@@ -111,6 +111,15 @@ class ResumeTests(unittest.TestCase):
         self.assertEqual(retained[0]["measurement_origin"]["code_commit"], "code")
         self.assertEqual(metadata["prior_accuracy"]["counts"]["passed"], 161)
 
+    def test_benchmark_suite_change_rejects_checkpoint(self):
+        self.options.suite = "upstream-prefill"
+        with self.assertRaisesRegex(ValueError, "suite changed"):
+            self.load()
+        self.saved["manifest"]["options"]["suite"] = "upstream-prefill"
+        metadata, retained = self.load()
+        self.assertEqual(len(retained), 2)
+        self.assertEqual(metadata["completed_names"], ["score", "zero_visible"])
+
     def test_gpu_change_and_measurement_parameter_changes_reject(self):
         self.load()
         with self.assertRaisesRegex(ValueError, "same GPU"):

@@ -39,6 +39,7 @@ SOURCES = [
     "tools/qsa_prefill_gpu_guard.py",
     "tools/qsa_prefill_score_benchmark.py",
     "tools/qsa_prefill_score_resume.py",
+    "tools/qsa_prefill_upstream_workloads.py",
     "benchmark/base.py",
     "benchmark/conftest.py",
     "benchmark/consts.py",
@@ -178,6 +179,22 @@ def write_json(path, value):
     temporary = path.with_suffix(path.suffix + ".tmp")
     temporary.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
     temporary.replace(path)
+
+
+def upstream_workloads_module():
+    spec = importlib.util.spec_from_file_location(
+        "qsa_prefill_upstream_workloads",
+        ROOT / "tools/qsa_prefill_upstream_workloads.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def suite_cases(options):
+    if options.suite == "upstream-prefill":
+        return upstream_workloads_module().cases()
+    return cases(options.single_row_ab)
 
 
 def command(args):
@@ -524,6 +541,8 @@ def host_diagnostics(op, args, chunks, torch, device, options, baseline=None):
 
 def make_case(case, torch, helpers):
     dtype = getattr(torch, case["dtype"])
+    if case["kind"] == "upstream_perf":
+        return upstream_workloads_module().make_inputs(case, helpers, torch)
     if case["kind"] == "single":
         return helpers.make_inputs(
             (1,), (8192,), dtype=dtype, num_heads=case["heads"], head_dim=case["dim"]
@@ -729,7 +748,7 @@ def run_score_kernel(
         metadata, _ = resume.load(
             options.resume_from,
             ROOT,
-            cases(True),
+            suite_cases(options),
             options,
             os.environ.get("CUDA_VISIBLE_DEVICES"),
         )
@@ -902,6 +921,8 @@ def worker(options, case, report):
         status="running",
         runtime=runtime_info(torch, triton, flaggems_vllm.runtime),
     )
+    if case["kind"] == "upstream_perf":
+        result["workload"] = upstream_workloads_module().geometry(case)
     write_json(report, result)
     guard = gpu_guard_module() if options.require_idle_gpu else None
     if guard:
@@ -946,6 +967,19 @@ def worker(options, case, report):
         )
         for c in chunks
     ]
+    if case["kind"] == "upstream_perf":
+        write_json(report, result)
+        expected = result["workload"]
+        if (
+            [c["rows"] for c in result["chunks"]] != expected["expected_chunk_rows"]
+            or any(c["width"] != expected["logits_width"] for c in result["chunks"])
+            or list(args[0].shape) != expected["q_shape"]
+            or list(args[1].shape) != expected["cache_shape"]
+            or list(args[2].shape) != expected["page_table_shape"]
+        ):
+            raise RuntimeError(
+                "Observed long-prefill inputs/chunks differ from workload geometry"
+            )
     functions = stage_functions(op, args, chunks)
     if ab:
         ab_field, baseline_stage, module_name, kind = ab
@@ -1155,15 +1189,51 @@ def parent(options, selected, directory):
             "Stage times are not additive. Warm repeated inputs, no cache flush."
         ),
     )
+    if options.suite == "upstream-prefill":
+        module = upstream_workloads_module()
+        manifest["workloads"] = {
+            case["name"]: module.geometry(case) for case in selected
+        }
+        rows = [
+            "case\trequests\tqueries_per_request\tprefix_tokens\tsequence_tokens\t"
+            "compressed_context\tpage_size\tlogits_width\tchunk_rows"
+        ]
+        for case in selected:
+            info = manifest["workloads"][case["name"]]
+            rows.append(
+                "\t".join(
+                    map(
+                        str,
+                        [
+                            case["name"],
+                            case["requests"],
+                            case["query_length"],
+                            case["prefix_tokens"],
+                            info["sequence_lengths"][0],
+                            info["compressed_lengths"][0],
+                            case["page_size"],
+                            info["logits_width"],
+                            ",".join(map(str, info["expected_chunk_rows"])),
+                        ],
+                    )
+                )
+            )
+        (directory / "upstream-prefill-shapes.tsv").write_text("\n".join(rows) + "\n")
     write_json(directory / "manifest.json", manifest)
     summary = dict(schema=SCHEMA, manifest=manifest, cases=[])
+    if options.mode == "kernel":
+        manifest["active_set"] = selected
+        summary["score_case_progress"] = dict(
+            completed=0, active=len(selected), pending=len(selected)
+        )
+        write_json(directory / "manifest.json", manifest)
     if options.resume_from:
         try:
             module = score_resume_module()
             metadata, retained = module.load(
                 options.resume_from,
                 ROOT,
-                cases(True),
+                suite_cases(options),
                 options,
                 env.get("CUDA_VISIBLE_DEVICES"),
             )
@@ -1176,15 +1246,15 @@ def parent(options, selected, directory):
         summary["retained_accuracy"] = metadata["prior_accuracy"]
         summary["score_case_progress"] = dict(
             completed=len(retained),
-            active=len(cases(True)),
-            pending=len(cases(True)) - len(retained),
+            active=len(suite_cases(options)),
+            pending=len(suite_cases(options)) - len(retained),
         )
         manifest["resume"] = metadata
         selected = [
             case for case in selected if case["name"] not in metadata["completed_names"]
         ]
         manifest["cases"] = selected
-        manifest["active_set"] = cases(True)
+        manifest["active_set"] = suite_cases(options)
         write_json(directory / "manifest.json", manifest)
         print(
             f"Retained {len(retained)} completed cases; measuring {len(selected)} pending cases",
@@ -1278,6 +1348,8 @@ def parent(options, selected, directory):
             str(options.graph_batch),
             "--mode",
             options.mode,
+            "--suite",
+            options.suite,
             "--kernel-warmup-ms",
             str(options.kernel_warmup_ms),
             "--kernel-rep-ms",
@@ -1334,14 +1406,15 @@ def parent(options, selected, directory):
                 "Stopping remaining cases after GPU environment rejection", flush=True
             )
             break
-    if options.resume_from:
+    if options.mode == "kernel":
         complete = len(summary.get("retained_cases", [])) + sum(
             c["status"] == "passed" for c in summary["cases"]
         )
+        active = len(manifest["active_set"])
         summary["score_case_progress"] = dict(
             completed=complete,
-            active=len(cases(True)),
-            pending=len(cases(True)) - complete,
+            active=active,
+            pending=active - complete,
         )
         write_json(directory / "stage-summary.json", summary)
     lines = [
@@ -1458,7 +1531,9 @@ def parent(options, selected, directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--suite", choices=("core", "comprehensive"), default="comprehensive"
+        "--suite",
+        choices=("core", "comprehensive", "upstream-prefill"),
+        default="comprehensive",
     )
     parser.add_argument(
         "--cases", nargs="+", help="Explicit case names; overrides suite"
@@ -1547,10 +1622,11 @@ def main():
         or not options.single_row_ab
         or not options.require_idle_gpu
         or options.cases
-        or options.suite != "comprehensive"
+        or options.suite not in ("comprehensive", "upstream-prefill")
     ):
         parser.error(
-            "--resume-from requires comprehensive --single-row-ab --mode kernel --require-idle-gpu, without --cases"
+            "--resume-from requires comprehensive or upstream-prefill "
+            "--single-row-ab --mode kernel --require-idle-gpu, without --cases"
         )
     if options.mode == "kernel" and not options.single_row_ab:
         parser.error("Score-only --mode kernel currently requires --single-row-ab")
@@ -1558,7 +1634,7 @@ def main():
         options.host_ab or options.single_row_ab
     ) and options.validation_baseline != "original":
         parser.error("--validation-baseline requires --validation-ab")
-    all_cases = cases(options.single_row_ab)
+    all_cases = suite_cases(options)
     if options.list_cases:
         print(json.dumps(all_cases, indent=2))
         return 0
