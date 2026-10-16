@@ -1,5 +1,11 @@
 # QSA long-prefill performance matrix
 
+The first H800 run completed all 12 cases with exit 0 in report
+`88dee1c4be295fb2b2a43162e440963b6528af4a`. The fresh correctness suite
+passed 161 cases with one optional second-device skip. See
+[results and production score baseline](qsa_prefill_upstream_perf_results.md).
+The tables and command below describe the frozen measurement contract.
+
 ## Scope frozen before implementation
 
 Source: [vLLM PR #54513, Microbenchmarks / Prefill](https://github.com/vllm-project/vllm/pull/54513).
@@ -105,7 +111,8 @@ record the conversion above; per-case `workload` and `chunks` record expected
 and observed geometry. `score-kernel-ab.tsv` retains per-case latency/ratios.
 All 12 cases have chunk sizes greater than one, so both sides execute the
 shared production dot kernel; ratios are controls and do not represent new
-algorithmic gains. Full correctness and actual card timing remain pending.
+algorithmic gains. The actual full correctness and first card timing results
+are linked above.
 
 If a shared GPU job interrupts this suite, its new report can be resumed with
 `--suite upstream-prefill --resume-from <stage-summary.json>` on the same GPU
@@ -121,4 +128,4 @@ captured frozen sources remain byte-identical, and eight existing functions
 (including the original 38-case generator and timing code) retain identical
 ASTs. Production math, Top-K and tuning remain unchanged. `optimization.md`
 and `deep_opt.md` are absent; this change is coverage/measurement preparation,
-not a new kernel optimization trial. H800 execution is pending.
+not a new kernel optimization trial. The completed H800 run is linked above.
