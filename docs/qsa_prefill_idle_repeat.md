@@ -82,7 +82,8 @@ fi
 
 The Mac has no GPU runtime. Local verification covers policy parsing, real CLI
 rejection before GPU imports, early/late benchmark rejection, bounded retries,
-namespace uncertainty and run/upload forwarding. The GPU repeat remains pending.
+namespace uncertainty and run/upload forwarding. The GPU repeat completed;
+see the returned result below.
 
 Local result: 55 unittest methods passed across host validation, chunk setup,
 vector candidate isolation, GPU guard, benchmark and upload suites. Replaying
@@ -90,4 +91,14 @@ the previous report's actual thermal telemetry rejects all 304 snapshots.
 Seven frozen code/config/test files and seven case/timer/stage functions were
 verified identical to the original vector trial. Pre-commit and shell syntax
 checks passed. These results do not validate nvidia-smi behavior on the card;
-that is checked by the pending guarded GPU run and its saved diagnostics.
+the completed guarded GPU run and saved diagnostics provide that evidence.
+
+## Returned GPU result
+
+Report `0025302fefd2edbdb18edf8d07f6f29cd6dc3dbe` completed with exit 0:
+161 passed, 1 second-device skip, 33 native cases deselected, 38 performance
+cases completed, all 39 idle checks and all 304 timed-run guard checks passed.
+No foreign GPU PID or thermal slowdown was observed; sampled temperatures
+were 29–45 C and SM clocks were 1980 MHz. The candidate did not improve the
+primary full-entry wall metric, so production routing stays unchanged. See
+[qsa_prefill_single_row_repeat_results.md](qsa_prefill_single_row_repeat_results.md).

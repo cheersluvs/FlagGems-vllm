@@ -44,11 +44,15 @@ cores: FP32 reduction could be slower, especially for larger H/D or FP8.
 | Baseline | Actual production entry, exact current source hash pinned; both sides use identical validator, metadata preparation, Top-K, fill and compiler |
 | Tests | Every vector config vs FP32 Torch scores, zero/short/full visible lengths, nonzero base/empty requests/padded layouts; full selection; CPU fallback/routing/identity/source checks |
 
-Status: candidate compiled and passed the H800 correctness gate in report
-`96d3f8c32956d789e83998f39f0f6ad2e8475786`. Performance acceptance remains
-pending: another GPU process and thermal slowdown invalidate this run for
-that purpose. Production routing is unchanged. See
-[qsa_prefill_single_row_results.md](qsa_prefill_single_row_results.md).
+Status: correctness and the controlled H800 repeat passed in report
+`0025302fefd2edbdb18edf8d07f6f29cd6dc3dbe`. Do not enable this prototype in
+production: none of its 15 vector-using cases improves the frozen full-entry
+wall metric. Some Graph fixtures benefit, but the H<=8,D<=256 region also
+contains Graph regressions. Production routing is unchanged. See
+[qsa_prefill_single_row_repeat_results.md](qsa_prefill_single_row_repeat_results.md)
+for the controlled decision and
+[qsa_prefill_single_row_results.md](qsa_prefill_single_row_results.md)
+for the earlier rejected, contended report.
 
 ## Implementation and local verification
 
