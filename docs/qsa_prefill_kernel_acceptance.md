@@ -21,8 +21,9 @@ The previous report `0025302fefd2edbdb18edf8d07f6f29cd6dc3dbe` did not time
 baseline and candidate scores with this timer. Its candidate-only score timing
 and full Graph timings cannot establish this speedup. Do not subtract isolated
 Top-K time from full latency. The previous decision not to adopt the candidate
-based on full wall latency is superseded; the candidate is pending the newly
-specified scoring criterion. Production routing remains unchanged meanwhile.
+based on full wall latency is superseded. The complete score-only result
+below rejects the broad gate on the updated criterion. Production routing
+remains unchanged.
 
 `kernel` here means the repository's actual do_bench mode, not cudagraph. CUDA
 events can still observe GPU starvation from host launch gaps; this metric
@@ -57,17 +58,26 @@ Optional full-entry host profiles and Graph diagnostics are not collected by
 this score-only mode. Historical full-entry wall gains also do not establish
 NVIDIA kernel-mode performance gains under the updated criterion.
 
-No operator code/config or GPU arithmetic changed in this measurement update. Card-side
-execution remains pending; previously passed functionality is retained evidence,
-not a claim that this new benchmark entry has already run on H800.
+No operator code/config or GPU arithmetic changed in the measurement update.
+The card runs below provide evidence from the score-only benchmark entry.
 
 
-Local checks: 62 unittest methods passed, including shared-kernel-branch
+Local checks at introduction: 62 unittest methods passed, including shared-kernel-branch
 parameter/unit checks, score-only call boundaries, alternating ratio arithmetic,
 N/A cases, CLI/TSV propagation, environment guards and upload success/failure.
 Ten frozen operator/config/reference/shared-benchmark files and six existing
 case/timer/stage functions were verified unchanged. Pre-commit passed.
 
+
+## Complete result
+
+Report `573a3aa6a1c8c9957f6d1ac86de949c126d71c89` completes all 38 cases:
+37 timed and one N/A, with exit 0. This final session added 13 and retained
+25 on the same GPU/runtime/timer. The broad vector gate is not accepted:
+small single-query H/D fixtures improve, while H=8,D=256 FP8 and mixed
+32/32/1 tails regress. Production routing remains unchanged. See
+[qsa_prefill_kernel_complete_results.md](qsa_prefill_kernel_complete_results.md)
+for all case latencies, provenance and the proposed narrower experiment.
 
 ## First card run
 

@@ -21,8 +21,8 @@ cores: FP32 reduction could be slower, especially for larger H/D or FP8.
 | Timeout / profiler | Existing 900 s per worker; CPU profiles outside timing; ncu availability unknown. Substitute evidence is padding ratio, dispatch/counts, separate score/Top-K timing and actual tuned binaries |
 | Autotune | New trial-only qsa_select_paged_prefill_single_row_score, four BLOCK_N/warp configs with TILE_R=K_TILES=1 and num_stages=1. Same specialization dimensions as dot launcher; existing dot candidates/keys untouched |
 | Fallback / integration | No Torch compute/copy/cast in candidate; noneligible chunks call the actual production score kernel. Prototype is not a new registered public operator |
-| Acceptance | Score-only --mode kernel speedup and no important regressions; pending new data. Rejected H/D regimes can remain on dot; no native-vLLM performance claim |
-| Environment | Venv Python/Torch plus explicit external /opt/flagtree. Keep card 0 by default; the latest report shows other jobs on card 1. Long-case thermal drift stays diagnostic only. Record UUID/temperature/clocks, and rebuild both baselines if the user selects another free card |
+| Acceptance | Complete 38-case score-only --mode kernel data reject the broad gate; a narrower candidate requires its own validation. No native-vLLM performance claim |
+| Environment | Venv Python/Torch plus explicit external /opt/flagtree. Select an explicit idle GPU UUID; checkpoint reuse requires the same UUID/runtime/timer. Shared-machine process/thermal checks remain enabled |
 | Docs | workflow.md/AGENTS.md apply; optimization.md/deep_opt.md absent. This is the first GPU scoring trial, not blind block-size tuning |
 
 | Contract field | Preserved / verification |
@@ -47,9 +47,13 @@ cores: FP32 reduction could be slower, especially for larger H/D or FP8.
 Status: correctness and the controlled H800 repeat passed in report
 `0025302fefd2edbdb18edf8d07f6f29cd6dc3dbe`. The user's updated NVIDIA
 acceptance criterion is score-only `--mode kernel` speedup, excluding Top-K.
-The earlier wall-based decision is superseded. The candidate is pending
-same-mode baseline/candidate score measurements; production routing remains
-unchanged. See [qsa_prefill_kernel_acceptance.md](qsa_prefill_kernel_acceptance.md).
+The earlier wall-based decision is superseded. Score-only measurement is now
+complete in report `573a3aa6a1c8c9957f6d1ac86de949c126d71c89`: 37 timed cases
+and one N/A. Smaller single-query H/D pairs improve, but H=8,D=256 FP8 and
+multi-chunk tails regress. The broad gate is not accepted; production routing
+remains unchanged. See
+[qsa_prefill_kernel_complete_results.md](qsa_prefill_kernel_complete_results.md)
+and [qsa_prefill_kernel_acceptance.md](qsa_prefill_kernel_acceptance.md).
 The first score-only run stopped on an additional GPU PID; see
 [qsa_prefill_kernel_partial_results.md](qsa_prefill_kernel_partial_results.md).
 Historical wall/Graph observations remain available in
@@ -130,11 +134,9 @@ paths, tool hashes, source snapshots, raw timing rounds and host profiles
 are included in reports. Profiler executable availability is recorded;
 hardware profiling is not claimed by this run.
 
-NVIDIA acceptance now uses score-only --mode kernel speedup; full-entry wall
-and Graph times are diagnostic. See the updated acceptance document. Reduction order changes must pass the existing
-score/selection tolerances without relaxing them. Keep CUDA device 0 in the
-default command; the latest report shows jobs on device 1. The known thermal
-throttling on long cases means those remain diagnostic and cannot establish
-a gain until a stable-temperature repeat is available. Decide keep, split
-the eligible H/D region, or reject only after reading returned correctness,
-paired timings, dispatch and temperature/clock data.
+NVIDIA acceptance uses score-only --mode kernel speedup; full-entry wall and
+Graph times are diagnostic. Reduction order changes must pass existing
+score/selection tolerances without relaxing them. Use an explicit idle GPU
+UUID and keep the process/thermal guard enabled. The complete score-only
+report above supersedes pending-measurement status. A narrowed dispatch must
+be measured as a new candidate rather than inferred from the broad-gate data.

@@ -1,5 +1,11 @@
 # QSA score-only benchmarking on a shared H800 machine
 
+The final resume completed all 38 cases with exit 0 in report
+`573a3aa6a1c8c9957f6d1ac86de949c126d71c89`. No further resume is required
+for this candidate. See
+[qsa_prefill_kernel_complete_results.md](qsa_prefill_kernel_complete_results.md).
+The checkpoint history and command below remain for reproducibility.
+
 The user confirmed that the machine is shared and other workloads are not
 known. Report `597f7021c72acc13322bcbe5b5c738575657d099` stopped on a second
 unattributed GPU PID, after switching from physical GPU 1 to GPU 2. Repeated
