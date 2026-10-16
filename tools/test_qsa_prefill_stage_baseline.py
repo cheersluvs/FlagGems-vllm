@@ -327,6 +327,9 @@ class BenchmarkTests(unittest.TestCase):
             host_ab=False,
             single_row_ab=False,
             require_idle_gpu=False,
+            mode="stages",
+            kernel_warmup_ms=1000,
+            kernel_rep_ms=100,
         )
         values.update(kwargs)
         return argparse.Namespace(**values)
@@ -522,6 +525,77 @@ class BenchmarkTests(unittest.TestCase):
             saved = json.loads(report.read_text())
             self.assertEqual(saved["telemetry"][0]["gpu_guard"], verdict)
             self.assertEqual(saved["performance_guard"]["status"], "rejected")
+
+    def test_kernel_mode_no_score_is_na_without_invented_latency(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = {}
+            report = Path(folder) / "zero.json"
+            bench.run_score_kernel(
+                self.options(mode="kernel"),
+                None,
+                None,
+                (),
+                [],
+                result,
+                report,
+                None,
+                None,
+                None,
+            )
+            saved = json.loads(report.read_text())
+            self.assertEqual(saved["status"], "passed")
+            self.assertEqual(saved["score_kernel"]["status"], "not_applicable_no_score")
+            self.assertNotIn("speedup", saved["score_kernel"])
+            self.assertFalse(saved["score_kernel"]["includes_topk"])
+
+    def test_kernel_mode_forwarding_and_separate_score_speedup_tsv(self):
+        def worker(command, **kwargs):
+            self.assertEqual(command[command.index("--mode") + 1], "kernel")
+            self.assertEqual(command[command.index("--kernel-warmup-ms") + 1], "1000")
+            self.assertEqual(command[command.index("--kernel-rep-ms") + 1], "100")
+            name = command[command.index("--worker") + 1]
+            directory = Path(command[command.index("--report-dir") + 1])
+            bench.write_json(
+                directory / f"{name}.json",
+                dict(
+                    case=dict(name=name),
+                    status="passed",
+                    stages={},
+                    score_kernel=dict(
+                        status="passed",
+                        baseline_us=dict(median=10),
+                        candidate_us=dict(median=8),
+                        speedup=1.25,
+                        paired_ratios=dict(median=1.25),
+                    ),
+                ),
+            )
+            return types.SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+            os.environ, {"QSA_TRITON_RUNTIME_PATH": "", "CUDA_LAUNCH_BLOCKING": "0"}
+        ), patch.object(bench, "command", return_value={}), patch.object(
+            bench.subprocess, "run", side_effect=worker
+        ), contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            directory = Path(folder)
+            self.assertEqual(
+                bench.parent(
+                    self.options(mode="kernel", single_row_ab=True, skip_accuracy=True),
+                    bench.cases()[:1],
+                    directory,
+                ),
+                0,
+            )
+            text = (directory / "score-kernel-ab.tsv").read_text()
+            self.assertIn("core_0\tpassed\t10\t8\t1.25\t1.25", text)
+            self.assertFalse((directory / "single-row-ab.tsv").exists())
+            summary = json.loads((directory / "stage-summary.json").read_text())
+            self.assertEqual(
+                summary["manifest"]["timing_plan"]["scope"], "score_only_no_topk"
+            )
+            self.assertNotIn("calls_per_round", summary["manifest"]["timing_plan"])
 
     def test_failed_accuracy_blocks_all_timings(self):
         with tempfile.TemporaryDirectory() as folder, patch.dict(

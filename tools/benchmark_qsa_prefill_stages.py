@@ -37,6 +37,10 @@ SOURCES = [
     "tools/qsa_prefill_chunk_baseline.py",
     "tools/qsa_prefill_single_row_trial.py",
     "tools/qsa_prefill_gpu_guard.py",
+    "tools/qsa_prefill_score_benchmark.py",
+    "benchmark/base.py",
+    "benchmark/conftest.py",
+    "benchmark/consts.py",
     "tools/run_qsa_prefill_validation_ab_h800.sh",
     "tests/qsa_select_prefill_utils.py",
     "tests/test_qsa_select_paged_prefill.py",
@@ -303,6 +307,16 @@ def timed_batch(fn, device, iterations, method, divisor=1):
 
 
 def timing_plan(options):
+    if options.mode == "kernel":
+        return dict(
+            mode="kernel",
+            scope="score_only_no_topk",
+            rounds=options.rounds,
+            timer="benchmark.base.Benchmark.get_latency",
+            warmup_ms=options.kernel_warmup_ms,
+            rep_ms=options.kernel_rep_ms,
+            order="alternate_baseline_candidate_each_round",
+        )
     batch = options.graph_batch
     calls = options.iterations
     if not options.no_graph:
@@ -682,6 +696,60 @@ def score_configs(op, kernel_name="_qsa_prefill_score_kernel"):
     return records
 
 
+def run_score_kernel(
+    options, op, baseline, args, chunks, result, report, torch, device, guard
+):
+    from tools import qsa_prefill_score_benchmark as scoring
+
+    result["stages"] = {}
+    result["host_diagnostics"] = dict(status="not_collected_score_kernel_mode")
+    result["timing_plan"] = timing_plan(options)
+    if not chunks:
+        result.update(
+            status="passed",
+            score_kernel=dict(status="not_applicable_no_score", includes_topk=False),
+        )
+        write_json(report, result)
+        return
+    launchers = dict(
+        baseline=baseline.__globals__["_prefill_logits"], candidate=op._prefill_logits
+    )
+    functions = {
+        name: scoring.score_function(fn, chunks) for name, fn in launchers.items()
+    }
+    result["score_validation_rows"] = {
+        name: scoring.validate_scores(fn, chunks, args, torch, sample_rows, device)
+        for name, fn in launchers.items()
+    }
+    timer, timer_info = scoring.make_timer(
+        options.kernel_warmup_ms, options.kernel_rep_ms
+    )
+    result["score_timer"] = timer_info
+    result["score_configs"] = score_configs(op)
+    result["vector_score_configs"] = score_configs(
+        op, "_qsa_prefill_single_row_score_kernel"
+    )
+    write_json(report, result)
+    result["score_kernel"], observations, order = scoring.measure_scores(
+        timer,
+        functions["baseline"],
+        functions["candidate"],
+        options.rounds,
+        lambda label: (
+            guarded_telemetry(result["runtime"]["uuid"], label, result, report, guard)
+            if guard
+            else telemetry(result["runtime"]["uuid"], label)
+        ),
+        stats,
+    )
+    result["telemetry"], result["measurement_order"] = observations, order
+    for fn in launchers.values():
+        scoring.validate_scores(fn, chunks, args, torch, sample_rows, device)
+    result.update(status="passed", peak_allocated_bytes=device.max_memory_allocated())
+    result["runtime"]["nvidia_smi_after"] = command(["nvidia-smi"])
+    write_json(report, result)
+
+
 def runtime_info(torch, triton, runtime):
     device = runtime.torch_device_fn
     props = device.get_device_properties(device.current_device())
@@ -864,6 +932,11 @@ def worker(options, case, report):
             ].__globals__.get("_output_overlaps_inputs")
             is op._output_overlaps_inputs,
         )
+    if options.mode == "kernel":
+        run_score_kernel(
+            options, op, baseline, args, chunks, result, report, torch, device, guard
+        )
+        return
     result["stages"] = {name: {} for name in functions}
     if not chunks:
         result["stages"].update(
@@ -1016,14 +1089,23 @@ def parent(options, selected, directory):
         schema=SCHEMA,
         options=vars(options),
         cases=selected,
-        methods=METHODS,
+        methods=(
+            dict(
+                score_kernel_us="benchmark.base.Benchmark.get_latency, BenchMode.KERNEL; score only"
+            )
+            if options.mode == "kernel"
+            else METHODS
+        ),
         profiler_tools=dict(ncu=shutil.which("ncu"), nsys=shutil.which("nsys")),
         timing_plan=timing_plan(options),
         git_head=command(["git", "rev-parse", "HEAD"]),
         git_status=command(["git", "status", "--porcelain"]),
         source_hashes={path: value["sha256"] for path, value in sources.items()},
         policy=(
-            "Production self baseline only; no native-vLLM speedup. "
+            "Production score self baseline only; no native-vLLM speedup. "
+            "Top-K excluded from both timed callables. Shared kernel-mode do_bench defaults, including cache policy."
+            if options.mode == "kernel"
+            else "Production self baseline only; no native-vLLM speedup. "
             "Stage times are not additive. Warm repeated inputs, no cache flush."
         ),
     )
@@ -1115,6 +1197,12 @@ def parent(options, selected, directory):
             str(options.rounds),
             "--graph-batch",
             str(options.graph_batch),
+            "--mode",
+            options.mode,
+            "--kernel-warmup-ms",
+            str(options.kernel_warmup_ms),
+            "--kernel-rep-ms",
+            str(options.kernel_rep_ms),
         ]
         if options.no_graph:
             cmd.append("--no-graph")
@@ -1212,7 +1300,29 @@ def parent(options, selected, directory):
                 )
         (directory / "host-summary.tsv").write_text("\n".join(host_lines) + "\n")
     ab = ab_configuration(options)
-    if ab:
+    if options.mode == "kernel":
+        rows = ["case\tstatus\tbaseline_us\tcandidate_us\tspeedup\tpaired_ratio_median"]
+        for case in summary["cases"]:
+            info = case.get("score_kernel", {})
+            if case["status"] != "passed":
+                info = dict(status=case["status"])
+            rows.append(
+                "\t".join(
+                    map(
+                        str,
+                        [
+                            case["case"]["name"],
+                            info.get("status", case["status"]),
+                            info.get("baseline_us", {}).get("median", "NA"),
+                            info.get("candidate_us", {}).get("median", "NA"),
+                            info.get("speedup", "NA"),
+                            info.get("paired_ratios", {}).get("median", "NA"),
+                        ],
+                    )
+                )
+            )
+        (directory / "score-kernel-ab.tsv").write_text("\n".join(rows) + "\n")
+    elif ab:
         ab_field, baseline_stage, _, _ = ab
         rows = [
             "case\tstatus\tmetric\tbaseline_median_us\tcandidate_median_us\tratio_of_medians\tpaired_ratio_median"
@@ -1259,6 +1369,14 @@ def main():
     parser.add_argument(
         "--cases", nargs="+", help="Explicit case names; overrides suite"
     )
+    parser.add_argument(
+        "--mode",
+        choices=("stages", "kernel"),
+        default="stages",
+        help="kernel: score-only shared benchmark timer, Top-K excluded",
+    )
+    parser.add_argument("--kernel-warmup-ms", type=float, default=1000)
+    parser.add_argument("--kernel-rep-ms", type=float, default=100)
     parser.add_argument(
         "--require-idle-gpu",
         action="store_true",
@@ -1326,6 +1444,8 @@ def main():
     )
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
+    if options.mode == "kernel" and not options.single_row_ab:
+        parser.error("Score-only --mode kernel currently requires --single-row-ab")
     if (
         options.host_ab or options.single_row_ab
     ) and options.validation_baseline != "original":
@@ -1343,6 +1463,8 @@ def main():
             "graph_batch",
             "timeout",
             "profile_iterations",
+            "kernel_warmup_ms",
+            "kernel_rep_ms",
         )
     ):
         parser.error(

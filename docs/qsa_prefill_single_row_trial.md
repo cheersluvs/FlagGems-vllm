@@ -17,11 +17,11 @@ cores: FP32 reduction could be slower, especially for larger H/D or FP8.
 | Hypothesis | For exactly one query, FP32 vector products/reductions avoid padded matrix rows and may reduce score latency |
 | Build / tests | Python syntax/lint and CPU routing/source checks; full production suite plus trial Torch correctness and every vector config on H800 before timing |
 | Active set | Existing 24 cases; add one-query H/D/dtype sweep and a 32/32/1 cross-request tail fixture for BF16/FP8 |
-| Benchmark | Full candidate vs actual unchanged production, one process/compiler/input/budget per case; wall primary, Graph and isolated score diagnostic, paired ratios and raw rounds |
+| Benchmark | Score-only candidate vs actual unchanged production scorer in the same process/compiler/input/budget; shared --mode kernel timer, Top-K excluded, paired ratios/raw rounds. Full wall/Graph are diagnostic |
 | Timeout / profiler | Existing 900 s per worker; CPU profiles outside timing; ncu availability unknown. Substitute evidence is padding ratio, dispatch/counts, separate score/Top-K timing and actual tuned binaries |
 | Autotune | New trial-only qsa_select_paged_prefill_single_row_score, four BLOCK_N/warp configs with TILE_R=K_TILES=1 and num_stages=1. Same specialization dimensions as dot launcher; existing dot candidates/keys untouched |
 | Fallback / integration | No Torch compute/copy/cast in candidate; noneligible chunks call the actual production score kernel. Prototype is not a new registered public operator |
-| Acceptance | No production switch until useful full-entry benefit and no important regressions; rejected H/D regimes can remain on dot; no native-vLLM performance claim |
+| Acceptance | Score-only --mode kernel speedup and no important regressions; pending new data. Rejected H/D regimes can remain on dot; no native-vLLM performance claim |
 | Environment | Venv Python/Torch plus explicit external /opt/flagtree. Keep card 0 by default; the latest report shows other jobs on card 1. Long-case thermal drift stays diagnostic only. Record UUID/temperature/clocks, and rebuild both baselines if the user selects another free card |
 | Docs | workflow.md/AGENTS.md apply; optimization.md/deep_opt.md absent. This is the first GPU scoring trial, not blind block-size tuning |
 
@@ -45,14 +45,13 @@ cores: FP32 reduction could be slower, especially for larger H/D or FP8.
 | Tests | Every vector config vs FP32 Torch scores, zero/short/full visible lengths, nonzero base/empty requests/padded layouts; full selection; CPU fallback/routing/identity/source checks |
 
 Status: correctness and the controlled H800 repeat passed in report
-`0025302fefd2edbdb18edf8d07f6f29cd6dc3dbe`. Do not enable this prototype in
-production: none of its 15 vector-using cases improves the frozen full-entry
-wall metric. Some Graph fixtures benefit, but the H<=8,D<=256 region also
-contains Graph regressions. Production routing is unchanged. See
-[qsa_prefill_single_row_repeat_results.md](qsa_prefill_single_row_repeat_results.md)
-for the controlled decision and
-[qsa_prefill_single_row_results.md](qsa_prefill_single_row_results.md)
-for the earlier rejected, contended report.
+`0025302fefd2edbdb18edf8d07f6f29cd6dc3dbe`. The user's updated NVIDIA
+acceptance criterion is score-only `--mode kernel` speedup, excluding Top-K.
+The earlier wall-based decision is superseded. The candidate is pending
+same-mode baseline/candidate score measurements; production routing remains
+unchanged. See [qsa_prefill_kernel_acceptance.md](qsa_prefill_kernel_acceptance.md).
+Historical wall/Graph observations remain available in
+[qsa_prefill_single_row_repeat_results.md](qsa_prefill_single_row_repeat_results.md).
 
 ## Implementation and local verification
 
@@ -129,8 +128,8 @@ paths, tool hashes, source snapshots, raw timing rounds and host profiles
 are included in reports. Profiler executable availability is recorded;
 hardware profiling is not claimed by this run.
 
-Full-entry wall latency is the primary criterion; Graph/isolated score time
-help explain the outcome. Reduction order changes must pass the existing
+NVIDIA acceptance now uses score-only --mode kernel speedup; full-entry wall
+and Graph times are diagnostic. See the updated acceptance document. Reduction order changes must pass the existing
 score/selection tolerances without relaxing them. Keep CUDA device 0 in the
 default command; the latest report shows jobs on device 1. The known thermal
 throttling on long cases means those remain diagnostic and cannot establish

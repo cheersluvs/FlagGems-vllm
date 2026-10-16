@@ -1,5 +1,12 @@
 # QSA single-query vector trial: controlled H800 repeat
 
+Acceptance update (2026-10-16): the user specifies score-only `--mode kernel`
+benchmark speedup excluding Top-K. This supersedes the wall-based adoption
+decision below. The measurements remain valid diagnostics; this report lacks
+the paired score-only shared-kernel-mode measurements needed by the updated
+criterion. Candidate status is pending. See
+[qsa_prefill_kernel_acceptance.md](qsa_prefill_kernel_acceptance.md).
+
 Decision: do not enable the current vector prototype in production. The
 independent correctness gate and GPU environment checks pass, but all 15
 vector-using cases have a higher full-entry wall median than the unchanged

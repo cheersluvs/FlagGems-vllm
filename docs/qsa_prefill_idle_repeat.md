@@ -100,5 +100,7 @@ Report `0025302fefd2edbdb18edf8d07f6f29cd6dc3dbe` completed with exit 0:
 cases completed, all 39 idle checks and all 304 timed-run guard checks passed.
 No foreign GPU PID or thermal slowdown was observed; sampled temperatures
 were 29–45 C and SM clocks were 1980 MHz. The candidate did not improve the
-primary full-entry wall metric, so production routing stays unchanged. See
+previous full-entry wall metric. NVIDIA acceptance has since changed to
+score-only --mode kernel speedup excluding Top-K; that comparison is pending.
+Production routing stays unchanged meanwhile. See
 [qsa_prefill_single_row_repeat_results.md](qsa_prefill_single_row_repeat_results.md).
