@@ -1,0 +1,696 @@
+{
+  "schema": 2,
+  "case": {
+    "name": "perf_n1_q8192_p8192_bfloat16",
+    "kind": "upstream_perf",
+    "requests": 1,
+    "query_length": 8192,
+    "prefix_tokens": 8192,
+    "page_size": 196,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "budget_mb": 512,
+    "dtype": "bfloat16"
+  },
+  "status": "passed",
+  "runtime": {
+    "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.39",
+    "torch_version": "2.13.0+cu129",
+    "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+    "triton_version": "3.6.0",
+    "triton_source": "/opt/flagtree/triton/__init__.py",
+    "triton_init_sha256": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30",
+    "compiler_files": {
+      "triton.backends.nvidia.compiler": {
+        "path": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+        "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+      },
+      "triton.backends.nvidia.driver": {
+        "path": "/opt/flagtree/triton/backends/nvidia/driver.py",
+        "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+      },
+      "triton.knobs": {
+        "path": "/opt/flagtree/triton/knobs.py",
+        "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+      },
+      "triton._C.libtriton": {
+        "path": "/opt/flagtree/triton/_C/libtriton.so",
+        "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+      }
+    },
+    "ptxas": {
+      "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+      "sha256": "c960a4f238b17d5c5d3c01ad2bbc1ebd2c5aecc459cb4d223bff10b45f9b8fca",
+      "version": {
+        "returncode": 0,
+        "stdout": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+        "stderr": ""
+      }
+    },
+    "cuda": "12.9",
+    "vendor": "nvidia",
+    "device": "_CudaDeviceProperties(name='NVIDIA H800', major=9, minor=0, total_memory=81090MB, multi_processor_count=132, uuid=2d17872f-4327-2beb-8049-604ecf6a3d66, pci_bus_id=110, pci_device_id=0, pci_domain_id=0, L2_cache_size=50MB)",
+    "uuid": "2d17872f-4327-2beb-8049-604ecf6a3d66",
+    "versions": {
+      "torch": "2.13.0+cu129",
+      "triton": "3.7.1",
+      "flagtree": "0.6.1",
+      "vllm": "0.31.0+cu129"
+    },
+    "allow_tf32": false,
+    "environment": {
+      "PYTHONPATH": "/tmp/flaggems-qsa-stage.r5Olbe/src:/tmp/flaggems-qsa-stage.r5Olbe:/opt/flagtree",
+      "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree",
+      "CUDA_VISIBLE_DEVICES": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "CUDA_LAUNCH_BLOCKING": null,
+      "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+      "TRITON_CACHE_DIR": "/tmp/qsa-stage-h800.qGdCL0/cache/perf_n1_q8192_p8192_bfloat16/triton",
+      "FLAGGEMS_CACHE_DIR": "/tmp/qsa-stage-h800.qGdCL0/cache/perf_n1_q8192_p8192_bfloat16/gems",
+      "TRITON_PTXAS_PATH": null,
+      "TRITON_DISABLE_LINE_INFO": null,
+      "TRITON_OVERRIDE_ARCH": null,
+      "DISABLE_PTXAS_OPT": null,
+      "PTXAS_OPTIONS": null,
+      "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB": "512"
+    },
+    "nvidia_smi": {
+      "returncode": 0,
+      "stdout": "Fri Oct 16 14:11:03 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 12.9     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H800                    Off |   00000000:1A:00.0 Off |                    0 |\n| N/A   63C    P0            127W /  700W |    2660MiB /  81559MiB |     37%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA H800                    Off |   00000000:5D:00.0 Off |                    0 |\n| N/A   27C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA H800                    Off |   00000000:6E:00.0 Off |                    0 |\n| N/A   30C    P0             69W /  700W |       4MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA H800                    Off |   00000000:7E:00.0 Off |                    0 |\n| N/A   45C    P0             77W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   4  NVIDIA H800                    Off |   00000000:B8:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   5  NVIDIA H800                    Off |   00000000:CC:00.0 Off |                    0 |\n| N/A   28C    P0             72W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   6  NVIDIA H800                    Off |   00000000:D7:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |      88MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   7  NVIDIA H800                    Off |   00000000:E1:00.0 Off |                    0 |\n| N/A   38C    P0             74W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|    0   N/A  N/A          182324      C   python3                                2650MiB |\n+-----------------------------------------------------------------------------------------+\n",
+      "stderr": ""
+    },
+    "nvidia_smi_after": {
+      "returncode": 0,
+      "stdout": "Fri Oct 16 14:11:28 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 12.9     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H800                    Off |   00000000:1A:00.0 Off |                    0 |\n| N/A   63C    P0            127W /  700W |    2660MiB /  81559MiB |     37%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA H800                    Off |   00000000:5D:00.0 Off |                    0 |\n| N/A   27C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA H800                    Off |   00000000:6E:00.0 Off |                    0 |\n| N/A   38C    P0            312W /  700W |    1494MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA H800                    Off |   00000000:7E:00.0 Off |                    0 |\n| N/A   45C    P0             77W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   4  NVIDIA H800                    Off |   00000000:B8:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   5  NVIDIA H800                    Off |   00000000:CC:00.0 Off |                    0 |\n| N/A   28C    P0             72W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   6  NVIDIA H800                    Off |   00000000:D7:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |      88MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   7  NVIDIA H800                    Off |   00000000:E1:00.0 Off |                    0 |\n| N/A   38C    P0             74W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|    0   N/A  N/A          182324      C   python3                                2650MiB |\n|    2   N/A  N/A          189462      C   ...1-h800.PQnVpV/venv/bin/python       1484MiB |\n+-----------------------------------------------------------------------------------------+\n",
+      "stderr": ""
+    }
+  },
+  "workload": {
+    "source": "https://github.com/vllm-project/vllm/pull/54513",
+    "provenance": "published query/prefix/page grid; explicit local dtype/H/D choices",
+    "prefix_unit": "original_tokens_before_query",
+    "query_lengths": [
+      8192
+    ],
+    "sequence_lengths": [
+      16384
+    ],
+    "compressed_lengths": [
+      4096
+    ],
+    "pages_per_request": 21,
+    "physical_pages": 21,
+    "q_shape": [
+      8192,
+      4,
+      128
+    ],
+    "cache_shape": [
+      21,
+      196,
+      1,
+      128
+    ],
+    "page_table_shape": [
+      1,
+      21
+    ],
+    "visible_first": 2048,
+    "visible_last": 4096,
+    "logits_width": 4096,
+    "expected_chunk_rows": [
+      8192
+    ],
+    "full_logits_bytes": 134217728,
+    "score_workspace_bytes": 134217728
+  },
+  "candidate_source": "/tmp/flaggems-qsa-stage.r5Olbe/tools/qsa_prefill_single_row_trial.py",
+  "score_kernel_policy": "candidate vector for one query H<=8 D<=256; shared production matmul otherwise",
+  "inputs": [
+    {
+      "argument": 0,
+      "shape": [
+        8192,
+        4,
+        128
+      ],
+      "stride": [
+        512,
+        128,
+        1
+      ],
+      "dtype": "torch.bfloat16",
+      "sha256": "563defc61b63116165bbcc31bf773362559f50943543eb0cf8d1962893202b69"
+    },
+    {
+      "argument": 1,
+      "shape": [
+        21,
+        196,
+        1,
+        128
+      ],
+      "stride": [
+        25088,
+        128,
+        128,
+        1
+      ],
+      "dtype": "torch.bfloat16",
+      "sha256": "740d0010306c425dfba5dea4d7f6237fe15d8b72daf59ec6cc9d4229de90bb6c"
+    },
+    {
+      "argument": 2,
+      "shape": [
+        1,
+        21
+      ],
+      "stride": [
+        21,
+        1
+      ],
+      "dtype": "torch.int32",
+      "sha256": "e867a93d43e7db87c7dc4c86b601e3b89d1bca55718086b9f4af446a692fee6a"
+    },
+    {
+      "argument": 3,
+      "shape": [
+        2
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int32",
+      "sha256": "270e67d6266e08628bc27ec405e4cbaf41b29327111583ee3fb7b99c48abff3a"
+    },
+    {
+      "argument": 4,
+      "shape": [
+        8192
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int32",
+      "sha256": "972355c247b3d8a1b5470830490e51ec8e028bc0a87db1d46096d457f22d71d0"
+    },
+    {
+      "argument": 5,
+      "value": 2048
+    },
+    {
+      "argument": 6,
+      "value": 4
+    },
+    {
+      "argument": 7,
+      "value": 8192
+    },
+    {
+      "argument": 8,
+      "shape": [
+        8192,
+        512
+      ],
+      "stride": [
+        512,
+        1
+      ],
+      "dtype": "torch.int32"
+    },
+    {
+      "argument": 9,
+      "value": 16384
+    }
+  ],
+  "validation_rows": [
+    0,
+    1170,
+    2340,
+    3510,
+    4680,
+    5850,
+    7020,
+    8191
+  ],
+  "chunks": [
+    {
+      "offset": 0,
+      "rows": 8192,
+      "width": 4096,
+      "workspace_shape": [
+        8192,
+        4096
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "matmul"
+    }
+  ],
+  "baseline_validation_rows": [
+    0,
+    1170,
+    2340,
+    3510,
+    4680,
+    5850,
+    7020,
+    8191
+  ],
+  "single_row_ab": {
+    "kind": "single-row-vector",
+    "baseline_commit": "454074da0c079cc649d139489ce11fd3141585b7",
+    "baseline_op_sha256": "d70faeb6928c2c7a56636ded833f3359368871e353ecf4c66c6dfd35cae93e73",
+    "same_public_bytecode": true,
+    "shared_score": false,
+    "shared_score_kernel": true,
+    "shared_topk": true,
+    "shared_fill_kernel": true,
+    "shared_validator_bytecode": true,
+    "shared_overlap_helper": true
+  },
+  "stages": {},
+  "host_diagnostics": {
+    "status": "not_collected_score_kernel_mode"
+  },
+  "timing_plan": {
+    "mode": "kernel",
+    "scope": "score_only_no_topk",
+    "rounds": 7,
+    "timer": "benchmark.base.Benchmark.get_latency",
+    "warmup_ms": 1000.0,
+    "rep_ms": 100.0,
+    "order": "alternate_baseline_candidate_each_round"
+  },
+  "score_validation_rows": {
+    "baseline": 8,
+    "candidate": 8
+  },
+  "score_timer": {
+    "mode": "kernel",
+    "unit": "us",
+    "warmup_ms": 1000.0,
+    "rep_ms": 100.0,
+    "return_mode": "median",
+    "cache_policy": "shared do_bench default, unchanged",
+    "includes_topk": false,
+    "sources": {
+      "get_latency": {
+        "path": "/tmp/flaggems-qsa-stage.r5Olbe/benchmark/base.py",
+        "sha256": "936f41e070e3baab8b5f445ea79c4695c65b164eae7410046d5e8571d5d507fb"
+      },
+      "do_bench": {
+        "path": "/opt/flagtree/triton/testing.py",
+        "sha256": "54b1a09e41f716151e46143f94c4a816090f2f4dea72752bf5f8071293540e7f"
+      }
+    }
+  },
+  "score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 2,
+        "num_ctas": 1,
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='c0029b8b2a2ff48098e711afaa9e7c3c909c67067a868ffbe272ea41b264dee8', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "ea8489939a63c8ed1b485c389aa4cd05040fc1dc15a2e81701fc339a8fadb309",
+      "cubin_sha256": "f5bc730dd652ebeb39a5d6ef6259c511a1c15e7f4d0babeef41ed4d8ae7a0d17"
+    }
+  ],
+  "vector_score_configs": [],
+  "telemetry": [
+    {
+      "label": "before_timing",
+      "monotonic_seconds": 12191333.742260143,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 14:11:15.082, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 1980 MHz, 2619 MHz, 123.14 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 14:11:15 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          189462
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 189462, 1228\n",
+          "stderr": ""
+        },
+        "temperature_c": 32.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 189462,
+            "used_memory_mib": 1228
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_1",
+      "monotonic_seconds": 12191335.706471784,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 14:11:16.997, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 39, 1980 MHz, 2619 MHz, 535.43 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 14:11:17 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          189462
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 189462, 1484\n",
+          "stderr": ""
+        },
+        "temperature_c": 39.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 189462,
+            "used_memory_mib": 1484
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_2",
+      "monotonic_seconds": 12191337.545285797,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 14:11:18.833, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 43, 1980 MHz, 2619 MHz, 542.36 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 14:11:18 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          189462
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 189462, 1484\n",
+          "stderr": ""
+        },
+        "temperature_c": 43.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 189462,
+            "used_memory_mib": 1484
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_3",
+      "monotonic_seconds": 12191339.377597734,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 14:11:20.683, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 41, 1980 MHz, 2619 MHz, 536.15 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 14:11:20 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          189462
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 189462, 1484\n",
+          "stderr": ""
+        },
+        "temperature_c": 41.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 189462,
+            "used_memory_mib": 1484
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_4",
+      "monotonic_seconds": 12191341.22829316,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 14:11:22.518, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 43, 1980 MHz, 2619 MHz, 538.68 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 14:11:22 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          189462
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 189462, 1484\n",
+          "stderr": ""
+        },
+        "temperature_c": 43.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 189462,
+            "used_memory_mib": 1484
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_5",
+      "monotonic_seconds": 12191343.049936477,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 14:11:24.377, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 41, 1980 MHz, 2619 MHz, 529.14 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 14:11:24 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          189462
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 189462, 1484\n",
+          "stderr": ""
+        },
+        "temperature_c": 41.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 189462,
+            "used_memory_mib": 1484
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_6",
+      "monotonic_seconds": 12191344.924755648,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 14:11:26.252, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 41, 1980 MHz, 2619 MHz, 527.24 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 14:11:26 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          189462
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 189462, 1484\n",
+          "stderr": ""
+        },
+        "temperature_c": 41.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 189462,
+            "used_memory_mib": 1484
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_7",
+      "monotonic_seconds": 12191346.884313706,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 14:11:28.192, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 43, 1980 MHz, 2619 MHz, 540.08 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 14:11:28 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          189462
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 189462, 1484\n",
+          "stderr": ""
+        },
+        "temperature_c": 43.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 189462,
+            "used_memory_mib": 1484
+          }
+        ]
+      }
+    }
+  ],
+  "performance_guard": {
+    "status": "observed_clean",
+    "last_label": "after_round_7",
+    "reasons": []
+  },
+  "score_kernel": {
+    "status": "passed",
+    "baseline_us": {
+      "samples": [
+        176.1920005083084,
+        176.12800002098083,
+        176.1920005083084,
+        177.59999632835388,
+        176.38400197029114,
+        176.38400197029114,
+        176.38400197029114
+      ],
+      "median": 176.38400197029114,
+      "mean": 176.46628618240356,
+      "min": 176.12800002098083,
+      "max": 177.59999632835388,
+      "stdev": 0.5116172981759851
+    },
+    "candidate_us": {
+      "samples": [
+        176.38400197029114,
+        176.256000995636,
+        175.99999904632568,
+        176.15999281406403,
+        176.28799378871918,
+        176.35199427604675,
+        176.15999281406403
+      ],
+      "median": 176.256000995636,
+      "mean": 176.2285679578781,
+      "min": 175.99999904632568,
+      "max": 176.38400197029114,
+      "stdev": 0.13249316786773202
+    },
+    "speedup": 1.0007262219381587,
+    "paired_ratios": {
+      "samples": [
+        0.9989114576161218,
+        0.9992737780618413,
+        1.0010909174035403,
+        1.0081744072038523,
+        1.0005446098710897,
+        1.0001814989072042,
+        1.0012716233274574
+      ],
+      "median": 1.0005446098710897,
+      "mean": 1.0013497560558724,
+      "min": 0.9989114576161218,
+      "max": 1.0081744072038523,
+      "stdev": 0.003133609061984032
+    }
+  },
+  "measurement_order": [
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ],
+    [
+      "candidate",
+      "baseline"
+    ],
+    [
+      "baseline",
+      "candidate"
+    ]
+  ],
+  "peak_allocated_bytes": 597727232
+}
