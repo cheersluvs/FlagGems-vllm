@@ -22,7 +22,7 @@ esac
 
 qsa_run_status=0
 if "$qsa_python" "$qsa_repo/tools/benchmark_qsa_prefill_stages.py" \
-  "$qsa_ab_flag" --host-profile --suite upstream-prefill \
+  "$qsa_ab_flag" --host-profile --suite inference-prefill \
   --report-dir "$qsa_report" "$@"
 then
   echo "测试完成，开始回传。"

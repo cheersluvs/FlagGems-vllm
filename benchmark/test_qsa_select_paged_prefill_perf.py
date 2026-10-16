@@ -2,7 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """H800 QSA prefill: full operator, score stage, and Top-K stage.
 
-Only the twelve published upstream query/prefix/page layouts are benchmarked.
+The active matrix has twelve published layouts and ten source-derived probes.
 The H800 --mode kernel runner measures the real score chunk sequence without
 Top-K; the isolated stage tests below retain their single full-row launch.
 
@@ -20,7 +20,7 @@ import flaggems_vllm
 from flaggems_vllm.ops.top_k_per_row_prefill import top_k_per_row_prefill
 from tests import qsa_select_prefill_utils as input_helpers
 from tests.qsa_select_prefill_utils import torch_select, vllm_reference
-from tools import qsa_prefill_upstream_workloads as upstream_workloads
+from tools import qsa_prefill_inference_workloads as workloads
 
 from . import base
 
@@ -37,18 +37,15 @@ pytestmark = [
 
 # One shared definition with the H800 --mode kernel runner. Prefix is in
 # original tokens before the query, not compressed cache rows.
-UPSTREAM_CASES = {
-    (case["requests"], case["query_length"], case["prefix_tokens"]): case
-    for case in upstream_workloads.cases()
-}
+BENCHMARK_CASES = {(case["name"],): case for case in workloads.cases()}
 
 
 class QSAPrefillBenchmark(base.GenericBenchmark):
     def set_shapes(self, shape_file_path=None):
-        # Both core and comprehensive use only the published twelve layouts.
-        self.shapes = list(UPSTREAM_CASES)
+        # Core and comprehensive use the same twenty-two named scenarios.
+        self.shapes = list(BENCHMARK_CASES)
         self.shape_desc = (
-            "requests, query_length, prefix_tokens "
+            "case (query lengths, prefixes and layout in workload manifest) "
             "(BF16, H=4, D=128, page=196, block_k=512)"
         )
 
@@ -58,21 +55,21 @@ class QSAPrefillBenchmark(base.GenericBenchmark):
 
 def _inputs(shape, dtype, device):
     assert dtype == torch.bfloat16
-    yield upstream_workloads.make_inputs(
-        UPSTREAM_CASES[shape], input_helpers, torch, device=device
+    yield workloads.make_inputs(
+        BENCHMARK_CASES[shape], input_helpers, torch, device=device
     )
 
 
 def _score_inputs(shape, dtype, device):
     args = next(_inputs(shape, dtype, device))
-    width = upstream_workloads.geometry(UPSTREAM_CASES[shape])["logits_width"]
+    width = workloads.geometry(BENCHMARK_CASES[shape])["logits_width"]
     workspace = torch.empty((args[0].shape[0] * width,), device=device)
     yield (*args[:5], workspace, args[7], width, 0, args[0].shape[0])
 
 
 def _topk_inputs(shape, dtype, device):
     args = next(_inputs(shape, dtype, device))
-    width = upstream_workloads.geometry(UPSTREAM_CASES[shape])["logits_width"]
+    width = workloads.geometry(BENCHMARK_CASES[shape])["logits_width"]
     scores_workspace = torch.empty((args[0].shape[0] * width,), device=device)
     logits = op_module._prefill_logits(
         *args[:5], scores_workspace, args[7], width, 0, args[0].shape[0]

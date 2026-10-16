@@ -138,6 +138,20 @@ class ScoreBenchmarkTests(unittest.TestCase):
         self.assertEqual(len(rounds), 3)
         self.assertEqual(points[-1], "after_round_3")
 
+    def test_request_sampling_covers_short_requests_and_chunk_boundaries(self):
+        starts = [0, 7168]
+        for _ in range(16):
+            starts.append(starts[-1] + 64)
+        rows = scoring.request_sample_rows(0, 8192, starts, lambda n: [0, n - 1])
+        for begin, end in zip(starts, starts[1:]):
+            self.assertIn(begin, rows)
+            self.assertIn(end - 1, rows)
+        # A score chunk can start/end inside a request; return local row indices.
+        self.assertEqual(
+            scoring.request_sample_rows(3, 8, [0, 5, 5, 9, 20], lambda n: [0, n - 1]),
+            [0, 1, 2, 5, 6, 7],
+        )
+
     def test_guard_failure_prevents_timing(self):
         def reject(_):
             raise RuntimeError("occupied")

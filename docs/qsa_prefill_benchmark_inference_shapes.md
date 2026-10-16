@@ -2,11 +2,12 @@
 
 ## 结论与证据边界
 
-2026-10-16 更新：常规 `benchmark/test_qsa_select_paged_prefill_perf.py` 的
-core/comprehensive 均只保留下面的上游 12 组；H800 分阶段脚本默认也使用
-`upstream-prefill`。功能测试保留原有覆盖。下文的 38 组、EXTRA tuple 和 50 项
-目录是历史测量记录，不属于当前默认性能矩阵；分阶段工具的显式
-`--suite core/comprehensive` 仅保留为历史诊断入口。
+2026-10-16 更新：当前默认性能矩阵扩展为 **22组**：上游12组 + 推理长度候选8组 +
+缓存布局变体2组。常规 benchmark 的 core/comprehensive 与 H800 默认
+`inference-prefill` suite 共用定义；`--suite upstream-prefill` 仍保留原有12组。
+新增10组均按源码规则构造，布局参数尚无真实部署 trace，不能视为已实测生产分布。
+参数、来源和运行回传命令见[22组矩阵](qsa_prefill_inference_perf_matrix.md)。
+下文38组、EXTRA tuple 和50项目录保留为历史测量记录；功能测试覆盖继续保留。
 
 研究对象为官方 **Qwen/Qwen3.8-Flash-Next**，不是泛指所有 QSA 模型。
 官方配置确定索引器 H=4、D=128、KV heads=1、ratio=4、token_topk=2048，

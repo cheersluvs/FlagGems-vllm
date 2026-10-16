@@ -53,6 +53,16 @@ def score_function(launcher, chunks):
     return run
 
 
+def request_sample_rows(offset, count, starts, sample_rows):
+    """Sample evenly plus the first/last row of every request in this chunk."""
+    rows = set(sample_rows(count))
+    for begin, end in zip(starts, starts[1:]):
+        lo, hi = max(offset, begin), min(offset + count, end)
+        if lo < hi:
+            rows.update((lo - offset, hi - 1 - offset))
+    return sorted(rows)
+
+
 def validate_scores(launcher, chunks, args, torch, sample_rows, device):
     q, cache, table, starts, visible = args[:5]
     offsets = (starts - starts[0]).cpu().tolist()
@@ -63,7 +73,7 @@ def validate_scores(launcher, chunks, args, torch, sample_rows, device):
         call = chunk["score_args"]
         logits = launcher(*call, **chunk.get("score_kwargs", {}))
         offset, count = call[-2:]
-        for row in sample_rows(count):
+        for row in request_sample_rows(offset, count, offsets, sample_rows):
             query = offset + row
             request = next(
                 i

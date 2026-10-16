@@ -40,6 +40,7 @@ SOURCES = [
     "tools/qsa_prefill_score_benchmark.py",
     "tools/qsa_prefill_score_resume.py",
     "tools/qsa_prefill_upstream_workloads.py",
+    "tools/qsa_prefill_inference_workloads.py",
     "benchmark/base.py",
     "benchmark/conftest.py",
     "benchmark/consts.py",
@@ -181,10 +182,15 @@ def write_json(path, value):
     temporary.replace(path)
 
 
-def upstream_workloads_module():
+def upstream_workloads_module(inference=False):
+    name = (
+        "qsa_prefill_inference_workloads"
+        if inference
+        else "qsa_prefill_upstream_workloads"
+    )
     spec = importlib.util.spec_from_file_location(
-        "qsa_prefill_upstream_workloads",
-        ROOT / "tools/qsa_prefill_upstream_workloads.py",
+        name,
+        ROOT / "tools" / (name + ".py"),
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -192,6 +198,8 @@ def upstream_workloads_module():
 
 
 def suite_cases(options):
+    if options.suite == "inference-prefill":
+        return upstream_workloads_module(inference=True).cases()
     if options.suite == "upstream-prefill":
         return upstream_workloads_module().cases()
     return cases(options.single_row_ab)
@@ -541,8 +549,10 @@ def host_diagnostics(op, args, chunks, torch, device, options, baseline=None):
 
 def make_case(case, torch, helpers):
     dtype = getattr(torch, case["dtype"])
-    if case["kind"] == "upstream_perf":
-        return upstream_workloads_module().make_inputs(case, helpers, torch)
+    if case["kind"] in ("upstream_perf", "inference_perf"):
+        return upstream_workloads_module(case["kind"] == "inference_perf").make_inputs(
+            case, helpers, torch
+        )
     if case["kind"] == "single":
         return helpers.make_inputs(
             (1,), (8192,), dtype=dtype, num_heads=case["heads"], head_dim=case["dim"]
@@ -595,6 +605,7 @@ def fingerprint(args, torch):
             shape=list(value.shape),
             stride=list(value.stride()),
             dtype=str(value.dtype),
+            storage_offset=value.storage_offset(),
         )
         # Output storage is caller supplied and may be uninitialized.
         if i != 8:
@@ -665,7 +676,7 @@ def sample_rows(count):
 
 
 def validate_outputs(args, torch, helpers):
-    """Independent FP32 reference on <=8 entire rows, outside all timings.
+    """Independent FP32 reference on sampled rows and request boundaries, untimed.
 
     This is a benchmark guard, not a substitute for the full correctness suite.
     Use the existing selection tolerances, including the FP8 sqrt(D) scale.
@@ -673,7 +684,9 @@ def validate_outputs(args, torch, helpers):
     q, cache, table, starts, visible = args[:5]
     offsets = (starts - starts[0]).cpu().tolist()
     lengths = visible.cpu().tolist()
-    rows = sample_rows(q.shape[0])
+    from tools.qsa_prefill_score_benchmark import request_sample_rows
+
+    rows = request_sample_rows(0, q.shape[0], offsets, sample_rows)
     fp8 = q.dtype == torch.float8_e4m3fn
     for row in rows:
         request = next(
@@ -921,8 +934,10 @@ def worker(options, case, report):
         status="running",
         runtime=runtime_info(torch, triton, flaggems_vllm.runtime),
     )
-    if case["kind"] == "upstream_perf":
-        result["workload"] = upstream_workloads_module().geometry(case)
+    if case["kind"] in ("upstream_perf", "inference_perf"):
+        result["workload"] = upstream_workloads_module(
+            case["kind"] == "inference_perf"
+        ).geometry(case)
     write_json(report, result)
     guard = gpu_guard_module() if options.require_idle_gpu else None
     if guard:
@@ -967,7 +982,7 @@ def worker(options, case, report):
         )
         for c in chunks
     ]
-    if case["kind"] == "upstream_perf":
+    if case["kind"] in ("upstream_perf", "inference_perf"):
         write_json(report, result)
         expected = result["workload"]
         if (
@@ -978,8 +993,35 @@ def worker(options, case, report):
             or list(args[2].shape) != expected["page_table_shape"]
         ):
             raise RuntimeError(
-                "Observed long-prefill inputs/chunks differ from workload geometry"
+                "Observed prefill inputs/chunks differ from workload geometry"
             )
+    if case["kind"] == "inference_perf":
+        expected = result["workload"]
+        for index, layout in expected["input_layout"].items():
+            value = args[int(index)]
+            if (
+                list(value.stride()) != layout["stride"]
+                or value.storage_offset() != layout["storage_offset"]
+            ):
+                raise RuntimeError(
+                    f"Observed input {index} layout differs from inference geometry"
+                )
+        if args[3].cpu().tolist() != expected["query_start_loc"]:
+            raise RuntimeError(
+                "Observed absolute query starts differ from inference geometry"
+            )
+        visible = args[4].cpu().tolist()
+        offset = 0
+        for queries, first, last in zip(
+            expected["query_lengths"],
+            expected["visible_first_per_request"],
+            expected["visible_last_per_request"],
+        ):
+            if visible[offset] != first or visible[offset + queries - 1] != last:
+                raise RuntimeError(
+                    "Observed causal visibility differs from inference geometry"
+                )
+            offset += queries
     functions = stage_functions(op, args, chunks)
     if ab:
         ab_field, baseline_stage, module_name, kind = ab
@@ -1189,14 +1231,15 @@ def parent(options, selected, directory):
             "Stage times are not additive. Warm repeated inputs, no cache flush."
         ),
     )
-    if options.suite == "upstream-prefill":
-        module = upstream_workloads_module()
+    if options.suite in ("upstream-prefill", "inference-prefill"):
+        module = upstream_workloads_module(options.suite == "inference-prefill")
         manifest["workloads"] = {
             case["name"]: module.geometry(case) for case in selected
         }
         rows = [
-            "case\trequests\tqueries_per_request\tprefix_tokens\tsequence_tokens\t"
-            "compressed_context\tpage_size\tlogits_width\tchunk_rows"
+            "case\tkind\tquery_lengths\tprefix_tokens\tsequence_lengths\t"
+            "compressed_lengths\tpage_size\tcache_shape\tpage_table_shape\t"
+            "query_base\tcache_page_stride_factor\tlogits_width\tchunk_rows\tprovenance"
         ]
         for case in selected:
             info = manifest["workloads"][case["name"]]
@@ -1206,19 +1249,30 @@ def parent(options, selected, directory):
                         str,
                         [
                             case["name"],
-                            case["requests"],
-                            case["query_length"],
-                            case["prefix_tokens"],
-                            info["sequence_lengths"][0],
-                            info["compressed_lengths"][0],
+                            case["kind"],
+                            info["query_lengths"],
+                            [
+                                s - q
+                                for s, q in zip(
+                                    info["sequence_lengths"], info["query_lengths"]
+                                )
+                            ],
+                            info["sequence_lengths"],
+                            info["compressed_lengths"],
                             case["page_size"],
+                            info["cache_shape"],
+                            info["page_table_shape"],
+                            case.get("query_base", 0),
+                            case.get("cache_page_stride_factor", 1),
                             info["logits_width"],
                             ",".join(map(str, info["expected_chunk_rows"])),
+                            info["provenance"],
                         ],
                     )
                 )
             )
-        (directory / "upstream-prefill-shapes.tsv").write_text("\n".join(rows) + "\n")
+        filename = options.suite + "-shapes.tsv"
+        (directory / filename).write_text("\n".join(rows) + "\n")
     write_json(directory / "manifest.json", manifest)
     summary = dict(schema=SCHEMA, manifest=manifest, cases=[])
     if options.mode == "kernel":
@@ -1532,9 +1586,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--suite",
-        choices=("core", "comprehensive", "upstream-prefill"),
-        default="upstream-prefill",
-        help="Default: the published twelve layouts; core/comprehensive are legacy diagnostics",
+        choices=("core", "comprehensive", "upstream-prefill", "inference-prefill"),
+        default="inference-prefill",
+        help="Default: 12 published layouts + 10 inference probes; upstream-prefill selects only the published 12",
     )
     parser.add_argument(
         "--cases", nargs="+", help="Explicit case names; overrides suite"
@@ -1623,10 +1677,11 @@ def main():
         or not options.single_row_ab
         or not options.require_idle_gpu
         or options.cases
-        or options.suite not in ("comprehensive", "upstream-prefill")
+        or options.suite
+        not in ("comprehensive", "upstream-prefill", "inference-prefill")
     ):
         parser.error(
-            "--resume-from requires comprehensive or upstream-prefill "
+            "--resume-from requires comprehensive, upstream-prefill or inference-prefill "
             "--single-row-ab --mode kernel --require-idle-gpu, without --cases"
         )
     if options.mode == "kernel" and not options.single_row_ab:
