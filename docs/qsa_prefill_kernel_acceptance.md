@@ -86,3 +86,11 @@ confirmed that the host is shared. New checkpoint support retains only complete,
 guarded measurements on the same GPU/runtime/timer and retries failed/unstarted
 cases. Reused data remain explicitly labelled. See
 [qsa_prefill_shared_gpu_resume.md](qsa_prefill_shared_gpu_resume.md).
+
+The first resume, report `6a2bf187fb61bd79e9cd273d315726d7f8aca749`, retained
+13 cases and completed 12 more before another Python process appeared during
+timing. Upload succeeded. Progress is 25/38 including one N/A case, leaving
+13 to measure. Its checkpoint validates for chained reuse on the same GPU.
+The single H=1/D=32 BF16 case measured 1.0478x; the BF16/FP8 36-chunk cases
+measured 0.9924x/0.9902x. These partial results do not support adopting the
+entire vector region. Production routing remains unchanged.
