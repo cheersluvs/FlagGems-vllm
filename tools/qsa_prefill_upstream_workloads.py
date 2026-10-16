@@ -64,7 +64,7 @@ def geometry(case):
     )
 
 
-def make_inputs(case, helpers, torch):
+def make_inputs(case, helpers, torch, *, device="cuda"):
     """Use the existing randomized page builder with exact causal visibility."""
     info = geometry(case)
     visible = [
@@ -80,6 +80,7 @@ def make_inputs(case, helpers, torch):
         page_size=case["page_size"],
         visible=visible,
         dtype=getattr(torch, case["dtype"]),
+        device=device,
         num_heads=case["heads"],
         head_dim=case["dim"],
     )

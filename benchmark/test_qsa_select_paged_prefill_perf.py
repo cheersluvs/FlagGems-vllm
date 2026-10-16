@@ -2,6 +2,10 @@
 # Copyright 2026 FlagOS Contributors
 """H800 QSA prefill: full operator, score stage, and Top-K stage.
 
+Only the twelve published upstream query/prefix/page layouts are benchmarked.
+The H800 --mode kernel runner measures the real score chunk sequence without
+Top-K; the isolated stage tests below retain their single full-row launch.
+
 The official baseline is SHA256-pinned and required by the card runner.
 The independent Torch baseline includes host metadata reads and is reported
 separately; it must not be used as a substitute for the vLLM comparison.
@@ -14,15 +18,11 @@ import torch
 
 import flaggems_vllm
 from flaggems_vllm.ops.top_k_per_row_prefill import top_k_per_row_prefill
-from tests.qsa_select_prefill_utils import (
-    make_inputs,
-    make_upstream_no_complete_blocks_inputs,
-    make_upstream_prefill_inputs,
-    torch_select,
-    vllm_reference,
-)
+from tests import qsa_select_prefill_utils as input_helpers
+from tests.qsa_select_prefill_utils import torch_select, vllm_reference
+from tools import qsa_prefill_upstream_workloads as upstream_workloads
 
-from . import base, conftest, consts
+from . import base
 
 op_module = import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
 pytestmark = [
@@ -35,114 +35,44 @@ pytestmark = [
     ),
 ]
 
-# (request count, queries per request, compressed context length, page size, K)
-CORE_SHAPES = [
-    (1, 1, 2048, 16, 512),
-    (1, 64, 4096, 16, 512),
-    (4, 128, 16384, 64, 512),
-    (1, 2048, 65536, 64, 512),
-    (1, 64, 4096, 16, 1024),
-    (1, 64, 8192, 16, 2048),
-]
-EXTRA_SHAPES = [
-    (1, 7, 1537, 16, 512),
-    (4, 16, 8193, 64, 1024),
-    (1, 512, 65536, 16, 1024),
-    (4, 512, 65536, 64, 2048),
-]
+# One shared definition with the H800 --mode kernel runner. Prefix is in
+# original tokens before the query, not compressed cache rows.
+UPSTREAM_CASES = {
+    (case["requests"], case["query_length"], case["prefix_tokens"]): case
+    for case in upstream_workloads.cases()
+}
 
 
 class QSAPrefillBenchmark(base.GenericBenchmark):
     def set_shapes(self, shape_file_path=None):
-        self.shapes = CORE_SHAPES
-        if conftest.Config.bench_level == consts.BenchLevel.COMPREHENSIVE:
-            self.shapes = CORE_SHAPES + EXTRA_SHAPES
+        # Both core and comprehensive use only the published twelve layouts.
+        self.shapes = list(UPSTREAM_CASES)
         self.shape_desc = (
-            "requests, query_length, compressed_context, page_size, block_k"
+            "requests, query_length, prefix_tokens "
+            "(BF16, H=4, D=128, page=196, block_k=512)"
         )
 
     def set_more_shapes(self):
         return []
 
 
-class QSAUpstreamPrefillBenchmark(base.GenericBenchmark):
-    def set_shapes(self, shape_file_path=None):
-        # Exact BF16/FP8 upstream prefill fixture, with both max_seq_len bounds.
-        self.shapes = [(0,), (1792,)]
-        self.shape_desc = "seq_len_slack (Q=36x4x128, cache=128x24x1x128, table=2x64)"
-
-    def set_more_shapes(self):
-        return []
-
-
-def _upstream_inputs(shape, dtype, device):
-    yield make_upstream_prefill_inputs(
-        seq_len_slack=shape[0], device=device, dtype=dtype
-    )
-
-
-class QSANoCompleteBlocksBenchmark(base.GenericBenchmark):
-    def set_shapes(self, shape_file_path=None):
-        self.shapes = [()]
-        self.shape_desc = "upstream zero-visible (Q=2x4x8, cache=1x16x1x8)"
-
-    def set_more_shapes(self):
-        return []
-
-
-class QSAParameterizedBenchmark(base.GenericBenchmark):
-    def set_shapes(self, shape_file_path=None):
-        # Synthetic parameter coverage, separately reported from upstream H4.
-        self.shapes = [(1, 32), (3, 64), (5, 96), (8, 256)]
-        if conftest.Config.bench_level == consts.BenchLevel.COMPREHENSIVE:
-            self.shapes += [(12, 192), (17, 33)]
-        self.shape_desc = "num_heads, head_dim (36 queries, contexts=2048/4096)"
-
-    def set_more_shapes(self):
-        return []
-
-
-def _parameterized_inputs(shape, dtype, device):
-    heads, dim = shape
-    yield make_inputs(
-        (3, 33),
-        (2048, 4096),
-        query_base=31,
-        device=device,
-        num_heads=heads,
-        head_dim=dim,
-        dtype=dtype,
-    )
-
-
-def _no_complete_blocks_inputs(shape, dtype, device):
-    assert dtype == torch.bfloat16
-    yield make_upstream_no_complete_blocks_inputs(device=device)
-
-
 def _inputs(shape, dtype, device):
-    requests, length, context, page, k = shape
     assert dtype == torch.bfloat16
-    yield make_inputs(
-        (length,) * requests,
-        (context,) * requests,
-        page_size=page,
-        k=k,
-        query_base=31,
-        device=device,
+    yield upstream_workloads.make_inputs(
+        UPSTREAM_CASES[shape], input_helpers, torch, device=device
     )
 
 
 def _score_inputs(shape, dtype, device):
     args = next(_inputs(shape, dtype, device))
-    width = args[2].shape[1] * args[1].shape[1]
+    width = upstream_workloads.geometry(UPSTREAM_CASES[shape])["logits_width"]
     workspace = torch.empty((args[0].shape[0] * width,), device=device)
     yield (*args[:5], workspace, args[7], width, 0, args[0].shape[0])
 
 
 def _topk_inputs(shape, dtype, device):
     args = next(_inputs(shape, dtype, device))
-    width = args[2].shape[1] * args[1].shape[1]
+    width = upstream_workloads.geometry(UPSTREAM_CASES[shape])["logits_width"]
     scores_workspace = torch.empty((args[0].shape[0] * width,), device=device)
     logits = op_module._prefill_logits(
         *args[:5], scores_workspace, args[7], width, 0, args[0].shape[0]
@@ -213,29 +143,6 @@ def test_full_vs_torch():
     )
 
 
-def test_parameterized_full_vs_torch():
-    _run(
-        "qsa_prefill_parameterized_vs_torch",
-        torch_select,
-        flaggems_vllm.qsa_select_paged_prefill,
-        _parameterized_inputs,
-        QSAParameterizedBenchmark,
-        dtypes=(torch.bfloat16, torch.float8_e4m3fn),
-    )
-
-
-def test_parameterized_full_vs_vllm():
-    reference = vllm_reference()
-    _run(
-        "qsa_prefill_parameterized_vs_vllm",
-        reference.qsa_select_paged_prefill,
-        flaggems_vllm.qsa_select_paged_prefill,
-        _parameterized_inputs,
-        QSAParameterizedBenchmark,
-        dtypes=(torch.bfloat16, torch.float8_e4m3fn),
-    )
-
-
 def test_full_vs_vllm():
     reference = vllm_reference()
     _run(
@@ -274,53 +181,4 @@ def test_topk_persistent_vs_prefill():
         _old_gems_topk,
         _gems_topk,
         _topk_inputs,
-    )
-
-
-@pytest.mark.parametrize("force_chunk", [False, True], ids=["default", "one_row"])
-def test_upstream_full_vs_torch(monkeypatch, force_chunk):
-    monkeypatch.setenv(
-        "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
-    )
-    chunk_name = "one_row" if force_chunk else "default"
-    _run(
-        f"qsa_prefill_upstream_vs_torch_{chunk_name}",
-        torch_select,
-        flaggems_vllm.qsa_select_paged_prefill,
-        _upstream_inputs,
-        QSAUpstreamPrefillBenchmark,
-        dtypes=(torch.bfloat16, torch.float8_e4m3fn),
-    )
-
-
-@pytest.mark.parametrize("force_chunk", [False, True], ids=["default", "one_row"])
-def test_upstream_full_vs_vllm(monkeypatch, force_chunk):
-    reference = vllm_reference()
-    budget = 0 if force_chunk else 512
-    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
-    monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
-    chunk_name = "one_row" if force_chunk else "default"
-    _run(
-        f"qsa_prefill_upstream_vs_vllm_{chunk_name}",
-        reference.qsa_select_paged_prefill,
-        flaggems_vllm.qsa_select_paged_prefill,
-        _upstream_inputs,
-        QSAUpstreamPrefillBenchmark,
-        dtypes=(torch.bfloat16, torch.float8_e4m3fn),
-    )
-
-
-@pytest.mark.parametrize("baseline", ["torch", "vllm"])
-def test_upstream_no_complete_blocks(baseline):
-    reference = (
-        torch_select
-        if baseline == "torch"
-        else vllm_reference().qsa_select_paged_prefill
-    )
-    _run(
-        f"qsa_prefill_upstream_no_complete_blocks_vs_{baseline}",
-        reference,
-        flaggems_vllm.qsa_select_paged_prefill,
-        _no_complete_blocks_inputs,
-        QSANoCompleteBlocksBenchmark,
     )

@@ -91,7 +91,7 @@ def ab_configuration(options):
 
 
 def cases(single_row=False):
-    # Same six BF16 tuples as benchmark/test_qsa_select_paged_prefill_perf.py.
+    # Historical diagnostic fixtures, available only via explicit legacy suites.
     core = [
         (1, 1, 2048, 16, 512),
         (1, 64, 4096, 16, 512),
@@ -1533,7 +1533,8 @@ def main():
     parser.add_argument(
         "--suite",
         choices=("core", "comprehensive", "upstream-prefill"),
-        default="comprehensive",
+        default="upstream-prefill",
+        help="Default: the published twelve layouts; core/comprehensive are legacy diagnostics",
     )
     parser.add_argument(
         "--cases", nargs="+", help="Explicit case names; overrides suite"

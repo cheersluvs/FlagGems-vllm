@@ -2,12 +2,18 @@
 
 ## 结论与证据边界
 
+2026-10-16 更新：常规 `benchmark/test_qsa_select_paged_prefill_perf.py` 的
+core/comprehensive 均只保留下面的上游 12 组；H800 分阶段脚本默认也使用
+`upstream-prefill`。功能测试保留原有覆盖。下文的 38 组、EXTRA tuple 和 50 项
+目录是历史测量记录，不属于当前默认性能矩阵；分阶段工具的显式
+`--suite core/comprehensive` 仅保留为历史诊断入口。
+
 研究对象为官方 **Qwen/Qwen3.8-Flash-Next**，不是泛指所有 QSA 模型。
 官方配置确定索引器 H=4、D=128、KV heads=1、ratio=4、token_topk=2048，
 因此本算子的 compressed block Top-K=512。索引器投影是 ReplicatedLinear，
 不会因为 TP=2/4/8 就把 H=4 除成 2/1；主注意力的 H=24、D=256 是另一组参数。
 
-目前我们的已回传 benchmark 是 **38+12=50 个参数场景**；部分张量 shape 相同，
+此前已回传 benchmark 共 **38+12=50 个参数场景**；部分张量 shape 相同，
 但 dtype、max_seq_len 上界或工作区预算不同。这 50 个场景均有算子级 H800 报告，
 不等于采集到了 50 种真实服务输入。本轮的“推理证实”来自官方配置、发布源码、
 调用链和实际执行上游元数据分流函数；**没有运行完整模型或采集真实流量的 shape 频次**。
@@ -78,7 +84,7 @@
 | 1 | 64 | 4096 | 16384 | 16 | 1024 |
 | 1 | 64 | 8192 | 32768 | 16 | 2048 |
 
-仓库常规 `benchmark/test_qsa_select_paged_prefill_perf.py` 还定义了本轮没有运行的
+变更前，常规 `benchmark/test_qsa_select_paged_prefill_perf.py` 还定义了未纳入这 50 组的
 EXTRA tuples：`(1,7,1537,16,512)`、`(4,16,8193,64,1024)`、
 `(1,512,65536,16,1024)`、`(4,512,65536,64,2048)`，以及 comprehensive 参数化
 中的 `(H,D)=(12,192)` 等。不能把“文件中存在”写成“最近50组均已跑过”。

@@ -28,6 +28,7 @@ from pathlib import Path
 a=sys.argv[1:]
 flag={'host':'--host-ab', 'single-row':'--single-row-ab', 'validation':'--validation-ab'}[os.environ['MOCK_AB_KIND']]
 assert flag in a and '--host-profile' in a
+assert a[a.index('--suite')+1]=='upstream-prefill'
 assert sum(f in a for f in ('--validation-ab','--host-ab','--single-row-ab')) == 1
 assert ('--require-idle-gpu' in a) == (os.environ['MOCK_GUARDED']=='1')
 if os.environ['MOCK_KERNEL']=='1':

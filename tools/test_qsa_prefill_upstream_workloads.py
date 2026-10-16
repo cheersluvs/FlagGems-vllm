@@ -2,6 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """CPU checks for original-token prefix semantics and isolated suite transport."""
 
+import ast
 import contextlib
 import importlib.util
 import io
@@ -94,17 +95,73 @@ class UpstreamWorkloadTests(unittest.TestCase):
             self.assertLessEqual(geometry["score_workspace_bytes"], 512 * 1024**2)
             self.assertGreaterEqual(geometry["visible_first"], case["k"])
 
-    def test_cli_separates_new_twelve_from_original_thirty_eight(self):
-        for suite, count in (("upstream-prefill", 12), ("comprehensive", 38)):
+    def test_pytest_benchmark_uses_only_shared_twelve_and_causal_inputs(self):
+        # Execute the real shape/input definitions without importing GPU modules.
+        source = bench.ROOT / "benchmark/test_qsa_select_paged_prefill_perf.py"
+        tree = ast.parse(source.read_text())
+        definitions = [
+            node
+            for node in tree.body
+            if (isinstance(node, ast.ClassDef) and node.name == "QSAPrefillBenchmark")
+            or (isinstance(node, ast.FunctionDef) and node.name == "_inputs")
+            or (
+                isinstance(node, ast.Assign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == "UPSTREAM_CASES"
+                    for target in node.targets
+                )
+            )
+        ]
+        captured = {}
+
+        def make_inputs(query_lengths, contexts, **kwargs):
+            captured.update(q=query_lengths, contexts=contexts, **kwargs)
+            return tuple(range(10))
+
+        namespace = dict(
+            base=types.SimpleNamespace(GenericBenchmark=object),
+            upstream_workloads=workloads,
+            input_helpers=types.SimpleNamespace(make_inputs=make_inputs),
+            torch=types.SimpleNamespace(bfloat16="bf16"),
+        )
+        exec(
+            compile(ast.Module(body=definitions, type_ignores=[]), str(source), "exec"),
+            namespace,
+        )
+        benchmark = namespace["QSAPrefillBenchmark"]()
+        benchmark.set_shapes()
+        self.assertEqual(benchmark.set_more_shapes(), [])
+        self.assertEqual(
+            benchmark.shapes,
+            [
+                (c["requests"], c["query_length"], c["prefix_tokens"])
+                for c in workloads.cases()
+            ],
+        )
+        for shape, case in zip(benchmark.shapes, workloads.cases()):
+            args = next(namespace["_inputs"](shape, "bf16", "cuda:3"))
+            info = workloads.geometry(case)
+            self.assertEqual(captured["device"], "cuda:3")
+            self.assertEqual(captured["q"], info["query_lengths"])
+            self.assertEqual(captured["contexts"], info["compressed_lengths"])
+            self.assertEqual(captured["visible"][0], info["visible_first"])
+            self.assertEqual(captured["visible"][-1], info["visible_last"])
+            self.assertEqual(args[9], max(info["sequence_lengths"]))
+
+    def test_cli_defaults_to_twelve_with_explicit_legacy_diagnostics(self):
+        for suite, count in (
+            (None, 12),
+            ("upstream-prefill", 12),
+            ("comprehensive", 38),
+        ):
             result = subprocess.run(
                 [
                     sys.executable,
                     str(Path(bench.__file__)),
                     "--single-row-ab",
-                    "--suite",
-                    suite,
                     "--list-cases",
-                ],
+                ]
+                + (["--suite", suite] if suite else []),
                 text=True,
                 capture_output=True,
                 check=True,
