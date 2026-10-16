@@ -1,0 +1,4067 @@
+{
+  "schema": 2,
+  "case": {
+    "name": "one_row_float8_e4m3fn",
+    "kind": "upstream",
+    "slack": 0,
+    "budget_mb": 0,
+    "dtype": "float8_e4m3fn",
+    "extended": true
+  },
+  "status": "passed",
+  "runtime": {
+    "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.39",
+    "torch_version": "2.13.0+cu129",
+    "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+    "triton_version": "3.6.0",
+    "triton_source": "/opt/flagtree/triton/__init__.py",
+    "triton_init_sha256": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30",
+    "compiler_files": {
+      "triton.backends.nvidia.compiler": {
+        "path": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+        "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+      },
+      "triton.backends.nvidia.driver": {
+        "path": "/opt/flagtree/triton/backends/nvidia/driver.py",
+        "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+      },
+      "triton.knobs": {
+        "path": "/opt/flagtree/triton/knobs.py",
+        "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+      },
+      "triton._C.libtriton": {
+        "path": "/opt/flagtree/triton/_C/libtriton.so",
+        "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+      }
+    },
+    "ptxas": {
+      "path": "/opt/flagtree/triton/backends/nvidia/bin/ptxas",
+      "sha256": "c960a4f238b17d5c5d3c01ad2bbc1ebd2c5aecc459cb4d223bff10b45f9b8fca",
+      "version": {
+        "returncode": 0,
+        "stdout": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:21:21_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+        "stderr": ""
+      }
+    },
+    "cuda": "12.9",
+    "vendor": "nvidia",
+    "device": "_CudaDeviceProperties(name='NVIDIA H800', major=9, minor=0, total_memory=81090MB, multi_processor_count=132, uuid=497db188-9a65-ed86-3516-2de784681f95, pci_bus_id=93, pci_device_id=0, pci_domain_id=0, L2_cache_size=50MB)",
+    "uuid": "497db188-9a65-ed86-3516-2de784681f95",
+    "versions": {
+      "torch": "2.13.0+cu129",
+      "triton": "3.7.1",
+      "flagtree": "0.6.1",
+      "vllm": "0.31.0+cu129"
+    },
+    "allow_tf32": false,
+    "environment": {
+      "PYTHONPATH": "/tmp/flaggems-qsa-idle.ytDlH5/src:/tmp/flaggems-qsa-idle.ytDlH5:/opt/flagtree",
+      "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree",
+      "CUDA_VISIBLE_DEVICES": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+      "CUDA_LAUNCH_BLOCKING": null,
+      "LD_LIBRARY_PATH": "/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+      "TRITON_CACHE_DIR": "/tmp/qsa-stage-h800.Bl2ipw/cache/one_row_float8_e4m3fn/triton",
+      "FLAGGEMS_CACHE_DIR": "/tmp/qsa-stage-h800.Bl2ipw/cache/one_row_float8_e4m3fn/gems",
+      "TRITON_PTXAS_PATH": null,
+      "TRITON_DISABLE_LINE_INFO": null,
+      "TRITON_OVERRIDE_ARCH": null,
+      "DISABLE_PTXAS_OPT": null,
+      "PTXAS_OPTIONS": null,
+      "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB": "0"
+    },
+    "nvidia_smi": {
+      "returncode": 0,
+      "stdout": "Fri Oct 16 08:19:45 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 12.9     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H800                    Off |   00000000:1A:00.0 Off |                    0 |\n| N/A   63C    P0            127W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA H800                    Off |   00000000:5D:00.0 Off |                    0 |\n| N/A   28C    P0             71W /  700W |       4MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA H800                    Off |   00000000:6E:00.0 Off |                    0 |\n| N/A   28C    P0             68W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA H800                    Off |   00000000:7E:00.0 Off |                    0 |\n| N/A   44C    P0             76W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   4  NVIDIA H800                    Off |   00000000:B8:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   5  NVIDIA H800                    Off |   00000000:CC:00.0 Off |                    0 |\n| N/A   28C    P0             72W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   6  NVIDIA H800                    Off |   00000000:D7:00.0 Off |                    0 |\n| N/A   28C    P0             71W /  700W |      88MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   7  NVIDIA H800                    Off |   00000000:E1:00.0 Off |                    0 |\n| N/A   38C    P0             74W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|  No running processes found                                                             |\n+-----------------------------------------------------------------------------------------+\n",
+      "stderr": ""
+    },
+    "nvidia_smi_after": {
+      "returncode": 0,
+      "stdout": "Fri Oct 16 08:20:36 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 12.9     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H800                    Off |   00000000:1A:00.0 Off |                    0 |\n| N/A   63C    P0            127W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA H800                    Off |   00000000:5D:00.0 Off |                    0 |\n| N/A   30C    P0            126W /  700W |    1060MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA H800                    Off |   00000000:6E:00.0 Off |                    0 |\n| N/A   28C    P0             68W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA H800                    Off |   00000000:7E:00.0 Off |                    0 |\n| N/A   44C    P0             76W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   4  NVIDIA H800                    Off |   00000000:B8:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   5  NVIDIA H800                    Off |   00000000:CC:00.0 Off |                    0 |\n| N/A   28C    P0             72W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   6  NVIDIA H800                    Off |   00000000:D7:00.0 Off |                    0 |\n| N/A   28C    P0             71W /  700W |      88MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   7  NVIDIA H800                    Off |   00000000:E1:00.0 Off |                    0 |\n| N/A   38C    P0             74W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|    1   N/A  N/A         3393427      C   ...1-h800.PQnVpV/venv/bin/python       1050MiB |\n+-----------------------------------------------------------------------------------------+\n",
+      "stderr": ""
+    }
+  },
+  "candidate_source": "/tmp/flaggems-qsa-idle.ytDlH5/tools/qsa_prefill_single_row_trial.py",
+  "score_kernel_policy": "candidate vector for one query H<=8 D<=256; shared production matmul otherwise",
+  "inputs": [
+    {
+      "argument": 0,
+      "shape": [
+        36,
+        4,
+        128
+      ],
+      "stride": [
+        512,
+        128,
+        1
+      ],
+      "dtype": "torch.float8_e4m3fn",
+      "sha256": "28d9af554c9b960af172610fa5be20e9bb8597561eb3fb3e593c99a94820d734"
+    },
+    {
+      "argument": 1,
+      "shape": [
+        128,
+        24,
+        1,
+        128
+      ],
+      "stride": [
+        3072,
+        128,
+        128,
+        1
+      ],
+      "dtype": "torch.float8_e4m3fn",
+      "sha256": "e59cb48d0a634c00601bf6935d8c23cbf809e1edba4c38073eee750b44866062"
+    },
+    {
+      "argument": 2,
+      "shape": [
+        2,
+        64
+      ],
+      "stride": [
+        64,
+        1
+      ],
+      "dtype": "torch.int32",
+      "sha256": "a61aa166d3df294339a843625a10a07eccc536bb62e5da466036f6126d0c5384"
+    },
+    {
+      "argument": 3,
+      "shape": [
+        3
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int32",
+      "sha256": "6fb3a70848974354e22266dca56c38d461c5b80d69268bf2b4acc20379f457b7"
+    },
+    {
+      "argument": 4,
+      "shape": [
+        36
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int32",
+      "sha256": "061737a80cce07613558b8068848192f628af1491d478d997bf36851c8f18f36"
+    },
+    {
+      "argument": 5,
+      "value": 2048
+    },
+    {
+      "argument": 6,
+      "value": 4
+    },
+    {
+      "argument": 7,
+      "value": 33
+    },
+    {
+      "argument": 8,
+      "shape": [
+        36,
+        512
+      ],
+      "stride": [
+        512,
+        1
+      ],
+      "dtype": "torch.int32"
+    },
+    {
+      "argument": 9,
+      "value": 5120
+    }
+  ],
+  "validation_rows": [
+    0,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35
+  ],
+  "chunks": [
+    {
+      "offset": 0,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 1,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 2,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 3,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 4,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 5,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 6,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 7,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 8,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 9,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 10,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 11,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 12,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 13,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 14,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 15,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 16,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 17,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 18,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 19,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 20,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 21,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 22,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 23,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 24,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 25,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 26,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 27,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 28,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 29,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 30,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 31,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 32,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 33,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 34,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    },
+    {
+      "offset": 35,
+      "rows": 1,
+      "width": 1280,
+      "workspace_shape": [
+        1,
+        1280
+      ],
+      "prepared_metadata": true,
+      "logits_is_workspace": true,
+      "score_path": "vector"
+    }
+  ],
+  "baseline_validation_rows": [
+    0,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35
+  ],
+  "single_row_ab": {
+    "kind": "single-row-vector",
+    "baseline_commit": "454074da0c079cc649d139489ce11fd3141585b7",
+    "baseline_op_sha256": "d70faeb6928c2c7a56636ded833f3359368871e353ecf4c66c6dfd35cae93e73",
+    "same_public_bytecode": true,
+    "shared_score": false,
+    "shared_score_kernel": true,
+    "shared_topk": true,
+    "shared_fill_kernel": true,
+    "shared_validator_bytecode": true,
+    "shared_overlap_helper": true,
+    "speedup": {
+      "wall_us": {
+        "ratio_of_medians": 0.9967576423168737,
+        "paired_round_ratios": {
+          "samples": [
+            0.9947194551126685,
+            0.9942871976499115,
+            0.9968732952206877,
+            0.9960356110767695,
+            0.9967456262002202,
+            0.9892511201934736,
+            0.9944942805588595
+          ],
+          "median": 0.9947194551126685,
+          "mean": 0.994629512287513,
+          "min": 0.9892511201934736,
+          "max": 0.9968732952206877,
+          "stdev": 0.00260000871500081
+        }
+      },
+      "event_us": {
+        "ratio_of_medians": 0.9973585658372399,
+        "paired_round_ratios": {
+          "samples": [
+            0.9981598281710101,
+            1.0025174071219354,
+            0.9916451422384333,
+            0.9952264124148537,
+            0.9936110671273899,
+            0.9848364040627016,
+            0.9959957703806666
+          ],
+          "median": 0.9952264124148537,
+          "mean": 0.994570290216713,
+          "min": 0.9848364040627016,
+          "max": 1.0025174071219354,
+          "stdev": 0.005518590991012547
+        }
+      },
+      "graph_us": {
+        "ratio_of_medians": 1.0081864231659325,
+        "paired_round_ratios": {
+          "samples": [
+            1.0103190107440574,
+            1.0060169159857006,
+            1.0081218158223302,
+            1.0078244152341314,
+            1.0079400331153974,
+            1.0080355581073104,
+            1.0082647134670797
+          ],
+          "median": 1.0080355581073104,
+          "mean": 1.0080746374965723,
+          "min": 1.0060169159857006,
+          "max": 1.0103190107440574,
+          "stdev": 0.001251135516110197
+        }
+      }
+    }
+  },
+  "stages": {
+    "full": {
+      "graph_us": {
+        "status": "passed",
+        "samples": [
+          459.52584193303034,
+          460.5489143958458,
+          459.5012297997108,
+          459.5464559701773,
+          459.55786338219275,
+          460.48985994779144,
+          459.5627784729004
+        ],
+        "median": 459.55786338219275,
+        "mean": 459.8189919859498,
+        "min": 459.5012297997108,
+        "max": 460.5489143958458,
+        "stdev": 0.4792128439928725
+      },
+      "wall_us": {
+        "status": "passed",
+        "samples": [
+          3664.9710785311004,
+          3601.000697996754,
+          3607.162202780063,
+          3589.415439189627,
+          3607.205688380278,
+          3588.0983520585755,
+          3618.5185711544295
+        ],
+        "median": 3607.162202780063,
+        "mean": 3610.910290012975,
+        "min": 3588.0983520585755,
+        "max": 3664.9710785311004,
+        "stdev": 26.10504474673017
+      },
+      "event_us": {
+        "status": "passed",
+        "samples": [
+          3636.3810025728667,
+          3605.6644733135518,
+          3626.438727745643,
+          3595.3286977914663,
+          3604.4737008901743,
+          3593.39846097506,
+          3624.5313791128306
+        ],
+        "median": 3605.6644733135518,
+        "mean": 3612.316634628799,
+        "min": 3593.39846097506,
+        "max": 3636.3810025728667,
+        "stdev": 16.733088246212567
+      }
+    },
+    "full_matmul_baseline": {
+      "graph_us": {
+        "status": "passed",
+        "samples": [
+          464.26769403310925,
+          463.3199985210712,
+          463.23321415827826,
+          463.14213826106146,
+          463.2067680358887,
+          464.1901529752291,
+          463.3609331571139
+        ],
+        "median": 463.3199985210712,
+        "mean": 463.53155702025026,
+        "min": 463.14213826106146,
+        "max": 464.26769403310925,
+        "stdev": 0.48229644281678835
+      },
+      "wall_us": {
+        "status": "passed",
+        "samples": [
+          3645.618034240145,
+          3580.4288927465677,
+          3595.883671480876,
+          3575.185600381631,
+          3595.4664926975965,
+          3549.5303141383024,
+          3598.5960231090967
+        ],
+        "median": 3595.4664926975965,
+        "mean": 3591.5298612563165,
+        "min": 3549.5303141383024,
+        "max": 3645.618034240145,
+        "stdev": 29.337808808619506
+      },
+      "event_us": {
+        "status": "passed",
+        "samples": [
+          3629.689436692458,
+          3614.741398737981,
+          3596.140347994291,
+          3578.1660813551684,
+          3581.4449603740986,
+          3538.909618671124,
+          3610.0179232083833
+        ],
+        "median": 3596.140347994291,
+        "mean": 3592.729966719072,
+        "min": 3538.909618671124,
+        "max": 3629.689436692458,
+        "stdev": 29.99193694244235
+      }
+    },
+    "score": {
+      "graph_us": {
+        "status": "passed",
+        "samples": [
+          88.62091944767879,
+          88.2566158588116,
+          88.33138759319598,
+          88.28953596261832,
+          88.25845901782697,
+          88.60953954549936,
+          88.24461240034837
+        ],
+        "median": 88.28953596261832,
+        "mean": 88.37300997513991,
+        "min": 88.24461240034837,
+        "max": 88.62091944767879,
+        "stdev": 0.16795888734229963
+      },
+      "wall_us": {
+        "status": "passed",
+        "samples": [
+          1059.2490613747102,
+          1060.5791332916572,
+          1809.8417382973892,
+          1064.360929796329,
+          1048.0278243239109,
+          1051.5541160622467,
+          1055.6905136372034
+        ],
+        "median": 1059.2490613747102,
+        "mean": 1164.186188111921,
+        "min": 1048.0278243239109,
+        "max": 1809.8417382973892,
+        "stdev": 284.7608512920094
+      },
+      "event_us": {
+        "status": "passed",
+        "samples": [
+          1060.4834189781775,
+          1062.043703519381,
+          1636.219758253831,
+          1052.2188039926382,
+          1049.7738764836238,
+          1052.9366273146409,
+          1060.9562947199895
+        ],
+        "median": 1060.4834189781775,
+        "mean": 1139.2332118946117,
+        "min": 1049.7738764836238,
+        "max": 1636.219758253831,
+        "stdev": 219.2047115889973
+      }
+    },
+    "topk": {
+      "graph_us": {
+        "status": "passed",
+        "samples": [
+          370.8009353050819,
+          370.0938591590294,
+          370.36954439603363,
+          370.1473749600924,
+          370.90308849628155,
+          370.05013685960034,
+          370.09444603553186
+        ],
+        "median": 370.1473749600924,
+        "mean": 370.35134074452156,
+        "min": 370.05013685960034,
+        "max": 370.90308849628155,
+        "stdev": 0.35858743779584074
+      },
+      "wall_us": {
+        "status": "passed",
+        "samples": [
+          1628.3437681312744,
+          1599.1893596947193,
+          1946.6271444868582,
+          1611.8830177359855,
+          1596.7802252047336,
+          1606.2874884272996,
+          1616.3358142456184
+        ],
+        "median": 1611.8830177359855,
+        "mean": 1657.9209739894984,
+        "min": 1596.7802252047336,
+        "max": 1946.6271444868582,
+        "stdev": 127.75529566811765
+      },
+      "event_us": {
+        "status": "passed",
+        "samples": [
+          1622.2723447359526,
+          1614.7036919227014,
+          1914.5609048696665,
+          1585.432346050556,
+          1615.5363229604868,
+          1595.7345228928787,
+          1608.330799983098
+        ],
+        "median": 1614.7036919227014,
+        "mean": 1650.93870477362,
+        "min": 1585.432346050556,
+        "max": 1914.5609048696665,
+        "stdev": 116.93213676926257
+      }
+    },
+    "pipeline_preallocated": {
+      "graph_us": {
+        "status": "passed",
+        "samples": [
+          462.94245353111853,
+          461.8381720322829,
+          461.89014728252704,
+          461.8938519404485,
+          461.8984735929049,
+          462.88523307213416,
+          461.92062818087066
+        ],
+        "median": 461.8984735929049,
+        "mean": 462.18127994746953,
+        "min": 461.8381720322829,
+        "max": 462.94245353111853,
+        "stdev": 0.5013232711308006
+      },
+      "wall_us": {
+        "status": "passed",
+        "samples": [
+          3449.3550013464233,
+          3424.223834792009,
+          3916.287884259453,
+          3411.976728015221,
+          3401.7727280465456,
+          3395.0879632566985,
+          3422.968161220734
+        ],
+        "median": 3422.968161220734,
+        "mean": 3488.8103287052977,
+        "min": 3395.0879632566985,
+        "max": 3916.287884259453,
+        "stdev": 189.32477275981964
+      },
+      "event_us": {
+        "status": "passed",
+        "samples": [
+          3477.466583251953,
+          3420.80805851863,
+          3403.4294715294473,
+          3407.07280085637,
+          3403.7686861478364,
+          3368.6937185434194,
+          3401.8883338341348
+        ],
+        "median": 3403.7686861478364,
+        "mean": 3411.8753789545417,
+        "min": 3368.6937185434194,
+        "max": 3477.466583251953,
+        "stdev": 32.93051342944858
+      }
+    }
+  },
+  "score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 2,
+        "num_ctas": 1,
+        "TILE_R": 4,
+        "BLOCK_N": 64,
+        "K_TILES": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='9bca7856f479581b2f0d03bdc94f98c50d1d1c14824b597b4e77c5132ce5656c', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=13312, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "e33a148fb5ee18e3fcd38e9f359eef96ced1029e4c6dd1b083fcb5c100e270bb",
+      "cubin_sha256": "4437f9da7346f3d6481cdc157e959ef2d0559820bc80ef2f1f677de93be7919b"
+    }
+  ],
+  "vector_score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 1,
+        "BLOCK_N": 16,
+        "K_TILES": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='88456e3bb21bf8c80126f87a56599dbf80a238240b0f2274b7b8b1179ccf751d', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_single_row_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=128, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "1340c3db4edc1be620fe0c25031e193424e9da4bd2c322f424e76b146578f9e9",
+      "cubin_sha256": "36603873c2fbfa68a7471cda04b3d8fc8235a1dd1e8dedc69d38f83e467148bd"
+    }
+  ],
+  "timing_plan": {
+    "calls_per_round": 104,
+    "eager_iterations": 104,
+    "graph_replays": 13,
+    "graph_batch": 8,
+    "rounds": 7,
+    "order": "rotate_stages_and_modes_each_round"
+  },
+  "telemetry": [
+    {
+      "label": "before_timing",
+      "monotonic_seconds": 12170267.191079656,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 08:20:08.519, GPU-497db188-9a65-ed86-3516-2de784681f95, 30, 1980 MHz, 2619 MHz, 127.82 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 08:20:08 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:5D:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          3393427
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-497db188-9a65-ed86-3516-2de784681f95, 3393427, 1050\n",
+          "stderr": ""
+        },
+        "temperature_c": 30.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 3393427,
+            "used_memory_mib": 1050
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_1",
+      "monotonic_seconds": 12170270.646861214,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 08:20:11.952, GPU-497db188-9a65-ed86-3516-2de784681f95, 30, 1980 MHz, 2619 MHz, 127.84 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 08:20:12 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:5D:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          3393427
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-497db188-9a65-ed86-3516-2de784681f95, 3393427, 1050\n",
+          "stderr": ""
+        },
+        "temperature_c": 30.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 3393427,
+            "used_memory_mib": 1050
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_2",
+      "monotonic_seconds": 12170274.018209124,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 08:20:15.313, GPU-497db188-9a65-ed86-3516-2de784681f95, 30, 1980 MHz, 2619 MHz, 127.80 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 08:20:15 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:5D:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          3393427
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-497db188-9a65-ed86-3516-2de784681f95, 3393427, 1050\n",
+          "stderr": ""
+        },
+        "temperature_c": 30.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 3393427,
+            "used_memory_mib": 1050
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_3",
+      "monotonic_seconds": 12170277.667622298,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 08:20:18.956, GPU-497db188-9a65-ed86-3516-2de784681f95, 30, 1980 MHz, 2619 MHz, 127.36 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 08:20:19 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:5D:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          3393427
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-497db188-9a65-ed86-3516-2de784681f95, 3393427, 1050\n",
+          "stderr": ""
+        },
+        "temperature_c": 30.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 3393427,
+            "used_memory_mib": 1050
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_4",
+      "monotonic_seconds": 12170281.010460012,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 08:20:22.324, GPU-497db188-9a65-ed86-3516-2de784681f95, 30, 1980 MHz, 2619 MHz, 127.85 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 08:20:22 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:5D:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          3393427
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-497db188-9a65-ed86-3516-2de784681f95, 3393427, 1050\n",
+          "stderr": ""
+        },
+        "temperature_c": 30.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 3393427,
+            "used_memory_mib": 1050
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_5",
+      "monotonic_seconds": 12170284.379629863,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 08:20:25.688, GPU-497db188-9a65-ed86-3516-2de784681f95, 30, 1980 MHz, 2619 MHz, 127.94 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 08:20:25 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:5D:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          3393427
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-497db188-9a65-ed86-3516-2de784681f95, 3393427, 1050\n",
+          "stderr": ""
+        },
+        "temperature_c": 30.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 3393427,
+            "used_memory_mib": 1050
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_6",
+      "monotonic_seconds": 12170287.707588045,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 08:20:28.998, GPU-497db188-9a65-ed86-3516-2de784681f95, 30, 1980 MHz, 2619 MHz, 127.78 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 08:20:29 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:5D:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          3393427
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-497db188-9a65-ed86-3516-2de784681f95, 3393427, 1050\n",
+          "stderr": ""
+        },
+        "temperature_c": 30.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 3393427,
+            "used_memory_mib": 1050
+          }
+        ]
+      }
+    },
+    {
+      "label": "after_round_7",
+      "monotonic_seconds": 12170291.093584504,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/16 08:20:32.399, GPU-497db188-9a65-ed86-3516-2de784681f95, 30, 1980 MHz, 2619 MHz, 128.01 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Fri Oct 16 08:20:32 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 12.9\n\nAttached GPUs                             : 8\nGPU 00000000:5D:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-497db188-9a65-ed86-3516-2de784681f95",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          3393427
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-497db188-9a65-ed86-3516-2de784681f95, 3393427, 1050\n",
+          "stderr": ""
+        },
+        "temperature_c": 30.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 3393427,
+            "used_memory_mib": 1050
+          }
+        ]
+      }
+    }
+  ],
+  "performance_guard": {
+    "status": "observed_clean",
+    "last_label": "after_round_7",
+    "reasons": []
+  },
+  "measurement_order": [
+    [
+      [
+        "full",
+        "wall_us"
+      ],
+      [
+        "full",
+        "event_us"
+      ],
+      [
+        "full",
+        "graph_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "wall_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "event_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "graph_us"
+      ],
+      [
+        "score",
+        "wall_us"
+      ],
+      [
+        "score",
+        "event_us"
+      ],
+      [
+        "score",
+        "graph_us"
+      ],
+      [
+        "topk",
+        "wall_us"
+      ],
+      [
+        "topk",
+        "event_us"
+      ],
+      [
+        "topk",
+        "graph_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "wall_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "event_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "graph_us"
+      ]
+    ],
+    [
+      [
+        "full_matmul_baseline",
+        "event_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "graph_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "wall_us"
+      ],
+      [
+        "score",
+        "event_us"
+      ],
+      [
+        "score",
+        "graph_us"
+      ],
+      [
+        "score",
+        "wall_us"
+      ],
+      [
+        "topk",
+        "event_us"
+      ],
+      [
+        "topk",
+        "graph_us"
+      ],
+      [
+        "topk",
+        "wall_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "event_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "graph_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "wall_us"
+      ],
+      [
+        "full",
+        "event_us"
+      ],
+      [
+        "full",
+        "graph_us"
+      ],
+      [
+        "full",
+        "wall_us"
+      ]
+    ],
+    [
+      [
+        "score",
+        "graph_us"
+      ],
+      [
+        "score",
+        "wall_us"
+      ],
+      [
+        "score",
+        "event_us"
+      ],
+      [
+        "topk",
+        "graph_us"
+      ],
+      [
+        "topk",
+        "wall_us"
+      ],
+      [
+        "topk",
+        "event_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "graph_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "wall_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "event_us"
+      ],
+      [
+        "full",
+        "graph_us"
+      ],
+      [
+        "full",
+        "wall_us"
+      ],
+      [
+        "full",
+        "event_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "graph_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "wall_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "event_us"
+      ]
+    ],
+    [
+      [
+        "topk",
+        "wall_us"
+      ],
+      [
+        "topk",
+        "event_us"
+      ],
+      [
+        "topk",
+        "graph_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "wall_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "event_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "graph_us"
+      ],
+      [
+        "full",
+        "wall_us"
+      ],
+      [
+        "full",
+        "event_us"
+      ],
+      [
+        "full",
+        "graph_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "wall_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "event_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "graph_us"
+      ],
+      [
+        "score",
+        "wall_us"
+      ],
+      [
+        "score",
+        "event_us"
+      ],
+      [
+        "score",
+        "graph_us"
+      ]
+    ],
+    [
+      [
+        "pipeline_preallocated",
+        "event_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "graph_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "wall_us"
+      ],
+      [
+        "full",
+        "event_us"
+      ],
+      [
+        "full",
+        "graph_us"
+      ],
+      [
+        "full",
+        "wall_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "event_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "graph_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "wall_us"
+      ],
+      [
+        "score",
+        "event_us"
+      ],
+      [
+        "score",
+        "graph_us"
+      ],
+      [
+        "score",
+        "wall_us"
+      ],
+      [
+        "topk",
+        "event_us"
+      ],
+      [
+        "topk",
+        "graph_us"
+      ],
+      [
+        "topk",
+        "wall_us"
+      ]
+    ],
+    [
+      [
+        "full",
+        "graph_us"
+      ],
+      [
+        "full",
+        "wall_us"
+      ],
+      [
+        "full",
+        "event_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "graph_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "wall_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "event_us"
+      ],
+      [
+        "score",
+        "graph_us"
+      ],
+      [
+        "score",
+        "wall_us"
+      ],
+      [
+        "score",
+        "event_us"
+      ],
+      [
+        "topk",
+        "graph_us"
+      ],
+      [
+        "topk",
+        "wall_us"
+      ],
+      [
+        "topk",
+        "event_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "graph_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "wall_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "event_us"
+      ]
+    ],
+    [
+      [
+        "full_matmul_baseline",
+        "wall_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "event_us"
+      ],
+      [
+        "full_matmul_baseline",
+        "graph_us"
+      ],
+      [
+        "score",
+        "wall_us"
+      ],
+      [
+        "score",
+        "event_us"
+      ],
+      [
+        "score",
+        "graph_us"
+      ],
+      [
+        "topk",
+        "wall_us"
+      ],
+      [
+        "topk",
+        "event_us"
+      ],
+      [
+        "topk",
+        "graph_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "wall_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "event_us"
+      ],
+      [
+        "pipeline_preallocated",
+        "graph_us"
+      ],
+      [
+        "full",
+        "wall_us"
+      ],
+      [
+        "full",
+        "event_us"
+      ],
+      [
+        "full",
+        "graph_us"
+      ]
+    ]
+  ],
+  "host_diagnostics": {
+    "status": "passed",
+    "iterations": 200,
+    "microbench": {
+      "noop": {
+        "wall_us": {
+          "samples": [
+            0.135079026222229,
+            0.039869919419288635,
+            0.03388151526451111,
+            0.03219582140445709,
+            0.0336766242980957,
+            0.03316439688205719,
+            0.03205612301826477
+          ],
+          "median": 0.0336766242980957,
+          "mean": 0.04856048950127193,
+          "min": 0.03205612301826477,
+          "max": 0.135079026222229,
+          "stdev": 0.03824312808766874
+        },
+        "process_cpu_us": {
+          "samples": [
+            0.10083999999466187,
+            0.03086500001359127,
+            0.027739999985954,
+            0.027250000016465492,
+            0.027510000002450852,
+            0.02800499999011663,
+            0.026915000006511036
+          ],
+          "median": 0.027739999985954,
+          "mean": 0.038446428572821593,
+          "min": 0.026915000006511036,
+          "max": 0.10083999999466187,
+          "stdev": 0.027543983568033968
+        }
+      },
+      "validation": {
+        "wall_us": {
+          "samples": [
+            11.200346052646637,
+            11.003445833921432,
+            11.029345914721489,
+            11.096196249127388,
+            11.020814999938011,
+            11.115148663520813,
+            10.99100336432457
+          ],
+          "median": 11.029345914721489,
+          "mean": 11.065185868314334,
+          "min": 10.99100336432457,
+          "max": 11.200346052646637,
+          "stdev": 0.075602416221079
+        },
+        "process_cpu_us": {
+          "samples": [
+            11.192359999974144,
+            10.997619999990604,
+            11.023799999989592,
+            11.089905000005729,
+            11.01440499997608,
+            11.10860499998978,
+            10.985725000018931
+          ],
+          "median": 11.023799999989592,
+          "mean": 11.058917142849266,
+          "min": 10.985725000018931,
+          "max": 11.192359999974144,
+          "stdev": 0.0747942741085362
+        }
+      },
+      "device_guard": {
+        "wall_us": {
+          "samples": [
+            1.721782609820366,
+            1.7182622104883194,
+            1.7403997480869293,
+            1.7005763947963715,
+            1.7067883163690567,
+            1.7379876226186752,
+            1.6918685287237167
+          ],
+          "median": 1.7182622104883194,
+          "mean": 1.7168093472719193,
+          "min": 1.6918685287237167,
+          "max": 1.7403997480869293,
+          "stdev": 0.018338687455127355
+        },
+        "process_cpu_us": {
+          "samples": [
+            1.7154300000044032,
+            1.7126350000040702,
+            1.734600000027342,
+            1.6944150000242075,
+            1.70124500002089,
+            1.7328399999883004,
+            1.6868999999886114
+          ],
+          "median": 1.7126350000040702,
+          "mean": 1.7111521428654035,
+          "min": 1.6868999999886114,
+          "max": 1.734600000027342,
+          "stdev": 0.018289860319358087
+        }
+      },
+      "validation_baseline": {
+        "wall_us": {
+          "samples": [
+            11.24851405620575,
+            11.19525171816349,
+            11.10939309000969,
+            11.09371893107891,
+            11.132098734378815,
+            11.088037863373756,
+            11.258348822593689
+          ],
+          "median": 11.132098734378815,
+          "mean": 11.1607661736863,
+          "min": 11.088037863373756,
+          "max": 11.258348822593689,
+          "stdev": 0.07263730985448899
+        },
+        "process_cpu_us": {
+          "samples": [
+            11.24166000000315,
+            11.188840000002642,
+            11.103759999997465,
+            11.088344999983235,
+            11.125700000000904,
+            11.081929999967599,
+            11.196230000010132
+          ],
+          "median": 11.125700000000904,
+          "mean": 11.146637857137875,
+          "min": 11.081929999967599,
+          "max": 11.24166000000315,
+          "stdev": 0.062090897885024456
+        }
+      },
+      "outer_workspace_allocation": {
+        "wall_us": {
+          "samples": [
+            6.254417821764946,
+            6.516221910715103,
+            8.520036935806274,
+            6.116200238466263,
+            5.868729203939438,
+            6.039943546056747,
+            5.883555859327316
+          ],
+          "median": 6.116200238466263,
+          "mean": 6.457015073725155,
+          "min": 5.868729203939438,
+          "max": 8.520036935806274,
+          "stdev": 0.9368074727289096
+        },
+        "process_cpu_us": {
+          "samples": [
+            6.24698499997578,
+            6.5051099999990925,
+            8.475174999986734,
+            6.109295000022996,
+            5.861940000002619,
+            6.034499999998388,
+            5.878320000007875
+          ],
+          "median": 6.109295000022996,
+          "mean": 6.444474999999069,
+          "min": 5.861940000002619,
+          "max": 8.475174999986734,
+          "stdev": 0.9225621059969817
+        }
+      }
+    },
+    "profiles": {
+      "validation": {
+        "invocations": 200,
+        "total_instrumented_seconds": 0.006375970000000001,
+        "top_functions": [
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/tools/benchmark_qsa_prefill_stages.py",
+            "line": 437,
+            "function": "<lambda>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 9.126200000000001e-05,
+            "cumulative_seconds": 0.006341356
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 210,
+            "function": "_validate_inputs",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.0017845150000000002,
+            "cumulative_seconds": 0.006250094
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 182,
+            "function": "_output_overlaps_inputs",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.0008374420000000001,
+            "cumulative_seconds": 0.001560671
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 707,
+            "function": "get_device_capability",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.00010639900000000001,
+            "cumulative_seconds": 0.001390339
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 725,
+            "function": "get_device_properties",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000208874,
+            "cumulative_seconds": 0.0012839400000000001
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/_utils.py",
+            "line": 557,
+            "function": "_get_device_index",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.00032514100000000004,
+            "cumulative_seconds": 0.0007227570000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.any>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000195446,
+            "cumulative_seconds": 0.0005263280000000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 169,
+            "function": "_check_nonoverlapping_strides",
+            "primitive_calls": 600,
+            "total_calls": 600,
+            "self_seconds": 0.000260686,
+            "cumulative_seconds": 0.000486473
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'is_contiguous' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 2000,
+            "total_calls": 2000,
+            "self_seconds": 0.000378313,
+            "cumulative_seconds": 0.000378313
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.isinstance>",
+            "primitive_calls": 3000,
+            "total_calls": 3000,
+            "self_seconds": 0.000337561,
+            "cumulative_seconds": 0.000337561
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 225,
+            "function": "<genexpr>",
+            "primitive_calls": 1400,
+            "total_calls": 1400,
+            "self_seconds": 0.000330882,
+            "cumulative_seconds": 0.000330882
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'numel' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 1800,
+            "total_calls": 1800,
+            "self_seconds": 0.000305202,
+            "cumulative_seconds": 0.000305202
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_utils.py",
+            "line": 869,
+            "function": "_get_device_index",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000212326,
+            "cumulative_seconds": 0.00027856100000000003
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'data_ptr' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 1200,
+            "total_calls": 1200,
+            "self_seconds": 0.000204076,
+            "cumulative_seconds": 0.000204076
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'element_size' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 1000,
+            "total_calls": 1000,
+            "self_seconds": 0.00018114500000000001,
+            "cumulative_seconds": 0.00018114500000000001
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 1150,
+            "function": "device_count",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 5.8546000000000005e-05,
+            "cumulative_seconds": 0.00014672600000000002
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'stride' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 0.000146152,
+            "cumulative_seconds": 0.000146152
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 501,
+            "function": "_lazy_init",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 5.4693000000000006e-05,
+            "cumulative_seconds": 0.000141132
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 160,
+            "function": "_is_compiled",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 5.7376e-05,
+            "cumulative_seconds": 8.818e-05
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 452,
+            "function": "is_initialized",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 5.4887000000000005e-05,
+            "cumulative_seconds": 8.6439e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch.cuda._get_device_properties>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 6.445100000000001e-05,
+            "cumulative_seconds": 6.445100000000001e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.all>",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 6.2802e-05,
+            "cumulative_seconds": 6.2802e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+            "primitive_calls": 1,
+            "total_calls": 1,
+            "self_seconds": 3.4614000000000004e-05,
+            "cumulative_seconds": 3.4614000000000004e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_isInBadFork>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 3.1552e-05,
+            "cumulative_seconds": 3.1552e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.hasattr>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 3.0804000000000005e-05,
+            "cumulative_seconds": 3.0804000000000005e-05
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_jit_internal.py",
+            "line": 104,
+            "function": "is_scripting",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 2.0823e-05,
+            "cumulative_seconds": 2.0823e-05
+          }
+        ],
+        "text": "         15001 function calls in 0.006 seconds\n\n   Ordered by: cumulative time\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.000    0.000    0.006    0.000 /tmp/flaggems-qsa-idle.ytDlH5/tools/benchmark_qsa_prefill_stages.py:437(<lambda>)\n      200    0.002    0.000    0.006    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:210(_validate_inputs)\n      200    0.001    0.000    0.002    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:182(_output_overlaps_inputs)\n      200    0.000    0.000    0.001    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:707(get_device_capability)\n      200    0.000    0.000    0.001    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:725(get_device_properties)\n      200    0.000    0.000    0.001    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/_utils.py:557(_get_device_index)\n      200    0.000    0.000    0.001    0.000 {built-in method builtins.any}\n      600    0.000    0.000    0.000    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:169(_check_nonoverlapping_strides)\n     2000    0.000    0.000    0.000    0.000 {method 'is_contiguous' of 'torch._C.TensorBase' objects}\n     3000    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}\n     1400    0.000    0.000    0.000    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:225(<genexpr>)\n     1800    0.000    0.000    0.000    0.000 {method 'numel' of 'torch._C.TensorBase' objects}\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_utils.py:869(_get_device_index)\n     1200    0.000    0.000    0.000    0.000 {method 'data_ptr' of 'torch._C.TensorBase' objects}\n     1000    0.000    0.000    0.000    0.000 {method 'element_size' of 'torch._C.TensorBase' objects}\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1150(device_count)\n      400    0.000    0.000    0.000    0.000 {method 'stride' of 'torch._C.TensorBase' objects}\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:501(_lazy_init)\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:160(_is_compiled)\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:452(is_initialized)\n      200    0.000    0.000    0.000    0.000 {built-in method torch.cuda._get_device_properties}\n      400    0.000    0.000    0.000    0.000 {built-in method builtins.all}\n        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}\n      200    0.000    0.000    0.000    0.000 {built-in method torch._C._cuda_isInBadFork}\n      200    0.000    0.000    0.000    0.000 {built-in method builtins.hasattr}\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_jit_internal.py:104(is_scripting)\n\n\n"
+      },
+      "public_entry": {
+        "invocations": 200,
+        "total_instrumented_seconds": 1.6267420569999997,
+        "top_functions": [
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/tools/benchmark_qsa_prefill_stages.py",
+            "line": 476,
+            "function": "<lambda>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000725672,
+            "cumulative_seconds": 1.715095483
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 365,
+            "function": "qsa_select_paged_prefill",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.056191974000000006,
+            "cumulative_seconds": 1.714369811
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 399,
+            "function": "<lambda>",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.047081857000000005,
+            "cumulative_seconds": 1.2681410750000002
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/persistent_topk.py",
+            "line": 2186,
+            "function": "persistent_topk",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.149002464,
+            "cumulative_seconds": 0.8755982790000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/tools/qsa_prefill_single_row_trial.py",
+            "line": 132,
+            "function": "_prefill_logits",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.022464863,
+            "cumulative_seconds": 0.762408957
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py",
+            "line": 820,
+            "function": "run",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.27078708500000004,
+            "cumulative_seconds": 0.7177907870000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 738,
+            "function": "run",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.146159226,
+            "cumulative_seconds": 0.5032684310000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/backends/nvidia/driver.py",
+            "line": 814,
+            "function": "__call__",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.033791761000000003,
+            "cumulative_seconds": 0.164621985
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 1138,
+            "function": "__call__",
+            "primitive_calls": 36400,
+            "total_calls": 36400,
+            "self_seconds": 0.058391229,
+            "cumulative_seconds": 0.14770892300000002
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py",
+            "line": 787,
+            "function": "key",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.039509827000000004,
+            "cumulative_seconds": 0.127803094
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 525,
+            "function": "runner",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.029255587000000003,
+            "cumulative_seconds": 0.120121058
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/tools/qsa_prefill_single_row_trial.py",
+            "line": 161,
+            "function": "<lambda>",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.012538108000000001,
+            "cumulative_seconds": 0.079796013
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py",
+            "line": 788,
+            "function": "spec_arg",
+            "primitive_calls": 115200,
+            "total_calls": 115200,
+            "self_seconds": 0.051155162000000004,
+            "cumulative_seconds": 0.074055777
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/_distributed.py",
+            "line": 62,
+            "function": "is_lite_mode",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.018542443000000002,
+            "cumulative_seconds": 0.06932563500000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/language/core.py",
+            "line": 368,
+            "function": "_unwrap_if_constexpr",
+            "primitive_calls": 58400,
+            "total_calls": 58400,
+            "self_seconds": 0.042388075000000004,
+            "cumulative_seconds": 0.06839157
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 1203,
+            "function": "current_device",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.018239964,
+            "cumulative_seconds": 0.051246423000000006
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'append' of 'list' objects>",
+            "primitive_calls": 352800,
+            "total_calls": 352800,
+            "self_seconds": 0.046759822,
+            "cumulative_seconds": 0.046759822
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method __triton_launcher.launch>",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.041728317,
+            "cumulative_seconds": 0.046699041000000004
+          },
+          {
+            "filename": "<frozen os>",
+            "line": 808,
+            "function": "getenv",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.00660959,
+            "cumulative_seconds": 0.044953831
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'view' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.040452779,
+            "cumulative_seconds": 0.040452779
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 511,
+            "function": "launch_metadata",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.029567086000000003,
+            "cumulative_seconds": 0.039539502000000004
+          },
+          {
+            "filename": "<frozen _collections_abc>",
+            "line": 804,
+            "function": "get",
+            "primitive_calls": 14600,
+            "total_calls": 14600,
+            "self_seconds": 0.009104631,
+            "cumulative_seconds": 0.039001475
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method triton._C.libtriton.native_specialize_impl>",
+            "primitive_calls": 86400,
+            "total_calls": 86400,
+            "self_seconds": 0.035565277,
+            "cumulative_seconds": 0.035565277
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.hasattr>",
+            "primitive_calls": 295400,
+            "total_calls": 295400,
+            "self_seconds": 0.0352173,
+            "cumulative_seconds": 0.0352173
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.isinstance>",
+            "primitive_calls": 303000,
+            "total_calls": 303000,
+            "self_seconds": 0.034243772,
+            "cumulative_seconds": 0.034243772
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 725,
+            "function": "get_device_properties",
+            "primitive_calls": 7400,
+            "total_calls": 7400,
+            "self_seconds": 0.010390074000000001,
+            "cumulative_seconds": 0.032017354000000005
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 604,
+            "function": "compute_cache_key",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.022338613,
+            "cumulative_seconds": 0.032004205
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 501,
+            "function": "_lazy_init",
+            "primitive_calls": 36200,
+            "total_calls": 36200,
+            "self_seconds": 0.012092392,
+            "cumulative_seconds": 0.030491144
+          },
+          {
+            "filename": "<frozen os>",
+            "line": 709,
+            "function": "__getitem__",
+            "primitive_calls": 14600,
+            "total_calls": 14600,
+            "self_seconds": 0.014951709,
+            "cumulative_seconds": 0.029896844000000002
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.len>",
+            "primitive_calls": 208800,
+            "total_calls": 208800,
+            "self_seconds": 0.022584039,
+            "cumulative_seconds": 0.022584039
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 452,
+            "function": "is_initialized",
+            "primitive_calls": 36200,
+            "total_calls": 36200,
+            "self_seconds": 0.011421612000000001,
+            "cumulative_seconds": 0.018398752
+          },
+          {
+            "filename": "<string>",
+            "line": 2,
+            "function": "dynamic_func",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.006653631,
+            "cumulative_seconds": 0.01574267
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'get' of 'dict' objects>",
+            "primitive_calls": 43200,
+            "total_calls": 43200,
+            "self_seconds": 0.015283188000000001,
+            "cumulative_seconds": 0.015283188000000001
+          },
+          {
+            "filename": "<frozen os>",
+            "line": 791,
+            "function": "encode",
+            "primitive_calls": 14600,
+            "total_calls": 14600,
+            "self_seconds": 0.009127715,
+            "cumulative_seconds": 0.014790664
+          },
+          {
+            "filename": "/opt/flagtree/triton/knobs.py",
+            "line": 498,
+            "function": "__call__",
+            "primitive_calls": 43200,
+            "total_calls": 43200,
+            "self_seconds": 0.014302685,
+            "cumulative_seconds": 0.014302685
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py",
+            "line": 804,
+            "function": "dns_arg",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.009937219,
+            "cumulative_seconds": 0.01423749
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'size' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.012517881000000002,
+            "cumulative_seconds": 0.012517881000000002
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.min>",
+            "primitive_calls": 43800,
+            "total_calls": 43800,
+            "self_seconds": 0.012302312000000001,
+            "cumulative_seconds": 0.012302312000000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 210,
+            "function": "_validate_inputs",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.0037079540000000003,
+            "cumulative_seconds": 0.010285161000000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 369,
+            "function": "default",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.007310472,
+            "cumulative_seconds": 0.009777972000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'data_ptr' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 44400,
+            "total_calls": 44400,
+            "self_seconds": 0.00952757,
+            "cumulative_seconds": 0.00952757
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'items' of 'dict' objects>",
+            "primitive_calls": 50800,
+            "total_calls": 50800,
+            "self_seconds": 0.009216455,
+            "cumulative_seconds": 0.009216455
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_getDevice>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.008649117000000001,
+            "cumulative_seconds": 0.008649117000000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/__init__.py",
+            "line": 97,
+            "function": "next_power_of_2",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.008256382000000001,
+            "cumulative_seconds": 0.008256382000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.max>",
+            "primitive_calls": 29200,
+            "total_calls": 29200,
+            "self_seconds": 0.0073963380000000006,
+            "cumulative_seconds": 0.0073963380000000006
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 1150,
+            "function": "device_count",
+            "primitive_calls": 7400,
+            "total_calls": 7400,
+            "self_seconds": 0.002987833,
+            "cumulative_seconds": 0.00715191
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_isInBadFork>",
+            "primitive_calls": 36200,
+            "total_calls": 36200,
+            "self_seconds": 0.006977140000000001,
+            "cumulative_seconds": 0.006977140000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'dim' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.006792234,
+            "cumulative_seconds": 0.006792234
+          },
+          {
+            "filename": "/opt/flagtree/triton/__init__.py",
+            "line": 92,
+            "function": "cdiv",
+            "primitive_calls": 22000,
+            "total_calls": 22000,
+            "self_seconds": 0.006371094000000001,
+            "cumulative_seconds": 0.006371094000000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 522,
+            "function": "__getitem__",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.00507667,
+            "cumulative_seconds": 0.006272346000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_getCurrentRawStream>",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.006264382000000001,
+            "cumulative_seconds": 0.006264382000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'values' of 'dict' objects>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.006200078,
+            "cumulative_seconds": 0.006200078
+          },
+          {
+            "filename": "/opt/flagtree/triton/backends/nvidia/driver.py",
+            "line": 816,
+            "function": "allocate_scratch",
+            "primitive_calls": 43200,
+            "total_calls": 43200,
+            "self_seconds": 0.005744615000000001,
+            "cumulative_seconds": 0.005744615000000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/driver.py",
+            "line": 47,
+            "function": "active",
+            "primitive_calls": 43200,
+            "total_calls": 43200,
+            "self_seconds": 0.005647061,
+            "cumulative_seconds": 0.005647061
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/_utils.py",
+            "line": 557,
+            "function": "_get_device_index",
+            "primitive_calls": 7600,
+            "total_calls": 7600,
+            "self_seconds": 0.003239996,
+            "cumulative_seconds": 0.005172179000000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 393,
+            "function": "__getitem__",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.004917525000000001,
+            "cumulative_seconds": 0.004917525000000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 467,
+            "function": "_init_handles",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.004372983,
+            "cumulative_seconds": 0.004372983
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 160,
+            "function": "_is_compiled",
+            "primitive_calls": 7400,
+            "total_calls": 7400,
+            "self_seconds": 0.002810018,
+            "cumulative_seconds": 0.004164077
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 391,
+            "function": "__init__",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.004137675,
+            "cumulative_seconds": 0.004137675
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch.cuda._get_device_properties>",
+            "primitive_calls": 7400,
+            "total_calls": 7400,
+            "self_seconds": 0.004090867000000001,
+            "cumulative_seconds": 0.004090867000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.callable>",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.003998583,
+            "cumulative_seconds": 0.003998583
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'encode' of 'str' objects>",
+            "primitive_calls": 14600,
+            "total_calls": 14600,
+            "self_seconds": 0.00398102,
+            "cumulative_seconds": 0.00398102
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'keys' of 'mappingproxy' objects>",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.003876665,
+            "cumulative_seconds": 0.003876665
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'stride' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 8800,
+            "total_calls": 8800,
+            "self_seconds": 0.0037508600000000004,
+            "cumulative_seconds": 0.0037508600000000004
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'is_contiguous' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 9200,
+            "total_calls": 9200,
+            "self_seconds": 0.003128893,
+            "cumulative_seconds": 0.003128893
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/_distributed.py",
+            "line": 36,
+            "function": "__init__",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.0030140450000000004,
+            "cumulative_seconds": 0.0030140450000000004
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'strip' of 'str' objects>",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.002947814,
+            "cumulative_seconds": 0.002947814
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'upper' of 'str' objects>",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.0028815470000000004,
+            "cumulative_seconds": 0.0028815470000000004
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/_distributed.py",
+            "line": 29,
+            "function": "__new__",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.0028733920000000002,
+            "cumulative_seconds": 0.0028733920000000002
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 505,
+            "function": "run",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.002868601,
+            "cumulative_seconds": 0.002868601
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'numel' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 9000,
+            "total_calls": 9000,
+            "self_seconds": 0.002773452,
+            "cumulative_seconds": 0.002773452
+          },
+          {
+            "filename": "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/inspect.py",
+            "line": 2800,
+            "function": "default",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.0024675,
+            "cumulative_seconds": 0.0024675
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 182,
+            "function": "_output_overlaps_inputs",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.0012421110000000002,
+            "cumulative_seconds": 0.002130841
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 707,
+            "function": "get_device_capability",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000190976,
+            "cumulative_seconds": 0.0020888670000000003
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch.empty>",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 0.00198553,
+            "cumulative_seconds": 0.00198553
+          },
+          {
+            "filename": "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/inspect.py",
+            "line": 3089,
+            "function": "parameters",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.0019188010000000001,
+            "cumulative_seconds": 0.0019188010000000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 292,
+            "function": "_prefill_score_metadata",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000743929,
+            "cumulative_seconds": 0.00120439
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 650,
+            "function": "__init__",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000126709,
+            "cumulative_seconds": 0.0010481870000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.any>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000332931,
+            "cumulative_seconds": 0.0008305140000000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 169,
+            "function": "_check_nonoverlapping_strides",
+            "primitive_calls": 600,
+            "total_calls": 600,
+            "self_seconds": 0.00043259600000000004,
+            "cumulative_seconds": 0.0008037900000000001
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_utils.py",
+            "line": 869,
+            "function": "_get_device_index",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 0.0006107220000000001,
+            "cumulative_seconds": 0.000756989
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 225,
+            "function": "<genexpr>",
+            "primitive_calls": 1400,
+            "total_calls": 1400,
+            "self_seconds": 0.000497583,
+            "cumulative_seconds": 0.000497583
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'element_size' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 1000,
+            "total_calls": 1000,
+            "self_seconds": 0.000233861,
+            "cumulative_seconds": 0.000233861
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 657,
+            "function": "__exit__",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000133315,
+            "cumulative_seconds": 0.00022477
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 654,
+            "function": "__enter__",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.00010550900000000001,
+            "cumulative_seconds": 0.00019474700000000002
+          },
+          {
+            "filename": "<frozen os>",
+            "line": 795,
+            "function": "decode",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 8.321500000000001e-05,
+            "cumulative_seconds": 0.00015447100000000002
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.all>",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 0.000113157,
+            "cumulative_seconds": 0.000113157
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_maybeExchangeDevice>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 9.145500000000001e-05,
+            "cumulative_seconds": 9.145500000000001e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_exchangeDevice>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 8.9238e-05,
+            "cumulative_seconds": 8.9238e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'decode' of 'bytes' objects>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 7.125600000000001e-05,
+            "cumulative_seconds": 7.125600000000001e-05
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_jit_internal.py",
+            "line": 104,
+            "function": "is_scripting",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 6.2761e-05,
+            "cumulative_seconds": 6.2761e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+            "primitive_calls": 1,
+            "total_calls": 1,
+            "self_seconds": 4.2630000000000004e-05,
+            "cumulative_seconds": 4.2630000000000004e-05
+          }
+        ],
+        "text": "         2720401 function calls in 1.627 seconds\n\n   Ordered by: cumulative time\n   List reduced from 92 to 80 due to restriction <80>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.001    0.000    1.715    0.009 /tmp/flaggems-qsa-idle.ytDlH5/tools/benchmark_qsa_prefill_stages.py:476(<lambda>)\n      200    0.056    0.000    1.714    0.009 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:365(qsa_select_paged_prefill)\n    21600    0.047    0.000    1.268    0.000 /opt/flagtree/triton/runtime/jit.py:399(<lambda>)\n     7200    0.149    0.000    0.876    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/persistent_topk.py:2186(persistent_topk)\n     7200    0.022    0.000    0.762    0.000 /tmp/flaggems-qsa-idle.ytDlH5/tools/qsa_prefill_single_row_trial.py:132(_prefill_logits)\n     7200    0.271    0.000    0.718    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py:820(run)\n    14400    0.146    0.000    0.503    0.000 /opt/flagtree/triton/runtime/jit.py:738(run)\n    21600    0.034    0.000    0.165    0.000 /opt/flagtree/triton/backends/nvidia/driver.py:814(__call__)\n    36400    0.058    0.000    0.148    0.000 /opt/flagtree/triton/runtime/jit.py:1138(__call__)\n     7200    0.040    0.000    0.128    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py:787(key)\n     7200    0.029    0.000    0.120    0.000 /opt/flagtree/triton/compiler/compiler.py:525(runner)\n     7200    0.013    0.000    0.080    0.000 /tmp/flaggems-qsa-idle.ytDlH5/tools/qsa_prefill_single_row_trial.py:161(<lambda>)\n   115200    0.051    0.000    0.074    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py:788(spec_arg)\n    14400    0.019    0.000    0.069    0.000 /opt/flagtree/triton/runtime/_distributed.py:62(is_lite_mode)\n    58400    0.042    0.000    0.068    0.000 /opt/flagtree/triton/language/core.py:368(_unwrap_if_constexpr)\n    28800    0.018    0.000    0.051    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1203(current_device)\n   352800    0.047    0.000    0.047    0.000 {method 'append' of 'list' objects}\n     7200    0.042    0.000    0.047    0.000 {built-in method __triton_launcher.launch}\n    14400    0.007    0.000    0.045    0.000 <frozen os>:808(getenv)\n    28800    0.040    0.000    0.040    0.000 {method 'view' of 'torch._C.TensorBase' objects}\n    21600    0.030    0.000    0.040    0.000 /opt/flagtree/triton/compiler/compiler.py:511(launch_metadata)\n    14600    0.009    0.000    0.039    0.000 <frozen _collections_abc>:804(get)\n    86400    0.036    0.000    0.036    0.000 {built-in method triton._C.libtriton.native_specialize_impl}\n   295400    0.035    0.000    0.035    0.000 {built-in method builtins.hasattr}\n   303000    0.034    0.000    0.034    0.000 {built-in method builtins.isinstance}\n     7400    0.010    0.000    0.032    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:725(get_device_properties)\n    14400    0.022    0.000    0.032    0.000 /opt/flagtree/triton/runtime/jit.py:604(compute_cache_key)\n    36200    0.012    0.000    0.030    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:501(_lazy_init)\n    14600    0.015    0.000    0.030    0.000 <frozen os>:709(__getitem__)\n   208800    0.023    0.000    0.023    0.000 {built-in method builtins.len}\n    36200    0.011    0.000    0.018    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:452(is_initialized)\n     7200    0.007    0.000    0.016    0.000 <string>:2(dynamic_func)\n    43200    0.015    0.000    0.015    0.000 {method 'get' of 'dict' objects}\n    14600    0.009    0.000    0.015    0.000 <frozen os>:791(encode)\n    43200    0.014    0.000    0.014    0.000 /opt/flagtree/triton/knobs.py:498(__call__)\n    21600    0.010    0.000    0.014    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py:804(dns_arg)\n    28800    0.013    0.000    0.013    0.000 {method 'size' of 'torch._C.TensorBase' objects}\n    43800    0.012    0.000    0.012    0.000 {built-in method builtins.min}\n      200    0.004    0.000    0.010    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:210(_validate_inputs)\n    21600    0.007    0.000    0.010    0.000 /opt/flagtree/triton/runtime/jit.py:369(default)\n    44400    0.010    0.000    0.010    0.000 {method 'data_ptr' of 'torch._C.TensorBase' objects}\n    50800    0.009    0.000    0.009    0.000 {method 'items' of 'dict' objects}\n    28800    0.009    0.000    0.009    0.000 {built-in method torch._C._cuda_getDevice}\n    14400    0.008    0.000    0.008    0.000 /opt/flagtree/triton/__init__.py:97(next_power_of_2)\n    29200    0.007    0.000    0.007    0.000 {built-in method builtins.max}\n     7400    0.003    0.000    0.007    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1150(device_count)\n    36200    0.007    0.000    0.007    0.000 {built-in method torch._C._cuda_isInBadFork}\n    28800    0.007    0.000    0.007    0.000 {method 'dim' of 'torch._C.TensorBase' objects}\n    22000    0.006    0.000    0.006    0.000 /opt/flagtree/triton/__init__.py:92(cdiv)\n     7200    0.005    0.000    0.006    0.000 /opt/flagtree/triton/compiler/compiler.py:522(__getitem__)\n    21600    0.006    0.000    0.006    0.000 {built-in method torch._C._cuda_getCurrentRawStream}\n    28800    0.006    0.000    0.006    0.000 {method 'values' of 'dict' objects}\n    43200    0.006    0.000    0.006    0.000 /opt/flagtree/triton/backends/nvidia/driver.py:816(allocate_scratch)\n    43200    0.006    0.000    0.006    0.000 /opt/flagtree/triton/runtime/driver.py:47(active)\n     7600    0.003    0.000    0.005    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/_utils.py:557(_get_device_index)\n    21600    0.005    0.000    0.005    0.000 /opt/flagtree/triton/runtime/jit.py:393(__getitem__)\n    28800    0.004    0.000    0.004    0.000 /opt/flagtree/triton/compiler/compiler.py:467(_init_handles)\n     7400    0.003    0.000    0.004    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:160(_is_compiled)\n    21600    0.004    0.000    0.004    0.000 /opt/flagtree/triton/compiler/compiler.py:391(__init__)\n     7400    0.004    0.000    0.004    0.000 {built-in method torch.cuda._get_device_properties}\n    21600    0.004    0.000    0.004    0.000 {built-in method builtins.callable}\n    14600    0.004    0.000    0.004    0.000 {method 'encode' of 'str' objects}\n    14400    0.004    0.000    0.004    0.000 {method 'keys' of 'mappingproxy' objects}\n     8800    0.004    0.000    0.004    0.000 {method 'stride' of 'torch._C.TensorBase' objects}\n     9200    0.003    0.000    0.003    0.000 {method 'is_contiguous' of 'torch._C.TensorBase' objects}\n    14400    0.003    0.000    0.003    0.000 /opt/flagtree/triton/runtime/_distributed.py:36(__init__)\n    14400    0.003    0.000    0.003    0.000 {method 'strip' of 'str' objects}\n    14400    0.003    0.000    0.003    0.000 {method 'upper' of 'str' objects}\n    14400    0.003    0.000    0.003    0.000 /opt/flagtree/triton/runtime/_distributed.py:29(__new__)\n    21600    0.003    0.000    0.003    0.000 /opt/flagtree/triton/compiler/compiler.py:505(run)\n     9000    0.003    0.000    0.003    0.000 {method 'numel' of 'torch._C.TensorBase' objects}\n    21600    0.002    0.000    0.002    0.000 /root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/inspect.py:2800(default)\n      200    0.001    0.000    0.002    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:182(_output_overlaps_inputs)\n      200    0.000    0.000    0.002    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:707(get_device_capability)\n      400    0.002    0.000    0.002    0.000 {built-in method torch.empty}\n    14400    0.002    0.000    0.002    0.000 /root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/inspect.py:3089(parameters)\n      200    0.001    0.000    0.001    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:292(_prefill_score_metadata)\n      200    0.000    0.000    0.001    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:650(__init__)\n      200    0.000    0.000    0.001    0.000 {built-in method builtins.any}\n      600    0.000    0.000    0.001    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:169(_check_nonoverlapping_strides)\n\n\n"
+      },
+      "validation_baseline": {
+        "invocations": 200,
+        "total_instrumented_seconds": 0.006465279000000002,
+        "top_functions": [
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/tools/benchmark_qsa_prefill_stages.py",
+            "line": 446,
+            "function": "<lambda>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 9.393e-05,
+            "cumulative_seconds": 0.0064350100000000006
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 210,
+            "function": "_validate_inputs",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.0018211420000000002,
+            "cumulative_seconds": 0.006341080000000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 182,
+            "function": "_output_overlaps_inputs",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000853358,
+            "cumulative_seconds": 0.001586539
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 707,
+            "function": "get_device_capability",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000104932,
+            "cumulative_seconds": 0.0013867640000000002
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 725,
+            "function": "get_device_properties",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.00020373600000000002,
+            "cumulative_seconds": 0.0012818320000000001
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/_utils.py",
+            "line": 557,
+            "function": "_get_device_index",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000326249,
+            "cumulative_seconds": 0.0007231150000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.any>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.00019163,
+            "cumulative_seconds": 0.0005226920000000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 169,
+            "function": "_check_nonoverlapping_strides",
+            "primitive_calls": 600,
+            "total_calls": 600,
+            "self_seconds": 0.000274507,
+            "cumulative_seconds": 0.0005014980000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'is_contiguous' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 2000,
+            "total_calls": 2000,
+            "self_seconds": 0.000384258,
+            "cumulative_seconds": 0.000384258
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.isinstance>",
+            "primitive_calls": 3000,
+            "total_calls": 3000,
+            "self_seconds": 0.000343655,
+            "cumulative_seconds": 0.000343655
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 225,
+            "function": "<genexpr>",
+            "primitive_calls": 1400,
+            "total_calls": 1400,
+            "self_seconds": 0.000331062,
+            "cumulative_seconds": 0.000331062
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'numel' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 1800,
+            "total_calls": 1800,
+            "self_seconds": 0.000310128,
+            "cumulative_seconds": 0.000310128
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_utils.py",
+            "line": 869,
+            "function": "_get_device_index",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.00020864100000000002,
+            "cumulative_seconds": 0.000275213
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'data_ptr' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 1200,
+            "total_calls": 1200,
+            "self_seconds": 0.00020365500000000001,
+            "cumulative_seconds": 0.00020365500000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'element_size' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 1000,
+            "total_calls": 1000,
+            "self_seconds": 0.00018724300000000002,
+            "cumulative_seconds": 0.00018724300000000002
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'stride' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 0.00014965,
+            "cumulative_seconds": 0.00014965
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 1150,
+            "function": "device_count",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 5.919e-05,
+            "cumulative_seconds": 0.00014749900000000002
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 501,
+            "function": "_lazy_init",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 5.5007000000000004e-05,
+            "cumulative_seconds": 0.000142091
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 160,
+            "function": "_is_compiled",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 5.7805000000000006e-05,
+            "cumulative_seconds": 8.830900000000001e-05
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 452,
+            "function": "is_initialized",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 5.5020000000000005e-05,
+            "cumulative_seconds": 8.708400000000001e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.all>",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 6.862200000000001e-05,
+            "cumulative_seconds": 6.862200000000001e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch.cuda._get_device_properties>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 6.5391e-05,
+            "cumulative_seconds": 6.5391e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_isInBadFork>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 3.2064e-05,
+            "cumulative_seconds": 3.2064e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.hasattr>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 3.0504e-05,
+            "cumulative_seconds": 3.0504e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+            "primitive_calls": 1,
+            "total_calls": 1,
+            "self_seconds": 3.0269e-05,
+            "cumulative_seconds": 3.0269e-05
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_jit_internal.py",
+            "line": 104,
+            "function": "is_scripting",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 2.3631e-05,
+            "cumulative_seconds": 2.3631e-05
+          }
+        ],
+        "text": "         15001 function calls in 0.006 seconds\n\n   Ordered by: cumulative time\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.000    0.000    0.006    0.000 /tmp/flaggems-qsa-idle.ytDlH5/tools/benchmark_qsa_prefill_stages.py:446(<lambda>)\n      200    0.002    0.000    0.006    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:210(_validate_inputs)\n      200    0.001    0.000    0.002    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:182(_output_overlaps_inputs)\n      200    0.000    0.000    0.001    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:707(get_device_capability)\n      200    0.000    0.000    0.001    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:725(get_device_properties)\n      200    0.000    0.000    0.001    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/_utils.py:557(_get_device_index)\n      200    0.000    0.000    0.001    0.000 {built-in method builtins.any}\n      600    0.000    0.000    0.001    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:169(_check_nonoverlapping_strides)\n     2000    0.000    0.000    0.000    0.000 {method 'is_contiguous' of 'torch._C.TensorBase' objects}\n     3000    0.000    0.000    0.000    0.000 {built-in method builtins.isinstance}\n     1400    0.000    0.000    0.000    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:225(<genexpr>)\n     1800    0.000    0.000    0.000    0.000 {method 'numel' of 'torch._C.TensorBase' objects}\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_utils.py:869(_get_device_index)\n     1200    0.000    0.000    0.000    0.000 {method 'data_ptr' of 'torch._C.TensorBase' objects}\n     1000    0.000    0.000    0.000    0.000 {method 'element_size' of 'torch._C.TensorBase' objects}\n      400    0.000    0.000    0.000    0.000 {method 'stride' of 'torch._C.TensorBase' objects}\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1150(device_count)\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:501(_lazy_init)\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:160(_is_compiled)\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:452(is_initialized)\n      400    0.000    0.000    0.000    0.000 {built-in method builtins.all}\n      200    0.000    0.000    0.000    0.000 {built-in method torch.cuda._get_device_properties}\n      200    0.000    0.000    0.000    0.000 {built-in method torch._C._cuda_isInBadFork}\n      200    0.000    0.000    0.000    0.000 {built-in method builtins.hasattr}\n        1    0.000    0.000    0.000    0.000 {method 'disable' of '_lsprof.Profiler' objects}\n      200    0.000    0.000    0.000    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_jit_internal.py:104(is_scripting)\n\n\n"
+      },
+      "baseline_entry": {
+        "invocations": 200,
+        "total_instrumented_seconds": 1.6153993429999995,
+        "top_functions": [
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/tools/benchmark_qsa_prefill_stages.py",
+            "line": 487,
+            "function": "<lambda>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.0007216070000000001,
+            "cumulative_seconds": 1.703633422
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 365,
+            "function": "qsa_select_paged_prefill",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.055799155,
+            "cumulative_seconds": 1.702911815
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 399,
+            "function": "<lambda>",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.047632846,
+            "cumulative_seconds": 1.260586312
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/persistent_topk.py",
+            "line": 2186,
+            "function": "persistent_topk",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.14911079400000002,
+            "cumulative_seconds": 0.87061862
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 313,
+            "function": "_prefill_logits",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.020836764,
+            "cumulative_seconds": 0.755908762
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py",
+            "line": 820,
+            "function": "run",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.268689644,
+            "cumulative_seconds": 0.712699144
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 738,
+            "function": "run",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.144252327,
+            "cumulative_seconds": 0.5002543220000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/backends/nvidia/driver.py",
+            "line": 814,
+            "function": "__call__",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.033964928000000005,
+            "cumulative_seconds": 0.165122759
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 1138,
+            "function": "__call__",
+            "primitive_calls": 36400,
+            "total_calls": 36400,
+            "self_seconds": 0.058030573,
+            "cumulative_seconds": 0.145453532
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py",
+            "line": 787,
+            "function": "key",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.039492956,
+            "cumulative_seconds": 0.128193275
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 525,
+            "function": "runner",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.029197248000000002,
+            "cumulative_seconds": 0.120024405
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 342,
+            "function": "<lambda>",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.012357027000000001,
+            "cumulative_seconds": 0.079171611
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py",
+            "line": 788,
+            "function": "spec_arg",
+            "primitive_calls": 115200,
+            "total_calls": 115200,
+            "self_seconds": 0.051144781,
+            "cumulative_seconds": 0.074445393
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/_distributed.py",
+            "line": 62,
+            "function": "is_lite_mode",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.018539488,
+            "cumulative_seconds": 0.069498636
+          },
+          {
+            "filename": "/opt/flagtree/triton/language/core.py",
+            "line": 368,
+            "function": "_unwrap_if_constexpr",
+            "primitive_calls": 58400,
+            "total_calls": 58400,
+            "self_seconds": 0.041595784000000004,
+            "cumulative_seconds": 0.06708538800000001
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 1203,
+            "function": "current_device",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.018220712,
+            "cumulative_seconds": 0.051321879
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method __triton_launcher.launch>",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.041779516,
+            "cumulative_seconds": 0.046766215
+          },
+          {
+            "filename": "<frozen os>",
+            "line": 808,
+            "function": "getenv",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.006545238,
+            "cumulative_seconds": 0.045159722
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'append' of 'list' objects>",
+            "primitive_calls": 352800,
+            "total_calls": 352800,
+            "self_seconds": 0.045047975000000004,
+            "cumulative_seconds": 0.045047975000000004
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'view' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.039972443,
+            "cumulative_seconds": 0.039972443
+          },
+          {
+            "filename": "<frozen _collections_abc>",
+            "line": 804,
+            "function": "get",
+            "primitive_calls": 14600,
+            "total_calls": 14600,
+            "self_seconds": 0.009322730000000001,
+            "cumulative_seconds": 0.03929842
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 511,
+            "function": "launch_metadata",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.029175014000000003,
+            "cumulative_seconds": 0.039217571
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.hasattr>",
+            "primitive_calls": 295400,
+            "total_calls": 295400,
+            "self_seconds": 0.034813668,
+            "cumulative_seconds": 0.034813668
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method triton._C.libtriton.native_specialize_impl>",
+            "primitive_calls": 86400,
+            "total_calls": 86400,
+            "self_seconds": 0.034208263,
+            "cumulative_seconds": 0.034208263
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.isinstance>",
+            "primitive_calls": 303000,
+            "total_calls": 303000,
+            "self_seconds": 0.033743528,
+            "cumulative_seconds": 0.033743528
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 604,
+            "function": "compute_cache_key",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.023572102,
+            "cumulative_seconds": 0.033163773
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 725,
+            "function": "get_device_properties",
+            "primitive_calls": 7400,
+            "total_calls": 7400,
+            "self_seconds": 0.010370054,
+            "cumulative_seconds": 0.032057658
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 501,
+            "function": "_lazy_init",
+            "primitive_calls": 36200,
+            "total_calls": 36200,
+            "self_seconds": 0.012145758000000001,
+            "cumulative_seconds": 0.030516879
+          },
+          {
+            "filename": "<frozen os>",
+            "line": 709,
+            "function": "__getitem__",
+            "primitive_calls": 14600,
+            "total_calls": 14600,
+            "self_seconds": 0.014960531000000001,
+            "cumulative_seconds": 0.029975690000000003
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.len>",
+            "primitive_calls": 208800,
+            "total_calls": 208800,
+            "self_seconds": 0.022201575,
+            "cumulative_seconds": 0.022201575
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 452,
+            "function": "is_initialized",
+            "primitive_calls": 36200,
+            "total_calls": 36200,
+            "self_seconds": 0.011461819000000002,
+            "cumulative_seconds": 0.018371121
+          },
+          {
+            "filename": "<string>",
+            "line": 2,
+            "function": "dynamic_func",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.006615981000000001,
+            "cumulative_seconds": 0.015202189000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'get' of 'dict' objects>",
+            "primitive_calls": 43200,
+            "total_calls": 43200,
+            "self_seconds": 0.015031750000000002,
+            "cumulative_seconds": 0.015031750000000002
+          },
+          {
+            "filename": "<frozen os>",
+            "line": 791,
+            "function": "encode",
+            "primitive_calls": 14600,
+            "total_calls": 14600,
+            "self_seconds": 0.008961771,
+            "cumulative_seconds": 0.014858726000000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/knobs.py",
+            "line": 498,
+            "function": "__call__",
+            "primitive_calls": 43200,
+            "total_calls": 43200,
+            "self_seconds": 0.014471881,
+            "cumulative_seconds": 0.014471881
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py",
+            "line": 804,
+            "function": "dns_arg",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.009973600000000001,
+            "cumulative_seconds": 0.014254926000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'size' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.012524068000000001,
+            "cumulative_seconds": 0.012524068000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.min>",
+            "primitive_calls": 43800,
+            "total_calls": 43800,
+            "self_seconds": 0.012436959000000001,
+            "cumulative_seconds": 0.012436959000000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 210,
+            "function": "_validate_inputs",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.0037943800000000004,
+            "cumulative_seconds": 0.010563886000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'data_ptr' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 44400,
+            "total_calls": 44400,
+            "self_seconds": 0.009949888,
+            "cumulative_seconds": 0.009949888
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 369,
+            "function": "default",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.007054808,
+            "cumulative_seconds": 0.009511248
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'items' of 'dict' objects>",
+            "primitive_calls": 50800,
+            "total_calls": 50800,
+            "self_seconds": 0.009268747,
+            "cumulative_seconds": 0.009268747
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_getDevice>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.008724066,
+            "cumulative_seconds": 0.008724066
+          },
+          {
+            "filename": "/opt/flagtree/triton/__init__.py",
+            "line": 97,
+            "function": "next_power_of_2",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.008175498,
+            "cumulative_seconds": 0.008175498
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.max>",
+            "primitive_calls": 29200,
+            "total_calls": 29200,
+            "self_seconds": 0.0073945320000000005,
+            "cumulative_seconds": 0.0073945320000000005
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 1150,
+            "function": "device_count",
+            "primitive_calls": 7400,
+            "total_calls": 7400,
+            "self_seconds": 0.003014179,
+            "cumulative_seconds": 0.007205746000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_isInBadFork>",
+            "primitive_calls": 36200,
+            "total_calls": 36200,
+            "self_seconds": 0.006909302000000001,
+            "cumulative_seconds": 0.006909302000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'dim' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.006833316000000001,
+            "cumulative_seconds": 0.006833316000000001
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 522,
+            "function": "__getitem__",
+            "primitive_calls": 7200,
+            "total_calls": 7200,
+            "self_seconds": 0.005114047,
+            "cumulative_seconds": 0.006289332000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_getCurrentRawStream>",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.006017591,
+            "cumulative_seconds": 0.006017591
+          },
+          {
+            "filename": "/opt/flagtree/triton/__init__.py",
+            "line": 92,
+            "function": "cdiv",
+            "primitive_calls": 22000,
+            "total_calls": 22000,
+            "self_seconds": 0.005833035,
+            "cumulative_seconds": 0.005833035
+          },
+          {
+            "filename": "/opt/flagtree/triton/backends/nvidia/driver.py",
+            "line": 816,
+            "function": "allocate_scratch",
+            "primitive_calls": 43200,
+            "total_calls": 43200,
+            "self_seconds": 0.005788112000000001,
+            "cumulative_seconds": 0.005788112000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'values' of 'dict' objects>",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.0057715990000000005,
+            "cumulative_seconds": 0.0057715990000000005
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/driver.py",
+            "line": 47,
+            "function": "active",
+            "primitive_calls": 43200,
+            "total_calls": 43200,
+            "self_seconds": 0.00568806,
+            "cumulative_seconds": 0.00568806
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/_utils.py",
+            "line": 557,
+            "function": "_get_device_index",
+            "primitive_calls": 7600,
+            "total_calls": 7600,
+            "self_seconds": 0.0032873750000000004,
+            "cumulative_seconds": 0.0052356650000000005
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/jit.py",
+            "line": 393,
+            "function": "__getitem__",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.00477329,
+            "cumulative_seconds": 0.00477329
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 467,
+            "function": "_init_handles",
+            "primitive_calls": 28800,
+            "total_calls": 28800,
+            "self_seconds": 0.00440546,
+            "cumulative_seconds": 0.00440546
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'encode' of 'str' objects>",
+            "primitive_calls": 14600,
+            "total_calls": 14600,
+            "self_seconds": 0.004217916,
+            "cumulative_seconds": 0.004217916
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 160,
+            "function": "_is_compiled",
+            "primitive_calls": 7400,
+            "total_calls": 7400,
+            "self_seconds": 0.0028190660000000003,
+            "cumulative_seconds": 0.004191567
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 391,
+            "function": "__init__",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.00416162,
+            "cumulative_seconds": 0.00416162
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch.cuda._get_device_properties>",
+            "primitive_calls": 7400,
+            "total_calls": 7400,
+            "self_seconds": 0.004055269,
+            "cumulative_seconds": 0.004055269
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'keys' of 'mappingproxy' objects>",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.003817654,
+            "cumulative_seconds": 0.003817654
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.callable>",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.0037761530000000004,
+            "cumulative_seconds": 0.0037761530000000004
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'stride' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 8800,
+            "total_calls": 8800,
+            "self_seconds": 0.003728574,
+            "cumulative_seconds": 0.003728574
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'is_contiguous' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 9200,
+            "total_calls": 9200,
+            "self_seconds": 0.0031398370000000004,
+            "cumulative_seconds": 0.0031398370000000004
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/_distributed.py",
+            "line": 36,
+            "function": "__init__",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.0029994910000000004,
+            "cumulative_seconds": 0.0029994910000000004
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'strip' of 'str' objects>",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.002946868,
+            "cumulative_seconds": 0.002946868
+          },
+          {
+            "filename": "/opt/flagtree/triton/runtime/_distributed.py",
+            "line": 29,
+            "function": "__new__",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.0029056240000000003,
+            "cumulative_seconds": 0.0029056240000000003
+          },
+          {
+            "filename": "/opt/flagtree/triton/compiler/compiler.py",
+            "line": 505,
+            "function": "run",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.0028572470000000003,
+            "cumulative_seconds": 0.0028572470000000003
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'upper' of 'str' objects>",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.0028525580000000003,
+            "cumulative_seconds": 0.0028525580000000003
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'numel' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 9000,
+            "total_calls": 9000,
+            "self_seconds": 0.002751138,
+            "cumulative_seconds": 0.002751138
+          },
+          {
+            "filename": "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/inspect.py",
+            "line": 2800,
+            "function": "default",
+            "primitive_calls": 21600,
+            "total_calls": 21600,
+            "self_seconds": 0.0024564400000000003,
+            "cumulative_seconds": 0.0024564400000000003
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 182,
+            "function": "_output_overlaps_inputs",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.001281643,
+            "cumulative_seconds": 0.002228889
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 707,
+            "function": "get_device_capability",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000192933,
+            "cumulative_seconds": 0.002115585
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch.empty>",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 0.001992352,
+            "cumulative_seconds": 0.001992352
+          },
+          {
+            "filename": "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/inspect.py",
+            "line": 3089,
+            "function": "parameters",
+            "primitive_calls": 14400,
+            "total_calls": 14400,
+            "self_seconds": 0.001919752,
+            "cumulative_seconds": 0.001919752
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 292,
+            "function": "_prefill_score_metadata",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.0007432690000000001,
+            "cumulative_seconds": 0.001199172
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 650,
+            "function": "__init__",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000124788,
+            "cumulative_seconds": 0.001073642
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.any>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.00033497700000000003,
+            "cumulative_seconds": 0.0008464610000000001
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 169,
+            "function": "_check_nonoverlapping_strides",
+            "primitive_calls": 600,
+            "total_calls": 600,
+            "self_seconds": 0.00043426900000000004,
+            "cumulative_seconds": 0.000814445
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_utils.py",
+            "line": 869,
+            "function": "_get_device_index",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 0.000613624,
+            "cumulative_seconds": 0.000762684
+          },
+          {
+            "filename": "/tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+            "line": 225,
+            "function": "<genexpr>",
+            "primitive_calls": 1400,
+            "total_calls": 1400,
+            "self_seconds": 0.000511484,
+            "cumulative_seconds": 0.000511484
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'element_size' of 'torch._C.TensorBase' objects>",
+            "primitive_calls": 1000,
+            "total_calls": 1000,
+            "self_seconds": 0.000251611,
+            "cumulative_seconds": 0.000251611
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 657,
+            "function": "__exit__",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.000133587,
+            "cumulative_seconds": 0.00022329600000000003
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py",
+            "line": 654,
+            "function": "__enter__",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 0.00010612900000000001,
+            "cumulative_seconds": 0.00019505500000000002
+          },
+          {
+            "filename": "<frozen os>",
+            "line": 795,
+            "function": "decode",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 8.5235e-05,
+            "cumulative_seconds": 0.000156433
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method builtins.all>",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 0.00012049200000000001,
+            "cumulative_seconds": 0.00012049200000000001
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_maybeExchangeDevice>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 8.9709e-05,
+            "cumulative_seconds": 8.9709e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<built-in method torch._C._cuda_exchangeDevice>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 8.892600000000001e-05,
+            "cumulative_seconds": 8.892600000000001e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'decode' of 'bytes' objects>",
+            "primitive_calls": 200,
+            "total_calls": 200,
+            "self_seconds": 7.1198e-05,
+            "cumulative_seconds": 7.1198e-05
+          },
+          {
+            "filename": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/_jit_internal.py",
+            "line": 104,
+            "function": "is_scripting",
+            "primitive_calls": 400,
+            "total_calls": 400,
+            "self_seconds": 6.2712e-05,
+            "cumulative_seconds": 6.2712e-05
+          },
+          {
+            "filename": "~",
+            "line": 0,
+            "function": "<method 'disable' of '_lsprof.Profiler' objects>",
+            "primitive_calls": 1,
+            "total_calls": 1,
+            "self_seconds": 3.5055e-05,
+            "cumulative_seconds": 3.5055e-05
+          }
+        ],
+        "text": "         2720401 function calls in 1.615 seconds\n\n   Ordered by: cumulative time\n   List reduced from 92 to 80 due to restriction <80>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.001    0.000    1.704    0.009 /tmp/flaggems-qsa-idle.ytDlH5/tools/benchmark_qsa_prefill_stages.py:487(<lambda>)\n      200    0.056    0.000    1.703    0.009 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:365(qsa_select_paged_prefill)\n    21600    0.048    0.000    1.261    0.000 /opt/flagtree/triton/runtime/jit.py:399(<lambda>)\n     7200    0.149    0.000    0.871    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/persistent_topk.py:2186(persistent_topk)\n     7200    0.021    0.000    0.756    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:313(_prefill_logits)\n     7200    0.269    0.000    0.713    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py:820(run)\n    14400    0.144    0.000    0.500    0.000 /opt/flagtree/triton/runtime/jit.py:738(run)\n    21600    0.034    0.000    0.165    0.000 /opt/flagtree/triton/backends/nvidia/driver.py:814(__call__)\n    36400    0.058    0.000    0.145    0.000 /opt/flagtree/triton/runtime/jit.py:1138(__call__)\n     7200    0.039    0.000    0.128    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py:787(key)\n     7200    0.029    0.000    0.120    0.000 /opt/flagtree/triton/compiler/compiler.py:525(runner)\n     7200    0.012    0.000    0.079    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:342(<lambda>)\n   115200    0.051    0.000    0.074    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py:788(spec_arg)\n    14400    0.019    0.000    0.069    0.000 /opt/flagtree/triton/runtime/_distributed.py:62(is_lite_mode)\n    58400    0.042    0.000    0.067    0.000 /opt/flagtree/triton/language/core.py:368(_unwrap_if_constexpr)\n    28800    0.018    0.000    0.051    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1203(current_device)\n     7200    0.042    0.000    0.047    0.000 {built-in method __triton_launcher.launch}\n    14400    0.007    0.000    0.045    0.000 <frozen os>:808(getenv)\n   352800    0.045    0.000    0.045    0.000 {method 'append' of 'list' objects}\n    28800    0.040    0.000    0.040    0.000 {method 'view' of 'torch._C.TensorBase' objects}\n    14600    0.009    0.000    0.039    0.000 <frozen _collections_abc>:804(get)\n    21600    0.029    0.000    0.039    0.000 /opt/flagtree/triton/compiler/compiler.py:511(launch_metadata)\n   295400    0.035    0.000    0.035    0.000 {built-in method builtins.hasattr}\n    86400    0.034    0.000    0.034    0.000 {built-in method triton._C.libtriton.native_specialize_impl}\n   303000    0.034    0.000    0.034    0.000 {built-in method builtins.isinstance}\n    14400    0.024    0.000    0.033    0.000 /opt/flagtree/triton/runtime/jit.py:604(compute_cache_key)\n     7400    0.010    0.000    0.032    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:725(get_device_properties)\n    36200    0.012    0.000    0.031    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:501(_lazy_init)\n    14600    0.015    0.000    0.030    0.000 <frozen os>:709(__getitem__)\n   208800    0.022    0.000    0.022    0.000 {built-in method builtins.len}\n    36200    0.011    0.000    0.018    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:452(is_initialized)\n     7200    0.007    0.000    0.015    0.000 <string>:2(dynamic_func)\n    43200    0.015    0.000    0.015    0.000 {method 'get' of 'dict' objects}\n    14600    0.009    0.000    0.015    0.000 <frozen os>:791(encode)\n    43200    0.014    0.000    0.014    0.000 /opt/flagtree/triton/knobs.py:498(__call__)\n    21600    0.010    0.000    0.014    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/utils/libentry.py:804(dns_arg)\n    28800    0.013    0.000    0.013    0.000 {method 'size' of 'torch._C.TensorBase' objects}\n    43800    0.012    0.000    0.012    0.000 {built-in method builtins.min}\n      200    0.004    0.000    0.011    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:210(_validate_inputs)\n    44400    0.010    0.000    0.010    0.000 {method 'data_ptr' of 'torch._C.TensorBase' objects}\n    21600    0.007    0.000    0.010    0.000 /opt/flagtree/triton/runtime/jit.py:369(default)\n    50800    0.009    0.000    0.009    0.000 {method 'items' of 'dict' objects}\n    28800    0.009    0.000    0.009    0.000 {built-in method torch._C._cuda_getDevice}\n    14400    0.008    0.000    0.008    0.000 /opt/flagtree/triton/__init__.py:97(next_power_of_2)\n    29200    0.007    0.000    0.007    0.000 {built-in method builtins.max}\n     7400    0.003    0.000    0.007    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:1150(device_count)\n    36200    0.007    0.000    0.007    0.000 {built-in method torch._C._cuda_isInBadFork}\n    28800    0.007    0.000    0.007    0.000 {method 'dim' of 'torch._C.TensorBase' objects}\n     7200    0.005    0.000    0.006    0.000 /opt/flagtree/triton/compiler/compiler.py:522(__getitem__)\n    21600    0.006    0.000    0.006    0.000 {built-in method torch._C._cuda_getCurrentRawStream}\n    22000    0.006    0.000    0.006    0.000 /opt/flagtree/triton/__init__.py:92(cdiv)\n    43200    0.006    0.000    0.006    0.000 /opt/flagtree/triton/backends/nvidia/driver.py:816(allocate_scratch)\n    28800    0.006    0.000    0.006    0.000 {method 'values' of 'dict' objects}\n    43200    0.006    0.000    0.006    0.000 /opt/flagtree/triton/runtime/driver.py:47(active)\n     7600    0.003    0.000    0.005    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/_utils.py:557(_get_device_index)\n    21600    0.005    0.000    0.005    0.000 /opt/flagtree/triton/runtime/jit.py:393(__getitem__)\n    28800    0.004    0.000    0.004    0.000 /opt/flagtree/triton/compiler/compiler.py:467(_init_handles)\n    14600    0.004    0.000    0.004    0.000 {method 'encode' of 'str' objects}\n     7400    0.003    0.000    0.004    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:160(_is_compiled)\n    21600    0.004    0.000    0.004    0.000 /opt/flagtree/triton/compiler/compiler.py:391(__init__)\n     7400    0.004    0.000    0.004    0.000 {built-in method torch.cuda._get_device_properties}\n    14400    0.004    0.000    0.004    0.000 {method 'keys' of 'mappingproxy' objects}\n    21600    0.004    0.000    0.004    0.000 {built-in method builtins.callable}\n     8800    0.004    0.000    0.004    0.000 {method 'stride' of 'torch._C.TensorBase' objects}\n     9200    0.003    0.000    0.003    0.000 {method 'is_contiguous' of 'torch._C.TensorBase' objects}\n    14400    0.003    0.000    0.003    0.000 /opt/flagtree/triton/runtime/_distributed.py:36(__init__)\n    14400    0.003    0.000    0.003    0.000 {method 'strip' of 'str' objects}\n    14400    0.003    0.000    0.003    0.000 /opt/flagtree/triton/runtime/_distributed.py:29(__new__)\n    21600    0.003    0.000    0.003    0.000 /opt/flagtree/triton/compiler/compiler.py:505(run)\n    14400    0.003    0.000    0.003    0.000 {method 'upper' of 'str' objects}\n     9000    0.003    0.000    0.003    0.000 {method 'numel' of 'torch._C.TensorBase' objects}\n    21600    0.002    0.000    0.002    0.000 /root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/inspect.py:2800(default)\n      200    0.001    0.000    0.002    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:182(_output_overlaps_inputs)\n      200    0.000    0.000    0.002    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:707(get_device_capability)\n      400    0.002    0.000    0.002    0.000 {built-in method torch.empty}\n    14400    0.002    0.000    0.002    0.000 /root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/inspect.py:3089(parameters)\n      200    0.001    0.000    0.001    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:292(_prefill_score_metadata)\n      200    0.000    0.000    0.001    0.000 /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/cuda/__init__.py:650(__init__)\n      200    0.000    0.000    0.001    0.000 {built-in method builtins.any}\n      600    0.000    0.000    0.001    0.000 /tmp/flaggems-qsa-idle.ytDlH5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py:169(_check_nonoverlapping_strides)\n\n\n"
+      }
+    }
+  },
+  "peak_allocated_bytes": 304768512
+}
