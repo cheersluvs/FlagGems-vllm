@@ -38,6 +38,7 @@ SOURCES = [
     "tools/qsa_prefill_single_row_trial.py",
     "tools/qsa_prefill_gpu_guard.py",
     "tools/qsa_prefill_score_benchmark.py",
+    "tools/qsa_prefill_score_resume.py",
     "benchmark/base.py",
     "benchmark/conftest.py",
     "benchmark/consts.py",
@@ -202,6 +203,15 @@ def gpu_guard_module():
     return module
 
 
+def score_resume_module():
+    spec = importlib.util.spec_from_file_location(
+        "qsa_score_resume", ROOT / "tools/qsa_prefill_score_resume.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def idle_gpu_gate(summary, directory, env, label, guard):
     for attempt in range(1, 4):
         check = guard.idle(env.get("CUDA_VISIBLE_DEVICES", ""), command)
@@ -218,6 +228,10 @@ def idle_gpu_gate(summary, directory, env, label, guard):
         )
         time.sleep(1)
     if check["status"] != "passed":
+        if check.get("processes"):
+            check["process_details"] = guard.process_details(
+                [p["pid"] for p in check["processes"]], command
+            )
         summary["environment_rejected"] = True
         summary.setdefault("accuracy", dict(status="not_run_environment_rejected"))
         print(f"GPU environment rejected: {check['reasons']}", flush=True)
@@ -232,6 +246,11 @@ def guarded_telemetry(uuid, label, result, report, guard):
         point, guard.process_query(device_id, command), device_id, guard.self_pids()
     )
     point["gpu_guard"] = check
+    if check["status"] != "passed" and check.get("processes"):
+        check["process_details"] = guard.process_details(
+            [p["pid"] for p in check["processes"]], command
+        )
+        check["nvml_process_names"] = guard.process_names(device_id, command)
     result.setdefault("telemetry", []).append(point)
     result["performance_guard"] = dict(
         status="observed_clean" if check["status"] == "passed" else "rejected",
@@ -704,6 +723,24 @@ def run_score_kernel(
     result["stages"] = {}
     result["host_diagnostics"] = dict(status="not_collected_score_kernel_mode")
     result["timing_plan"] = timing_plan(options)
+    if options.resume_from:
+        from tools import qsa_prefill_score_resume as resume
+
+        metadata, _ = resume.load(
+            options.resume_from,
+            ROOT,
+            cases(True),
+            options,
+            os.environ.get("CUDA_VISIBLE_DEVICES"),
+        )
+        if resume.fingerprint(result["runtime"]) != metadata["runtime"]:
+            result["performance_guard"] = dict(
+                status="rejected", reasons=["Resume GPU/runtime identity changed"]
+            )
+            write_json(report, result)
+            raise RuntimeError(
+                "Resume GPU/runtime identity changed; retained measurements cannot be combined"
+            )
     if not chunks:
         result.update(
             status="passed",
@@ -724,6 +761,15 @@ def run_score_kernel(
     timer, timer_info = scoring.make_timer(
         options.kernel_warmup_ms, options.kernel_rep_ms
     )
+    if options.resume_from:
+        if resume.timer_fingerprint(timer_info) != metadata["timer"]:
+            result["performance_guard"] = dict(
+                status="rejected", reasons=["Resume GPU/runtime/timer identity changed"]
+            )
+            write_json(report, result)
+            raise RuntimeError(
+                "Resume GPU/runtime/timer identity changed; retained measurements cannot be combined"
+            )
     result["score_timer"] = timer_info
     result["score_configs"] = score_configs(op)
     result["vector_score_configs"] = score_configs(
@@ -1111,6 +1157,39 @@ def parent(options, selected, directory):
     )
     write_json(directory / "manifest.json", manifest)
     summary = dict(schema=SCHEMA, manifest=manifest, cases=[])
+    if options.resume_from:
+        try:
+            module = score_resume_module()
+            metadata, retained = module.load(
+                options.resume_from,
+                ROOT,
+                cases(True),
+                options,
+                env.get("CUDA_VISIBLE_DEVICES"),
+            )
+        except (ValueError, KeyError, TypeError, OSError) as exc:
+            summary["resume_error"] = str(exc)
+            write_json(directory / "stage-summary.json", summary)
+            print(f"Resume rejected: {exc}", flush=True)
+            return 2
+        summary["retained_cases"] = retained
+        summary["retained_accuracy"] = metadata["prior_accuracy"]
+        summary["score_case_progress"] = dict(
+            completed=len(retained),
+            active=len(cases(True)),
+            pending=len(cases(True)) - len(retained),
+        )
+        manifest["resume"] = metadata
+        selected = [
+            case for case in selected if case["name"] not in metadata["completed_names"]
+        ]
+        manifest["cases"] = selected
+        manifest["active_set"] = cases(True)
+        write_json(directory / "manifest.json", manifest)
+        print(
+            f"Retained {len(retained)} completed cases; measuring {len(selected)} pending cases",
+            flush=True,
+        )
     guard = gpu_guard_module() if options.require_idle_gpu else None
     if guard and not idle_gpu_gate(summary, directory, env, "before_accuracy", guard):
         return 2
@@ -1224,6 +1303,8 @@ def parent(options, selected, directory):
             cmd.append("--single-row-ab")
         if options.require_idle_gpu:
             cmd.append("--require-idle-gpu")
+        if options.resume_from:
+            cmd.extend(["--resume-from", str(Path(options.resume_from).resolve())])
         print(f"Running {name}", flush=True)
         with (directory / f"{name}.txt").open("w") as log:
             try:
@@ -1253,6 +1334,16 @@ def parent(options, selected, directory):
                 "Stopping remaining cases after GPU environment rejection", flush=True
             )
             break
+    if options.resume_from:
+        complete = len(summary.get("retained_cases", [])) + sum(
+            c["status"] == "passed" for c in summary["cases"]
+        )
+        summary["score_case_progress"] = dict(
+            completed=complete,
+            active=len(cases(True)),
+            pending=len(cases(True)) - complete,
+        )
+        write_json(directory / "stage-summary.json", summary)
     lines = [
         "case\tcase_status\tstage\tstage_status\twall_median_us\t"
         "event_median_us\tgraph_median_us\tgraph_status"
@@ -1301,8 +1392,10 @@ def parent(options, selected, directory):
         (directory / "host-summary.tsv").write_text("\n".join(host_lines) + "\n")
     ab = ab_configuration(options)
     if options.mode == "kernel":
-        rows = ["case\tstatus\tbaseline_us\tcandidate_us\tspeedup\tpaired_ratio_median"]
-        for case in summary["cases"]:
+        rows = [
+            "case\tstatus\tbaseline_us\tcandidate_us\tspeedup\tpaired_ratio_median\tmeasurement_origin"
+        ]
+        for case in summary.get("retained_cases", []) + summary["cases"]:
             info = case.get("score_kernel", {})
             if case["status"] != "passed":
                 info = dict(status=case["status"])
@@ -1317,6 +1410,7 @@ def parent(options, selected, directory):
                             info.get("candidate_us", {}).get("median", "NA"),
                             info.get("speedup", "NA"),
                             info.get("paired_ratios", {}).get("median", "NA"),
+                            "retained" if "measurement_origin" in case else "current",
                         ],
                     )
                 )
@@ -1377,6 +1471,10 @@ def main():
     )
     parser.add_argument("--kernel-warmup-ms", type=float, default=1000)
     parser.add_argument("--kernel-rep-ms", type=float, default=100)
+    parser.add_argument(
+        "--resume-from",
+        help="Retain completed guarded kernel cases from this stage-summary.json on the same GPU/runtime",
+    )
     parser.add_argument(
         "--require-idle-gpu",
         action="store_true",
@@ -1444,6 +1542,16 @@ def main():
     )
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
+    if options.resume_from and (
+        options.mode != "kernel"
+        or not options.single_row_ab
+        or not options.require_idle_gpu
+        or options.cases
+        or options.suite != "comprehensive"
+    ):
+        parser.error(
+            "--resume-from requires comprehensive --single-row-ab --mode kernel --require-idle-gpu, without --cases"
+        )
     if options.mode == "kernel" and not options.single_row_ab:
         parser.error("Score-only --mode kernel currently requires --single-row-ab")
     if (

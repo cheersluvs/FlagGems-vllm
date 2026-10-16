@@ -79,6 +79,60 @@ def self_pids():
     return sorted(result)
 
 
+def process_details(pids, command):
+    """Read identities on rejection; unavailable /proc data never grants access."""
+    details = []
+    for pid in sorted(set(pids)):
+        item = dict(pid=pid)
+        directory = Path("/proc") / str(pid)
+        try:
+            argv = (
+                directory.joinpath("cmdline")
+                .read_bytes()
+                .decode(errors="replace")
+                .rstrip("\0")
+                .split("\0")
+            )
+            item["program"] = Path(argv[0]).name
+            if len(argv) > 1 and Path(argv[1]).suffix in {".py", ".sh"}:
+                item["script"] = Path(argv[1]).name
+            item["status"] = [
+                line
+                for line in directory.joinpath("status").read_text().splitlines()
+                if line.split(":", 1)[0]
+                in {"Name", "State", "Pid", "PPid", "NSpid", "Uid"}
+            ]
+        except OSError as exc:
+            item["proc_error"] = str(exc)
+        item["ps"] = command(
+            ["ps", "-p", str(pid), "-o", "pid=,ppid=,lstart=,etime=,comm="]
+        )
+        details.append(item)
+    return details
+
+
+def process_names(uuid, command):
+    response = command(
+        [
+            "nvidia-smi",
+            "-i",
+            uuid,
+            "--query-compute-apps=gpu_uuid,pid,process_name,used_gpu_memory",
+            "--format=csv,noheader,nounits",
+        ]
+    )
+    try:
+        data = []
+        for gpu, pid, name, memory in rows(response):
+            if gpu.strip() == uuid:
+                # Only program identity, never other jobs' argument values.
+                program = Path(name.strip().split()[0]).name
+                data.append(dict(pid=int(pid), program=program, memory_mib=int(memory)))
+        return dict(returncode=0, processes=data)
+    except (ValueError, TypeError, KeyError, IndexError):
+        return dict(error="Process-name query unavailable or unparseable")
+
+
 def idle(uuid, command):
     result = dict(device_uuid=uuid, status="rejected", reasons=[], queries={})
     if not UUID_PATTERN.fullmatch(uuid):

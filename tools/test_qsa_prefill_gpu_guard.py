@@ -45,6 +45,44 @@ def point():
 
 
 class GpuGuardTests(unittest.TestCase):
+    def test_rejection_diagnostics_read_pid_identity_without_whitelisting(self):
+        with patch.object(
+            guard.Path, "read_bytes", return_value=b"python\0job.py\0--token\0private\0"
+        ), patch.object(
+            guard.Path,
+            "read_text",
+            return_value="Name:\tpython\nPid:\t456\nPPid:\t123\nNSpid:\t456\nVmSize:\t100\n",
+        ):
+            data = guard.process_details(
+                [456], lambda args: dict(returncode=0, stdout="456 123 python")
+            )
+        self.assertEqual(data[0]["program"], "python")
+        self.assertEqual(data[0]["script"], "job.py")
+        self.assertNotIn("private", str(data))
+        self.assertIn("PPid:\t123", data[0]["status"])
+        self.assertNotIn("VmSize", str(data))
+        self.assertEqual(
+            guard.timing(point(), query(f"{UUID}, 456, 522"), UUID, [123])["status"],
+            "rejected",
+        )
+
+    def test_exited_or_hidden_pid_diagnostics_do_not_raise(self):
+        with patch.object(guard.Path, "read_bytes", side_effect=OSError("not visible")):
+            data = guard.process_details(
+                [456], lambda _: dict(returncode=1, stderr="gone")
+            )
+        self.assertIn("not visible", data[0]["proc_error"])
+        self.assertEqual(data[0]["ps"]["returncode"], 1)
+
+    def test_nvml_names_keep_only_program_identity(self):
+        data = guard.process_names(
+            UUID, lambda _: query(f"{UUID}, 456, /opt/python --token private, 610")
+        )
+        self.assertEqual(
+            data["processes"], [dict(pid=456, program="python", memory_mib=610)]
+        )
+        self.assertNotIn("private", str(data))
+
     def test_idle_card_passes_with_explicit_identity(self):
         result = guard.idle(UUID, idle_command())
         self.assertEqual(result["status"], "passed")

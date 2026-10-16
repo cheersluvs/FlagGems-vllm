@@ -330,6 +330,7 @@ class BenchmarkTests(unittest.TestCase):
             mode="stages",
             kernel_warmup_ms=1000,
             kernel_rep_ms=100,
+            resume_from=None,
         )
         values.update(kwargs)
         return argparse.Namespace(**values)
@@ -526,6 +527,39 @@ class BenchmarkTests(unittest.TestCase):
             self.assertEqual(saved["telemetry"][0]["gpu_guard"], verdict)
             self.assertEqual(saved["performance_guard"]["status"], "rejected")
 
+    def test_guard_rejection_records_process_identity_and_nvml_names(self):
+        verdict = dict(
+            status="rejected",
+            reasons=["unattributed PID"],
+            processes=[dict(pid=123), dict(pid=456)],
+        )
+        guard = types.SimpleNamespace(
+            timing=lambda *_: verdict,
+            process_query=lambda *_: {},
+            self_pids=lambda: [123],
+            process_details=lambda pids, _: [
+                dict(pid=p, program="python", script="job.py") for p in pids
+            ],
+            process_names=lambda *_: dict(processes=[dict(pid=456, program="python")]),
+        )
+        with tempfile.TemporaryDirectory() as folder, patch.object(
+            bench, "telemetry", return_value={}
+        ), patch.object(
+            bench,
+            "command",
+            return_value=dict(returncode=0, stdout="GPU,456,python job.py,610"),
+        ):
+            report = Path(folder) / "rejected.json"
+            with self.assertRaises(RuntimeError):
+                bench.guarded_telemetry("uuid", "before_timing", {}, report, guard)
+            saved = json.loads(report.read_text())
+            check = saved["telemetry"][0]["gpu_guard"]
+            self.assertEqual(check["status"], "rejected")
+            self.assertEqual(len(check["process_details"]), 2)
+            self.assertEqual(
+                check["nvml_process_names"]["processes"][0]["program"], "python"
+            )
+
     def test_kernel_mode_no_score_is_na_without_invented_latency(self):
         with tempfile.TemporaryDirectory() as folder:
             result = {}
@@ -547,6 +581,77 @@ class BenchmarkTests(unittest.TestCase):
             self.assertEqual(saved["score_kernel"]["status"], "not_applicable_no_score")
             self.assertNotIn("speedup", saved["score_kernel"])
             self.assertFalse(saved["score_kernel"]["includes_topk"])
+
+    def test_resume_skips_completed_cases_and_labels_retained_metrics(self):
+        retained = dict(
+            case=bench.cases()[0],
+            status="passed",
+            score_kernel=dict(
+                status="passed",
+                baseline_us=dict(median=10),
+                candidate_us=dict(median=8),
+                speedup=1.25,
+                paired_ratios=dict(median=1.25),
+            ),
+            measurement_origin=dict(checkpoint_sha256="old"),
+        )
+        metadata = dict(
+            completed_names=["core_0"],
+            prior_accuracy=dict(status="passed", counts=dict(passed=161)),
+        )
+        module = types.SimpleNamespace(load=lambda *_: (metadata, [retained]))
+
+        def worker(command, **kwargs):
+            self.assertIn("--resume-from", command)
+            name = command[command.index("--worker") + 1]
+            self.assertEqual(name, "core_1")
+            directory = Path(command[command.index("--report-dir") + 1])
+            bench.write_json(
+                directory / f"{name}.json",
+                dict(
+                    case=dict(name=name),
+                    status="passed",
+                    stages={},
+                    score_kernel=dict(
+                        status="passed",
+                        baseline_us=dict(median=10),
+                        candidate_us=dict(median=9),
+                        speedup=10 / 9,
+                        paired_ratios=dict(median=10 / 9),
+                    ),
+                ),
+            )
+            return types.SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+            os.environ, {"QSA_TRITON_RUNTIME_PATH": "", "CUDA_LAUNCH_BLOCKING": "0"}
+        ), patch.object(bench, "command", return_value={}), patch.object(
+            bench, "score_resume_module", return_value=module
+        ), patch.object(
+            bench.subprocess, "run", side_effect=worker
+        ) as run, contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            directory = Path(folder)
+            self.assertEqual(
+                bench.parent(
+                    self.options(
+                        mode="kernel",
+                        single_row_ab=True,
+                        skip_accuracy=True,
+                        resume_from="prior.json",
+                    ),
+                    bench.cases()[:2],
+                    directory,
+                ),
+                0,
+            )
+            self.assertEqual(run.call_count, 1)
+            summary = json.loads((directory / "stage-summary.json").read_text())
+            self.assertEqual(len(summary["retained_cases"]), 1)
+            text = (directory / "score-kernel-ab.tsv").read_text()
+            self.assertIn("1.25\t1.25\tretained", text)
+            self.assertIn("\tcurrent", text)
 
     def test_kernel_mode_forwarding_and_separate_score_speedup_tsv(self):
         def worker(command, **kwargs):

@@ -76,3 +76,13 @@ completed 17 scored cases plus one N/A case. It stopped with exit 2 after an
 additional GPU PID appeared during the next case. Upload succeeded. The
 active set remains incomplete and production routing stays pending. See
 [qsa_prefill_kernel_partial_results.md](qsa_prefill_kernel_partial_results.md).
+
+
+## Shared-machine continuation
+
+A second run on GPU 2, report `597f7021c72acc13322bcbe5b5c738575657d099`,
+also passed correctness but stopped on an additional GPU process. The user
+confirmed that the host is shared. New checkpoint support retains only complete,
+guarded measurements on the same GPU/runtime/timer and retries failed/unstarted
+cases. Reused data remain explicitly labelled. See
+[qsa_prefill_shared_gpu_resume.md](qsa_prefill_shared_gpu_resume.md).
