@@ -67,3 +67,12 @@ parameter/unit checks, score-only call boundaries, alternating ratio arithmetic,
 N/A cases, CLI/TSV propagation, environment guards and upload success/failure.
 Ten frozen operator/config/reference/shared-benchmark files and six existing
 case/timer/stage functions were verified unchanged. Pre-commit passed.
+
+
+## First card run
+
+Report `4a195ce7676d516f1c838a607f2a9c6a30c16d97` passed correctness and
+completed 17 scored cases plus one N/A case. It stopped with exit 2 after an
+additional GPU PID appeared during the next case. Upload succeeded. The
+active set remains incomplete and production routing stays pending. See
+[qsa_prefill_kernel_partial_results.md](qsa_prefill_kernel_partial_results.md).

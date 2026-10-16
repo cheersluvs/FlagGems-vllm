@@ -50,6 +50,8 @@ acceptance criterion is score-only `--mode kernel` speedup, excluding Top-K.
 The earlier wall-based decision is superseded. The candidate is pending
 same-mode baseline/candidate score measurements; production routing remains
 unchanged. See [qsa_prefill_kernel_acceptance.md](qsa_prefill_kernel_acceptance.md).
+The first score-only run stopped on an additional GPU PID; see
+[qsa_prefill_kernel_partial_results.md](qsa_prefill_kernel_partial_results.md).
 Historical wall/Graph observations remain available in
 [qsa_prefill_single_row_repeat_results.md](qsa_prefill_single_row_repeat_results.md).
 
