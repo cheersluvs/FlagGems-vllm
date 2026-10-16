@@ -241,6 +241,39 @@ class StockRuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "differs from installed wheel"):
                 ab.stock_runtime(torch, triton, root, dist)
 
+    def test_environment_uses_verified_installed_version_and_keeps_failure_details(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            torch, triton, dist = self.fixture(root)
+            torch.__version__ = "2.13.0+cu129"
+            # Regression: a genuine wheel other than 3.6.0 must reach the
+            # compilation/correctness smoke checks, rather than a version gate.
+            triton.__version__ = dist.version = "3.7.0"
+            path = root / "preflight.json"
+            with (
+                patch.object(bench.sys, "prefix", str(root)),
+                patch.object(
+                    bench.importlib.metadata, "version", return_value=torch.__version__
+                ),
+                patch.object(ab.importlib.metadata, "distribution", return_value=dist),
+                contextlib.redirect_stdout(io.StringIO()) as log,
+            ):
+                stock = bench.check_stock_environment(torch, triton, path)
+                self.assertEqual(stock["version"], "3.7.0")
+                self.assertIn("3.7.0", log.getvalue())
+                self.assertEqual(
+                    json.loads(path.read_text())["environment"]["triton_source"],
+                    triton.__file__,
+                )
+                dist.metadata["Summary"] = "FlagTree"
+                with self.assertRaisesRegex(RuntimeError, "FlagTree"):
+                    bench.check_stock_environment(torch, triton, path)
+                saved = json.loads(path.read_text())
+                self.assertEqual(saved["environment"]["triton_version"], "3.7.0")
+                self.assertEqual(saved["environment"]["prefix"], str(root))
+
     def test_shadowed_flagtree_tle_and_mismatched_versions_are_rejected(self):
         for mode in ("outside", "metadata", "tle", "version", "missing_record"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as folder:

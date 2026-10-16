@@ -63,16 +63,36 @@ def configure_environment():
         raise RuntimeError("Run this script with the selected virtualenv Python and -I")
 
 
-def runtime(reference_path):
+def check_stock_environment(torch, triton, diagnostic_path=None):
+    environment = dict(
+        python=sys.executable,
+        prefix=sys.prefix,
+        isolated=bool(sys.flags.isolated),
+        torch_version=torch.__version__,
+        torch_source=torch.__file__,
+        triton_version=triton.__version__,
+        triton_source=triton.__file__,
+    )
+    print("Selected environment:", json.dumps(environment), flush=True)
+    if diagnostic_path is not None:
+        result = (
+            json.loads(diagnostic_path.read_text())
+            if diagnostic_path.is_file()
+            else dict(status="checking_environment")
+        )
+        result["environment"] = environment
+        support.write_json(diagnostic_path, result)
+    if torch.__version__ != importlib.metadata.version("torch"):
+        raise RuntimeError("Torch module and distribution versions differ")
+    return ab.stock_runtime(torch, triton, sys.prefix)
+
+
+def runtime(reference_path, diagnostic_path=None):
     configure_environment()
     import torch
     import triton
 
-    if torch.__version__ != importlib.metadata.version("torch"):
-        raise RuntimeError("Torch module and distribution versions differ")
-    stock = ab.stock_runtime(torch, triton, sys.prefix)
-    if triton.__version__ != "3.6.0":
-        raise RuntimeError("This experiment pins upstream Triton 3.6.0")
+    stock = check_stock_environment(torch, triton, diagnostic_path)
     import flaggems_vllm
     from tests import qsa_select_prefill_utils as helpers
 
@@ -270,7 +290,7 @@ def worker(options, case, path):
     result = dict(case=case, status="running", stages={})
     support.write_json(path, result)
     torch, native, candidate, adapter, helpers, device, info = runtime(
-        Path(options.reference_file)
+        Path(options.reference_file), path
     )
     result["runtime"] = info
     os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = str(case["budget_mb"])
@@ -459,7 +479,8 @@ def parent(options, selected, directory):
             git_head=support.command(["git", "rev-parse", "HEAD"]),
             git_status=support.command(["git", "status", "--porcelain"]),
             policy=(
-                "Stock Triton 3.6.0; native CUDA vLLM Top-K vs repo non-TLE Top-K; "
+                "Same verified stock Triton wheel from selected virtualenv; "
+                "native CUDA vLLM Top-K vs repo non-TLE Top-K; "
                 "preallocated outer workspaces; actual sequential pipeline; no production source edits"
             ),
         ),
@@ -644,7 +665,7 @@ def main():
         try:
             if options.preflight:
                 torch, native, candidate, _, helpers, _, info = runtime(
-                    Path(options.reference_file)
+                    Path(options.reference_file), path
                 )
                 smoke = preflight_smoke(torch, native, candidate, helpers)
                 support.write_json(

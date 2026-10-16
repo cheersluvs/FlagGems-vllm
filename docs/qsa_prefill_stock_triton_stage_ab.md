@@ -7,7 +7,7 @@
 
 | 阶段 | vLLM baseline | FlagGems 测试变体 |
 | --- | --- | --- |
-| score | 原生 `_prefill_logits`，上游 Triton 3.6.0 | 当前生产 `_prefill_logits`，同一上游 Triton |
+| score | 原生 `_prefill_logits`，所选环境的上游 Triton | 当前生产 `_prefill_logits`，同一上游 Triton |
 | topk | 原生 `_topk`，保留 CUDA 扩展 dispatch | 仓库 `top_k_per_row_prefill`，Triton 非TLE分支 |
 | pipeline | 每个chunk连续执行原生评分→原生Top-K | 每个chunk连续执行生产评分→`top_k_per_row_prefill` |
 
@@ -46,12 +46,14 @@ chunk offset/行数/宽度一致，且符合22组矩阵定义。
 
 ## 环境和正确性检查
 
-使用现有vLLM 0.31.0虚拟环境中的上游Triton 3.6.0和原生CUDA扩展。脚本不安装、卸载或替换包。
+使用现有vLLM 0.31.0虚拟环境中的上游Triton和原生CUDA扩展。脚本不安装、卸载或替换包。
+不再固定Triton为3.6.0；使用该环境已安装且通过来源检查的版本，兼容性由后续编译和正确性预检验证。
 Python通过 `-I` 启动，显式加入本checkout的src/root，清除 `/opt/flagtree` 的环境路径覆盖。
 检查Torch/Triton来自所选虚拟环境、Triton发行元数据和wheel RECORD文件哈希、没有TLE包，
 并确认vLLM、生产评分和我方Top-K引用的是同一Triton/language模块。
 
-报告记录实际编译器、libtriton、ptxas路径与哈希，以及已加载的vLLM原生扩展路径与哈希。
+导入Torch/Triton后立即打印并保存版本、路径、Python与虚拟环境信息，后续预检失败时也会保留。
+完整报告记录实际编译器、libtriton、ptxas路径与哈希，以及已加载的vLLM原生扩展路径与哈希。
 各case使用独立进程和报告内独立编译/调优缓存。preflight与所有case的编译器、GPU、原生扩展
 身份必须一致，GPU闲置/计时环境检查沿用已有共享机器检查逻辑。
 
