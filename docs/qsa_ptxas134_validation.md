@@ -1,0 +1,49 @@
+# H800：只更换 ptxas 的 QSA 验证
+
+检验原生 QSA 的 FlagTree 非法指令问题是否能仅靠新版 ptxas 解决。
+这是评分正确性诊断，不是 benchmark，也不是完整 vLLM 兼容性验收。
+正式 benchmark 仍仅有上游12组，本脚本不改变其 shape。
+
+## 固定条件
+
+- 原生 QSA 源码提交 `7a877ae34dcf4a7d46de08eb16db4699e1e0047c`，SHA256固定。
+- 复用已有评分诊断的两组 prefill：H4/D128、H1/D32。
+- 复用已有 decode 复现：H4/D128、query length=3、BF16/FP8、tiles=1/2/4/8，共8组。
+- 每组5个独立子进程，prepare另用独立进程，失败的CUDA上下文不会传到下一项。
+- 同一组各项共享持久化输入、独立FP32评分参考、原生kernel参数和grid。
+- 不修改 FlagTree/vLLM/生产算子源码，不安装Python包，不更新驱动或CUDA运行库。
+
+## 五项对照
+
+1. `stock`：原生kernel由虚拟环境内的官方Triton编译并运行，正对照。
+2. `flagtree-old`：现有FlagTree与默认旧ptxas；先保存PTX/CUBIN/ABI，再运行。
+   预期复现非法指令，此项失败本身不导致最终失败。
+3. `identical-ptx-new`：原PTX逐字节不变，用ptxas 13.4.59重新组装，在FlagTree下运行。
+   不删除policy、不更改fraction、不更改`.version`、保留原assembler选项。
+4. `new-cubin-stock`：同一份新CUBIN在官方Triton下加载运行，交叉排查launcher因素。
+5. `fresh-jit-new`：现有FlagTree不改源码，仅配置`TRITON_PTXAS_PATH`指向新工具，
+   使用新缓存重新编译原生kernel并执行，并确认仍生成fractional policy和async L2 hint。
+   PTX版本由现有编译器正常推导，不手改PTX头。
+
+两层结论独立保存。第3/4项通过但第5项失败，只能说明固定PTX的组装问题已解决，
+不能声称现有FlagTree可直接配置运行。旧故障未复现或未生成policy，结论为inconclusive。
+所有10组均为`config_only_validated`时退出0；未解决或证据不足退出1；GPU环境拒绝退出2。
+
+## 工具与报告
+
+从[NVIDIA CUDA 13.4.1 redistributables](https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.4.1.json)
+下载Linux x86_64 nvcc 13.4.59包及nvdisasm 13.4.49包，校验固定SHA256，
+仅提取ptxas和nvdisasm两个普通文件至独立临时目录，不覆盖系统工具。
+PTX/机器码/原始命令保存在每项`*-artifacts.json`压缩包；新nvdisasm输出保留全部SASS，
+不根据简单正则自动断言描述符初始化正确。报告记录编译器源文件与libtriton哈希、
+实际assembler路径/版本、输入/原生源/PTX/CUBIN哈希和失败阶段。
+
+入口：`bash tools/run_qsa_ptxas_h800.sh --flagtree /opt/flagtree`。
+选用原vLLM 0.31.0虚拟环境Python，通过`QSA_STOCK_PYTHON`指定；
+`CUDA_VISIBLE_DEVICES`可指定单个完整GPU UUID；未设置或为`auto`时自动选择空闲H800。
+自动选择不构成独占预留；脚本在每个子进程前仍检查GPU闲置，
+发现其他任务则停止，不结束任何其他进程。
+
+runner会自动回传已有报告，包括失败报告。回传路径为
+`results/qsa_select_paged_prefill/h800/ptxas-<UTC时间>/`，结果分支仍使用
+`codex/qsa-h800-results-<UTC时间>`。原始输入`.pt`、缓存和工具保留在卡上，不上传。
