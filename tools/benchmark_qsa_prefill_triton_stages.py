@@ -2,7 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """Stock Triton native-vLLM vs production-score + top_k_per_row_prefill A/B.
 
-Default: 22 scenarios, kernel timer, separate score/Top-K/sequential pipeline.
+Twelve upstream scenarios, kernel timer, separate score/Top-K/sequential pipeline.
 Native Top-K remains vLLM CUDA; only the candidate substitutes repo non-TLE Top-K.
 """
 
@@ -24,9 +24,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
 from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
-from tools import qsa_prefill_inference_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_triton_ab as ab  # noqa: E402
+from tools import qsa_prefill_upstream_workloads as workloads  # noqa: E402
 
 SOURCES = sorted(
     set(support.SOURCES)
@@ -180,7 +180,7 @@ def preflight_smoke(torch, native, candidate, helpers):
     os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = "512"
     native.envs.VLLM_SPARSE_INDEXER_MAX_LOGITS_MB = 512
     for rows in (8, 128):
-        case = dict(workloads.inference_cases()[0], query_lengths=[rows])
+        case = dict(workloads.cases()[0], query_length=rows)
         args = workloads.make_inputs(case, helpers, torch)
         native_args = (*args[:8], native_output(args[8], torch), args[9])
         functions = dict(
@@ -611,8 +611,8 @@ def main():
     parser.add_argument("--mode", choices=("kernel",), default="kernel")
     parser.add_argument(
         "--suite",
-        choices=("inference-prefill", "upstream-prefill"),
-        default="inference-prefill",
+        choices=("upstream-prefill",),
+        default="upstream-prefill",
     )
     parser.add_argument("--cases", nargs="+")
     parser.add_argument("--list-cases", action="store_true")
@@ -625,11 +625,7 @@ def main():
     parser.add_argument("--preflight", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
-    all_cases = (
-        workloads.cases()
-        if options.suite == "inference-prefill"
-        else workloads.upstream.cases()
-    )
+    all_cases = workloads.cases()
     if options.list_cases:
         print(json.dumps(all_cases, indent=2))
         return 0

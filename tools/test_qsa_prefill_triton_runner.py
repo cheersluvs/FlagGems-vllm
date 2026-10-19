@@ -27,7 +27,7 @@ from pathlib import Path
 a=sys.argv[1:]
 assert a[0]=='-I'
 assert a[a.index('--mode')+1]=='kernel'
-assert a[a.index('--suite')+1]=='inference-prefill'
+assert a[a.index('--suite')+1]=='upstream-prefill'
 assert os.environ['FLAGGEMS_FORCE_TLE']=='0'
 keys=('PYTHONPATH','PYTHONHOME','QSA_TRITON_RUNTIME_PATH',
       'QSA_NATIVE_REFERENCE_PYTHON','CUDA_LAUNCH_BLOCKING')

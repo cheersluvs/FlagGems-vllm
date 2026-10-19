@@ -1,5 +1,10 @@
 # QSA long-prefill performance matrix
 
+Current matrix (2026-10-19): the repository pytest benchmark and default H800 runners
+use only these 12 upstream layouts. The stock-Triton stage A/B accepts only
+`--suite upstream-prefill` and produces 36 stage rows. Historical inference probes
+remain diagnostic fixtures outside the official benchmark matrix.
+
 The first H800 run completed all 12 cases with exit 0 in report
 `88dee1c4be295fb2b2a43162e440963b6528af4a`. The fresh correctness suite
 passed 161 cases with one optional second-device skip. See

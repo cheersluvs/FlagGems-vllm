@@ -94,9 +94,9 @@ class UpstreamWorkloadTests(unittest.TestCase):
             self.assertLessEqual(geometry["score_workspace_bytes"], 512 * 1024**2)
             self.assertGreaterEqual(geometry["visible_first"], case["k"])
 
-    def test_cli_preserves_twelve_and_defaults_to_twenty_two(self):
+    def test_cli_defaults_to_twelve_and_preserves_diagnostic_suites(self):
         for suite, count in (
-            (None, 22),
+            (None, 12),
             ("inference-prefill", 22),
             ("upstream-prefill", 12),
             ("comprehensive", 38),

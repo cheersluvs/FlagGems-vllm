@@ -1587,8 +1587,8 @@ def main():
     parser.add_argument(
         "--suite",
         choices=("core", "comprehensive", "upstream-prefill", "inference-prefill"),
-        default="inference-prefill",
-        help="Default: 12 published layouts + 10 inference probes; upstream-prefill selects only the published 12",
+        default="upstream-prefill",
+        help="Default: 12 upstream vLLM layouts; other suites are explicit diagnostic fixtures",
     )
     parser.add_argument(
         "--cases", nargs="+", help="Explicit case names; overrides suite"

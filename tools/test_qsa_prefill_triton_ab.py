@@ -296,7 +296,7 @@ class StockRuntimeTests(unittest.TestCase):
 class ParentTests(unittest.TestCase):
     def options(self, reference):
         return argparse.Namespace(
-            suite="inference-prefill",
+            suite="upstream-prefill",
             reference_file=str(reference),
             rounds=2,
             kernel_warmup_ms=1,
@@ -319,7 +319,7 @@ class ParentTests(unittest.TestCase):
 
         def child(command, stdout, **kwargs):
             self.assertEqual(command[1], "-I")
-            self.assertEqual(command[command.index("--suite") + 1], "inference-prefill")
+            self.assertEqual(command[command.index("--suite") + 1], "upstream-prefill")
             if command[-1] == "--preflight":
                 data = (
                     dict(status="failed", error="native extension missing")
@@ -386,7 +386,7 @@ class ParentTests(unittest.TestCase):
                 self.assertEqual(summary["status"], "failed")
                 self.assertNotIn("\t1.5\t1.5", table)
 
-    def test_isolated_cli_lists_twenty_two_without_gpu_dependencies(self):
+    def test_isolated_cli_lists_twelve_without_gpu_dependencies(self):
         with tempfile.TemporaryDirectory() as folder:
             result = subprocess.run(
                 [sys.executable, "-I", str(Path(bench.__file__)), "--list-cases"],
@@ -395,7 +395,7 @@ class ParentTests(unittest.TestCase):
                 text=True,
                 check=True,
             )
-        self.assertEqual(len(json.loads(result.stdout)), 22)
+        self.assertEqual(json.loads(result.stdout), bench.workloads.cases())
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """H800 QSA prefill: full operator, score stage, and Top-K stage.
 
-The active matrix has twelve published layouts and ten source-derived probes.
+The active matrix contains only the twelve published upstream vLLM layouts.
 The H800 --mode kernel runner measures the real score chunk sequence without
 Top-K; the isolated stage tests below retain their single full-row launch.
 
@@ -20,7 +20,7 @@ import flaggems_vllm
 from flaggems_vllm.ops.top_k_per_row_prefill import top_k_per_row_prefill
 from tests import qsa_select_prefill_utils as input_helpers
 from tests.qsa_select_prefill_utils import torch_select, vllm_reference
-from tools import qsa_prefill_inference_workloads as workloads
+from tools import qsa_prefill_upstream_workloads as workloads
 
 from . import base
 
@@ -42,7 +42,7 @@ BENCHMARK_CASES = {(case["name"],): case for case in workloads.cases()}
 
 class QSAPrefillBenchmark(base.GenericBenchmark):
     def set_shapes(self, shape_file_path=None):
-        # Core and comprehensive use the same twenty-two named scenarios.
+        # Core and comprehensive use the same twelve upstream scenarios.
         self.shapes = list(BENCHMARK_CASES)
         self.shape_desc = (
             "case (query lengths, prefixes and layout in workload manifest) "

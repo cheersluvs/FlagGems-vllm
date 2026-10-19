@@ -79,7 +79,7 @@ class InferenceWorkloadTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "cannot truncate"):
                 workloads.geometry(dict(original, **overrides))
 
-    def test_pytest_and_h800_share_twenty_two_named_inputs(self):
+    def test_pytest_and_h800_share_only_upstream_twelve_named_inputs(self):
         source = bench.ROOT / "benchmark/test_qsa_select_paged_prefill_perf.py"
         tree = ast.parse(source.read_text())
         definitions = [
@@ -97,7 +97,7 @@ class InferenceWorkloadTests(unittest.TestCase):
         ]
         namespace = dict(
             base=types.SimpleNamespace(GenericBenchmark=object),
-            workloads=workloads,
+            workloads=workloads.upstream,
             input_helpers=object(),
             torch=types.SimpleNamespace(bfloat16="bf16"),
         )
@@ -107,16 +107,18 @@ class InferenceWorkloadTests(unittest.TestCase):
         )
         benchmark = namespace["QSAPrefillBenchmark"]()
         benchmark.set_shapes()
-        self.assertEqual(benchmark.shapes, [(c["name"],) for c in workloads.cases()])
+        self.assertEqual(
+            benchmark.shapes, [(c["name"],) for c in workloads.upstream.cases()]
+        )
         self.assertEqual(benchmark.set_more_shapes(), [])
         self.assertEqual(
-            bench.suite_cases(types.SimpleNamespace(suite="inference-prefill")),
-            workloads.cases(),
+            bench.suite_cases(types.SimpleNamespace(suite="upstream-prefill")),
+            workloads.upstream.cases(),
         )
         with patch.object(
-            workloads, "make_inputs", return_value=tuple(range(10))
+            workloads.upstream, "make_inputs", return_value=tuple(range(10))
         ) as builder:
-            for shape, case in zip(benchmark.shapes, workloads.cases()):
+            for shape, case in zip(benchmark.shapes, workloads.upstream.cases()):
                 self.assertEqual(
                     next(namespace["_inputs"](shape, "bf16", "cuda:3")),
                     tuple(range(10)),

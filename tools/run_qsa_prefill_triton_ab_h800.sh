@@ -16,7 +16,7 @@ unset PYTHONPATH PYTHONHOME QSA_TRITON_RUNTIME_PATH QSA_NATIVE_REFERENCE_PYTHON 
 export PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 DNN_VENDOR=nvidia VLLM_PLUGINS="" FLAGGEMS_FORCE_TLE=0
 qsa_status=0
 if "$qsa_python" -I "$qsa_repo/tools/benchmark_qsa_prefill_triton_stages.py" \
-  --mode kernel --suite inference-prefill --report-dir "$qsa_report" "$@" \
+  --mode kernel --suite upstream-prefill --report-dir "$qsa_report" "$@" \
   2>&1 | tee "$qsa_report/runner.txt"
 then
   echo "三阶段测试完成，开始回传。"

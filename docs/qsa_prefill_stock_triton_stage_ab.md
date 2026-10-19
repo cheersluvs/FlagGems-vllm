@@ -2,7 +2,7 @@
 
 ## 本轮实验
 
-入口：`tools/run_qsa_prefill_triton_ab_h800.sh`，默认运行现有22组 `inference-prefill` 矩阵。
+入口：`tools/run_qsa_prefill_triton_ab_h800.sh`，默认运行上游12组 `upstream-prefill` 矩阵。
 本轮只增加对照脚本，不进行评分优化，不修改生产源码、Top-K源码、调优配置和已有benchmark矩阵。
 
 | 阶段 | vLLM baseline | FlagGems 测试变体 |
@@ -11,7 +11,7 @@
 | topk | 原生 `_topk`，保留 CUDA 扩展 dispatch | 仓库 `top_k_per_row_prefill`，Triton 非TLE分支 |
 | pipeline | 每个chunk连续执行原生评分→原生Top-K | 每个chunk连续执行生产评分→`top_k_per_row_prefill` |
 
-vLLM 原生 Top-K 是 CUDA 扩展，并不由 Triton 编译；其实现保持原样。当前22组的chunk行数均大于64，
+vLLM 原生 Top-K 是 CUDA 扩展，并不由 Triton 编译；其实现保持原样。当前12组的chunk行数均大于64，
 原生Top-K使用persistent dispatch；预检另外验证8行cooperative和128行persistent两种原生路径。
 “同编译器”指双方评分kernel及我方Triton Top-K都使用同一份上游Triton，不涉及FlagTree切换。
 
@@ -38,7 +38,7 @@ public函数字节码与评分kernel对象，只在副本里将 `persistent_topk
 每个阶段的加速比均为 `vllm_us / gems_prefill_topk_us`；pipeline采用其独立实测时间计算。
 外层工作区分配、public参数验证、输入构造、观察/拷贝logits、FP32校验、Top-K适配器所需的全零
 row_starts准备均在计时之外。两侧沿用各自public实际分块与原始workspace布局，运行前检查其
-chunk offset/行数/宽度一致，且符合22组矩阵定义。
+chunk offset/行数/宽度一致，且符合12组矩阵定义。
 
 `top_k_per_row_prefill` 内部原有scratch分配保留在调用中，未重写或移出该API。
 因此结果体现仓库现有非TLE实现及共享kernel计时器定义的表现；不能当作排除所有内部管理成本的
@@ -88,7 +88,7 @@ git clone --depth 1 --single-branch \
 git -C "$qsa_repo" status --short
 git -C "$qsa_repo" rev-parse HEAD
 bash "$qsa_repo/tools/run_qsa_prefill_triton_ab_h800.sh" \
-  --mode kernel --suite inference-prefill \
+  --mode kernel --suite upstream-prefill \
   --rounds 7 --kernel-warmup-ms 1000 --kernel-rep-ms 100 --timeout 1800
 QSA_STOCK_TRITON_AB
 then
@@ -100,9 +100,9 @@ fi
 
 默认自动下载并校验固定的原生QSA文件。已有该原始文件时可传
 `--reference-file /absolute/path/qsa_indexer_vllm.py`，仍须通过同一SHA256检查。
-`--suite upstream-prefill` 可只跑原有12组；`--cases <name>`用于显式子集诊断，汇总记录实际active set。
+此入口只接受 `--suite upstream-prefill` 的12组；`--cases <name>`用于显式子集诊断，汇总记录实际active set。
 
 输出：`stage-summary.json`、`triton-stage-ab.tsv`、`preflight.json/txt`、各case的JSON/TXT、
-`sources.json`、`manifest.json`、`runner.txt`及`run-status.txt`。完整22组预期有66条阶段数据。
+`sources.json`、`manifest.json`、`runner.txt`及`run-status.txt`。完整12组预期有36条阶段数据。
 回传位置为 `results/qsa_select_paged_prefill/h800/triton-ab-<UTC时间>/`，结果分支沿用
 `codex/qsa-h800-results-<UTC时间>`。测试失败时也会尝试回传已有报告，并保留测试退出码。

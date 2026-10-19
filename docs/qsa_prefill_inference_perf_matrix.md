@@ -1,4 +1,7 @@
-# QSA prefill：22 组性能矩阵
+# QSA prefill：历史22组诊断矩阵
+
+> 2026-10-19 更新：当前正式 benchmark 仅保留上游 vLLM 的12组，见
+> [当前矩阵](qsa_prefill_upstream_perf_matrix.md)。本文保留历史实验及显式诊断用例；下述默认值和命令不代表当前正式配置。
 
 ## 范围与来源
 

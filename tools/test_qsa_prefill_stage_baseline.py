@@ -377,7 +377,7 @@ class BenchmarkTests(unittest.TestCase):
             summary = json.loads((Path(folder) / "stage-summary.json").read_text())
             self.assertTrue(summary["environment_rejected"])
             self.assertEqual(summary["cases"], [])
-            self.assertEqual(len(summary["manifest"]["cases"]), 22)
+            self.assertEqual(len(summary["manifest"]["cases"]), 12)
 
     def test_trailing_utilization_retries_are_bounded_and_saved(self):
         for eventually_idle in (True, False):
