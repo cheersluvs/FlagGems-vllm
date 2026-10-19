@@ -47,3 +47,21 @@ PTX/机器码/原始命令保存在每项`*-artifacts.json`压缩包；新nvdisa
 runner会自动回传已有报告，包括失败报告。回传路径为
 `results/qsa_select_paged_prefill/h800/ptxas-<UTC时间>/`，结果分支仍使用
 `codex/qsa-h800-results-<UTC时间>`。原始输入`.pt`、缓存和工具保留在卡上，不上传。
+
+## 2026-10-19：CUBIN加载崩溃的最小对照
+
+报告 `c27bd3c5aa085d8f30a362d7fe384fb2850ee8cf` 完成10组：官方Triton/旧ptxas
+全部评分通过，FlagTree/旧ptxas全部复现执行阶段非法指令。新工具重组装的原PTX
+字节哈希保持不变，FlagTree全新JIT生成PTX 9.4；但全部新CUBIN在加载/launcher
+初始化阶段收到SIGILL或SIGSEGV，未进入kernel执行，因此尚不能确认policy修复。
+原CUBIN的ELF OSABI=0x33/ABI version=7，新产物为0x41/8，反汇编也提示Std ELF。
+环境为570驱动、LD_LIBRARY_PATH配置CUDA12.9兼容库；加载兼容性是待验证假设。
+
+下一步：`QSA_PTXAS_LOADER_ONLY=1 bash tools/run_qsa_ptxas_h800.sh`。
+该模式只运行两个不含policy、异步拷贝和矩阵计算的最小kernel：空返回、写入123。
+同一PTX 8.7分别交给旧ptxas与13.4.59，得到4份CUBIN。分别在独立进程中直接调用
+`cuModuleLoadData`、`cuModuleGetFunction`、`cuLaunchKernel`、`cuCtxSynchronize`，
+使用Torch建立CUDA上下文，但不使用Triton launcher或QSA kernel。
+记录实际libcuda映射路径、cuDriverGetVersion、ELF头、API边界、退出信号和faulthandler栈。
+工具、驱动、FlagTree安装保持原样；报告沿用自动回传路径。新最小CUBIN失败说明问题
+也能在无policy条件下复现；最小CUBIN成功则需要继续检查QSA资源/元数据等加载差异。

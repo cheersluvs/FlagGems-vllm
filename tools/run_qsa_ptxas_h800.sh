@@ -12,8 +12,12 @@ echo "报告目录：$qsa_report"
 git -C "$qsa_repo" status --short
 git -C "$qsa_repo" rev-parse HEAD
 unset PYTHONPATH PYTHONHOME
+qsa_entry=validate_qsa_ptxas_h800.py
+if [[ "${QSA_PTXAS_LOADER_ONLY:-0}" == 1 ]]; then
+  qsa_entry=diagnose_qsa_cubin_loader_h800.py
+fi
 qsa_status=0
-if "$qsa_python" -I "$qsa_repo/tools/validate_qsa_ptxas_h800.py" \
+if "$qsa_python" -I "$qsa_repo/tools/$qsa_entry" \
   --report-dir "$qsa_report" "$@" 2>&1 | tee "$qsa_report/runner.txt"
 then
   echo "新版 ptxas 配置验证完成，开始回传。"
