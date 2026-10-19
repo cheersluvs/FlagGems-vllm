@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import traceback
 from pathlib import Path
 
@@ -115,6 +116,57 @@ def compiler_runtime(torch, triton, directory, report):
         ptxas=dict(path=str(assembler), sha256=sha(assembler)),
         cuda=loaded_cuda(report),
     )
+
+
+def cooldown_gate(summary, report, env, label, guard, timeout, interval):
+    """Wait only for an otherwise idle GPU; retain the original 75C guard."""
+    from tools import benchmark_qsa_prefill_stages as support
+
+    deadline = time.monotonic() + timeout
+    attempt = 0
+    while True:
+        attempt += 1
+        check = guard.idle(env.get("CUDA_VISIBLE_DEVICES", ""), support.command)
+        check.update(label=label, attempt=attempt)
+        summary.setdefault("idle_gpu_checks", []).append(check)
+        if check["status"] == "passed":
+            support.write_json(report / "stage-summary.json", summary)
+            return True
+        temperature = check.get("temperature_c")
+        utilization = check.get("utilization_percent")
+        allowed = {
+            f"Initial temperature C {temperature} exceeds limit 75",
+            f"Initial utilization percent {utilization} exceeds limit 5",
+        }
+        # Any process, memory, active thermal slowdown or unreadable telemetry
+        # rejects immediately. A trailing utilization sample may also cool down.
+        retryable = (
+            check.get("processes") == []
+            and bool(check["reasons"])
+            and set(check["reasons"]).issubset(allowed)
+        )
+        remaining = deadline - time.monotonic()
+        check["cooldown_retryable"] = retryable
+        if not retryable or remaining <= 0:
+            if check.get("processes"):
+                check["process_details"] = guard.process_details(
+                    [p["pid"] for p in check["processes"]], support.command
+                )
+            check["cooldown_timed_out"] = retryable and remaining <= 0
+            summary["environment_rejected"] = True
+            summary.setdefault("accuracy", dict(status="not_run_environment_rejected"))
+            support.write_json(report / "stage-summary.json", summary)
+            print("GPU environment rejected:", check["reasons"], flush=True)
+            return False
+        wait = min(interval, remaining)
+        check["cooldown_wait_seconds"] = wait
+        support.write_json(report / "stage-summary.json", summary)
+        print(
+            f"GPU idle; temperature={temperature}C, utilization={utilization}%; "
+            f"waiting {wait:g}s for the original idle limits",
+            flush=True,
+        )
+        time.sleep(wait)
 
 
 def prepare(options, extra):

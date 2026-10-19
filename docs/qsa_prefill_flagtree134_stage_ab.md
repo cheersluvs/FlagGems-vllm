@@ -53,6 +53,16 @@ TopK单独计时的两侧读取相同冻结 logits，计时外核对全部输入
 默认自动选择空闲H800；也可设置单个完整GPU UUID。自动选择不构成独占预留，沿用共享机器
 计时前后检查；其他进程干扰时不发布可接受加速比，不停止其他任务。
 
+每个独立进程启动前保留原有空闲门槛：温度不高于75°C、利用率不高于5%、显存不高于256MiB、
+无计算进程且没有 thermal slowdown。仅温度或滞后的利用率超限时，每10秒复查一次，最多等待
+900秒（`--cooldown-interval` / `--cooldown-timeout`）。冷却等待位于计时区间之外；其他进程、
+内存占用、实际热降频或无法读取遥测立即拒绝；等待超时仍退出2。不会放宽门槛或切换GPU混合结果。
+
+[报告8681362](https://github.com/cheersluvs/FlagGems-vllm/blob/868136298de1717dbb705b8fe69d8731b0f772d4/results/qsa_select_paged_prefill/h800/flagtree134-ab-20261019-093620/stage-summary.json)
+已完成172项功能测试，只有需第二张SM90卡的1项跳过；预检、完整正确性和首个benchmark的
+编译器/实际libcuda/原生扩展身份一致。首组完成三阶段计时，第二组前空闲温度80°C触发原门槛。
+因此加入上述冷却等待；尚未完成12组数据，不据此报告整体加速比。
+
 ## 运行与报告回传
 
 在容器中执行整个命令块。外层 `if bash` 保留交互会话；成功和失败均自动尝试回传已有报告。
@@ -72,7 +82,8 @@ git -C "$qsa_repo" rev-parse HEAD
 bash "$qsa_repo/tools/run_qsa_prefill_flagtree_ab_h800.sh" \
   --flagtree /opt/flagtree --mode kernel --suite upstream-prefill \
   --rounds 7 --kernel-warmup-ms 1000 --kernel-rep-ms 100 \
-  --timeout 1800 --accuracy-timeout 7200
+  --timeout 1800 --accuracy-timeout 7200 \
+  --cooldown-timeout 900 --cooldown-interval 10
 QSA_FLAGTREE134_AB
 then
   echo "正确性、12组三阶段测试和报告回传均完成。"

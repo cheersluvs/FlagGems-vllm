@@ -558,10 +558,24 @@ def accuracy_worker(options, path):
     return int(code)
 
 
+def idle_gate(options, summary, directory, label, guard):
+    if is_flagtree(options):
+        from tools import qsa_prefill_flagtree_ab as profile
+
+        return profile.cooldown_gate(
+            summary,
+            directory,
+            os.environ,
+            label,
+            guard,
+            options.cooldown_timeout,
+            options.cooldown_interval,
+        )
+    return support.idle_gpu_gate(summary, directory, os.environ, label, guard)
+
+
 def run_accuracy_gate(options, directory, summary, preflight, guard):
-    if not support.idle_gpu_gate(
-        summary, directory, os.environ, "before_accuracy", guard
-    ):
+    if not idle_gate(options, summary, directory, "before_accuracy", guard):
         raise RuntimeError("GPU environment rejected before full correctness suite")
     print(
         "Running full production accuracy, including native vLLM comparisons",
@@ -671,9 +685,7 @@ def parent(options, selected, directory):
             k: v["sha256"] for k, v in sources.items()
         }
         support.write_json(directory / "manifest.json", summary["manifest"])
-        if not support.idle_gpu_gate(
-            summary, directory, os.environ, "before_preflight", guard
-        ):
+        if not idle_gate(options, summary, directory, "before_preflight", guard):
             summary["status"] = "environment_rejected"
             return 2
         with (directory / "preflight.txt").open("w") as log:
@@ -697,8 +709,8 @@ def parent(options, selected, directory):
         if is_flagtree(options):
             run_accuracy_gate(options, directory, summary, preflight, guard)
         for case in selected:
-            if not support.idle_gpu_gate(
-                summary, directory, os.environ, "before_" + case["name"], guard
+            if not idle_gate(
+                options, summary, directory, "before_" + case["name"], guard
             ):
                 summary["status"] = "environment_rejected"
                 return 2
@@ -750,9 +762,16 @@ def parent(options, selected, directory):
         )
         return 0 if summary["status"] == "passed" else 1
     except BaseException:
-        summary.update(status="failed", error=traceback.format_exc())
+        summary.update(
+            status=(
+                "environment_rejected"
+                if summary.get("environment_rejected")
+                else "failed"
+            ),
+            error=traceback.format_exc(),
+        )
         print(summary["error"], file=sys.stderr)
-        return 1
+        return 2 if summary.get("environment_rejected") else 1
     finally:
         support.write_json(path, summary)
         write_table(summary, directory)
@@ -777,6 +796,8 @@ def main():
     parser.add_argument("--kernel-rep-ms", type=float, default=100)
     parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--accuracy-timeout", type=int, default=7200)
+    parser.add_argument("--cooldown-timeout", type=float, default=900)
+    parser.add_argument("--cooldown-interval", type=float, default=10)
     parser.add_argument("--accuracy", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--preflight", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--worker", help=argparse.SUPPRESS)
@@ -792,6 +813,8 @@ def main():
             options.kernel_rep_ms,
             options.timeout,
             options.accuracy_timeout,
+            options.cooldown_timeout,
+            options.cooldown_interval,
         )
         <= 0
     ):

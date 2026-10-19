@@ -13,7 +13,7 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from tools import benchmark_qsa_prefill_triton_stages as bench
 from tools import qsa_prefill_flagtree_ab as profile
@@ -214,13 +214,9 @@ class AccuracyTests(unittest.TestCase):
                     self.assertEqual(kwargs["timeout"], 10)
                     return types.SimpleNamespace(returncode=int(failure == "pytest"))
 
-                with patch.object(
-                    bench.support, "idle_gpu_gate", return_value=True
-                ), patch.object(
+                with patch.object(bench, "idle_gate", return_value=True), patch.object(
                     bench.subprocess, "run", side_effect=run
-                ), contextlib.redirect_stdout(
-                    io.StringIO()
-                ):
+                ), contextlib.redirect_stdout(io.StringIO()):
                     if failure:
                         with self.assertRaisesRegex(
                             RuntimeError, "Accuracy gate failed"
@@ -245,16 +241,117 @@ class AccuracyTests(unittest.TestCase):
             value.compiler = "flagtree"
             return value
 
-        with tempfile.TemporaryDirectory() as folder, patch.object(
-            ParentTests, "options", options
-        ), patch.object(
-            bench, "run_accuracy_gate", side_effect=RuntimeError("accuracy failed")
-        ) as gate:
-            code, summary, table = ParentTests().exercise(Path(folder))
-            self.assertEqual(code, 1)
-            self.assertEqual(summary["cases"], [])
-            self.assertEqual(len(table.splitlines()), 1)
-            gate.assert_called_once()
+        for environment_rejected in (False, True):
+
+            def reject(options, directory, summary, *args):
+                if environment_rejected:
+                    summary["environment_rejected"] = True
+                raise RuntimeError("accuracy failed")
+
+            with self.subTest(
+                environment_rejected=environment_rejected
+            ), tempfile.TemporaryDirectory() as folder, patch.object(
+                ParentTests, "options", options
+            ), patch.object(
+                bench, "run_accuracy_gate", side_effect=reject
+            ) as gate:
+                code, summary, table = ParentTests().exercise(Path(folder))
+                self.assertEqual(code, 2 if environment_rejected else 1)
+                self.assertEqual(
+                    summary["status"],
+                    "environment_rejected" if environment_rejected else "failed",
+                )
+                self.assertEqual(summary["cases"], [])
+                self.assertEqual(len(table.splitlines()), 1)
+                gate.assert_called_once()
+
+
+class CooldownTests(unittest.TestCase):
+    def check(self, temperature=80, utilization=0, reasons=None, processes=None):
+        return dict(
+            status="rejected" if reasons is None or reasons else "passed",
+            temperature_c=temperature,
+            utilization_percent=utilization,
+            memory_mib=1,
+            processes=[] if processes is None else processes,
+            reasons=(
+                [f"Initial temperature C {temperature} exceeds limit 75"]
+                if reasons is None
+                else reasons
+            ),
+        )
+
+    def run_gate(self, checks, timeout=30):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            summary = {}
+            clock = [0]
+            sleeps = []
+
+            def sleep(seconds):
+                sleeps.append(seconds)
+                clock[0] += seconds
+
+            guard = types.SimpleNamespace(
+                idle=Mock(side_effect=checks), process_details=Mock(return_value=[])
+            )
+            with patch.object(
+                profile.time, "monotonic", side_effect=lambda: clock[0]
+            ), patch.object(
+                profile.time, "sleep", side_effect=sleep
+            ), contextlib.redirect_stdout(
+                io.StringIO()
+            ):
+                accepted = profile.cooldown_gate(
+                    summary, root, {}, "before_case", guard, timeout, 10
+                )
+            self.assertEqual(
+                json.loads((root / "stage-summary.json").read_text()), summary
+            )
+            return accepted, summary, sleeps
+
+    def test_waits_for_original_temperature_and_utilization_limits(self):
+        accepted, summary, sleeps = self.run_gate(
+            [
+                self.check(),
+                self.check(
+                    76,
+                    9,
+                    [
+                        "Initial temperature C 76 exceeds limit 75",
+                        "Initial utilization percent 9 exceeds limit 5",
+                    ],
+                ),
+                self.check(75, reasons=[]),
+            ]
+        )
+        self.assertTrue(accepted)
+        self.assertEqual(sleeps, [10, 10])
+        self.assertNotIn("environment_rejected", summary)
+        self.assertEqual(summary["idle_gpu_checks"][-1]["temperature_c"], 75)
+
+    def test_timeout_retains_rejection_and_never_marks_accuracy_passed(self):
+        accepted, summary, sleeps = self.run_gate(
+            [self.check(), self.check(), self.check()], 15
+        )
+        self.assertFalse(accepted)
+        self.assertEqual(sleeps, [10, 5])
+        self.assertTrue(summary["environment_rejected"])
+        self.assertTrue(summary["idle_gpu_checks"][-1]["cooldown_timed_out"])
+
+    def test_process_thermal_memory_and_unknown_failures_do_not_wait(self):
+        for reason in (
+            "GPU already has compute processes; no jobs will be stopped",
+            "HW Thermal Slowdown: Active",
+            "Initial memory MiB 300 exceeds limit 256",
+            "Cannot read thermal slowdown state",
+        ):
+            with self.subTest(reason=reason):
+                accepted, summary, sleeps = self.run_gate(
+                    [self.check(reasons=[reason])]
+                )
+                self.assertFalse(accepted)
+                self.assertEqual(sleeps, [])
 
 
 if __name__ == "__main__":

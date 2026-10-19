@@ -352,7 +352,7 @@ class ParentTests(unittest.TestCase):
             return types.SimpleNamespace(returncode=int(failure == "worker"))
 
         with patch.object(bench, "configure_environment"), patch.object(
-            bench.support, "idle_gpu_gate", return_value=True
+            bench, "idle_gate", return_value=True
         ), patch.object(bench.support, "command", return_value={}), patch.object(
             bench.subprocess, "run", side_effect=child
         ), patch.object(
