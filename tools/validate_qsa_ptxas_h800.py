@@ -465,7 +465,7 @@ def main():
         return child(options)
     directory = Path(options.report_dir).resolve()
     directory.mkdir(parents=True, exist_ok=True)
-    if any(p.name != "runner.txt" for p in directory.iterdir()):
+    if any(p.name not in {"runner.txt", "compat134.json"} for p in directory.iterdir()):
         parser.error("Use a fresh report directory")
     print("Reports:", directory, flush=True)
     return orchestrate(options, directory)

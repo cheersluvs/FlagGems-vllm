@@ -103,6 +103,17 @@ def load(options, report):
         state.update(
             binary_sha256=shared.sha(binary), elf_ident=binary.read_bytes()[:16].hex()
         )
+        compat_record = report / "compat134.json"
+        if compat_record.is_file():
+            compat = json.loads(compat_record.read_text())
+            state["requested_compat"] = compat
+            assert (
+                driver_version.value >= 13040
+            ), "CUDA 13.4 compat override ineffective"
+            assert any(
+                Path(p).resolve() == Path(compat["libcuda"]).resolve()
+                for p in state["libcuda_paths"]
+            ), "Loaded libcuda differs from the requested isolated library"
         data = ctypes.create_string_buffer(binary.read_bytes())
         module, function = ctypes.c_void_p(), ctypes.c_void_p()
         mark("cuModuleLoadData")
@@ -231,7 +242,7 @@ def main():
     if options.binary:
         return load(options, report)
     report.mkdir(parents=True, exist_ok=True)
-    if any(p.name != "runner.txt" for p in report.iterdir()):
+    if any(p.name not in {"runner.txt", "compat134.json"} for p in report.iterdir()):
         parser.error("Use a fresh report directory")
     summary = dict(
         scope="minimal policy-free PTX; direct CUDA driver calls; no FlagTree or QSA kernels",

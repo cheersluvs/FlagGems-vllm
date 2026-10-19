@@ -16,8 +16,12 @@ qsa_entry=validate_qsa_ptxas_h800.py
 if [[ "${QSA_PTXAS_LOADER_ONLY:-0}" == 1 ]]; then
   qsa_entry=diagnose_qsa_cubin_loader_h800.py
 fi
+qsa_command=("$qsa_python" -I "$qsa_repo/tools/$qsa_entry")
+if [[ "${QSA_CUDA_COMPAT134:-0}" == 1 ]]; then
+  qsa_command=("$qsa_python" -I "$qsa_repo/tools/with_cuda_compat134.py" --script "$qsa_repo/tools/$qsa_entry")
+fi
 qsa_status=0
-if "$qsa_python" -I "$qsa_repo/tools/$qsa_entry" \
+if "${qsa_command[@]}" \
   --report-dir "$qsa_report" "$@" 2>&1 | tee "$qsa_report/runner.txt"
 then
   echo "新版 ptxas 配置验证完成，开始回传。"

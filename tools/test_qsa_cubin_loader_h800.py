@@ -46,10 +46,11 @@ class LoaderTests(unittest.TestCase):
             self.assertTrue((root / "minimal-binaries-artifacts.json").is_file())
 
     def test_direct_api_boundaries_and_failure_are_persisted(self):
-        for entry, fail in [
-            ("empty", None),
-            ("write", None),
-            ("empty", "cuModuleLoadData"),
+        for entry, fail, compat_requested in [
+            ("empty", None, False),
+            ("write", None, False),
+            ("empty", "cuModuleLoadData", False),
+            ("write", None, True),
         ]:
             with self.subTest(
                 entry=entry, fail=fail
@@ -63,6 +64,16 @@ class LoaderTests(unittest.TestCase):
                     {name: {"cubin_sha256": probe.shared.sha(binary)}},
                 )
                 calls = []
+                driver_version = 13040 if compat_requested else 12090
+                library_path = (
+                    "/cuda-13.4/compat/libcuda.so.1"
+                    if compat_requested
+                    else "/cuda-12.9/compat/libcuda.so.1"
+                )
+                if compat_requested:
+                    probe.shared.write_json(
+                        root / "compat134.json", {"libcuda": library_path}
+                    )
 
                 class Function:
                     def __init__(self, name):
@@ -75,7 +86,7 @@ class LoaderTests(unittest.TestCase):
                         if self.name == "cuDriverGetVersion":
                             ctypes.cast(args[0], ctypes.POINTER(ctypes.c_int))[
                                 0
-                            ] = 12090
+                            ] = driver_version
                         if self.name == "cuModuleLoadData":
                             ctypes.cast(args[0], ctypes.POINTER(ctypes.c_void_p))[0] = (
                                 ctypes.c_void_p(1)
@@ -127,7 +138,7 @@ class LoaderTests(unittest.TestCase):
 
                 def read(path, *a, **kw):
                     return (
-                        "1 2 3 4 /cuda-12.9/compat/libcuda.so.1\n"
+                        f"1 2 3 4 {library_path}\n"
                         if str(path) == "/proc/self/maps"
                         else original(path, *a, **kw)
                     )
@@ -146,10 +157,8 @@ class LoaderTests(unittest.TestCase):
                     )
                 state = json.loads((root / (name + ".json")).read_text())
                 self.assertEqual(code, int(bool(fail)))
-                self.assertEqual(
-                    state["libcuda_paths"], ["/cuda-12.9/compat/libcuda.so.1"]
-                )
-                self.assertEqual(state["driver_api_version"], 12090)
+                self.assertEqual(state["libcuda_paths"], [library_path])
+                self.assertEqual(state["driver_api_version"], driver_version)
                 self.assertFalse(state["triton_loader_used"])
                 self.assertEqual(state["stage"], fail or "passed")
                 self.assertEqual("cuLaunchKernel" in calls, not fail)

@@ -313,7 +313,11 @@ assert a[0]=='-I'
 expected = ('diagnose_qsa_cubin_loader_h800.py'
             if os.environ['QSA_PTXAS_LOADER_ONLY']=='1'
             else 'validate_qsa_ptxas_h800.py')
-assert Path(a[1]).name == expected
+if os.environ['QSA_CUDA_COMPAT134']=='1':
+    assert Path(a[1]).name == 'with_cuda_compat134.py'
+    assert Path(a[a.index('--script')+1]).name == expected
+else:
+    assert Path(a[1]).name == expected
 assert 'PYTHONPATH' not in os.environ
 p=Path(a[a.index('--report-dir')+1])
 if os.environ['MOCK_STATUS']!='2':
@@ -347,6 +351,7 @@ if a[:2]==['rev-parse','HEAD']: print('0'*40)
                     QSA_STOCK_PYTHON=str(python),
                     MOCK_STATUS=str(status),
                     QSA_PTXAS_LOADER_ONLY=str(int(status == 2)),
+                    QSA_CUDA_COMPAT134=str(int(status == 1)),
                     MOCK_GIT_LOG=str(root / "git.jsonl"),
                     PYTHONPATH="/bad",
                 )

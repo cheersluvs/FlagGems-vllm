@@ -65,3 +65,28 @@ runner会自动回传已有报告，包括失败报告。回传路径为
 记录实际libcuda映射路径、cuDriverGetVersion、ELF头、API边界、退出信号和faulthandler栈。
 工具、驱动、FlagTree安装保持原样；报告沿用自动回传路径。新最小CUBIN失败说明问题
 也能在无policy条件下复现；最小CUBIN成功则需要继续检查QSA资源/元数据等加载差异。
+
+## 报告84cab23：无policy的直接加载故障已复现
+
+两组最小PTX的旧、新汇编器输入哈希各自一致。旧产物2/2通过，新产物2/2在
+`cuModuleLoadData`内SIGSEGV，未进入kernel。实际映射为旧虚拟环境内的
+`cuda-12.9/compat/libcuda.so.575.57.08`，`cuDriverGetVersion=12090`。
+因此这一加载故障不需要QSA、fractional policy或Triton launcher即可复现；尚不能
+据此判断新ptxas在匹配运行库下是否修复了原policy问题。
+
+[NVIDIA forward-compat矩阵](https://docs.nvidia.com/deploy/cuda-compatibility/forward-compatibility.html)
+列明570驱动可配合cuda-compat-13-4。下一轮设置：
+
+```bash
+export QSA_PTXAS_LOADER_ONLY=1
+export QSA_CUDA_COMPAT134=1
+bash tools/run_qsa_ptxas_h800.sh
+```
+
+runner通过`with_cuda_compat134.py`下载固定的Ubuntu24.04 amd64兼容包615.71.09，
+校验NVIDIA仓库公布的SHA256后，仅用`dpkg-deb --extract`解包到临时目录。
+启动全新Python进程，仅对本次诊断的子进程将该目录前置到LD_LIBRARY_PATH。
+不执行包安装、post-install、ldconfig或内核驱动更改，不修改原虚拟环境文件。
+报告增加`compat134.json`，记录包和libcuda哈希、目录及原/新库路径；loader还会
+强制检查实际libcuda路径和Driver API版本，避免配置未生效却误判通过。
+库准备失败也由原runner自动回传。先验证4个最小对照，通过后再运行10组原生QSA。
