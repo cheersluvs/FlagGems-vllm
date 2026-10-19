@@ -13,6 +13,8 @@ RUNNER = Path(__file__).with_name("run_qsa_prefill_triton_ab_h800.sh").resolve()
 
 
 class RunnerTests(unittest.TestCase):
+    runner = RUNNER
+
     def test_success_and_failures_upload_reports_and_preserve_status(self):
         for status in (0, 1, 2):
             with self.subTest(status=status), tempfile.TemporaryDirectory() as folder:
@@ -28,7 +30,10 @@ a=sys.argv[1:]
 assert a[0]=='-I'
 assert a[a.index('--mode')+1]=='kernel'
 assert a[a.index('--suite')+1]=='upstream-prefill'
-assert os.environ['FLAGGEMS_FORCE_TLE']=='0'
+if a[1].endswith('with_cuda_compat134.py'):
+    assert a[a.index('--script')+1].endswith('qsa_prefill_flagtree_ab.py')
+else:
+    assert os.environ['FLAGGEMS_FORCE_TLE']=='0'
 keys=('PYTHONPATH','PYTHONHOME','QSA_TRITON_RUNTIME_PATH',
       'QSA_NATIVE_REFERENCE_PYTHON','CUDA_LAUNCH_BLOCKING')
 assert not any(os.environ.get(k) for k in keys)
@@ -68,7 +73,7 @@ if a[:2]==['rev-parse','HEAD']: print('0'*40)
                     CUDA_LAUNCH_BLOCKING="1",
                 )
                 result = subprocess.run(
-                    ["bash", str(RUNNER)],
+                    ["bash", str(self.runner)],
                     env=env,
                     capture_output=True,
                     text=True,
@@ -103,6 +108,10 @@ if a[:2]==['rev-parse','HEAD']: print('0'*40)
                         json.loads(files["stage-summary.json"].read_text())["status"],
                         "failed",
                     )
+
+
+class FlagTreeRunnerTests(RunnerTests):
+    runner = RUNNER.with_name("run_qsa_prefill_flagtree_ab_h800.sh")
 
 
 if __name__ == "__main__":

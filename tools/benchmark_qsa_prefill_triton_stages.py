@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
-"""Stock Triton native-vLLM vs production-score + top_k_per_row_prefill A/B.
+"""Same-compiler native-vLLM vs production QSA prefill stage A/B.
 
 Twelve upstream scenarios, kernel timer, separate score/Top-K/sequential pipeline.
-Native Top-K remains vLLM CUDA; only the candidate substitutes repo non-TLE Top-K.
+Stock Triton uses the non-TLE Top-K variant; FlagTree uses production unchanged.
 """
 
 import argparse
@@ -20,7 +20,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# Also works under python -I: never add an external compiler search directory.
+# Both profiles run under -I; only FlagTree explicitly adds its selected directory.
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
 from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
@@ -36,11 +36,21 @@ SOURCES = sorted(
         "tools/run_qsa_prefill_triton_ab_h800.sh",
         "src/flaggems_vllm/ops/top_k_per_row_prefill.py",
         "src/flaggems_vllm/utils/triton_version_utils.py",
+        "tools/qsa_prefill_flagtree_ab.py",
+        "tools/run_qsa_prefill_flagtree_ab_h800.sh",
+        "tools/with_cuda_compat134.py",
+        "tools/validate_qsa_ptxas_h800.py",
+        "tools/diagnose_qsa_native_score_h800.py",
+        "tools/diagnose_qsa_native_decode_h800.py",
     }
 )
 
 
-def configure_environment():
+def is_flagtree(options):
+    return getattr(options, "compiler", "stock") == "flagtree"
+
+
+def configure_environment(options=None):
     for key in (
         "PYTHONPATH",
         "PYTHONHOME",
@@ -61,9 +71,13 @@ def configure_environment():
         raise RuntimeError("Unset CUDA_LAUNCH_BLOCKING before benchmarking")
     if not sys.flags.isolated:
         raise RuntimeError("Run this script with the selected virtualenv Python and -I")
+    if is_flagtree(options):
+        from tools import qsa_prefill_flagtree_ab as profile
+
+        profile.configure(options.flagtree)
 
 
-def check_stock_environment(torch, triton, diagnostic_path=None):
+def check_stock_environment(torch, triton, diagnostic_path=None, options=None):
     environment = dict(
         python=sys.executable,
         prefix=sys.prefix,
@@ -84,28 +98,39 @@ def check_stock_environment(torch, triton, diagnostic_path=None):
         support.write_json(diagnostic_path, result)
     if torch.__version__ != importlib.metadata.version("torch"):
         raise RuntimeError("Torch module and distribution versions differ")
+    if is_flagtree(options):
+        from tools import qsa_prefill_flagtree_ab as profile
+
+        return profile.compiler_runtime(
+            torch, triton, options.flagtree, options.report_dir
+        )
     return ab.stock_runtime(torch, triton, sys.prefix)
 
 
-def runtime(reference_path, diagnostic_path=None):
-    configure_environment()
+def runtime(reference_path, diagnostic_path=None, options=None):
+    configure_environment(options)
     import torch
     import triton
 
-    stock = check_stock_environment(torch, triton, diagnostic_path)
+    stock = check_stock_environment(torch, triton, diagnostic_path, options)
     import flaggems_vllm
     from tests import qsa_select_prefill_utils as helpers
 
     op = importlib.import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
-    old_topk = importlib.import_module("flaggems_vllm.ops.top_k_per_row_prefill")
+    topk_name = "persistent_topk" if is_flagtree(options) else "top_k_per_row_prefill"
+    old_topk = importlib.import_module("flaggems_vllm.ops." + topk_name)
     expected = ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"
     if (
         Path(op.__file__).resolve() != expected
         or Path(old_topk.__file__).resolve()
-        != ROOT / "src/flaggems_vllm/ops/top_k_per_row_prefill.py"
-        or old_topk.HAS_TLE
+        != ROOT / ("src/flaggems_vllm/ops/" + topk_name + ".py")
+        or old_topk.HAS_TLE != is_flagtree(options)
     ):
-        raise RuntimeError("Expected local production source and non-TLE Top-K")
+        raise RuntimeError(
+            "Expected local production source and selected Top-K backend"
+        )
+    if hashlib.sha256(expected.read_bytes()).hexdigest() != ab.PRODUCTION_SHA256:
+        raise RuntimeError("Production source changed; review and repin the experiment")
     if not importlib.metadata.version("vllm").startswith("0.31.0"):
         raise RuntimeError(
             "Select the existing vLLM 0.31.0 virtualenv with native CUDA extensions"
@@ -121,7 +146,7 @@ def runtime(reference_path, diagnostic_path=None):
         raise RuntimeError(
             "Native vLLM and production do not share the same Triton modules"
         )
-    stock_after = ab.stock_runtime(torch, triton, sys.prefix)
+    stock_after = check_stock_environment(torch, triton, options=options)
     if stock != stock_after:
         raise RuntimeError("Compiler identity changed during imports")
     if flaggems_vllm.vendor_name != "nvidia" or torch.cuda.get_device_capability() != (
@@ -132,7 +157,8 @@ def runtime(reference_path, diagnostic_path=None):
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.set_grad_enabled(False)
     info = support.runtime_info(torch, triton, flaggems_vllm.runtime)
-    info["stock_wheel"] = stock
+    info["compiler_profile"] = "flagtree" if is_flagtree(options) else "stock"
+    info["flagtree_runtime" if is_flagtree(options) else "stock_wheel"] = stock
     info["native_topk_libraries"] = {}
     for name, module in list(sys.modules.items()):
         path = getattr(module, "__file__", None)
@@ -152,8 +178,13 @@ def runtime(reference_path, diagnostic_path=None):
         uuid = "GPU-" + uuid
     if uuid != os.environ.get("CUDA_VISIBLE_DEVICES"):
         raise RuntimeError("Actual device differs from the selected GPU UUID")
-    adapter = ab.PrefillTopK(old_topk.top_k_per_row_prefill, torch)
-    candidate = ab.candidate_module(op, adapter)
+    if is_flagtree(options):
+        if op.persistent_topk is not old_topk.persistent_topk:
+            raise RuntimeError("Production persistent_topk binding changed")
+        adapter, candidate = None, op
+    else:
+        adapter = ab.PrefillTopK(old_topk.top_k_per_row_prefill, torch)
+        candidate = ab.candidate_module(op, adapter)
     return (
         torch,
         native,
@@ -290,7 +321,7 @@ def worker(options, case, path):
     result = dict(case=case, status="running", stages={})
     support.write_json(path, result)
     torch, native, candidate, adapter, helpers, device, info = runtime(
-        Path(options.reference_file), path
+        Path(options.reference_file), path, options
     )
     result["runtime"] = info
     os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = str(case["budget_mb"])
@@ -311,7 +342,8 @@ def worker(options, case, path):
         raise RuntimeError("Baseline/candidate scoring geometry differs")
     for c in candidate_chunks:
         c.pop("common_logits")  # Both Top-K stages use only native frozen scores.
-    adapter.frozen = True
+    if adapter is not None:
+        adapter.frozen = True
     result["chunks"] = [
         dict(
             offset=a["offset"],
@@ -335,7 +367,11 @@ def worker(options, case, path):
     result["production_score_configs"] = support.score_configs(candidate)
     result["topk_backends"] = dict(
         baseline="vLLM native CUDA _C dispatcher",
-        candidate="repo top_k_per_row_prefill, HAS_TLE=False",
+        candidate=(
+            "repo production persistent_topk, HAS_TLE=True"
+            if is_flagtree(options)
+            else "repo top_k_per_row_prefill, HAS_TLE=False"
+        ),
     )
     guard = support.gpu_guard_module()
 
@@ -396,13 +432,28 @@ def worker(options, case, path):
     result["common_logits_after"] = common_fingerprints(native_chunks, torch)
     if result["common_logits_before"] != result["common_logits_after"]:
         raise RuntimeError("Common Top-K logits were modified during this run")
+    if is_flagtree(options):
+        from tools import qsa_prefill_flagtree_ab as profile
+
+        if (
+            profile.compiler_runtime(
+                torch, sys.modules["triton"], options.flagtree, options.report_dir
+            )
+            != info["flagtree_runtime"]
+        ):
+            raise RuntimeError("Compiler/driver identity changed during benchmark")
     result.update(status="passed", peak_allocated_bytes=device.max_memory_allocated())
     support.write_json(path, result)
 
 
 def write_table(summary, directory):
+    candidate_column = (
+        "gems_production_us"
+        if summary.get("manifest", {}).get("options", {}).get("compiler") == "flagtree"
+        else "gems_prefill_topk_us"
+    )
     lines = [
-        "case\tstage\tstatus\tvllm_us\tgems_prefill_topk_us\tspeedup\tpaired_ratio_median"
+        f"case\tstage\tstatus\tvllm_us\t{candidate_column}\tspeedup\tpaired_ratio_median"
     ]
     for case in summary["cases"]:
         for name in ("score", "topk", "pipeline"):
@@ -431,6 +482,10 @@ def child_command(options, directory, flag):
         sys.executable,
         "-I",
         str(Path(__file__).resolve()),
+        "--compiler",
+        getattr(options, "compiler", "stock"),
+        "--flagtree",
+        getattr(options, "flagtree", "/opt/flagtree"),
         "--suite",
         options.suite,
         "--report-dir",
@@ -453,6 +508,8 @@ def runtime_identity(info):
     return dict(
         fingerprint(info),
         stock_wheel=info.get("stock_wheel"),
+        compiler_profile=info.get("compiler_profile"),
+        flagtree_runtime=info.get("flagtree_runtime"),
         native_topk_libraries=info.get("native_topk_libraries"),
         vllm_version=info.get("versions", {}).get("vllm"),
     )
@@ -468,6 +525,94 @@ def child_environment(directory, label):
     return env
 
 
+def accuracy_worker(options, path):
+    if not is_flagtree(options):
+        raise RuntimeError("Full production accuracy requires the FlagTree profile")
+    *_, info = runtime(Path(options.reference_file), path, options)
+    support.write_json(path, dict(status="running", runtime=info))
+    os.environ.pop("PYTEST_ADDOPTS", None)
+    import pytest
+
+    code = pytest.main(
+        [
+            "-q",
+            "-ra",
+            "-x",
+            "-c",
+            str(ROOT / "pytest.ini"),
+            str(ROOT / "tests/test_qsa_select_paged_prefill.py"),
+            "--record",
+            "json",
+            "--output",
+            str(Path(options.report_dir) / "accuracy-full.json"),
+        ]
+    )
+    *_, after = runtime(Path(options.reference_file), options=options)
+    if runtime_identity(info) != runtime_identity(after):
+        raise RuntimeError(
+            "Compiler/GPU/native-extension identity changed during accuracy"
+        )
+    support.write_json(
+        path, dict(status="passed" if code == 0 else "failed", runtime=after)
+    )
+    return int(code)
+
+
+def run_accuracy_gate(options, directory, summary, preflight, guard):
+    if not support.idle_gpu_gate(
+        summary, directory, os.environ, "before_accuracy", guard
+    ):
+        raise RuntimeError("GPU environment rejected before full correctness suite")
+    print(
+        "Running full production accuracy, including native vLLM comparisons",
+        flush=True,
+    )
+    with (directory / "accuracy-full.txt").open("w") as log:
+        try:
+            proc = subprocess.run(
+                child_command(options, directory, "--accuracy"),
+                cwd=ROOT,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                timeout=options.accuracy_timeout,
+                env=child_environment(directory, "accuracy"),
+            )
+            error = None if proc.returncode == 0 else f"accuracy exit={proc.returncode}"
+        except subprocess.TimeoutExpired:
+            error = "Full correctness suite timed out"
+    counts = {}
+    if not error:
+        counts, error = support.accuracy_results(directory / "accuracy-full.json")
+    identity_path = directory / "accuracy-runtime.json"
+    identity = json.loads(identity_path.read_text()) if identity_path.is_file() else {}
+    if not error and (
+        identity.get("status") != "passed"
+        or runtime_identity(identity["runtime"])
+        != runtime_identity(preflight["runtime"])
+    ):
+        error = "Accuracy and benchmark compiler/GPU/native-extension identities differ"
+    if not error:
+        records = json.loads((directory / "accuracy-full.json").read_text())
+        for name in (
+            "test_parameterized_against_vllm",
+            "test_native_vllm_topk_dispatch",
+            "test_native_vllm_empty_and_select_all",
+            "test_against_pinned_vllm",
+            "test_upstream_prefill_against_vllm",
+            "test_upstream_split_prefill",
+            "test_upstream_no_complete_blocks_dim8",
+        ):
+            if not any("::" + name in node for node in records):
+                error = "Missing required direct comparison coverage: " + name
+                break
+    summary["accuracy"] = dict(
+        status="failed" if error else "passed", counts=counts, error=error
+    )
+    support.write_json(directory / "stage-summary.json", summary)
+    if error:
+        raise RuntimeError("Accuracy gate failed; no timings collected: " + error)
+
+
 def parent(options, selected, directory):
     summary = dict(
         schema=1,
@@ -479,16 +624,21 @@ def parent(options, selected, directory):
             git_head=support.command(["git", "rev-parse", "HEAD"]),
             git_status=support.command(["git", "status", "--porcelain"]),
             policy=(
-                "Same verified stock Triton wheel from selected virtualenv; "
-                "native CUDA vLLM Top-K vs repo non-TLE Top-K; "
-                "preallocated outer workspaces; actual sequential pipeline; no production source edits"
+                (
+                    "Same verified FlagTree/ptxas13.4/CUDA13.4compat; "
+                    "unmodified production persistent_topk; full accuracy gate; "
+                    if is_flagtree(options)
+                    else "Same verified stock Triton wheel; repo non-TLE Top-K variant; "
+                )
+                + "native CUDA vLLM Top-K; preallocated outer workspaces; "
+                "actual sequential pipeline; no production source edits"
             ),
         ),
     )
     path = directory / "stage-summary.json"
     support.write_json(path, summary)
     try:
-        configure_environment()
+        configure_environment(options)
         uuid = os.environ.get("CUDA_VISIBLE_DEVICES", "")
         guard = support.gpu_guard_module()
         if not guard.UUID_PATTERN.fullmatch(uuid):
@@ -542,8 +692,10 @@ def parent(options, selected, directory):
         summary["preflight"] = preflight
         if proc.returncode or preflight.get("status") != "passed":
             raise RuntimeError(
-                "Stock-Triton/native-extension preflight failed; see preflight.txt/json"
+                "Compiler/native-extension preflight failed; see preflight.txt/json"
             )
+        if is_flagtree(options):
+            run_accuracy_gate(options, directory, summary, preflight, guard)
         for case in selected:
             if not support.idle_gpu_gate(
                 summary, directory, os.environ, "before_" + case["name"], guard
@@ -609,6 +761,8 @@ def parent(options, selected, directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("kernel",), default="kernel")
+    parser.add_argument("--compiler", choices=("stock", "flagtree"), default="stock")
+    parser.add_argument("--flagtree", default="/opt/flagtree")
     parser.add_argument(
         "--suite",
         choices=("upstream-prefill",),
@@ -622,6 +776,8 @@ def main():
     parser.add_argument("--kernel-warmup-ms", type=float, default=1000)
     parser.add_argument("--kernel-rep-ms", type=float, default=100)
     parser.add_argument("--timeout", type=int, default=1800)
+    parser.add_argument("--accuracy-timeout", type=int, default=7200)
+    parser.add_argument("--accuracy", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--preflight", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
@@ -635,6 +791,7 @@ def main():
             options.kernel_warmup_ms,
             options.kernel_rep_ms,
             options.timeout,
+            options.accuracy_timeout,
         )
         <= 0
     ):
@@ -650,18 +807,22 @@ def main():
         if options.report_dir
         else Path(tempfile.mkdtemp(prefix="qsa-triton-ab-h800."))
     )
-    if options.worker or options.preflight:
+    if options.worker or options.preflight or options.accuracy:
         if not options.report_dir or not options.reference_file:
             parser.error("Child requires report directory and pinned reference file")
         if options.worker and options.worker not in definitions:
             parser.error("Unknown worker case")
         path = directory / (
-            options.worker + ".json" if options.worker else "preflight.json"
+            options.worker + ".json"
+            if options.worker
+            else "accuracy-runtime.json" if options.accuracy else "preflight.json"
         )
         try:
-            if options.preflight:
+            if options.accuracy:
+                return accuracy_worker(options, path)
+            elif options.preflight:
                 torch, native, candidate, _, helpers, _, info = runtime(
-                    Path(options.reference_file), path
+                    Path(options.reference_file), path, options
                 )
                 smoke = preflight_smoke(torch, native, candidate, helpers)
                 support.write_json(
@@ -677,7 +838,10 @@ def main():
             print(result["error"], file=sys.stderr)
             return 1
     directory.mkdir(parents=True, exist_ok=True)
-    if any(p.name != "runner.txt" for p in directory.iterdir()):
+    allowed = {"runner.txt"}
+    if is_flagtree(options):
+        allowed |= {"compat134.json", "flagtree134-tools.json"}
+    if any(p.name not in allowed for p in directory.iterdir()):
         parser.error(
             "Report directory must be fresh; existing reports are not overwritten"
         )
