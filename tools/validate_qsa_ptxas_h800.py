@@ -358,6 +358,9 @@ def orchestrate(options, directory):
                 kind,
             ]
             if prepare:
+                # Both prepare helpers copy the loaded reference into folder.
+                # Load the root file here; workers load the prepared copy.
+                env["QSA_VLLM_REFERENCE_FILE"] = str(native)
                 command += ["--prepare"]
             else:
                 command += ["--name", name, "--case", case]
@@ -371,7 +374,6 @@ def orchestrate(options, directory):
         for kind in ("prefill", "decode"):
             folder = directory / kind
             folder.mkdir()
-            shutil.copyfile(native, folder / native.name)
             if kind == "decode":
                 matrix = decode.case_matrix(
                     types.SimpleNamespace(

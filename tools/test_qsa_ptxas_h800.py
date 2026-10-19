@@ -213,7 +213,17 @@ class OrchestrationTests(unittest.TestCase):
             calls.append((name, command, env))
             self.assertNotIn("PYTHONPATH", env)
             if name == "prepare":
+                source = Path(env["QSA_VLLM_REFERENCE_FILE"])
+                destination = folder / "qsa_indexer_vllm.py"
+                self.assertEqual(source, report / "qsa_indexer_vllm.py")
+                self.assertNotEqual(source.resolve(), destination.resolve())
+                # Exercise the real copy performed by both prepare helpers.
+                probe.shutil.copyfile(source, destination)
                 return dict(name=name, returncode=0)
+            self.assertEqual(
+                env["QSA_VLLM_REFERENCE_FILE"], str(folder / "qsa_indexer_vllm.py")
+            )
+            self.assertEqual((folder / "qsa_indexer_vllm.py").read_bytes(), b"pinned")
             destination = folder / name
             destination.mkdir()
             (destination / "replay.json").write_text("{}")
