@@ -44,10 +44,10 @@ The evict_first experiment 4436f76 was rejected and is not integrated.
 | Historical experiments | Exact old production saved under tools; historical trials explicitly receive it | SHA256 stays d70faeb6928c2c7a56636ded833f3359368871e353ecf4c66c6dfd35cae93e73; never production-imported |
 | Benchmark | Native score/TopK/pipeline paired against actual canonical module | Record canonical path, SHA256, public-export identity, route/config/resource evidence; automatic report upload on success/failure |
 
-Integration correctness and performance remain pending on H800. Historical
+At planning time, production-entry H800 validation was pending. Historical
 candidate measurements do not count as measurements of the new production
-entry. No new algorithm, cache hint, staging change or benchmark shape is part
-of this integration.
+entry. The completed run is recorded below. No new algorithm, cache hint,
+staging change or benchmark shape is part of this integration.
 
 
 ## Local implementation and validation
@@ -136,11 +136,36 @@ The unchanged matrix has20 scored cases and2 direct-fill cases, yielding62
 timed stages (20 each score/TopK/pipeline, plus2 fill pipelines),372 raw timing
 samples and248 before/after-round telemetry points with3 rounds. Score capture
 and stage binding derive the real chunks from the actual public invocation;
-no candidate factory or TopK substitution is used in this FlagTree profile.
+the measured candidate uses no private factory or TopK substitution in this
+FlagTree production profile. Correctness tests may construct historical
+candidates as additional references.
 TopK still reads common frozen native logits; pipeline is independently timed
 as score then each side's TopK. NV acceptance uses score only. Two select-all
 cases must report score/TopK N/A. Keep upstream12 and observed8/10 means separate.
 
 A successful historical-candidate report is not a successful production report.
-The new H800 correctness/22-case performance result remains pending until the
-user returns this production run's result branch and commit.
+The new H800 correctness/22-case performance result has now been returned and
+audited; see the completed-run section below.
+
+
+## Completed production run, 2026-10-20
+
+Report `708f30eba6278b18cdc7b7020cfabe59e1682965` ran source
+`cd7195cfcd2aedac70b6879f8e81ecd31e240829`: 209 passed, one existing
+second-device skip and all22 benchmark cases completed. All37 new official
+integration fixtures passed, including12 full-entry checks against the
+retained candidate. The canonical-module/export identity flags and reviewed
+production SHA256 match in preflight, accuracy and every timed worker.
+
+Native/production score-only geometric means are1.05553x for upstream12 and
+2.00593x for observed8. TopK is0.89554x /0.89676x; pipeline is0.96716x for
+upstream12 and1.93485x for observed10. The upstream score minimum is0.98206x
+(two cases below1); the observed score minimum is0.98664x (one below1).
+These are direct same-card measurements of production against native vLLM,
+not an integration increment inferred from earlier reports. TopK stays frozen.
+
+Keep the integration and use this production version as the next optimization
+baseline. Full paired samples, all22 score/TopK/pipeline results, actual
+configs/resources and runtime evidence are documented in
+[qsa_prefill_production_h800_results.md](qsa_prefill_production_h800_results.md).
+No production/config/workload changes are included in recording this result.
