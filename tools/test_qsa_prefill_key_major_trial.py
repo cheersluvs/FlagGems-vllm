@@ -19,7 +19,7 @@ import test_qsa_prefill_chunk_setup as chunk
 from tools import qsa_prefill_kernel_resources as resources
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCTION = ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"
+PRODUCTION = ROOT / "tools/qsa_prefill_frozen_production.py"
 COMPACT = ROOT / "tools/qsa_prefill_compact_trial.py"
 TRIAL = ROOT / "tools/qsa_prefill_key_major_trial.py"
 
@@ -70,7 +70,7 @@ class LayoutTests(unittest.TestCase):
             (73, 2, 39, "0"),
             (8896, 54, 3200, "512"),
         ):
-            ns, score_calls, topks, allocations = chunk.load()
+            ns, score_calls, topks, allocations = chunk.load(PRODUCTION)
             op = types.ModuleType("production")
             op.__dict__.update(ns)
             op.__file__ = str(PRODUCTION)

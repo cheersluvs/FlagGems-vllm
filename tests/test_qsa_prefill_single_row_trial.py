@@ -2,14 +2,13 @@
 # Copyright 2026 FlagOS Contributors
 """On-card gates for the benchmark-only single-row vector candidate."""
 
-from importlib import import_module
-
 import pytest
 import torch
 import triton
 
 import flaggems_vllm
 from tools import qsa_prefill_single_row_trial as trial
+from tools.qsa_prefill_triton_ab import frozen_production
 
 from .qsa_select_prefill_utils import (
     assert_selection,
@@ -19,7 +18,7 @@ from .qsa_select_prefill_utils import (
 )
 
 pytestmark = pytest.mark.qsa_select_paged_prefill
-op_module = import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
+op_module = frozen_production()
 
 
 @pytest.fixture

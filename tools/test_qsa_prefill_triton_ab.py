@@ -89,7 +89,9 @@ class AdapterTests(unittest.TestCase):
             exec(source, production.__dict__)
             adapter = lambda *args: ("replacement", args)
             with patch.object(
-                ab, "PRODUCTION_SHA256", hashlib.sha256(path.read_bytes()).hexdigest()
+                ab,
+                "INTEGRATED_PRODUCTION_SHA256",
+                hashlib.sha256(path.read_bytes()).hexdigest(),
             ):
                 candidate = ab.candidate_module(production, adapter)
                 self.assertIs(

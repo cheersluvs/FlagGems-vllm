@@ -2,8 +2,6 @@
 # Copyright 2026 FlagOS Contributors
 """On-card gates for observed envelopes and compact request scheduling."""
 
-from importlib import import_module
-
 import pytest
 import torch
 import triton
@@ -12,11 +10,12 @@ import flaggems_vllm
 from tools import benchmark_qsa_prefill_triton_stages as stages
 from tools import qsa_prefill_compact_trial as trial
 from tools import qsa_prefill_observed_workloads as workloads
+from tools.qsa_prefill_triton_ab import frozen_production
 
 from . import qsa_select_prefill_utils as helpers
 
 pytestmark = pytest.mark.qsa_select_paged_prefill
-production = import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
+production = frozen_production()
 
 
 @pytest.fixture

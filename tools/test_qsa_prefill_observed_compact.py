@@ -24,7 +24,7 @@ from tools import qsa_prefill_triton_ab as ab
 
 ROOT = Path(__file__).resolve().parents[1]
 TRIAL = ROOT / "tools/qsa_prefill_compact_trial.py"
-PRODUCTION = ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"
+PRODUCTION = ROOT / "tools/qsa_prefill_frozen_production.py"
 
 
 def mapping():
@@ -181,7 +181,7 @@ class CompactMappingTests(unittest.TestCase):
             for budget in ("512", "1", "0"):
                 if rows > 256 and budget != "512":
                     continue
-                original, dot, topks, allocations = chunk.load()
+                original, dot, topks, allocations = chunk.load(PRODUCTION)
                 op = types.ModuleType("production")
                 op.__dict__.update(original)
                 op.__file__ = str(PRODUCTION)

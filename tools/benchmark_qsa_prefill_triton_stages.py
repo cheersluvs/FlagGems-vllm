@@ -35,6 +35,8 @@ SOURCES = sorted(
     | {
         "tools/benchmark_qsa_prefill_triton_stages.py",
         "tools/qsa_prefill_triton_ab.py",
+        "tools/qsa_prefill_frozen_production.py",
+        "tools/test_qsa_prefill_production_integration.py",
         "tools/run_qsa_prefill_triton_ab_h800.sh",
         "src/flaggems_vllm/ops/top_k_per_row_prefill.py",
         "src/flaggems_vllm/utils/triton_version_utils.py",
@@ -154,7 +156,10 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         raise RuntimeError(
             "Expected local production source and selected Top-K backend"
         )
-    if hashlib.sha256(expected.read_bytes()).hexdigest() != ab.PRODUCTION_SHA256:
+    if (
+        hashlib.sha256(expected.read_bytes()).hexdigest()
+        != ab.INTEGRATED_PRODUCTION_SHA256
+    ):
         raise RuntimeError("Production source changed; review and repin the experiment")
     if not importlib.metadata.version("vllm").startswith("0.31.0"):
         raise RuntimeError(
@@ -213,19 +218,27 @@ def runtime(reference_path, diagnostic_path=None, options=None):
     if getattr(options, "candidate", "production") == "compact-ragged":
         from tools import qsa_prefill_compact_trial as trial
 
-        candidate = trial.candidate_module(op)
+        candidate = trial.candidate_module(ab.frozen_production())
     elif getattr(options, "candidate", "production") == "key-major":
         from tools import qsa_prefill_key_major_trial as trial
 
-        candidate = trial.candidate_module(op)
+        candidate = trial.candidate_module(ab.frozen_production())
     elif getattr(options, "candidate", "production") == "key-major-reuse":
         from tools import qsa_prefill_reuse_trial as trial
 
-        candidate = trial.candidate_module(op)
+        candidate = trial.candidate_module(ab.frozen_production())
     elif getattr(options, "candidate", "production") == "key-major-evict-first":
         from tools import qsa_prefill_eviction_trial as trial
 
-        candidate = trial.candidate_module(op)
+        candidate = trial.candidate_module(ab.frozen_production())
+    info["operator_binding"] = operator_binding(
+        op,
+        candidate,
+        flaggems_vllm.qsa_select_paged_prefill,
+        require_production=is_flagtree(options)
+        and getattr(options, "candidate", "production") == "production",
+    )
+    print("Operator binding:", json.dumps(info["operator_binding"]), flush=True)
     return (
         torch,
         native,
@@ -235,6 +248,30 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         flaggems_vllm.runtime.torch_device_fn,
         info,
     )
+
+
+def operator_binding(op, candidate, exported, *, require_production):
+    """Identify the measured callable; reject private clones in production mode."""
+    binding = dict(
+        canonical_source=str(Path(op.__file__).resolve()),
+        canonical_sha256=hashlib.sha256(Path(op.__file__).read_bytes()).hexdigest(),
+        candidate_module=candidate.__name__,
+        candidate_source=str(Path(candidate.__file__).resolve()),
+        candidate_sha256=hashlib.sha256(
+            Path(candidate.__file__).read_bytes()
+        ).hexdigest(),
+        candidate_is_canonical_module=candidate is op,
+        exported_entry_is_candidate=exported is candidate.qsa_select_paged_prefill,
+        public_function_module=candidate.qsa_select_paged_prefill.__module__,
+    )
+    if require_production and not (
+        binding["candidate_is_canonical_module"]
+        and binding["exported_entry_is_candidate"]
+        and binding["public_function_module"] == op.__name__
+        and binding["canonical_sha256"] == ab.INTEGRATED_PRODUCTION_SHA256
+    ):
+        raise RuntimeError("Production benchmark must use the actual exported entry")
+    return binding
 
 
 def native_output(output, torch):
@@ -508,10 +545,12 @@ def worker(options, case, path):
     if hasattr(candidate, "verify_matched"):
         candidate.verify_matched(candidate, result["eviction_config_match"])
         result["eviction_config_match"]["verified_before_timing"] = True
-    if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES:
+    if is_flagtree(options):
         from tools import qsa_prefill_kernel_resources as resources
 
-        result["kernel_resources"] = resources.collect(native, production, candidate)
+        result["kernel_resources"] = resources.collect(
+            native, production or candidate, candidate
+        )
         if retained is not None:
             result["kernel_resources"]["retained_key_major"] = (
                 resources.libentry_records(retained._qsa_prefill_score_kernel)
@@ -525,6 +564,7 @@ def worker(options, case, path):
     if production is not None:
         result["baseline_production_score_configs"] = support.score_configs(production)
         result["candidate_fallback_score_configs"] = support.score_configs(candidate)
+    if hasattr(candidate, "_compact_eligible"):
         result["compact_score_configs"] = support.score_configs(
             candidate, "_qsa_prefill_compact_score_kernel"
         )
@@ -532,6 +572,7 @@ def worker(options, case, path):
             rectangular_dot=(
                 "keys_x_query"
                 if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES
+                or getattr(options, "candidate", "production") == "production"
                 else "query_x_keys"
             ),
             routing_policy="rectangular_row_capacity_ge_4x_chunk_rows",
@@ -543,7 +584,11 @@ def worker(options, case, path):
                     args[0].shape[0], args[2].shape[0], args[7], c["rows"]
                 )
             ],
-            unchanged_production_sha256=ab.PRODUCTION_SHA256,
+            historical_baseline_sha256=(
+                ab.PRODUCTION_SHA256 if production is not None else None
+            ),
+            production_source_sha256=info["operator_binding"]["canonical_sha256"],
+            candidate_source_sha256=info["operator_binding"]["candidate_sha256"],
             grids=[
                 dict(
                     tile_r=tile,
@@ -829,6 +874,7 @@ def runtime_identity(info):
         flagtree_runtime=info.get("flagtree_runtime"),
         native_topk_libraries=info.get("native_topk_libraries"),
         vllm_version=info.get("versions", {}).get("vllm"),
+        operator_binding=info.get("operator_binding"),
     )
 
 
@@ -858,7 +904,11 @@ def accuracy_worker(options, path):
             "-c",
             str(ROOT / "pytest.ini"),
             str(ROOT / "tests/test_qsa_select_paged_prefill.py"),
-            str(ROOT / "tests/test_qsa_prefill_compact_trial.py"),
+            *(
+                [str(ROOT / "tests/test_qsa_prefill_compact_trial.py")]
+                if getattr(options, "candidate", "production") != "production"
+                else []
+            ),
             *(
                 [str(ROOT / "tests/test_qsa_prefill_key_major_trial.py")]
                 if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES
@@ -962,9 +1012,21 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             "test_upstream_prefill_against_vllm",
             "test_upstream_split_prefill",
             "test_upstream_no_complete_blocks_dim8",
-            "test_observed_envelopes_against_native",
-            "test_compact_every_config_and_chunk_boundary",
-            "test_compact_full_entry",
+            *(
+                (
+                    "test_integrated_public_entry_identity",
+                    "test_integrated_observed_against_native",
+                    "test_integrated_rectangular_every_config",
+                    "test_integrated_compact_every_config",
+                    "test_integrated_full_entry_and_retained_candidate",
+                )
+                if getattr(options, "candidate", "production") == "production"
+                else (
+                    "test_observed_envelopes_against_native",
+                    "test_compact_every_config_and_chunk_boundary",
+                    "test_compact_full_entry",
+                )
+            ),
         ):
             if not any("::" + name in node for node in records):
                 error = "Missing required direct comparison coverage: " + name

@@ -8,6 +8,7 @@ import torch
 import triton
 
 import flaggems_vllm
+from tools import qsa_prefill_observed_workloads as observed_workloads
 
 from . import conftest as cfg
 from .qsa_select_prefill_utils import (
@@ -315,7 +316,9 @@ def test_every_autotune_candidate(sm90, dtype, num_heads, head_dim):
     kernel = op_module._qsa_prefill_score_kernel
     while not isinstance(kernel, triton.runtime.JITFunction):
         kernel = kernel.fn
-    configs = flaggems_vllm.runtime.get_tuned_config("qsa_select_paged_prefill_score")
+    configs = flaggems_vllm.runtime.get_tuned_config(
+        "qsa_select_paged_prefill_reuse_score"
+    )
     assert configs
     for config in configs:
         scores = torch.full((args[0].shape[0], width), 12345.0, device="cuda")
@@ -387,6 +390,7 @@ def test_prepared_chunk_setup_matches_retained_host_path(
     sm90, monkeypatch, dtype, budget, chunk_rows
 ):
     from tools.qsa_prefill_chunk_baseline import baseline_entry
+    from tools.qsa_prefill_triton_ab import frozen_production
 
     monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
     args = make_inputs((39, 34), (4096, 8192), query_base=113, dtype=dtype)
@@ -394,7 +398,7 @@ def test_prepared_chunk_setup_matches_retained_host_path(
     check_selection = (
         assert_upstream_selection if dtype == torch.float8_e4m3fn else assert_selection
     )
-    baseline_entry(op_module)(*args)
+    baseline_entry(frozen_production())(*args)
     if dtype == torch.float8_e4m3fn:
         check_selection(expected, args[4], args[8], dtype=dtype, head_dim=128)
     else:
@@ -793,3 +797,97 @@ def test_noncurrent_cuda_device(sm90):
     op(*args)
     assert torch.cuda.current_device() == previous
     assert_selection(torch_logits(*args[:5]), args[4], args[8])
+
+
+# Production integration gates deliberately call the official public export.
+# Historical trial modules are references only; they never replace this binding.
+def test_integrated_public_entry_identity(sm90):
+    import hashlib
+    from pathlib import Path
+
+    from tools.qsa_prefill_triton_ab import INTEGRATED_PRODUCTION_SHA256
+
+    assert op is op_module.qsa_select_paged_prefill
+    assert op.__module__ == "flaggems_vllm.ops.qsa_select_paged_prefill"
+    assert (
+        hashlib.sha256(Path(op_module.__file__).read_bytes()).hexdigest()
+        == INTEGRATED_PRODUCTION_SHA256
+    )
+
+
+@pytest.mark.parametrize(
+    "case",
+    observed_workloads.observed_cases(),
+    ids=lambda c: c["name"],
+)
+def test_integrated_observed_against_native(sm90, monkeypatch, case):
+    from .test_qsa_prefill_compact_trial import check_observed_envelope
+
+    check_observed_envelope(monkeypatch, case, lambda frozen: op_module)
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+@pytest.mark.parametrize("heads,dim", [(4, 128), (3, 24), (5, 96), (1, 8)])
+def test_integrated_rectangular_every_config(sm90, dtype, heads, dim):
+    from .test_qsa_prefill_compact_trial import check_score_kernel
+
+    configs = flaggems_vllm.runtime.get_tuned_config(
+        "qsa_select_paged_prefill_reuse_score"
+    )
+    assert len(configs) == 8
+    check_score_kernel(
+        dtype, heads, dim, op_module._qsa_prefill_score_kernel, False, configs=configs
+    )
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+@pytest.mark.parametrize("heads,dim", [(4, 128), (3, 24), (5, 96)])
+def test_integrated_compact_every_config(sm90, dtype, heads, dim):
+    from .test_qsa_prefill_compact_trial import check_score_kernel
+
+    check_score_kernel(
+        dtype, heads, dim, op_module._qsa_prefill_compact_score_kernel, True
+    )
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+@pytest.mark.parametrize("budget", ["512", "1", "0"])
+@pytest.mark.parametrize("compact_envelope", [False, True])
+def test_integrated_full_entry_and_retained_candidate(
+    sm90, monkeypatch, dtype, budget, compact_envelope
+):
+    from tools import qsa_prefill_reuse_trial as retained
+    from tools.qsa_prefill_triton_ab import frozen_production
+
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
+    queries = (33, 0, 1, 1, 1, 1, 1, 12) if compact_envelope else (33, 0, 1)
+    contexts = (4096, 16) + (8192,) * 6 if compact_envelope else (4096, 16, 8192)
+    args = make_inputs(queries, contexts, query_base=113, dtype=dtype, padded=True)
+    expected = torch_logits(*args[:5])
+    routes = []
+    launch = op_module._prefill_logits
+
+    def track(*a, **kw):
+        routes.append(
+            op_module._compact_eligible(a[0].shape[0], a[2].shape[0], a[6], a[9])
+        )
+        return launch(*a, **kw)
+
+    monkeypatch.setattr(op_module, "_prefill_logits", track)
+    assert op(*args) is None
+    assert routes and any(routes) == (compact_envelope and budget == "512")
+    baseline = retained.candidate_module(frozen_production())
+    baseline_args = (*args[:8], torch.empty_like(args[8]), args[9])
+    assert baseline.qsa_select_paged_prefill(*baseline_args) is None
+    for selected in (args[8], baseline_args[8]):
+        if dtype == torch.float8_e4m3fn:
+            assert_upstream_selection(
+                expected, args[4], selected, dtype=dtype, head_dim=args[0].shape[2]
+            )
+        else:
+            assert_selection(expected, args[4], selected)
+    assert_native_selection(
+        expected, args[4], args[8], baseline_args[8], dtype=dtype, head_dim=128
+    )
+    assert op is op_module.qsa_select_paged_prefill
+    assert op_module.persistent_topk is baseline.persistent_topk

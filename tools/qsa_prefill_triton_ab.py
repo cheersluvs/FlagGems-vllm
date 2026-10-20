@@ -5,17 +5,42 @@
 import base64
 import hashlib
 import importlib.metadata
+import importlib.util
+import sys
 import types
 from pathlib import Path
 from unittest.mock import patch
 
 PRODUCTION_SHA256 = "d70faeb6928c2c7a56636ded833f3359368871e353ecf4c66c6dfd35cae93e73"
+INTEGRATED_PRODUCTION_SHA256 = (
+    "6db2918b5b7dc1798244548972458a8c59745f967341a10663e2d704cf35687a"
+)
+FROZEN_PRODUCTION_PATH = "tools/qsa_prefill_frozen_production.py"
+
 REFERENCE_COMMIT = "7a877ae34dcf4a7d46de08eb16db4699e1e0047c"
 REFERENCE_SHA256 = "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b"
 REFERENCE_URL = (
     f"https://raw.githubusercontent.com/vllm-project/vllm/{REFERENCE_COMMIT}/"
     "vllm/models/qwen4_exp/nvidia/ops/qsa_indexer.py"
 )
+
+
+def frozen_production():
+    """Exact historical production for private trials; never a production import."""
+    path = Path(__file__).resolve().parents[1] / FROZEN_PRODUCTION_PATH
+    if hashlib.sha256(path.read_bytes()).hexdigest() != PRODUCTION_SHA256:
+        raise RuntimeError("Frozen production source SHA256 mismatch")
+    name = "tools.qsa_prefill_frozen_production"
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            del sys.modules[name]
+            raise
+    return sys.modules[name]
 
 
 def stock_runtime(torch, triton, prefix, distribution=None):
@@ -118,7 +143,7 @@ class PrefillTopK:
 
 def candidate_module(production, adapter):
     path = Path(production.__file__).resolve()
-    if hashlib.sha256(path.read_bytes()).hexdigest() != PRODUCTION_SHA256:
+    if hashlib.sha256(path.read_bytes()).hexdigest() != INTEGRATED_PRODUCTION_SHA256:
         raise RuntimeError("Production source changed; review and repin the experiment")
     module = types.ModuleType(production.__name__ + ".prefill_topk_ab")
     namespace = module.__dict__

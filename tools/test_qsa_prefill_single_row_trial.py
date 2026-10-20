@@ -17,10 +17,11 @@ TRIAL = Path(__file__).with_name("qsa_prefill_single_row_trial.py")
 
 
 def load():
-    original, dot_calls, topks, allocations = chunk.load()
+    frozen = Path(__file__).with_name("qsa_prefill_frozen_production.py")
+    original, dot_calls, topks, allocations = chunk.load(frozen)
     op = types.ModuleType("qsa_production")
     op.__dict__.update(original)
-    op.__file__ = str(chunk.host.PRODUCTION)
+    op.__file__ = str(frozen)
     vector_calls = []
 
     class Vector:

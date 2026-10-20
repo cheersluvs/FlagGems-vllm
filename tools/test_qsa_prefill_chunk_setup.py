@@ -15,6 +15,7 @@ import test_qsa_prefill_host_validation as host
 
 FROZEN = Path(__file__).with_name("qsa_prefill_chunk_baseline.py")
 NAMES = host.NAMES | {
+    "_compact_eligible",
     "_prefill_score_metadata",
     "_prefill_logits",
     "qsa_select_paged_prefill",
@@ -53,8 +54,8 @@ def normalize(value):
     return value
 
 
-def load():
-    namespace = host.load_functions(host.PRODUCTION, NAMES)
+def load(path=None):
+    namespace = host.load_functions(path or host.PRODUCTION, NAMES)
     calls, topks, allocations = [], [], []
 
     class Kernel:
@@ -112,6 +113,7 @@ def load():
         triton=types.SimpleNamespace(cdiv=lambda x, y: (x + y - 1) // y),
         os=os,
         _qsa_prefill_score_kernel=Kernel(),
+        _qsa_prefill_compact_score_kernel=Kernel(),
         _select_all_kernel=Kernel(),
         persistent_topk=topk,
     )
@@ -158,7 +160,9 @@ class ChunkSetupTests(unittest.TestCase):
                             heads=heads,
                             dim=dim,
                         ):
-                            new, calls, topks, allocations = load()
+                            new, calls, topks, allocations = load(
+                                FROZEN.with_name("qsa_prefill_frozen_production.py")
+                            )
                             args = inputs(
                                 dtype=dtype, padded=padded, heads=heads, dim=dim
                             )
@@ -244,7 +248,9 @@ class ChunkSetupTests(unittest.TestCase):
         self.assertIsNot(allocations[0], allocations[2])
 
     def test_legacy_flat_private_launcher_matches_frozen_launcher(self):
-        namespace, calls, _, _ = load()
+        namespace, calls, _, _ = load(
+            FROZEN.with_name("qsa_prefill_frozen_production.py")
+        )
         frozen = baseline_module().baseline_entry(types.SimpleNamespace(**namespace))
         old_score = frozen.__globals__["_prefill_logits"]
         args = inputs()
@@ -275,7 +281,7 @@ class ChunkSetupTests(unittest.TestCase):
         self.assertEqual(allocations, [])
 
     def test_baseline_source_pins_and_shared_kernel_guard(self):
-        namespace, _, _, _ = load()
+        namespace, _, _, _ = load(FROZEN.with_name("qsa_prefill_frozen_production.py"))
         module = baseline_module()
         op = types.SimpleNamespace(**namespace)
         baseline = module.baseline_entry(op)

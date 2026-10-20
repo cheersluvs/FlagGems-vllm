@@ -258,6 +258,7 @@ class AccuracyTests(unittest.TestCase):
             "pytest",
             "missing",
             "missing_trial",
+            "missing_production",
             "skipped",
             "identity",
             "key_major",
@@ -309,8 +310,26 @@ class AccuracyTests(unittest.TestCase):
                 }
                 if failure == "missing":
                     records.pop("tests/test.py::test_parameterized_against_vllm")
+                if not hasattr(options, "candidate"):
+                    records.update(
+                        {
+                            "tests/test.py::" + name: dict(result="passed")
+                            for name in (
+                                "test_integrated_public_entry_identity",
+                                "test_integrated_observed_against_native",
+                                "test_integrated_rectangular_every_config",
+                                "test_integrated_compact_every_config",
+                                "test_integrated_full_entry_and_retained_candidate",
+                            )
+                        }
+                    )
                 if failure == "missing_trial":
+                    options.candidate = "compact-ragged"
                     records.pop("tests/test.py::test_compact_full_entry")
+                if failure == "missing_production":
+                    records.pop(
+                        "tests/test.py::test_integrated_full_entry_and_retained_candidate"
+                    )
                 if failure in (
                     "key_major",
                     "missing_key_major",
