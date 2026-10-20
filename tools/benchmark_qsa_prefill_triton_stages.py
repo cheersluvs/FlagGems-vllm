@@ -48,12 +48,17 @@ SOURCES = sorted(
         "tools/qsa_prefill_observed_workloads.py",
         "tools/qsa_prefill_compact_trial.py",
         "tools/qsa_prefill_key_major_trial.py",
+        "tools/qsa_prefill_reuse_trial.py",
         "tools/qsa_prefill_kernel_resources.py",
         "tests/test_qsa_prefill_compact_trial.py",
         "tests/test_qsa_prefill_key_major_trial.py",
+        "tests/test_qsa_prefill_reuse_trial.py",
         "benchmark/test_qsa_select_paged_prefill_perf.py",
     }
 )
+
+SCORE_STAGES = ("score", "score_vs_production", "score_vs_key_major")
+STAGE_ORDER = ("score", "topk", "pipeline", "score_vs_production", "score_vs_key_major")
 
 
 def is_flagtree(options):
@@ -201,6 +206,10 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         candidate = trial.candidate_module(op)
     elif getattr(options, "candidate", "production") == "key-major":
         from tools import qsa_prefill_key_major_trial as trial
+
+        candidate = trial.candidate_module(op)
+    elif getattr(options, "candidate", "production") == "key-major-reuse":
+        from tools import qsa_prefill_reuse_trial as trial
 
         candidate = trial.candidate_module(op)
     return (
@@ -385,6 +394,22 @@ def worker(options, case, path):
         result["score_cache_isolation"]["baseline_configs_after_public"] = (
             support.score_configs(production)
         )
+    retained = getattr(candidate, "retained_baseline", None)
+    if retained is not None:
+        entry = retained._qsa_prefill_score_kernel
+        for other in (
+            production._qsa_prefill_score_kernel,
+            candidate._qsa_prefill_score_kernel,
+        ):
+            if entry is other or any(
+                a is b for a, b in zip(entry.kernel_cache, other.kernel_cache)
+            ):
+                raise RuntimeError(
+                    "Retained key-major baseline shares outer score cache"
+                )
+        retained.qsa_select_paged_prefill(*args)
+        result["retained_key_major_score_configs"] = support.score_configs(retained)
+        result["retained_baseline_public_warmed_first"] = True
     fastpath = workloads.geometry(case).get("select_all", False)
     candidate_chunks = (
         [] if fastpath else ab.observe(candidate, "persistent_topk", args)
@@ -440,7 +465,7 @@ def worker(options, case, path):
     if production is not None and not fastpath:
         # Identical public chunk geometry and one shared preallocated output
         # buffer isolate scheduling; no additional TopK or scratch allocation.
-        production_args, production_chunks = args, candidate_chunks
+        production_chunks = candidate_chunks
 
         def production_scores():
             for c in production_chunks:
@@ -449,14 +474,23 @@ def worker(options, case, path):
         functions["score_vs_production"] = dict(
             baseline=production_scores, candidate=functions["score"]["candidate"]
         )
+    if retained is not None and not fastpath:
+        functions["score_vs_key_major"] = dict(
+            baseline=scoring.score_function(retained._prefill_logits, candidate_chunks),
+            candidate=functions["score"]["candidate"],
+        )
     for stage in functions.values():
         for fn in stage.values():
             fn()  # Compile/autotune and allocate operator-internal scratch untimed.
     device.synchronize()
-    if getattr(options, "candidate", "production") == "key-major":
+    if getattr(options, "candidate", "production") in ("key-major", "key-major-reuse"):
         from tools import qsa_prefill_kernel_resources as resources
 
         result["kernel_resources"] = resources.collect(native, production, candidate)
+        if retained is not None:
+            result["kernel_resources"]["retained_key_major"] = (
+                resources.libentry_records(retained._qsa_prefill_score_kernel)
+            )
     timer, timer_info = scoring.make_timer(
         options.kernel_warmup_ms, options.kernel_rep_ms
     )
@@ -471,7 +505,8 @@ def worker(options, case, path):
         result["score_schedule"] = dict(
             rectangular_dot=(
                 "keys_x_query"
-                if getattr(options, "candidate", "production") == "key-major"
+                if getattr(options, "candidate", "production")
+                in ("key-major", "key-major-reuse")
                 else "query_x_keys"
             ),
             routing_policy="rectangular_row_capacity_ge_4x_chunk_rows",
@@ -510,7 +545,13 @@ def worker(options, case, path):
     guard = support.gpu_guard_module()
 
     def validate(name):
-        if name in ("score", "score_vs_production"):
+        if name in SCORE_STAGES:
+            score_baselines = {
+                "score": (native, native_chunks, native_args),
+                "score_vs_production": (production, production_chunks, args),
+                "score_vs_key_major": (retained, candidate_chunks, args),
+            }
+            baseline_module, baseline_chunks, baseline_args = score_baselines[name]
             return {
                 side: scoring.validate_scores(
                     module._prefill_logits,
@@ -521,20 +562,7 @@ def worker(options, case, path):
                     device,
                 )
                 for side, module, chunks, a in (
-                    (
-                        "baseline",
-                        production if name == "score_vs_production" else native,
-                        (
-                            production_chunks
-                            if name == "score_vs_production"
-                            else native_chunks
-                        ),
-                        (
-                            production_args
-                            if name == "score_vs_production"
-                            else native_args
-                        ),
-                    ),
+                    ("baseline", baseline_module, baseline_chunks, baseline_args),
                     ("candidate", candidate, candidate_chunks, args),
                 )
             }
@@ -554,10 +582,11 @@ def worker(options, case, path):
         entry = result["stages"][name] = dict(
             status="validating",
             accepted=False,
-            includes_topk=name not in ("score", "score_vs_production"),
-            baseline_kind=(
-                "production" if name == "score_vs_production" else "native_vllm"
-            ),
+            includes_topk=name not in SCORE_STAGES,
+            baseline_kind={
+                "score_vs_production": "production",
+                "score_vs_key_major": "retained_key_major",
+            }.get(name, "native_vllm"),
         )
         entry["validation_before"] = validate(name)
         support.write_json(path, result)
@@ -600,6 +629,14 @@ def worker(options, case, path):
         raise RuntimeError(
             "Production baseline dispatch configuration changed after public warmup"
         )
+    if (
+        retained is not None
+        and support.score_configs(retained)
+        != result["retained_key_major_score_configs"]
+    ):
+        raise RuntimeError(
+            "Retained key-major configuration changed after public warmup"
+        )
     if is_flagtree(options):
         from tools import qsa_prefill_flagtree_ab as profile
 
@@ -621,9 +658,13 @@ def write_table(summary, directory):
         .get("shared_gpu_exploratory", False)
     )
     kind = summary.get("manifest", {}).get("options", {}).get("candidate")
-    trial = kind in ("compact-ragged", "key-major")
+    trial = kind in ("compact-ragged", "key-major", "key-major-reuse")
     candidate_column = (
-        ("gems_key_major_trial_us" if kind == "key-major" else "gems_compact_trial_us")
+        {
+            "key-major": "gems_key_major_trial_us",
+            "key-major-reuse": "gems_key_major_reuse_trial_us",
+            "compact-ragged": "gems_compact_trial_us",
+        }[kind]
         if trial
         else (
             "gems_production_us"
@@ -637,8 +678,8 @@ def write_table(summary, directory):
         f"{'exploratory_speedup' if exploratory else 'speedup'}\tpaired_ratio_median\tbaseline_kind"
     ]
     for case in summary["cases"]:
-        for name in ("score", "topk", "pipeline", "score_vs_production"):
-            if name not in case.get("stages", {}) and name == "score_vs_production":
+        for name in STAGE_ORDER:
+            if name not in case.get("stages", {}) and name.startswith("score_vs_"):
                 continue
             entry = case.get("stages", {}).get(name, {})
             accepted = case["status"] == "passed" and (
@@ -681,7 +722,7 @@ def write_table(summary, directory):
         ]
         if planned and len(members) != len(planned):
             continue
-        for name in ("score", "topk", "pipeline", "score_vs_production"):
+        for name in STAGE_ORDER:
             relevant = [
                 c
                 for c in members
@@ -789,7 +830,13 @@ def accuracy_worker(options, path):
             str(ROOT / "tests/test_qsa_prefill_compact_trial.py"),
             *(
                 [str(ROOT / "tests/test_qsa_prefill_key_major_trial.py")]
-                if getattr(options, "candidate", "production") == "key-major"
+                if getattr(options, "candidate", "production")
+                in ("key-major", "key-major-reuse")
+                else []
+            ),
+            *(
+                [str(ROOT / "tests/test_qsa_prefill_reuse_trial.py")]
+                if getattr(options, "candidate", "production") == "key-major-reuse"
                 else []
             ),
             "--record",
@@ -885,7 +932,10 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             if not any("::" + name in node for node in records):
                 error = "Missing required direct comparison coverage: " + name
                 break
-        if not error and getattr(options, "candidate", "production") == "key-major":
+        if not error and getattr(options, "candidate", "production") in (
+            "key-major",
+            "key-major-reuse",
+        ):
             for name in (
                 "test_key_major_every_config_and_chunk_boundary",
                 "test_key_major_observed_against_native",
@@ -893,6 +943,18 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             ):
                 if not any("::" + name in node for node in records):
                     error = "Missing required key-major comparison coverage: " + name
+                    break
+        if (
+            not error
+            and getattr(options, "candidate", "production") == "key-major-reuse"
+        ):
+            for name in (
+                "test_reuse_new_configs_and_chunk_boundary",
+                "test_reuse_observed_against_native",
+                "test_reuse_full_entry",
+            ):
+                if not any("::" + name in node for node in records):
+                    error = "Missing required reuse comparison coverage: " + name
                     break
     summary["accuracy"] = dict(
         status="failed" if error else "passed", counts=counts, error=error
@@ -1076,7 +1138,7 @@ def main():
     parser.add_argument("--cases", nargs="+")
     parser.add_argument(
         "--candidate",
-        choices=("production", "compact-ragged", "key-major"),
+        choices=("production", "compact-ragged", "key-major", "key-major-reuse"),
         default="production",
     )
     parser.add_argument("--list-cases", action="store_true")

@@ -262,6 +262,9 @@ class AccuracyTests(unittest.TestCase):
             "identity",
             "key_major",
             "missing_key_major",
+            "reuse",
+            "missing_reuse",
+            "missing_reuse_key_major",
         ):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
@@ -278,6 +281,8 @@ class AccuracyTests(unittest.TestCase):
                 info = {key: "fixed" for key in resume.RUNTIME_KEYS}
                 if failure in ("key_major", "missing_key_major"):
                     options.candidate = "key-major"
+                if failure in ("reuse", "missing_reuse", "missing_reuse_key_major"):
+                    options.candidate = "key-major-reuse"
                 records = {
                     "tests/test.py::" + name: dict(result="passed")
                     for name in (
@@ -297,7 +302,13 @@ class AccuracyTests(unittest.TestCase):
                     records.pop("tests/test.py::test_parameterized_against_vllm")
                 if failure == "missing_trial":
                     records.pop("tests/test.py::test_compact_full_entry")
-                if failure in ("key_major", "missing_key_major"):
+                if failure in (
+                    "key_major",
+                    "missing_key_major",
+                    "reuse",
+                    "missing_reuse",
+                    "missing_reuse_key_major",
+                ):
                     records.update(
                         {
                             "tests/test.py::" + name: dict(result="passed")
@@ -309,6 +320,21 @@ class AccuracyTests(unittest.TestCase):
                         }
                     )
                 if failure == "missing_key_major":
+                    records.pop("tests/test.py::test_key_major_full_entry")
+                if failure in ("reuse", "missing_reuse", "missing_reuse_key_major"):
+                    records.update(
+                        {
+                            "tests/test.py::" + name: dict(result="passed")
+                            for name in (
+                                "test_reuse_new_configs_and_chunk_boundary",
+                                "test_reuse_observed_against_native",
+                                "test_reuse_full_entry",
+                            )
+                        }
+                    )
+                if failure == "missing_reuse":
+                    records.pop("tests/test.py::test_reuse_full_entry")
+                if failure == "missing_reuse_key_major":
                     records.pop("tests/test.py::test_key_major_full_entry")
                 if failure == "skipped":
                     records["tests/test.py::test_parameterized_against_vllm"][
@@ -336,7 +362,7 @@ class AccuracyTests(unittest.TestCase):
                 with patch.object(bench, "idle_gate", return_value=True), patch.object(
                     bench.subprocess, "run", side_effect=run
                 ), contextlib.redirect_stdout(io.StringIO()):
-                    if failure and failure != "key_major":
+                    if failure and failure not in ("key_major", "reuse"):
                         with self.assertRaisesRegex(
                             RuntimeError, "Accuracy gate failed"
                         ):

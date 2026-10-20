@@ -34,6 +34,34 @@ qsa_select_paged_prefill_score:
     num_warps: 4
     num_stages: 2
 
+# Experimental key-major work distribution. Keep the six original choices
+# and add eight-warp 64-query tiles; score arithmetic and staging are frozen.
+qsa_select_paged_prefill_reuse_score:
+  - META: {TILE_R: 4, BLOCK_N: 64, K_TILES: 1}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 8, BLOCK_N: 64, K_TILES: 4}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 16, BLOCK_N: 64, K_TILES: 4}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 32, BLOCK_N: 64, K_TILES: 4}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 32, BLOCK_N: 128, K_TILES: 4}
+    num_warps: 8
+    num_stages: 2
+  - META: {TILE_R: 64, BLOCK_N: 64, K_TILES: 16}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 64, BLOCK_N: 64, K_TILES: 4}
+    num_warps: 8
+    num_stages: 2
+  - META: {TILE_R: 64, BLOCK_N: 64, K_TILES: 16}
+    num_warps: 8
+    num_stages: 2
+
 # Experimental one-query vector scorer; production routing is unchanged.
 qsa_select_paged_prefill_single_row_score:
   - META: {TILE_R: 1, BLOCK_N: 16, K_TILES: 1}

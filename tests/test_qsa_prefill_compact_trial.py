@@ -66,7 +66,7 @@ def test_compact_every_config_and_chunk_boundary(sm90, dtype, heads, dim):
     check_score_kernel(dtype, heads, dim, trial._qsa_prefill_compact_score_kernel, True)
 
 
-def check_score_kernel(dtype, heads, dim, kernel, compact_grid):
+def check_score_kernel(dtype, heads, dim, kernel, compact_grid, configs=None):
     queries = (0, 7, 0, 33, 1, 65, 0)
     rows = sum(queries)
     visible = [0, 1, 511, 512, 513, 1025, 1537] + [1537] * (rows - 7)
@@ -92,8 +92,11 @@ def check_score_kernel(dtype, heads, dim, kernel, compact_grid):
     width = expected.shape[1]
     while not isinstance(kernel, triton.runtime.JITFunction):
         kernel = kernel.fn
-    configs = flaggems_vllm.runtime.get_tuned_config("qsa_select_paged_prefill_score")
-    assert len(configs) == 6
+    if configs is None:
+        configs = flaggems_vllm.runtime.get_tuned_config(
+            "qsa_select_paged_prefill_score"
+        )
+        assert len(configs) == 6
     for config in configs:
         for offset, count in (
             (0, rows),
