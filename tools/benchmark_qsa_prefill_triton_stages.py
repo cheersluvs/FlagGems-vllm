@@ -25,6 +25,7 @@ sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
 from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
+from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
 from tools import qsa_prefill_triton_ab as ab  # noqa: E402
 from tools import qsa_prefill_upstream_workloads as workloads  # noqa: E402
 
@@ -37,6 +38,7 @@ SOURCES = sorted(
         "src/flaggems_vllm/ops/top_k_per_row_prefill.py",
         "src/flaggems_vllm/utils/triton_version_utils.py",
         "tools/qsa_prefill_flagtree_ab.py",
+        "tools/qsa_prefill_shared_gpu.py",
         "tools/run_qsa_prefill_flagtree_ab_h800.sh",
         "tools/with_cuda_compat134.py",
         "tools/validate_qsa_ptxas_h800.py",
@@ -319,6 +321,10 @@ def common_fingerprints(chunks, torch):
 
 def worker(options, case, path):
     result = dict(case=case, status="running", stages={})
+    if shared.enabled(options):
+        result.update(
+            measurement_context="shared_gpu_exploratory", acceptance_eligible=False
+        )
     support.write_json(path, result)
     torch, native, candidate, adapter, helpers, device, info = runtime(
         Path(options.reference_file), path, options
@@ -414,8 +420,12 @@ def worker(options, case, path):
             stage["baseline"],
             stage["candidate"],
             options.rounds,
-            lambda label: support.guarded_telemetry(
-                info["uuid"], name + ":" + label, result, path, guard
+            lambda label: (
+                shared.telemetry(info["uuid"], name + ":" + label, result, path)
+                if shared.enabled(options)
+                else support.guarded_telemetry(
+                    info["uuid"], name + ":" + label, result, path, guard
+                )
             ),
             support.stats,
         )
@@ -427,7 +437,11 @@ def worker(options, case, path):
         )
         entry["validation_after"] = validate(name)
         device.synchronize()
-        entry.update(status="passed", accepted=True)
+        entry.update(
+            status="passed",
+            measurement_validated=True,
+            accepted=not shared.enabled(options),
+        )
         support.write_json(path, result)
     result["common_logits_after"] = common_fingerprints(native_chunks, torch)
     if result["common_logits_before"] != result["common_logits_after"]:
@@ -447,22 +461,36 @@ def worker(options, case, path):
 
 
 def write_table(summary, directory):
+    exploratory = (
+        summary.get("manifest", {})
+        .get("options", {})
+        .get("shared_gpu_exploratory", False)
+    )
     candidate_column = (
         "gems_production_us"
         if summary.get("manifest", {}).get("options", {}).get("compiler") == "flagtree"
         else "gems_prefill_topk_us"
     )
     lines = [
-        f"case\tstage\tstatus\tvllm_us\t{candidate_column}\tspeedup\tpaired_ratio_median"
+        f"case\tstage\tstatus\tvllm_us\t{candidate_column}\t"
+        f"{'exploratory_speedup' if exploratory else 'speedup'}\tpaired_ratio_median"
     ]
     for case in summary["cases"]:
         for name in ("score", "topk", "pipeline"):
             entry = case.get("stages", {}).get(name, {})
-            accepted = case["status"] == "passed" and entry.get("accepted")
+            accepted = case["status"] == "passed" and (
+                entry.get("measurement_validated")
+                if exploratory
+                else entry.get("accepted")
+            )
             values = [
                 case["case"]["name"],
                 name,
-                "passed" if accepted else case["status"],
+                (
+                    ("exploratory" if exploratory else "passed")
+                    if accepted
+                    else case["status"]
+                ),
             ]
             if accepted:
                 values += [
@@ -498,6 +526,15 @@ def child_command(options, directory, flag):
         str(options.kernel_warmup_ms),
         "--kernel-rep-ms",
         str(options.kernel_rep_ms),
+        *(
+            [
+                "--shared-gpu-exploratory",
+                "--shared-min-free-mib",
+                str(options.shared_min_free_mib),
+            ]
+            if shared.enabled(options)
+            else []
+        ),
         flag,
     ]
 
@@ -559,6 +596,16 @@ def accuracy_worker(options, path):
 
 
 def idle_gate(options, summary, directory, label, guard):
+    if shared.enabled(options):
+        return shared.admission(
+            summary,
+            directory,
+            os.environ,
+            label,
+            options.shared_min_free_mib,
+            options.cooldown_timeout,
+            options.cooldown_interval,
+        )
     if is_flagtree(options):
         from tools import qsa_prefill_flagtree_ab as profile
 
@@ -650,6 +697,13 @@ def parent(options, selected, directory):
         ),
     )
     path = directory / "stage-summary.json"
+    if shared.enabled(options):
+        summary.update(
+            measurement_context="shared_gpu_exploratory", acceptance_eligible=False
+        )
+        summary["manifest"][
+            "policy"
+        ] += "; SHARED GPU EXPLORATORY ONLY: never performance acceptance"
     support.write_json(path, summary)
     try:
         configure_environment(options)
@@ -782,6 +836,8 @@ def main():
     parser.add_argument("--mode", choices=("kernel",), default="kernel")
     parser.add_argument("--compiler", choices=("stock", "flagtree"), default="stock")
     parser.add_argument("--flagtree", default="/opt/flagtree")
+    parser.add_argument("--shared-gpu-exploratory", action="store_true")
+    parser.add_argument("--shared-min-free-mib", type=int, default=5120)
     parser.add_argument(
         "--suite",
         choices=("upstream-prefill",),
@@ -802,6 +858,8 @@ def main():
     parser.add_argument("--preflight", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
+    if options.shared_gpu_exploratory and options.compiler != "flagtree":
+        parser.error("Shared diagnostics require the FlagTree CUDA13.4 profile")
     all_cases = workloads.cases()
     if options.list_cases:
         print(json.dumps(all_cases, indent=2))
@@ -815,6 +873,7 @@ def main():
             options.accuracy_timeout,
             options.cooldown_timeout,
             options.cooldown_interval,
+            options.shared_min_free_mib,
         )
         <= 0
     ):

@@ -14,6 +14,7 @@ RUNNER = Path(__file__).with_name("run_qsa_prefill_triton_ab_h800.sh").resolve()
 
 class RunnerTests(unittest.TestCase):
     runner = RUNNER
+    runner_args = ()
 
     def test_success_and_failures_upload_reports_and_preserve_status(self):
         for status in (0, 1, 2):
@@ -73,7 +74,7 @@ if a[:2]==['rev-parse','HEAD']: print('0'*40)
                     CUDA_LAUNCH_BLOCKING="1",
                 )
                 result = subprocess.run(
-                    ["bash", str(self.runner)],
+                    ["bash", str(self.runner), *self.runner_args],
                     env=env,
                     capture_output=True,
                     text=True,
@@ -97,6 +98,10 @@ if a[:2]==['rev-parse','HEAD']: print('0'*40)
                 )
                 files = {p.name: p for p in tree.rglob("*") if p.is_file()}
                 self.assertIn("stage-summary.json", files)
+                if self.runner_args:
+                    self.assertIn(
+                        "flagtree134-shared-", str(files["stage-summary.json"])
+                    )
                 self.assertIn(
                     "stock runtime test output", files["runner.txt"].read_text()
                 )
@@ -112,6 +117,10 @@ if a[:2]==['rev-parse','HEAD']: print('0'*40)
 
 class FlagTreeRunnerTests(RunnerTests):
     runner = RUNNER.with_name("run_qsa_prefill_flagtree_ab_h800.sh")
+
+
+class SharedFlagTreeRunnerTests(FlagTreeRunnerTests):
+    runner_args = ("--shared-gpu-exploratory",)
 
 
 if __name__ == "__main__":

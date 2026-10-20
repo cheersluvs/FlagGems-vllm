@@ -6,6 +6,12 @@ set -euo pipefail
 trap 'qsa_rc=$?; printf "失败：退出码=%s，行=%s，命令=%s\n" "$qsa_rc" "$LINENO" "$BASH_COMMAND" >&2; exit "$qsa_rc"' ERR
 qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 qsa_python=${QSA_STOCK_PYTHON:-${PYTHON:-python}}
+qsa_kind=flagtree134-ab
+for qsa_arg in "$@"; do
+  if [[ "$qsa_arg" == --shared-gpu-exploratory ]]; then
+    qsa_kind=flagtree134-shared
+  fi
+done
 qsa_report=$(mktemp -d "${TMPDIR:-/tmp}/qsa-flagtree134-ab-h800.XXXXXX")
 echo "运行目录：$qsa_repo"
 echo "报告目录：$qsa_report"
@@ -38,13 +44,13 @@ qsa_stamp=$(date -u +%Y%m%d-%H%M%S)
 qsa_branch="codex/qsa-h800-results-$qsa_stamp"
 qsa_tree=$(mktemp -d "${TMPDIR:-/tmp}/flaggems-qsa-flagtree134-ab-results.XXXXXX")
 git -C "$qsa_repo" worktree add -b "$qsa_branch" "$qsa_tree" HEAD
-qsa_dest="results/qsa_select_paged_prefill/h800/flagtree134-ab-$qsa_stamp"
+qsa_dest="results/qsa_select_paged_prefill/h800/$qsa_kind-$qsa_stamp"
 mkdir -p "$qsa_tree/$qsa_dest"
 shopt -s nullglob
 qsa_files=("$qsa_report"/*.json "$qsa_report"/*.txt "$qsa_report"/*.tsv)
 cp -- "${qsa_files[@]}" "$qsa_tree/$qsa_dest/"
 git -C "$qsa_tree" add -- "$qsa_dest"
-git -C "$qsa_tree" commit -m "Report H800 same FlagTree CUDA13.4 production QSA stage A/B"
+git -C "$qsa_tree" commit -m "Report H800 QSA $qsa_kind stage A/B"
 git -C "$qsa_tree" push https://github.com/cheersluvs/FlagGems-vllm.git "HEAD:refs/heads/$qsa_branch"
 echo "报告回传完成。"
 echo "结果分支：$qsa_branch"

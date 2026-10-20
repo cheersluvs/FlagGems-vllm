@@ -118,17 +118,29 @@ def compiler_runtime(torch, triton, directory, report):
     )
 
 
-def cooldown_gate(summary, report, env, label, guard, timeout, interval):
-    """Wait only for an otherwise idle GPU; retain the original 75C guard."""
+def cooldown_gate(
+    summary, report, env, label, guard, timeout, interval, shared_min_free_mib=None
+):
+    """Cool outside timing; co-residency requires an explicit shared policy."""
     from tools import benchmark_qsa_prefill_stages as support
 
     deadline = time.monotonic() + timeout
     attempt = 0
     while True:
         attempt += 1
-        check = guard.idle(env.get("CUDA_VISIBLE_DEVICES", ""), support.command)
+        if shared_min_free_mib is None:
+            check = guard.idle(env.get("CUDA_VISIBLE_DEVICES", ""), support.command)
+        else:
+            from tools import qsa_prefill_shared_gpu as shared
+
+            check = shared.inspect_gpu(
+                env.get("CUDA_VISIBLE_DEVICES", ""), shared_min_free_mib
+            )
         check.update(label=label, attempt=attempt)
-        summary.setdefault("idle_gpu_checks", []).append(check)
+        summary.setdefault(
+            "idle_gpu_checks" if shared_min_free_mib is None else "shared_gpu_checks",
+            [],
+        ).append(check)
         if check["status"] == "passed":
             support.write_json(report / "stage-summary.json", summary)
             return True
@@ -138,10 +150,10 @@ def cooldown_gate(summary, report, env, label, guard, timeout, interval):
             f"Initial temperature C {temperature} exceeds limit 75",
             f"Initial utilization percent {utilization} exceeds limit 5",
         }
-        # Any process, memory, active thermal slowdown or unreadable telemetry
-        # rejects immediately. A trailing utilization sample may also cool down.
+        # Non-waived process/memory rejections, active thermal slowdown and
+        # unreadable telemetry reject immediately; only heat/utilization wait.
         retryable = (
-            check.get("processes") == []
+            (check.get("processes") == [] or shared_min_free_mib is not None)
             and bool(check["reasons"])
             and set(check["reasons"]).issubset(allowed)
         )
@@ -162,17 +174,18 @@ def cooldown_gate(summary, report, env, label, guard, timeout, interval):
         check["cooldown_wait_seconds"] = wait
         support.write_json(report / "stage-summary.json", summary)
         print(
-            f"GPU idle; temperature={temperature}C, utilization={utilization}%; "
+            f"GPU cooling; temperature={temperature}C, utilization={utilization}%; "
             f"waiting {wait:g}s for the original idle limits",
             flush=True,
         )
         time.sleep(wait)
 
 
-def select_gpu(summary):
+def select_gpu(summary, options=None):
     """Prefer a cool idle H800, preserving an explicit UUID and all idle checks."""
     from tools import benchmark_qsa_prefill_stages as support
     from tools import qsa_prefill_gpu_guard as guard
+    from tools import qsa_prefill_shared_gpu as shared
 
     requested = os.environ.get("CUDA_VISIBLE_DEVICES", "")
     if guard.UUID_PATTERN.fullmatch(requested):
@@ -189,7 +202,11 @@ def select_gpu(summary):
     )
     summary.update(
         gpu_inventory=query,
-        gpu_selection_policy="lowest inventory temperature first; original idle guard required",
+        gpu_selection_policy=(
+            "lowest inventory temperature first; shared diagnostic memory/thermal checks"
+            if shared.enabled(options)
+            else "lowest inventory temperature first; original idle guard required"
+        ),
     )
     candidates = []
     for row in guard.rows(query):
@@ -203,14 +220,19 @@ def select_gpu(summary):
             raise ValueError("Invalid H800 UUID/temperature in GPU inventory")
         candidates.append((temperature, uuid))
     for temperature, uuid in sorted(candidates):
-        check = guard.idle(uuid, support.command)
+        check = (
+            shared.inspect_gpu(uuid, options.shared_min_free_mib)
+            if shared.enabled(options)
+            else guard.idle(uuid, support.command)
+        )
         check["inventory_temperature_c"] = temperature
         summary.setdefault("gpu_selection_checks", []).append(check)
         if check["status"] == "passed":
             os.environ["CUDA_VISIBLE_DEVICES"] = uuid
             summary["gpu_uuid"] = uuid
             print(
-                f"Selected cool idle H800: {uuid}, inventory temperature={temperature}C",
+                f"Selected H800: {uuid}, inventory temperature={temperature}C, "
+                f"policy={'shared exploratory' if shared.enabled(options) else 'exclusive idle'}",
                 flush=True,
             )
             return True
@@ -229,7 +251,11 @@ def prepare(options, extra):
         for key in ("TRITON_PTXAS_PATH", "CUDA_LAUNCH_BLOCKING"):
             os.environ.pop(key, None)
         facts = dict(status="preparing")
-        if not select_gpu(facts):
+        if getattr(options, "shared_gpu_exploratory", False):
+            facts.update(
+                measurement_context="shared_gpu_exploratory", acceptance_eligible=False
+            )
+        if not select_gpu(facts, options):
             facts["status"] = "environment_rejected"
             support.write_json(report / "stage-summary.json", facts)
             return 2
@@ -241,6 +267,13 @@ def prepare(options, extra):
         support.write_json(report / "flagtree134-tools.json", facts)
         env = os.environ.copy()
         env["TRITON_PTXAS_PATH"] = facts["toolchain"]["ptxas"]["path"]
+        if getattr(options, "shared_gpu_exploratory", False):
+            extra = [
+                *extra,
+                "--shared-gpu-exploratory",
+                "--shared-min-free-mib",
+                str(options.shared_min_free_mib),
+            ]
         script = ROOT / "tools/benchmark_qsa_prefill_triton_stages.py"
         os.execve(
             sys.executable,
@@ -272,7 +305,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report-dir", required=True)
     parser.add_argument("--flagtree", default="/opt/flagtree")
+    parser.add_argument("--shared-gpu-exploratory", action="store_true")
+    parser.add_argument("--shared-min-free-mib", type=int, default=5120)
     options, extra = parser.parse_known_args()
+    if options.shared_min_free_mib <= 0:
+        parser.error("Shared diagnostic minimum free memory must be positive")
     return prepare(options, extra)
 
 
