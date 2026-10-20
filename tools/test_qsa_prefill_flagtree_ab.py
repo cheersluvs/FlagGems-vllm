@@ -238,6 +238,8 @@ class AccuracyTests(unittest.TestCase):
             "missing_trial",
             "skipped",
             "identity",
+            "key_major",
+            "missing_key_major",
         ):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
@@ -252,6 +254,8 @@ class AccuracyTests(unittest.TestCase):
                     accuracy_timeout=10,
                 )
                 info = {key: "fixed" for key in resume.RUNTIME_KEYS}
+                if failure in ("key_major", "missing_key_major"):
+                    options.candidate = "key-major"
                 records = {
                     "tests/test.py::" + name: dict(result="passed")
                     for name in (
@@ -271,6 +275,19 @@ class AccuracyTests(unittest.TestCase):
                     records.pop("tests/test.py::test_parameterized_against_vllm")
                 if failure == "missing_trial":
                     records.pop("tests/test.py::test_compact_full_entry")
+                if failure in ("key_major", "missing_key_major"):
+                    records.update(
+                        {
+                            "tests/test.py::" + name: dict(result="passed")
+                            for name in (
+                                "test_key_major_every_config_and_chunk_boundary",
+                                "test_key_major_observed_against_native",
+                                "test_key_major_full_entry",
+                            )
+                        }
+                    )
+                if failure == "missing_key_major":
+                    records.pop("tests/test.py::test_key_major_full_entry")
                 if failure == "skipped":
                     records["tests/test.py::test_parameterized_against_vllm"][
                         "result"
@@ -297,7 +314,7 @@ class AccuracyTests(unittest.TestCase):
                 with patch.object(bench, "idle_gate", return_value=True), patch.object(
                     bench.subprocess, "run", side_effect=run
                 ), contextlib.redirect_stdout(io.StringIO()):
-                    if failure:
+                    if failure and failure != "key_major":
                         with self.assertRaisesRegex(
                             RuntimeError, "Accuracy gate failed"
                         ):

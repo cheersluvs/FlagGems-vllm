@@ -35,6 +35,10 @@ def sm90():
 
 @pytest.mark.parametrize("case", workloads.observed_cases(), ids=lambda c: c["name"])
 def test_observed_envelopes_against_native(sm90, monkeypatch, case):
+    check_observed_envelope(monkeypatch, case, trial.candidate_module)
+
+
+def check_observed_envelope(monkeypatch, case, factory):
     monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(case["budget_mb"]))
     native = helpers.vllm_reference()
     monkeypatch.setattr(
@@ -42,7 +46,7 @@ def test_observed_envelopes_against_native(sm90, monkeypatch, case):
     )
     args = workloads.make_inputs(case, helpers, torch)
     baseline_args = (*args[:8], stages.native_output(args[8], torch), args[9])
-    candidate = trial.candidate_module(production)
+    candidate = factory(production)
     for module in (production, candidate):
         functions = dict(
             baseline=lambda: native.qsa_select_paged_prefill(*baseline_args),
@@ -59,6 +63,10 @@ def test_observed_envelopes_against_native(sm90, monkeypatch, case):
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
 @pytest.mark.parametrize("heads,dim", [(4, 128), (3, 24), (5, 96)])
 def test_compact_every_config_and_chunk_boundary(sm90, dtype, heads, dim):
+    check_score_kernel(dtype, heads, dim, trial._qsa_prefill_compact_score_kernel, True)
+
+
+def check_score_kernel(dtype, heads, dim, kernel, compact_grid):
     queries = (0, 7, 0, 33, 1, 65, 0)
     rows = sum(queries)
     visible = [0, 1, 511, 512, 513, 1025, 1537] + [1537] * (rows - 7)
@@ -82,7 +90,6 @@ def test_compact_every_config_and_chunk_boundary(sm90, dtype, heads, dim):
     args[2], args[3] = table[:, ::2], args[3].to(torch.int64)
     expected = helpers.torch_logits(*args[:5])
     width = expected.shape[1]
-    kernel = trial._qsa_prefill_compact_score_kernel
     while not isinstance(kernel, triton.runtime.JITFunction):
         kernel = kernel.fn
     configs = flaggems_vllm.runtime.get_tuned_config("qsa_select_paged_prefill_score")
@@ -100,8 +107,16 @@ def test_compact_every_config_and_chunk_boundary(sm90, dtype, heads, dim):
             meta = config.kwargs
             kernel[
                 (
-                    count // meta["TILE_R"] + len(queries),
-                    1,
+                    (
+                        count // meta["TILE_R"] + len(queries)
+                        if compact_grid
+                        else len(queries)
+                    ),
+                    (
+                        1
+                        if compact_grid
+                        else triton.cdiv(min(count, args[7]), meta["TILE_R"])
+                    ),
                     triton.cdiv(width, meta["BLOCK_N"] * meta["K_TILES"]),
                 )
             ](
@@ -145,15 +160,19 @@ def test_compact_every_config_and_chunk_boundary(sm90, dtype, heads, dim):
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
 @pytest.mark.parametrize("budget", ["512", "1", "0"])
 def test_compact_full_entry(sm90, monkeypatch, dtype, budget):
+    check_full_entry(monkeypatch, dtype, budget, trial.candidate_module)
+
+
+def check_full_entry(monkeypatch, dtype, budget, factory, queries=None, contexts=None):
     monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
     args = helpers.make_inputs(
-        (33, 0, 1, 1, 1, 1, 1, 12),
-        (4096, 16) + (8192,) * 6,
+        queries if queries is not None else (33, 0, 1, 1, 1, 1, 1, 12),
+        contexts if contexts is not None else (4096, 16) + (8192,) * 6,
         query_base=113,
         dtype=dtype,
     )
     expected = helpers.torch_logits(*args[:5])
-    candidate = trial.candidate_module(production)
+    candidate = factory(production)
     original = production._prefill_logits
     assert (
         candidate._qsa_prefill_score_kernel is not production._qsa_prefill_score_kernel

@@ -47,7 +47,10 @@ SOURCES = sorted(
         "tools/diagnose_qsa_native_decode_h800.py",
         "tools/qsa_prefill_observed_workloads.py",
         "tools/qsa_prefill_compact_trial.py",
+        "tools/qsa_prefill_key_major_trial.py",
+        "tools/qsa_prefill_kernel_resources.py",
         "tests/test_qsa_prefill_compact_trial.py",
+        "tests/test_qsa_prefill_key_major_trial.py",
         "benchmark/test_qsa_select_paged_prefill_perf.py",
     }
 )
@@ -194,6 +197,10 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         candidate = ab.candidate_module(op, adapter)
     if getattr(options, "candidate", "production") == "compact-ragged":
         from tools import qsa_prefill_compact_trial as trial
+
+        candidate = trial.candidate_module(op)
+    elif getattr(options, "candidate", "production") == "key-major":
+        from tools import qsa_prefill_key_major_trial as trial
 
         candidate = trial.candidate_module(op)
     return (
@@ -446,6 +453,10 @@ def worker(options, case, path):
         for fn in stage.values():
             fn()  # Compile/autotune and allocate operator-internal scratch untimed.
     device.synchronize()
+    if getattr(options, "candidate", "production") == "key-major":
+        from tools import qsa_prefill_kernel_resources as resources
+
+        result["kernel_resources"] = resources.collect(native, production, candidate)
     timer, timer_info = scoring.make_timer(
         options.kernel_warmup_ms, options.kernel_rep_ms
     )
@@ -458,6 +469,11 @@ def worker(options, case, path):
             candidate, "_qsa_prefill_compact_score_kernel"
         )
         result["score_schedule"] = dict(
+            rectangular_dot=(
+                "keys_x_query"
+                if getattr(options, "candidate", "production") == "key-major"
+                else "query_x_keys"
+            ),
             routing_policy="rectangular_row_capacity_ge_4x_chunk_rows",
             ragged_envelope=args[0].shape[0] < args[2].shape[0] * args[7],
             compact_chunks=[
@@ -604,12 +620,10 @@ def write_table(summary, directory):
         .get("options", {})
         .get("shared_gpu_exploratory", False)
     )
-    trial = (
-        summary.get("manifest", {}).get("options", {}).get("candidate")
-        == "compact-ragged"
-    )
+    kind = summary.get("manifest", {}).get("options", {}).get("candidate")
+    trial = kind in ("compact-ragged", "key-major")
     candidate_column = (
-        "gems_compact_trial_us"
+        ("gems_key_major_trial_us" if kind == "key-major" else "gems_compact_trial_us")
         if trial
         else (
             "gems_production_us"
@@ -771,6 +785,11 @@ def accuracy_worker(options, path):
             str(ROOT / "pytest.ini"),
             str(ROOT / "tests/test_qsa_select_paged_prefill.py"),
             str(ROOT / "tests/test_qsa_prefill_compact_trial.py"),
+            *(
+                [str(ROOT / "tests/test_qsa_prefill_key_major_trial.py")]
+                if getattr(options, "candidate", "production") == "key-major"
+                else []
+            ),
             "--record",
             "json",
             "--output",
@@ -862,6 +881,15 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             if not any("::" + name in node for node in records):
                 error = "Missing required direct comparison coverage: " + name
                 break
+        if not error and getattr(options, "candidate", "production") == "key-major":
+            for name in (
+                "test_key_major_every_config_and_chunk_boundary",
+                "test_key_major_observed_against_native",
+                "test_key_major_full_entry",
+            ):
+                if not any("::" + name in node for node in records):
+                    error = "Missing required key-major comparison coverage: " + name
+                    break
     summary["accuracy"] = dict(
         status="failed" if error else "passed", counts=counts, error=error
     )
@@ -1043,7 +1071,9 @@ def main():
     )
     parser.add_argument("--cases", nargs="+")
     parser.add_argument(
-        "--candidate", choices=("production", "compact-ragged"), default="production"
+        "--candidate",
+        choices=("production", "compact-ragged", "key-major"),
+        default="production",
     )
     parser.add_argument("--list-cases", action="store_true")
     parser.add_argument("--report-dir")
@@ -1060,7 +1090,7 @@ def main():
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
     if options.candidate != "production" and options.compiler != "flagtree":
-        parser.error("Compact trial requires the verified FlagTree profile")
+        parser.error("Private score trials require the verified FlagTree profile")
     if options.shared_gpu_exploratory and options.compiler != "flagtree":
         parser.error("Shared diagnostics require the FlagTree CUDA13.4 profile")
     all_cases = workloads.cases(options.suite)
