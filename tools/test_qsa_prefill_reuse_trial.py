@@ -170,6 +170,7 @@ class ReuseTests(unittest.TestCase):
                 ),
             )
             for name in bench.STAGE_ORDER
+            if name != "score_vs_reuse"
         }
         summary = dict(
             manifest=dict(

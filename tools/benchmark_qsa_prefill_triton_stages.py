@@ -49,16 +49,26 @@ SOURCES = sorted(
         "tools/qsa_prefill_compact_trial.py",
         "tools/qsa_prefill_key_major_trial.py",
         "tools/qsa_prefill_reuse_trial.py",
+        "tools/qsa_prefill_eviction_trial.py",
         "tools/qsa_prefill_kernel_resources.py",
         "tests/test_qsa_prefill_compact_trial.py",
         "tests/test_qsa_prefill_key_major_trial.py",
         "tests/test_qsa_prefill_reuse_trial.py",
+        "tests/test_qsa_prefill_eviction_trial.py",
         "benchmark/test_qsa_select_paged_prefill_perf.py",
     }
 )
 
-SCORE_STAGES = ("score", "score_vs_production", "score_vs_key_major")
-STAGE_ORDER = ("score", "topk", "pipeline", "score_vs_production", "score_vs_key_major")
+SCORE_STAGES = ("score", "score_vs_production", "score_vs_key_major", "score_vs_reuse")
+STAGE_ORDER = (
+    "score",
+    "topk",
+    "pipeline",
+    "score_vs_production",
+    "score_vs_key_major",
+    "score_vs_reuse",
+)
+KEY_MAJOR_CANDIDATES = ("key-major", "key-major-reuse", "key-major-evict-first")
 
 
 def is_flagtree(options):
@@ -210,6 +220,10 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         candidate = trial.candidate_module(op)
     elif getattr(options, "candidate", "production") == "key-major-reuse":
         from tools import qsa_prefill_reuse_trial as trial
+
+        candidate = trial.candidate_module(op)
+    elif getattr(options, "candidate", "production") == "key-major-evict-first":
+        from tools import qsa_prefill_eviction_trial as trial
 
         candidate = trial.candidate_module(op)
     return (
@@ -395,6 +409,8 @@ def worker(options, case, path):
             support.score_configs(production)
         )
     retained = getattr(candidate, "retained_baseline", None)
+    retained_stage = getattr(candidate, "retained_stage_name", "score_vs_key_major")
+    retained_kind = getattr(candidate, "retained_baseline_kind", "retained_key_major")
     if retained is not None:
         entry = retained._qsa_prefill_score_kernel
         for other in (
@@ -410,6 +426,12 @@ def worker(options, case, path):
         retained.qsa_select_paged_prefill(*args)
         result["retained_key_major_score_configs"] = support.score_configs(retained)
         result["retained_baseline_public_warmed_first"] = True
+        result["retained_baseline_kind"] = retained_kind
+        result["retained_baseline_score_configs"] = result[
+            "retained_key_major_score_configs"
+        ]
+        if hasattr(candidate, "freeze_baseline"):
+            result["eviction_config_match"] = candidate.freeze_baseline(candidate)
     fastpath = workloads.geometry(case).get("select_all", False)
     candidate_chunks = (
         [] if fastpath else ab.observe(candidate, "persistent_topk", args)
@@ -475,7 +497,7 @@ def worker(options, case, path):
             baseline=production_scores, candidate=functions["score"]["candidate"]
         )
     if retained is not None and not fastpath:
-        functions["score_vs_key_major"] = dict(
+        functions[retained_stage] = dict(
             baseline=scoring.score_function(retained._prefill_logits, candidate_chunks),
             candidate=functions["score"]["candidate"],
         )
@@ -483,7 +505,10 @@ def worker(options, case, path):
         for fn in stage.values():
             fn()  # Compile/autotune and allocate operator-internal scratch untimed.
     device.synchronize()
-    if getattr(options, "candidate", "production") in ("key-major", "key-major-reuse"):
+    if hasattr(candidate, "verify_matched"):
+        candidate.verify_matched(candidate, result["eviction_config_match"])
+        result["eviction_config_match"]["verified_before_timing"] = True
+    if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES:
         from tools import qsa_prefill_kernel_resources as resources
 
         result["kernel_resources"] = resources.collect(native, production, candidate)
@@ -491,6 +516,7 @@ def worker(options, case, path):
             result["kernel_resources"]["retained_key_major"] = (
                 resources.libentry_records(retained._qsa_prefill_score_kernel)
             )
+            result["kernel_resources"]["retained_baseline_kind"] = retained_kind
     timer, timer_info = scoring.make_timer(
         options.kernel_warmup_ms, options.kernel_rep_ms
     )
@@ -505,8 +531,7 @@ def worker(options, case, path):
         result["score_schedule"] = dict(
             rectangular_dot=(
                 "keys_x_query"
-                if getattr(options, "candidate", "production")
-                in ("key-major", "key-major-reuse")
+                if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES
                 else "query_x_keys"
             ),
             routing_policy="rectangular_row_capacity_ge_4x_chunk_rows",
@@ -550,6 +575,7 @@ def worker(options, case, path):
                 "score": (native, native_chunks, native_args),
                 "score_vs_production": (production, production_chunks, args),
                 "score_vs_key_major": (retained, candidate_chunks, args),
+                "score_vs_reuse": (retained, candidate_chunks, args),
             }
             baseline_module, baseline_chunks, baseline_args = score_baselines[name]
             return {
@@ -586,6 +612,7 @@ def worker(options, case, path):
             baseline_kind={
                 "score_vs_production": "production",
                 "score_vs_key_major": "retained_key_major",
+                "score_vs_reuse": "retained_reuse",
             }.get(name, "native_vllm"),
         )
         entry["validation_before"] = validate(name)
@@ -637,6 +664,9 @@ def worker(options, case, path):
         raise RuntimeError(
             "Retained key-major configuration changed after public warmup"
         )
+    if hasattr(candidate, "verify_matched"):
+        candidate.verify_matched(candidate, result["eviction_config_match"])
+        result["eviction_config_match"]["verified_after_timing"] = True
     if is_flagtree(options):
         from tools import qsa_prefill_flagtree_ab as profile
 
@@ -658,11 +688,12 @@ def write_table(summary, directory):
         .get("shared_gpu_exploratory", False)
     )
     kind = summary.get("manifest", {}).get("options", {}).get("candidate")
-    trial = kind in ("compact-ragged", "key-major", "key-major-reuse")
+    trial = kind == "compact-ragged" or kind in KEY_MAJOR_CANDIDATES
     candidate_column = (
         {
             "key-major": "gems_key_major_trial_us",
             "key-major-reuse": "gems_key_major_reuse_trial_us",
+            "key-major-evict-first": "gems_key_major_evict_first_trial_us",
             "compact-ragged": "gems_compact_trial_us",
         }[kind]
         if trial
@@ -830,13 +861,19 @@ def accuracy_worker(options, path):
             str(ROOT / "tests/test_qsa_prefill_compact_trial.py"),
             *(
                 [str(ROOT / "tests/test_qsa_prefill_key_major_trial.py")]
-                if getattr(options, "candidate", "production")
-                in ("key-major", "key-major-reuse")
+                if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES
                 else []
             ),
             *(
                 [str(ROOT / "tests/test_qsa_prefill_reuse_trial.py")]
-                if getattr(options, "candidate", "production") == "key-major-reuse"
+                if getattr(options, "candidate", "production")
+                in ("key-major-reuse", "key-major-evict-first")
+                else []
+            ),
+            *(
+                [str(ROOT / "tests/test_qsa_prefill_eviction_trial.py")]
+                if getattr(options, "candidate", "production")
+                == "key-major-evict-first"
                 else []
             ),
             "--record",
@@ -932,9 +969,9 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             if not any("::" + name in node for node in records):
                 error = "Missing required direct comparison coverage: " + name
                 break
-        if not error and getattr(options, "candidate", "production") in (
-            "key-major",
-            "key-major-reuse",
+        if (
+            not error
+            and getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES
         ):
             for name in (
                 "test_key_major_every_config_and_chunk_boundary",
@@ -944,9 +981,9 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
                 if not any("::" + name in node for node in records):
                     error = "Missing required key-major comparison coverage: " + name
                     break
-        if (
-            not error
-            and getattr(options, "candidate", "production") == "key-major-reuse"
+        if not error and getattr(options, "candidate", "production") in (
+            "key-major-reuse",
+            "key-major-evict-first",
         ):
             for name in (
                 "test_reuse_new_configs_and_chunk_boundary",
@@ -955,6 +992,19 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             ):
                 if not any("::" + name in node for node in records):
                     error = "Missing required reuse comparison coverage: " + name
+                    break
+        if (
+            not error
+            and getattr(options, "candidate", "production") == "key-major-evict-first"
+        ):
+            for name in (
+                "test_eviction_every_config_and_chunk_boundary",
+                "test_eviction_observed_against_native",
+                "test_eviction_full_entry",
+                "test_eviction_matched_baseline_config",
+            ):
+                if not any("::" + name in node for node in records):
+                    error = "Missing required eviction comparison coverage: " + name
                     break
     summary["accuracy"] = dict(
         status="failed" if error else "passed", counts=counts, error=error
@@ -1138,7 +1188,7 @@ def main():
     parser.add_argument("--cases", nargs="+")
     parser.add_argument(
         "--candidate",
-        choices=("production", "compact-ragged", "key-major", "key-major-reuse"),
+        choices=("production", "compact-ragged", *KEY_MAJOR_CANDIDATES),
         default="production",
     )
     parser.add_argument("--list-cases", action="store_true")

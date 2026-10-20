@@ -265,6 +265,9 @@ class AccuracyTests(unittest.TestCase):
             "reuse",
             "missing_reuse",
             "missing_reuse_key_major",
+            "eviction",
+            "missing_eviction",
+            "missing_eviction_reuse",
         ):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
@@ -283,6 +286,12 @@ class AccuracyTests(unittest.TestCase):
                     options.candidate = "key-major"
                 if failure in ("reuse", "missing_reuse", "missing_reuse_key_major"):
                     options.candidate = "key-major-reuse"
+                if failure in (
+                    "eviction",
+                    "missing_eviction",
+                    "missing_eviction_reuse",
+                ):
+                    options.candidate = "key-major-evict-first"
                 records = {
                     "tests/test.py::" + name: dict(result="passed")
                     for name in (
@@ -308,6 +317,9 @@ class AccuracyTests(unittest.TestCase):
                     "reuse",
                     "missing_reuse",
                     "missing_reuse_key_major",
+                    "eviction",
+                    "missing_eviction",
+                    "missing_eviction_reuse",
                 ):
                     records.update(
                         {
@@ -321,7 +333,14 @@ class AccuracyTests(unittest.TestCase):
                     )
                 if failure == "missing_key_major":
                     records.pop("tests/test.py::test_key_major_full_entry")
-                if failure in ("reuse", "missing_reuse", "missing_reuse_key_major"):
+                if failure in (
+                    "reuse",
+                    "missing_reuse",
+                    "missing_reuse_key_major",
+                    "eviction",
+                    "missing_eviction",
+                    "missing_eviction_reuse",
+                ):
                     records.update(
                         {
                             "tests/test.py::" + name: dict(result="passed")
@@ -336,6 +355,26 @@ class AccuracyTests(unittest.TestCase):
                     records.pop("tests/test.py::test_reuse_full_entry")
                 if failure == "missing_reuse_key_major":
                     records.pop("tests/test.py::test_key_major_full_entry")
+                if failure in (
+                    "eviction",
+                    "missing_eviction",
+                    "missing_eviction_reuse",
+                ):
+                    records.update(
+                        {
+                            "tests/test.py::" + name: dict(result="passed")
+                            for name in (
+                                "test_eviction_every_config_and_chunk_boundary",
+                                "test_eviction_observed_against_native",
+                                "test_eviction_full_entry",
+                                "test_eviction_matched_baseline_config",
+                            )
+                        }
+                    )
+                if failure == "missing_eviction":
+                    records.pop("tests/test.py::test_eviction_matched_baseline_config")
+                if failure == "missing_eviction_reuse":
+                    records.pop("tests/test.py::test_reuse_full_entry")
                 if failure == "skipped":
                     records["tests/test.py::test_parameterized_against_vllm"][
                         "result"
@@ -362,7 +401,7 @@ class AccuracyTests(unittest.TestCase):
                 with patch.object(bench, "idle_gate", return_value=True), patch.object(
                     bench.subprocess, "run", side_effect=run
                 ), contextlib.redirect_stdout(io.StringIO()):
-                    if failure and failure not in ("key_major", "reuse"):
+                    if failure and failure not in ("key_major", "reuse", "eviction"):
                         with self.assertRaisesRegex(
                             RuntimeError, "Accuracy gate failed"
                         ):

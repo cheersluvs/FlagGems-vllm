@@ -36,6 +36,15 @@ def compiled_record(kernel):
             name: sum(op.startswith(prefixes) for op in instructions)
             for name, prefixes in families.items()
         },
+        ptx_cache_policy_sites=dict(
+            fractional_createpolicy=len(
+                re.findall(r"\bcreatepolicy\.fractional\.", ptx)
+            ),
+            evict_first=len(re.findall(r"::evict_first\b", ptx)),
+            cp_async_l2_hint=len(
+                re.findall(r"\bcp\.async[^;\n]*\.L2::cache_hint\b", ptx)
+            ),
+        ),
     )
 
 
