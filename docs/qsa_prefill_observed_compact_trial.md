@@ -197,3 +197,49 @@ the same FlagTree/ptxas/CUDA13.4 identities in all workers, 224 raw timings and
 128 telemetry points. Temperature 32–53C, SM clocks 1965–1980MHz, no sampled
 co-residents or thermal slowdown. Its shared exploratory acceptance flag stays
 false, including the four-case direct-production mean 1.02559.
+
+## Strict-mode validation of the narrowed gate: keep the candidate
+
+Report `c090220d3467b0d1b336717eb978b049c2057086`, code
+`0115b4443a1c5547763584f509e2fe34f6baddfc`, completes the narrowed trial:
+194 correctness passes, one second-GPU skip, all 22 cases, 82 measured stages,
+1148 raw time samples and 656 timing telemetry points. Source identities,
+compiler/GPU identities and outer cache isolation match throughout. All timed
+stages pass the exclusive-idle policy and have accepted measurements; this
+does not mean the overall native-vLLM performance target has been achieved.
+
+| Score-only kernel comparison | Production us | Candidate us | Production/candidate |
+| --- | ---: | ---: | ---: |
+| ragged54, compact enabled | 83.296 | 73.984 | 1.12587 |
+| unequal2, original kernel | 764.288 | 742.752 | 1.02899 |
+| chunk_boundary, original kernel | 668.720 | 669.936 | 0.99818 |
+| chunk_tail64, original kernel | 680.144 | 680.144 | 1.00000 |
+
+Only ragged54 enters compact scheduling. Its paired ratios span
+1.12079–1.12840 (rounded), and its score/native-vLLM ratio is 1.05640.
+The other 19 scored cases use identical PTX, CUBIN and configurations to their
+production baselines; each has a seven-pair ratio range including 1. The small
+control differences, including unequal2's apparent 1.02899 and short96's
+0.98127, are not claimed as kernel optimization benefits. Identical binaries
+do not establish zero Python-wrapper overhead.
+
+| Matrix subset | Score/native vLLM geometric mean | Score/current production geometric mean |
+| --- | ---: | ---: |
+| Upstream12 | 0.74144 | 1.00082 |
+| Observed8 scored cases | 1.76396 | 1.01786 |
+
+Keep the narrowed private candidate as the measured baseline for subsequent
+work. It has not been integrated into the public production file. The old
+broad gate remains rejected. No global LibEntry, numerical kernel, TopK or
+tuning candidate changes are part of this routing trial. Upstream12 still
+uses the original scorer and all 12 score/native ratios are below 1; the
+existing short-query advantages in Observed8 must not hide that gap.
+
+Strict-run GPU6 UUID was GPU-83ccf064-1bbb-6765-e356-c2a85323cbee. Same verified
+FlagTree/ptxas13.4/CUDA13.4 profile; temperature 32–60C, SM clocks 1950–1980MHz,
+only allowed self PIDs in timing samples, no sampled thermal rejection. One
+pre-timing 8% utilization observation triggered a 10-second cooldown and then
+passed at 0%; the wait is outside timing. Peak allocated memory was
+4825.83MiB. Future work should focus on the long-prefill scoring path for
+Upstream12 and establish profiling evidence before changing its algorithm or
+tile schedule; TopK and the active matrix remain frozen.
