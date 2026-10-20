@@ -2,6 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """Experimental compact request scheduling; production and TopK stay frozen."""
 
+import copy
 import hashlib
 import types
 from pathlib import Path
@@ -237,6 +238,20 @@ def _prefill_logits(
     return logits
 
 
+def isolated_score_entry(kernel):
+    """Keep production's dispatch cache independent of the trial's fallback.
+
+    LibEntry keys omit the values of do_not_specialize scalars, including row
+    count. A trial's small fallback chunk must not prime the production entry
+    with a small-row tile. JIT code and the inner, row-keyed tuner are shared;
+    only the outer per-device compiled-entry dictionaries are independent.
+    """
+    entry = copy.copy(kernel)
+    entry.kernel_cache = tuple({} for _ in kernel.kernel_cache)
+    entry._cpu_cache = {}
+    return entry
+
+
 def candidate_module(production):
     if (
         hashlib.sha256(Path(production.__file__).read_bytes()).hexdigest()
@@ -247,7 +262,19 @@ def candidate_module(production):
     namespace = module.__dict__
     namespace.update(vars(production))
     namespace["__name__"] = module.__name__ = production.__name__ + ".compact_trial"
-    namespace["_production_prefill_logits"] = production._prefill_logits
+    namespace["_qsa_prefill_score_kernel"] = isolated_score_entry(
+        production._qsa_prefill_score_kernel
+    )
+    original_launcher = production._prefill_logits
+    fallback = types.FunctionType(
+        original_launcher.__code__,
+        namespace,
+        original_launcher.__name__,
+        original_launcher.__defaults__,
+        original_launcher.__closure__,
+    )
+    fallback.__kwdefaults__ = original_launcher.__kwdefaults__
+    namespace["_production_prefill_logits"] = fallback
     namespace["_qsa_prefill_compact_score_kernel"] = _qsa_prefill_compact_score_kernel
     for original in (_prefill_logits, production.qsa_select_paged_prefill):
         copy = types.FunctionType(

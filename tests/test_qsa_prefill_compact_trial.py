@@ -152,11 +152,24 @@ def test_compact_full_entry(sm90, monkeypatch, dtype, budget):
     expected = helpers.torch_logits(*args[:5])
     candidate = trial.candidate_module(production)
     original = production._prefill_logits
+    assert (
+        candidate._qsa_prefill_score_kernel is not production._qsa_prefill_score_kernel
+    )
+    assert all(
+        a is not b
+        for a, b in zip(
+            candidate._qsa_prefill_score_kernel.kernel_cache,
+            production._qsa_prefill_score_kernel.kernel_cache,
+        )
+    )
     for entry in (
         production.qsa_select_paged_prefill,
         candidate.qsa_select_paged_prefill,
     ):
+        before = stages.support.score_configs(production)
         assert entry(*args) is None
+        if entry is candidate.qsa_select_paged_prefill:
+            assert stages.support.score_configs(production) == before
         if dtype == torch.float8_e4m3fn:
             helpers.assert_upstream_selection(
                 expected, args[4], args[8], dtype=dtype, head_dim=128

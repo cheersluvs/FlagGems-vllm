@@ -35,7 +35,7 @@ optimization. `optimization.md` and `deep_opt.md` are absent from this checkout;
 | Path | Implementation / test |
 | --- | --- |
 | Empty/select-all | Original public bytecode; capture actual fill launch for pipeline timing; score/TopK N/A |
-| Equal-length, one request, or chunk_rows <= max_query_len | Actual original score launcher, no compact lookup overhead |
+| Equal-length, one request, or chunk_rows <= max_query_len | Original score-launch bytecode/JIT with an isolated outer LibEntry cache, no compact lookup overhead |
 | Ragged envelope with larger chunks | Metadata gate T < requests * max_query_len; compact tile slots use floor(clipped request start/TILE_R)+request, binary-search device starts |
 | Compact kernel | Grid floor(chunk_rows/TILE_R)+requests bounds row tiles plus at most one empty slot per request. All score arithmetic after row selection is identical to baseline |
 | Baselines | Unmodified native vLLM and current production, same compiler/input/budget/timer. TopK is unchanged |
@@ -73,6 +73,12 @@ then reports native-vLLM score/TopK/pipeline comparisons and a fourth
 `score_vs_production` comparison that isolates this optimization. Production
 and trial use the same preallocated score buffer for this fourth comparison.
 Native TopK comparisons still use frozen native logits, never candidate logits.
+Before candidate warmup, the actual production public entry warms its own cache
+in real chunk order. The candidate's original-kernel fallback has independent
+per-device LibEntry dictionaries; the unchanged inner tuner still keys on rows.
+`score_cache_isolation`, `baseline_production_score_configs` and
+`candidate_fallback_score_configs` expose this separation. The runner rejects
+shared outer caches and any baseline configuration change after public warmup.
 
 `triton-stage-ab.tsv` includes `baseline_kind` (native_vllm or production).
 `grouped-speedups.json` and the summary separate upstream and observed means.
@@ -92,7 +98,7 @@ virtualenv package is replaced by the verified compatibility launcher.
 
 ## Local verification and pending decision
 
-CPU suite: 54 tests, 53 passed and one optional Torch-dependent test skipped
+CPU suite: 55 tests, 54 passed and one optional Torch-dependent test skipped
 because Torch is absent on the Mac. Checks execute the actual kernel mapping
 AST across randomized request/chunk boundaries, compare the complete scoring
 arithmetic AST to production, verify private routing/fallback and identical
@@ -114,3 +120,37 @@ No-Torch production-path audit: the candidate has no Torch API calls. Its
 Tensor conversion. Host `.view` and slicing are no-copy views, and production
 validation/allocation/TopK callables are shared unchanged. The existing public
 registration is retained; this private trial needs no new registration/export.
+
+## First H800 result and cache-isolation correction
+
+Report commit `518675671f7b475675f20bbe6c9696c0fbce57e1`, code `90c14c4`:
+194 correctness tests passed and only the second-GPU test skipped. All 22 cases
+completed. Same compiler identities, 1148 timing samples, 656 telemetry points,
+no sampled co-resident processes or thermal slowdown; shared exploratory mode
+remains ineligible for formal acceptance.
+
+| Scored compact path | Production us | Trial us | Ratio | Decision |
+| --- | ---: | ---: | ---: | --- |
+| ragged54 | 82.976 | 73.712 | 1.12568 | Promising; seven paired ratios 1.12451–1.12864 |
+| unequal2 | 755.264 | 738.400 | 1.02284 | Unstable; paired ratios cross 1 |
+| chunk_boundary | 670.992 | 693.056 | 0.96816 | Regression in all seven pairs |
+| chunk_tail64 | 940.464 | 683.584 | 1.37578 | Invalid production-baseline attribution; replay required |
+
+The old trial shared its fallback LibEntry instance with the production
+baseline. It called that entry first with the 64-row tail; the captured
+production config is TILE_R=8. LibEntry's outer key reduces do_not_specialize
+integer scalars to their type, so the subsequent 16304-row production baseline
+reuses this tail config without calling the inner row-keyed tuner. That is not
+the actual production public call order (large chunk first). A CPU regression
+test executes the real LibEntry.key and reproduces this key aliasing before
+checking the isolated-cache correction. Production code and global LibEntry
+are unchanged; only the private trial wrapper and benchmark preparation change.
+
+The observed-eight direct-production mean 1.05180 includes this invalid row and
+must not be used. Native comparisons and correctness remain useful, subject to
+the shared-run policy: upstream12 score/native mean 0.74410; observed8
+score/native mean 1.75047 includes pre-existing short-query advantages and is
+not all attributable to compact scheduling. The broad ragged gate is not
+accepted for production: one genuine regression, one unstable case and one
+invalid comparison remain. Keep the candidate experimental and replay the four
+compact cases after the cache correction; do not promote from the mean alone.

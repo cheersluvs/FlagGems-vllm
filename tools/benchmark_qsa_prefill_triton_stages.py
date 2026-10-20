@@ -355,6 +355,29 @@ def worker(options, case, path):
         storage_offset=native_args[8].storage_offset(),
     )
     native_chunks = ab.observe(native, "_topk", native_args)
+    production = getattr(candidate, "production_baseline", None)
+    if production is not None:
+        fallback_entry = candidate._qsa_prefill_score_kernel
+        baseline_entry = production._qsa_prefill_score_kernel
+        if fallback_entry is baseline_entry or any(
+            a is b
+            for a, b in zip(fallback_entry.kernel_cache, baseline_entry.kernel_cache)
+        ):
+            raise RuntimeError(
+                "Trial fallback and production baseline share LibEntry cache"
+            )
+        result["score_cache_isolation"] = dict(
+            independent_outer_entries=True,
+            independent_device_caches=True,
+            baseline_public_warmed_first=True,
+            baseline_configs_before_public=support.score_configs(production),
+        )
+        # Replay actual production chunk order outside timing, before any
+        # candidate fallback can run. Preserve its real public tuning behavior.
+        production.qsa_select_paged_prefill(*args)
+        result["score_cache_isolation"]["baseline_configs_after_public"] = (
+            support.score_configs(production)
+        )
     fastpath = workloads.geometry(case).get("select_all", False)
     candidate_chunks = (
         [] if fastpath else ab.observe(candidate, "persistent_topk", args)
@@ -407,7 +430,6 @@ def worker(options, case, path):
     else:
         functions = ab.bind_stages(native, candidate, native_chunks, candidate_chunks)
     production_chunks = []
-    production = getattr(candidate, "production_baseline", None)
     if production is not None and not fastpath:
         # Identical public chunk geometry and one shared preallocated output
         # buffer isolate scheduling; no additional TopK or scratch allocation.
@@ -430,6 +452,8 @@ def worker(options, case, path):
     result["timer"] = {k: v for k, v in timer_info.items() if k != "includes_topk"}
     result["production_score_configs"] = support.score_configs(candidate)
     if production is not None:
+        result["baseline_production_score_configs"] = support.score_configs(production)
+        result["candidate_fallback_score_configs"] = support.score_configs(candidate)
         result["compact_score_configs"] = support.score_configs(
             candidate, "_qsa_prefill_compact_score_kernel"
         )
@@ -551,6 +575,14 @@ def worker(options, case, path):
     result["common_logits_after"] = common_fingerprints(native_chunks, torch)
     if result["common_logits_before"] != result["common_logits_after"]:
         raise RuntimeError("Common Top-K logits were modified during this run")
+    if (
+        production is not None
+        and support.score_configs(production)
+        != result["score_cache_isolation"]["baseline_configs_after_public"]
+    ):
+        raise RuntimeError(
+            "Production baseline dispatch configuration changed after public warmup"
+        )
     if is_flagtree(options):
         from tools import qsa_prefill_flagtree_ab as profile
 

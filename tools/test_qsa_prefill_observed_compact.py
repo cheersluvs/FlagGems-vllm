@@ -3,6 +3,7 @@
 """CPU workload contracts and execution of the actual compact mapping AST."""
 
 import ast
+import copy
 import hashlib
 import json
 import os
@@ -146,6 +147,8 @@ class CompactMappingTests(unittest.TestCase):
                 op = types.ModuleType("production")
                 op.__dict__.update(original)
                 op.__file__ = str(PRODUCTION)
+                op._qsa_prefill_score_kernel.kernel_cache = ({},)
+                op._qsa_prefill_score_kernel._cpu_cache = {}
                 compact = []
 
                 class Kernel:
@@ -162,6 +165,7 @@ class CompactMappingTests(unittest.TestCase):
                         return invoke
 
                 ns = dict(
+                    copy=copy,
                     hashlib=hashlib,
                     types=types,
                     Path=Path,
@@ -172,7 +176,8 @@ class CompactMappingTests(unittest.TestCase):
                     n
                     for n in ast.parse(TRIAL.read_text()).body
                     if isinstance(n, ast.FunctionDef)
-                    and n.name in ("_prefill_logits", "candidate_module")
+                    and n.name
+                    in ("_prefill_logits", "candidate_module", "isolated_score_entry")
                 ]
                 exec(
                     compile(
@@ -184,6 +189,17 @@ class CompactMappingTests(unittest.TestCase):
                 self.assertIs(
                     candidate.qsa_select_paged_prefill.__code__,
                     op.qsa_select_paged_prefill.__code__,
+                )
+                self.assertIsNot(
+                    candidate._qsa_prefill_score_kernel, op._qsa_prefill_score_kernel
+                )
+                self.assertIsNot(
+                    candidate._qsa_prefill_score_kernel.kernel_cache[0],
+                    op._qsa_prefill_score_kernel.kernel_cache[0],
+                )
+                self.assertIs(
+                    candidate._production_prefill_logits.__code__,
+                    op._prefill_logits.__code__,
                 )
                 for name in (
                     "_validate_inputs",
@@ -216,6 +232,50 @@ class CompactMappingTests(unittest.TestCase):
                     [v.numel() * v.element_size() for v in allocations], old_bytes
                 )
                 self.assertIs(op._prefill_logits, original["_prefill_logits"])
+
+    def test_real_libentry_key_reproduces_tail_priming_and_private_cache_prevents_it(
+        self,
+    ):
+        source = ast.parse((ROOT / "src/flaggems_vllm/utils/libentry.py").read_text())
+        entry = next(
+            n
+            for n in source.body
+            if isinstance(n, ast.ClassDef) and n.name == "LibEntry"
+        )
+        key = next(
+            n for n in entry.body if isinstance(n, ast.FunctionDef) and n.name == "key"
+        )
+        functions = [
+            n
+            for n in ast.parse(TRIAL.read_text()).body
+            if isinstance(n, ast.FunctionDef) and n.name == "isolated_score_entry"
+        ]
+        ns = dict(copy=copy)
+        exec(
+            compile(
+                ast.Module(body=[key, *functions], type_ignores=[]), str(TRIAL), "exec"
+            ),
+            ns,
+        )
+
+        class Entry:
+            def __init__(self):
+                self.kernel_cache, self._cpu_cache = ({},), {}
+
+            def run(self, rows, offset):
+                # Other production arguments are identical in these chunks.
+                k = ns["key"](self, [], [rows, offset, 16000], [8232, 2])
+                return self.kernel_cache[0].setdefault(k, 8 if rows == 64 else 64)
+
+        polluted = Entry()
+        self.assertEqual(polluted.run(64, 16304), 8)
+        self.assertEqual(polluted.run(16304, 0), 8)  # Actual outer key aliases rows.
+        production = Entry()
+        fallback = ns["isolated_score_entry"](production)
+        self.assertEqual(fallback.run(64, 16304), 8)
+        self.assertFalse(production.kernel_cache[0])
+        self.assertEqual(production.run(16304, 0), 64)
+        self.assertEqual(fallback.run(64, 16304), 8)
 
     def test_every_row_has_exactly_one_writer_for_empty_ragged_and_cut_requests(self):
         ns, fn = mapping()
