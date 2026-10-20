@@ -36,7 +36,7 @@ optimization. `optimization.md` and `deep_opt.md` are absent from this checkout;
 | --- | --- |
 | Empty/select-all | Original public bytecode; capture actual fill launch for pipeline timing; score/TopK N/A |
 | Equal-length, one request, or chunk_rows <= max_query_len | Original score-launch bytecode/JIT with an isolated outer LibEntry cache, no compact lookup overhead |
-| Ragged envelope with larger chunks | Metadata gate T < requests * max_query_len; compact tile slots use floor(clipped request start/TILE_R)+request, binary-search device starts |
+| Ragged envelope with larger chunks and rectangular row capacity >= 4 * chunk_rows | Metadata-only routing; compact tile slots use floor(clipped request start/TILE_R)+request, binary-search device starts |
 | Compact kernel | Grid floor(chunk_rows/TILE_R)+requests bounds row tiles plus at most one empty slot per request. All score arithmetic after row selection is identical to baseline |
 | Baselines | Unmodified native vLLM and current production, same compiler/input/budget/timer. TopK is unchanged |
 | Tests | Request coverage exactly once under empty requests, arbitrary offsets, every tile size, chunk cuts and nonzero base; each GPU config and full native alignment |
@@ -98,7 +98,7 @@ virtualenv package is replaced by the verified compatibility launcher.
 
 ## Local verification and pending decision
 
-CPU suite: 55 tests, 54 passed and one optional Torch-dependent test skipped
+CPU suite: 56 tests, 55 passed and one optional Torch-dependent test skipped
 because Torch is absent on the Mac. Checks execute the actual kernel mapping
 AST across randomized request/chunk boundaries, compare the complete scoring
 arithmetic AST to production, verify private routing/fallback and identical
@@ -154,3 +154,46 @@ not all attributable to compact scheduling. The broad ragged gate is not
 accepted for production: one genuine regression, one unstable case and one
 invalid comparison remain. Keep the candidate experimental and replay the four
 compact cases after the cache correction; do not promote from the mean alone.
+
+## Isolated-cache replay and next routing trial
+
+Report `5c226fedda37a454fdf62f39176cb9309c26278f`, code `5e2e7fe`:
+194 correctness passes, one second-GPU skip, all four timed cases complete.
+Baseline outer caches were cold, device caches independent, and the actual
+production public configuration remained unchanged throughout each worker.
+
+| Case | Production us | Compact us | Production/compact | Seven paired ratios |
+| --- | ---: | ---: | ---: | --- |
+| ragged54 | 83.136 | 73.824 | 1.12614 | 1.12386–1.12928 |
+| unequal2 | 732.528 | 729.792 | 1.00375 | 0.96579–1.05567 |
+| chunk_boundary | 670.752 | 687.024 | 0.97631 | 0.96907–0.97752 |
+| chunk_tail64 | 680.832 | 679.136 | 1.00250 | 0.98922–1.00749 |
+
+The old 1.37578 tail ratio is not reproduced with proper cache isolation.
+Its independent production big chunk now selects TILE_R=32 and the private
+candidate fallback tail selects TILE_R=8. The 54-request benefit reproduces
+across two runs on different cards; no direct cross-card latency comparison
+is used. The broad gate is rejected: two two-request cases have no stable
+benefit and one regresses. Keep production unchanged.
+
+Pre-coding scope for the next trial: change only the private metadata gate,
+retaining the now-validated cache isolation, numerical kernel, six configs,
+TopK and complete 22-case benchmark matrix. The candidate requires
+`requests * max_query_len >= 4 * chunk_rows` as well as its previous ragged,
+multi-request and chunk_rows > max_query_len conditions. This tests a portable
+low-utilization policy instead of dispatching to an exact recorded shape.
+The factor 4 is a provisional host routing threshold, not an empirically
+established universal crossover or a new kernel autotune parameter. Padded
+row capacity is the proxy; rounded actual CTA counts are reported separately.
+In this matrix only ragged54 uses compact scheduling; the three two-request
+cases and all upstream cases use original score bytecode/JIT in the private
+fallback cache. Functional scope, unsupported behavior and output contract do
+not change. Update CPU routing/boundary tests and the full-entry GPU fixture
+to exercise a sparse eight-request batch, then replay all 22 on H800. No new
+numerical algorithm or claimed new measured speedup is introduced by this gate.
+
+The replay used GPU2, UUID GPU-2d17872f-4327-2beb-8049-604ecf6a3d66,
+the same FlagTree/ptxas/CUDA13.4 identities in all workers, 224 raw timings and
+128 telemetry points. Temperature 32–53C, SM clocks 1965–1980MHz, no sampled
+co-residents or thermal slowdown. Its shared exploratory acceptance flag stays
+false, including the four-case direct-production mean 1.02559.

@@ -140,9 +140,47 @@ class WorkloadTests(unittest.TestCase):
 
 
 class CompactMappingTests(unittest.TestCase):
+    def test_sparse_gate_selects_only_low_utilization_envelopes(self):
+        fn = next(
+            n
+            for n in ast.parse(TRIAL.read_text()).body
+            if isinstance(n, ast.FunctionDef) and n.name == "_compact_eligible"
+        )
+        ns = {}
+        exec(compile(ast.Module(body=[fn], type_ignores=[]), str(TRIAL), "exec"), ns)
+        eligible = ns["_compact_eligible"]
+        selected = []
+        for case in workloads.cases("combined-prefill"):
+            info = workloads.geometry(case)
+            for count in info["expected_chunk_rows"]:
+                if eligible(
+                    info["q_shape"][0],
+                    info["page_table_shape"][0],
+                    max(info["query_lengths"]),
+                    count,
+                ):
+                    selected.append(case["name"])
+        self.assertEqual(selected, ["observed_ragged54_bfloat16"])
+        self.assertFalse(eligible(200, 8, 99, 200))
+        self.assertTrue(eligible(200, 8, 100, 200))  # Exactly fourfold capacity.
+        self.assertFalse(eligible(800, 8, 100, 800))  # Uniform requests.
+        self.assertFalse(eligible(200, 8, 100, 64))  # Small chunk.
+        self.assertFalse(eligible(0, 0, 0, 0))
+
     def test_private_dispatch_preserves_fallbacks_workspaces_and_topk(self):
-        for rows in (1, 65, 73, 78):
+        for rows, requests, max_query in (
+            (1, 2, 39),
+            (65, 2, 39),
+            (73, 2, 39),
+            (78, 2, 39),
+            (8896, 54, 3200),
+            (200, 5, 160),
+            (200, 8, 99),
+            (200, 8, 100),
+        ):
             for budget in ("512", "1", "0"):
+                if rows > 256 and budget != "512":
+                    continue
                 original, dot, topks, allocations = chunk.load()
                 op = types.ModuleType("production")
                 op.__dict__.update(original)
@@ -177,7 +215,12 @@ class CompactMappingTests(unittest.TestCase):
                     for n in ast.parse(TRIAL.read_text()).body
                     if isinstance(n, ast.FunctionDef)
                     and n.name
-                    in ("_prefill_logits", "candidate_module", "isolated_score_entry")
+                    in (
+                        "_prefill_logits",
+                        "candidate_module",
+                        "isolated_score_entry",
+                        "_compact_eligible",
+                    )
                 ]
                 exec(
                     compile(
@@ -209,6 +252,11 @@ class CompactMappingTests(unittest.TestCase):
                 ):
                     self.assertIs(getattr(candidate, name), getattr(op, name))
                 args = chunk.inputs(rows=rows, padded=True)
+                args[2] = chunk.Array(
+                    (requests, 512), "i32", 30000000, (2048, 2), label="input_2"
+                )
+                args[3] = chunk.Array((requests + 1,), "i32", 40000000, label="input_3")
+                args[7] = max_query
                 with patch.dict(os.environ, VLLM_SPARSE_INDEXER_MAX_LOGITS_MB=budget):
                     op.qsa_select_paged_prefill(*args)
                     old_calls = list(dot)
@@ -221,7 +269,11 @@ class CompactMappingTests(unittest.TestCase):
                     allocations.clear()
                     candidate.qsa_select_paged_prefill(*args)
                 eligible = [
-                    c for c in old_calls if rows < 2 * args[7] and c[1][12] > args[7]
+                    c
+                    for c in old_calls
+                    if rows < requests * max_query
+                    and c[1][12] > max_query
+                    and requests * max_query >= 4 * c[1][12]
                 ]
                 self.assertEqual(dot, [c for c in old_calls if c not in eligible])
                 self.assertEqual([c[1:] for c in compact], [c[1:] for c in eligible])

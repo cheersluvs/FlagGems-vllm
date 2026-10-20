@@ -458,13 +458,14 @@ def worker(options, case, path):
             candidate, "_qsa_prefill_compact_score_kernel"
         )
         result["score_schedule"] = dict(
+            routing_policy="rectangular_row_capacity_ge_4x_chunk_rows",
             ragged_envelope=args[0].shape[0] < args[2].shape[0] * args[7],
             compact_chunks=[
                 c["offset"]
                 for c in candidate_chunks
-                if args[0].shape[0] < args[2].shape[0] * args[7]
-                and args[2].shape[0] > 1
-                and c["rows"] > args[7]
+                if candidate._compact_eligible(
+                    args[0].shape[0], args[2].shape[0], args[7], c["rows"]
+                )
             ],
             unchanged_production_sha256=ab.PRODUCTION_SHA256,
             grids=[

@@ -147,7 +147,10 @@ def test_compact_every_config_and_chunk_boundary(sm90, dtype, heads, dim):
 def test_compact_full_entry(sm90, monkeypatch, dtype, budget):
     monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
     args = helpers.make_inputs(
-        (33, 0, 17), (4096, 16, 8192), query_base=113, dtype=dtype
+        (33, 0, 1, 1, 1, 1, 1, 12),
+        (4096, 16) + (8192,) * 6,
+        query_base=113,
+        dtype=dtype,
     )
     expected = helpers.torch_logits(*args[:5])
     candidate = trial.candidate_module(production)

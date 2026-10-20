@@ -167,6 +167,17 @@ def _qsa_prefill_compact_score_kernel(
         )
 
 
+def _compact_eligible(total_rows, requests, max_query_len, chunk_rows):
+    # Capacity (before TILE_R rounding) must be at least 4x the actual rows.
+    # This excludes the measured two-request regressions without a shape list.
+    return (
+        requests > 1
+        and total_rows < requests * max_query_len
+        and chunk_rows > max_query_len
+        and requests * max_query_len >= 4 * chunk_rows
+    )
+
+
 def _prefill_logits(
     q,
     k_cache,
@@ -184,10 +195,8 @@ def _prefill_logits(
     # Equal-length envelopes (including every upstream benchmark) keep the
     # original kernel/grid. Small chunks also keep the original path: their
     # compact lookup overhead is unlikely to amortize. Metadata only, no sync.
-    if (
-        q.shape[0] >= page_table.shape[0] * max_query_len
-        or page_table.shape[0] <= 1
-        or num_queries <= max_query_len
+    if not _compact_eligible(
+        q.shape[0], page_table.shape[0], max_query_len, num_queries
     ):
         return _production_prefill_logits(
             q,
@@ -276,6 +285,7 @@ def candidate_module(production):
     fallback.__kwdefaults__ = original_launcher.__kwdefaults__
     namespace["_production_prefill_logits"] = fallback
     namespace["_qsa_prefill_compact_score_kernel"] = _qsa_prefill_compact_score_kernel
+    namespace["_compact_eligible"] = _compact_eligible
     for original in (_prefill_logits, production.qsa_select_paged_prefill):
         copy = types.FunctionType(
             original.__code__,
