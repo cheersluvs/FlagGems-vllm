@@ -77,5 +77,26 @@ unknown, prematurely warmed or changed configurations; preserve compact and
 select-all controls; check static policy-site parsing, stage labels, full
 accuracy coverage and success/failure report upload. Production, TopK, all
 eight YAML configurations and retained candidate files match the validated
-4b77a6f source snapshots. H800 compilation, correctness and hint performance
-remain pending; no numerical or performance result is claimed from CPU tests.
+4b77a6f source snapshots. Those local checks do not establish H800 numerical
+or performance results; the completed card experiment is recorded below.
+
+
+## Completed H800 experiment: reject the hint, 2026-10-20
+
+Report `4436f7661d0cae606d9f117dd21d44fca138d183` ran code
+`922b450c76dcea86341e8a6f8f3b06485af68d79`: 268 passed, one existing
+second-device skip and all 22 benchmark cases completed. All 19 rectangular
+configurations matched before and after timing; PTX contained the actual
+policy/hint sites. The compact control and two select-all paths did not add
+a hint.
+
+The matched `score_vs_reuse` geometric means were 0.94208x for upstream12
+and 0.97570x for observed8, corresponding to approximately 6.15% and 2.49%
+higher scoring latency. Every upstream paired ratio was below one. Reject
+this matched-tile hint change and retain the previous unhinted eight-choice
+key-major/compact candidate as the optimization baseline. The private hint
+module remains for reproducing the negative result; production, TopK, config
+space and workloads are unchanged. This does not establish that every
+independently retuned hint configuration or other backend would regress.
+
+[Full audited score, TopK, pipeline, resource and environment results](qsa_prefill_eviction_h800_results.md).
