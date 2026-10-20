@@ -90,6 +90,39 @@ class GpuGuardTests(unittest.TestCase):
         self.assertEqual(result["processes"], [])
         self.assertEqual(len(result["queries"]), 3)
 
+    def test_temperature_override_keeps_other_rejections_and_legacy_default(self):
+        command = idle_command(gpu=f"{UUID}, 79, 0, 1")
+        self.assertEqual(guard.idle(UUID, command)["status"], "rejected")
+        check = guard.idle(UUID, command, max_initial_temp_c=80)
+        self.assertEqual(check["status"], "passed")
+        self.assertEqual(check["max_initial_temp_c"], 80)
+        check = guard.idle(
+            UUID, idle_command(gpu=f"{UUID}, 81, 0, 1"), max_initial_temp_c=80
+        )
+        self.assertEqual(
+            check["reasons"], ["Initial temperature C 81 exceeds limit 80"]
+        )
+        for command in (
+            idle_command(gpu=f"{UUID}, 79, 0, 257"),
+            idle_command(gpu=f"{UUID}, 79, 0, 1", processes=f"{UUID}, 5, 0"),
+            idle_command(
+                gpu=f"{UUID}, 79, 0, 1",
+                performance=CLEAN.replace("Not Active", "Active"),
+            ),
+        ):
+            self.assertEqual(
+                guard.idle(UUID, command, max_initial_temp_c=80)["status"], "rejected"
+            )
+        for limit in (0, 151, float("nan"), "80"):
+            self.assertEqual(
+                guard.idle(
+                    UUID,
+                    lambda _: self.fail("must reject before queries"),
+                    max_initial_temp_c=limit,
+                )["status"],
+                "rejected",
+            )
+
     def test_ambiguous_or_multiple_device_selections_reject_before_query(self):
         for selector in ("", "0", "1,2", "GPU-abcd", UUID + "," + OTHER):
             with self.subTest(selector=selector), patch.object(

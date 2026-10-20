@@ -64,3 +64,62 @@ kernel AST, execute the actual host bytecode with captured launch arguments,
 verify independent caches and unchanged allocations/TopK, exercise the new
 CLI/accuracy gate, and check resource parsing. These checks do not establish
 GPU numerical correctness or a performance gain.
+
+## H800 result and shorter subsequent measurement protocol
+
+Report `6b3b7c0d196161a1517cba8e84e583564d5724cc`, source `83a19d9`:
+218 passed, one second-SM90 skip, all 22 cases complete in strict idle mode.
+Source identities, independent production caches, frozen common logits, all
+1148 time samples and 656 guard observations were checked. No cold-start
+admission required waiting; timed temperatures were 32–55C.
+Full score, TopK and pipeline latencies/ratios are retained in
+`docs/qsa_prefill_key_major_h800_results.md`.
+
+| Group | Score/native (NV metric) | Score/current production | TopK/native | Pipeline/native |
+| --- | ---: | ---: | ---: | ---: |
+| Upstream12 | 1.02702 | 1.39334 | 0.89540 | 0.95631 |
+| Observed8 scored / 10 pipeline | 1.98797 | 1.14511 | 0.90270 | 1.91689 |
+
+All upstream score/current-production paired ratios exceed one. Against
+native, six upstream cases exceed one and six are slightly below one
+(minimum 0.97246). Keep the private key-major candidate for the next trial;
+production remains frozen. TopK and pipeline are still fully measured and
+reported even though only score/kernel mode determines NV score acceptance.
+
+The first upstream case has equal TR32/BN64/KT4 tiles and 73728 shared bytes:
+registers increase 113 to 118, both spill counts are zero, static PTX shuffle
+sites decrease 128 to 32 and dot sites 16 to 8. This supports investigating
+layout costs, not a claim that registers/shared memory decreased or that
+static counts prove a dynamic bottleneck. Other cases may retune within the
+same six choices. Nsight tools remain unavailable.
+
+The user requests shorter subsequent tests. This report used 7 rounds,
+1000ms warmup and 100ms repetition, and remains valid without rerunning.
+Full accuracy alone took 495.22s; the first/last benchmark telemetry spans
+1929.79s, including process startup, setup, compilation, validation and timing.
+No temperature cooldown occurred, so relaxing temperature could not have
+shortened this particular run.
+
+Subsequent runner defaults are 3 rounds, 200ms warmup and 100ms repetition.
+The nominal timer budget for 82 stages drops from 1262.8s to 147.6s, about
+88.3%; total wall time cannot be predicted from that ratio. Full accuracy,
+22-case selection and all four applicable stages remain unchanged. Retain
+raw paired samples; fewer rounds provide less evidence for small changes.
+Use 7 rounds for disputed differences when needed, not for every trial.
+
+The FlagTree wrapper now defaults to `--max-initial-temp-c 80` (previously
+75). This option reaches auto-selection, admission, cooldown and workers;
+the underlying guard's historical default remains 75 for other callers.
+Explicit `--rounds 7 --kernel-warmup-ms 1000 --max-initial-temp-c 75` restores
+the previous protocol. Actual SW/HW thermal slowdown, invalid telemetry,
+foreign processes and memory interference remain rejection conditions.
+Record the selected threshold and timings in each new manifest and compare
+both sides afresh within the same run; do not merge old absolute timings
+with the shorter protocol.
+
+Local checks for the measurement-policy update: 79 CPU tests ran, 78 passed
+and one optional Torch test skipped; syntax and pre-commit passed. Tests cover
+temperature propagation through selection/bootstrap/children/cooldown,
+retained process/memory/actual thermal rejection, shorter defaults, complete
+accuracy gates and successful/failed automatic report uploads. No operator,
+TopK, tile configuration or correctness tolerance changed in this update.

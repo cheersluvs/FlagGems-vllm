@@ -732,6 +732,8 @@ def child_command(options, directory, flag):
         str(options.kernel_warmup_ms),
         "--kernel-rep-ms",
         str(options.kernel_rep_ms),
+        "--max-initial-temp-c",
+        str(getattr(options, "max_initial_temp_c", 75)),
         *(
             [
                 "--shared-gpu-exploratory",
@@ -817,6 +819,7 @@ def idle_gate(options, summary, directory, label, guard):
             options.shared_min_free_mib,
             options.cooldown_timeout,
             options.cooldown_interval,
+            max_initial_temp_c=getattr(options, "max_initial_temp_c", 75),
         )
     if is_flagtree(options):
         from tools import qsa_prefill_flagtree_ab as profile
@@ -829,6 +832,7 @@ def idle_gate(options, summary, directory, label, guard):
             guard,
             options.cooldown_timeout,
             options.cooldown_interval,
+            max_initial_temp_c=getattr(options, "max_initial_temp_c", 75),
         )
     return support.idle_gpu_gate(summary, directory, os.environ, label, guard)
 
@@ -1078,17 +1082,24 @@ def main():
     parser.add_argument("--list-cases", action="store_true")
     parser.add_argument("--report-dir")
     parser.add_argument("--reference-file")
-    parser.add_argument("--rounds", type=int, default=7)
-    parser.add_argument("--kernel-warmup-ms", type=float, default=1000)
+    parser.add_argument("--rounds", type=int, default=3)
+    parser.add_argument("--kernel-warmup-ms", type=float, default=200)
     parser.add_argument("--kernel-rep-ms", type=float, default=100)
     parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--accuracy-timeout", type=int, default=7200)
     parser.add_argument("--cooldown-timeout", type=float, default=900)
     parser.add_argument("--cooldown-interval", type=float, default=10)
+    parser.add_argument("--max-initial-temp-c", type=int)
     parser.add_argument("--accuracy", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--preflight", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
+    if options.max_initial_temp_c is None:
+        options.max_initial_temp_c = 80 if is_flagtree(options) else 75
+    if not 1 <= options.max_initial_temp_c <= 150:
+        parser.error("Initial temperature limit must be in 1..150 C")
+    if not is_flagtree(options) and options.max_initial_temp_c != 75:
+        parser.error("Temperature overrides require the verified FlagTree profile")
     if options.candidate != "production" and options.compiler != "flagtree":
         parser.error("Private score trials require the verified FlagTree profile")
     if options.shared_gpu_exploratory and options.compiler != "flagtree":

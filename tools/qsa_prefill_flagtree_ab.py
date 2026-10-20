@@ -119,7 +119,15 @@ def compiler_runtime(torch, triton, directory, report):
 
 
 def cooldown_gate(
-    summary, report, env, label, guard, timeout, interval, shared_min_free_mib=None
+    summary,
+    report,
+    env,
+    label,
+    guard,
+    timeout,
+    interval,
+    shared_min_free_mib=None,
+    max_initial_temp_c=75,
 ):
     """Cool outside timing; co-residency requires an explicit shared policy."""
     from tools import benchmark_qsa_prefill_stages as support
@@ -129,12 +137,18 @@ def cooldown_gate(
     while True:
         attempt += 1
         if shared_min_free_mib is None:
-            check = guard.idle(env.get("CUDA_VISIBLE_DEVICES", ""), support.command)
+            check = guard.idle(
+                env.get("CUDA_VISIBLE_DEVICES", ""),
+                support.command,
+                max_initial_temp_c=max_initial_temp_c,
+            )
         else:
             from tools import qsa_prefill_shared_gpu as shared
 
             check = shared.inspect_gpu(
-                env.get("CUDA_VISIBLE_DEVICES", ""), shared_min_free_mib
+                env.get("CUDA_VISIBLE_DEVICES", ""),
+                shared_min_free_mib,
+                max_initial_temp_c=max_initial_temp_c,
             )
         check.update(label=label, attempt=attempt)
         summary.setdefault(
@@ -147,7 +161,7 @@ def cooldown_gate(
         temperature = check.get("temperature_c")
         utilization = check.get("utilization_percent")
         allowed = {
-            f"Initial temperature C {temperature} exceeds limit 75",
+            f"Initial temperature C {temperature} exceeds limit {max_initial_temp_c}",
             f"Initial utilization percent {utilization} exceeds limit 5",
         }
         # Non-waived process/memory rejections, active thermal slowdown and
@@ -175,7 +189,7 @@ def cooldown_gate(
         support.write_json(report / "stage-summary.json", summary)
         print(
             f"GPU cooling; temperature={temperature}C, utilization={utilization}%; "
-            f"waiting {wait:g}s for the original idle limits",
+            f"waiting {wait:g}s for idle limits (temperature <= {max_initial_temp_c}C)",
             flush=True,
         )
         time.sleep(wait)
@@ -205,7 +219,7 @@ def select_gpu(summary, options=None):
         gpu_selection_policy=(
             "lowest inventory temperature first; shared diagnostic memory/thermal checks"
             if shared.enabled(options)
-            else "lowest inventory temperature first; original idle guard required"
+            else "lowest inventory temperature first; configured idle guard required"
         ),
     )
     candidates = []
@@ -221,9 +235,17 @@ def select_gpu(summary, options=None):
         candidates.append((temperature, uuid))
     for temperature, uuid in sorted(candidates):
         check = (
-            shared.inspect_gpu(uuid, options.shared_min_free_mib)
+            shared.inspect_gpu(
+                uuid,
+                options.shared_min_free_mib,
+                max_initial_temp_c=getattr(options, "max_initial_temp_c", 75),
+            )
             if shared.enabled(options)
-            else guard.idle(uuid, support.command)
+            else guard.idle(
+                uuid,
+                support.command,
+                max_initial_temp_c=getattr(options, "max_initial_temp_c", 75),
+            )
         )
         check["inventory_temperature_c"] = temperature
         summary.setdefault("gpu_selection_checks", []).append(check)
@@ -288,6 +310,8 @@ def prepare(options, extra):
                 str(Path(options.flagtree).resolve()),
                 "--report-dir",
                 str(report),
+                "--max-initial-temp-c",
+                str(getattr(options, "max_initial_temp_c", 75)),
             ],
             env,
         )
@@ -307,9 +331,12 @@ def main():
     parser.add_argument("--flagtree", default="/opt/flagtree")
     parser.add_argument("--shared-gpu-exploratory", action="store_true")
     parser.add_argument("--shared-min-free-mib", type=int, default=5120)
+    parser.add_argument("--max-initial-temp-c", type=int, default=80)
     options, extra = parser.parse_known_args()
     if options.shared_min_free_mib <= 0:
         parser.error("Shared diagnostic minimum free memory must be positive")
+    if not 1 <= options.max_initial_temp_c <= 150:
+        parser.error("Initial temperature limit must be in 1..150 C")
     return prepare(options, extra)
 
 

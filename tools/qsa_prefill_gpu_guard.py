@@ -133,8 +133,19 @@ def process_names(uuid, command):
         return dict(error="Process-name query unavailable or unparseable")
 
 
-def idle(uuid, command):
-    result = dict(device_uuid=uuid, status="rejected", reasons=[], queries={})
+def idle(uuid, command, max_initial_temp_c=75):
+    result = dict(
+        device_uuid=uuid,
+        status="rejected",
+        reasons=[],
+        queries={},
+        max_initial_temp_c=max_initial_temp_c,
+    )
+    if not isinstance(max_initial_temp_c, int) or not 1 <= max_initial_temp_c <= 150:
+        result["reasons"].append(
+            "Initial temperature limit must be an integer in 1..150"
+        )
+        return result
     if not UUID_PATTERN.fullmatch(uuid):
         result["reasons"].append(
             "Guard requires CUDA_VISIBLE_DEVICES to contain one complete GPU UUID"
@@ -172,7 +183,7 @@ def idle(uuid, command):
             memory_mib=memory,
         )
         for value, limit, name in (
-            (temperature, 75, "temperature C"),
+            (temperature, max_initial_temp_c, "temperature C"),
             (utilization, 5, "utilization percent"),
             (memory, 256, "memory MiB"),
         ):

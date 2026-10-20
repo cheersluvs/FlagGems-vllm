@@ -12,8 +12,8 @@ def enabled(options):
     return bool(getattr(options, "shared_gpu_exploratory", False))
 
 
-def inspect_gpu(uuid, min_free_mib):
-    check = guard.idle(uuid, support.command)
+def inspect_gpu(uuid, min_free_mib, max_initial_temp_c=75):
+    check = guard.idle(uuid, support.command, max_initial_temp_c=max_initial_temp_c)
     check["original_idle_reasons"] = list(check["reasons"])
     # Only these two exclusive-use conditions are waived, by explicit opt-in.
     # Temperature, utilization, thermal slowdown and unreadable telemetry remain.
@@ -58,11 +58,21 @@ def inspect_gpu(uuid, min_free_mib):
     return check
 
 
-def admission(summary, report, env, label, min_free_mib, timeout, interval):
+def admission(
+    summary, report, env, label, min_free_mib, timeout, interval, max_initial_temp_c=75
+):
     from tools import qsa_prefill_flagtree_ab as profile
 
     return profile.cooldown_gate(
-        summary, report, env, label, guard, timeout, interval, min_free_mib
+        summary,
+        report,
+        env,
+        label,
+        guard,
+        timeout,
+        interval,
+        min_free_mib,
+        max_initial_temp_c=max_initial_temp_c,
     )
 
 

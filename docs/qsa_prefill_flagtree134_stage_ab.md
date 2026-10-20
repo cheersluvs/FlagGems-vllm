@@ -1,3 +1,4 @@
+<!-- Defaults updated 2026-10-20; historical reports below retain their original settings. -->
 # H800：同一 FlagTree / CUDA 13.4 工具链的原生 QSA 对照
 
 入口：`tools/run_qsa_prefill_flagtree_ab_h800.sh`。先运行现有完整 prefill 功能测试，
@@ -39,8 +40,8 @@ Python 使用现有 vLLM 0.31.0 虚拟环境；两侧评分、我方 TopK 使用
 | topk | 原生 CUDA `_topk` | 仓库 `persistent_topk`，TLE路径 |
 | pipeline | 各chunk连续评分→原生TopK | 各chunk连续生产评分→生产TopK |
 
-三阶段复用 `Benchmark.get_latency` 的 `--mode kernel` 计时器，默认1000ms warmup、
-100ms repetition、7轮，交替两侧测量顺序。加速比为 `vllm_us / gems_production_us`。
+三阶段复用 `Benchmark.get_latency` 的 `--mode kernel` 计时器。2026-10-20起默认200ms warmup、
+100ms repetition、3轮，交替两侧测量顺序；显式命令行参数覆盖默认值。加速比为 `vllm_us / gems_production_us`。
 **NV评分优化验收仍只看 score 阶段加速比，不含TopK**；其余两阶段用于观察总链路影响。
 pipeline 是独立实测顺序调用，不是相加两个独立计时，也不包含public入口的外层分配与验证。
 TopK单独计时的两侧读取相同冻结 logits，计时外核对全部输入哈希；组合计时各用实时评分结果。
@@ -54,10 +55,10 @@ TopK单独计时的两侧读取相同冻结 logits，计时外核对全部输入
 显式UUID不会被自动替换。全套测试使用选定的同一张卡，自动选择不构成独占预留，沿用共享机器
 计时前后检查；其他进程干扰时不发布可接受加速比，不停止其他任务。
 
-每个独立进程启动前保留原有空闲门槛：温度不高于75°C、利用率不高于5%、显存不高于256MiB、
+每个独立进程启动前执行空闲检查：初始温度不高于80°C（`--max-initial-temp-c`可调）、利用率不高于5%、显存不高于256MiB、
 无计算进程且没有 thermal slowdown。仅温度或滞后的利用率超限时，每10秒复查一次，最多等待
 900秒（`--cooldown-interval` / `--cooldown-timeout`）。冷却等待位于计时区间之外；其他进程、
-内存占用、实际热降频或无法读取遥测立即拒绝；等待超时仍退出2。不会放宽门槛或切换GPU混合结果。
+内存占用、实际热降频或无法读取遥测立即拒绝；等待超时仍退出2。温度初始准入门槛可调；实际热降频仍拒绝，不切换GPU混合结果。
 
 [报告8681362](https://github.com/cheersluvs/FlagGems-vllm/blob/868136298de1717dbb705b8fe69d8731b0f772d4/results/qsa_select_paged_prefill/h800/flagtree134-ab-20261019-093620/stage-summary.json)
 已完成172项功能测试，只有需第二张SM90卡的1项跳过；预检、完整正确性和首个benchmark的
@@ -89,7 +90,8 @@ git clone --depth 1 --single-branch \
 git -C "$qsa_repo" rev-parse HEAD
 bash "$qsa_repo/tools/run_qsa_prefill_flagtree_ab_h800.sh" \
   --flagtree /opt/flagtree --mode kernel --suite upstream-prefill \
-  --rounds 7 --kernel-warmup-ms 1000 --kernel-rep-ms 100 \
+  --rounds 3 --kernel-warmup-ms 200 --kernel-rep-ms 100 \
+  --max-initial-temp-c 80 \
   --timeout 1800 --accuracy-timeout 7200 \
   --cooldown-timeout 900 --cooldown-interval 10
 QSA_FLAGTREE134_AB

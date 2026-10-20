@@ -141,6 +141,7 @@ class EnvironmentTests(unittest.TestCase):
     def test_bootstrap_executes_fresh_engine_with_verified_tool_and_profile(self):
         with tempfile.TemporaryDirectory() as folder:
             options = argparse.Namespace(report_dir=folder, flagtree="/opt/flagtree")
+            options.max_initial_temp_c = 80
             tool = dict(
                 ptxas=dict(path="/tmp/verified-ptxas", sha256=profile.PTXAS_SHA256)
             )
@@ -153,6 +154,7 @@ class EnvironmentTests(unittest.TestCase):
                 python, args, env = execute.call_args.args
                 self.assertEqual(args[:2], [python, "-I"])
                 self.assertEqual(args[args.index("--compiler") + 1], "flagtree")
+                self.assertEqual(args[args.index("--max-initial-temp-c") + 1], "80")
                 self.assertEqual(env["TRITON_PTXAS_PATH"], "/tmp/verified-ptxas")
                 self.assertNotIn("TRITON_MOCK_PTX_VERSION", env)
                 self.assertNotIn("CUDA_LAUNCH_BLOCKING", env)
@@ -228,6 +230,26 @@ class GPUSelectionTests(unittest.TestCase):
 
 
 class AccuracyTests(unittest.TestCase):
+    def test_shorter_defaults_keep_full_suite_stages_and_propagate_temperature(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(
+            sys, "argv", ["benchmark", "--compiler", "flagtree", "--report-dir", folder]
+        ), patch.object(
+            bench, "parent", return_value=0
+        ) as parent, contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            self.assertEqual(bench.main(), 0)
+            options = parent.call_args.args[0]
+            self.assertEqual(
+                (options.rounds, options.kernel_warmup_ms, options.kernel_rep_ms),
+                (3, 200, 100),
+            )
+            self.assertEqual(options.max_initial_temp_c, 80)
+            self.assertEqual(len(parent.call_args.args[1]), 12)
+            child = bench.child_command(options, Path(folder), "--accuracy")
+            self.assertEqual(child[child.index("--max-initial-temp-c") + 1], "80")
+            self.assertEqual(child[child.index("--rounds") + 1], "3")
+
     def test_gate_accepts_full_native_coverage_and_rejects_failures_or_changed_identity(
         self,
     ):
@@ -378,7 +400,7 @@ class CooldownTests(unittest.TestCase):
             ),
         )
 
-    def run_gate(self, checks, timeout=30):
+    def run_gate(self, checks, timeout=30, max_initial_temp_c=75):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             summary = {}
@@ -400,12 +422,43 @@ class CooldownTests(unittest.TestCase):
                 io.StringIO()
             ):
                 accepted = profile.cooldown_gate(
-                    summary, root, {}, "before_case", guard, timeout, 10
+                    summary,
+                    root,
+                    {},
+                    "before_case",
+                    guard,
+                    timeout,
+                    10,
+                    max_initial_temp_c=max_initial_temp_c,
                 )
+            self.assertTrue(
+                all(
+                    c.kwargs["max_initial_temp_c"] == max_initial_temp_c
+                    for c in guard.idle.call_args_list
+                )
+            )
             self.assertEqual(
                 json.loads((root / "stage-summary.json").read_text()), summary
             )
             return accepted, summary, sleeps
+
+    def test_custom_temperature_is_retryable_without_waiving_thermal_slowdown(self):
+        accepted, summary, sleeps = self.run_gate(
+            [
+                self.check(82, reasons=["Initial temperature C 82 exceeds limit 80"]),
+                self.check(79, reasons=[]),
+            ],
+            max_initial_temp_c=80,
+        )
+        self.assertTrue(accepted)
+        self.assertEqual(sleeps, [10])
+        self.assertEqual(summary["idle_gpu_checks"][-1]["temperature_c"], 79)
+        accepted, _, sleeps = self.run_gate(
+            [self.check(79, reasons=["SW Thermal Slowdown: Active"])],
+            max_initial_temp_c=80,
+        )
+        self.assertFalse(accepted)
+        self.assertEqual(sleeps, [])
 
     def test_waits_for_original_temperature_and_utilization_limits(self):
         accepted, summary, sleeps = self.run_gate(
