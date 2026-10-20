@@ -17,6 +17,7 @@ from unittest.mock import Mock, patch
 
 from tools import benchmark_qsa_prefill_triton_stages as bench
 from tools import qsa_prefill_flagtree_ab as profile
+from tools import qsa_prefill_gpu_guard as gpu_guard
 from tools import qsa_prefill_score_resume as resume
 from tools import validate_qsa_ptxas_h800 as validation
 
@@ -143,11 +144,9 @@ class EnvironmentTests(unittest.TestCase):
             tool = dict(
                 ptxas=dict(path="/tmp/verified-ptxas", sha256=profile.PTXAS_SHA256)
             )
-            with patch.object(
-                validation, "select_gpu", return_value=True
-            ), patch.object(validation, "toolchain", return_value=tool), patch.object(
-                profile.os, "execve"
-            ) as execute, patch.dict(
+            with patch.object(profile, "select_gpu", return_value=True), patch.object(
+                validation, "toolchain", return_value=tool
+            ), patch.object(profile.os, "execve") as execute, patch.dict(
                 os.environ, TRITON_MOCK_PTX_VERSION="87", CUDA_LAUNCH_BLOCKING="1"
             ):
                 self.assertEqual(profile.prepare(options, ["--rounds", "7"]), 0)
@@ -157,6 +156,75 @@ class EnvironmentTests(unittest.TestCase):
                 self.assertEqual(env["TRITON_PTXAS_PATH"], "/tmp/verified-ptxas")
                 self.assertNotIn("TRITON_MOCK_PTX_VERSION", env)
                 self.assertNotIn("CUDA_LAUNCH_BLOCKING", env)
+
+
+class GPUSelectionTests(unittest.TestCase):
+    def test_prefers_cool_inventory_then_rechecks_processes_and_original_limits(self):
+        cold = "GPU-00000000-0000-0000-0000-000000000001"
+        cool = "GPU-00000000-0000-0000-0000-000000000002"
+        hot = "GPU-00000000-0000-0000-0000-000000000003"
+        query = dict(
+            returncode=0,
+            stdout=f"{hot}, NVIDIA H800, 64\n{cool}, NVIDIA H800, 29\n{cold}, NVIDIA H800, 28\n",
+        )
+        checks = [
+            dict(status="rejected", processes=[dict(pid=123)]),
+            dict(status="passed", processes=[]),
+        ]
+        with patch.dict(
+            os.environ, {"CUDA_VISIBLE_DEVICES": "auto"}, clear=True
+        ), patch.object(bench.support, "command", return_value=query), patch.object(
+            gpu_guard, "idle", side_effect=checks
+        ) as idle, contextlib.redirect_stdout(
+            io.StringIO()
+        ):
+            summary = {}
+            self.assertTrue(profile.select_gpu(summary))
+            self.assertEqual(os.environ["CUDA_VISIBLE_DEVICES"], cool)
+            self.assertEqual(
+                [call.args[0] for call in idle.call_args_list], [cold, cool]
+            )
+            self.assertEqual(summary["gpu_uuid"], cool)
+            self.assertEqual(
+                summary["gpu_selection_checks"][0]["inventory_temperature_c"], 28
+            )
+
+    def test_explicit_uuid_is_not_silently_replaced(self):
+        uuid = "GPU-00000000-0000-0000-0000-000000000003"
+        with patch.dict(
+            os.environ, {"CUDA_VISIBLE_DEVICES": uuid}, clear=True
+        ), patch.object(bench.support, "command") as command:
+            summary = {}
+            self.assertTrue(profile.select_gpu(summary))
+            self.assertEqual(summary["gpu_uuid"], uuid)
+            command.assert_not_called()
+
+    def test_unavailable_or_unreadable_inventory_never_selects_a_gpu(self):
+        uuid = "GPU-00000000-0000-0000-0000-000000000001"
+        for text, malformed in (
+            (f"{uuid}, NVIDIA H800, 80\n", False),
+            (f"{uuid}, NVIDIA H800, N/A\n", True),
+        ):
+            with self.subTest(malformed=malformed), patch.dict(
+                os.environ, {"CUDA_VISIBLE_DEVICES": "auto"}, clear=True
+            ), patch.object(
+                bench.support, "command", return_value=dict(returncode=0, stdout=text)
+            ), patch.object(
+                gpu_guard,
+                "idle",
+                return_value=dict(
+                    status="rejected",
+                    reasons=["Initial temperature C 80 exceeds limit 75"],
+                ),
+            ):
+                summary = {}
+                if malformed:
+                    with self.assertRaises(ValueError):
+                        profile.select_gpu(summary)
+                else:
+                    self.assertFalse(profile.select_gpu(summary))
+                    self.assertTrue(summary["environment_rejected"])
+                self.assertEqual(os.environ["CUDA_VISIBLE_DEVICES"], "auto")
 
 
 class AccuracyTests(unittest.TestCase):

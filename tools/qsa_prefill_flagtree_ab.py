@@ -169,6 +169,55 @@ def cooldown_gate(summary, report, env, label, guard, timeout, interval):
         time.sleep(wait)
 
 
+def select_gpu(summary):
+    """Prefer a cool idle H800, preserving an explicit UUID and all idle checks."""
+    from tools import benchmark_qsa_prefill_stages as support
+    from tools import qsa_prefill_gpu_guard as guard
+
+    requested = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    if guard.UUID_PATTERN.fullmatch(requested):
+        summary.update(gpu_uuid=requested, gpu_selection_policy="explicit UUID")
+        return True
+    if requested not in ("", "auto"):
+        raise ValueError("Select one full GPU UUID or CUDA_VISIBLE_DEVICES=auto")
+    query = support.command(
+        [
+            "nvidia-smi",
+            "--query-gpu=uuid,name,temperature.gpu",
+            "--format=csv,noheader,nounits",
+        ]
+    )
+    summary.update(
+        gpu_inventory=query,
+        gpu_selection_policy="lowest inventory temperature first; original idle guard required",
+    )
+    candidates = []
+    for row in guard.rows(query):
+        if len(row) != 3:
+            raise ValueError("Malformed GPU inventory row: " + repr(row))
+        uuid, name, temperature = [part.strip() for part in row]
+        if "H800" not in name:
+            continue
+        temperature = int(temperature)
+        if not guard.UUID_PATTERN.fullmatch(uuid) or not 0 <= temperature <= 150:
+            raise ValueError("Invalid H800 UUID/temperature in GPU inventory")
+        candidates.append((temperature, uuid))
+    for temperature, uuid in sorted(candidates):
+        check = guard.idle(uuid, support.command)
+        check["inventory_temperature_c"] = temperature
+        summary.setdefault("gpu_selection_checks", []).append(check)
+        if check["status"] == "passed":
+            os.environ["CUDA_VISIBLE_DEVICES"] = uuid
+            summary["gpu_uuid"] = uuid
+            print(
+                f"Selected cool idle H800: {uuid}, inventory temperature={temperature}C",
+                flush=True,
+            )
+            return True
+    summary["environment_rejected"] = True
+    return False
+
+
 def prepare(options, extra):
     from tools import benchmark_qsa_prefill_stages as support
     from tools import validate_qsa_ptxas_h800 as validation
@@ -180,7 +229,7 @@ def prepare(options, extra):
         for key in ("TRITON_PTXAS_PATH", "CUDA_LAUNCH_BLOCKING"):
             os.environ.pop(key, None)
         facts = dict(status="preparing")
-        if not validation.select_gpu(facts):
+        if not select_gpu(facts):
             facts["status"] = "environment_rejected"
             support.write_json(report / "stage-summary.json", facts)
             return 2
