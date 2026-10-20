@@ -891,3 +891,32 @@ def test_integrated_full_entry_and_retained_candidate(
     )
     assert op is op_module.qsa_select_paged_prefill
     assert op_module.persistent_topk is baseline.persistent_topk
+
+
+@pytest.mark.parametrize(
+    "case", observed_workloads.fp8.cases(), ids=lambda c: c["name"]
+)
+def test_fp8_benchmark_against_native(sm90, monkeypatch, case):
+    from tools import benchmark_qsa_prefill_triton_stages as stages
+    from tools import qsa_prefill_triton_ab as ab
+
+    from . import qsa_select_prefill_utils as helpers
+
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "512")
+    native = vllm_reference()
+    monkeypatch.setattr(native.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 512)
+    args = observed_workloads.make_inputs(case, helpers, torch)
+    assert args[0].dtype == args[1].dtype == torch.float8_e4m3fn
+    native_args = (*args[:8], stages.native_output(args[8], torch), args[9])
+    native_chunks = ab.observe(native, "_topk", native_args)
+    candidate_chunks = ab.observe(op_module, "persistent_topk", args)
+    stages.verify_geometry(case, args, candidate_chunks)
+    functions = ab.bind_stages(native, op_module, native_chunks, candidate_chunks)
+    checked = stages.validate_pipeline(
+        functions["pipeline"], native_args, args, native_chunks, torch, helpers
+    )
+    assert checked >= len(case["query_lengths"])
+    assert stages.validate_topk(
+        native, op_module, native_chunks, candidate_chunks, torch, helpers
+    ) >= len(case["query_lengths"])
+    assert op is op_module.qsa_select_paged_prefill

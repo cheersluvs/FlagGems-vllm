@@ -2,7 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """Same-compiler native-vLLM vs production QSA prefill stage A/B.
 
-Twelve upstream layouts plus ten recorded envelopes, with separate stage timers.
+Twenty-two BF16 cases plus ten explicit FP8 fixtures, with separate stage timers.
 Stock Triton uses non-TLE Top-K; FlagTree also supports a private scheduling trial.
 """
 
@@ -48,6 +48,9 @@ SOURCES = sorted(
         "tools/diagnose_qsa_native_score_h800.py",
         "tools/diagnose_qsa_native_decode_h800.py",
         "tools/qsa_prefill_observed_workloads.py",
+        "tools/qsa_prefill_fp8_workloads.py",
+        "tools/test_qsa_prefill_fp8_workloads.py",
+        "docs/qsa_prefill_fp8_shape_manifest.json",
         "tools/qsa_prefill_compact_trial.py",
         "tools/qsa_prefill_key_major_trial.py",
         "tools/qsa_prefill_reuse_trial.py",
@@ -288,24 +291,28 @@ def preflight_smoke(torch, native, candidate, helpers):
     checks = []
     os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = "512"
     native.envs.VLLM_SPARSE_INDEXER_MAX_LOGITS_MB = 512
-    for rows in (8, 128):
-        case = dict(workloads.cases()[0], query_length=rows)
-        args = workloads.make_inputs(case, helpers, torch)
-        native_args = (*args[:8], native_output(args[8], torch), args[9])
-        functions = dict(
-            baseline=lambda: native.qsa_select_paged_prefill(*native_args),
-            candidate=lambda: candidate.qsa_select_paged_prefill(*args),
-        )
-        checked = validate_pipeline(functions, native_args, args, [], torch, helpers)
-        torch.cuda.synchronize()
-        checks.append(
-            dict(
-                rows=rows,
-                status="passed",
-                sampled_rows=checked,
-                native_topk="cooperative_topk" if rows <= 64 else "persistent_topk",
+    for dtype in ("bfloat16", "float8_e4m3fn"):
+        for rows in (8, 128):
+            case = dict(workloads.cases()[0], query_length=rows, dtype=dtype)
+            args = workloads.make_inputs(case, helpers, torch)
+            native_args = (*args[:8], native_output(args[8], torch), args[9])
+            functions = dict(
+                baseline=lambda: native.qsa_select_paged_prefill(*native_args),
+                candidate=lambda: candidate.qsa_select_paged_prefill(*args),
             )
-        )
+            checked = validate_pipeline(
+                functions, native_args, args, [], torch, helpers
+            )
+            torch.cuda.synchronize()
+            checks.append(
+                dict(
+                    rows=rows,
+                    dtype=dtype,
+                    status="passed",
+                    sampled_rows=checked,
+                    native_topk="cooperative_topk" if rows <= 64 else "persistent_topk",
+                )
+            )
     return checks
 
 
@@ -321,7 +328,7 @@ def verify_geometry(case, args, chunks, *, select_all=False):
     for index, key in ((0, "q_shape"), (1, "cache_shape"), (2, "page_table_shape")):
         if list(args[index].shape) != expected[key]:
             raise RuntimeError(f"Unexpected input shape: {index}")
-    if case["kind"] in ("inference_perf", "observed_perf"):
+    if case["kind"] in ("inference_perf", "observed_perf", "fp8_perf"):
         for index, layout in expected["input_layout"].items():
             value = args[int(index)]
             if (
@@ -356,10 +363,25 @@ def validate_topk(native, candidate, native_chunks, candidate_chunks, torch, hel
             helpers.assert_selection(logits, lengths, actual)
             helpers.assert_selection(logits, lengths, expected)
             helpers.assert_native_selection(
-                logits, lengths, actual, expected, dtype=torch.bfloat16, head_dim=128
+                logits,
+                lengths,
+                actual,
+                expected,
+                dtype=a["score_args"][0].dtype,
+                head_dim=a["score_args"][0].shape[2],
             )
             checked += 1
     return checked
+
+
+def validate_reference_selection(reference, lengths, selected, q, torch, helpers):
+    """Reuse existing FP8 normalization/tolerances; preserve BF16 checks."""
+    if q.dtype == torch.float8_e4m3fn:
+        helpers.assert_upstream_selection(
+            reference, lengths, selected, dtype=q.dtype, head_dim=q.shape[2]
+        )
+    else:
+        helpers.assert_selection(reference, lengths, selected)
 
 
 def validate_pipeline(functions, native_args, args, chunks, torch, helpers):
@@ -381,10 +403,12 @@ def validate_pipeline(functions, native_args, args, chunks, torch, helpers):
         reference = (q[row].float() @ keys.T).clamp_min(0).sum(0)[None, :]
         lengths = visible[row : row + 1]
         left, right = native_args[8][row : row + 1], args[8][row : row + 1]
-        helpers.assert_selection(reference, lengths, left)
-        helpers.assert_selection(reference, lengths, right)
+        for selected in (left, right):
+            validate_reference_selection(
+                reference, lengths, selected, q, torch, helpers
+            )
         helpers.assert_native_selection(
-            reference, lengths, right, left, dtype=torch.bfloat16, head_dim=128
+            reference, lengths, right, left, dtype=q.dtype, head_dim=q.shape[2]
         )
     return len(rows)
 
@@ -414,6 +438,8 @@ def worker(options, case, path):
     os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = str(case["budget_mb"])
     native.envs.VLLM_SPARSE_INDEXER_MAX_LOGITS_MB = case["budget_mb"]
     args = workloads.make_inputs(case, helpers, torch)
+    if args[0].dtype != getattr(torch, case["dtype"]) or args[1].dtype != args[0].dtype:
+        raise RuntimeError("Input Q/cache dtype differs from workload definition")
     native_args = (*args[:8], native_output(args[8], torch), args[9])
     result["inputs"] = support.fingerprint(args, torch)
     result["native_output_layout"] = dict(
@@ -789,7 +815,7 @@ def write_table(summary, directory):
             lines.append("\t".join(map(str, values)))
     (directory / "triton-stage-ab.tsv").write_text("\n".join(lines) + "\n")
     grouped = {}
-    for group in ("upstream_perf", "observed_perf"):
+    for group in workloads.GROUPS:
         members = [c for c in summary["cases"] if c["case"].get("kind") == group]
         planned = [
             c
@@ -1031,6 +1057,12 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             if not any("::" + name in node for node in records):
                 error = "Missing required direct comparison coverage: " + name
                 break
+        if not error and getattr(options, "candidate", "production") == "production":
+            for case in workloads.fp8.cases():
+                node = "::test_fp8_benchmark_against_native[" + case["name"] + "]"
+                if not any(node in name for name in records):
+                    error = "Missing required FP8 benchmark coverage: " + case["name"]
+                    break
         if (
             not error
             and getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES

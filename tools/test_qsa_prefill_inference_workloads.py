@@ -80,7 +80,7 @@ class InferenceWorkloadTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "cannot truncate"):
                 workloads.geometry(dict(original, **overrides))
 
-    def test_pytest_uses_observed_twenty_two_and_only_twenty_scored_inputs(self):
+    def test_pytest_uses_thirty_two_and_thirty_scored_inputs(self):
         source = bench.ROOT / "benchmark/test_qsa_select_paged_prefill_perf.py"
         tree = ast.parse(source.read_text())
         definitions = [
@@ -103,7 +103,7 @@ class InferenceWorkloadTests(unittest.TestCase):
             base=types.SimpleNamespace(GenericBenchmark=object),
             workloads=observed,
             input_helpers=object(),
-            torch=types.SimpleNamespace(bfloat16="bf16"),
+            torch=types.SimpleNamespace(bfloat16="bf16", float8_e4m3fn="fp8"),
         )
         exec(
             compile(ast.Module(body=definitions, type_ignores=[]), str(source), "exec"),
@@ -126,14 +126,20 @@ class InferenceWorkloadTests(unittest.TestCase):
                 benchmark.shapes, observed.cases("combined-prefill")
             ):
                 self.assertEqual(
-                    next(namespace["_inputs"](shape, "bf16", "cuda:3")),
+                    next(
+                        namespace["_inputs"](
+                            shape,
+                            "fp8" if case["dtype"] == "float8_e4m3fn" else "bf16",
+                            "cuda:3",
+                        )
+                    ),
                     tuple(range(10)),
                 )
                 self.assertEqual(builder.call_args.args[0], case)
                 self.assertEqual(builder.call_args.kwargs["device"], "cuda:3")
         scored = namespace["QSAScoredBenchmark"]()
         scored.set_shapes()
-        self.assertEqual(len(scored.shapes), 20)
+        self.assertEqual(len(scored.shapes), 30)
         for shape in scored.shapes:
             self.assertFalse(
                 observed.geometry(namespace["BENCHMARK_CASES"][shape]).get("select_all")

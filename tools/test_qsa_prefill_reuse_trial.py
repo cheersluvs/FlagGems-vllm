@@ -212,7 +212,7 @@ class ReuseTests(unittest.TestCase):
             args + ["--compiler", "flagtree"], capture_output=True, text=True
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(len(json.loads(proc.stdout)), 22)
+        self.assertEqual(len(json.loads(proc.stdout)), 32)
         proc = subprocess.run(args, capture_output=True, text=True)
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("FlagTree", proc.stderr)

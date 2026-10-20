@@ -68,7 +68,7 @@ class Pointer:
 class WorkloadTests(unittest.TestCase):
     def test_matrix_and_recorded_envelopes(self):
         self.assertEqual(
-            [len(workloads.cases(s)) for s in workloads.SUITES], [12, 10, 22]
+            [len(workloads.cases(s)) for s in workloads.SUITES], [12, 10, 10, 32]
         )
         expected = [
             [96, 1, 4, 128, 96, 4096],
@@ -122,7 +122,7 @@ class WorkloadTests(unittest.TestCase):
         self.assertEqual(recorded["visible"][-1], 32770 // 4)
 
     def test_isolated_cli_lists_all_suites_without_gpu(self):
-        for suite, count in zip(workloads.SUITES, (12, 10, 22)):
+        for suite, count in zip(workloads.SUITES, (12, 10, 10, 32)):
             result = subprocess.run(
                 [
                     sys.executable,
@@ -150,7 +150,7 @@ class CompactMappingTests(unittest.TestCase):
         exec(compile(ast.Module(body=[fn], type_ignores=[]), str(TRIAL), "exec"), ns)
         eligible = ns["_compact_eligible"]
         selected = []
-        for case in workloads.cases("combined-prefill"):
+        for case in workloads.upstream.cases() + workloads.observed_cases():
             info = workloads.geometry(case)
             for count in info["expected_chunk_rows"]:
                 if eligible(

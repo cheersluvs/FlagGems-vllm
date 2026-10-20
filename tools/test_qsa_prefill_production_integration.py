@@ -107,7 +107,7 @@ class ProductionIntegrationTests(unittest.TestCase):
             {"empty"},
         )
 
-    def test_actual_production_dispatch_matches_retained_host_on_all22(self):
+    def test_actual_production_dispatch_matches_retained_host_on_all32(self):
         routed = []
         for case in workloads.cases("combined-prefill"):
             info = workloads.geometry(case)
@@ -127,7 +127,11 @@ class ProductionIntegrationTests(unittest.TestCase):
                     tensors = [
                         chunk.Array(
                             s,
-                            "bf16" if i < 2 else "i32",
+                            (
+                                ("fp8" if case["dtype"] == "float8_e4m3fn" else "bf16")
+                                if i < 2
+                                else "i32"
+                            ),
                             (i + 1) * 10000000,
                             label=f"input_{i}",
                         )
@@ -164,7 +168,9 @@ class ProductionIntegrationTests(unittest.TestCase):
                     ):
                         routed.append(case["name"])
                 self.assertEqual(outputs[0], outputs[1])
-        self.assertEqual(routed, ["observed_ragged54_bfloat16"])
+        self.assertEqual(
+            routed, ["observed_ragged54_bfloat16", "fp8_compact_float8_e4m3fn"]
+        )
 
     def test_chunked_and_strided_host_transfer(self):
         for rows, requests, maximum in ((73, 2, 39), (200, 8, 100), (50, 8, 33)):

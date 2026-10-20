@@ -2,6 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """Recorded QSA envelopes with explicit synthetic runtime metadata; CPU safe."""
 
+from tools import qsa_prefill_fp8_workloads as fp8
 from tools import qsa_prefill_inference_workloads as inference
 from tools import qsa_prefill_upstream_workloads as upstream
 
@@ -11,7 +12,8 @@ SOURCE = (
     f"https://github.com/cheersluvs/FlagGems-vllm/tree/{UPLOAD_COMMIT}/"
     "results/qsa_select_paged_prefill/inference-shapes/20261020-014744"
 )
-SUITES = ("upstream-prefill", "observed-prefill", "combined-prefill")
+SUITES = ("upstream-prefill", "observed-prefill", "fp8-prefill", "combined-prefill")
+GROUPS = ("upstream_perf", "observed_perf", "fp8_perf")
 
 
 def observed_cases():
@@ -52,14 +54,20 @@ def observed_cases():
 def cases(suite="upstream-prefill"):
     if suite not in SUITES:
         raise ValueError(f"Unknown QSA suite: {suite}")
-    return (upstream.cases() if suite != "observed-prefill" else []) + (
-        observed_cases() if suite != "upstream-prefill" else []
-    )
+    if suite == "upstream-prefill":
+        return upstream.cases()
+    if suite == "observed-prefill":
+        return observed_cases()
+    if suite == "fp8-prefill":
+        return fp8.cases()
+    return upstream.cases() + observed_cases() + fp8.cases()
 
 
 def geometry(case):
     if case["kind"] == "upstream_perf":
         return upstream.geometry(case)
+    if case["kind"] == "fp8_perf":
+        return fp8.geometry(case)
     info = inference.geometry(case)
     maximum = info["batch_max_seq_len"]
     bound = min(

@@ -1,5 +1,11 @@
 # QSA prefill：上游 benchmark、我们的 benchmark 与推理 shape 对照
 
+2026-10-20更新：当前常规benchmark矩阵为 **32组**：上游12组BF16 +
+原推理10组BF16 + 新增10组FP8。H800三阶段runner的`combined-prefill`使用32组，
+`fp8-prefill`可单跑新增10组；CLI默认`upstream-prefill`仍为12组。
+FP8来源、构造假设和运行口径见[FP8补充矩阵](qsa_prefill_fp8_benchmark.md)。
+下文2026-10-16的22组和历史50项目录描述各自当时的矩阵。
+
 ## 结论与证据边界
 
 2026-10-16 更新：当前默认性能矩阵扩展为 **22组**：上游12组 + 推理长度候选8组 +

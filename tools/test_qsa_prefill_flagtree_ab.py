@@ -259,6 +259,7 @@ class AccuracyTests(unittest.TestCase):
             "missing",
             "missing_trial",
             "missing_production",
+            "missing_fp8",
             "skipped",
             "identity",
             "key_major",
@@ -323,9 +324,25 @@ class AccuracyTests(unittest.TestCase):
                             )
                         }
                     )
+                if not hasattr(options, "candidate"):
+                    records.update(
+                        {
+                            "tests/test.py::test_fp8_benchmark_against_native["
+                            + c["name"]
+                            + "]": dict(result="passed")
+                            for c in bench.workloads.fp8.cases()
+                        }
+                    )
                 if failure == "missing_trial":
                     options.candidate = "compact-ragged"
                     records.pop("tests/test.py::test_compact_full_entry")
+                if failure == "missing_fp8":
+                    first = bench.workloads.fp8.cases()[0]["name"]
+                    records.pop(
+                        "tests/test.py::test_fp8_benchmark_against_native["
+                        + first
+                        + "]"
+                    )
                 if failure == "missing_production":
                     records.pop(
                         "tests/test.py::test_integrated_full_entry_and_retained_candidate"

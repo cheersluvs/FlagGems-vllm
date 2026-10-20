@@ -2,7 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """H800 QSA prefill: full operator, score stage, and Top-K stage.
 
-The active matrix contains twelve upstream layouts and ten recorded envelopes.
+The matrix contains 22 BF16 cases plus eight FP8 envelopes and two FP8 variants.
 The H800 --mode kernel runner measures the real score chunk sequence without
 Top-K; the isolated stage tests below retain their single full-row launch.
 
@@ -48,11 +48,17 @@ class QSAPrefillBenchmark(base.GenericBenchmark):
         self.shapes = list(BENCHMARK_CASES)
         self.shape_desc = (
             "case (query lengths, prefixes and layout in workload manifest) "
-            "(BF16, H=4, D=128, page=196, block_k=512)"
+            "(22 BF16 + 10 FP8, H=4, D=128, page=196, block_k=512)"
         )
 
     def set_more_shapes(self):
         return []
+
+    def get_input_iter(self, dtype):
+        # Each named case has one declared dtype, not a cross-product matrix.
+        for shape in self.shapes:
+            if getattr(torch, BENCHMARK_CASES[shape]["dtype"]) == dtype:
+                yield from self.input_fn(shape, dtype, self.device)
 
 
 class QSAScoredBenchmark(QSAPrefillBenchmark):
@@ -66,7 +72,7 @@ class QSAScoredBenchmark(QSAPrefillBenchmark):
 
 
 def _inputs(shape, dtype, device):
-    assert dtype == torch.bfloat16
+    assert dtype == getattr(torch, BENCHMARK_CASES[shape]["dtype"])
     yield workloads.make_inputs(
         BENCHMARK_CASES[shape], input_helpers, torch, device=device
     )
@@ -123,7 +129,7 @@ def _run(
     gems,
     input_fn,
     benchmark_cls=QSAPrefillBenchmark,
-    dtypes=(torch.bfloat16,),
+    dtypes=(torch.bfloat16, torch.float8_e4m3fn),
 ):
     # Warm both functions on each input before timing to exclude compilation
     # and autotuning. The common runner then measures operator-level latency.
