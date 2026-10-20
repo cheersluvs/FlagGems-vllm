@@ -98,3 +98,40 @@ coverage, and retain success/failure report-upload coverage. No production
 Torch compute fallback or new kernel arithmetic was introduced. CUDA
 compilation, full correctness, actual winning configurations and incremental
 speedups remain pending H800; do not infer a gain from the resource hypothesis.
+
+## H800 decision, report 4b77a6f
+
+Report `4b77a6f0726549275bc5d928e513b092499aa30e`, code `b60b59f`:
+242 passed, one optional second-SM90 skip and all 22 cases complete. All 44
+source identities, same compiler/runtime/GPU, cache checks, 612 raw timing
+samples and 408 timing telemetry points were verified. See
+`docs/qsa_prefill_reuse_h800_results.md` for all score/TopK/pipeline latencies.
+
+| Group | Score/native | Score/frozen production | Incremental score/retained key-major | TopK/native | Pipeline/native |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Upstream12 | 1.05793 | 1.40956 | 1.01522 | 0.89457 | 0.97100 |
+| Observed8 scored / 10 pipeline | 2.00673 | 1.14843 | 1.00714 | 0.89945 | 1.93582 |
+
+Keep the private eight-choice candidate as the next trial baseline, not a
+production integration or a guarantee across workloads/vendors. Seven
+upstream cases select a new choice; six have all three paired incremental
+ratios above one, one is essentially flat. Twelve rectangular controls use
+identical old configurations/PTX/CUBIN on both sides. Observed workloads
+select no new choice; their small aggregate shift is not credited to this
+optimization. Ragged54 retains the same compact scorer.
+
+The n1/q16384/p51200 pair changes only warps4 to warps8 at TR64/BN64/KT16:
+232 to 118 registers/thread, 106496 to 114688 shared bytes, no spills, 1.07049x
+incremental speedup. Twice as many threads means the per-CTA register budget
+has not halved; there are no hardware counters proving an occupancy cause.
+
+The shorter protocol was used. Full correctness took 514.82s; first-to-last
+benchmark telemetry spanned 1015.80s, versus 1929.79s in the preceding run,
+despite twenty additional incremental comparison stages. These spans include
+startup/compile/validation, not just timers, and are not an equal-work total
+runtime experiment. Temperature32–52C, SM clocks1965–1980MHz; only one
+trailing-utilization admission waited10s, with no temperature cooldown.
+
+No eviction hint was added or timed. A separate hint-only A/B remains the
+next proposed experiment; TopK and the score-only NV acceptance rule stay
+unchanged.
