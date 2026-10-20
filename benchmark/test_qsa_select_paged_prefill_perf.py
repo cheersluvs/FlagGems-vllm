@@ -2,7 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """H800 QSA prefill: full operator, score stage, and Top-K stage.
 
-The active matrix contains only the twelve published upstream vLLM layouts.
+The active matrix contains twelve upstream layouts and ten recorded envelopes.
 The H800 --mode kernel runner measures the real score chunk sequence without
 Top-K; the isolated stage tests below retain their single full-row launch.
 
@@ -20,7 +20,7 @@ import flaggems_vllm
 from flaggems_vllm.ops.top_k_per_row_prefill import top_k_per_row_prefill
 from tests import qsa_select_prefill_utils as input_helpers
 from tests.qsa_select_prefill_utils import torch_select, vllm_reference
-from tools import qsa_prefill_upstream_workloads as workloads
+from tools import qsa_prefill_observed_workloads as workloads
 
 from . import base
 
@@ -37,12 +37,14 @@ pytestmark = [
 
 # One shared definition with the H800 --mode kernel runner. Prefix is in
 # original tokens before the query, not compressed cache rows.
-BENCHMARK_CASES = {(case["name"],): case for case in workloads.cases()}
+BENCHMARK_CASES = {
+    (case["name"],): case for case in workloads.cases("combined-prefill")
+}
 
 
 class QSAPrefillBenchmark(base.GenericBenchmark):
     def set_shapes(self, shape_file_path=None):
-        # Core and comprehensive use the same twelve upstream scenarios.
+        # Full-entry measurements include the two select-all fast paths.
         self.shapes = list(BENCHMARK_CASES)
         self.shape_desc = (
             "case (query lengths, prefixes and layout in workload manifest) "
@@ -51,6 +53,16 @@ class QSAPrefillBenchmark(base.GenericBenchmark):
 
     def set_more_shapes(self):
         return []
+
+
+class QSAScoredBenchmark(QSAPrefillBenchmark):
+    def set_shapes(self, shape_file_path=None):
+        super().set_shapes(shape_file_path)
+        self.shapes = [
+            shape
+            for shape in self.shapes
+            if not workloads.geometry(BENCHMARK_CASES[shape]).get("select_all")
+        ]
 
 
 def _inputs(shape, dtype, device):
@@ -157,6 +169,7 @@ def test_scores_vs_vllm():
         reference._prefill_logits,
         op_module._prefill_logits,
         _score_inputs,
+        benchmark_cls=QSAScoredBenchmark,
     )
 
 
@@ -167,7 +180,13 @@ def test_topk_vs_vllm():
         del starts
         reference._topk(logits, visible, token_topk, ratio, output, workspace)
 
-    _run("qsa_prefill_topk_vs_vllm", baseline, _gems_topk, _topk_inputs)
+    _run(
+        "qsa_prefill_topk_vs_vllm",
+        baseline,
+        _gems_topk,
+        _topk_inputs,
+        benchmark_cls=QSAScoredBenchmark,
+    )
 
 
 def test_topk_persistent_vs_prefill():
@@ -178,4 +197,5 @@ def test_topk_persistent_vs_prefill():
         _old_gems_topk,
         _gems_topk,
         _topk_inputs,
+        benchmark_cls=QSAScoredBenchmark,
     )

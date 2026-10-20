@@ -231,7 +231,14 @@ class AccuracyTests(unittest.TestCase):
     def test_gate_accepts_full_native_coverage_and_rejects_failures_or_changed_identity(
         self,
     ):
-        for failure in (None, "pytest", "missing", "skipped", "identity"):
+        for failure in (
+            None,
+            "pytest",
+            "missing",
+            "missing_trial",
+            "skipped",
+            "identity",
+        ):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
                 root = Path(folder)
                 options = argparse.Namespace(
@@ -255,10 +262,15 @@ class AccuracyTests(unittest.TestCase):
                         "test_upstream_prefill_against_vllm",
                         "test_upstream_split_prefill",
                         "test_upstream_no_complete_blocks_dim8",
+                        "test_observed_envelopes_against_native",
+                        "test_compact_every_config_and_chunk_boundary",
+                        "test_compact_full_entry",
                     )
                 }
                 if failure == "missing":
                     records.pop("tests/test.py::test_parameterized_against_vllm")
+                if failure == "missing_trial":
+                    records.pop("tests/test.py::test_compact_full_entry")
                 if failure == "skipped":
                     records["tests/test.py::test_parameterized_against_vllm"][
                         "result"

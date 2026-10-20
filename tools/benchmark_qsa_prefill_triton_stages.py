@@ -2,8 +2,8 @@
 # Copyright 2026 FlagOS Contributors
 """Same-compiler native-vLLM vs production QSA prefill stage A/B.
 
-Twelve upstream scenarios, kernel timer, separate score/Top-K/sequential pipeline.
-Stock Triton uses the non-TLE Top-K variant; FlagTree uses production unchanged.
+Twelve upstream layouts plus ten recorded envelopes, with separate stage timers.
+Stock Triton uses non-TLE Top-K; FlagTree also supports a private scheduling trial.
 """
 
 import argparse
@@ -11,6 +11,7 @@ import hashlib
 import importlib
 import importlib.metadata
 import json
+import math
 import os
 import subprocess
 import sys
@@ -24,10 +25,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
 from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
+from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
 from tools import qsa_prefill_triton_ab as ab  # noqa: E402
-from tools import qsa_prefill_upstream_workloads as workloads  # noqa: E402
 
 SOURCES = sorted(
     set(support.SOURCES)
@@ -44,6 +45,10 @@ SOURCES = sorted(
         "tools/validate_qsa_ptxas_h800.py",
         "tools/diagnose_qsa_native_score_h800.py",
         "tools/diagnose_qsa_native_decode_h800.py",
+        "tools/qsa_prefill_observed_workloads.py",
+        "tools/qsa_prefill_compact_trial.py",
+        "tests/test_qsa_prefill_compact_trial.py",
+        "benchmark/test_qsa_select_paged_prefill_perf.py",
     }
 )
 
@@ -187,6 +192,10 @@ def runtime(reference_path, diagnostic_path=None, options=None):
     else:
         adapter = ab.PrefillTopK(old_topk.top_k_per_row_prefill, torch)
         candidate = ab.candidate_module(op, adapter)
+    if getattr(options, "candidate", "production") == "compact-ragged":
+        from tools import qsa_prefill_compact_trial as trial
+
+        candidate = trial.candidate_module(op)
     return (
         torch,
         native,
@@ -233,19 +242,19 @@ def preflight_smoke(torch, native, candidate, helpers):
     return checks
 
 
-def verify_geometry(case, args, chunks):
+def verify_geometry(case, args, chunks, *, select_all=False):
     expected = workloads.geometry(case)
     offset = 0
     signature = []
     for rows in expected["expected_chunk_rows"]:
         signature.append((offset, rows, expected["logits_width"]))
         offset += rows
-    if ab.signatures(chunks) != signature:
+    if ab.signatures(chunks) != ([] if select_all else signature):
         raise RuntimeError("Public pipeline differs from canonical scoring chunks")
     for index, key in ((0, "q_shape"), (1, "cache_shape"), (2, "page_table_shape")):
         if list(args[index].shape) != expected[key]:
             raise RuntimeError(f"Unexpected input shape: {index}")
-    if case["kind"] == "inference_perf":
+    if case["kind"] in ("inference_perf", "observed_perf"):
         for index, layout in expected["input_layout"].items():
             value = args[int(index)]
             if (
@@ -320,7 +329,12 @@ def common_fingerprints(chunks, torch):
 
 
 def worker(options, case, path):
-    result = dict(case=case, status="running", stages={})
+    result = dict(
+        case=case,
+        status="running",
+        stages={},
+        candidate_kind=getattr(options, "candidate", "production"),
+    )
     if shared.enabled(options):
         result.update(
             measurement_context="shared_gpu_exploratory", acceptance_eligible=False
@@ -341,10 +355,15 @@ def worker(options, case, path):
         storage_offset=native_args[8].storage_offset(),
     )
     native_chunks = ab.observe(native, "_topk", native_args)
-    candidate_chunks = ab.observe(candidate, "persistent_topk", args)
-    result["workload"] = verify_geometry(case, args, candidate_chunks)
+    fastpath = workloads.geometry(case).get("select_all", False)
+    candidate_chunks = (
+        [] if fastpath else ab.observe(candidate, "persistent_topk", args)
+    )
+    result["workload"] = verify_geometry(
+        case, args, candidate_chunks, select_all=fastpath
+    )
     verify_geometry(case, native_args, native_chunks)
-    if ab.signatures(native_chunks) != ab.signatures(candidate_chunks):
+    if not fastpath and ab.signatures(native_chunks) != ab.signatures(candidate_chunks):
         raise RuntimeError("Baseline/candidate scoring geometry differs")
     for c in candidate_chunks:
         c.pop("common_logits")  # Both Top-K stages use only native frozen scores.
@@ -361,7 +380,46 @@ def worker(options, case, path):
         for a, b in zip(native_chunks, candidate_chunks)
     ]
     result["common_logits_before"] = common_fingerprints(native_chunks, torch)
-    functions = ab.bind_stages(native, candidate, native_chunks, candidate_chunks)
+    if fastpath:
+        # Native vLLM still executes its real score/TopK sequence. Production
+        # selects all directly. Compare complete device pipelines only.
+        def native_pipeline():
+            for c in native_chunks:
+                logits = native._prefill_logits(*c["score_args"], **c["score_kwargs"])
+                native._topk(logits, *c["topk_args"][1:], **c["topk_kwargs"])
+
+        functions = dict(
+            pipeline=dict(
+                baseline=native_pipeline,
+                candidate=ab.select_all_stage(candidate, args),
+            )
+        )
+        result["stages"].update(
+            {
+                name: dict(
+                    status="not_applicable",
+                    accepted=False,
+                    reason="production select-all skips score and TopK",
+                )
+                for name in ("score", "topk")
+            }
+        )
+    else:
+        functions = ab.bind_stages(native, candidate, native_chunks, candidate_chunks)
+    production_chunks = []
+    production = getattr(candidate, "production_baseline", None)
+    if production is not None and not fastpath:
+        # Identical public chunk geometry and one shared preallocated output
+        # buffer isolate scheduling; no additional TopK or scratch allocation.
+        production_args, production_chunks = args, candidate_chunks
+
+        def production_scores():
+            for c in production_chunks:
+                production._prefill_logits(*c["score_args"], **c["score_kwargs"])
+
+        functions["score_vs_production"] = dict(
+            baseline=production_scores, candidate=functions["score"]["candidate"]
+        )
     for stage in functions.values():
         for fn in stage.values():
             fn()  # Compile/autotune and allocate operator-internal scratch untimed.
@@ -371,6 +429,35 @@ def worker(options, case, path):
     )
     result["timer"] = {k: v for k, v in timer_info.items() if k != "includes_topk"}
     result["production_score_configs"] = support.score_configs(candidate)
+    if production is not None:
+        result["compact_score_configs"] = support.score_configs(
+            candidate, "_qsa_prefill_compact_score_kernel"
+        )
+        result["score_schedule"] = dict(
+            ragged_envelope=args[0].shape[0] < args[2].shape[0] * args[7],
+            compact_chunks=[
+                c["offset"]
+                for c in candidate_chunks
+                if args[0].shape[0] < args[2].shape[0] * args[7]
+                and args[2].shape[0] > 1
+                and c["rows"] > args[7]
+            ],
+            unchanged_production_sha256=ab.PRODUCTION_SHA256,
+            grids=[
+                dict(
+                    tile_r=tile,
+                    chunks=[
+                        dict(
+                            rectangular=args[2].shape[0]
+                            * math.ceil(min(c["rows"], args[7]) / tile),
+                            compact=c["rows"] // tile + args[2].shape[0],
+                        )
+                        for c in candidate_chunks
+                    ],
+                )
+                for tile in (4, 8, 16, 32, 64)
+            ],
+        )
     result["topk_backends"] = dict(
         baseline="vLLM native CUDA _C dispatcher",
         candidate=(
@@ -382,7 +469,7 @@ def worker(options, case, path):
     guard = support.gpu_guard_module()
 
     def validate(name):
-        if name == "score":
+        if name in ("score", "score_vs_production"):
             return {
                 side: scoring.validate_scores(
                     module._prefill_logits,
@@ -393,7 +480,20 @@ def worker(options, case, path):
                     device,
                 )
                 for side, module, chunks, a in (
-                    ("baseline", native, native_chunks, native_args),
+                    (
+                        "baseline",
+                        production if name == "score_vs_production" else native,
+                        (
+                            production_chunks
+                            if name == "score_vs_production"
+                            else native_chunks
+                        ),
+                        (
+                            production_args
+                            if name == "score_vs_production"
+                            else native_args
+                        ),
+                    ),
                     ("candidate", candidate, candidate_chunks, args),
                 )
             }
@@ -411,7 +511,12 @@ def worker(options, case, path):
 
     for name, stage in functions.items():
         entry = result["stages"][name] = dict(
-            status="validating", accepted=False, includes_topk=name != "score"
+            status="validating",
+            accepted=False,
+            includes_topk=name not in ("score", "score_vs_production"),
+            baseline_kind=(
+                "production" if name == "score_vs_production" else "native_vllm"
+            ),
         )
         entry["validation_before"] = validate(name)
         support.write_json(path, result)
@@ -466,17 +571,28 @@ def write_table(summary, directory):
         .get("options", {})
         .get("shared_gpu_exploratory", False)
     )
+    trial = (
+        summary.get("manifest", {}).get("options", {}).get("candidate")
+        == "compact-ragged"
+    )
     candidate_column = (
-        "gems_production_us"
-        if summary.get("manifest", {}).get("options", {}).get("compiler") == "flagtree"
-        else "gems_prefill_topk_us"
+        "gems_compact_trial_us"
+        if trial
+        else (
+            "gems_production_us"
+            if summary.get("manifest", {}).get("options", {}).get("compiler")
+            == "flagtree"
+            else "gems_prefill_topk_us"
+        )
     )
     lines = [
-        f"case\tstage\tstatus\tvllm_us\t{candidate_column}\t"
-        f"{'exploratory_speedup' if exploratory else 'speedup'}\tpaired_ratio_median"
+        f"case\tstage\tstatus\tbaseline_us\t{candidate_column}\t"
+        f"{'exploratory_speedup' if exploratory else 'speedup'}\tpaired_ratio_median\tbaseline_kind"
     ]
     for case in summary["cases"]:
-        for name in ("score", "topk", "pipeline"):
+        for name in ("score", "topk", "pipeline", "score_vs_production"):
+            if name not in case.get("stages", {}) and name == "score_vs_production":
+                continue
             entry = case.get("stages", {}).get(name, {})
             accepted = case["status"] == "passed" and (
                 entry.get("measurement_validated")
@@ -489,7 +605,11 @@ def write_table(summary, directory):
                 (
                     ("exploratory" if exploratory else "passed")
                     if accepted
-                    else case["status"]
+                    else (
+                        entry.get("status", "not_collected")
+                        if case["status"] == "passed"
+                        else case["status"]
+                    )
                 ),
             ]
             if accepted:
@@ -501,8 +621,45 @@ def write_table(summary, directory):
                 ]
             else:
                 values += [""] * 4
+            values.append(entry.get("baseline_kind", "native_vllm"))
             lines.append("\t".join(map(str, values)))
     (directory / "triton-stage-ab.tsv").write_text("\n".join(lines) + "\n")
+    grouped = {}
+    for group in ("upstream_perf", "observed_perf"):
+        members = [c for c in summary["cases"] if c["case"].get("kind") == group]
+        planned = [
+            c
+            for c in summary.get("manifest", {}).get("cases", [])
+            if c.get("kind") == group
+        ]
+        if planned and len(members) != len(planned):
+            continue
+        for name in ("score", "topk", "pipeline", "score_vs_production"):
+            relevant = [
+                c
+                for c in members
+                if name in c.get("stages", {})
+                and c["stages"][name].get("status") != "not_applicable"
+            ]
+            if not relevant or any(c["status"] != "passed" for c in members):
+                continue
+            valid = [
+                c["stages"][name]["speedup"]
+                for c in relevant
+                if c["status"] == "passed"
+                and c.get("stages", {})
+                .get(name, {})
+                .get("measurement_validated" if exploratory else "accepted")
+            ]
+            # Do not publish a geometric mean over a silently incomplete set.
+            if len(valid) == len(relevant):
+                grouped[f"{group}:{name}"] = dict(
+                    count=len(valid),
+                    geometric_mean=math.exp(sum(map(math.log, valid)) / len(valid)),
+                    acceptance_eligible=not exploratory,
+                )
+    summary["grouped_speedups"] = grouped
+    support.write_json(directory / "grouped-speedups.json", grouped)
 
 
 def child_command(options, directory, flag):
@@ -516,6 +673,8 @@ def child_command(options, directory, flag):
         getattr(options, "flagtree", "/opt/flagtree"),
         "--suite",
         options.suite,
+        "--candidate",
+        getattr(options, "candidate", "production"),
         "--report-dir",
         str(directory),
         "--reference-file",
@@ -578,6 +737,7 @@ def accuracy_worker(options, path):
             "-c",
             str(ROOT / "pytest.ini"),
             str(ROOT / "tests/test_qsa_select_paged_prefill.py"),
+            str(ROOT / "tests/test_qsa_prefill_compact_trial.py"),
             "--record",
             "json",
             "--output",
@@ -662,6 +822,9 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             "test_upstream_prefill_against_vllm",
             "test_upstream_split_prefill",
             "test_upstream_no_complete_blocks_dim8",
+            "test_observed_envelopes_against_native",
+            "test_compact_every_config_and_chunk_boundary",
+            "test_compact_full_entry",
         ):
             if not any("::" + name in node for node in records):
                 error = "Missing required direct comparison coverage: " + name
@@ -692,7 +855,9 @@ def parent(options, selected, directory):
                     else "Same verified stock Triton wheel; repo non-TLE Top-K variant; "
                 )
                 + "native CUDA vLLM Top-K; preallocated outer workspaces; "
-                "actual sequential pipeline; no production source edits"
+                "actual sequential pipeline; no production source edits; "
+                + "candidate="
+                + getattr(options, "candidate", "production")
             ),
         ),
     )
@@ -827,8 +992,8 @@ def parent(options, selected, directory):
         print(summary["error"], file=sys.stderr)
         return 2 if summary.get("environment_rejected") else 1
     finally:
-        support.write_json(path, summary)
         write_table(summary, directory)
+        support.write_json(path, summary)
 
 
 def main():
@@ -840,10 +1005,13 @@ def main():
     parser.add_argument("--shared-min-free-mib", type=int, default=5120)
     parser.add_argument(
         "--suite",
-        choices=("upstream-prefill",),
+        choices=workloads.SUITES,
         default="upstream-prefill",
     )
     parser.add_argument("--cases", nargs="+")
+    parser.add_argument(
+        "--candidate", choices=("production", "compact-ragged"), default="production"
+    )
     parser.add_argument("--list-cases", action="store_true")
     parser.add_argument("--report-dir")
     parser.add_argument("--reference-file")
@@ -858,9 +1026,11 @@ def main():
     parser.add_argument("--preflight", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
+    if options.candidate != "production" and options.compiler != "flagtree":
+        parser.error("Compact trial requires the verified FlagTree profile")
     if options.shared_gpu_exploratory and options.compiler != "flagtree":
         parser.error("Shared diagnostics require the FlagTree CUDA13.4 profile")
-    all_cases = workloads.cases()
+    all_cases = workloads.cases(options.suite)
     if options.list_cases:
         print(json.dumps(all_cases, indent=2))
         return 0

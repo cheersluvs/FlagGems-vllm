@@ -195,6 +195,38 @@ def signatures(chunks):
     return [(c["offset"], c["rows"], c["width"]) for c in chunks]
 
 
+def select_all_stage(module, args):
+    """Capture the actual public fast-path launch; time only its device kernel."""
+    launches = []
+    original = module._select_all_kernel
+
+    class Capture:
+        def __getitem__(self, grid):
+            launch = original[grid]
+
+            def invoke(*a, **kw):
+                launches.append((launch, a, kw))
+                return launch(*a, **kw)
+
+            return invoke
+
+    def unexpected(*a, **kw):
+        raise RuntimeError("Expected select-all without score or TopK")
+
+    with patch.object(module, "_select_all_kernel", Capture()), patch.object(
+        module, "_prefill_logits", unexpected
+    ), patch.object(module, "persistent_topk", unexpected):
+        module.qsa_select_paged_prefill(*args)
+    if len(launches) != 1:
+        raise RuntimeError("Expected exactly one select-all kernel launch")
+
+    def pipeline():
+        for launch, a, kw in launches:
+            launch(*a, **kw)
+
+    return pipeline
+
+
 def bind_stages(native, candidate, native_chunks, candidate_chunks):
     if signatures(native_chunks) != signatures(candidate_chunks):
         raise RuntimeError("Native and candidate chunk geometry differs")

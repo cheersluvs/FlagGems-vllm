@@ -17,6 +17,7 @@ from unittest.mock import patch
 import test_qsa_prefill_stage_baseline as stage_tests
 
 from tools import qsa_prefill_inference_workloads as workloads
+from tools import qsa_prefill_observed_workloads as observed
 
 bench = stage_tests.bench
 
@@ -79,13 +80,16 @@ class InferenceWorkloadTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "cannot truncate"):
                 workloads.geometry(dict(original, **overrides))
 
-    def test_pytest_and_h800_share_only_upstream_twelve_named_inputs(self):
+    def test_pytest_uses_observed_twenty_two_and_only_twenty_scored_inputs(self):
         source = bench.ROOT / "benchmark/test_qsa_select_paged_prefill_perf.py"
         tree = ast.parse(source.read_text())
         definitions = [
             node
             for node in tree.body
-            if (isinstance(node, ast.ClassDef) and node.name == "QSAPrefillBenchmark")
+            if (
+                isinstance(node, ast.ClassDef)
+                and node.name in ("QSAPrefillBenchmark", "QSAScoredBenchmark")
+            )
             or (isinstance(node, ast.FunctionDef) and node.name == "_inputs")
             or (
                 isinstance(node, ast.Assign)
@@ -97,7 +101,7 @@ class InferenceWorkloadTests(unittest.TestCase):
         ]
         namespace = dict(
             base=types.SimpleNamespace(GenericBenchmark=object),
-            workloads=workloads.upstream,
+            workloads=observed,
             input_helpers=object(),
             torch=types.SimpleNamespace(bfloat16="bf16"),
         )
@@ -108,7 +112,7 @@ class InferenceWorkloadTests(unittest.TestCase):
         benchmark = namespace["QSAPrefillBenchmark"]()
         benchmark.set_shapes()
         self.assertEqual(
-            benchmark.shapes, [(c["name"],) for c in workloads.upstream.cases()]
+            benchmark.shapes, [(c["name"],) for c in observed.cases("combined-prefill")]
         )
         self.assertEqual(benchmark.set_more_shapes(), [])
         self.assertEqual(
@@ -116,15 +120,24 @@ class InferenceWorkloadTests(unittest.TestCase):
             workloads.upstream.cases(),
         )
         with patch.object(
-            workloads.upstream, "make_inputs", return_value=tuple(range(10))
+            observed, "make_inputs", return_value=tuple(range(10))
         ) as builder:
-            for shape, case in zip(benchmark.shapes, workloads.upstream.cases()):
+            for shape, case in zip(
+                benchmark.shapes, observed.cases("combined-prefill")
+            ):
                 self.assertEqual(
                     next(namespace["_inputs"](shape, "bf16", "cuda:3")),
                     tuple(range(10)),
                 )
                 self.assertEqual(builder.call_args.args[0], case)
                 self.assertEqual(builder.call_args.kwargs["device"], "cuda:3")
+        scored = namespace["QSAScoredBenchmark"]()
+        scored.set_shapes()
+        self.assertEqual(len(scored.shapes), 20)
+        for shape in scored.shapes:
+            self.assertFalse(
+                observed.geometry(namespace["BENCHMARK_CASES"][shape]).get("select_all")
+            )
 
     def test_parent_writes_full_inference_manifest_and_forwards_suite(self):
         options = stage_tests.BenchmarkTests.options(
