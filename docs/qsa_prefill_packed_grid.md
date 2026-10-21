@@ -99,3 +99,33 @@ pre-commit passed, Python AST parsing and frozen-file byte comparisons passed.
 No local Torch/Triton/CUDA installation is available, so no GPU result is
 claimed. H800 delivery uses `--candidate packed-grid --suite scored-prefill
 --mode kernel --rounds 2` and the existing automatic report-upload wrapper.
+
+## First H800 attempt and reference-fixture repair
+
+Report `codex/qsa-h800-results-20261021-030451`, commit
+`1c675e2366b5b448e4ca1892888913a71f9166a4`, tested clean code629976a.
+All15 report blobs and62 source snapshots were verified against the tested
+commit and recorded hashes. The run stopped in the added BF16 full-entry test:
+227 passed,1 skipped,1 failed in717.52s. This includes221 passing production
+tests and all6 new BF16/FP8 packed score-boundary tests. FP8 full-entry did not
+run because pytest used `-x`. No benchmark cases were timed.
+
+The full-entry fixture used `padded=True`, so page-table columns have stride2
+and alternate with padding -1. Pinned native `_qsa_mqa_paged_prefill_kernel`
+accepts `stride_table_req` but reads `request*stride_table_req+logical_page`,
+with no column-stride parameter. Logical column1 therefore reads padding -1
+instead of the next physical-page index. Its query-base normalization and Q/K
+row/head/token strides already match the fixture; column indexing is the
+specific unsupported native input here. The candidate supports stride2.
+The preexisting full30 report records column stride1 in every benchmark case.
+
+Repair: keep the candidate's padded Q/cache/table and nonzero query base;
+provide native with an identical logical page table whose columns are
+contiguous, constructed and equality-checked outside timing. Independently
+check native selection against full FP32 logits before candidate comparison.
+Add baseline/candidate plus query-row labels to pipeline validation errors.
+Run the8 small candidate gates before the complete production suite, retaining
+all tests and numerical tolerances. The existing CPU accuracy-worker test now
+checks that order explicitly. Candidate kernels, production, tuning YAML,
+TopK, all30 fixtures and timing remain unchanged. H800 full-entry validation
+and performance are still pending after this fixture repair.

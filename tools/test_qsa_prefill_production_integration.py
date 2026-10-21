@@ -256,16 +256,23 @@ class ProductionIntegrationTests(unittest.TestCase):
             ns,
         )
         pytest = types.SimpleNamespace(main=lambda args: calls.append(args) or 0)
-        with patch.dict("sys.modules", pytest=pytest):
-            options = types.SimpleNamespace(
-                compiler="flagtree",
-                candidate="production",
-                reference_file="reference.py",
-                report_dir="report",
-            )
-            self.assertEqual(ns["accuracy_worker"](options, Path("runtime.json")), 0)
-        paths = [p for p in calls[0] if p.endswith(".py")]
-        self.assertEqual(paths, [str(ROOT / "tests/test_qsa_select_paged_prefill.py")])
+        for candidate in ("production", "packed-grid"):
+            calls.clear()
+            with patch.dict("sys.modules", pytest=pytest):
+                options = types.SimpleNamespace(
+                    compiler="flagtree",
+                    candidate=candidate,
+                    reference_file="reference.py",
+                    report_dir="report",
+                )
+                self.assertEqual(
+                    ns["accuracy_worker"](options, Path("runtime.json")), 0
+                )
+            paths = [p for p in calls[0] if p.endswith(".py")]
+            expected = [str(ROOT / "tests/test_qsa_select_paged_prefill.py")]
+            if candidate == "packed-grid":
+                expected.insert(0, str(ROOT / "tests/test_qsa_prefill_packed_grid.py"))
+            self.assertEqual(paths, expected)
         changed = dict(info, operator_binding={"candidate_is_canonical_module": False})
         self.assertNotEqual(
             bench.runtime_identity(info), bench.runtime_identity(changed)

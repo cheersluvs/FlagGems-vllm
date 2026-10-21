@@ -85,8 +85,25 @@ def test_packed_full_entry(sm90, candidate, dtype, monkeypatch):
     args = helpers.make_inputs(
         (80, 80, 0, 0), (1025,) * 4, dtype=dtype, padded=True, query_base=97
     )
-    native_args = (*args[:8], stages.native_output(args[8], torch), args[9])
+    # The pinned native kernel accepts stride_table_req but indexes columns
+    # with +logical_page. Keep the candidate's strided table and give native
+    # an identical logical table with contiguous columns, outside timing.
+    assert args[2].stride(1) == 2
+    native_table = args[2].contiguous()
+    assert native_table.stride(1) == 1
+    torch.testing.assert_close(native_table, args[2], rtol=0, atol=0)
+    native_args = (
+        *args[:2],
+        native_table,
+        *args[3:8],
+        stages.native_output(args[8], torch),
+        args[9],
+    )
     native_chunks = ab.observe(native, "_topk", native_args)
+    expected = helpers.torch_logits(*args[:5])
+    stages.validate_reference_selection(
+        expected, args[4], native_args[8], args[0], torch, helpers
+    )
     candidate_chunks, traces = capture.observe(candidate, args)
     assert any(t["route"] == "packed" for t in traces)
     functions = ab.bind_stages(native, candidate, native_chunks, candidate_chunks)
@@ -96,9 +113,7 @@ def test_packed_full_entry(sm90, candidate, dtype, monkeypatch):
         )
         > 0
     )
-    helpers.assert_upstream_selection(
-        helpers.torch_logits(*args[:5]), args[4], args[8], dtype=dtype
-    )
+    helpers.assert_upstream_selection(expected, args[4], args[8], dtype=dtype)
     assert candidate.persistent_topk is production.persistent_topk
     assert (
         candidate.qsa_select_paged_prefill.__code__

@@ -428,10 +428,15 @@ def validate_pipeline(functions, native_args, args, chunks, torch, helpers):
         reference = (q[row].float() @ keys.T).clamp_min(0).sum(0)[None, :]
         lengths = visible[row : row + 1]
         left, right = native_args[8][row : row + 1], args[8][row : row + 1]
-        for selected in (left, right):
-            validate_reference_selection(
-                reference, lengths, selected, q, torch, helpers
-            )
+        for side, selected in (("baseline", left), ("candidate", right)):
+            try:
+                validate_reference_selection(
+                    reference, lengths, selected, q, torch, helpers
+                )
+            except AssertionError as error:
+                raise AssertionError(
+                    f"{side} pipeline selection failed at query row {row}"
+                ) from error
         helpers.assert_native_selection(
             reference, lengths, right, left, dtype=q.dtype, head_dim=q.shape[2]
         )
@@ -1128,16 +1133,16 @@ def accuracy_worker(options, path):
             "-x",
             "-c",
             str(ROOT / "pytest.ini"),
+            *(
+                [str(ROOT / "tests/test_qsa_prefill_packed_grid.py")]
+                if getattr(options, "candidate", "production") == "packed-grid"
+                else []
+            ),
             str(ROOT / "tests/test_qsa_select_paged_prefill.py"),
             *(
                 [str(ROOT / "tests/test_qsa_prefill_compact_trial.py")]
                 if getattr(options, "candidate", "production")
                 not in ("production", "packed-grid")
-                else []
-            ),
-            *(
-                [str(ROOT / "tests/test_qsa_prefill_packed_grid.py")]
-                if getattr(options, "candidate", "production") == "packed-grid"
                 else []
             ),
             *(
