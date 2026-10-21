@@ -1,0 +1,85 @@
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-packed.hiXfp5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill.packed_grid_trial", "candidate_source": "/tmp/flaggems-qsa-packed.hiXfp5/tools/qsa_prefill_packed_grid_kernel.py", "candidate_sha256": "51af19cf1db77d9762d6a27463f69532b35e6fcf21b5d526d472827acb399f9a", "candidate_is_canonical_module": false, "exported_entry_is_candidate": false, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill.packed_grid_trial"}
+........................................................................ [ 31%]
+........................................................................ [ 62%]
+............................s........................................... [ 93%]
+............F
+=================================== FAILURES ===================================
+________________________ test_packed_full_entry[dtype0] ________________________
+
+sm90 = None
+candidate = <module 'flaggems_vllm.ops.qsa_select_paged_prefill' from '/tmp/flaggems-qsa-packed.hiXfp5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py'>
+dtype = torch.bfloat16
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fc889b9c9e0>
+
+    @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
+    def test_packed_full_entry(sm90, candidate, dtype, monkeypatch):
+        monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "512")
+        native = helpers.vllm_reference()
+        monkeypatch.setattr(native.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 512)
+        args = helpers.make_inputs(
+            (80, 80, 0, 0), (1025,) * 4, dtype=dtype, padded=True, query_base=97
+        )
+        native_args = (*args[:8], stages.native_output(args[8], torch), args[9])
+        native_chunks = ab.observe(native, "_topk", native_args)
+        candidate_chunks, traces = capture.observe(candidate, args)
+        assert any(t["route"] == "packed" for t in traces)
+        functions = ab.bind_stages(native, candidate, native_chunks, candidate_chunks)
+        assert (
+>           stages.validate_pipeline(
+                functions["pipeline"], native_args, args, native_chunks, torch, helpers
+            )
+            > 0
+        )
+
+tests/test_qsa_prefill_packed_grid.py:94: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tools/benchmark_qsa_prefill_triton_stages.py:432: in validate_pipeline
+    validate_reference_selection(
+tools/benchmark_qsa_prefill_triton_stages.py:409: in validate_reference_selection
+    helpers.assert_selection(reference, lengths, selected)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+logits = tensor([[29.2124,  9.5720, 12.3737,  ...,  8.8804, 29.6581, 18.1783]],
+       device='cuda:0')
+visible = tensor([1005], device='cuda:0', dtype=torch.int32)
+output = tensor([[ 896,  908,  912,  916,  944,  948,  964,  968,  976,  980,  996,  512,
+          520,  524,  528,  532,  552... 351,  355,  363,
+          375,  379,  383,  302,  844,  835,  556,  327]], device='cuda:0',
+       dtype=torch.int32)
+rtol = 0.0002, atol = 0.002
+
+    def assert_selection(logits, visible, output, *, rtol=2e-4, atol=2e-3):
+        """Check count, range, uniqueness, padding and the selected score multiset."""
+        k = output.shape[1]
+        lengths = visible.cpu().tolist()
+        for row, length in enumerate(lengths):
+            selected = output[row]
+            valid = selected[selected >= 0].long()
+            count = min(length, k)
+            assert valid.numel() == count, (row, length, selected)
+            assert (selected >= -1).all(), (row, selected)
+            assert (valid < length).all(), (row, valid, length)
+            assert valid.unique().numel() == count, (row, valid)
+            assert (selected == -1).sum().item() == k - count
+            if count:
+                actual = logits[row, valid].sort().values
+                expected = logits[row, :length].topk(count).values.sort().values
+>               torch.testing.assert_close(actual, expected, rtol=rtol, atol=atol)
+E               AssertionError: Tensor-likes are not close!
+E               
+E               Mismatched elements: 512 / 512 (100.0%)
+E               Greatest absolute difference: 16.910720825195312 at index (29,) (up to 0.002 allowed)
+E               Greatest relative difference: 1.0 at index (0,) (up to 0.0002 allowed)
+
+tests/qsa_select_prefill_utils.py:286: AssertionError
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_qsa_select_paged_prefill.py:794: a second SM90 device is needed for device-guard validation
+FAILED tests/test_qsa_prefill_packed_grid.py::test_packed_full_entry[dtype0]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 227 passed, 1 skipped in 717.52s (0:11:57)
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-packed.hiXfp5/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill.packed_grid_trial", "candidate_source": "/tmp/flaggems-qsa-packed.hiXfp5/tools/qsa_prefill_packed_grid_kernel.py", "candidate_sha256": "51af19cf1db77d9762d6a27463f69532b35e6fcf21b5d526d472827acb399f9a", "candidate_is_canonical_module": false, "exported_entry_is_candidate": false, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill.packed_grid_trial"}
