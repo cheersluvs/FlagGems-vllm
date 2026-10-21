@@ -144,3 +144,7 @@ H800 correctness/performance run is pending; these CPU checks are not GPU
 numerical or performance results. The full GPU suite is expected to add ten
 passes to the previous209, with the same existing second-device skip when
 one GPU is exposed; actual results must come from the card report.
+
+## H800 validation returned
+
+Report cd132fad331f065721b54dc17432b7ca5caa0226 completed the pending run:219 passed, one second-device skip, all ten FP8 cases and30 stages completed. FP8 score/TopK/pipeline geometric means are0.98231x/0.91918x/0.94879x. These are valid same-compiler measurements, not an overall FP8 performance gain. See [the audited H800 results](qsa_prefill_fp8_h800_results.md) for latency tables and runtime identity. Earlier pending statements describe the pre-run state.
