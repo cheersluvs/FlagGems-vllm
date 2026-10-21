@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
 from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
+from tools import qsa_prefill_cache_granularity as cache_trial  # noqa: E402
 from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
@@ -38,6 +39,9 @@ SOURCES = sorted(
         "tools/qsa_prefill_triton_ab.py",
         "tools/qsa_prefill_tuning_round1.py",
         "tools/test_qsa_prefill_tuning_round1.py",
+        "tools/qsa_prefill_cache_granularity.py",
+        "tools/test_qsa_prefill_cache_granularity.py",
+        "docs/qsa_prefill_cache_granularity.md",
         "tools/qsa_prefill_frozen_production.py",
         "tools/test_qsa_prefill_production_integration.py",
         "tools/run_qsa_prefill_triton_ab_h800.sh",
@@ -508,9 +512,20 @@ def worker(options, case, path):
         if hasattr(candidate, "freeze_baseline"):
             result["eviction_config_match"] = candidate.freeze_baseline(candidate)
     fastpath = workloads.geometry(case).get("select_all", False)
-    candidate_chunks = (
-        [] if fastpath else ab.observe(candidate, "persistent_topk", args)
+    trace_cache = (
+        getattr(options, "compare_previous_tuning", False)
+        and getattr(options, "previous_tuning", "eight") == "round1"
     )
+    if trace_cache:
+        candidate_chunks, candidate_trace = cache_trial.observe(candidate, args)
+        result["cache_granularity"] = dict(
+            production=candidate_trace,
+            policy="Operator-local entry key appends exact existing LibTuner key",
+        )
+    else:
+        candidate_chunks = (
+            [] if fastpath else ab.observe(candidate, "persistent_topk", args)
+        )
     result["workload"] = verify_geometry(
         case, args, candidate_chunks, select_all=fastpath
     )
@@ -564,9 +579,17 @@ def worker(options, case, path):
     if getattr(options, "compare_previous_tuning", False):
         if fastpath:
             raise RuntimeError("Previous tuning comparison requires scored cases")
-        previous = round1.previous_module(candidate)
+        previous_kind = getattr(options, "previous_tuning", "eight")
+        previous_identity = cache_trial.previous_identity(previous_kind)
+        previous = cache_trial.previous_module(candidate, previous_kind)
         previous_args = (*args[:8], native_output(args[8], torch), args[9])
-        previous_chunks = ab.observe(previous, "persistent_topk", previous_args)
+        if trace_cache:
+            previous_chunks, previous_trace = cache_trial.observe(
+                previous, previous_args
+            )
+            result["cache_granularity"]["previous"] = previous_trace
+        else:
+            previous_chunks = ab.observe(previous, "persistent_topk", previous_args)
         verify_geometry(case, previous_args, previous_chunks)
         for chunk in previous_chunks:
             chunk.pop("common_logits")
@@ -581,8 +604,7 @@ def worker(options, case, path):
                 candidate=functions[name]["candidate"],
             )
         result["previous_tuning"] = dict(
-            source_equivalent_sha256=round1.PREVIOUS_SOURCE_SHA256,
-            config_group=round1.PREVIOUS_CONFIG_GROUP,
+            **previous_identity,
             same_topk=previous.persistent_topk is candidate.persistent_topk,
             chunks=ab.signatures(previous_chunks),
             independent_rectangular_cache=True,
@@ -752,8 +774,12 @@ def worker(options, case, path):
                 "score_vs_production": "production",
                 "score_vs_key_major": "retained_key_major",
                 "score_vs_reuse": "retained_reuse",
-                "score_vs_previous_tuning": "previous_production_eight_configs",
-                "pipeline_vs_previous_tuning": "previous_production_eight_configs",
+                "score_vs_previous_tuning": (
+                    previous_identity["baseline_kind"] if previous else None
+                ),
+                "pipeline_vs_previous_tuning": (
+                    previous_identity["baseline_kind"] if previous else None
+                ),
             }.get(name, "native_vllm"),
         )
         entry["validation_before"] = validate(name)
@@ -965,6 +991,11 @@ def child_command(options, directory, flag):
             else []
         ),
         *(
+            ["--previous-tuning", getattr(options, "previous_tuning", "eight")]
+            if getattr(options, "compare_previous_tuning", False)
+            else []
+        ),
+        *(
             [
                 "--shared-gpu-exploratory",
                 "--shared-min-free-mib",
@@ -1132,6 +1163,7 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
                     "test_integrated_rectangular_every_config",
                     "test_integrated_compact_every_config",
                     "test_integrated_full_entry_and_retained_candidate",
+                    "test_score_cache_separates_runtime_rows",
                 )
                 if getattr(options, "candidate", "production") == "production"
                 else (
@@ -1369,6 +1401,9 @@ def main():
     parser.add_argument("--cases", nargs="+")
     parser.add_argument("--compare-previous-tuning", action="store_true")
     parser.add_argument(
+        "--previous-tuning", choices=("eight", "round1"), default="eight"
+    )
+    parser.add_argument(
         "--candidate",
         choices=("production", "compact-ragged", *KEY_MAJOR_CANDIDATES),
         default="production",
@@ -1404,6 +1439,8 @@ def main():
         parser.error(
             "Previous tuning comparison requires FlagTree production scored-prefill"
         )
+    if options.previous_tuning != "eight" and not options.compare_previous_tuning:
+        parser.error("Select --compare-previous-tuning for the previous baseline")
     if options.shared_gpu_exploratory and options.compiler != "flagtree":
         parser.error("Shared diagnostics require the FlagTree CUDA13.4 profile")
     all_cases = workloads.cases(options.suite)

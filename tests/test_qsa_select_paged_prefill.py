@@ -920,3 +920,43 @@ def test_fp8_benchmark_against_native(sm90, monkeypatch, case):
         native, op_module, native_chunks, candidate_chunks, torch, helpers
     ) >= len(case["query_lengths"])
     assert op is op_module.qsa_select_paged_prefill
+
+
+@pytest.mark.parametrize(
+    "dtype", [torch.bfloat16, torch.float8_e4m3fn], ids=["bf16", "fp8"]
+)
+def test_score_cache_separates_runtime_rows(sm90, dtype):
+    # Same pointers/strides/dtypes/width, distinct existing num_rows tuner keys.
+    # Exercise the real entry miss/hit paths without changing JIT specialization.
+    args = make_inputs((81,), (1025,), query_base=97, dtype=dtype, padded=True)
+    width = 1088
+    expected = torch_logits(*args[:5], width=width)
+    workspace = torch.empty((64, width), device=args[0].device, dtype=torch.float32)
+    entry = op_module._qsa_prefill_score_kernel
+    cache = entry.kernel_cache[torch.cuda.current_device()]
+    saved = dict(cache)
+    cache.clear()
+    keys = []
+    try:
+        for offset, count in ((0, 64), (64, 17), (0, 64)):
+            actual = op_module._prefill_logits(
+                *args[:5], workspace, args[7], width, offset, count
+            )
+            mask = (
+                torch.arange(width, device=args[0].device)[None, :]
+                < args[4][offset : offset + count, None]
+            )
+            torch.testing.assert_close(
+                actual[mask],
+                expected[offset : offset + count][mask],
+                rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
+                atol=1e-3 * 128**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
+            )
+            keys.append(set(cache))
+        assert len(keys[0]) == 1
+        assert len(keys[1]) == 2 and keys[0] < keys[1]
+        assert keys[2] == keys[1]
+        assert op is op_module.qsa_select_paged_prefill
+    finally:
+        cache.clear()
+        cache.update(saved)

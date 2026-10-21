@@ -60,7 +60,9 @@ class ProductionIntegrationTests(unittest.TestCase):
             ]
         )
         rect.name = "_qsa_prefill_score_kernel"
-        # Only the decorator config name changes; arithmetic/keys are exact.
+        # Config selection and the operator-local outer cache decorator differ;
+        # kernel arithmetic, signature, keys and JIT specialization are exact.
+        rect.decorator_list[0] = ast.Name(id="_QSAScoreEntry", ctx=ast.Load())
         for node in ast.walk(rect.decorator_list[1]):
             if (
                 isinstance(node, ast.Constant)

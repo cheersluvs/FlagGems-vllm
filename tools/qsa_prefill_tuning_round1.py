@@ -20,12 +20,18 @@ NEAR_ONE_FLOOR = 0.98
 MEAN_TARGET = 1.1
 
 
-def previous_module(production):
-    """Same JIT/host/TopK, exact previous eight configs, independent outer caches."""
+def previous_module(production, rectangular_group=PREVIOUS_CONFIG_GROUP):
+    """Same JIT/host/TopK, frozen eight/ten configs, independent standard entries."""
     from flaggems_vllm import runtime
     from flaggems_vllm.utils import libentry, libtuner
+    from tools.qsa_prefill_cache_granularity import round1_source
 
-    source = Path(production.__file__).read_text()
+    try:
+        source = round1_source(Path(production.__file__).read_text())
+    except RuntimeError as error:
+        raise RuntimeError(
+            "Round1 must change only the production config-group literal"
+        ) from error
     restored = source.replace(CONFIG_GROUP, PREVIOUS_CONFIG_GROUP)
     if (
         source.count(CONFIG_GROUP) != 1
@@ -34,11 +40,18 @@ def previous_module(production):
         raise RuntimeError(
             "Round1 must change only the production config-group literal"
         )
-    module = types.ModuleType(production.__name__ + ".previous_eight")
+    if rectangular_group not in (PREVIOUS_CONFIG_GROUP, CONFIG_GROUP):
+        raise ValueError("Unknown rectangular baseline group")
+    suffix = ".previous_ten" if rectangular_group == CONFIG_GROUP else ".previous_eight"
+    module = types.ModuleType(production.__name__ + suffix)
     module.__dict__.update(vars(production))
-    module.__name__ = production.__name__ + ".previous_eight"
+    module.__name__ = production.__name__ + suffix
     for name, group, count in (
-        ("_qsa_prefill_score_kernel", PREVIOUS_CONFIG_GROUP, 8),
+        (
+            "_qsa_prefill_score_kernel",
+            rectangular_group,
+            10 if rectangular_group == CONFIG_GROUP else 8,
+        ),
         ("_qsa_prefill_compact_score_kernel", COMPACT_CONFIG_GROUP, 6),
     ):
         entry = getattr(production, name)

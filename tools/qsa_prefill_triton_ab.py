@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 PRODUCTION_SHA256 = "d70faeb6928c2c7a56636ded833f3359368871e353ecf4c66c6dfd35cae93e73"
 INTEGRATED_PRODUCTION_SHA256 = (
-    "d345e5e0eeec5de84958f0ffe81aa2ce286ce982448f6d167f94d87e02f7c849"
+    "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c"
 )
 FROZEN_PRODUCTION_PATH = "tools/qsa_prefill_frozen_production.py"
 

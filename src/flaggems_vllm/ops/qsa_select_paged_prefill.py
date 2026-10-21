@@ -23,6 +23,26 @@ import triton.language as tl
 from flaggems_vllm import runtime
 from flaggems_vllm.ops.persistent_topk import persistent_topk
 from flaggems_vllm.utils import libentry, libtuner
+from flaggems_vllm.utils.libentry import LibEntry
+
+
+class _QSAScoreEntry(LibEntry):
+    """Keep the outer runtime cache consistent with the existing score tuner."""
+
+    def key(self, spec_args, dns_args, const_args):
+        named = {
+            self.arg_names[index]: value
+            for index, value in zip(self.specialize_indices, spec_args)
+        }
+        named.update(
+            (self.arg_names[index], value)
+            for index, value in zip(self.do_not_specialize_indices, dns_args)
+        )
+        constexpr_names = (
+            param.name for param in self.jit_function.params if param.is_constexpr
+        )
+        named.update(zip(constexpr_names, const_args))
+        return super().key(spec_args, dns_args, const_args) + (self.fn.get_key(named),)
 
 
 # Fixed-size bandwidth-only fills: no autotune. They do not perform selection.
@@ -38,7 +58,7 @@ def _select_all_kernel(visible_ptr, output_ptr, K: tl.constexpr, BLOCK: tl.const
     )
 
 
-@libentry()
+@_QSAScoreEntry
 @libtuner(
     configs=runtime.get_tuned_config("qsa_select_paged_prefill_tuning_round1_score"),
     key=[

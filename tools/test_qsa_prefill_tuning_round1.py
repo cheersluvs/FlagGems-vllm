@@ -19,6 +19,7 @@ from unittest.mock import patch
 import yaml
 
 from tools import benchmark_qsa_prefill_triton_stages as bench
+from tools import qsa_prefill_cache_granularity as cache_trial
 from tools import qsa_prefill_observed_workloads as workloads
 from tools import qsa_prefill_triton_ab as ab
 from tools import qsa_prefill_tuning_round1 as trial
@@ -37,7 +38,8 @@ class Config:
 
 class TuningTests(unittest.TestCase):
     def test_only_decorator_changes_and_original_groups_are_frozen(self):
-        source = PRODUCTION.read_text()
+        current_source = PRODUCTION.read_text()
+        source = cache_trial.round1_source(current_source)
         self.assertEqual(
             hashlib.sha256(
                 source.replace(trial.CONFIG_GROUP, trial.PREVIOUS_CONFIG_GROUP).encode()
@@ -45,7 +47,8 @@ class TuningTests(unittest.TestCase):
             trial.PREVIOUS_SOURCE_SHA256,
         )
         self.assertEqual(
-            hashlib.sha256(source.encode()).hexdigest(), ab.INTEGRATED_PRODUCTION_SHA256
+            hashlib.sha256(current_source.encode()).hexdigest(),
+            ab.INTEGRATED_PRODUCTION_SHA256,
         )
         groups = yaml.safe_load(
             (
@@ -82,6 +85,7 @@ class TuningTests(unittest.TestCase):
         calls = []
         groups = {
             trial.PREVIOUS_CONFIG_GROUP: list(range(8)),
+            trial.CONFIG_GROUP: list(range(10)),
             trial.COMPACT_CONFIG_GROUP: list(range(6)),
         }
         production = types.ModuleType("production")
@@ -144,6 +148,18 @@ class TuningTests(unittest.TestCase):
         self.assertIs(
             production._prefill_logits()[0], production._qsa_prefill_score_kernel
         )
+        with patch.dict(
+            sys.modules, {"flaggems_vllm": fake, "flaggems_vllm.utils": utils}
+        ):
+            previous_ten = cache_trial.previous_module(production, "round1")
+        self.assertEqual(
+            previous_ten._qsa_prefill_score_kernel.fn.configs, list(range(10))
+        )
+        self.assertIsNot(
+            previous_ten._qsa_prefill_score_kernel.kernel_cache[0],
+            previous._qsa_prefill_score_kernel.kernel_cache[0],
+        )
+        self.assertIs(previous_ten.persistent_topk, production.persistent_topk)
         with tempfile.TemporaryDirectory() as folder:
             changed = Path(folder) / "changed.py"
             changed.write_text(PRODUCTION.read_text() + "# changed\n")
@@ -334,6 +350,15 @@ class AcceptanceTests(unittest.TestCase):
         )
         child = bench.child_command(options, Path("/tmp/report"), "--worker")
         self.assertIn("--compare-previous-tuning", child)
+        self.assertEqual(child[child.index("--previous-tuning") + 1], "eight")
+        options.previous_tuning = "round1"
+        child = bench.child_command(options, Path("/tmp/report"), "--worker")
+        self.assertEqual(child[child.index("--previous-tuning") + 1], "round1")
+        selected = [*base, "--previous-tuning", "round1"]
+        result = subprocess.run(selected, capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(result.stdout), workloads.cases("scored-prefill"))
+        selected.remove("--compare-previous-tuning")
+        self.assertNotEqual(subprocess.run(selected, capture_output=True).returncode, 0)
         for flag, value in [
             ("--compiler", "stock"),
             ("--suite", "combined-prefill"),

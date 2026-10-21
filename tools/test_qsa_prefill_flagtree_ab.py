@@ -260,6 +260,7 @@ class AccuracyTests(unittest.TestCase):
             "missing_trial",
             "missing_production",
             "missing_fp8",
+            "missing_cache_rows",
             "skipped",
             "identity",
             "key_major",
@@ -321,6 +322,7 @@ class AccuracyTests(unittest.TestCase):
                                 "test_integrated_rectangular_every_config",
                                 "test_integrated_compact_every_config",
                                 "test_integrated_full_entry_and_retained_candidate",
+                                "test_score_cache_separates_runtime_rows",
                             )
                         }
                     )
@@ -346,6 +348,10 @@ class AccuracyTests(unittest.TestCase):
                 if failure == "missing_production":
                     records.pop(
                         "tests/test.py::test_integrated_full_entry_and_retained_candidate"
+                    )
+                if failure == "missing_cache_rows":
+                    records.pop(
+                        "tests/test.py::test_score_cache_separates_runtime_rows"
                     )
                 if failure in (
                     "key_major",
