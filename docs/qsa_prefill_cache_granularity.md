@@ -84,8 +84,12 @@ plus previous-production score/pipeline) for all30 cases. Per-case JSON adds
 resources, constants, outer entry count and requested tuner key per chunk.
 The requested key alone is not proof that the old entry reached the tuner.
 
-GPU correctness, actual independent tail tuning, speedup and keep/revert are
-pending the returned H800 report. No numerical or performance gain is claimed.
+H800 report1d9ccf7 completed:221 passed/1 skipped; all30 measurements valid.
+Decision: keep the cache alignment for verified key consistency and targeted
+tail gains. Native pipeline mean1.1943,12 cases below0.98: target not met.
+Same-worker previous10 pipeline mean1.0018; this is not broad acceleration.
+See [the full result](qsa_prefill_cache_h800_results.md) for all stage latencies,
+TopK data, actual tail configs, jitter, duration and limitations.
 Exact existing keys can increase first-call tuning time and outer-cache memory;
 kernel-mode timing excludes Python cache-key construction and cannot establish
 host end-to-end latency improvements.
