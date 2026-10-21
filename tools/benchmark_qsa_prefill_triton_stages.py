@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
 from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
+from tools import qsa_prefill_accuracy_profiles as accuracy_profiles  # noqa: E402
 from tools import qsa_prefill_cache_granularity as cache_trial  # noqa: E402
 from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_packed_grid as packed  # noqa: E402
@@ -48,6 +49,9 @@ SOURCES = sorted(
         "tools/test_qsa_prefill_packed_grid.py",
         "tests/test_qsa_prefill_packed_grid.py",
         "docs/qsa_prefill_packed_grid.md",
+        "tools/qsa_prefill_accuracy_profiles.py",
+        "tools/test_qsa_prefill_accuracy_profiles.py",
+        "docs/qsa_prefill_accuracy_profiles.md",
         "tools/qsa_prefill_frozen_production.py",
         "tools/test_qsa_prefill_production_integration.py",
         "tools/run_qsa_prefill_triton_ab_h800.sh",
@@ -1041,6 +1045,12 @@ def write_table(summary, directory):
         == "packed-grid"
         else round1.acceptance(summary)
     )
+    accuracy_profiles.annotate_acceptance(
+        summary["overall_acceptance"],
+        summary.get("manifest", {}).get("options", {}).get("accuracy_profile", "full"),
+        summary.get("manifest", {}).get("options", {}).get("candidate", "production"),
+        summary.get("accuracy", {}),
+    )
     support.write_json(
         directory / "overall-acceptance.json", summary["overall_acceptance"]
     )
@@ -1059,6 +1069,8 @@ def child_command(options, directory, flag):
         options.suite,
         "--candidate",
         getattr(options, "candidate", "production"),
+        "--accuracy-profile",
+        accuracy_profiles.name(options),
         "--report-dir",
         str(directory),
         "--reference-file",
@@ -1120,9 +1132,16 @@ def child_environment(directory, label):
 
 def accuracy_worker(options, path):
     if not is_flagtree(options):
-        raise RuntimeError("Full production accuracy requires the FlagTree profile")
+        raise RuntimeError("QSA correctness requires the FlagTree profile")
     *_, info = runtime(Path(options.reference_file), path, options)
-    support.write_json(path, dict(status="running", runtime=info))
+    support.write_json(
+        path,
+        dict(
+            status="running",
+            runtime=info,
+            accuracy_profile=accuracy_profiles.name(options),
+        ),
+    )
     os.environ.pop("PYTEST_ADDOPTS", None)
     import pytest
 
@@ -1133,35 +1152,7 @@ def accuracy_worker(options, path):
             "-x",
             "-c",
             str(ROOT / "pytest.ini"),
-            *(
-                [str(ROOT / "tests/test_qsa_prefill_packed_grid.py")]
-                if getattr(options, "candidate", "production") == "packed-grid"
-                else []
-            ),
-            str(ROOT / "tests/test_qsa_select_paged_prefill.py"),
-            *(
-                [str(ROOT / "tests/test_qsa_prefill_compact_trial.py")]
-                if getattr(options, "candidate", "production")
-                not in ("production", "packed-grid")
-                else []
-            ),
-            *(
-                [str(ROOT / "tests/test_qsa_prefill_key_major_trial.py")]
-                if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES
-                else []
-            ),
-            *(
-                [str(ROOT / "tests/test_qsa_prefill_reuse_trial.py")]
-                if getattr(options, "candidate", "production")
-                in ("key-major-reuse", "key-major-evict-first")
-                else []
-            ),
-            *(
-                [str(ROOT / "tests/test_qsa_prefill_eviction_trial.py")]
-                if getattr(options, "candidate", "production")
-                == "key-major-evict-first"
-                else []
-            ),
+            *accuracy_profiles.pytest_targets(options, ROOT),
             "--record",
             "json",
             "--output",
@@ -1174,7 +1165,12 @@ def accuracy_worker(options, path):
             "Compiler/GPU/native-extension identity changed during accuracy"
         )
     support.write_json(
-        path, dict(status="passed" if code == 0 else "failed", runtime=after)
+        path,
+        dict(
+            status="passed" if code == 0 else "failed",
+            runtime=after,
+            accuracy_profile=accuracy_profiles.name(options),
+        ),
     )
     return int(code)
 
@@ -1209,9 +1205,11 @@ def idle_gate(options, summary, directory, label, guard):
 
 def run_accuracy_gate(options, directory, summary, preflight, guard):
     if not idle_gate(options, summary, directory, "before_accuracy", guard):
-        raise RuntimeError("GPU environment rejected before full correctness suite")
+        raise RuntimeError("GPU environment rejected before correctness suite")
     print(
-        "Running full production accuracy, including native vLLM comparisons",
+        "Running "
+        + accuracy_profiles.name(options)
+        + " correctness, including native vLLM comparisons",
         flush=True,
     )
     with (directory / "accuracy-full.txt").open("w") as log:
@@ -1226,7 +1224,7 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             )
             error = None if proc.returncode == 0 else f"accuracy exit={proc.returncode}"
         except subprocess.TimeoutExpired:
-            error = "Full correctness suite timed out"
+            error = "Correctness suite timed out: " + accuracy_profiles.name(options)
     counts = {}
     if not error:
         counts, error = support.accuracy_results(directory / "accuracy-full.json")
@@ -1234,11 +1232,17 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
     identity = json.loads(identity_path.read_text()) if identity_path.is_file() else {}
     if not error and (
         identity.get("status") != "passed"
+        or identity.get("accuracy_profile", "full") != accuracy_profiles.name(options)
         or runtime_identity(identity["runtime"])
         != runtime_identity(preflight["runtime"])
     ):
-        error = "Accuracy and benchmark compiler/GPU/native-extension identities differ"
-    if not error:
+        error = "Accuracy and benchmark profile/compiler/GPU/native-extension identities differ"
+    if not error and accuracy_profiles.name(options) == "iteration":
+        records = json.loads((directory / "accuracy-full.json").read_text())
+        error = accuracy_profiles.validate(
+            records, getattr(options, "candidate", "production")
+        )
+    if not error and accuracy_profiles.name(options) == "full":
         records = json.loads((directory / "accuracy-full.json").read_text())
         for name in (
             "test_parameterized_against_vllm",
@@ -1321,7 +1325,11 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
                     error = "Missing required eviction comparison coverage: " + name
                     break
     summary["accuracy"] = dict(
-        status="failed" if error else "passed", counts=counts, error=error
+        status="failed" if error else "passed",
+        counts=counts,
+        error=error,
+        profile=accuracy_profiles.name(options),
+        full_suite_validated=not error and accuracy_profiles.name(options) == "full",
     )
     support.write_json(directory / "stage-summary.json", summary)
     if error:
@@ -1341,7 +1349,9 @@ def parent(options, selected, directory):
             policy=(
                 (
                     "Same verified FlagTree/ptxas13.4/CUDA13.4compat; "
-                    "unmodified production persistent_topk; full accuracy gate; "
+                    "unmodified production persistent_topk; accuracy profile="
+                    + accuracy_profiles.name(options)
+                    + "; "
                     if is_flagtree(options)
                     else "Same verified stock Triton wheel; repo non-TLE Top-K variant; "
                 )
@@ -1501,6 +1511,7 @@ def main():
     )
     parser.add_argument("--cases", nargs="+")
     parser.add_argument("--compare-previous-tuning", action="store_true")
+    parser.add_argument("--accuracy-profile", choices=("iteration", "full"))
     parser.add_argument(
         "--previous-tuning", choices=("eight", "round1"), default="eight"
     )
@@ -1510,6 +1521,7 @@ def main():
         default="production",
     )
     parser.add_argument("--list-cases", action="store_true")
+    parser.add_argument("--list-accuracy-tests", action="store_true")
     parser.add_argument("--report-dir")
     parser.add_argument("--reference-file")
     parser.add_argument("--rounds", type=int, default=2)
@@ -1524,6 +1536,20 @@ def main():
     parser.add_argument("--preflight", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
+    if options.accuracy_profile is None:
+        options.accuracy_profile = (
+            "iteration"
+            if is_flagtree(options)
+            and options.candidate in ("production", "packed-grid")
+            else "full"
+        )
+    if options.accuracy_profile == "iteration" and (
+        not is_flagtree(options)
+        or options.candidate not in ("production", "packed-grid")
+    ):
+        parser.error(
+            "Iteration correctness requires FlagTree current production/packed-grid"
+        )
     if options.max_initial_temp_c is None:
         options.max_initial_temp_c = 80 if is_flagtree(options) else 75
     if not 1 <= options.max_initial_temp_c <= 150:
@@ -1546,6 +1572,23 @@ def main():
         parser.error("Select --compare-previous-tuning for the previous baseline")
     if options.shared_gpu_exploratory and options.compiler != "flagtree":
         parser.error("Shared diagnostics require the FlagTree CUDA13.4 profile")
+    if options.list_accuracy_tests:
+        targets = accuracy_profiles.pytest_targets(options, ROOT)
+        print(
+            json.dumps(
+                dict(
+                    profile=options.accuracy_profile,
+                    selection=(
+                        "exact_nodes"
+                        if options.accuracy_profile == "iteration"
+                        else "full_files"
+                    ),
+                    targets=targets,
+                ),
+                indent=2,
+            )
+        )
+        return 0
     all_cases = workloads.cases(options.suite)
     if options.list_cases:
         print(json.dumps(all_cases, indent=2))

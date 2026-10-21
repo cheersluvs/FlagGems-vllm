@@ -129,3 +129,79 @@ all tests and numerical tolerances. The existing CPU accuracy-worker test now
 checks that order explicitly. Candidate kernels, production, tuning YAML,
 TopK, all30 fixtures and timing remain unchanged. H800 full-entry validation
 and performance are still pending after this fixture repair.
+
+## Completed H800 trial: reject for production integration
+
+Report branch `codex/qsa-h800-results-20261021-034927`, report commit
+`07993dab60aa2d284545e287d3cda1a117cfd0ae`, tested clean code4e0cde7.
+Accuracy:229 passed,1 skipped, including all8 candidate checks. Verified75
+report blobs,62 source snapshots against the tested commit,150 stage rows,
+600 raw latency samples and450 guard telemetry records. All30 measurements
+passed before/after validation under one verified FlagTree toolchain.
+Sampled H800 temperature32–48C, SM1965–1980MHz; every timing guard passed
+and recorded only permitted worker processes. No continuous-exclusivity claim.
+
+| Group | Cases | Score/native | TopK/native | Pipeline/native | Score/current production | Pipeline/current production |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Upstream BF16 | 12 | 1.0960 | 0.8990 | 0.9781 | 0.9977 | 0.9993 |
+| Observed BF16 | 8 | 2.6505 | 0.9065 | 1.8140 | 1.0040 | 1.0018 |
+| FP8 | 10 | 1.0175 | 0.9238 | 0.9624 | 1.0024 | 1.0008 |
+| All | 30 | 1.4844 | 0.9093 | 1.1958 | 1.0010 | 1.0005 |
+
+All group values are equal-weight arithmetic means of per-case speedups.
+The actual6 switched cases average0.9957 score/current-production and0.9978
+pipeline/current-production; all30 pipeline mean1.0005 does not demonstrate
+a stable gain. No switched case has a material consistent improvement.
+The N4/q4096/p102400 BF16 case is0.9822 score and0.9845 pipeline; its paired
+pipeline rounds are0.9962 and0.9727. Fewer issued slots did not establish a
+latency benefit. Extra indexing and compiler resource/layout effects would
+require profiling to separate; slot counts alone do not prove the bottleneck.
+
+Decision: **do not integrate packed-grid**. The validated production operator
+retains the prior cache-aligned source SHA f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c.
+Private trial files remain available for reproducibility. The native pipeline
+mean1.1958 exceeds1.1, but11 cases are below0.98, minimum0.8677, so the full30
+goal remains unmet. TopK is unchanged and still reported separately.
+
+Accuracy took713.06s; first-to-last benchmark telemetry span1264.65s. Their
+sum is32m57.71s, excluding setup/boundaries. See [accuracy profiles](qsa_prefill_accuracy_profiles.md)
+for the new40-production/48-with-candidate iteration selection. This completed
+run used the full suite; no rerun is needed merely to adopt the future profile.
+
+### Full30 latency and same-current-production comparison
+
+Latencies below are actual medians of two rounds, in microseconds. Pipeline
+is timed directly, not computed from the separate score/TopK medians.
+
+| Case | Score native/ trial us | Score x | TopK native/ trial us | TopK x | Pipeline native/ trial us | Pipeline x | Score/production x | Pipeline/production x |
+| --- | --- | ---: | --- | ---: | --- | ---: | ---: | ---: |
+| perf_n1_q8192_p8192_bfloat16 | 144.408 / 126.464 | 1.1419 | 204.672 / 212.928 | 0.9612 | 343.792 / 340.752 | 1.0089 | 1.0010 | 0.9997 |
+| perf_n1_q8192_p51200_bfloat16 | 519.648 / 489.200 | 1.0622 | 383.096 / 422.016 | 0.9078 | 894.032 / 909.944 | 0.9825 | 0.9925 | 1.0008 |
+| perf_n1_q8192_p102400_bfloat16 | 1047.000 / 937.888 | 1.1163 | 571.584 / 709.312 | 0.8058 | 1562.216 / 1657.976 | 0.9422 | 1.0051 | 1.0003 |
+| perf_n1_q16384_p8192_bfloat16 | 344.760 / 314.608 | 1.0958 | 453.760 / 455.120 | 0.9970 | 781.328 / 760.224 | 1.0278 | 1.0006 | 1.0092 |
+| perf_n1_q16384_p51200_bfloat16 | 1187.312 / 1036.264 | 1.1458 | 788.608 / 886.224 | 0.8899 | 1914.136 / 1934.456 | 0.9895 | 0.9997 | 1.0014 |
+| perf_n1_q16384_p102400_bfloat16 | 2067.248 / 1945.632 | 1.0625 | 1162.528 / 1478.584 | 0.7862 | 3156.784 / 3444.672 | 0.9164 | 0.9994 | 1.0000 |
+| perf_n2_q8192_p8192_bfloat16 | 254.304 / 234.656 | 1.0837 | 399.760 / 414.544 | 0.9643 | 650.304 / 649.648 | 1.0010 | 1.0002 | 0.9980 |
+| perf_n2_q8192_p51200_bfloat16 | 1086.320 / 974.272 | 1.1150 | 763.376 / 836.968 | 0.9121 | 1785.856 / 1816.136 | 0.9833 | 0.9993 | 1.0006 |
+| perf_n2_q8192_p102400_bfloat16 | 1968.952 / 1864.064 | 1.0563 | 1138.912 / 1399.936 | 0.8135 | 3068.216 / 3298.128 | 0.9303 | 0.9945 | 0.9983 |
+| perf_n4_q4096_p8192_bfloat16 | 226.488 / 207.520 | 1.0914 | 389.096 / 384.864 | 1.0110 | 610.184 / 587.200 | 1.0391 | 0.9991 | 1.0003 |
+| perf_n4_q4096_p51200_bfloat16 | 1067.904 / 945.104 | 1.1299 | 757.648 / 819.560 | 0.9245 | 1759.760 / 1762.640 | 0.9984 | 0.9984 | 0.9989 |
+| perf_n4_q4096_p102400_bfloat16 | 1893.472 / 1800.848 | 1.0514 | 1130.648 / 1388.736 | 0.8142 | 2976.448 / 3242.344 | 0.9180 | 0.9822 | 0.9845 |
+| observed_short96_bfloat16 | 51.440 / 8.128 | 6.3287 | 8.160 / 11.264 | 0.7244 | 56.304 / 15.904 | 3.5402 | 1.0168 | 0.9980 |
+| observed_tail16k_bfloat16 | 53.776 / 16.600 | 3.2395 | 17.280 / 18.864 | 0.9160 | 66.168 / 30.320 | 2.1823 | 0.9990 | 1.0000 |
+| observed_tail32k_bfloat16 | 69.984 / 26.400 | 2.6509 | 21.440 / 25.888 | 0.8282 | 85.104 / 45.888 | 1.8546 | 0.9964 | 1.0059 |
+| observed_short_batch3_bfloat16 | 52.368 / 12.480 | 4.1962 | 13.888 / 13.664 | 1.0164 | 62.048 / 22.448 | 2.7641 | 1.0077 | 1.0057 |
+| observed_ragged54_bfloat16 | 78.096 / 73.536 | 1.0620 | 180.416 / 160.544 | 1.1238 | 249.032 / 228.480 | 1.0900 | 1.0056 | 1.0032 |
+| observed_unequal2_bfloat16 | 595.344 / 473.856 | 1.2564 | 525.952 / 639.840 | 0.8220 | 1089.656 / 1097.248 | 0.9931 | 1.0006 | 0.9993 |
+| observed_chunk_boundary_bfloat16 | 489.736 / 444.816 | 1.1010 | 523.480 / 538.024 | 0.9730 | 995.544 / 980.656 | 1.0152 | 1.0053 | 1.0001 |
+| observed_chunk_tail64_bfloat16 | 625.128 / 456.656 | 1.3689 | 533.552 / 629.176 | 0.8480 | 1163.616 / 1085.136 | 1.0723 | 1.0009 | 1.0018 |
+| fp8_first_chunk_float8_e4m3fn | 114.032 / 118.592 | 0.9615 | 351.640 / 345.296 | 1.0184 | 461.072 / 457.800 | 1.0071 | 0.9995 | 0.9938 |
+| fp8_budget_exact_float8_e4m3fn | 290.176 / 318.856 | 0.9101 | 525.576 / 538.192 | 0.9766 | 813.200 / 856.056 | 0.9499 | 1.0132 | 1.0010 |
+| fp8_dominant_long_float8_e4m3fn | 338.704 / 337.624 | 1.0032 | 540.592 / 562.208 | 0.9616 | 874.080 / 900.032 | 0.9712 | 1.0143 | 1.0003 |
+| fp8_tail64_float8_e4m3fn | 385.376 / 351.072 | 1.0977 | 538.744 / 629.264 | 0.8561 | 925.408 / 984.160 | 0.9403 | 1.0124 | 0.9994 |
+| fp8_tail65_float8_e4m3fn | 384.128 / 349.928 | 1.0977 | 534.688 / 629.280 | 0.8497 | 902.080 / 966.072 | 0.9338 | 0.9864 | 0.9991 |
+| fp8_two_balanced_float8_e4m3fn | 394.632 / 384.984 | 1.0251 | 545.424 / 591.288 | 0.9224 | 937.696 / 973.256 | 0.9635 | 1.0000 | 1.0024 |
+| fp8_two_skewed_float8_e4m3fn | 382.400 / 364.024 | 1.0505 | 534.952 / 629.744 | 0.8495 | 907.912 / 979.488 | 0.9269 | 0.9995 | 1.0021 |
+| fp8_short_tail_float8_e4m3fn | 73.920 / 67.952 | 1.0878 | 92.880 / 103.744 | 0.8953 | 163.664 / 165.552 | 0.9886 | 1.0016 | 1.0073 |
+| fp8_compact_float8_e4m3fn | 53.464 / 53.904 | 0.9918 | 181.408 / 161.616 | 1.1225 | 223.032 / 207.456 | 1.0751 | 0.9950 | 1.0005 |
+| fp8_long100k_float8_e4m3fn | 1334.624 / 1405.232 | 0.9498 | 1162.984 / 1478.736 | 0.7865 | 2523.496 / 2908.400 | 0.8677 | 1.0025 | 1.0021 |
