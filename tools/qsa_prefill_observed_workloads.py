@@ -12,7 +12,13 @@ SOURCE = (
     f"https://github.com/cheersluvs/FlagGems-vllm/tree/{UPLOAD_COMMIT}/"
     "results/qsa_select_paged_prefill/inference-shapes/20261020-014744"
 )
-SUITES = ("upstream-prefill", "observed-prefill", "fp8-prefill", "combined-prefill")
+SUITES = (
+    "upstream-prefill",
+    "observed-prefill",
+    "fp8-prefill",
+    "combined-prefill",
+    "scored-prefill",
+)
 GROUPS = ("upstream_perf", "observed_perf", "fp8_perf")
 
 
@@ -60,7 +66,12 @@ def cases(suite="upstream-prefill"):
         return observed_cases()
     if suite == "fp8-prefill":
         return fp8.cases()
-    return upstream.cases() + observed_cases() + fp8.cases()
+    combined = upstream.cases() + observed_cases() + fp8.cases()
+    if suite == "scored-prefill":
+        return [
+            case for case in combined if not geometry(case).get("select_all", False)
+        ]
+    return combined
 
 
 def geometry(case):

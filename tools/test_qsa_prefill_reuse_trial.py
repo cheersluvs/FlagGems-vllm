@@ -169,7 +169,7 @@ class ReuseTests(unittest.TestCase):
                     else "native_vllm"
                 ),
             )
-            for name in bench.STAGE_ORDER
+            for name in bench.STAGE_ORDER[:6]
             if name != "score_vs_reuse"
         }
         summary = dict(

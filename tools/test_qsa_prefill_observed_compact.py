@@ -68,7 +68,7 @@ class Pointer:
 class WorkloadTests(unittest.TestCase):
     def test_matrix_and_recorded_envelopes(self):
         self.assertEqual(
-            [len(workloads.cases(s)) for s in workloads.SUITES], [12, 10, 10, 32]
+            [len(workloads.cases(s)) for s in workloads.SUITES], [12, 10, 10, 32, 30]
         )
         expected = [
             [96, 1, 4, 128, 96, 4096],
@@ -122,7 +122,7 @@ class WorkloadTests(unittest.TestCase):
         self.assertEqual(recorded["visible"][-1], 32770 // 4)
 
     def test_isolated_cli_lists_all_suites_without_gpu(self):
-        for suite, count in zip(workloads.SUITES, (12, 10, 10, 32)):
+        for suite, count in zip(workloads.SUITES, (12, 10, 10, 32, 30)):
             result = subprocess.run(
                 [
                     sys.executable,

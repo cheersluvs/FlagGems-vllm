@@ -1,6 +1,12 @@
 # QSA prefill：上游 benchmark、我们的 benchmark 与推理 shape 对照
 
-2026-10-20更新：当前常规benchmark矩阵为 **32组**：上游12组BF16 +
+2026-10-21更新：当前常规benchmark及`scored-prefill`验收集合为 **30组**：
+上游12组BF16＋观测8组BF16＋FP8十组，排除两组不经过评分kernel的select-all。
+完整pipeline（含TopK）改为主要指标，逐组达到1或接近、30组等权算术平均超过1.1；
+评分和TopK数据继续单列。[本轮计划及同轮旧8配置对照](qsa_prefill_tuning_round1.md)。
+`combined-prefill`保留32组诊断集合，CLI默认`upstream-prefill`仍为12组。
+
+2026-10-20时的常规benchmark矩阵为 **32组**：上游12组BF16 +
 原推理10组BF16 + 新增10组FP8。H800三阶段runner的`combined-prefill`使用32组，
 `fp8-prefill`可单跑新增10组；CLI默认`upstream-prefill`仍为12组。
 FP8来源、构造假设和运行口径见[FP8补充矩阵](qsa_prefill_fp8_benchmark.md)。

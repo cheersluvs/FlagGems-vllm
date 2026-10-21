@@ -2,9 +2,10 @@
 # Copyright 2026 FlagOS Contributors
 """H800 QSA prefill: full operator, score stage, and Top-K stage.
 
-The matrix contains 22 BF16 cases plus eight FP8 envelopes and two FP8 variants.
-The H800 --mode kernel runner measures the real score chunk sequence without
-Top-K; the isolated stage tests below retain their single full-row launch.
+The matrix contains 20 BF16 cases plus eight FP8 envelopes and two FP8 variants.
+The H800 --mode kernel runner reports score, Top-K and the full chunk pipeline;
+complete pipeline speedup is acceptance. Isolated score tests retain their
+single full-row launch. Select-all cases remain functional tests only.
 
 The official baseline is SHA256-pinned and required by the card runner.
 The independent Torch baseline includes host metadata reads and is reported
@@ -37,18 +38,16 @@ pytestmark = [
 
 # One shared definition with the H800 --mode kernel runner. Prefix is in
 # original tokens before the query, not compressed cache rows.
-BENCHMARK_CASES = {
-    (case["name"],): case for case in workloads.cases("combined-prefill")
-}
+BENCHMARK_CASES = {(case["name"],): case for case in workloads.cases("scored-prefill")}
 
 
 class QSAPrefillBenchmark(base.GenericBenchmark):
     def set_shapes(self, shape_file_path=None):
-        # Full-entry measurements include the two select-all fast paths.
+        # All30 cases exercise both score and TopK.
         self.shapes = list(BENCHMARK_CASES)
         self.shape_desc = (
             "case (query lengths, prefixes and layout in workload manifest) "
-            "(22 BF16 + 10 FP8, H=4, D=128, page=196, block_k=512)"
+            "(20 BF16 + 10 FP8, H=4, D=128, page=196, block_k=512)"
         )
 
     def set_more_shapes(self):

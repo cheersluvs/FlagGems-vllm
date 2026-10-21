@@ -40,7 +40,7 @@ def _select_all_kernel(visible_ptr, output_ptr, K: tl.constexpr, BLOCK: tl.const
 
 @libentry()
 @libtuner(
-    configs=runtime.get_tuned_config("qsa_select_paged_prefill_reuse_score"),
+    configs=runtime.get_tuned_config("qsa_select_paged_prefill_tuning_round1_score"),
     key=[
         "num_rows",
         "max_query_len",

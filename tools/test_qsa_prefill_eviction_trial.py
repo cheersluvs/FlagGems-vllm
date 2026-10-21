@@ -236,7 +236,7 @@ class EvictionTests(unittest.TestCase):
                     "retained_reuse" if n == "score_vs_reuse" else "native_vllm"
                 ),
             )
-            for n in bench.STAGE_ORDER
+            for n in bench.STAGE_ORDER[:6]
             if n != "score_vs_key_major"
         }
         summary = dict(

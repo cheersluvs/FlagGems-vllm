@@ -32,7 +32,7 @@ class FP8WorkloadsTests(unittest.TestCase):
         )
         self.assertEqual(cases[22:], fp8.cases())
         self.assertEqual(
-            [len(workloads.cases(s)) for s in workloads.SUITES], [12, 10, 10, 32]
+            [len(workloads.cases(s)) for s in workloads.SUITES], [12, 10, 10, 32, 30]
         )
 
     def test_selected_envelopes_match_uploaded_manifest(self):
@@ -159,7 +159,7 @@ class FP8WorkloadsTests(unittest.TestCase):
         )
         exec(compile(ast.Module(body=body, type_ignores=[]), str(path), "exec"), ns)
         for cls, counts in (
-            ("QSAPrefillBenchmark", (22, 10)),
+            ("QSAPrefillBenchmark", (20, 10)),
             ("QSAScoredBenchmark", (20, 10)),
         ):
             obj = ns[cls]()

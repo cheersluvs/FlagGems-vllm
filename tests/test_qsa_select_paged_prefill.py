@@ -832,9 +832,9 @@ def test_integrated_rectangular_every_config(sm90, dtype, heads, dim):
     from .test_qsa_prefill_compact_trial import check_score_kernel
 
     configs = flaggems_vllm.runtime.get_tuned_config(
-        "qsa_select_paged_prefill_reuse_score"
+        "qsa_select_paged_prefill_tuning_round1_score"
     )
-    assert len(configs) == 8
+    assert len(configs) == 10
     check_score_kernel(
         dtype, heads, dim, op_module._qsa_prefill_score_kernel, False, configs=configs
     )

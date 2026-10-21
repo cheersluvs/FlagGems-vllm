@@ -60,13 +60,13 @@ class ProductionIntegrationTests(unittest.TestCase):
             ]
         )
         rect.name = "_qsa_prefill_score_kernel"
-        # Only the decorator config name changes from six to retained eight.
+        # Only the decorator config name changes; arithmetic/keys are exact.
         for node in ast.walk(rect.decorator_list[1]):
             if (
                 isinstance(node, ast.Constant)
                 and node.value == "qsa_select_paged_prefill_score"
             ):
-                node.value = "qsa_select_paged_prefill_reuse_score"
+                node.value = "qsa_select_paged_prefill_tuning_round1_score"
         self.assertEqual(ast.dump(rect), ast.dump(current[rect.name]))
         compact = functions(ROOT / "tools/qsa_prefill_compact_trial.py")
         for name in ("_qsa_prefill_compact_score_kernel", "_compact_eligible"):

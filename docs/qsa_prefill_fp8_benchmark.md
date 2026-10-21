@@ -1,5 +1,12 @@
 # QSA prefill: FP8 benchmark extension
 
+Current status, 2026-10-21: the standard benchmark and scored-prefill acceptance
+set now have30 scored cases (20 BF16 and10 FP8), excluding the two select-all
+fixtures. combined-prefill retains32 diagnostic fixtures. The primary goal is
+complete GPU pipeline speedup including TopK, with a30-case arithmetic mean
+above1.1 and each case at or near1. See [round1](qsa_prefill_tuning_round1.md).
+The sections below record the preceding32-case extension and its validation.
+
 Pre-coding plan, 2026-10-20. Add the agreed eight envelopes from upload
 7835b9fd94c6f0c75339a9e156d2fc2cb4183186 plus two explicit FP8 dtype variants.
 Archive SHA256: 857381f56826cf7735b7acf54c158fcf4dc850bffd9347faeb220e60b394e106.

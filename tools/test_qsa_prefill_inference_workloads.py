@@ -112,7 +112,7 @@ class InferenceWorkloadTests(unittest.TestCase):
         benchmark = namespace["QSAPrefillBenchmark"]()
         benchmark.set_shapes()
         self.assertEqual(
-            benchmark.shapes, [(c["name"],) for c in observed.cases("combined-prefill")]
+            benchmark.shapes, [(c["name"],) for c in observed.cases("scored-prefill")]
         )
         self.assertEqual(benchmark.set_more_shapes(), [])
         self.assertEqual(
@@ -122,9 +122,7 @@ class InferenceWorkloadTests(unittest.TestCase):
         with patch.object(
             observed, "make_inputs", return_value=tuple(range(10))
         ) as builder:
-            for shape, case in zip(
-                benchmark.shapes, observed.cases("combined-prefill")
-            ):
+            for shape, case in zip(benchmark.shapes, observed.cases("scored-prefill")):
                 self.assertEqual(
                     next(
                         namespace["_inputs"](

@@ -29,12 +29,15 @@ from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
 from tools import qsa_prefill_triton_ab as ab  # noqa: E402
+from tools import qsa_prefill_tuning_round1 as round1  # noqa: E402
 
 SOURCES = sorted(
     set(support.SOURCES)
     | {
         "tools/benchmark_qsa_prefill_triton_stages.py",
         "tools/qsa_prefill_triton_ab.py",
+        "tools/qsa_prefill_tuning_round1.py",
+        "tools/test_qsa_prefill_tuning_round1.py",
         "tools/qsa_prefill_frozen_production.py",
         "tools/test_qsa_prefill_production_integration.py",
         "tools/run_qsa_prefill_triton_ab_h800.sh",
@@ -51,6 +54,7 @@ SOURCES = sorted(
         "tools/qsa_prefill_fp8_workloads.py",
         "tools/test_qsa_prefill_fp8_workloads.py",
         "docs/qsa_prefill_fp8_shape_manifest.json",
+        "docs/qsa_prefill_tuning_round1.md",
         "tools/qsa_prefill_compact_trial.py",
         "tools/qsa_prefill_key_major_trial.py",
         "tools/qsa_prefill_reuse_trial.py",
@@ -64,7 +68,13 @@ SOURCES = sorted(
     }
 )
 
-SCORE_STAGES = ("score", "score_vs_production", "score_vs_key_major", "score_vs_reuse")
+SCORE_STAGES = (
+    "score",
+    "score_vs_production",
+    "score_vs_key_major",
+    "score_vs_reuse",
+    "score_vs_previous_tuning",
+)
 STAGE_ORDER = (
     "score",
     "topk",
@@ -72,6 +82,8 @@ STAGE_ORDER = (
     "score_vs_production",
     "score_vs_key_major",
     "score_vs_reuse",
+    "score_vs_previous_tuning",
+    "pipeline_vs_previous_tuning",
 )
 KEY_MAJOR_CANDIDATES = ("key-major", "key-major-reuse", "key-major-evict-first")
 
@@ -546,6 +558,36 @@ def worker(options, case, path):
         )
     else:
         functions = ab.bind_stages(native, candidate, native_chunks, candidate_chunks)
+    previous = None
+    previous_args = None
+    previous_chunks = []
+    if getattr(options, "compare_previous_tuning", False):
+        if fastpath:
+            raise RuntimeError("Previous tuning comparison requires scored cases")
+        previous = round1.previous_module(candidate)
+        previous_args = (*args[:8], native_output(args[8], torch), args[9])
+        previous_chunks = ab.observe(previous, "persistent_topk", previous_args)
+        verify_geometry(case, previous_args, previous_chunks)
+        for chunk in previous_chunks:
+            chunk.pop("common_logits")
+        if ab.signatures(previous_chunks) != ab.signatures(candidate_chunks):
+            raise RuntimeError("Previous tuning changed public chunk geometry")
+        previous_functions = ab.bind_stages(
+            native, previous, native_chunks, previous_chunks
+        )
+        for name in ("score", "pipeline"):
+            functions[name + "_vs_previous_tuning"] = dict(
+                baseline=previous_functions[name]["candidate"],
+                candidate=functions[name]["candidate"],
+            )
+        result["previous_tuning"] = dict(
+            source_equivalent_sha256=round1.PREVIOUS_SOURCE_SHA256,
+            config_group=round1.PREVIOUS_CONFIG_GROUP,
+            same_topk=previous.persistent_topk is candidate.persistent_topk,
+            chunks=ab.signatures(previous_chunks),
+            independent_rectangular_cache=True,
+            independent_compact_cache=True,
+        )
     production_chunks = []
     if production is not None and not fastpath:
         # Identical public chunk geometry and one shared preallocated output
@@ -577,6 +619,15 @@ def worker(options, case, path):
         result["kernel_resources"] = resources.collect(
             native, production or candidate, candidate
         )
+        if previous is not None:
+            result["kernel_resources"]["previous_tuning"] = dict(
+                rectangular=resources.libentry_records(
+                    previous._qsa_prefill_score_kernel
+                ),
+                compact=resources.libentry_records(
+                    previous._qsa_prefill_compact_score_kernel
+                ),
+            )
         if retained is not None:
             result["kernel_resources"]["retained_key_major"] = (
                 resources.libentry_records(retained._qsa_prefill_score_kernel)
@@ -587,6 +638,17 @@ def worker(options, case, path):
     )
     result["timer"] = {k: v for k, v in timer_info.items() if k != "includes_topk"}
     result["production_score_configs"] = support.score_configs(candidate)
+    if previous is not None:
+        result["tuning_round1"] = dict(
+            production=round1.tuning_state(candidate),
+            previous=round1.tuning_state(previous),
+        )
+        result["previous_tuning"]["rectangular_configs"] = support.score_configs(
+            previous
+        )
+        result["previous_tuning"]["compact_configs"] = support.score_configs(
+            previous, "_qsa_prefill_compact_score_kernel"
+        )
     if production is not None:
         result["baseline_production_score_configs"] = support.score_configs(production)
         result["candidate_fallback_score_configs"] = support.score_configs(candidate)
@@ -647,6 +709,7 @@ def worker(options, case, path):
                 "score_vs_production": (production, production_chunks, args),
                 "score_vs_key_major": (retained, candidate_chunks, args),
                 "score_vs_reuse": (retained, candidate_chunks, args),
+                "score_vs_previous_tuning": (previous, previous_chunks, previous_args),
             }
             baseline_module, baseline_chunks, baseline_args = score_baselines[name]
             return {
@@ -671,7 +734,12 @@ def worker(options, case, path):
             )
         return dict(
             sample_rows=validate_pipeline(
-                functions[name], native_args, args, native_chunks, torch, helpers
+                functions[name],
+                previous_args if name == "pipeline_vs_previous_tuning" else native_args,
+                args,
+                native_chunks,
+                torch,
+                helpers,
             )
         )
 
@@ -684,6 +752,8 @@ def worker(options, case, path):
                 "score_vs_production": "production",
                 "score_vs_key_major": "retained_key_major",
                 "score_vs_reuse": "retained_reuse",
+                "score_vs_previous_tuning": "previous_production_eight_configs",
+                "pipeline_vs_previous_tuning": "previous_production_eight_configs",
             }.get(name, "native_vllm"),
         )
         entry["validation_before"] = validate(name)
@@ -719,6 +789,14 @@ def worker(options, case, path):
     result["common_logits_after"] = common_fingerprints(native_chunks, torch)
     if result["common_logits_before"] != result["common_logits_after"]:
         raise RuntimeError("Common Top-K logits were modified during this run")
+    if previous is not None and (
+        support.score_configs(previous)
+        != result["previous_tuning"]["rectangular_configs"]
+        or support.score_configs(previous, "_qsa_prefill_compact_score_kernel")
+        != result["previous_tuning"]["compact_configs"]
+        or previous.persistent_topk is not candidate.persistent_topk
+    ):
+        raise RuntimeError("Previous tuning or TopK binding changed during timing")
     if (
         production is not None
         and support.score_configs(production)
@@ -781,7 +859,7 @@ def write_table(summary, directory):
     ]
     for case in summary["cases"]:
         for name in STAGE_ORDER:
-            if name not in case.get("stages", {}) and name.startswith("score_vs_"):
+            if name not in case.get("stages", {}) and "_vs_" in name:
                 continue
             entry = case.get("stages", {}).get(name, {})
             accepted = case["status"] == "passed" and (
@@ -850,6 +928,10 @@ def write_table(summary, directory):
                 )
     summary["grouped_speedups"] = grouped
     support.write_json(directory / "grouped-speedups.json", grouped)
+    summary["overall_acceptance"] = round1.acceptance(summary)
+    support.write_json(
+        directory / "overall-acceptance.json", summary["overall_acceptance"]
+    )
 
 
 def child_command(options, directory, flag):
@@ -877,6 +959,11 @@ def child_command(options, directory, flag):
         str(options.kernel_rep_ms),
         "--max-initial-temp-c",
         str(getattr(options, "max_initial_temp_c", 75)),
+        *(
+            ["--compare-previous-tuning"]
+            if getattr(options, "compare_previous_tuning", False)
+            else []
+        ),
         *(
             [
                 "--shared-gpu-exploratory",
@@ -1280,6 +1367,7 @@ def main():
         default="upstream-prefill",
     )
     parser.add_argument("--cases", nargs="+")
+    parser.add_argument("--compare-previous-tuning", action="store_true")
     parser.add_argument(
         "--candidate",
         choices=("production", "compact-ragged", *KEY_MAJOR_CANDIDATES),
@@ -1308,6 +1396,14 @@ def main():
         parser.error("Temperature overrides require the verified FlagTree profile")
     if options.candidate != "production" and options.compiler != "flagtree":
         parser.error("Private score trials require the verified FlagTree profile")
+    if options.compare_previous_tuning and (
+        options.candidate != "production"
+        or not is_flagtree(options)
+        or options.suite != "scored-prefill"
+    ):
+        parser.error(
+            "Previous tuning comparison requires FlagTree production scored-prefill"
+        )
     if options.shared_gpu_exploratory and options.compiler != "flagtree":
         parser.error("Shared diagnostics require the FlagTree CUDA13.4 profile")
     all_cases = workloads.cases(options.suite)
