@@ -30,6 +30,7 @@ from tools import qsa_prefill_cache_granularity as cache_trial  # noqa: E402
 from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_packed_grid as packed  # noqa: E402
 from tools import qsa_prefill_page_table_trial as page_table  # noqa: E402
+from tools import qsa_prefill_query_split_trial as query_split  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
 from tools import qsa_prefill_triton_ab as ab  # noqa: E402
@@ -53,6 +54,12 @@ SOURCES = sorted(
         "tools/qsa_prefill_accuracy_profiles.py",
         "tools/test_qsa_prefill_accuracy_profiles.py",
         "docs/qsa_prefill_accuracy_profiles.md",
+        "tools/qsa_prefill_query_split_kernel.py",
+        "tools/qsa_prefill_query_split_trial.py",
+        "tools/qsa_prefill_query_split_matched.py",
+        "tools/test_qsa_prefill_query_split.py",
+        "tests/test_qsa_prefill_query_split.py",
+        "docs/qsa_prefill_query_split_trial.md",
         "tools/qsa_prefill_page_table_kernel.py",
         "tools/qsa_prefill_page_table_bf16_kernel.py",
         "tools/test_qsa_prefill_page_table_bf16.py",
@@ -98,6 +105,7 @@ SCORE_STAGES = (
     "score_vs_key_major",
     "score_vs_reuse",
     "score_vs_previous_tuning",
+    "score_matched",
 )
 STAGE_ORDER = (
     "score",
@@ -109,6 +117,7 @@ STAGE_ORDER = (
     "score_vs_previous_tuning",
     "pipeline_vs_previous_tuning",
     "pipeline_vs_production",
+    "score_matched",
 )
 KEY_MAJOR_CANDIDATES = ("key-major", "key-major-reuse", "key-major-evict-first")
 
@@ -259,6 +268,8 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         from tools import qsa_prefill_compact_trial as trial
 
         candidate = trial.candidate_module(ab.frozen_production())
+    elif getattr(options, "candidate", "production") == "query-split":
+        candidate = query_split.candidate_module(op)
     elif getattr(options, "candidate", "production") == "packed-grid":
         candidate = packed.candidate_module(op)
     elif (
@@ -718,6 +729,44 @@ def worker(options, case, path):
                 baseline=production_functions["pipeline"]["candidate"],
                 candidate=functions["pipeline"]["candidate"],
             )
+    matched_pair = None
+    split_trial = getattr(options, "candidate", "production") == "query-split"
+    if split_trial:
+        result["query_split"] = dict(
+            baseline_source_sha256=query_split.PRODUCTION_SHA256,
+            gate="IS_FP8 and TILE_R>=32",
+            query_parts=2,
+            configs=support.score_configs(candidate),
+        )
+        eligible = case["dtype"] == "float8_e4m3fn" and any(
+            t["route"] == "rectangular" and t["constants"]["TILE_R"] >= 32
+            for t in result["cache_granularity"]["production_baseline"]
+        )
+        if eligible:
+            from tools import qsa_prefill_query_split_matched as matched
+
+            matched_pair = matched.modules(
+                production,
+                candidate,
+                result["cache_granularity"]["production_baseline"],
+            )
+            functions = dict(
+                score_matched=dict(
+                    baseline=scoring.score_function(
+                        matched_pair[0]._prefill_logits, production_chunks
+                    ),
+                    candidate=scoring.score_function(
+                        matched_pair[1]._prefill_logits, candidate_chunks
+                    ),
+                ),
+                **functions,
+            )
+        else:
+            result["stages"]["score_matched"] = dict(
+                status="not_applicable",
+                accepted=False,
+                reason="No FP8 rectangular baseline tile eligible to split",
+            )
     if retained is not None and not fastpath:
         functions[retained_stage] = dict(
             baseline=scoring.score_function(retained._prefill_logits, candidate_chunks),
@@ -754,6 +803,8 @@ def worker(options, case, path):
                 resources.libentry_records(retained._qsa_prefill_score_kernel)
             )
             result["kernel_resources"]["retained_baseline_kind"] = retained_kind
+    if matched_pair is not None:
+        result["query_split"]["matched"] = matched.freeze_and_records(matched_pair)
     timer, timer_info = scoring.make_timer(
         options.kernel_warmup_ms, options.kernel_rep_ms
     )
@@ -828,6 +879,26 @@ def worker(options, case, path):
 
     def validate(name):
         if name in SCORE_STAGES:
+            if name == "score_matched":
+                return {
+                    side: scoring.validate_scores(
+                        module._prefill_logits,
+                        chunks,
+                        a,
+                        torch,
+                        support.sample_rows,
+                        device,
+                    )
+                    for side, module, chunks, a in (
+                        (
+                            "baseline",
+                            matched_pair[0],
+                            production_chunks,
+                            production_args,
+                        ),
+                        ("candidate", matched_pair[1], candidate_chunks, args),
+                    )
+                }
             score_baselines = {
                 "score": (native, native_chunks, native_args),
                 "score_vs_production": (
@@ -886,6 +957,7 @@ def worker(options, case, path):
             includes_topk=name not in SCORE_STAGES,
             baseline_kind={
                 "score_vs_production": "production",
+                "score_matched": "production_fixed_config",
                 "pipeline_vs_production": "production",
                 "score_vs_key_major": "retained_key_major",
                 "score_vs_reuse": "retained_reuse",
@@ -928,6 +1000,16 @@ def worker(options, case, path):
         )
         support.write_json(path, result)
     result["common_logits_after"] = common_fingerprints(native_chunks, torch)
+    if (
+        split_trial
+        and support.score_configs(candidate) != result["query_split"]["configs"]
+    ):
+        raise RuntimeError("Query-split tuning changed during timing")
+    if (
+        matched_pair is not None
+        and matched.freeze_and_records(matched_pair) != result["query_split"]["matched"]
+    ):
+        raise RuntimeError("Fixed-config query-split kernels changed during timing")
     if (
         "page_table_trial" in result
         and support.score_configs(candidate) != result["page_table_trial"]["configs"]
@@ -1011,7 +1093,9 @@ def write_table(summary, directory):
     ]
     for case in summary["cases"]:
         for name in STAGE_ORDER:
-            if name not in case.get("stages", {}) and "_vs_" in name:
+            if name not in case.get("stages", {}) and (
+                "_vs_" in name or name == "score_matched"
+            ):
                 continue
             entry = case.get("stages", {}).get(name, {})
             accepted = case["status"] == "passed" and (
@@ -1097,6 +1181,8 @@ def write_table(summary, directory):
             else round1.acceptance(summary)
         )
     )
+    if summary.get("manifest", {}).get("options", {}).get("candidate") == "query-split":
+        summary["overall_acceptance"] = query_split.acceptance(summary)
     accuracy_profiles.annotate_acceptance(
         summary["overall_acceptance"],
         summary.get("manifest", {}).get("options", {}).get("accuracy_profile", "full"),
@@ -1338,6 +1424,11 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             for name in ("test_packed_score_boundaries", "test_packed_full_entry"):
                 if not any("::" + name in node for node in records):
                     error = "Missing packed-grid correctness coverage: " + name
+                    break
+        if not error and getattr(options, "candidate", "production") == "query-split":
+            for name in ("test_query_split_score", "test_query_split_full_entry"):
+                if not any("::" + name in node for node in records):
+                    error = "Missing query-split correctness coverage: " + name
                     break
         if (
             not error

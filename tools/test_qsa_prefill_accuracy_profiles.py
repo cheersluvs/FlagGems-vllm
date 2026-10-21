@@ -29,6 +29,7 @@ class ProfileTests(unittest.TestCase):
             ("packed-grid", 48),
             ("page-table", 48),
             ("page-table-bf16", 48),
+            ("query-split", 46),
         ):
             nodes = profiles.expected_nodes(candidate)
             self.assertEqual(len(nodes), count)
@@ -67,6 +68,7 @@ class ProfileTests(unittest.TestCase):
     def test_full_targets_preserve_current_and_historical_suites(self):
         definitions = {
             "production": [profiles.PRODUCTION_FILE],
+            "query-split": [profiles.QUERY_SPLIT_FILE, profiles.PRODUCTION_FILE],
             "packed-grid": [profiles.PACKED_FILE, profiles.PRODUCTION_FILE],
             "page-table": [profiles.PAGE_TABLE_FILE, profiles.PRODUCTION_FILE],
             "page-table-bf16": [
@@ -121,6 +123,7 @@ class ProfileTests(unittest.TestCase):
             ("packed-grid", 48),
             ("page-table", 48),
             ("page-table-bf16", 48),
+            ("query-split", 46),
         ):
             proc = subprocess.run(
                 base + ["--candidate", candidate],
@@ -238,7 +241,7 @@ class ProfileTests(unittest.TestCase):
                             )
                             self.assertEqual(
                                 summary["accuracy"]["counts"],
-                                dict(passed=40 if candidate == "production" else 48),
+                                dict(passed=len(profiles.expected_nodes(candidate))),
                             )
                             self.assertFalse(
                                 summary["accuracy"]["full_suite_validated"]

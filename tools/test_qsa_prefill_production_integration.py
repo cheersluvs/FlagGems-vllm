@@ -256,7 +256,13 @@ class ProductionIntegrationTests(unittest.TestCase):
             ns,
         )
         pytest = types.SimpleNamespace(main=lambda args: calls.append(args) or 0)
-        for candidate in ("production", "packed-grid", "page-table", "page-table-bf16"):
+        for candidate in (
+            "production",
+            "packed-grid",
+            "page-table",
+            "page-table-bf16",
+            "query-split",
+        ):
             calls.clear()
             with patch.dict("sys.modules", pytest=pytest):
                 options = types.SimpleNamespace(
@@ -278,6 +284,8 @@ class ProductionIntegrationTests(unittest.TestCase):
                 expected.insert(
                     0, str(ROOT / "tests/test_qsa_prefill_page_table_bf16.py")
                 )
+            if candidate == "query-split":
+                expected.insert(0, str(ROOT / "tests/test_qsa_prefill_query_split.py"))
             self.assertEqual(paths, expected)
         changed = dict(info, operator_binding={"candidate_is_canonical_module": False})
         self.assertNotEqual(

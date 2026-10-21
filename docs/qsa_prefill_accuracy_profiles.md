@@ -87,3 +87,12 @@ lookup. Two full-entry nodes retain native/FP32 checks and strided input.
 `--accuracy-profile full` selects that candidate file plus the complete
 production file. Neither iteration nor private-candidate results imply formal
 production validation. Historical `page-table`/`packed-grid` selections remain.
+
+
+The `query-split` candidate selects46 exact iteration nodes:40 production,
+4 fixed-tile score nodes (BF16 H4/D128; FP8 H4/D128, H1/D32, H3/D96) plus2
+full-entry BF16/FP8 nodes. Score nodes explicitly launch TILE_R8/32/64 across
+request/chunk boundaries; full-entry forces the existing TILE_R64/K_TILES16
+choice so it exercises the new path. The complete production suite remains
+available through `--accuracy-profile full` before integration. No benchmark
+case, numerical tolerance or production node was removed by this profile.
