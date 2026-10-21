@@ -27,6 +27,7 @@ sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
 from tools import qsa_prefill_cache_granularity as cache_trial  # noqa: E402
 from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
+from tools import qsa_prefill_packed_grid as packed  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
 from tools import qsa_prefill_triton_ab as ab  # noqa: E402
@@ -42,6 +43,11 @@ SOURCES = sorted(
         "tools/qsa_prefill_cache_granularity.py",
         "tools/test_qsa_prefill_cache_granularity.py",
         "docs/qsa_prefill_cache_granularity.md",
+        "tools/qsa_prefill_packed_grid.py",
+        "tools/qsa_prefill_packed_grid_kernel.py",
+        "tools/test_qsa_prefill_packed_grid.py",
+        "tests/test_qsa_prefill_packed_grid.py",
+        "docs/qsa_prefill_packed_grid.md",
         "tools/qsa_prefill_frozen_production.py",
         "tools/test_qsa_prefill_production_integration.py",
         "tools/run_qsa_prefill_triton_ab_h800.sh",
@@ -88,6 +94,7 @@ STAGE_ORDER = (
     "score_vs_reuse",
     "score_vs_previous_tuning",
     "pipeline_vs_previous_tuning",
+    "pipeline_vs_production",
 )
 KEY_MAJOR_CANDIDATES = ("key-major", "key-major-reuse", "key-major-evict-first")
 
@@ -238,6 +245,8 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         from tools import qsa_prefill_compact_trial as trial
 
         candidate = trial.candidate_module(ab.frozen_production())
+    elif getattr(options, "candidate", "production") == "packed-grid":
+        candidate = packed.candidate_module(op)
     elif getattr(options, "candidate", "production") == "key-major":
         from tools import qsa_prefill_key_major_trial as trial
 
@@ -512,7 +521,8 @@ def worker(options, case, path):
         if hasattr(candidate, "freeze_baseline"):
             result["eviction_config_match"] = candidate.freeze_baseline(candidate)
     fastpath = workloads.geometry(case).get("select_all", False)
-    trace_cache = (
+    packed_trial = getattr(options, "candidate", "production") == "packed-grid"
+    trace_cache = packed_trial or (
         getattr(options, "compare_previous_tuning", False)
         and getattr(options, "previous_tuning", "eight") == "round1"
     )
@@ -522,6 +532,16 @@ def worker(options, case, path):
             production=candidate_trace,
             policy="Operator-local entry key appends exact existing LibTuner key",
         )
+        if packed_trial:
+            result["packed_grid"] = dict(
+                baseline_source_sha256=packed.PRODUCTION_SHA256,
+                chunks=packed.diagnostics(
+                    args, candidate_trace, workloads.geometry(case)["query_lengths"]
+                ),
+                packed_configs=support.score_configs(
+                    candidate, "_qsa_prefill_packed_score_kernel"
+                ),
+            )
     else:
         candidate_chunks = (
             [] if fastpath else ab.observe(candidate, "persistent_topk", args)
@@ -611,9 +631,10 @@ def worker(options, case, path):
             independent_compact_cache=True,
         )
     production_chunks = []
+    production_args = None
     if production is not None and not fastpath:
-        # Identical public chunk geometry and one shared preallocated output
-        # buffer isolate scheduling; no additional TopK or scratch allocation.
+        # Older score-only trials reuse captured candidate buffers. Packed-grid
+        # captures separate public baseline buffers for the pipeline comparison.
         production_chunks = candidate_chunks
 
         def production_scores():
@@ -623,6 +644,35 @@ def worker(options, case, path):
         functions["score_vs_production"] = dict(
             baseline=production_scores, candidate=functions["score"]["candidate"]
         )
+        if packed_trial:
+            production_args = (*args[:8], native_output(args[8], torch), args[9])
+            production_chunks, production_trace = cache_trial.observe(
+                production, production_args
+            )
+            verify_geometry(case, production_args, production_chunks)
+            if production_args[8].data_ptr() == args[8].data_ptr() or any(
+                a["score_args"][5].data_ptr() == b["score_args"][5].data_ptr()
+                for a, b in zip(production_chunks, candidate_chunks)
+            ):
+                raise RuntimeError(
+                    "Packed-grid pipeline baseline shares candidate buffers"
+                )
+            if ab.signatures(production_chunks) != ab.signatures(candidate_chunks):
+                raise RuntimeError("Packed-grid changed public chunk geometry")
+            for chunk in production_chunks:
+                chunk.pop("common_logits")
+            result["cache_granularity"]["production_baseline"] = production_trace
+            production_functions = ab.bind_stages(
+                native, production, native_chunks, production_chunks
+            )
+            functions["score_vs_production"] = dict(
+                baseline=production_functions["score"]["candidate"],
+                candidate=functions["score"]["candidate"],
+            )
+            functions["pipeline_vs_production"] = dict(
+                baseline=production_functions["pipeline"]["candidate"],
+                candidate=functions["pipeline"]["candidate"],
+            )
     if retained is not None and not fastpath:
         functions[retained_stage] = dict(
             baseline=scoring.score_function(retained._prefill_logits, candidate_chunks),
@@ -641,6 +691,10 @@ def worker(options, case, path):
         result["kernel_resources"] = resources.collect(
             native, production or candidate, candidate
         )
+        if packed_trial:
+            result["kernel_resources"]["candidate_packed"] = resources.libentry_records(
+                candidate._qsa_prefill_packed_score_kernel
+            )
         if previous is not None:
             result["kernel_resources"]["previous_tuning"] = dict(
                 rectangular=resources.libentry_records(
@@ -682,7 +736,8 @@ def worker(options, case, path):
             rectangular_dot=(
                 "keys_x_query"
                 if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES
-                or getattr(options, "candidate", "production") == "production"
+                or getattr(options, "candidate", "production")
+                in ("production", "packed-grid")
                 else "query_x_keys"
             ),
             routing_policy="rectangular_row_capacity_ge_4x_chunk_rows",
@@ -695,7 +750,9 @@ def worker(options, case, path):
                 )
             ],
             historical_baseline_sha256=(
-                ab.PRODUCTION_SHA256 if production is not None else None
+                packed.PRODUCTION_SHA256
+                if packed_trial
+                else ab.PRODUCTION_SHA256 if production is not None else None
             ),
             production_source_sha256=info["operator_binding"]["canonical_sha256"],
             candidate_source_sha256=info["operator_binding"]["candidate_sha256"],
@@ -728,7 +785,11 @@ def worker(options, case, path):
         if name in SCORE_STAGES:
             score_baselines = {
                 "score": (native, native_chunks, native_args),
-                "score_vs_production": (production, production_chunks, args),
+                "score_vs_production": (
+                    production,
+                    production_chunks,
+                    production_args or args,
+                ),
                 "score_vs_key_major": (retained, candidate_chunks, args),
                 "score_vs_reuse": (retained, candidate_chunks, args),
                 "score_vs_previous_tuning": (previous, previous_chunks, previous_args),
@@ -757,7 +818,15 @@ def worker(options, case, path):
         return dict(
             sample_rows=validate_pipeline(
                 functions[name],
-                previous_args if name == "pipeline_vs_previous_tuning" else native_args,
+                (
+                    previous_args
+                    if name == "pipeline_vs_previous_tuning"
+                    else (
+                        production_args
+                        if name == "pipeline_vs_production"
+                        else native_args
+                    )
+                ),
                 args,
                 native_chunks,
                 torch,
@@ -772,6 +841,7 @@ def worker(options, case, path):
             includes_topk=name not in SCORE_STAGES,
             baseline_kind={
                 "score_vs_production": "production",
+                "pipeline_vs_production": "production",
                 "score_vs_key_major": "retained_key_major",
                 "score_vs_reuse": "retained_reuse",
                 "score_vs_previous_tuning": (
@@ -813,6 +883,12 @@ def worker(options, case, path):
         )
         support.write_json(path, result)
     result["common_logits_after"] = common_fingerprints(native_chunks, torch)
+    if (
+        packed_trial
+        and support.score_configs(candidate, "_qsa_prefill_packed_score_kernel")
+        != result["packed_grid"]["packed_configs"]
+    ):
+        raise RuntimeError("Packed-grid tuning changed during timing")
     if result["common_logits_before"] != result["common_logits_after"]:
         raise RuntimeError("Common Top-K logits were modified during this run")
     if previous is not None and (
@@ -954,7 +1030,12 @@ def write_table(summary, directory):
                 )
     summary["grouped_speedups"] = grouped
     support.write_json(directory / "grouped-speedups.json", grouped)
-    summary["overall_acceptance"] = round1.acceptance(summary)
+    summary["overall_acceptance"] = (
+        packed.acceptance(summary)
+        if summary.get("manifest", {}).get("options", {}).get("candidate")
+        == "packed-grid"
+        else round1.acceptance(summary)
+    )
     support.write_json(
         directory / "overall-acceptance.json", summary["overall_acceptance"]
     )
@@ -1050,7 +1131,13 @@ def accuracy_worker(options, path):
             str(ROOT / "tests/test_qsa_select_paged_prefill.py"),
             *(
                 [str(ROOT / "tests/test_qsa_prefill_compact_trial.py")]
-                if getattr(options, "candidate", "production") != "production"
+                if getattr(options, "candidate", "production")
+                not in ("production", "packed-grid")
+                else []
+            ),
+            *(
+                [str(ROOT / "tests/test_qsa_prefill_packed_grid.py")]
+                if getattr(options, "candidate", "production") == "packed-grid"
                 else []
             ),
             *(
@@ -1165,7 +1252,8 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
                     "test_integrated_full_entry_and_retained_candidate",
                     "test_score_cache_separates_runtime_rows",
                 )
-                if getattr(options, "candidate", "production") == "production"
+                if getattr(options, "candidate", "production")
+                in ("production", "packed-grid")
                 else (
                     "test_observed_envelopes_against_native",
                     "test_compact_every_config_and_chunk_boundary",
@@ -1176,11 +1264,19 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             if not any("::" + name in node for node in records):
                 error = "Missing required direct comparison coverage: " + name
                 break
-        if not error and getattr(options, "candidate", "production") == "production":
+        if not error and getattr(options, "candidate", "production") in (
+            "production",
+            "packed-grid",
+        ):
             for case in workloads.fp8.cases():
                 node = "::test_fp8_benchmark_against_native[" + case["name"] + "]"
                 if not any(node in name for name in records):
                     error = "Missing required FP8 benchmark coverage: " + case["name"]
+                    break
+        if not error and getattr(options, "candidate", "production") == "packed-grid":
+            for name in ("test_packed_score_boundaries", "test_packed_full_entry"):
+                if not any("::" + name in node for node in records):
+                    error = "Missing packed-grid correctness coverage: " + name
                     break
         if (
             not error
@@ -1405,7 +1501,7 @@ def main():
     )
     parser.add_argument(
         "--candidate",
-        choices=("production", "compact-ragged", *KEY_MAJOR_CANDIDATES),
+        choices=("production", "compact-ragged", "packed-grid", *KEY_MAJOR_CANDIDATES),
         default="production",
     )
     parser.add_argument("--list-cases", action="store_true")
@@ -1431,6 +1527,8 @@ def main():
         parser.error("Temperature overrides require the verified FlagTree profile")
     if options.candidate != "production" and options.compiler != "flagtree":
         parser.error("Private score trials require the verified FlagTree profile")
+    if options.candidate == "packed-grid" and options.suite != "scored-prefill":
+        parser.error("Packed-grid trial requires the frozen scored-prefill30 suite")
     if options.compare_previous_tuning and (
         options.candidate != "production"
         or not is_flagtree(options)

@@ -3,6 +3,7 @@
 """Test/benchmark helpers for score-cache alignment; no production import."""
 
 import hashlib
+from contextlib import ExitStack
 from unittest.mock import patch
 
 ROUND1_SOURCE_SHA256 = (
@@ -98,15 +99,16 @@ def observe(module, args):
 
             return invoke
 
-    with patch.object(
-        module,
-        "_qsa_prefill_score_kernel",
-        Capture(module._qsa_prefill_score_kernel, "rectangular"),
-    ), patch.object(
-        module,
-        "_qsa_prefill_compact_score_kernel",
-        Capture(module._qsa_prefill_compact_score_kernel, "compact"),
-    ):
+    with ExitStack() as stack:
+        for name, route in (
+            ("_qsa_prefill_score_kernel", "rectangular"),
+            ("_qsa_prefill_compact_score_kernel", "compact"),
+            ("_qsa_prefill_packed_score_kernel", "packed"),
+        ):
+            if hasattr(module, name):
+                stack.enter_context(
+                    patch.object(module, name, Capture(getattr(module, name), route))
+                )
         chunks = ab.observe(module, "persistent_topk", args)
     if [(t["offset"], t["rows"], t["width"]) for t in traces] != ab.signatures(chunks):
         raise RuntimeError("Score trace differs from actual public chunk geometry")

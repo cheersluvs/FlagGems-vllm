@@ -261,6 +261,8 @@ class AccuracyTests(unittest.TestCase):
             "missing_production",
             "missing_fp8",
             "missing_cache_rows",
+            "packed_grid",
+            "missing_packed_grid",
             "skipped",
             "identity",
             "key_major",
@@ -421,6 +423,19 @@ class AccuracyTests(unittest.TestCase):
                     records["tests/test.py::test_parameterized_against_vllm"][
                         "result"
                     ] = "skipped"
+                if failure in ("packed_grid", "missing_packed_grid"):
+                    options.candidate = "packed-grid"
+                    records.update(
+                        {
+                            "tests/test.py::" + name: dict(result="passed")
+                            for name in (
+                                "test_packed_score_boundaries",
+                                "test_packed_full_entry",
+                            )
+                        }
+                    )
+                    if failure == "missing_packed_grid":
+                        records.pop("tests/test.py::test_packed_full_entry")
                 (root / "accuracy-full.json").write_text(json.dumps(records))
                 observed = (
                     dict(info, triton_source="changed")
@@ -443,7 +458,12 @@ class AccuracyTests(unittest.TestCase):
                 with patch.object(bench, "idle_gate", return_value=True), patch.object(
                     bench.subprocess, "run", side_effect=run
                 ), contextlib.redirect_stdout(io.StringIO()):
-                    if failure and failure not in ("key_major", "reuse", "eviction"):
+                    if failure and failure not in (
+                        "key_major",
+                        "reuse",
+                        "eviction",
+                        "packed_grid",
+                    ):
                         with self.assertRaisesRegex(
                             RuntimeError, "Accuracy gate failed"
                         ):
