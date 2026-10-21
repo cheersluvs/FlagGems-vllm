@@ -10,7 +10,7 @@ def signature(named):
 
 
 class FixedEntry:
-    def __init__(self, entry, traces, route):
+    def __init__(self, entry, traces, route, query_parts=None):
         self.arg_names = entry.arg_names
         self.jit = entry.fn.fn
         self.configs = {
@@ -18,6 +18,9 @@ class FixedEntry:
             for t in traces
             if t["route"] == route
         }
+        if query_parts is not None and route == "rectangular":
+            for config in self.configs.values():
+                config["QUERY_PARTS"] = query_parts if config["TILE_R"] >= 32 else 1
         self.compiled = {}
         self.frozen = False
 
@@ -40,14 +43,14 @@ class FixedEntry:
         return launch
 
 
-def modules(production, candidate, traces):
+def modules(production, candidate, traces, query_parts=None):
     keys = [(t["rows"], t["offset"], t["width"]) for t in traces]
     if len(set(keys)) != len(keys) or any(
         t["route"] not in ("rectangular", "compact") for t in traces
     ):
         raise RuntimeError("Ambiguous fixed-config chunk traces")
     result = []
-    for source in (production, candidate):
+    for index, source in enumerate((production, candidate)):
         module = types.ModuleType(source.__name__ + ".fixed_query_split")
         module.__dict__.update(vars(source))
         module.__name__ = source.__name__ + ".fixed_query_split"
@@ -55,7 +58,16 @@ def modules(production, candidate, traces):
             ("_qsa_prefill_score_kernel", "rectangular"),
             ("_qsa_prefill_compact_score_kernel", "compact"),
         ):
-            setattr(module, name, FixedEntry(getattr(source, name), traces, route))
+            setattr(
+                module,
+                name,
+                FixedEntry(
+                    getattr(source, name),
+                    traces,
+                    route,
+                    query_parts=None if query_parts is None else query_parts[index],
+                ),
+            )
         for name in ("_prefill_logits", "qsa_select_paged_prefill"):
             original = getattr(source, name)
             cloned = types.FunctionType(
@@ -71,7 +83,7 @@ def modules(production, candidate, traces):
     return tuple(result)
 
 
-def freeze_and_records(pair):
+def freeze_and_records(pair, query_parts=None):
     from tools import qsa_prefill_kernel_resources as resources
 
     records = []
@@ -91,8 +103,20 @@ def freeze_and_records(pair):
                 for key, (kernel, constants) in entry.compiled.items()
             )
         records.append(kernels)
-    left = {tuple(r["chunk"]): r["constants"] for r in records[0]}
-    right = {tuple(r["chunk"]): r["constants"] for r in records[1]}
+
+    def normalize(record, index):
+        constants = dict(record["constants"])
+        if query_parts is not None and "QUERY_PARTS" in constants:
+            expected = query_parts[index] if constants["TILE_R"] >= 32 else 1
+            if constants.pop("QUERY_PARTS") != expected:
+                raise RuntimeError("Fixed query mode differs from requested comparison")
+        return constants
+
+    left = {tuple(r["chunk"]): normalize(r, 0) for r in records[0]}
+    right = {tuple(r["chunk"]): normalize(r, 1) for r in records[1]}
     if left != right:
         raise RuntimeError("Fixed-config baseline and candidate differ")
-    return dict(baseline=records[0], candidate=records[1], configs_match=True)
+    result = dict(baseline=records[0], candidate=records[1], configs_match=True)
+    if query_parts is not None:
+        result["query_parts_pair"] = list(query_parts)
+    return result

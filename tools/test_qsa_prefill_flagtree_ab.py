@@ -269,6 +269,8 @@ class AccuracyTests(unittest.TestCase):
             "missing_page_table_bf16",
             "query_split",
             "missing_query_split",
+            "query_joint",
+            "missing_query_joint",
             "skipped",
             "identity",
             "key_major",
@@ -462,8 +464,15 @@ class AccuracyTests(unittest.TestCase):
                     )
                     if failure in ("missing_page_table", "missing_page_table_bf16"):
                         records.pop("tests/test.py::test_page_table_full_entry")
-                if failure in ("query_split", "missing_query_split"):
-                    options.candidate = "query-split"
+                if failure in (
+                    "query_split",
+                    "missing_query_split",
+                    "query_joint",
+                    "missing_query_joint",
+                ):
+                    options.candidate = (
+                        "query-joint" if "joint" in failure else "query-split"
+                    )
                     records.update(
                         {
                             "tests/test.py::" + name: dict(result="passed")
@@ -473,7 +482,7 @@ class AccuracyTests(unittest.TestCase):
                             )
                         }
                     )
-                    if failure == "missing_query_split":
+                    if failure in ("missing_query_split", "missing_query_joint"):
                         records.pop("tests/test.py::test_query_split_full_entry")
                 (root / "accuracy-full.json").write_text(json.dumps(records))
                 observed = (
@@ -505,6 +514,7 @@ class AccuracyTests(unittest.TestCase):
                         "page_table",
                         "page_table_bf16",
                         "query_split",
+                        "query_joint",
                     ):
                         with self.assertRaisesRegex(
                             RuntimeError, "Accuracy gate failed"

@@ -96,3 +96,11 @@ request/chunk boundaries; full-entry forces the existing TILE_R64/K_TILES16
 choice so it exercises the new path. The complete production suite remains
 available through `--accuracy-profile full` before integration. No benchmark
 case, numerical tolerance or production node was removed by this profile.
+
+
+The `query-joint` candidate also selects46 exact iteration nodes (40 production
+plus the same six boundary/full-entry node names in its own new test file).
+Every FP8 score node explicitly runs QUERY_PARTS1/2 at the existing tile choices;
+full-entry nodes force each legal mode independently. BF16 runs only mode1.
+The full profile retains the complete production file before integration.
+The thirty performance shapes and all numerical tolerances remain frozen.

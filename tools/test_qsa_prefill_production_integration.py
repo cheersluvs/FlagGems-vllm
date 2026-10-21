@@ -262,6 +262,7 @@ class ProductionIntegrationTests(unittest.TestCase):
             "page-table",
             "page-table-bf16",
             "query-split",
+            "query-joint",
         ):
             calls.clear()
             with patch.dict("sys.modules", pytest=pytest):
@@ -286,6 +287,8 @@ class ProductionIntegrationTests(unittest.TestCase):
                 )
             if candidate == "query-split":
                 expected.insert(0, str(ROOT / "tests/test_qsa_prefill_query_split.py"))
+            if candidate == "query-joint":
+                expected.insert(0, str(ROOT / "tests/test_qsa_prefill_query_joint.py"))
             self.assertEqual(paths, expected)
         changed = dict(info, operator_binding={"candidate_is_canonical_module": False})
         self.assertNotEqual(

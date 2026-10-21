@@ -8,7 +8,13 @@ PAGE_TABLE_FILE = "tests/test_qsa_prefill_page_table.py"
 PAGE_TABLE_BF16_FILE = "tests/test_qsa_prefill_page_table_bf16.py"
 PAGE_TABLE_CANDIDATES = ("page-table", "page-table-bf16")
 QUERY_SPLIT_FILE = "tests/test_qsa_prefill_query_split.py"
-CURRENT_CANDIDATES = ("packed-grid", "query-split", *PAGE_TABLE_CANDIDATES)
+QUERY_JOINT_FILE = "tests/test_qsa_prefill_query_joint.py"
+CURRENT_CANDIDATES = (
+    "packed-grid",
+    "query-split",
+    "query-joint",
+    *PAGE_TABLE_CANDIDATES,
+)
 
 PRODUCTION_CASES = (
     "test_visible_counts_and_ties[16]",
@@ -99,6 +105,10 @@ def expected_nodes(candidate):
     nodes = tuple(PRODUCTION_FILE + "::" + case for case in PRODUCTION_CASES)
     if candidate == "packed-grid":
         nodes = tuple(PACKED_FILE + "::" + case for case in PACKED_CASES) + nodes
+    if candidate == "query-joint":
+        nodes = (
+            tuple(QUERY_JOINT_FILE + "::" + case for case in QUERY_SPLIT_CASES) + nodes
+        )
     if candidate == "query-split":
         nodes = (
             tuple(QUERY_SPLIT_FILE + "::" + case for case in QUERY_SPLIT_CASES) + nodes
@@ -123,6 +133,8 @@ def pytest_targets(options, root):
     if name(options) == "iteration":
         return targets(root, candidate)
     files = [PRODUCTION_FILE]
+    if candidate == "query-joint":
+        files.insert(0, QUERY_JOINT_FILE)
     if candidate == "query-split":
         files.insert(0, QUERY_SPLIT_FILE)
     if candidate == "packed-grid":
