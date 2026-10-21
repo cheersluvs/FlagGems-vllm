@@ -11,8 +11,8 @@ is promised before a new H800 profile run.
 | --- | --- |
 | Editable | CPU-safe fixed iteration node manifest, runner profile/child propagation/coverage gate, focused CPU tests, result and workflow docs |
 | Frozen | Production and candidate kernels, configs, TopK, native reference, numerical tolerances,30 benchmark fixtures, timing and GPU guards |
-| Modes | iteration:40 exact production nodes; packed-grid adds its8 exact candidate nodes. full:original complete suites and mandatory coverage unchanged |
-| Default | FlagTree production/packed-grid CLI uses iteration; stock and historical private trials retain full profile behavior; explicit --accuracy-profile full always available |
+| Modes | iteration:40 exact production nodes; each current private trial adds its8 exact candidate nodes. full:original complete suites and mandatory coverage unchanged |
+| Default | FlagTree production/current-trial CLI uses iteration; stock and historical private trials retain full profile behavior; explicit --accuracy-profile full always available |
 | Scope marker | Reports record profile and full-suite-validation state; iteration data never carries formal production acceptance eligibility |
 
 | Iteration coverage | Cases |
@@ -40,7 +40,7 @@ is promised before a new H800 profile run.
 | Packed-grid decision | Production unchanged; completed experiment has no demonstrated stable gain, so do not integrate it |
 
 Usage on the current FlagTree runner: `--accuracy-profile iteration` is now
-the CLI default for production and packed-grid. To select complete production
+the CLI default for production and current private trials. To select complete production
 validation explicitly, pass `--accuracy-profile full`. Both run the original
 unchanged30-case benchmark and per-stage before/after checks. Older private
 trials and stock profiles retain full-suite selection behavior.
@@ -71,3 +71,9 @@ skipped; changed-file pre-commit and syntax checks passed. Exact-node coverage
 was rechecked against the returned full report. Reduced-profile execution and
 elapsed time still need an H800 run in a future optimization iteration; this
 change does not require repeating the completed packed-grid benchmark.
+
+The next `page-table` trial also has8 exact candidate nodes plus the same40
+production nodes (48 total), selected by `PAGE_TABLE_CASES`. Its full profile
+runs its8 candidates before the complete production file. The previously
+verified48 nodes in report07993da refer specifically to packed-grid; the new
+page-table candidates still require their own on-card validation.

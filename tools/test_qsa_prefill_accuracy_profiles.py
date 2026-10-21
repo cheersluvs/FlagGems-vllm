@@ -24,7 +24,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ProfileTests(unittest.TestCase):
     def test_exact_count_and_selected_functions_exist(self):
-        for candidate, count in (("production", 40), ("packed-grid", 48)):
+        for candidate, count in (
+            ("production", 40),
+            ("packed-grid", 48),
+            ("page-table", 48),
+        ):
             nodes = profiles.expected_nodes(candidate)
             self.assertEqual(len(nodes), count)
             self.assertEqual(len(set(nodes)), count)
@@ -41,7 +45,7 @@ class ProfileTests(unittest.TestCase):
             profiles.expected_nodes("key-major")
 
     def test_exact_coverage_rejects_missing_extra_duplicate_or_skipped_cases(self):
-        for candidate in ("production", "packed-grid"):
+        for candidate in ("production", "packed-grid", "page-table"):
             nodes = profiles.expected_nodes(candidate)
             records = {node: dict(result="passed") for node in nodes}
             self.assertIsNone(profiles.validate(records, candidate))
@@ -63,6 +67,7 @@ class ProfileTests(unittest.TestCase):
         definitions = {
             "production": [profiles.PRODUCTION_FILE],
             "packed-grid": [profiles.PACKED_FILE, profiles.PRODUCTION_FILE],
+            "page-table": [profiles.PAGE_TABLE_FILE, profiles.PRODUCTION_FILE],
             "compact-ragged": [
                 profiles.PRODUCTION_FILE,
                 "tests/test_qsa_prefill_compact_trial.py",
@@ -106,7 +111,11 @@ class ProfileTests(unittest.TestCase):
             "scored-prefill",
             "--list-accuracy-tests",
         ]
-        for candidate, count in (("production", 40), ("packed-grid", 48)):
+        for candidate, count in (
+            ("production", 40),
+            ("packed-grid", 48),
+            ("page-table", 48),
+        ):
             proc = subprocess.run(
                 base + ["--candidate", candidate],
                 capture_output=True,
@@ -165,7 +174,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_actual_iteration_gate_rejects_incomplete_or_wrong_profile_runtime(self):
         info = {k: "fixed" for k in resume.RUNTIME_KEYS}
-        for candidate in ("production", "packed-grid"):
+        for candidate in ("production", "packed-grid", "page-table"):
             for failure in (None, "missing", "profile"):
                 with self.subTest(
                     candidate=candidate, failure=failure

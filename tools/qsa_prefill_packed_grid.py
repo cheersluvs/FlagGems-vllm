@@ -114,22 +114,24 @@ def diagnostics(args, traces, query_lengths):
     return result
 
 
-def acceptance(summary):
+def acceptance(summary, expected_candidate="packed-grid"):
     """Experimental objective, never labeled formal production acceptance."""
     from tools import qsa_prefill_tuning_round1 as goals
 
     view = dict(summary, manifest=dict(summary.get("manifest", {})))
     options = dict(view["manifest"].get("options", {}))
-    valid_candidate = options.get("candidate") == "packed-grid"
+    valid_candidate = options.get("candidate") == expected_candidate
     options["candidate"] = "production" if valid_candidate else options.get("candidate")
     view["manifest"]["options"] = options
     result = goals.acceptance(view)
     result.update(
-        experimental=True, formal_production_acceptance=False, candidate="packed-grid"
+        experimental=True,
+        formal_production_acceptance=False,
+        candidate=expected_candidate,
     )
     reasons = list(result.get("reasons", []))
     if not valid_candidate:
-        reasons.append("not the packed-grid trial")
+        reasons.append("not the " + expected_candidate + " trial")
     for c in summary.get("cases", []):
         for name in ("score_vs_production", "pipeline_vs_production"):
             e = c.get("stages", {}).get(name, {})

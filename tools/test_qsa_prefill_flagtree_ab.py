@@ -263,6 +263,8 @@ class AccuracyTests(unittest.TestCase):
             "missing_cache_rows",
             "packed_grid",
             "missing_packed_grid",
+            "page_table",
+            "missing_page_table",
             "skipped",
             "identity",
             "key_major",
@@ -436,6 +438,19 @@ class AccuracyTests(unittest.TestCase):
                     )
                     if failure == "missing_packed_grid":
                         records.pop("tests/test.py::test_packed_full_entry")
+                if failure in ("page_table", "missing_page_table"):
+                    options.candidate = "page-table"
+                    records.update(
+                        {
+                            "tests/test.py::" + name: dict(result="passed")
+                            for name in (
+                                "test_page_table_score",
+                                "test_page_table_full_entry",
+                            )
+                        }
+                    )
+                    if failure == "missing_page_table":
+                        records.pop("tests/test.py::test_page_table_full_entry")
                 (root / "accuracy-full.json").write_text(json.dumps(records))
                 observed = (
                     dict(info, triton_source="changed")
@@ -463,6 +478,7 @@ class AccuracyTests(unittest.TestCase):
                         "reuse",
                         "eviction",
                         "packed_grid",
+                        "page_table",
                     ):
                         with self.assertRaisesRegex(
                             RuntimeError, "Accuracy gate failed"

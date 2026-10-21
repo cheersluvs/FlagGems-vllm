@@ -4,6 +4,8 @@
 
 PRODUCTION_FILE = "tests/test_qsa_select_paged_prefill.py"
 PACKED_FILE = "tests/test_qsa_prefill_packed_grid.py"
+PAGE_TABLE_FILE = "tests/test_qsa_prefill_page_table.py"
+CURRENT_CANDIDATES = ("packed-grid", "page-table")
 
 PRODUCTION_CASES = (
     "test_visible_counts_and_ties[16]",
@@ -60,18 +62,34 @@ PACKED_CASES = (
 )
 
 
+PAGE_TABLE_CASES = (
+    "test_page_table_score[page16-bf16]",
+    "test_page_table_score[page16-fp8]",
+    "test_page_table_score[page64-bf16]",
+    "test_page_table_score[page64-fp8]",
+    "test_page_table_score[page196-bf16]",
+    "test_page_table_score[page196-fp8]",
+    "test_page_table_full_entry[bf16]",
+    "test_page_table_full_entry[fp8]",
+)
+
+
 def name(options):
     return getattr(options, "accuracy_profile", None) or "full"
 
 
 def expected_nodes(candidate):
-    if candidate not in ("production", "packed-grid"):
+    if candidate not in ("production", *CURRENT_CANDIDATES):
         raise ValueError(
-            "Iteration profile supports current production/packed-grid only"
+            "Iteration profile supports production/current score trials only"
         )
     nodes = tuple(PRODUCTION_FILE + "::" + case for case in PRODUCTION_CASES)
     if candidate == "packed-grid":
         nodes = tuple(PACKED_FILE + "::" + case for case in PACKED_CASES) + nodes
+    if candidate == "page-table":
+        nodes = (
+            tuple(PAGE_TABLE_FILE + "::" + case for case in PAGE_TABLE_CASES) + nodes
+        )
     return nodes
 
 
@@ -89,7 +107,9 @@ def pytest_targets(options, root):
     files = [PRODUCTION_FILE]
     if candidate == "packed-grid":
         files.insert(0, PACKED_FILE)
-    if candidate not in ("production", "packed-grid"):
+    if candidate == "page-table":
+        files.insert(0, PAGE_TABLE_FILE)
+    if candidate not in ("production", *CURRENT_CANDIDATES):
         files.append("tests/test_qsa_prefill_compact_trial.py")
     if candidate in ("key-major", "key-major-reuse", "key-major-evict-first"):
         files.append("tests/test_qsa_prefill_key_major_trial.py")

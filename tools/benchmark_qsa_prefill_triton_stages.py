@@ -29,6 +29,7 @@ from tools import qsa_prefill_accuracy_profiles as accuracy_profiles  # noqa: E4
 from tools import qsa_prefill_cache_granularity as cache_trial  # noqa: E402
 from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_packed_grid as packed  # noqa: E402
+from tools import qsa_prefill_page_table_trial as page_table  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
 from tools import qsa_prefill_triton_ab as ab  # noqa: E402
@@ -52,6 +53,11 @@ SOURCES = sorted(
         "tools/qsa_prefill_accuracy_profiles.py",
         "tools/test_qsa_prefill_accuracy_profiles.py",
         "docs/qsa_prefill_accuracy_profiles.md",
+        "tools/qsa_prefill_page_table_kernel.py",
+        "tools/qsa_prefill_page_table_trial.py",
+        "tools/test_qsa_prefill_page_table.py",
+        "tests/test_qsa_prefill_page_table.py",
+        "docs/qsa_prefill_page_table_trial.md",
         "tools/qsa_prefill_frozen_production.py",
         "tools/test_qsa_prefill_production_integration.py",
         "tools/run_qsa_prefill_triton_ab_h800.sh",
@@ -251,6 +257,8 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         candidate = trial.candidate_module(ab.frozen_production())
     elif getattr(options, "candidate", "production") == "packed-grid":
         candidate = packed.candidate_module(op)
+    elif getattr(options, "candidate", "production") == "page-table":
+        candidate = page_table.candidate_module(op)
     elif getattr(options, "candidate", "production") == "key-major":
         from tools import qsa_prefill_key_major_trial as trial
 
@@ -531,7 +539,11 @@ def worker(options, case, path):
             result["eviction_config_match"] = candidate.freeze_baseline(candidate)
     fastpath = workloads.geometry(case).get("select_all", False)
     packed_trial = getattr(options, "candidate", "production") == "packed-grid"
-    trace_cache = packed_trial or (
+    current_trial = (
+        getattr(options, "candidate", "production")
+        in accuracy_profiles.CURRENT_CANDIDATES
+    )
+    trace_cache = current_trial or (
         getattr(options, "compare_previous_tuning", False)
         and getattr(options, "previous_tuning", "eight") == "round1"
     )
@@ -541,6 +553,12 @@ def worker(options, case, path):
             production=candidate_trace,
             policy="Operator-local entry key appends exact existing LibTuner key",
         )
+        if getattr(options, "candidate", "production") == "page-table":
+            result["page_table_trial"] = dict(
+                baseline_source_sha256=page_table.PRODUCTION_SHA256,
+                route="two scalar page IDs when BLOCK_N<=PAGE_SIZE; vector fetch otherwise",
+                configs=support.score_configs(candidate),
+            )
         if packed_trial:
             result["packed_grid"] = dict(
                 baseline_source_sha256=packed.PRODUCTION_SHA256,
@@ -642,8 +660,8 @@ def worker(options, case, path):
     production_chunks = []
     production_args = None
     if production is not None and not fastpath:
-        # Older score-only trials reuse captured candidate buffers. Packed-grid
-        # captures separate public baseline buffers for the pipeline comparison.
+        # Older score-only trials reuse captured candidate buffers. Current
+        # trials capture separate public baseline buffers for pipeline A/B.
         production_chunks = candidate_chunks
 
         def production_scores():
@@ -653,7 +671,7 @@ def worker(options, case, path):
         functions["score_vs_production"] = dict(
             baseline=production_scores, candidate=functions["score"]["candidate"]
         )
-        if packed_trial:
+        if current_trial:
             production_args = (*args[:8], native_output(args[8], torch), args[9])
             production_chunks, production_trace = cache_trial.observe(
                 production, production_args
@@ -664,10 +682,10 @@ def worker(options, case, path):
                 for a, b in zip(production_chunks, candidate_chunks)
             ):
                 raise RuntimeError(
-                    "Packed-grid pipeline baseline shares candidate buffers"
+                    "Current-production pipeline baseline shares candidate buffers"
                 )
             if ab.signatures(production_chunks) != ab.signatures(candidate_chunks):
-                raise RuntimeError("Packed-grid changed public chunk geometry")
+                raise RuntimeError("Trial changed public chunk geometry")
             for chunk in production_chunks:
                 chunk.pop("common_logits")
             result["cache_granularity"]["production_baseline"] = production_trace
@@ -746,7 +764,7 @@ def worker(options, case, path):
                 "keys_x_query"
                 if getattr(options, "candidate", "production") in KEY_MAJOR_CANDIDATES
                 or getattr(options, "candidate", "production")
-                in ("production", "packed-grid")
+                in ("production", *accuracy_profiles.CURRENT_CANDIDATES)
                 else "query_x_keys"
             ),
             routing_policy="rectangular_row_capacity_ge_4x_chunk_rows",
@@ -760,7 +778,7 @@ def worker(options, case, path):
             ],
             historical_baseline_sha256=(
                 packed.PRODUCTION_SHA256
-                if packed_trial
+                if current_trial
                 else ab.PRODUCTION_SHA256 if production is not None else None
             ),
             production_source_sha256=info["operator_binding"]["canonical_sha256"],
@@ -892,6 +910,11 @@ def worker(options, case, path):
         )
         support.write_json(path, result)
     result["common_logits_after"] = common_fingerprints(native_chunks, torch)
+    if (
+        "page_table_trial" in result
+        and support.score_configs(candidate) != result["page_table_trial"]["configs"]
+    ):
+        raise RuntimeError("Page-table trial tuning changed during timing")
     if (
         packed_trial
         and support.score_configs(candidate, "_qsa_prefill_packed_score_kernel")
@@ -1043,7 +1066,12 @@ def write_table(summary, directory):
         packed.acceptance(summary)
         if summary.get("manifest", {}).get("options", {}).get("candidate")
         == "packed-grid"
-        else round1.acceptance(summary)
+        else (
+            page_table.acceptance(summary)
+            if summary.get("manifest", {}).get("options", {}).get("candidate")
+            == "page-table"
+            else round1.acceptance(summary)
+        )
     )
     accuracy_profiles.annotate_acceptance(
         summary["overall_acceptance"],
@@ -1262,7 +1290,7 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
                     "test_score_cache_separates_runtime_rows",
                 )
                 if getattr(options, "candidate", "production")
-                in ("production", "packed-grid")
+                in ("production", *accuracy_profiles.CURRENT_CANDIDATES)
                 else (
                     "test_observed_envelopes_against_native",
                     "test_compact_every_config_and_chunk_boundary",
@@ -1275,7 +1303,7 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
                 break
         if not error and getattr(options, "candidate", "production") in (
             "production",
-            "packed-grid",
+            *accuracy_profiles.CURRENT_CANDIDATES,
         ):
             for case in workloads.fp8.cases():
                 node = "::test_fp8_benchmark_against_native[" + case["name"] + "]"
@@ -1286,6 +1314,11 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             for name in ("test_packed_score_boundaries", "test_packed_full_entry"):
                 if not any("::" + name in node for node in records):
                     error = "Missing packed-grid correctness coverage: " + name
+                    break
+        if not error and getattr(options, "candidate", "production") == "page-table":
+            for name in ("test_page_table_score", "test_page_table_full_entry"):
+                if not any("::" + name in node for node in records):
+                    error = "Missing page-table correctness coverage: " + name
                     break
         if (
             not error
@@ -1517,7 +1550,12 @@ def main():
     )
     parser.add_argument(
         "--candidate",
-        choices=("production", "compact-ragged", "packed-grid", *KEY_MAJOR_CANDIDATES),
+        choices=(
+            "production",
+            "compact-ragged",
+            *accuracy_profiles.CURRENT_CANDIDATES,
+            *KEY_MAJOR_CANDIDATES,
+        ),
         default="production",
     )
     parser.add_argument("--list-cases", action="store_true")
@@ -1540,15 +1578,17 @@ def main():
         options.accuracy_profile = (
             "iteration"
             if is_flagtree(options)
-            and options.candidate in ("production", "packed-grid")
+            and options.candidate
+            in ("production", *accuracy_profiles.CURRENT_CANDIDATES)
             else "full"
         )
     if options.accuracy_profile == "iteration" and (
         not is_flagtree(options)
-        or options.candidate not in ("production", "packed-grid")
+        or options.candidate
+        not in ("production", *accuracy_profiles.CURRENT_CANDIDATES)
     ):
         parser.error(
-            "Iteration correctness requires FlagTree current production/packed-grid"
+            "Iteration correctness requires FlagTree production/current score trials"
         )
     if options.max_initial_temp_c is None:
         options.max_initial_temp_c = 80 if is_flagtree(options) else 75
@@ -1558,8 +1598,11 @@ def main():
         parser.error("Temperature overrides require the verified FlagTree profile")
     if options.candidate != "production" and options.compiler != "flagtree":
         parser.error("Private score trials require the verified FlagTree profile")
-    if options.candidate == "packed-grid" and options.suite != "scored-prefill":
-        parser.error("Packed-grid trial requires the frozen scored-prefill30 suite")
+    if (
+        options.candidate in accuracy_profiles.CURRENT_CANDIDATES
+        and options.suite != "scored-prefill"
+    ):
+        parser.error("Current score trial requires the frozen scored-prefill30 suite")
     if options.compare_previous_tuning and (
         options.candidate != "production"
         or not is_flagtree(options)
