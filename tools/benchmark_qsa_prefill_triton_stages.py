@@ -1376,7 +1376,7 @@ def main():
     parser.add_argument("--list-cases", action="store_true")
     parser.add_argument("--report-dir")
     parser.add_argument("--reference-file")
-    parser.add_argument("--rounds", type=int, default=3)
+    parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--kernel-warmup-ms", type=float, default=200)
     parser.add_argument("--kernel-rep-ms", type=float, default=100)
     parser.add_argument("--timeout", type=int, default=1800)

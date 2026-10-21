@@ -242,13 +242,13 @@ class AccuracyTests(unittest.TestCase):
             options = parent.call_args.args[0]
             self.assertEqual(
                 (options.rounds, options.kernel_warmup_ms, options.kernel_rep_ms),
-                (3, 200, 100),
+                (2, 200, 100),
             )
             self.assertEqual(options.max_initial_temp_c, 80)
             self.assertEqual(len(parent.call_args.args[1]), 12)
             child = bench.child_command(options, Path(folder), "--accuracy")
             self.assertEqual(child[child.index("--max-initial-temp-c") + 1], "80")
-            self.assertEqual(child[child.index("--rounds") + 1], "3")
+            self.assertEqual(child[child.index("--rounds") + 1], "2")
 
     def test_gate_accepts_full_native_coverage_and_rejects_failures_or_changed_identity(
         self,

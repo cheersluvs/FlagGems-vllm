@@ -3,7 +3,12 @@
 Pre-coding plan, 2026-10-21. Hypothesis: the current rectangular tuning set
 omits the native FP8 TR32/BN64/KT16/warps8 choice. Add that choice and a
 TR32/BN64/KT4/warps8 control, preserving the previous eight choices.
-This is a configuration experiment; H800 results are pending.
+The three-round H800 run has completed in report4f7bfe3:219 passed, one skip,
+all30 cases measured. Overall pipeline arithmetic mean1.19464x exceeds1.1,
+but11 cases are below0.98, so the full goal is not met. See
+[the audited results and round-count analysis](qsa_prefill_round1_h800_results.md).
+Subsequent routine runs default to two alternating rounds; boundary cases need
+additional confirmation. The tables below preserve the original three-round plan.
 
 ## Project truth
 
@@ -97,7 +102,7 @@ CUDA13.4 compatibility-library wrapper. Run as a child bash, not source:
 bash tools/run_qsa_prefill_flagtree_ab_h800.sh \
   --flagtree /opt/flagtree --candidate production \
   --suite scored-prefill --mode kernel --compare-previous-tuning \
-  --rounds 3 --kernel-warmup-ms 200 --kernel-rep-ms 100 \
+  --rounds 2 --kernel-warmup-ms 200 --kernel-rep-ms 100 \
   --max-initial-temp-c 80 --timeout 1800 --accuracy-timeout 7200 \
   --cooldown-timeout 900 --cooldown-interval 10
 ```
@@ -126,5 +131,9 @@ requiring a complete same-run30-case set, arithmetic mean >1.1 and every
 pipeline ratio >=0.98 under the explicitly proposed near-one threshold.
 Subgroup geometric means remain diagnostic and do not replace this new goal.
 
-Keep/revert is pending the returned H800 report. Production remains a candidate
-configuration until the actual correctness and full-pipeline results are read.
+The original run above used three rounds. Routine commands now use two rounds
+based on the observed variation; one/two-round estimates in the results document
+are recomputed subsets of that original report, not additional GPU runs.
+The configuration remains under evaluation: the old-eight comparison contains
+a0.97582x pipeline regression and the full30 goal is not yet met. No production
+or tuning change is made as part of reducing the routine round count.
