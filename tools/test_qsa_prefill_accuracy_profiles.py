@@ -28,6 +28,7 @@ class ProfileTests(unittest.TestCase):
             ("production", 40),
             ("packed-grid", 48),
             ("page-table", 48),
+            ("page-table-bf16", 48),
         ):
             nodes = profiles.expected_nodes(candidate)
             self.assertEqual(len(nodes), count)
@@ -45,7 +46,7 @@ class ProfileTests(unittest.TestCase):
             profiles.expected_nodes("key-major")
 
     def test_exact_coverage_rejects_missing_extra_duplicate_or_skipped_cases(self):
-        for candidate in ("production", "packed-grid", "page-table"):
+        for candidate in ("production", *profiles.CURRENT_CANDIDATES):
             nodes = profiles.expected_nodes(candidate)
             records = {node: dict(result="passed") for node in nodes}
             self.assertIsNone(profiles.validate(records, candidate))
@@ -68,6 +69,10 @@ class ProfileTests(unittest.TestCase):
             "production": [profiles.PRODUCTION_FILE],
             "packed-grid": [profiles.PACKED_FILE, profiles.PRODUCTION_FILE],
             "page-table": [profiles.PAGE_TABLE_FILE, profiles.PRODUCTION_FILE],
+            "page-table-bf16": [
+                profiles.PAGE_TABLE_BF16_FILE,
+                profiles.PRODUCTION_FILE,
+            ],
             "compact-ragged": [
                 profiles.PRODUCTION_FILE,
                 "tests/test_qsa_prefill_compact_trial.py",
@@ -115,6 +120,7 @@ class ProfileTests(unittest.TestCase):
             ("production", 40),
             ("packed-grid", 48),
             ("page-table", 48),
+            ("page-table-bf16", 48),
         ):
             proc = subprocess.run(
                 base + ["--candidate", candidate],
@@ -174,7 +180,7 @@ class ProfileTests(unittest.TestCase):
 
     def test_actual_iteration_gate_rejects_incomplete_or_wrong_profile_runtime(self):
         info = {k: "fixed" for k in resume.RUNTIME_KEYS}
-        for candidate in ("production", "packed-grid", "page-table"):
+        for candidate in ("production", *profiles.CURRENT_CANDIDATES):
             for failure in (None, "missing", "profile"):
                 with self.subTest(
                     candidate=candidate, failure=failure

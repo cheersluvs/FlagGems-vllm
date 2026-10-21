@@ -37,12 +37,16 @@ class Pointer:
 
 
 class PageTableTests(unittest.TestCase):
+    kernel = KERNEL
+    bf16_only = False
+    fp8 = False
+
     def test_only_physical_page_load_changes_and_source_is_pinned(self):
         self.assertEqual(
             hashlib.sha256(PRODUCTION.read_bytes()).hexdigest(), trial.PRODUCTION_SHA256
         )
         old, new = score(ast.parse(PRODUCTION.read_text())), score(
-            ast.parse(KERNEL.read_text())
+            ast.parse(self.kernel.read_text())
         )
         old_loop = next(n for n in old.body if isinstance(n, ast.For))
         new_loop = next(n for n in new.body if isinstance(n, ast.For))
@@ -56,11 +60,11 @@ class PageTableTests(unittest.TestCase):
         self.assertEqual(ast.dump(old), ast.dump(new))
 
     def test_actual_load_branch_matches_vector_lookup_at_all_live_columns(self):
-        node = score(ast.parse(KERNEL.read_text()))
+        node = score(ast.parse(self.kernel.read_text()))
         loop = next(n for n in node.body if isinstance(n, ast.For))
         branch = next(n for n in loop.body if isinstance(n, ast.If))
         tree = ast.Module(body=[copy.deepcopy(branch)], type_ignores=[])
-        code = compile(ast.fix_missing_locations(tree), str(KERNEL), "exec")
+        code = compile(ast.fix_missing_locations(tree), str(self.kernel), "exec")
         reads = []
 
         def load(ptr, mask, other):
@@ -105,6 +109,7 @@ class PageTableTests(unittest.TestCase):
                                     logical = column // page
                                     live = column < visible and logical < width
                                     env = dict(
+                                        IS_FP8=self.fp8,
                                         BLOCK_N=block,
                                         PAGE_SIZE=page,
                                         tile=tile,
@@ -148,8 +153,8 @@ class PageTableTests(unittest.TestCase):
             " return _prefill_logits(),persistent_topk\n",
             vars(production),
         )
-        kernel = types.ModuleType("tools.qsa_prefill_page_table_kernel")
-        kernel.__file__ = str(KERNEL)
+        kernel = types.ModuleType("tools." + self.kernel.stem)
+        kernel.__file__ = str(self.kernel)
         kernel._qsa_prefill_score_kernel = Entry(
             types.SimpleNamespace(configs=[1], keys=["num_rows"], fn=object())
         )
@@ -161,10 +166,10 @@ class PageTableTests(unittest.TestCase):
             sys.modules,
             {
                 "flaggems_vllm.utils": utils,
-                "tools.qsa_prefill_page_table_kernel": kernel,
+                kernel.__name__: kernel,
             },
         ):
-            candidate = trial.candidate_module(production)
+            candidate = trial.candidate_module(production, bf16_only=self.bf16_only)
         for name in ("_prefill_logits", "qsa_select_paged_prefill"):
             self.assertIs(
                 getattr(candidate, name).__code__, getattr(production, name).__code__
@@ -190,7 +195,8 @@ class PageTableTests(unittest.TestCase):
     def test_experimental_same_production_pipeline_goal_is_retained(self):
         s = goals.AcceptanceTests.summary()
         s["manifest"]["options"].update(
-            candidate="page-table", compare_previous_tuning=False
+            candidate="page-table-bf16" if self.bf16_only else "page-table",
+            compare_previous_tuning=False,
         )
         for c in s["cases"]:
             c["runtime"] = dict(
@@ -198,12 +204,14 @@ class PageTableTests(unittest.TestCase):
             )
             for k in ("score_vs_production", "pipeline_vs_production"):
                 c["stages"][k] = copy.deepcopy(c["stages"]["pipeline"])
-        result = trial.acceptance(s)
+        result = trial.acceptance(s, bf16_only=self.bf16_only)
         self.assertTrue(result["measurement_valid"] and result["target_met"])
         self.assertTrue(result["experimental"])
         self.assertFalse(result["formal_production_acceptance"])
         s["cases"][0]["stages"].pop("pipeline_vs_production")
-        self.assertFalse(trial.acceptance(s)["measurement_valid"])
+        self.assertFalse(
+            trial.acceptance(s, bf16_only=self.bf16_only)["measurement_valid"]
+        )
 
 
 if __name__ == "__main__":

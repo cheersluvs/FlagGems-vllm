@@ -54,6 +54,10 @@ SOURCES = sorted(
         "tools/test_qsa_prefill_accuracy_profiles.py",
         "docs/qsa_prefill_accuracy_profiles.md",
         "tools/qsa_prefill_page_table_kernel.py",
+        "tools/qsa_prefill_page_table_bf16_kernel.py",
+        "tools/test_qsa_prefill_page_table_bf16.py",
+        "tests/test_qsa_prefill_page_table_bf16.py",
+        "docs/qsa_prefill_page_table_bf16_trial.md",
         "tools/qsa_prefill_page_table_trial.py",
         "tools/test_qsa_prefill_page_table.py",
         "tests/test_qsa_prefill_page_table.py",
@@ -257,8 +261,13 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         candidate = trial.candidate_module(ab.frozen_production())
     elif getattr(options, "candidate", "production") == "packed-grid":
         candidate = packed.candidate_module(op)
-    elif getattr(options, "candidate", "production") == "page-table":
-        candidate = page_table.candidate_module(op)
+    elif (
+        getattr(options, "candidate", "production")
+        in accuracy_profiles.PAGE_TABLE_CANDIDATES
+    ):
+        candidate = page_table.candidate_module(
+            op, bf16_only=options.candidate == "page-table-bf16"
+        )
     elif getattr(options, "candidate", "production") == "key-major":
         from tools import qsa_prefill_key_major_trial as trial
 
@@ -553,10 +562,19 @@ def worker(options, case, path):
             production=candidate_trace,
             policy="Operator-local entry key appends exact existing LibTuner key",
         )
-        if getattr(options, "candidate", "production") == "page-table":
+        if (
+            getattr(options, "candidate", "production")
+            in accuracy_profiles.PAGE_TABLE_CANDIDATES
+        ):
             result["page_table_trial"] = dict(
                 baseline_source_sha256=page_table.PRODUCTION_SHA256,
-                route="two scalar page IDs when BLOCK_N<=PAGE_SIZE; vector fetch otherwise",
+                bf16_only=options.candidate == "page-table-bf16",
+                route=(
+                    "two scalar page IDs when not IS_FP8 and BLOCK_N<=PAGE_SIZE; "
+                    "vector fetch otherwise"
+                    if options.candidate == "page-table-bf16"
+                    else "two scalar page IDs when BLOCK_N<=PAGE_SIZE; vector fetch otherwise"
+                ),
                 configs=support.score_configs(candidate),
             )
         if packed_trial:
@@ -1067,9 +1085,15 @@ def write_table(summary, directory):
         if summary.get("manifest", {}).get("options", {}).get("candidate")
         == "packed-grid"
         else (
-            page_table.acceptance(summary)
+            page_table.acceptance(
+                summary,
+                bf16_only=summary.get("manifest", {})
+                .get("options", {})
+                .get("candidate")
+                == "page-table-bf16",
+            )
             if summary.get("manifest", {}).get("options", {}).get("candidate")
-            == "page-table"
+            in accuracy_profiles.PAGE_TABLE_CANDIDATES
             else round1.acceptance(summary)
         )
     )
@@ -1315,7 +1339,11 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
                 if not any("::" + name in node for node in records):
                     error = "Missing packed-grid correctness coverage: " + name
                     break
-        if not error and getattr(options, "candidate", "production") == "page-table":
+        if (
+            not error
+            and getattr(options, "candidate", "production")
+            in accuracy_profiles.PAGE_TABLE_CANDIDATES
+        ):
             for name in ("test_page_table_score", "test_page_table_full_entry"):
                 if not any("::" + name in node for node in records):
                     error = "Missing page-table correctness coverage: " + name

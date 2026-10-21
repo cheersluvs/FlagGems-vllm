@@ -5,7 +5,9 @@
 PRODUCTION_FILE = "tests/test_qsa_select_paged_prefill.py"
 PACKED_FILE = "tests/test_qsa_prefill_packed_grid.py"
 PAGE_TABLE_FILE = "tests/test_qsa_prefill_page_table.py"
-CURRENT_CANDIDATES = ("packed-grid", "page-table")
+PAGE_TABLE_BF16_FILE = "tests/test_qsa_prefill_page_table_bf16.py"
+PAGE_TABLE_CANDIDATES = ("page-table", "page-table-bf16")
+CURRENT_CANDIDATES = ("packed-grid", *PAGE_TABLE_CANDIDATES)
 
 PRODUCTION_CASES = (
     "test_visible_counts_and_ties[16]",
@@ -86,10 +88,11 @@ def expected_nodes(candidate):
     nodes = tuple(PRODUCTION_FILE + "::" + case for case in PRODUCTION_CASES)
     if candidate == "packed-grid":
         nodes = tuple(PACKED_FILE + "::" + case for case in PACKED_CASES) + nodes
-    if candidate == "page-table":
-        nodes = (
-            tuple(PAGE_TABLE_FILE + "::" + case for case in PAGE_TABLE_CASES) + nodes
+    if candidate in PAGE_TABLE_CANDIDATES:
+        file = (
+            PAGE_TABLE_BF16_FILE if candidate == "page-table-bf16" else PAGE_TABLE_FILE
         )
+        nodes = tuple(file + "::" + case for case in PAGE_TABLE_CASES) + nodes
     return nodes
 
 
@@ -107,8 +110,11 @@ def pytest_targets(options, root):
     files = [PRODUCTION_FILE]
     if candidate == "packed-grid":
         files.insert(0, PACKED_FILE)
-    if candidate == "page-table":
-        files.insert(0, PAGE_TABLE_FILE)
+    if candidate in PAGE_TABLE_CANDIDATES:
+        files.insert(
+            0,
+            PAGE_TABLE_BF16_FILE if candidate == "page-table-bf16" else PAGE_TABLE_FILE,
+        )
     if candidate not in ("production", *CURRENT_CANDIDATES):
         files.append("tests/test_qsa_prefill_compact_trial.py")
     if candidate in ("key-major", "key-major-reuse", "key-major-evict-first"):

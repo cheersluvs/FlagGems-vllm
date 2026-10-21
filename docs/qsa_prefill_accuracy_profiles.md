@@ -77,3 +77,13 @@ production nodes (48 total), selected by `PAGE_TABLE_CASES`. Its full profile
 runs its8 candidates before the complete production file. The previously
 verified48 nodes in report07993da refer specifically to packed-grid; the new
 page-table candidates still require their own on-card validation.
+
+
+The `page-table-bf16` follow-up uses the same48-node count (40 production,
+8 candidate) with the new `tests/test_qsa_prefill_page_table_bf16.py` instead
+of the unrestricted trial file. Its six page-boundary score nodes still cover
+both BF16 and FP8 and both tile widths; FP8 now exercises the original vector
+lookup. Two full-entry nodes retain native/FP32 checks and strided input.
+`--accuracy-profile full` selects that candidate file plus the complete
+production file. Neither iteration nor private-candidate results imply formal
+production validation. Historical `page-table`/`packed-grid` selections remain.
