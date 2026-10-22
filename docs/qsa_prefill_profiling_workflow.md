@@ -99,3 +99,72 @@ production alias check, workload shape or tolerance was changed.
 No device-kernel source, production entry, config YAML, workload definition or
 reference changed. This collection diagnoses the retained candidate; it is
 not a new candidate or an optimization acceptance report.
+
+## Returned collection ae841236: counters unavailable, timings preserved
+
+Report `ae841236c23e7b29c76639331da7a341d83a6848`, source c362d4e,
+completed all five independent timing workers. Exit2 is the explicit
+`profiler_unavailable` result: `ncu=null`, `profiles=[]`. It is not a numerical
+or benchmark-worker failure. Hardware counters have not been collected.
+
+Audit verified26 report blobs,124 source snapshots against c362d4e,152 ordinary
+raw timing samples,120 A/A samples and204 clean GPU observations. Temperature
+33–51C and sampled SM clock1980MHz. No foreign PID rejection was observed.
+The telemetry span is336.47s, not total setup/JIT duration. Full pytest was
+explicitly skipped; pre/post timing numeric checks passed.
+
+All ratios below are same-run baseline/candidate, kernel mode. The candidate
+is private stage-joint, not a newly integrated production operator.
+
+| Case | Score/native | TopK/native | Pipeline/native | Score/canonical | Pipeline/canonical |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BF16 n1/q16384/p102400 | 1.183783 | 0.786475 | 0.981336 | 1.124731 | 1.067775 |
+| BF16 short96 | 6.339250 | 0.741110 | 2.201428 | 1.007843 | 1.006870 |
+| BF16 short_batch3 | 4.366801 | 1.017585 | 2.433667 | 1.046854 | 0.939458 |
+| FP8 tail112 | 1.134893 | 0.963206 | 1.026438 | 1.105439 | 1.037542 |
+| FP8 long100k | 1.061236 | 0.785745 | 0.909650 | 1.098643 | 1.040603 |
+
+A/A does not remove the timing-context issue. Short96 candidate pipeline is
+25.760/25.792us in the native comparison but16.288/16.320us in the canonical
+comparison; later identical-function A/A samples are26.112–26.624us. For
+short_batch3, canonical/candidate pipeline paired ratios are1.003623/0.874310;
+its later candidate A/A is1.001453 in both rounds at22.016/22.048us. No stable
+6% regression or cause is established from the0.939458 median ratio. BF16
+long native score A/A is1.034476/1.025064, so even long-case controls are not
+all perfectly centered. Keep all samples; do not silently discard these rows,
+attribute differences to a compiler/cache mechanism, or treat two rounds as a
+confidence interval. Independent phase medians cannot be added to bound the
+pipeline speedup.
+
+### Resume scope, frozen before implementation
+
+| Field | Choice |
+| --- | --- |
+| Editable | Counter-loop extraction, bounded ncu discovery, resume coordinator/wrapper and focused CPU tests/docs |
+| Read-only | All original measurements, canonical/private/native kernel sources and configs, original worker, reference, timer and guards |
+| Dispatch | Verify all archived original sources/tools, copy reports to a new output directory, launch original worker in profile-capture mode only |
+| Runtime | Reuse original libcuda/ptxas/FlagTree/Python/GPU UUID and compiler caches; original worker still requires matching inputs/configs/binaries/runtime |
+| Acceptance | Hardware diagnostic only; no benchmark rerun, new timings, production change or inferred performance acceptance |
+
+`--resume-report /tmp/qsa-profiling-h800.Ji2cwS` preserves the returned five
+measurements and A/A. It verifies the original checkout and124 source hashes,
+reference and compatibility/assembler identities before copying original report
+files to a fresh output folder. The new resume driver is archived separately
+in resume-sources.json. Only the original c362d4e worker executes under ncu;
+no old code files are overwritten. Original caches, library paths and GPU UUID
+are reused so matching remains strict. If these temporary files are gone or
+the original GPU is occupied, capture stops rather than rerunning benchmarks
+or switching the comparison runtime.
+
+Profiler discovery now checks PATH and bounded common /usr/local and /opt
+CUDA/Nsight installation directories. `--ncu /absolute/path/to/ncu` overrides
+that discovery. No package installation, sudo or device-permission change is
+performed. If still absent, return2 and upload discovery status without
+repeating timing. Installing/exposing Nsight Compute is then the missing
+prerequisite; CUDA compatibility libraries and ptxas do not provide ncu.
+
+Resume implementation validation:49 affected CPU checks passed (including
+source/tool tamper rejection, original report/log preservation, pinned worker
+paths/reference copying, missing ncu/counter failures and normal benchmark
+regression checks). Changed-file pre-commit and shell syntax passed. CUDA/ncu
+execution remains unverified locally; no production files/configs changed.

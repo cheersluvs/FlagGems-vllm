@@ -281,8 +281,8 @@ class ProfilingTests(unittest.TestCase):
                 ), patch.object(
                     profiling, "run_process", side_effect=run
                 ), patch.object(
-                    profiling.shutil,
-                    "which",
+                    profiling,
+                    "find_ncu",
                     return_value=None if mode == "missing" else "/ncu",
                 ), patch.object(
                     bench.support, "command", side_effect=command

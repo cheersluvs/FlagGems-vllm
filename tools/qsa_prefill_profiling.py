@@ -258,9 +258,124 @@ def engine_command(options):
     ]
 
 
-def coordinate(options):
+def find_ncu(explicit=None):
+    """Bounded discovery for CUDA/Nsight container layouts; never install tools."""
+    if explicit:
+        return explicit
+    found = shutil.which("ncu")
+    if found:
+        return found
+    for parent, patterns in (
+        (
+            Path("/usr/local"),
+            (
+                "cuda*/bin/ncu",
+                "cuda*/nsight-compute*/ncu",
+                "NVIDIA-Nsight-Compute*/ncu",
+            ),
+        ),
+        (
+            Path("/opt"),
+            (
+                "nvidia/nsight-compute/*/ncu",
+                "nvidia/nsight-compute/ncu",
+                "nsight-compute*/ncu",
+            ),
+        ),
+    ):
+        for pattern in patterns:
+            candidates = sorted(parent.glob(pattern), reverse=True)
+            for path in candidates:
+                if path.is_file() and os.access(path, os.X_OK):
+                    return str(path.resolve())
+    return None
+
+
+def collect_counters(options, facts, command, *, cache_report=None):
     from tools import benchmark_qsa_prefill_stages as support
     from tools import benchmark_qsa_prefill_triton_stages as bench
+
+    report = Path(options.report_dir)
+    output = report / "profiling-summary.json"
+    facts["ncu"] = find_ncu(options.ncu)
+    facts["profiles"] = []
+    if not facts["ncu"]:
+        facts.update(status="profiler_unavailable", hardware_counters_complete=False)
+        print("未找到 ncu；独立计时与 A/A 已保存，硬件计数器尚未采集。", flush=True)
+        return 2
+    facts["ncu_version"] = support.command([facts["ncu"], "--version"])
+    facts["ncu_sections"] = support.command([facts["ncu"], "--list-sections"])
+    if any(
+        facts[key].get("returncode") != 0 for key in ("ncu_version", "ncu_sections")
+    ):
+        raise RuntimeError("Nsight Compute executable/section preflight failed")
+    if any(section not in facts["ncu_sections"]["stdout"] for section in SECTIONS):
+        raise RuntimeError("Requested Nsight Compute sections unavailable")
+    facts["capture_policy"] = dict(
+        sections=SECTIONS,
+        replay_mode="kernel",
+        cache_control="none",
+        clock_control="none",
+        profile_from_start=False,
+    )
+    reference = str(report / "qsa_indexer_vllm.py")
+    for name in options.cases:
+        check = support.gpu_guard_module().idle(
+            os.environ["CUDA_VISIBLE_DEVICES"],
+            support.command,
+            max_initial_temp_c=80,
+        )
+        facts.setdefault("profile_admission", []).append(check)
+        if check["status"] != "passed":
+            raise RuntimeError("GPU guard rejected profiling: " + repr(check))
+        csv_path = report / ("profile-" + name + ".csv")
+        worker = [
+            *command,
+            "--reference-file",
+            reference,
+            "--profile-capture",
+            "--worker",
+            name,
+        ]
+        cmd = ncu_command(facts["ncu"], csv_path, worker)
+        record = dict(case=name, command=cmd, status="running")
+        facts["profiles"].append(record)
+        support.write_json(output, facts)
+        with (report / ("profile-" + name + ".txt")).open("w") as log:
+            rc = run_process(
+                cmd,
+                timeout=options.timeout,
+                env=bench.child_environment(cache_report or report, name),
+                log=log,
+            )
+        record["exit_code"] = rc
+        capture_path = report / ("profile-" + name + ".json")
+        captured = (
+            json.loads(capture_path.read_text()) if capture_path.is_file() else {}
+        )
+        record["worker_status"] = captured.get("status")
+        record["counters"] = exported_metrics(csv_path) if csv_path.is_file() else {}
+        expected = captured.get("profiling", {}).get("expected_profiled_launches")
+        record["expected_profiled_launches"] = expected
+        record["status"] = (
+            "passed"
+            if rc == 0
+            and captured.get("status") == "passed"
+            and record["counters"].get("metric_rows", 0) > 0
+            and len(record["counters"].get("kernel_ids", [])) == expected
+            else "failed"
+        )
+        print("Profile", name, record["status"], flush=True)
+        if record["status"] != "passed":
+            # Permission/toolchain failures normally affect every case.
+            # Preserve the first full error, do not repeat it five times.
+            raise RuntimeError("Counter capture failed; see " + str(csv_path))
+    facts.update(status="passed", hardware_counters_complete=True)
+    return 0
+
+
+def coordinate(options):
+    from tools import benchmark_qsa_prefill_stages as support
     from tools import qsa_prefill_flagtree_ab as profile
     from tools import validate_qsa_ptxas_h800 as validation
 
@@ -318,85 +433,7 @@ def coordinate(options):
                         f"{record['case']['name']}\t{stage}\t{row['baseline_us']['median']}\t"
                         f"{row['candidate_us']['median']}\t{row['speedup']}\n"
                     )
-        facts["ncu"] = options.ncu or shutil.which("ncu")
-        facts["profiles"] = []
-        if not facts["ncu"]:
-            facts.update(
-                status="profiler_unavailable", hardware_counters_complete=False
-            )
-            print("未找到 ncu；独立计时与 A/A 已保存，硬件计数器尚未采集。", flush=True)
-            return 2
-        facts["ncu_version"] = support.command([facts["ncu"], "--version"])
-        facts["ncu_sections"] = support.command([facts["ncu"], "--list-sections"])
-        if any(
-            facts[key].get("returncode") != 0 for key in ("ncu_version", "ncu_sections")
-        ):
-            raise RuntimeError("Nsight Compute executable/section preflight failed")
-        if any(section not in facts["ncu_sections"]["stdout"] for section in SECTIONS):
-            raise RuntimeError("Requested Nsight Compute sections unavailable")
-        facts["capture_policy"] = dict(
-            sections=SECTIONS,
-            replay_mode="kernel",
-            cache_control="none",
-            clock_control="none",
-            profile_from_start=False,
-        )
-        reference = str(report / "qsa_indexer_vllm.py")
-        for name in options.cases:
-            check = support.gpu_guard_module().idle(
-                os.environ["CUDA_VISIBLE_DEVICES"],
-                support.command,
-                max_initial_temp_c=80,
-            )
-            facts.setdefault("profile_admission", []).append(check)
-            if check["status"] != "passed":
-                raise RuntimeError("GPU guard rejected profiling: " + repr(check))
-            csv_path = report / ("profile-" + name + ".csv")
-            worker = [
-                *command,
-                "--reference-file",
-                reference,
-                "--profile-capture",
-                "--worker",
-                name,
-            ]
-            cmd = ncu_command(facts["ncu"], csv_path, worker)
-            record = dict(case=name, command=cmd, status="running")
-            facts["profiles"].append(record)
-            support.write_json(output, facts)
-            with (report / ("profile-" + name + ".txt")).open("w") as log:
-                rc = run_process(
-                    cmd,
-                    timeout=options.timeout,
-                    env=bench.child_environment(report, name),
-                    log=log,
-                )
-            record["exit_code"] = rc
-            capture_path = report / ("profile-" + name + ".json")
-            captured = (
-                json.loads(capture_path.read_text()) if capture_path.is_file() else {}
-            )
-            record["worker_status"] = captured.get("status")
-            record["counters"] = (
-                exported_metrics(csv_path) if csv_path.is_file() else {}
-            )
-            expected = captured.get("profiling", {}).get("expected_profiled_launches")
-            record["expected_profiled_launches"] = expected
-            record["status"] = (
-                "passed"
-                if rc == 0
-                and captured.get("status") == "passed"
-                and record["counters"].get("metric_rows", 0) > 0
-                and len(record["counters"].get("kernel_ids", [])) == expected
-                else "failed"
-            )
-            print("Profile", name, record["status"], flush=True)
-            if record["status"] != "passed":
-                # Permission/toolchain failures normally affect every case.
-                # Preserve the first full error, do not repeat it five times.
-                raise RuntimeError("Counter capture failed; see " + str(csv_path))
-        facts.update(status="passed", hardware_counters_complete=True)
-        return 0
+        return collect_counters(options, facts, command)
     except BaseException:
         facts.update(status="failed", error=traceback.format_exc())
         print(facts["error"], file=sys.stderr, flush=True)

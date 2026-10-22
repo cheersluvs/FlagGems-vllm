@@ -15,9 +15,19 @@ git -C "$qsa_repo" status --short
 git -C "$qsa_repo" rev-parse HEAD
 unset PYTHONPATH PYTHONHOME QSA_TRITON_RUNTIME_PATH QSA_NATIVE_REFERENCE_PYTHON QSA_NATIVE_REPORT_DIR QSA_NATIVE_RESULT_PATH CUDA_LAUNCH_BLOCKING
 export PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 DNN_VENDOR=nvidia VLLM_PLUGINS=""
+qsa_resume=false
+for qsa_arg in "$@"; do
+  if [[ "$qsa_arg" == --resume-report || "$qsa_arg" == --resume-report=* ]]; then
+    qsa_resume=true
+  fi
+done
+qsa_launch=("$qsa_python" -I "$qsa_repo/tools/with_cuda_compat134.py"
+  --script "$qsa_repo/tools/qsa_prefill_profiling.py")
+if [[ "$qsa_resume" == true ]]; then
+  qsa_launch=("$qsa_python" -I "$qsa_repo/tools/qsa_prefill_profile_resume.py")
+fi
 qsa_status=0
-if "$qsa_python" -I "$qsa_repo/tools/with_cuda_compat134.py" \
-  --script "$qsa_repo/tools/qsa_prefill_profiling.py" \
+if "${qsa_launch[@]}" \
   --report-dir "$qsa_report" "$@" \
   2>&1 | tee "$qsa_report/runner.txt"
 then
