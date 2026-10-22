@@ -113,3 +113,36 @@ validation/environment ASTs are unchanged. No local Torch/Triton/CUDA is
 available. Status: private deep-optimization trial,pending H800 JIT,numerics,
 actual selections/resources and30-case whole-pipeline results. No production
 integration or performance improvement is claimed at delivery.
+
+## Startup failure: report b8a8d987 (2026-10-22 04:11:15 UTC)
+
+Report commit b8a8d98784aa3fc86202380901967da5186289dc contains four
+hash/size-verified files. It failed in with_cuda_compat134.py immediately after
+downloading the pinned CUDA compatibility deb: SHA256 mismatch. No preflight,
+correctness or benchmark worker ran. This is not a kernel compilation or
+numerical failure. The old log did not retain observed hash/size/HTTP metadata,
+so truncation,error response and upstream content change cannot be distinguished.
+No new tuning or performance conclusion follows from this report.
+
+The repair scope is only compatibility-package preparation,its CPU tests,this
+incident record and source archiving of the tests. The fixed package URL/SHA256,
+extraction/fresh-process library loading,all GPU kernels/configs/TopK,timers,
+guards,correctness profiles and30-case definitions remain frozen. Prefer a
+previous temporary package only after exact SHA256 verification,copy into a new
+isolated prefix and verify again before extraction. If no verified copy exists,
+retry download up to three times and record byte size,actual/expected hashes,
+response metadata and errors in compat134-package.json. A mismatched package
+must never reach dpkg-deb or execve. No system/virtualenv install or integrity
+check bypass is permitted. Actual startup and GPU testing remain pending.
+
+Repair validation:33 compat/runtime/runner/PTXAS CPU regression checks and a
+final14-check compat + joint-stage focused run passed. New checks reject bad
+cache copies,verify copied bytes again,exercise retry after invalid content,
+retain partial-download diagnostics,record response metadata and prove that
+unverified bytes never reach extraction/exec. Original package URL/SHA256 are
+unchanged. Source comparisons confirm joint choices,kernels,TopK,profiles,
+benchmark settings and validation remain frozen. The preparation record now
+also binds the bootstrap source/hash when failure occurs before source archival.
+No real GPU/driver execution was available locally. The failed report contains
+no reusable accuracy/performance result; all62 checks and30 timings still await
+successful startup with this repaired bootstrap.

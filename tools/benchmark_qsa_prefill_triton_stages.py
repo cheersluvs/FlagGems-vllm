@@ -112,6 +112,7 @@ SOURCES = sorted(
         "tools/qsa_prefill_shared_gpu.py",
         "tools/run_qsa_prefill_flagtree_ab_h800.sh",
         "tools/with_cuda_compat134.py",
+        "tools/test_cuda_compat134.py",
         "tools/validate_qsa_ptxas_h800.py",
         "tools/diagnose_qsa_native_score_h800.py",
         "tools/diagnose_qsa_native_decode_h800.py",
