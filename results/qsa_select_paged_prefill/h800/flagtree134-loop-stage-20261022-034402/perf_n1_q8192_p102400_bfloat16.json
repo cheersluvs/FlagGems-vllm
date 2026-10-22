@@ -1,0 +1,3459 @@
+{
+  "case": {
+    "name": "perf_n1_q8192_p102400_bfloat16",
+    "kind": "upstream_perf",
+    "requests": 1,
+    "query_length": 8192,
+    "prefix_tokens": 102400,
+    "page_size": 196,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "budget_mb": 512,
+    "dtype": "bfloat16"
+  },
+  "status": "passed",
+  "stages": {
+    "score_matched": {
+      "status": "not_applicable",
+      "accepted": false,
+      "reason": "No selected FP8 rectangular tile eligible to split"
+    },
+    "score": {
+      "status": "passed",
+      "accepted": true,
+      "includes_topk": false,
+      "baseline_kind": "native_vllm",
+      "validation_before": {
+        "baseline": 16,
+        "candidate": 16
+      },
+      "baseline_us": {
+        "samples": [
+          1043.2799458503723,
+          1046.064019203186
+        ],
+        "median": 1044.6719825267792,
+        "mean": 1044.6719825267792,
+        "min": 1043.2799458503723,
+        "max": 1046.064019203186,
+        "stdev": 1.9686371470953494
+      },
+      "candidate_us": {
+        "samples": [
+          863.0719780921936,
+          857.0240139961243
+        ],
+        "median": 860.0479960441589,
+        "mean": 860.0479960441589,
+        "min": 857.0240139961243,
+        "max": 863.0719780921936,
+        "stdev": 4.276556424703395
+      },
+      "speedup": 1.214667073618925,
+      "paired_ratios": {
+        "samples": [
+          1.2087983068996464,
+          1.2205772558526191
+        ],
+        "median": 1.2146877813761328,
+        "mean": 1.2146877813761328,
+        "min": 1.2087983068996464,
+        "max": 1.2205772558526191,
+        "stdev": 0.008328974679897188
+      },
+      "measurement_order": [
+        [
+          "baseline",
+          "candidate"
+        ],
+        [
+          "candidate",
+          "baseline"
+        ]
+      ],
+      "validation_after": {
+        "baseline": 16,
+        "candidate": 16
+      },
+      "measurement_validated": true
+    },
+    "topk": {
+      "status": "passed",
+      "accepted": true,
+      "includes_topk": true,
+      "baseline_kind": "native_vllm",
+      "validation_before": {
+        "sample_rows": 16
+      },
+      "baseline_us": {
+        "samples": [
+          571.295976638794,
+          571.295976638794
+        ],
+        "median": 571.295976638794,
+        "mean": 571.295976638794,
+        "min": 571.295976638794,
+        "max": 571.295976638794,
+        "stdev": 0.0
+      },
+      "candidate_us": {
+        "samples": [
+          708.8799774646759,
+          708.9920043945312
+        ],
+        "median": 708.9359909296036,
+        "mean": 708.9359909296036,
+        "min": 708.8799774646759,
+        "max": 708.9920043945312,
+        "stdev": 0.07921500177622533
+      },
+      "speedup": 0.8058498707191788,
+      "paired_ratios": {
+        "samples": [
+          0.8059135464399009,
+          0.8057862050597768
+        ],
+        "median": 0.8058498757498389,
+        "mean": 0.8058498757498389,
+        "min": 0.8057862050597768,
+        "max": 0.8059135464399009,
+        "stdev": 9.004395341136704e-05
+      },
+      "measurement_order": [
+        [
+          "baseline",
+          "candidate"
+        ],
+        [
+          "candidate",
+          "baseline"
+        ]
+      ],
+      "validation_after": {
+        "sample_rows": 16
+      },
+      "measurement_validated": true
+    },
+    "pipeline": {
+      "status": "passed",
+      "accepted": true,
+      "includes_topk": true,
+      "baseline_kind": "native_vllm",
+      "validation_before": {
+        "sample_rows": 10
+      },
+      "baseline_us": {
+        "samples": [
+          1561.456024646759,
+          1562.5280141830444
+        ],
+        "median": 1561.9920194149017,
+        "mean": 1561.9920194149017,
+        "min": 1561.456024646759,
+        "max": 1562.5280141830444,
+        "stdev": 0.7580110704684292
+      },
+      "candidate_us": {
+        "samples": [
+          1575.8399963378906,
+          1575.1360058784485
+        ],
+        "median": 1575.4880011081696,
+        "mean": 1575.4880011081696,
+        "min": 1575.1360058784485,
+        "max": 1575.8399963378906,
+        "stdev": 0.4977964277621694
+      },
+      "speedup": 0.9914337769099003,
+      "paired_ratios": {
+        "samples": [
+          0.9908721877065193,
+          0.991995617109665
+        ],
+        "median": 0.9914339024080921,
+        "mean": 0.9914339024080921,
+        "min": 0.9908721877065193,
+        "max": 0.991995617109665,
+        "stdev": 0.000794384549148675
+      },
+      "measurement_order": [
+        [
+          "baseline",
+          "candidate"
+        ],
+        [
+          "candidate",
+          "baseline"
+        ]
+      ],
+      "validation_after": {
+        "sample_rows": 10
+      },
+      "measurement_validated": true
+    },
+    "score_vs_previous_tuning": {
+      "status": "passed",
+      "accepted": true,
+      "includes_topk": false,
+      "baseline_kind": "combined_query_page_stage2",
+      "validation_before": {
+        "baseline": 16,
+        "candidate": 16
+      },
+      "baseline_us": {
+        "samples": [
+          931.0399889945984,
+          916.0640239715576
+        ],
+        "median": 923.552006483078,
+        "mean": 923.552006483078,
+        "min": 916.0640239715576,
+        "max": 931.0399889945984,
+        "stdev": 10.58960642260468
+      },
+      "candidate_us": {
+        "samples": [
+          860.7680201530457,
+          857.8240275382996
+        ],
+        "median": 859.2960238456726,
+        "mean": 859.2960238456726,
+        "min": 857.8240275382996,
+        "max": 860.7680201530457,
+        "stdev": 2.081717141650078
+      },
+      "speedup": 1.0747774699920474,
+      "paired_ratios": {
+        "samples": [
+          1.0816386845192718,
+          1.0678927082520522
+        ],
+        "median": 1.074765696385662,
+        "mean": 1.074765696385662,
+        "min": 1.0678927082520522,
+        "max": 1.0816386845192718,
+        "stdev": 0.009719873032580345
+      },
+      "measurement_order": [
+        [
+          "baseline",
+          "candidate"
+        ],
+        [
+          "candidate",
+          "baseline"
+        ]
+      ],
+      "validation_after": {
+        "baseline": 16,
+        "candidate": 16
+      },
+      "measurement_validated": true
+    },
+    "pipeline_vs_previous_tuning": {
+      "status": "passed",
+      "accepted": true,
+      "includes_topk": true,
+      "baseline_kind": "combined_query_page_stage2",
+      "validation_before": {
+        "sample_rows": 10
+      },
+      "baseline_us": {
+        "samples": [
+          1639.3280029296875,
+          1646.239995956421
+        ],
+        "median": 1642.7839994430542,
+        "mean": 1642.7839994430542,
+        "min": 1639.3280029296875,
+        "max": 1646.239995956421,
+        "stdev": 4.887517140717316
+      },
+      "candidate_us": {
+        "samples": [
+          1576.911985874176,
+          1575.2960443496704
+        ],
+        "median": 1576.1040151119232,
+        "mean": 1576.1040151119232,
+        "min": 1575.2960443496704,
+        "max": 1576.911985874176,
+        "stdev": 1.1426432099788482
+      },
+      "speedup": 1.0423068425001099,
+      "paired_ratios": {
+        "samples": [
+          1.0395811672525976,
+          1.0450353137502089
+        ],
+        "median": 1.0423082405014032,
+        "mean": 1.0423082405014032,
+        "min": 1.0395811672525976,
+        "max": 1.0450353137502089,
+        "stdev": 0.0038566639740457535
+      },
+      "measurement_order": [
+        [
+          "baseline",
+          "candidate"
+        ],
+        [
+          "candidate",
+          "baseline"
+        ]
+      ],
+      "validation_after": {
+        "sample_rows": 10
+      },
+      "measurement_validated": true
+    },
+    "score_vs_production": {
+      "status": "passed",
+      "accepted": true,
+      "includes_topk": false,
+      "baseline_kind": "production",
+      "validation_before": {
+        "baseline": 16,
+        "candidate": 16
+      },
+      "baseline_us": {
+        "samples": [
+          939.7439956665039,
+          933.5199892520905
+        ],
+        "median": 936.6319924592972,
+        "mean": 936.6319924592972,
+        "min": 933.5199892520905,
+        "max": 939.7439956665039,
+        "stdev": 4.401037141780321
+      },
+      "candidate_us": {
+        "samples": [
+          857.5999736785889,
+          858.0639958381653
+        ],
+        "median": 857.8319847583771,
+        "mean": 857.8319847583771,
+        "min": 857.5999736785889,
+        "max": 858.0639958381653,
+        "stdev": 0.32811321565731005
+      },
+      "speedup": 1.0918594889220825,
+      "paired_ratios": {
+        "samples": [
+          1.0957836106682308,
+          1.0879374892547717
+        ],
+        "median": 1.0918605499615013,
+        "mean": 1.0918605499615013,
+        "min": 1.0879374892547717,
+        "max": 1.0957836106682308,
+        "stdev": 0.005548045657469898
+      },
+      "measurement_order": [
+        [
+          "baseline",
+          "candidate"
+        ],
+        [
+          "candidate",
+          "baseline"
+        ]
+      ],
+      "validation_after": {
+        "baseline": 16,
+        "candidate": 16
+      },
+      "measurement_validated": true
+    },
+    "pipeline_vs_production": {
+      "status": "passed",
+      "accepted": true,
+      "includes_topk": true,
+      "baseline_kind": "production",
+      "validation_before": {
+        "sample_rows": 10
+      },
+      "baseline_us": {
+        "samples": [
+          1653.5999774932861,
+          1655.0400257110596
+        ],
+        "median": 1654.3200016021729,
+        "mean": 1654.3200016021729,
+        "min": 1653.5999774932861,
+        "max": 1655.0400257110596,
+        "stdev": 1.0182678600231998
+      },
+      "candidate_us": {
+        "samples": [
+          1577.8560042381287,
+          1573.2800364494324
+        ],
+        "median": 1575.5680203437805,
+        "mean": 1575.5680203437805,
+        "min": 1573.2800364494324,
+        "max": 1577.8560042381287,
+        "stdev": 3.2356978538783565
+      },
+      "speedup": 1.0499832315974584,
+      "paired_ratios": {
+        "samples": [
+          1.0480043635488339,
+          1.0519678552879514
+        ],
+        "median": 1.0499861094183927,
+        "mean": 1.0499861094183927,
+        "min": 1.0480043635488339,
+        "max": 1.0519678552879514,
+        "stdev": 0.0028026118859069077
+      },
+      "measurement_order": [
+        [
+          "baseline",
+          "candidate"
+        ],
+        [
+          "candidate",
+          "baseline"
+        ]
+      ],
+      "validation_after": {
+        "sample_rows": 10
+      },
+      "measurement_validated": true
+    }
+  },
+  "candidate_kind": "query-loop-stage",
+  "runtime": {
+    "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.39",
+    "torch_version": "2.13.0+cu129",
+    "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+    "triton_version": "3.6.0",
+    "triton_source": "/opt/flagtree/triton/__init__.py",
+    "triton_init_sha256": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30",
+    "compiler_files": {
+      "triton.backends.nvidia.compiler": {
+        "path": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+        "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+      },
+      "triton.backends.nvidia.driver": {
+        "path": "/opt/flagtree/triton/backends/nvidia/driver.py",
+        "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+      },
+      "triton.knobs": {
+        "path": "/opt/flagtree/triton/knobs.py",
+        "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+      },
+      "triton._C.libtriton": {
+        "path": "/opt/flagtree/triton/_C/libtriton.so",
+        "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+      }
+    },
+    "ptxas": {
+      "path": "/tmp/qsa-flagtree134-tools.8d3ysfn5/ptxas",
+      "sha256": "9c2c084df7eb9be48f0502b6938ce2571679b2a78cad1c564b583bd7d9ea3c50",
+      "version": {
+        "returncode": 0,
+        "stdout": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2026 NVIDIA Corporation\nBuilt on Mon_Aug_03_13:24:11_PDT_2026\nCuda compilation tools, release 13.4, V13.4.59\nBuild cuda_13.4.r13.4/compiler.38657139_0\n",
+        "stderr": ""
+      }
+    },
+    "cuda": "12.9",
+    "vendor": "nvidia",
+    "device": "_CudaDeviceProperties(name='NVIDIA H800', major=9, minor=0, total_memory=81090MB, multi_processor_count=132, uuid=2d17872f-4327-2beb-8049-604ecf6a3d66, pci_bus_id=110, pci_device_id=0, pci_domain_id=0, L2_cache_size=50MB)",
+    "uuid": "2d17872f-4327-2beb-8049-604ecf6a3d66",
+    "versions": {
+      "torch": "2.13.0+cu129",
+      "triton": "3.7.1",
+      "flagtree": "0.6.1",
+      "vllm": "0.31.0+cu129"
+    },
+    "allow_tf32": false,
+    "environment": {
+      "PYTHONPATH": null,
+      "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree",
+      "CUDA_VISIBLE_DEVICES": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "CUDA_LAUNCH_BLOCKING": null,
+      "LD_LIBRARY_PATH": "/tmp/qsa-cuda134-compat.tw6rkr7p/root/usr/local/cuda-13.4/compat:/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+      "TRITON_CACHE_DIR": "/tmp/qsa-flagtree134-ab-h800.TXnp9u/cache/perf_n1_q8192_p102400_bfloat16/triton",
+      "FLAGGEMS_CACHE_DIR": "/tmp/qsa-flagtree134-ab-h800.TXnp9u/cache/perf_n1_q8192_p102400_bfloat16/gems",
+      "TRITON_PTXAS_PATH": "/tmp/qsa-flagtree134-tools.8d3ysfn5/ptxas",
+      "TRITON_DISABLE_LINE_INFO": null,
+      "TRITON_OVERRIDE_ARCH": null,
+      "DISABLE_PTXAS_OPT": null,
+      "PTXAS_OPTIONS": null,
+      "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB": null
+    },
+    "nvidia_smi": {
+      "returncode": 0,
+      "stdout": "Thu Oct 22 11:15:11 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 13.4     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H800                    Off |   00000000:1A:00.0 Off |                    0 |\n| N/A   64C    P0            127W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA H800                    Off |   00000000:5D:00.0 Off |                    0 |\n| N/A   30C    P0            127W /  700W |     862MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA H800                    Off |   00000000:6E:00.0 Off |                    0 |\n| N/A   31C    P0             69W /  700W |       4MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA H800                    Off |   00000000:7E:00.0 Off |                    0 |\n| N/A   44C    P0             76W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   4  NVIDIA H800                    Off |   00000000:B8:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   5  NVIDIA H800                    Off |   00000000:CC:00.0 Off |                    0 |\n| N/A   28C    P0             72W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   6  NVIDIA H800                    Off |   00000000:D7:00.0 Off |                    0 |\n| N/A   41C    P0            335W /  700W |    1230MiB /  81559MiB |     89%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   7  NVIDIA H800                    Off |   00000000:E1:00.0 Off |                    0 |\n| N/A   38C    P0             74W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|    1   N/A  N/A         1208913      C   /usr/bin/python3                        768MiB |\n|    6   N/A  N/A         1936530      C   /usr/bin/python3                       1136MiB |\n+-----------------------------------------------------------------------------------------+\n",
+      "stderr": ""
+    },
+    "compiler_profile": "flagtree",
+    "flagtree_runtime": {
+      "profile": "flagtree-cuda134",
+      "version": "3.6.0",
+      "files": {
+        "triton": {
+          "path": "/opt/flagtree/triton/__init__.py",
+          "sha256": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30"
+        },
+        "triton.testing": {
+          "path": "/opt/flagtree/triton/testing.py",
+          "sha256": "54b1a09e41f716151e46143f94c4a816090f2f4dea72752bf5f8071293540e7f"
+        },
+        "triton.backends.nvidia.compiler": {
+          "path": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+          "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+        },
+        "triton.backends.nvidia.driver": {
+          "path": "/opt/flagtree/triton/backends/nvidia/driver.py",
+          "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+        },
+        "triton.knobs": {
+          "path": "/opt/flagtree/triton/knobs.py",
+          "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+        },
+        "triton._C.libtriton": {
+          "path": "/opt/flagtree/triton/_C/libtriton.so",
+          "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+        },
+        "triton.experimental.tle.language": {
+          "path": "/opt/flagtree/triton/experimental/tle/language/__init__.py",
+          "sha256": "9b9cf2e186e4a3886156fdc00e14f69ac12d671d9b689506bf54699475b29fc6"
+        }
+      },
+      "ptxas": {
+        "path": "/tmp/qsa-flagtree134-tools.8d3ysfn5/ptxas",
+        "sha256": "9c2c084df7eb9be48f0502b6938ce2571679b2a78cad1c564b583bd7d9ea3c50"
+      },
+      "cuda": {
+        "libcuda": "/tmp/qsa-cuda134-compat.tw6rkr7p/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09",
+        "libcuda_sha256": "85a8cc8cf00419ceb295ec62c481d05b4cdbdab10f25c5375d6d24bdbe00b4d9",
+        "driver_api": 13040
+      }
+    },
+    "native_topk_libraries": {
+      "vllm._C_stable_libtorch": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_C_stable_libtorch.abi3.so",
+        "sha256": "1483f8d226bf161b363be005265bdd13de986f5fc7e2ce5e20a95bd0db53857c"
+      },
+      "vllm._qutlass_C": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_qutlass_C.abi3.so",
+        "sha256": "027a05deb88f48111f50698ba77cc6bacee0b341f6af57c1152affa078fd7995"
+      },
+      "vllm._moe_C_stable_libtorch": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_moe_C_stable_libtorch.abi3.so",
+        "sha256": "d220bf1c3f82d36984c274b8849138000aeb324b81a37dbde963dd4b804bd250"
+      }
+    },
+    "operator_binding": {
+      "canonical_source": "/tmp/flaggems-qsa-loop-stage.lr4jOb/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+      "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+      "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill.query_page_trial.loop_stage1",
+      "candidate_source": "/tmp/flaggems-qsa-loop-stage.lr4jOb/tools/qsa_prefill_query_page_kernel.py",
+      "candidate_sha256": "1ef12d431b65971c5617f0a34f614360008c652a36125d5679da00206b212d7c",
+      "candidate_is_canonical_module": false,
+      "exported_entry_is_candidate": false,
+      "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill.query_page_trial"
+    }
+  },
+  "inputs": [
+    {
+      "argument": 0,
+      "shape": [
+        8192,
+        4,
+        128
+      ],
+      "stride": [
+        512,
+        128,
+        1
+      ],
+      "dtype": "torch.bfloat16",
+      "storage_offset": 0,
+      "sha256": "563defc61b63116165bbcc31bf773362559f50943543eb0cf8d1962893202b69"
+    },
+    {
+      "argument": 1,
+      "shape": [
+        142,
+        196,
+        1,
+        128
+      ],
+      "stride": [
+        25088,
+        128,
+        128,
+        1
+      ],
+      "dtype": "torch.bfloat16",
+      "storage_offset": 0,
+      "sha256": "e1bfff1f809f4b440e903cd5635f2ec7530fa74eb1bafd81f450d213ce673268"
+    },
+    {
+      "argument": 2,
+      "shape": [
+        1,
+        142
+      ],
+      "stride": [
+        142,
+        1
+      ],
+      "dtype": "torch.int32",
+      "storage_offset": 0,
+      "sha256": "1a3c361ed882d88b5424be673721f66562d83b8056cae677a5c38b40befe3de9"
+    },
+    {
+      "argument": 3,
+      "shape": [
+        2
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int32",
+      "storage_offset": 0,
+      "sha256": "270e67d6266e08628bc27ec405e4cbaf41b29327111583ee3fb7b99c48abff3a"
+    },
+    {
+      "argument": 4,
+      "shape": [
+        8192
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int32",
+      "storage_offset": 0,
+      "sha256": "14cc463d30de0241ece0dbca4049c922309750143222c838306a197bba49121d"
+    },
+    {
+      "argument": 5,
+      "value": 2048
+    },
+    {
+      "argument": 6,
+      "value": 4
+    },
+    {
+      "argument": 7,
+      "value": 8192
+    },
+    {
+      "argument": 8,
+      "shape": [
+        8192,
+        512
+      ],
+      "stride": [
+        512,
+        1
+      ],
+      "dtype": "torch.int32",
+      "storage_offset": 0
+    },
+    {
+      "argument": 9,
+      "value": 110592
+    }
+  ],
+  "native_output_layout": {
+    "shape": [
+      8192,
+      512
+    ],
+    "stride": [
+      512,
+      1
+    ],
+    "storage_offset": 0
+  },
+  "score_cache_isolation": {
+    "independent_outer_entries": true,
+    "independent_device_caches": true,
+    "baseline_public_warmed_first": true,
+    "baseline_configs_before_public": [],
+    "baseline_configs_after_public": [
+      {
+        "constexprs": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='609bc4ca29d45c05845c5e0d09ae05b8174dbb8fac569fb4de11b38b7d71a709', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=8, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "8d26b418a29625e1727b81655b7c7e8fdd04f5716422c2dc5eac708dab7f6daa",
+        "cubin_sha256": "8e9a25e685b66b73e9a9d57b2489174e91fff7b0f23ce8442ea7bde9b9dfa858"
+      },
+      {
+        "constexprs": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='609bc4ca29d45c05845c5e0d09ae05b8174dbb8fac569fb4de11b38b7d71a709', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=8, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "8d26b418a29625e1727b81655b7c7e8fdd04f5716422c2dc5eac708dab7f6daa",
+        "cubin_sha256": "8e9a25e685b66b73e9a9d57b2489174e91fff7b0f23ce8442ea7bde9b9dfa858"
+      }
+    ]
+  },
+  "cache_granularity": {
+    "production": [
+      {
+        "offset": 0,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 1, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 1,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 234,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+          "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 58,
+            "global_load": 54,
+            "global_store": 32,
+            "async_copy": 0,
+            "shuffle": 65,
+            "barrier": 9,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 4854,
+        "rows": 3338,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(3338, 8192, 27648, 1, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 234,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+          "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 58,
+            "global_load": 54,
+            "global_store": 32,
+            "async_copy": 0,
+            "shuffle": 65,
+            "barrier": 9,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      }
+    ],
+    "policy": "Operator-local entry key appends exact existing LibTuner key",
+    "previous": [
+      {
+        "offset": 0,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 1, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 1,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 67,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 8,
+          "ptx_sha256": "3704ca6dff3510737ec210d3dd8b7e158dc53a43521405c698d2bd82b8d4d236",
+          "cubin_sha256": "f9df6e58d93e9f053d38c9a1fb036a7ba70093a3442fc644d863f7d7d88f06cb",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 8,
+            "shared_store": 24,
+            "global_load": 18,
+            "global_store": 8,
+            "async_copy": 10,
+            "shuffle": 17,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 4854,
+        "rows": 3338,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(3338, 8192, 27648, 1, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 4,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 130,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 4,
+          "ptx_sha256": "0bd2efda0dd44e17f82125020efb8f835910a1724216f4f0cd6e7a73beec5b19",
+          "cubin_sha256": "03631dfb8a2d5ae08fcd04d204ad7d36ac32782177623d41f56af8ef80f6e37d",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 4,
+            "shared_store": 24,
+            "global_load": 28,
+            "global_store": 16,
+            "async_copy": 18,
+            "shuffle": 32,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      }
+    ],
+    "production_baseline": [
+      {
+        "offset": 0,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 1, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 63,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 8,
+          "ptx_sha256": "8d26b418a29625e1727b81655b7c7e8fdd04f5716422c2dc5eac708dab7f6daa",
+          "cubin_sha256": "8e9a25e685b66b73e9a9d57b2489174e91fff7b0f23ce8442ea7bde9b9dfa858",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 8,
+            "shared_store": 24,
+            "global_load": 24,
+            "global_store": 8,
+            "async_copy": 10,
+            "shuffle": 17,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 4854,
+        "rows": 3338,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(3338, 8192, 27648, 1, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 63,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 8,
+          "ptx_sha256": "8d26b418a29625e1727b81655b7c7e8fdd04f5716422c2dc5eac708dab7f6daa",
+          "cubin_sha256": "8e9a25e685b66b73e9a9d57b2489174e91fff7b0f23ce8442ea7bde9b9dfa858",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 8,
+            "shared_store": 24,
+            "global_load": 24,
+            "global_store": 8,
+            "async_copy": 10,
+            "shuffle": 17,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      }
+    ]
+  },
+  "workload": {
+    "source": "https://github.com/vllm-project/vllm/pull/54513",
+    "provenance": "published query/prefix/page grid; explicit local dtype/H/D choices",
+    "prefix_unit": "original_tokens_before_query",
+    "query_lengths": [
+      8192
+    ],
+    "sequence_lengths": [
+      110592
+    ],
+    "compressed_lengths": [
+      27648
+    ],
+    "pages_per_request": 142,
+    "physical_pages": 142,
+    "q_shape": [
+      8192,
+      4,
+      128
+    ],
+    "cache_shape": [
+      142,
+      196,
+      1,
+      128
+    ],
+    "page_table_shape": [
+      1,
+      142
+    ],
+    "visible_first": 25600,
+    "visible_last": 27648,
+    "logits_width": 27648,
+    "expected_chunk_rows": [
+      4854,
+      3338
+    ],
+    "full_logits_bytes": 905969664,
+    "score_workspace_bytes": 536813568
+  },
+  "chunks": [
+    {
+      "offset": 0,
+      "rows": 4854,
+      "width": 27648,
+      "native_workspace_shape": [
+        134217728
+      ],
+      "candidate_workspace_shape": [
+        4854,
+        27648
+      ]
+    },
+    {
+      "offset": 4854,
+      "rows": 3338,
+      "width": 27648,
+      "native_workspace_shape": [
+        134217728
+      ],
+      "candidate_workspace_shape": [
+        4854,
+        27648
+      ]
+    }
+  ],
+  "common_logits_before": [
+    {
+      "argument": 0,
+      "shape": [
+        4854,
+        27648
+      ],
+      "stride": [
+        27648,
+        1
+      ],
+      "dtype": "torch.float32",
+      "storage_offset": 0,
+      "sha256": "cdc6dc0a7dfbc54b20e86cf16a61969fe2a9b19041ce1045ace766c9ddf048e3"
+    },
+    {
+      "argument": 0,
+      "shape": [
+        3338,
+        27648
+      ],
+      "stride": [
+        27648,
+        1
+      ],
+      "dtype": "torch.float32",
+      "storage_offset": 0,
+      "sha256": "9070d8af7ac0b0149161dcc82a80e0d693d342cc133464e31eabcd554f179af9"
+    }
+  ],
+  "previous_tuning": {
+    "source_equivalent_sha256": "1ef12d431b65971c5617f0a34f614360008c652a36125d5679da00206b212d7c",
+    "config_group": "qsa_select_paged_prefill_query_joint_score",
+    "baseline_kind": "combined_query_page_stage2",
+    "same_topk": true,
+    "chunks": [
+      [
+        0,
+        4854,
+        27648
+      ],
+      [
+        4854,
+        3338,
+        27648
+      ]
+    ],
+    "independent_rectangular_cache": true,
+    "independent_compact_cache": true,
+    "rectangular_configs": [
+      {
+        "constexprs": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='950ff6ed607024dbf64282a9e88a1e812d3ed8ab5094f21f15f69278c6d56093', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=8, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "3704ca6dff3510737ec210d3dd8b7e158dc53a43521405c698d2bd82b8d4d236",
+        "cubin_sha256": "f9df6e58d93e9f053d38c9a1fb036a7ba70093a3442fc644d863f7d7d88f06cb"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 4,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a500de9a2a0de4a85558c00a89b86f7c1ff32c3723c810dc0be9c6655de093b6', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "0bd2efda0dd44e17f82125020efb8f835910a1724216f4f0cd6e7a73beec5b19",
+        "cubin_sha256": "03631dfb8a2d5ae08fcd04d204ad7d36ac32782177623d41f56af8ef80f6e37d"
+      }
+    ],
+    "compact_configs": []
+  },
+  "query_joint": {
+    "baseline_source_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+    "gate": "IS_FP8 and TILE_R>=32 and QUERY_PARTS==2",
+    "configs": [
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+        "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+        "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+      }
+    ]
+  },
+  "query_page": {
+    "baseline_source_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+    "page_gate": "not IS_FP8 and BLOCK_N<=PAGE_SIZE",
+    "configs": [
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+        "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+        "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+      }
+    ],
+    "same_topk": true
+  },
+  "loop_stage": {
+    "config_group": "qsa_select_paged_prefill_loop_stage_score",
+    "kernel_sha256": "1ef12d431b65971c5617f0a34f614360008c652a36125d5679da00206b212d7c",
+    "factory_sha256": "fa174e14996539166a3512625982dcd42b11105707511dc366e70bb434803576",
+    "num_stages": 1,
+    "choices": [
+      {
+        "TILE_R": 4,
+        "BLOCK_N": 64,
+        "K_TILES": 1,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 8,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 16,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 128,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 128,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      }
+    ],
+    "configs": [
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+        "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+        "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+      }
+    ],
+    "same_topk": true
+  },
+  "kernel_resources": {
+    "phase": "after_warmup_before_timing",
+    "ncu": null,
+    "nsys": null,
+    "limitations": "Compiled resources and static PTX counts only; no hardware counters. Null attributes mean unavailable, never zero. Native cache discovery is optional and does not modify the reference or launch kernels.",
+    "production": [
+      {
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "name": "_qsa_prefill_score_kernel",
+        "registers_per_thread": 63,
+        "spill_count": 0,
+        "shared_bytes": 73728,
+        "num_warps": 8,
+        "ptx_sha256": "8d26b418a29625e1727b81655b7c7e8fdd04f5716422c2dc5eac708dab7f6daa",
+        "cubin_sha256": "8e9a25e685b66b73e9a9d57b2489174e91fff7b0f23ce8442ea7bde9b9dfa858",
+        "ptx_static_sites": {
+          "dot": 8,
+          "shared_load": 8,
+          "shared_store": 24,
+          "global_load": 24,
+          "global_store": 8,
+          "async_copy": 10,
+          "shuffle": 17,
+          "barrier": 3,
+          "local_load": 0,
+          "local_store": 0
+        },
+        "ptx_cache_policy_sites": {
+          "fractional_createpolicy": 0,
+          "evict_first": 0,
+          "cp_async_l2_hint": 0
+        }
+      },
+      {
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "name": "_qsa_prefill_score_kernel",
+        "registers_per_thread": 63,
+        "spill_count": 0,
+        "shared_bytes": 73728,
+        "num_warps": 8,
+        "ptx_sha256": "8d26b418a29625e1727b81655b7c7e8fdd04f5716422c2dc5eac708dab7f6daa",
+        "cubin_sha256": "8e9a25e685b66b73e9a9d57b2489174e91fff7b0f23ce8442ea7bde9b9dfa858",
+        "ptx_static_sites": {
+          "dot": 8,
+          "shared_load": 8,
+          "shared_store": 24,
+          "global_load": 24,
+          "global_store": 8,
+          "async_copy": 10,
+          "shuffle": 17,
+          "barrier": 3,
+          "local_load": 0,
+          "local_store": 0
+        },
+        "ptx_cache_policy_sites": {
+          "fractional_createpolicy": 0,
+          "evict_first": 0,
+          "cp_async_l2_hint": 0
+        }
+      }
+    ],
+    "candidate_rectangular": [
+      {
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "name": "_qsa_prefill_score_kernel",
+        "registers_per_thread": 234,
+        "spill_count": 0,
+        "shared_bytes": 81920,
+        "num_warps": 4,
+        "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+        "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f",
+        "ptx_static_sites": {
+          "dot": 8,
+          "shared_load": 10,
+          "shared_store": 58,
+          "global_load": 54,
+          "global_store": 32,
+          "async_copy": 0,
+          "shuffle": 65,
+          "barrier": 9,
+          "local_load": 0,
+          "local_store": 0
+        },
+        "ptx_cache_policy_sites": {
+          "fractional_createpolicy": 0,
+          "evict_first": 0,
+          "cp_async_l2_hint": 0
+        }
+      },
+      {
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "name": "_qsa_prefill_score_kernel",
+        "registers_per_thread": 234,
+        "spill_count": 0,
+        "shared_bytes": 81920,
+        "num_warps": 4,
+        "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+        "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f",
+        "ptx_static_sites": {
+          "dot": 8,
+          "shared_load": 10,
+          "shared_store": 58,
+          "global_load": 54,
+          "global_store": 32,
+          "async_copy": 0,
+          "shuffle": 65,
+          "barrier": 9,
+          "local_load": 0,
+          "local_store": 0
+        },
+        "ptx_cache_policy_sites": {
+          "fractional_createpolicy": 0,
+          "evict_first": 0,
+          "cp_async_l2_hint": 0
+        }
+      }
+    ],
+    "candidate_compact": [],
+    "native": {
+      "status": "collected",
+      "kernels": [
+        {
+          "name": "_qsa_mqa_paged_prefill_kernel",
+          "registers_per_thread": 192,
+          "spill_count": 0,
+          "shared_bytes": 106496,
+          "num_warps": 4,
+          "ptx_sha256": "c610539c4ccf8de95fb984b3b348f8a061d0e1a5f22bb0681a5b0e038598bcd8",
+          "cubin_sha256": "fb893598f23fb379a210ced0264c3962eae040d6b1d7d1f64daa0236955889dd",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 50,
+            "global_load": 60,
+            "global_store": 32,
+            "async_copy": 2,
+            "shuffle": 65,
+            "barrier": 8,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 2,
+            "evict_first": 2,
+            "cp_async_l2_hint": 16
+          }
+        }
+      ]
+    },
+    "previous_tuning": {
+      "rectangular": [
+        {
+          "constants": {
+            "num_warps": 8,
+            "num_stages": 2,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          },
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 67,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 8,
+          "ptx_sha256": "3704ca6dff3510737ec210d3dd8b7e158dc53a43521405c698d2bd82b8d4d236",
+          "cubin_sha256": "f9df6e58d93e9f053d38c9a1fb036a7ba70093a3442fc644d863f7d7d88f06cb",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 8,
+            "shared_store": 24,
+            "global_load": 18,
+            "global_store": 8,
+            "async_copy": 10,
+            "shuffle": 17,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        },
+        {
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 2,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          },
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 130,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 4,
+          "ptx_sha256": "0bd2efda0dd44e17f82125020efb8f835910a1724216f4f0cd6e7a73beec5b19",
+          "cubin_sha256": "03631dfb8a2d5ae08fcd04d204ad7d36ac32782177623d41f56af8ef80f6e37d",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 4,
+            "shared_store": 24,
+            "global_load": 28,
+            "global_store": 16,
+            "async_copy": 18,
+            "shuffle": 32,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      ],
+      "compact": []
+    }
+  },
+  "timer": {
+    "mode": "kernel",
+    "unit": "us",
+    "warmup_ms": 200.0,
+    "rep_ms": 100.0,
+    "return_mode": "median",
+    "cache_policy": "shared do_bench default, unchanged",
+    "sources": {
+      "get_latency": {
+        "path": "/tmp/flaggems-qsa-loop-stage.lr4jOb/benchmark/base.py",
+        "sha256": "936f41e070e3baab8b5f445ea79c4695c65b164eae7410046d5e8571d5d507fb"
+      },
+      "do_bench": {
+        "path": "/opt/flagtree/triton/testing.py",
+        "sha256": "54b1a09e41f716151e46143f94c4a816090f2f4dea72752bf5f8071293540e7f"
+      }
+    }
+  },
+  "production_score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+      "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+    },
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+      "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+    }
+  ],
+  "tuning_round1": {
+    "production": {
+      "_qsa_prefill_score_kernel": {
+        "configs": [
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          }
+        ],
+        "key_names": [
+          "num_rows",
+          "max_query_len",
+          "logits_width",
+          "num_requests",
+          "PAGE_SIZE",
+          "NUM_HEADS",
+          "HEAD_DIM",
+          "IS_FP8",
+          "stride_q_row",
+          "stride_q_head",
+          "stride_cache_block",
+          "stride_cache_token",
+          "stride_table_req",
+          "stride_table_page"
+        ],
+        "last_tuner_selection": {
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1,
+          "num_warps": 4,
+          "num_ctas": 1,
+          "num_stages": 1
+        },
+        "last_tuning_scan": [
+          {
+            "config": {
+              "TILE_R": 4,
+              "BLOCK_N": 64,
+              "K_TILES": 1,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              1.2098560333251953,
+              1.209439992904663,
+              1.2229440212249756
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 8,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.6629760265350342,
+              0.6618239879608154,
+              0.665727972984314
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 16,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.44518399238586426,
+              0.444268798828125,
+              0.44604799151420593
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.3624959886074066,
+              0.3614720106124878,
+              0.36422398686408997
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 128,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.5434080064296722,
+              0.5422975778579712,
+              0.5443840026855469
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.3612639904022217,
+              0.3592895925045013,
+              0.36259840726852416
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.5917119979858398,
+              0.5861120223999023,
+              0.5941695928573608
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.5606399774551392,
+              0.5575808167457581,
+              0.5635392189025878
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.4296959936618805,
+              0.428684788942337,
+              0.43144960999488835
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.46617600321769714,
+              0.46483200788497925,
+              0.4674240052700043
+            ],
+            "status": "measured"
+          }
+        ],
+        "scan_scope": "Last LibTuner tuning event only, outside acceptance timing. LibEntry cache hits may reuse a config across chunks. No scan means no new tuning event, not zero latency."
+      },
+      "_qsa_prefill_compact_score_kernel": {
+        "configs": [
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          }
+        ],
+        "key_names": [
+          "num_rows",
+          "max_query_len",
+          "logits_width",
+          "num_requests",
+          "PAGE_SIZE",
+          "NUM_HEADS",
+          "HEAD_DIM",
+          "IS_FP8",
+          "stride_q_row",
+          "stride_q_head",
+          "stride_cache_block",
+          "stride_cache_token",
+          "stride_table_req",
+          "stride_table_page"
+        ],
+        "last_tuner_selection": null,
+        "last_tuning_scan": [],
+        "scan_scope": "Last LibTuner tuning event only, outside acceptance timing. LibEntry cache hits may reuse a config across chunks. No scan means no new tuning event, not zero latency."
+      }
+    },
+    "previous": {
+      "_qsa_prefill_score_kernel": {
+        "configs": [
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          }
+        ],
+        "key_names": [
+          "num_rows",
+          "max_query_len",
+          "logits_width",
+          "num_requests",
+          "PAGE_SIZE",
+          "NUM_HEADS",
+          "HEAD_DIM",
+          "IS_FP8",
+          "stride_q_row",
+          "stride_q_head",
+          "stride_cache_block",
+          "stride_cache_token",
+          "stride_table_req",
+          "stride_table_page"
+        ],
+        "last_tuner_selection": {
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 4,
+          "QUERY_PARTS": 1,
+          "num_warps": 4,
+          "num_ctas": 1,
+          "num_stages": 2
+        },
+        "last_tuning_scan": [
+          {
+            "config": {
+              "TILE_R": 4,
+              "BLOCK_N": 64,
+              "K_TILES": 1,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              1.850592017173767,
+              1.8502720594406128,
+              1.866047978401184
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 8,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.6962719857692719,
+              0.6953920125961304,
+              0.6973119974136353
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 16,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.47628799080848694,
+              0.47568639516830447,
+              0.477049595117569
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.39161598682403564,
+              0.39103999733924866,
+              0.39232640862464907
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 128,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.4206880033016205,
+              0.41996800899505615,
+              0.4217599928379059
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.39340800046920776,
+              0.38092800974845886,
+              0.40549759864807133
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.4294559955596924,
+              0.42763520479202266,
+              0.43252478837966923
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.4138080030679703,
+              0.41144960522651675,
+              0.41842560768127446
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.39478400349617004,
+              0.39401599764823914,
+              0.3957439959049225
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.4195840060710907,
+              0.41891199350357056,
+              0.42028159499168394
+            ],
+            "status": "measured"
+          }
+        ],
+        "scan_scope": "Last LibTuner tuning event only, outside acceptance timing. LibEntry cache hits may reuse a config across chunks. No scan means no new tuning event, not zero latency."
+      },
+      "_qsa_prefill_compact_score_kernel": {
+        "configs": [
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          }
+        ],
+        "key_names": [
+          "num_rows",
+          "max_query_len",
+          "logits_width",
+          "num_requests",
+          "PAGE_SIZE",
+          "NUM_HEADS",
+          "HEAD_DIM",
+          "IS_FP8",
+          "stride_q_row",
+          "stride_q_head",
+          "stride_cache_block",
+          "stride_cache_token",
+          "stride_table_req",
+          "stride_table_page"
+        ],
+        "last_tuner_selection": null,
+        "last_tuning_scan": [],
+        "scan_scope": "Last LibTuner tuning event only, outside acceptance timing. LibEntry cache hits may reuse a config across chunks. No scan means no new tuning event, not zero latency."
+      }
+    }
+  },
+  "baseline_production_score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 8,
+        "num_stages": 2,
+        "num_ctas": 1,
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='609bc4ca29d45c05845c5e0d09ae05b8174dbb8fac569fb4de11b38b7d71a709', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=8, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "8d26b418a29625e1727b81655b7c7e8fdd04f5716422c2dc5eac708dab7f6daa",
+      "cubin_sha256": "8e9a25e685b66b73e9a9d57b2489174e91fff7b0f23ce8442ea7bde9b9dfa858"
+    },
+    {
+      "constexprs": {
+        "num_warps": 8,
+        "num_stages": 2,
+        "num_ctas": 1,
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='609bc4ca29d45c05845c5e0d09ae05b8174dbb8fac569fb4de11b38b7d71a709', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=8, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "8d26b418a29625e1727b81655b7c7e8fdd04f5716422c2dc5eac708dab7f6daa",
+      "cubin_sha256": "8e9a25e685b66b73e9a9d57b2489174e91fff7b0f23ce8442ea7bde9b9dfa858"
+    }
+  ],
+  "candidate_fallback_score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+      "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+    },
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='a1846c6d8e4fc918f5f59c86e1d33a1d18ab77802f82a033578a9f1622bbfe80', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "f811ceebf73dd28b884ca1668c29d1dafce8d39c17b744280e09053b77d16dcd",
+      "cubin_sha256": "2e52abbe2b6477cb78bd07ce4702159dfe3623cfa4a8b8fd63ac107b2ff1623f"
+    }
+  ],
+  "compact_score_configs": [],
+  "score_schedule": {
+    "rectangular_dot": "keys_x_query",
+    "routing_policy": "rectangular_row_capacity_ge_4x_chunk_rows",
+    "ragged_envelope": false,
+    "compact_chunks": [],
+    "historical_baseline_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+    "production_source_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+    "candidate_source_sha256": "1ef12d431b65971c5617f0a34f614360008c652a36125d5679da00206b212d7c",
+    "grids": [
+      {
+        "tile_r": 4,
+        "chunks": [
+          {
+            "rectangular": 1214,
+            "compact": 1214
+          },
+          {
+            "rectangular": 835,
+            "compact": 835
+          }
+        ]
+      },
+      {
+        "tile_r": 8,
+        "chunks": [
+          {
+            "rectangular": 607,
+            "compact": 607
+          },
+          {
+            "rectangular": 418,
+            "compact": 418
+          }
+        ]
+      },
+      {
+        "tile_r": 16,
+        "chunks": [
+          {
+            "rectangular": 304,
+            "compact": 304
+          },
+          {
+            "rectangular": 209,
+            "compact": 209
+          }
+        ]
+      },
+      {
+        "tile_r": 32,
+        "chunks": [
+          {
+            "rectangular": 152,
+            "compact": 152
+          },
+          {
+            "rectangular": 105,
+            "compact": 105
+          }
+        ]
+      },
+      {
+        "tile_r": 64,
+        "chunks": [
+          {
+            "rectangular": 76,
+            "compact": 76
+          },
+          {
+            "rectangular": 53,
+            "compact": 53
+          }
+        ]
+      }
+    ]
+  },
+  "topk_backends": {
+    "baseline": "vLLM native CUDA _C dispatcher",
+    "candidate": "repo production persistent_topk, HAS_TLE=True"
+  },
+  "telemetry": [
+    {
+      "label": "score:before_timing",
+      "monotonic_seconds": 12699207.078053717,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:48.381, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 38, 1980 MHz, 2619 MHz, 421.23 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:48 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 38.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "score:after_round_1",
+      "monotonic_seconds": 12699208.11642179,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:49.447, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 40, 1980 MHz, 2619 MHz, 405.20 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:49 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 40.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "score:after_round_2",
+      "monotonic_seconds": 12699209.204888323,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:50.492, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 42, 1980 MHz, 2619 MHz, 399.93 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:50 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 42.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "topk:before_timing",
+      "monotonic_seconds": 12699209.67781005,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:50.956, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 37, 1980 MHz, 2619 MHz, 335.80 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:51 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 37.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "topk:after_round_1",
+      "monotonic_seconds": 12699210.69770888,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:51.977, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 40, 1980 MHz, 2619 MHz, 345.48 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:52 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 40.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "topk:after_round_2",
+      "monotonic_seconds": 12699211.659880389,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:52.924, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 42, 1980 MHz, 2619 MHz, 344.13 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:53 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 42.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline:before_timing",
+      "monotonic_seconds": 12699212.053252874,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:53.317, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 37, 1980 MHz, 2619 MHz, 337.49 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:53 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 37.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline:after_round_1",
+      "monotonic_seconds": 12699212.99058909,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:54.309, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 41, 1980 MHz, 2619 MHz, 402.55 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:54 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 41.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline:after_round_2",
+      "monotonic_seconds": 12699213.99265278,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:55.273, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 42, 1980 MHz, 2619 MHz, 399.47 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:55 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 42.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "score_vs_previous_tuning:before_timing",
+      "monotonic_seconds": 12699214.395532962,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:55.657, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 37, 1980 MHz, 2619 MHz, 382.43 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:55 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 37.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "score_vs_previous_tuning:after_round_1",
+      "monotonic_seconds": 12699215.359146431,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:56.645, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 47, 1980 MHz, 2619 MHz, 449.81 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:56 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 47.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "score_vs_previous_tuning:after_round_2",
+      "monotonic_seconds": 12699216.302224455,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:57.582, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 44, 1965 MHz, 2619 MHz, 448.53 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:57 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 44.0,
+        "sm_clock_mhz": 1965.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline_vs_previous_tuning:before_timing",
+      "monotonic_seconds": 12699216.719626077,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:57.983, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 38, 1980 MHz, 2619 MHz, 420.20 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:58 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 38.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline_vs_previous_tuning:after_round_1",
+      "monotonic_seconds": 12699217.664390195,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:58.927, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 47, 1980 MHz, 2619 MHz, 412.18 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:15:59 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 47.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline_vs_previous_tuning:after_round_2",
+      "monotonic_seconds": 12699218.643895416,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:15:59.927, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 45, 1980 MHz, 2619 MHz, 414.31 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:16:00 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 45.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "score_vs_production:before_timing",
+      "monotonic_seconds": 12699219.088825824,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:16:00.351, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 38, 1980 MHz, 2619 MHz, 369.15 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:16:00 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 38.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "score_vs_production:after_round_1",
+      "monotonic_seconds": 12699220.005530624,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:16:01.290, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 44, 1980 MHz, 2619 MHz, 442.78 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:16:01 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 44.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "score_vs_production:after_round_2",
+      "monotonic_seconds": 12699220.94236282,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:16:02.268, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 42, 1980 MHz, 2619 MHz, 445.36 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:16:02 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 42.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline_vs_production:before_timing",
+      "monotonic_seconds": 12699221.438081117,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:16:02.717, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 39, 1980 MHz, 2619 MHz, 369.70 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:16:02 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 39.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline_vs_production:after_round_1",
+      "monotonic_seconds": 12699222.396749096,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:16:03.681, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 43, 1980 MHz, 2619 MHz, 414.12 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:16:03 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 43.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    },
+    {
+      "label": "pipeline_vs_production:after_round_2",
+      "monotonic_seconds": 12699223.373037068,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 11:16:04.712, GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 42, 1980 MHz, 2619 MHz, 422.10 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 11:16:04 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          1938981
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 1938981, 4778\n",
+          "stderr": ""
+        },
+        "temperature_c": 42.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 1938981,
+            "used_memory_mib": 4778
+          }
+        ]
+      }
+    }
+  ],
+  "performance_guard": {
+    "status": "observed_clean",
+    "last_label": "pipeline_vs_production:after_round_2",
+    "reasons": []
+  },
+  "common_logits_after": [
+    {
+      "argument": 0,
+      "shape": [
+        4854,
+        27648
+      ],
+      "stride": [
+        27648,
+        1
+      ],
+      "dtype": "torch.float32",
+      "storage_offset": 0,
+      "sha256": "cdc6dc0a7dfbc54b20e86cf16a61969fe2a9b19041ce1045ace766c9ddf048e3"
+    },
+    {
+      "argument": 0,
+      "shape": [
+        3338,
+        27648
+      ],
+      "stride": [
+        27648,
+        1
+      ],
+      "dtype": "torch.float32",
+      "storage_offset": 0,
+      "sha256": "9070d8af7ac0b0149161dcc82a80e0d693d342cc133464e31eabcd554f179af9"
+    }
+  ],
+  "peak_allocated_bytes": 4046388736
+}
