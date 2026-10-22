@@ -8,6 +8,9 @@ qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 qsa_python=${QSA_STOCK_PYTHON:-${PYTHON:-python}}
 qsa_kind=flagtree134-ab
 for qsa_arg in "$@"; do
+  if [[ "$qsa_arg" == --query-control-cycles ]]; then
+    qsa_kind=flagtree134-controls
+  fi
   if [[ "$qsa_arg" == --shared-gpu-exploratory ]]; then
     qsa_kind=flagtree134-shared
   fi
@@ -26,7 +29,7 @@ if "$qsa_python" -I "$qsa_repo/tools/with_cuda_compat134.py" \
   --mode kernel --suite upstream-prefill --report-dir "$qsa_report" "$@" \
   2>&1 | tee "$qsa_report/runner.txt"
 then
-  echo "完整正确性及三阶段测试完成，开始回传。"
+  echo "所选正确性检查和性能测试完成，开始回传。"
 else
   qsa_status=$?
   echo "测试退出码：${qsa_status}；回传已有报告。"

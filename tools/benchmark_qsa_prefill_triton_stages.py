@@ -55,6 +55,10 @@ SOURCES = sorted(
         "tools/qsa_prefill_accuracy_profiles.py",
         "tools/test_qsa_prefill_accuracy_profiles.py",
         "docs/qsa_prefill_accuracy_profiles.md",
+        "tools/qsa_prefill_query_controls.py",
+        "tools/test_qsa_prefill_query_controls.py",
+        "tools/run_qsa_prefill_query_controls_h800.sh",
+        "docs/qsa_prefill_query_controls.md",
         "tools/qsa_prefill_query_joint_kernel.py",
         "tools/qsa_prefill_query_joint_trial.py",
         "tools/qsa_prefill_query_joint_policy.py",
@@ -1100,6 +1104,29 @@ def worker(options, case, path):
             accepted=not shared.enabled(options),
         )
         support.write_json(path, result)
+    if getattr(options, "query_control_cycles", 0):
+        from tools import qsa_prefill_query_controls as controls
+
+        controls.run(
+            options,
+            result,
+            path,
+            bench=sys.modules[__name__],
+            torch=torch,
+            helpers=helpers,
+            device=device,
+            native=native,
+            candidate=candidate,
+            production=production,
+            native_chunks=native_chunks,
+            production_chunks=production_chunks,
+            candidate_chunks=candidate_chunks,
+            production_args=production_args,
+            args=args,
+            monitor=lambda label: support.guarded_telemetry(
+                info["uuid"], label, result, path, guard
+            ),
+        )
     result["common_logits_after"] = common_fingerprints(native_chunks, torch)
     if (
         joint_trial
@@ -1324,6 +1351,8 @@ def child_command(options, directory, flag):
         options.reference_file,
         "--rounds",
         str(options.rounds),
+        "--query-control-cycles",
+        str(getattr(options, "query_control_cycles", 0)),
         "--kernel-warmup-ms",
         str(options.kernel_warmup_ms),
         "--kernel-rep-ms",
@@ -1794,6 +1823,7 @@ def main():
     parser.add_argument("--report-dir")
     parser.add_argument("--reference-file")
     parser.add_argument("--rounds", type=int, default=2)
+    parser.add_argument("--query-control-cycles", type=int, default=0)
     parser.add_argument("--kernel-warmup-ms", type=float, default=200)
     parser.add_argument("--kernel-rep-ms", type=float, default=100)
     parser.add_argument("--timeout", type=int, default=1800)
@@ -1887,6 +1917,28 @@ def main():
         or set(options.cases) - definitions.keys()
     ):
         parser.error("Unknown or duplicate case names")
+    if options.query_control_cycles:
+        from tools.qsa_prefill_query_controls import CASES
+
+        if (
+            options.compiler != "flagtree"
+            or options.candidate != "query-joint"
+            or options.suite != "scored-prefill"
+            or options.shared_gpu_exploratory
+            or options.rounds != 2
+            or options.query_control_cycles not in (4, 8, 12, 16)
+            or (
+                options.worker is None
+                and not options.preflight
+                and not options.accuracy
+                and set(options.cases or ()) != set(CASES)
+            )
+            or (options.worker is not None and options.worker not in CASES)
+        ):
+            parser.error(
+                "Query controls require FlagTree query-joint, the two focused cases, "
+                "exclusive GPU, two rounds and4/8/12/16 cycles"
+            )
     directory = (
         Path(options.report_dir).resolve()
         if options.report_dir
