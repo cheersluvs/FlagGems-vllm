@@ -31,6 +31,7 @@ class ProfileTests(unittest.TestCase):
             ("page-table-bf16", 48),
             ("query-split", 46),
             ("query-joint", 46),
+            ("query-joint-page", 54),
         ):
             nodes = profiles.expected_nodes(candidate)
             self.assertEqual(len(nodes), count)
@@ -71,6 +72,7 @@ class ProfileTests(unittest.TestCase):
             "production": [profiles.PRODUCTION_FILE],
             "query-split": [profiles.QUERY_SPLIT_FILE, profiles.PRODUCTION_FILE],
             "query-joint": [profiles.QUERY_JOINT_FILE, profiles.PRODUCTION_FILE],
+            "query-joint-page": [profiles.QUERY_PAGE_FILE, profiles.PRODUCTION_FILE],
             "packed-grid": [profiles.PACKED_FILE, profiles.PRODUCTION_FILE],
             "page-table": [profiles.PAGE_TABLE_FILE, profiles.PRODUCTION_FILE],
             "page-table-bf16": [
@@ -127,6 +129,7 @@ class ProfileTests(unittest.TestCase):
             ("page-table-bf16", 48),
             ("query-split", 46),
             ("query-joint", 46),
+            ("query-joint-page", 54),
         ):
             proc = subprocess.run(
                 base + ["--candidate", candidate],

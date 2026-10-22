@@ -31,6 +31,7 @@ from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_packed_grid as packed  # noqa: E402
 from tools import qsa_prefill_page_table_trial as page_table  # noqa: E402
 from tools import qsa_prefill_query_joint_trial as query_joint  # noqa: E402
+from tools import qsa_prefill_query_page_trial as query_page  # noqa: E402
 from tools import qsa_prefill_query_split_trial as query_split  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
@@ -59,6 +60,12 @@ SOURCES = sorted(
         "tools/test_qsa_prefill_query_controls.py",
         "tools/run_qsa_prefill_query_controls_h800.sh",
         "docs/qsa_prefill_query_controls.md",
+        "tools/qsa_prefill_query_page_kernel.py",
+        "tools/qsa_prefill_query_page_trial.py",
+        "tools/test_qsa_prefill_query_page.py",
+        "tests/test_qsa_prefill_query_page.py",
+        "tools/run_qsa_prefill_query_page_h800.sh",
+        "docs/qsa_prefill_query_page_trial.md",
         "tools/qsa_prefill_query_joint_kernel.py",
         "tools/qsa_prefill_query_joint_trial.py",
         "tools/qsa_prefill_query_joint_policy.py",
@@ -280,6 +287,8 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         from tools import qsa_prefill_compact_trial as trial
 
         candidate = trial.candidate_module(ab.frozen_production())
+    elif getattr(options, "candidate", "production") == "query-joint-page":
+        candidate = query_page.candidate_module(op)
     elif getattr(options, "candidate", "production") == "query-joint":
         candidate = query_joint.candidate_module(op)
     elif getattr(options, "candidate", "production") == "query-split":
@@ -781,7 +790,10 @@ def worker(options, case, path):
                 accepted=False,
                 reason="No FP8 rectangular baseline tile eligible to split",
             )
-    joint_trial = getattr(options, "candidate", "production") == "query-joint"
+    combined_trial = getattr(options, "candidate", "production") == "query-joint-page"
+    joint_trial = (
+        combined_trial or getattr(options, "candidate", "production") == "query-joint"
+    )
     matched_parts = (1, 2) if joint_trial else None
     if joint_trial:
         traces = result["cache_granularity"]["production"]
@@ -854,6 +866,13 @@ def worker(options, case, path):
                 same_tile_configs=same_tiles(production_trace, traces),
                 same_topk=candidate.persistent_topk is production.persistent_topk,
             )
+    if combined_trial:
+        result["query_page"] = dict(
+            baseline_source_sha256=query_page.PRODUCTION_SHA256,
+            page_gate="not IS_FP8 and BLOCK_N<=PAGE_SIZE",
+            configs=support.score_configs(candidate),
+            same_topk=candidate.persistent_topk is production.persistent_topk,
+        )
     if retained is not None and not fastpath:
         functions[retained_stage] = dict(
             baseline=scoring.score_function(retained._prefill_logits, candidate_chunks),
@@ -1319,6 +1338,11 @@ def write_table(summary, directory):
         summary["overall_acceptance"] = query_split.acceptance(summary)
     if summary.get("manifest", {}).get("options", {}).get("candidate") == "query-joint":
         summary["overall_acceptance"] = query_joint.acceptance(summary)
+    if (
+        summary.get("manifest", {}).get("options", {}).get("candidate")
+        == "query-joint-page"
+    ):
+        summary["overall_acceptance"] = query_page.acceptance(summary)
     accuracy_profiles.annotate_acceptance(
         summary["overall_acceptance"],
         summary.get("manifest", {}).get("options", {}).get("accuracy_profile", "full"),
@@ -1566,11 +1590,17 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
         if not error and getattr(options, "candidate", "production") in (
             "query-split",
             "query-joint",
+            "query-joint-page",
         ):
             for name in ("test_query_split_score", "test_query_split_full_entry"):
                 if not any("::" + name in node for node in records):
                     error = "Missing query-split correctness coverage: " + name
                     break
+        if (
+            not error
+            and getattr(options, "candidate", "production") == "query-joint-page"
+        ):
+            error = query_page.validate_full_coverage(records)
         if (
             not error
             and getattr(options, "candidate", "production")
