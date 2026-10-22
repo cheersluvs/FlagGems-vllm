@@ -11,12 +11,14 @@ QUERY_SPLIT_FILE = "tests/test_qsa_prefill_query_split.py"
 QUERY_JOINT_FILE = "tests/test_qsa_prefill_query_joint.py"
 QUERY_PAGE_FILE = "tests/test_qsa_prefill_query_page.py"
 LOOP_STAGE_FILE = "tests/test_qsa_prefill_loop_stage.py"
+STAGE_JOINT_FILE = "tests/test_qsa_prefill_stage_joint.py"
 CURRENT_CANDIDATES = (
     "packed-grid",
     "query-split",
     "query-joint",
     "query-joint-page",
     "query-loop-stage",
+    "query-stage-joint",
     *PAGE_TABLE_CANDIDATES,
 )
 
@@ -109,7 +111,8 @@ def expected_nodes(candidate):
     nodes = tuple(PRODUCTION_FILE + "::" + case for case in PRODUCTION_CASES)
     if candidate == "packed-grid":
         nodes = tuple(PACKED_FILE + "::" + case for case in PACKED_CASES) + nodes
-    if candidate == "query-loop-stage":
+    if candidate in ("query-loop-stage", "query-stage-joint"):
+        file = STAGE_JOINT_FILE if candidate == "query-stage-joint" else LOOP_STAGE_FILE
         extra = tuple(
             f"test_combined_rectangular_every_config[{heads}-{dim}-dtype{dtype}]"
             for heads, dim in ((4, 128), (3, 24), (5, 96), (1, 8))
@@ -117,7 +120,7 @@ def expected_nodes(candidate):
         )
         nodes = (
             tuple(
-                LOOP_STAGE_FILE + "::" + case
+                file + "::" + case
                 for case in (*QUERY_SPLIT_CASES, *PAGE_TABLE_CASES, *extra)
             )
             + nodes
@@ -158,6 +161,8 @@ def pytest_targets(options, root):
     if name(options) == "iteration":
         return targets(root, candidate)
     files = [PRODUCTION_FILE]
+    if candidate == "query-stage-joint":
+        files.insert(0, STAGE_JOINT_FILE)
     if candidate == "query-loop-stage":
         files.insert(0, LOOP_STAGE_FILE)
     if candidate == "query-joint-page":

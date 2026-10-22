@@ -58,6 +58,7 @@ class LoopStageTests(unittest.TestCase):
     def test_only_new_yaml_group_changes_and_all_choices_are_exact_stage1(self):
         current = yaml.safe_load(YAML_PATH.read_text())
         current.pop(trial.CONFIG_GROUP)
+        current.pop("qsa_select_paged_prefill_stage_joint_score", None)
         # Pin all pre-existing groups without requiring history in shallow GPU clones.
         self.assertEqual(
             hashlib.sha256(json.dumps(current, sort_keys=True).encode()).hexdigest(),

@@ -36,6 +36,7 @@ from tools import qsa_prefill_query_page_trial as query_page  # noqa: E402
 from tools import qsa_prefill_query_split_trial as query_split  # noqa: E402
 from tools import qsa_prefill_score_benchmark as scoring  # noqa: E402
 from tools import qsa_prefill_shared_gpu as shared  # noqa: E402
+from tools import qsa_prefill_stage_joint_trial as stage_joint  # noqa: E402
 from tools import qsa_prefill_triton_ab as ab  # noqa: E402
 from tools import qsa_prefill_tuning_round1 as round1  # noqa: E402
 
@@ -66,6 +67,11 @@ SOURCES = sorted(
         "tests/test_qsa_prefill_loop_stage.py",
         "tools/run_qsa_prefill_loop_stage_h800.sh",
         "docs/qsa_prefill_loop_stage_trial.md",
+        "tools/qsa_prefill_stage_joint_trial.py",
+        "tools/test_qsa_prefill_stage_joint.py",
+        "tests/test_qsa_prefill_stage_joint.py",
+        "tools/run_qsa_prefill_stage_joint_h800.sh",
+        "docs/qsa_prefill_stage_joint_trial.md",
         "tools/qsa_prefill_query_controls.py",
         "tools/test_qsa_prefill_query_controls.py",
         "tools/run_qsa_prefill_query_controls_h800.sh",
@@ -297,6 +303,8 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         from tools import qsa_prefill_compact_trial as trial
 
         candidate = trial.candidate_module(ab.frozen_production())
+    elif getattr(options, "candidate", "production") == "query-stage-joint":
+        candidate = stage_joint.candidate_module(op)
     elif getattr(options, "candidate", "production") == "query-loop-stage":
         candidate = loop_stage.candidate_module(op)
     elif getattr(options, "candidate", "production") == "query-joint-page":
@@ -803,8 +811,13 @@ def worker(options, case, path):
                 reason="No FP8 rectangular baseline tile eligible to split",
             )
     stage_trial = getattr(options, "candidate", "production") == "query-loop-stage"
+    stage_joint_trial = (
+        getattr(options, "candidate", "production") == "query-stage-joint"
+    )
     combined_trial = (
-        stage_trial or getattr(options, "candidate", "production") == "query-joint-page"
+        stage_trial
+        or stage_joint_trial
+        or getattr(options, "candidate", "production") == "query-joint-page"
     )
     joint_trial = (
         combined_trial or getattr(options, "candidate", "production") == "query-joint"
@@ -890,6 +903,10 @@ def worker(options, case, path):
         )
     if stage_trial:
         result["loop_stage"] = loop_stage.metadata(
+            candidate, support.score_configs(candidate)
+        )
+    if stage_joint_trial:
+        result["stage_joint"] = stage_joint.metadata(
             candidate, support.score_configs(candidate)
         )
     if retained is not None and not fastpath:
@@ -1222,6 +1239,12 @@ def worker(options, case, path):
         != result["loop_stage"]
     ):
         raise RuntimeError("Loop-stage metadata changed during timing")
+    if (
+        stage_joint_trial
+        and stage_joint.metadata(candidate, support.score_configs(candidate))
+        != result["stage_joint"]
+    ):
+        raise RuntimeError("Joint-stage metadata changed during timing")
     if result["common_logits_before"] != result["common_logits_after"]:
         raise RuntimeError("Common Top-K logits were modified during this run")
     if previous is not None and (
@@ -1272,7 +1295,12 @@ def write_table(summary, directory):
         .get("shared_gpu_exploratory", False)
     )
     kind = summary.get("manifest", {}).get("options", {}).get("candidate")
-    trial = kind in ("compact-ragged", "query-loop-stage", *KEY_MAJOR_CANDIDATES)
+    trial = kind in (
+        "compact-ragged",
+        "query-loop-stage",
+        "query-stage-joint",
+        *KEY_MAJOR_CANDIDATES,
+    )
     candidate_column = (
         {
             "key-major": "gems_key_major_trial_us",
@@ -1280,6 +1308,7 @@ def write_table(summary, directory):
             "key-major-evict-first": "gems_key_major_evict_first_trial_us",
             "compact-ragged": "gems_compact_trial_us",
             "query-loop-stage": "gems_loop_stage_trial_us",
+            "query-stage-joint": "gems_stage_joint_trial_us",
         }[kind]
         if trial
         else (
@@ -1397,6 +1426,11 @@ def write_table(summary, directory):
         == "query-loop-stage"
     ):
         summary["overall_acceptance"] = loop_stage.acceptance(summary)
+    if (
+        summary.get("manifest", {}).get("options", {}).get("candidate")
+        == "query-stage-joint"
+    ):
+        summary["overall_acceptance"] = stage_joint.acceptance(summary)
     accuracy_profiles.annotate_acceptance(
         summary["overall_acceptance"],
         summary.get("manifest", {}).get("options", {}).get("accuracy_profile", "full"),
@@ -1648,11 +1682,17 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             "query-joint",
             "query-joint-page",
             "query-loop-stage",
+            "query-stage-joint",
         ):
             for name in ("test_query_split_score", "test_query_split_full_entry"):
                 if not any("::" + name in node for node in records):
                     error = "Missing query-split correctness coverage: " + name
                     break
+        if (
+            not error
+            and getattr(options, "candidate", "production") == "query-stage-joint"
+        ):
+            error = stage_joint.validate_full_coverage(records)
         if (
             not error
             and getattr(options, "candidate", "production") == "query-loop-stage"
@@ -1966,19 +2006,19 @@ def main():
                 and options.previous_tuning in ("eight", "round1")
             )
             or (
-                options.candidate == "query-loop-stage"
+                options.candidate in ("query-loop-stage", "query-stage-joint")
                 and options.previous_tuning == "combined"
             )
         )
     ):
         parser.error(
-            "Previous baseline requires production eight/round1 or stage1 combined"
+            "Previous baseline requires production eight/round1 or stage trial combined"
         )
-    if options.candidate == "query-loop-stage" and not (
+    if options.candidate in ("query-loop-stage", "query-stage-joint") and not (
         options.compare_previous_tuning and options.previous_tuning == "combined"
     ):
         parser.error(
-            "Stage1 trial requires --compare-previous-tuning --previous-tuning combined"
+            "Stage trials require --compare-previous-tuning --previous-tuning combined"
         )
     if options.previous_tuning != "eight" and not options.compare_previous_tuning:
         parser.error("Select --compare-previous-tuning for the previous baseline")
