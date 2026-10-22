@@ -221,3 +221,131 @@ Changing kernels,raising temperature limits or accepting the occupied-card data
 would not address this failure. All30 timings remain to be measured;retain this
 report as passing iteration-correctness evidence with its precise scope. This
 incident-recording change modifies no executable code,guard or timer.
+
+## Revised30 benchmark-only result:f6a41ae3
+
+Report branch `codex/qsa-h800-results-20261022-084414`,commit
+`f6a41ae371cbc0907bb2b2aa4e2eca2c49966a18`,tested clean source
+`c79389e9720c997d0bbccdfa78a047730f2d4166`,exit0. Candidate is the retained
+private joint-stage scorer,not global-unroll2 and not a production integration.
+Verified74 archived files by Git blob hash/size,120 source snapshots against the
+tested commit,241 TSV rows,880 raw timing samples and660 guard observations.
+All30 cases passed every required before/after numeric check,AB/BA timing and
+runtime/source/config checks. Raw medians,paired ratios,group arithmetic means
+and exported table were recomputed. Common TopK logits fingerprints are stable.
+Both scoring sides use the same verified FlagTree/ptxas13.4/compat runtime;
+native TopK is the CUDA extension,candidate TopK is unchanged persistent_topk.
+
+Sampled temperatures32–52C,SM clocks1965–1980MHz;no sampled foreign process
+or guard rejection. Benchmark telemetry spans1789.86s (29m49.86s),excluding
+setup/preflight and time outside that span. New eight captured FP8 cases really
+allocated cache [2712,196,1,128],table [N,88],with the assumed contiguous strides,
+Q/cache FP8 dtype and captured2048/4 scalar parameters. Revised112/113/128-row
+chunk tails match the manifest. Two synthetic variants remain unchanged.
+
+Independent pytest was skipped by explicit request:accuracy status is
+skipped_by_request,zero counts,full_suite_validated=false. The report's overall
+measurement_valid=false,target_met=null has exactly one reason:
+`run or full accuracy incomplete`. This is the retained accuracy gate,not a
+failed timing or numeric check. Do not manufacture a passed pytest record.
+The prior62-node iteration pass is report22d3c2ae;it is not this run's full-suite
+validation. New functional-only select-all nodes remain pending. This report
+supports a benchmark-only baseline and stage comparisons,not formal production
+acceptance.
+
+Equal-weight arithmetic means of per-case speedups:
+
+| Group | Cases | Native/score | Native/TopK | Native/pipeline | Canonical/score | Canonical/pipeline | Combined-stage2/score | Combined-stage2/pipeline |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Upstream BF16 | 12 | 1.204163 | 0.898472 | 1.030793 | 1.105511 | 1.050943 | 1.087813 | 1.040490 |
+| Observed BF16 | 8 | 2.699727 | 0.909993 | 1.828757 | 1.032020 | 1.015757 | 1.010222 | 1.025039 |
+| FP8 | 10 | 1.088767 | 0.957090 | 1.010881 | 1.088108 | 1.033124 | 1.036758 | 1.014970 |
+| All | 30 | 1.564515 | 0.921084 | 1.236946 | 1.080112 | 1.035620 | 1.050104 | 1.027863 |
+
+The numeric pipeline mean1.236946 exceeds1.1,but eight cases remain below1 and
+two below the proposed0.98 floor. Thus even a timing-only assessment does not
+satisfy the all-case goal. All score ratios exceed0.98;FP8 compact score0.993193
+is the only score ratio below1. Remaining pipeline floor failures:
+
+| Case | Native/score | Native/TopK | Native/pipeline |
+| --- | ---: | ---: | ---: |
+| perf_n1_q16384_p102400_bfloat16 | 1.197827 | 0.786434 | 0.976673 |
+| fp8_long100k_float8_e4m3fn | 1.056790 | 0.786253 | 0.908443 |
+
+FP8 long100k medians illustrate the remaining gap (standalone stages are not
+additive predictions of pipeline latency):
+
+| Stage | Native us | Candidate us | Speedup |
+| --- | ---: | ---: | ---: |
+| score | 1338.784 | 1266.840 | 1.056790 |
+| topk | 1162.528 | 1478.568 | 0.786253 |
+| pipeline | 2522.136 | 2776.328 | 0.908443 |
+
+This round establishes new fixture baselines;it contains no new kernel optimization.
+Old tail64/tail65/80-row skewed measurements cannot be subtracted from revised
+112/113/128-row measurements to claim a speedup. Current corresponding pipeline
+ratios are1.026961,1.025278 and1.026017;keep them as separate workloads with
+recorded capacity and scalar differences.
+
+## Context-sensitive observations retained
+
+Short96 is unchanged as an input definition. This run's native/candidate pipeline
+medians are56.576/16.368us,ratio3.456501 (paired3.458824/3.454191). Earlier
+e861c93c had ratio1.985365 with candidate pipeline near28us. Same-run canonical
+and combined pipeline comparisons here are1.002915 and0.997093 respectively.
+All scoring algorithms/TopK are frozen across these reports;this discrepancy
+must not be presented as a new kernel improvement. Prior shared-context/timing
+sensitivity remains unresolved;no cause is established by this report.
+
+Short_batch3 native/candidate pipeline is62.432/22.208us,ratio2.811239,with
+paired2.817656/2.804878. Canonical comparison1.030129 and buffer-swap1.029391
+have both positive rounds. However,combined-stage2 comparison1.175036 contains
+paired1.332378/1.017241:its baseline rounds are29.760/22.656us while candidate
+rounds are22.336/22.272us. Preserve the raw values and the1.027863 all-case
+combined comparison mean,but do not treat this short-batch contribution as a
+stable17.5% incremental win or silently drop its slow baseline round. No timing
+sample was replaced. Two rounds support the reported measurements,not an
+unconditional assertion that all context sensitivity is resolved.
+
+Per-case stage ratios and same-run combined-stage2 incremental comparison:
+
+| Case | Native/score | Native/TopK | Native/pipeline | Combined/score | Combined/pipeline |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| perf_n1_q8192_p8192_bfloat16 | 1.293876 | 0.957666 | 1.062389 | 1.085550 | 1.030371 |
+| perf_n1_q8192_p51200_bfloat16 | 1.180496 | 0.910543 | 1.038379 | 1.103044 | 1.052494 |
+| perf_n1_q8192_p102400_bfloat16 | 1.200868 | 0.803954 | 0.996337 | 1.086128 | 1.039363 |
+| perf_n1_q16384_p8192_bfloat16 | 1.194575 | 0.996521 | 1.069819 | 1.067213 | 1.016995 |
+| perf_n1_q16384_p51200_bfloat16 | 1.219746 | 0.888792 | 1.035578 | 1.081163 | 1.039581 |
+| perf_n1_q16384_p102400_bfloat16 | 1.197827 | 0.786434 | 0.976673 | 1.135895 | 1.059679 |
+| perf_n2_q8192_p8192_bfloat16 | 1.166679 | 0.963283 | 1.046312 | 1.058468 | 1.026395 |
+| perf_n2_q8192_p51200_bfloat16 | 1.220711 | 0.912315 | 1.036034 | 1.086436 | 1.041949 |
+| perf_n2_q8192_p102400_bfloat16 | 1.175726 | 0.813220 | 0.992125 | 1.102136 | 1.055058 |
+| perf_n4_q4096_p8192_bfloat16 | 1.213752 | 1.010537 | 1.087797 | 1.096696 | 1.036043 |
+| perf_n4_q4096_p51200_bfloat16 | 1.221449 | 0.924388 | 1.045970 | 1.083051 | 1.042695 |
+| perf_n4_q4096_p102400_bfloat16 | 1.164248 | 0.814011 | 0.982102 | 1.067972 | 1.045253 |
+| observed_short96_bfloat16 | 6.173996 | 0.731638 | 3.456501 | 0.992322 | 0.997093 |
+| observed_tail16k_bfloat16 | 3.397773 | 0.926684 | 2.219578 | 1.002000 | 1.004412 |
+| observed_tail32k_bfloat16 | 2.818770 | 0.828377 | 1.935390 | 0.996127 | 1.000363 |
+| observed_short_batch3_bfloat16 | 4.352394 | 1.023419 | 2.811239 | 1.037185 | 1.175036 |
+| observed_ragged54_bfloat16 | 1.066017 | 1.124290 | 1.089366 | 1.001940 | 1.001680 |
+| observed_unequal2_bfloat16 | 1.233254 | 0.825079 | 0.993017 | 0.996583 | 1.000021 |
+| observed_chunk_boundary_bfloat16 | 1.186965 | 0.972561 | 1.055911 | 1.054850 | 1.021843 |
+| observed_chunk_tail64_bfloat16 | 1.368643 | 0.847899 | 1.069056 | 1.000771 | 0.999867 |
+| fp8_first_chunk_float8_e4m3fn | 1.044671 | 1.018818 | 1.029618 | 1.079663 | 1.021866 |
+| fp8_budget_exact_float8_e4m3fn | 1.007343 | 0.976336 | 0.987445 | 1.029688 | 1.012120 |
+| fp8_dominant_long_float8_e4m3fn | 1.090977 | 0.960705 | 1.008467 | 1.031549 | 1.011414 |
+| fp8_tail112_float8_e4m3fn | 1.135569 | 0.963480 | 1.026961 | 1.028764 | 1.013646 |
+| fp8_tail113_float8_e4m3fn | 1.134128 | 0.963112 | 1.025278 | 1.032236 | 1.018554 |
+| fp8_two_balanced_float8_e4m3fn | 1.118373 | 0.922277 | 0.994891 | 1.028155 | 1.012340 |
+| fp8_two_skewed_float8_e4m3fn | 1.135161 | 0.963444 | 1.026017 | 1.035933 | 1.011981 |
+| fp8_short_tail_float8_e4m3fn | 1.171475 | 0.895306 | 1.027317 | 1.072645 | 1.033112 |
+| fp8_compact_float8_e4m3fn | 0.993185 | 1.121170 | 1.074372 | 1.000000 | 1.000615 |
+| fp8_long100k_float8_e4m3fn | 1.056790 | 0.786253 | 0.908443 | 1.028946 | 1.014055 |
+
+Decision:retain the revised30-case definitions and joint-stage private candidate
+as the current baseline. The all-case target remains open,primarily FP8 long100k
+and the slightly sub-floor upstream BF16 long-prefix case. Future scoring-only
+experiments must retain TopK measurements,these two cases,and short-batch
+controls;TopK remains frozen. No production integration or new optimization is
+made by this result-recording change. Full standalone correctness and formal
+public-entry validation are still required before production integration.
