@@ -11,6 +11,7 @@ QUERY_SPLIT_FILE = "tests/test_qsa_prefill_query_split.py"
 QUERY_JOINT_FILE = "tests/test_qsa_prefill_query_joint.py"
 QUERY_PAGE_FILE = "tests/test_qsa_prefill_query_page.py"
 LOOP_STAGE_FILE = "tests/test_qsa_prefill_loop_stage.py"
+LOOP_UNROLL_FILE = "tests/test_qsa_prefill_loop_unroll.py"
 STAGE_JOINT_FILE = "tests/test_qsa_prefill_stage_joint.py"
 CURRENT_CANDIDATES = (
     "packed-grid",
@@ -19,6 +20,7 @@ CURRENT_CANDIDATES = (
     "query-joint-page",
     "query-loop-stage",
     "query-stage-joint",
+    "query-loop-unroll",
     *PAGE_TABLE_CANDIDATES,
 )
 
@@ -111,8 +113,12 @@ def expected_nodes(candidate):
     nodes = tuple(PRODUCTION_FILE + "::" + case for case in PRODUCTION_CASES)
     if candidate == "packed-grid":
         nodes = tuple(PACKED_FILE + "::" + case for case in PACKED_CASES) + nodes
-    if candidate in ("query-loop-stage", "query-stage-joint"):
-        file = STAGE_JOINT_FILE if candidate == "query-stage-joint" else LOOP_STAGE_FILE
+    if candidate in ("query-loop-stage", "query-stage-joint", "query-loop-unroll"):
+        file = {
+            "query-stage-joint": STAGE_JOINT_FILE,
+            "query-loop-stage": LOOP_STAGE_FILE,
+            "query-loop-unroll": LOOP_UNROLL_FILE,
+        }[candidate]
         extra = tuple(
             f"test_combined_rectangular_every_config[{heads}-{dim}-dtype{dtype}]"
             for heads, dim in ((4, 128), (3, 24), (5, 96), (1, 8))
@@ -161,6 +167,8 @@ def pytest_targets(options, root):
     if name(options) == "iteration":
         return targets(root, candidate)
     files = [PRODUCTION_FILE]
+    if candidate == "query-loop-unroll":
+        files.insert(0, LOOP_UNROLL_FILE)
     if candidate == "query-stage-joint":
         files.insert(0, STAGE_JOINT_FILE)
     if candidate == "query-loop-stage":

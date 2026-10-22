@@ -28,6 +28,7 @@ from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
 from tools import qsa_prefill_accuracy_profiles as accuracy_profiles  # noqa: E402
 from tools import qsa_prefill_cache_granularity as cache_trial  # noqa: E402
 from tools import qsa_prefill_loop_stage_trial as loop_stage  # noqa: E402
+from tools import qsa_prefill_loop_unroll_trial as loop_unroll  # noqa: E402
 from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_packed_grid as packed  # noqa: E402
 from tools import qsa_prefill_page_table_trial as page_table  # noqa: E402
@@ -67,6 +68,12 @@ SOURCES = sorted(
         "tests/test_qsa_prefill_loop_stage.py",
         "tools/run_qsa_prefill_loop_stage_h800.sh",
         "docs/qsa_prefill_loop_stage_trial.md",
+        "tools/qsa_prefill_loop_unroll_kernel.py",
+        "tools/qsa_prefill_loop_unroll_trial.py",
+        "tools/test_qsa_prefill_loop_unroll.py",
+        "tests/test_qsa_prefill_loop_unroll.py",
+        "tools/run_qsa_prefill_loop_unroll_h800.sh",
+        "docs/qsa_prefill_loop_unroll_trial.md",
         "tools/qsa_prefill_stage_joint_trial.py",
         "tools/test_qsa_prefill_stage_joint.py",
         "tests/test_qsa_prefill_stage_joint.py",
@@ -305,6 +312,8 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         from tools import qsa_prefill_compact_trial as trial
 
         candidate = trial.candidate_module(ab.frozen_production())
+    elif getattr(options, "candidate", "production") == "query-loop-unroll":
+        candidate = loop_unroll.candidate_module(op)
     elif getattr(options, "candidate", "production") == "query-stage-joint":
         candidate = stage_joint.candidate_module(op)
     elif getattr(options, "candidate", "production") == "query-loop-stage":
@@ -816,9 +825,11 @@ def worker(options, case, path):
     stage_joint_trial = (
         getattr(options, "candidate", "production") == "query-stage-joint"
     )
+    unroll_trial = getattr(options, "candidate", "production") == "query-loop-unroll"
     combined_trial = (
         stage_trial
         or stage_joint_trial
+        or unroll_trial
         or getattr(options, "candidate", "production") == "query-joint-page"
     )
     joint_trial = (
@@ -905,6 +916,10 @@ def worker(options, case, path):
         )
     if stage_trial:
         result["loop_stage"] = loop_stage.metadata(
+            candidate, support.score_configs(candidate)
+        )
+    if unroll_trial:
+        result["loop_unroll"] = loop_unroll.metadata(
             candidate, support.score_configs(candidate)
         )
     if stage_joint_trial:
@@ -1247,6 +1262,12 @@ def worker(options, case, path):
         != result["stage_joint"]
     ):
         raise RuntimeError("Joint-stage metadata changed during timing")
+    if (
+        unroll_trial
+        and loop_unroll.metadata(candidate, support.score_configs(candidate))
+        != result["loop_unroll"]
+    ):
+        raise RuntimeError("Loop-unroll metadata changed during timing")
     if result["common_logits_before"] != result["common_logits_after"]:
         raise RuntimeError("Common Top-K logits were modified during this run")
     if previous is not None and (
@@ -1301,6 +1322,7 @@ def write_table(summary, directory):
         "compact-ragged",
         "query-loop-stage",
         "query-stage-joint",
+        "query-loop-unroll",
         *KEY_MAJOR_CANDIDATES,
     )
     candidate_column = (
@@ -1311,6 +1333,7 @@ def write_table(summary, directory):
             "compact-ragged": "gems_compact_trial_us",
             "query-loop-stage": "gems_loop_stage_trial_us",
             "query-stage-joint": "gems_stage_joint_trial_us",
+            "query-loop-unroll": "gems_loop_unroll_trial_us",
         }[kind]
         if trial
         else (
@@ -1433,6 +1456,11 @@ def write_table(summary, directory):
         == "query-stage-joint"
     ):
         summary["overall_acceptance"] = stage_joint.acceptance(summary)
+    if (
+        summary.get("manifest", {}).get("options", {}).get("candidate")
+        == "query-loop-unroll"
+    ):
+        summary["overall_acceptance"] = loop_unroll.acceptance(summary)
     accuracy_profiles.annotate_acceptance(
         summary["overall_acceptance"],
         summary.get("manifest", {}).get("options", {}).get("accuracy_profile", "full"),
@@ -1685,6 +1713,7 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             "query-joint-page",
             "query-loop-stage",
             "query-stage-joint",
+            "query-loop-unroll",
         ):
             for name in ("test_query_split_score", "test_query_split_full_entry"):
                 if not any("::" + name in node for node in records):
@@ -1695,6 +1724,11 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             and getattr(options, "candidate", "production") == "query-stage-joint"
         ):
             error = stage_joint.validate_full_coverage(records)
+        if (
+            not error
+            and getattr(options, "candidate", "production") == "query-loop-unroll"
+        ):
+            error = loop_unroll.validate_full_coverage(records)
         if (
             not error
             and getattr(options, "candidate", "production") == "query-loop-stage"
@@ -1940,7 +1974,9 @@ def main():
     parser.add_argument("--compare-previous-tuning", action="store_true")
     parser.add_argument("--accuracy-profile", choices=("iteration", "full"))
     parser.add_argument(
-        "--previous-tuning", choices=("eight", "round1", "combined"), default="eight"
+        "--previous-tuning",
+        choices=("eight", "round1", "combined", "stage-joint"),
+        default="eight",
     )
     parser.add_argument(
         "--candidate",
@@ -2011,6 +2047,10 @@ def main():
                 options.candidate in ("query-loop-stage", "query-stage-joint")
                 and options.previous_tuning == "combined"
             )
+            or (
+                options.candidate == "query-loop-unroll"
+                and options.previous_tuning == "stage-joint"
+            )
         )
     ):
         parser.error(
@@ -2021,6 +2061,12 @@ def main():
     ):
         parser.error(
             "Stage trials require --compare-previous-tuning --previous-tuning combined"
+        )
+    if options.candidate == "query-loop-unroll" and not (
+        options.compare_previous_tuning and options.previous_tuning == "stage-joint"
+    ):
+        parser.error(
+            "Loop-unroll requires --compare-previous-tuning --previous-tuning stage-joint"
         )
     if options.previous_tuning != "eight" and not options.compare_previous_tuning:
         parser.error("Select --compare-previous-tuning for the previous baseline")

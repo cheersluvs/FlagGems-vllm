@@ -36,6 +36,12 @@ def round1_source(source):
 def previous_module(production, kind):
     from tools import qsa_prefill_tuning_round1 as round1
 
+    if kind == "stage-joint":
+        from tools import qsa_prefill_stage_joint_trial as joint
+
+        return joint.candidate_module(
+            getattr(production, "production_baseline", production)
+        )
     if kind == "combined":
         from pathlib import Path
 
@@ -60,6 +66,14 @@ def previous_module(production, kind):
 def previous_identity(kind):
     from tools import qsa_prefill_tuning_round1 as round1
 
+    if kind == "stage-joint":
+        from tools import qsa_prefill_stage_joint_trial as joint
+
+        return dict(
+            source_equivalent_sha256=joint.KERNEL_SHA256,
+            config_group=joint.CONFIG_GROUP,
+            baseline_kind="joint_stage_combined_score",
+        )
     if kind == "combined":
         from tools import qsa_prefill_loop_stage_trial as stage
 
