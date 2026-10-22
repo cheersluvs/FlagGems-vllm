@@ -3,6 +3,8 @@
 """H800 QSA prefill: full operator, score stage, and Top-K stage.
 
 The matrix contains 20 BF16 cases plus eight FP8 envelopes and two FP8 variants.
+The eight captured fixtures use cache [2712,196,1,128] and page table [N,88];
+tail112/tail113 replace the former tight-capacity tail64/tail65 fixtures.
 The H800 --mode kernel runner reports score, Top-K and the full chunk pipeline;
 complete pipeline speedup is acceptance. Isolated score tests retain their
 single full-row launch. Select-all cases remain functional tests only.

@@ -1,5 +1,13 @@
 # QSA prefill: FP8 benchmark extension
 
+2026-10-22 update: the eight captured FP8 fixtures now use the detailed upload
+9937ec6e,cache [2712,196,1,128] and table [N,88]. tail64/tail65 are renamed
+tail112/tail113;new native/canonical/private baselines are required. The30-case
+active set is preserved. Two new select-all captures are functional-only. See
+[the detailed shape audit and update](qsa_prefill_detailed_shapes_20261022.md).
+The preceding fixture values and GPU reports below remain historical results.
+
+
 Current status, 2026-10-21: the standard benchmark and scored-prefill acceptance
 set now have30 scored cases (20 BF16 and10 FP8), excluding the two select-all
 fixtures. combined-prefill retains32 diagnostic fixtures. The primary goal is

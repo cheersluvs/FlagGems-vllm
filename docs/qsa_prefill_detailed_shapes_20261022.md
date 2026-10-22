@@ -107,3 +107,75 @@ Validation:archive/TXT/YAML/count cross-checks,128-signature consistency,old/new
 projection comparison,all eight proposed geometry/capacity checks,and fast-path
 classification completed on CPU. No GPU execution or performance claim. No
 production,benchmark fixture,timer or guard was modified for this audit.
+
+## Approved fixture update plan
+
+| Project truth | Frozen scope |
+| --- | --- |
+| Editable | FP8 workloads/provenance manifest,FP8-only shared builder routing,CPU/GPU fixture tests and docs |
+| Read-only | Production and all private scorers,TopK,YAML choices,native reference,20 active BF16 fixtures,timers/guards/acceptance thresholds |
+| Active set | Same30 scored cases:12 upstream BF16 +8 observed BF16 +8 updated captured FP8 +2 unchanged FP8 variants |
+| Validation/build | CPU archive/manifest/geometry/dtype/remap/CLI invariants,Python syntax/pre-commit; existing10 FP8 native GPU tests +2 new full-suite select-all nodes |
+| Benchmark | Existing kernel-mode native/canonical/private stage comparisons,2 rounds; fresh baseline for new fixture definitions; no old performance reuse |
+| Aggregation/timeout | Existing equal-weight arithmetic pipeline mean>1.1 and proposed0.98 floor; existing runner timeouts unchanged |
+| Autotune/profiler | No kernel/performance parameter changes;existing config groups/keys;resource records on H800,no local GPU profiler |
+| Fallback | Test/benchmark construction only;no production torch compute/fallback added |
+
+| Contract | Decision |
+| --- | --- |
+| Reference | Existing pinned native QSA,not a standalone torch API |
+| Captured | Exact17-field records including H4/D128,cache2712x196x1x128,table Nx88,K512,ratio4 and output Tx512 |
+| Assumed | Explicit FP8 dtype,contiguous layouts/random physical mapping,request order,equal per-request context maxima,causal visible values,512MiB budget |
+| Outputs/numerics | Existing FP32 logits,int32 indices/ties/FP8 normalization;no tolerance changes |
+| Training/unsupported | Forward-only;production contract and errors unchanged |
+
+| Path | Implementation | Verification/risk |
+| --- | --- | --- |
+| Eight captured scoring fixtures | Reuse existing inference builder's full-cache remap/table padding with factor1;update recorded envelopes/capacities;rename tail64/65 to tail112/113 | Capacity/manifest/native checks |
+| Two synthetic variants | Preserve definitions and construction;not assigned new observed capacities | Exact parent input-definition comparison |
+| BF16 | Existing input builder path unchanged except new FP8-only early branch | Existing BF16 matrix pin |
+| New select-all captures | Separate functional_cases,not added to any performance suite | Assert public entry bypasses score/TopK and matches native/explicit indices |
+
+The revised inference fixtures require a new baseline. Old reports keep their
+original meanings and old case names;they are not migrated or recomputed.
+
+## Fixture update delivered
+
+The shared FP8 workload source and archived schema2 manifest now bind upload
+9937ec6e and all128 captured17-field signatures. Eight performance fixtures
+use physical_pages2712,table_columns88,cache_page_stride_factor1. The existing
+inference builder performs the real allocation/remap/padding;the change is not
+limited to reported geometry. Its BF16 and variant input paths remain unchanged.
+The eight new fixture geometries are:
+
+| Current FP8 case suffix | Query lengths (chosen order) | max_seq_len | Logits width | Derived chunks at assumed512MiB |
+| --- | --- | ---: | ---: | --- |
+| first_chunk | [16384] | 16384 | 4096 | [16384] |
+| budget_exact | [16384] | 32768 | 8192 | [16384] |
+| dominant_long | [16331] | 33842 | 8512 | [15768,563] |
+| tail112 | [16368] | 32853 | 8256 | [16256,112] |
+| tail113 | [16369] | 32851 | 8256 | [16256,113] |
+| two_balanced | [10371,5958] | 32932 | 8256 | [16256,73] |
+| two_skewed | [16330,54] | 32822 | 8256 | [16256,128] |
+| short_tail | [2316] | 33843 | 8512 | [2316] |
+
+The functional-only captures are supplied by functional_cases() and exercised
+by two full-suite test_captured_many_request_select_all nodes;the iteration
+profile is unchanged. They assert public entry/output identity,bypass of our
+score/TopK,explicit logical indices/-1 padding and direct native output agreement.
+Existing ten FP8 native tests now also assert actual Q/cache/table shapes and
+strides match declared geometry. All unknown values remain marked synthetic;
+observed page size,token_topk and compress_ratio are no longer marked synthetic.
+
+Validation:96 CPU regression checks passed under Python3.12 with NumPy. This
+includes actual input-builder execution with opaque uint8 page contents at the
+captured capacities for one- and two-request cases,checking all live key rows,
+causal visibility,request starts,table padding,cache strides and unused page
+initialization. This checks byte mapping,not FP8 numerical computation. The
+uploaded TXT/YAML/count records match the updated manifest and selected capture
+lines;the original BF16 matrix pin and both synthetic FP8 definitions match.
+Changed-file pre-commit,diff and syntax checks pass. Production kernels,all
+private candidate kernels/factories,YAML,TopK,runner,timer and guard sources match
+the parent byte-for-byte. H800 JIT/numerical tests and fresh30-case speedups remain
+pending. Do not use the rejected global unroll2 candidate as the retained baseline;
+use production or the retained joint-stage candidate with these revised fixtures.

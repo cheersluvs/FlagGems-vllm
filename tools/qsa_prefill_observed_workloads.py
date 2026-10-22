@@ -111,6 +111,9 @@ def geometry(case):
 
 
 def make_inputs(case, helpers, torch, *, device="cuda"):
+    if case["kind"] == "fp8_perf" and "physical_pages" in case:
+        # Use captured full cache/table capacities with the existing safe remap.
+        return inference.make_inputs(case, helpers, torch, device=device)
     if case["kind"] == "upstream_perf":
         return upstream.make_inputs(case, helpers, torch, device=device)
     info = geometry(case)

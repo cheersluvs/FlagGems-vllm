@@ -907,6 +907,12 @@ def test_fp8_benchmark_against_native(sm90, monkeypatch, case):
     monkeypatch.setattr(native.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 512)
     args = observed_workloads.make_inputs(case, helpers, torch)
     assert args[0].dtype == args[1].dtype == torch.float8_e4m3fn
+    geometry = observed_workloads.geometry(case)
+    for index, key in ((0, "q_shape"), (1, "cache_shape"), (2, "page_table_shape")):
+        assert list(args[index].shape) == geometry[key]
+        assert (
+            list(args[index].stride()) == geometry["input_layout"][str(index)]["stride"]
+        )
     native_args = (*args[:8], stages.native_output(args[8], torch), args[9])
     native_chunks = ab.observe(native, "_topk", native_args)
     candidate_chunks = ab.observe(op_module, "persistent_topk", args)
@@ -920,6 +926,38 @@ def test_fp8_benchmark_against_native(sm90, monkeypatch, case):
         native, op_module, native_chunks, candidate_chunks, torch, helpers
     ) >= len(case["query_lengths"])
     assert op is op_module.qsa_select_paged_prefill
+
+
+@pytest.mark.parametrize(
+    "case", observed_workloads.fp8.functional_cases(), ids=lambda c: c["name"]
+)
+def test_captured_many_request_select_all(sm90, monkeypatch, case):
+    from tools import benchmark_qsa_prefill_triton_stages as stages
+
+    from . import qsa_select_prefill_utils as helpers
+
+    args = observed_workloads.make_inputs(case, helpers, torch)
+    geometry = observed_workloads.geometry(case)
+    assert list(args[1].shape) == [2712, 196, 1, 128]
+    assert list(args[2].shape) == geometry["page_table_shape"]
+    assert geometry["select_all"]
+    native = helpers.vllm_reference()
+    native_args = (*args[:8], stages.native_output(args[8], torch), args[9])
+    monkeypatch.setattr(native.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 512)
+
+    def forbidden(*a, **kw):
+        raise AssertionError("Captured select-all must bypass score and TopK")
+
+    monkeypatch.setattr(op_module, "_prefill_logits", forbidden)
+    monkeypatch.setattr(op_module, "persistent_topk", forbidden)
+    pointer = args[8].data_ptr()
+    assert op(*args) is None
+    assert args[8].data_ptr() == pointer
+    native.qsa_select_paged_prefill(*native_args)
+    columns = torch.arange(case["k"], device=args[0].device, dtype=torch.int32)
+    expected = torch.where(columns[None, :] < args[4][:, None], columns[None, :], -1)
+    torch.testing.assert_close(args[8], expected, rtol=0, atol=0)
+    torch.testing.assert_close(args[8], native_args[8], rtol=0, atol=0)
 
 
 @pytest.mark.parametrize(
