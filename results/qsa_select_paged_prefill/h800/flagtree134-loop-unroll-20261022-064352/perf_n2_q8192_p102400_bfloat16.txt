@@ -1,0 +1,20 @@
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill.query_page_trial.loop_unroll", "candidate_source": "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/qsa_prefill_loop_unroll_kernel.py", "candidate_sha256": "5a5c105ba4f21a4e27dd57814866179c9733354feb1ef349e66eebaafa272ba6", "candidate_is_canonical_module": false, "exported_entry_is_candidate": false, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill.query_page_trial"}
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/benchmark_qsa_prefill_triton_stages.py", line 2188, in main
+    worker(options, definitions[options.worker], path)
+  File "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/benchmark_qsa_prefill_triton_stages.py", line 1151, in worker
+    measured, observations, order = scoring.measure_scores(
+                                    ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/qsa_prefill_score_benchmark.py", line 111, in measure_scores
+    observations.append(monitor(f"after_round_{repeat + 1}"))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/benchmark_qsa_prefill_triton_stages.py", line 1159, in <lambda>
+    else support.guarded_telemetry(
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/benchmark_qsa_prefill_stages.py", line 288, in guarded_telemetry
+    raise RuntimeError(f"GPU environment rejected: {check['reasons']}")
+RuntimeError: GPU environment rejected: ["Unattributed compute PIDs: [{'pid': 2551335, 'used_memory_mib': 664}]; only identified self PIDs allowed. Container/host PID mapping may be unavailable; do not guess ownership"]
+

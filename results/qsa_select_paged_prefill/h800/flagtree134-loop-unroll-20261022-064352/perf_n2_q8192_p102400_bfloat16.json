@@ -1,0 +1,3794 @@
+{
+  "case": {
+    "name": "perf_n2_q8192_p102400_bfloat16",
+    "kind": "upstream_perf",
+    "requests": 2,
+    "query_length": 8192,
+    "prefix_tokens": 102400,
+    "page_size": 196,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "budget_mb": 512,
+    "dtype": "bfloat16"
+  },
+  "status": "failed",
+  "stages": {
+    "score_matched": {
+      "status": "not_applicable",
+      "accepted": false,
+      "reason": "No selected FP8 rectangular tile eligible to split"
+    },
+    "score": {
+      "status": "passed",
+      "accepted": true,
+      "includes_topk": false,
+      "baseline_kind": "native_vllm",
+      "validation_before": {
+        "baseline": 34,
+        "candidate": 34
+      },
+      "baseline_us": {
+        "samples": [
+          1967.2640562057495,
+          1964.735984802246
+        ],
+        "median": 1966.0000205039978,
+        "mean": 1966.0000205039978,
+        "min": 1964.735984802246,
+        "max": 1967.2640562057495,
+        "stdev": 1.7876164327410595
+      },
+      "candidate_us": {
+        "samples": [
+          1825.9520530700684,
+          1828.815996646881
+        ],
+        "median": 1827.3840248584747,
+        "mean": 1827.3840248584747,
+        "min": 1825.9520530700684,
+        "max": 1828.815996646881,
+        "stdev": 2.0251139240999474
+      },
+      "speedup": 1.0758548798500405,
+      "paired_ratios": {
+        "samples": [
+          1.0773908618783752,
+          1.07432130318445
+        ],
+        "median": 1.0758560825314127,
+        "mean": 1.0758560825314127,
+        "min": 1.07432130318445,
+        "max": 1.0773908618783752,
+        "stdev": 0.0021705057677245685
+      },
+      "measurement_order": [
+        [
+          "baseline",
+          "candidate"
+        ],
+        [
+          "candidate",
+          "baseline"
+        ]
+      ],
+      "validation_after": {
+        "baseline": 34,
+        "candidate": 34
+      },
+      "measurement_validated": true
+    },
+    "topk": {
+      "status": "validating",
+      "accepted": false,
+      "includes_topk": true,
+      "baseline_kind": "native_vllm",
+      "validation_before": {
+        "sample_rows": 34
+      }
+    }
+  },
+  "candidate_kind": "query-loop-unroll",
+  "runtime": {
+    "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.39",
+    "torch_version": "2.13.0+cu129",
+    "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+    "triton_version": "3.6.0",
+    "triton_source": "/opt/flagtree/triton/__init__.py",
+    "triton_init_sha256": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30",
+    "compiler_files": {
+      "triton.backends.nvidia.compiler": {
+        "path": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+        "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+      },
+      "triton.backends.nvidia.driver": {
+        "path": "/opt/flagtree/triton/backends/nvidia/driver.py",
+        "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+      },
+      "triton.knobs": {
+        "path": "/opt/flagtree/triton/knobs.py",
+        "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+      },
+      "triton._C.libtriton": {
+        "path": "/opt/flagtree/triton/_C/libtriton.so",
+        "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+      }
+    },
+    "ptxas": {
+      "path": "/tmp/qsa-flagtree134-tools.2rb7kh2h/ptxas",
+      "sha256": "9c2c084df7eb9be48f0502b6938ce2571679b2a78cad1c564b583bd7d9ea3c50",
+      "version": {
+        "returncode": 0,
+        "stdout": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2026 NVIDIA Corporation\nBuilt on Mon_Aug_03_13:24:11_PDT_2026\nCuda compilation tools, release 13.4, V13.4.59\nBuild cuda_13.4.r13.4/compiler.38657139_0\n",
+        "stderr": ""
+      }
+    },
+    "cuda": "12.9",
+    "vendor": "nvidia",
+    "device": "_CudaDeviceProperties(name='NVIDIA H800', major=9, minor=0, total_memory=81090MB, multi_processor_count=132, uuid=83ccf064-1bbb-6765-e356-c2a85323cbee, pci_bus_id=215, pci_device_id=0, pci_domain_id=0, L2_cache_size=50MB)",
+    "uuid": "83ccf064-1bbb-6765-e356-c2a85323cbee",
+    "versions": {
+      "torch": "2.13.0+cu129",
+      "triton": "3.7.1",
+      "flagtree": "0.6.1",
+      "vllm": "0.31.0+cu129"
+    },
+    "allow_tf32": false,
+    "environment": {
+      "PYTHONPATH": null,
+      "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree",
+      "CUDA_VISIBLE_DEVICES": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee",
+      "CUDA_LAUNCH_BLOCKING": null,
+      "LD_LIBRARY_PATH": "/tmp/qsa-cuda134-compat.fm3vj57h/root/usr/local/cuda-13.4/compat:/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+      "TRITON_CACHE_DIR": "/tmp/qsa-flagtree134-ab-h800.b3hJln/cache/perf_n2_q8192_p102400_bfloat16/triton",
+      "FLAGGEMS_CACHE_DIR": "/tmp/qsa-flagtree134-ab-h800.b3hJln/cache/perf_n2_q8192_p102400_bfloat16/gems",
+      "TRITON_PTXAS_PATH": "/tmp/qsa-flagtree134-tools.2rb7kh2h/ptxas",
+      "TRITON_DISABLE_LINE_INFO": null,
+      "TRITON_OVERRIDE_ARCH": null,
+      "DISABLE_PTXAS_OPT": null,
+      "PTXAS_OPTIONS": null,
+      "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB": null
+    },
+    "nvidia_smi": {
+      "returncode": 0,
+      "stdout": "Thu Oct 22 14:42:43 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 13.4     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H800                    Off |   00000000:1A:00.0 Off |                    0 |\n| N/A   64C    P0            128W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA H800                    Off |   00000000:5D:00.0 Off |                    0 |\n| N/A   30C    P0            128W /  700W |     862MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA H800                    Off |   00000000:6E:00.0 Off |                    0 |\n| N/A   28C    P0             68W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA H800                    Off |   00000000:7E:00.0 Off |                    0 |\n| N/A   44C    P0             76W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   4  NVIDIA H800                    Off |   00000000:B8:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   5  NVIDIA H800                    Off |   00000000:CC:00.0 Off |                    0 |\n| N/A   28C    P0             73W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   6  NVIDIA H800                    Off |   00000000:D7:00.0 Off |                    0 |\n| N/A   33C    P0             72W /  700W |      88MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   7  NVIDIA H800                    Off |   00000000:E1:00.0 Off |                    0 |\n| N/A   52C    P0            499W /  700W |    4826MiB /  81559MiB |    100%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|    1   N/A  N/A         1208913      C   /usr/bin/python3                        768MiB |\n|    7   N/A  N/A         2547731      C   /usr/bin/python3                       4816MiB |\n+-----------------------------------------------------------------------------------------+\n",
+      "stderr": ""
+    },
+    "compiler_profile": "flagtree",
+    "flagtree_runtime": {
+      "profile": "flagtree-cuda134",
+      "version": "3.6.0",
+      "files": {
+        "triton": {
+          "path": "/opt/flagtree/triton/__init__.py",
+          "sha256": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30"
+        },
+        "triton.testing": {
+          "path": "/opt/flagtree/triton/testing.py",
+          "sha256": "54b1a09e41f716151e46143f94c4a816090f2f4dea72752bf5f8071293540e7f"
+        },
+        "triton.backends.nvidia.compiler": {
+          "path": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+          "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+        },
+        "triton.backends.nvidia.driver": {
+          "path": "/opt/flagtree/triton/backends/nvidia/driver.py",
+          "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+        },
+        "triton.knobs": {
+          "path": "/opt/flagtree/triton/knobs.py",
+          "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+        },
+        "triton._C.libtriton": {
+          "path": "/opt/flagtree/triton/_C/libtriton.so",
+          "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+        },
+        "triton.experimental.tle.language": {
+          "path": "/opt/flagtree/triton/experimental/tle/language/__init__.py",
+          "sha256": "9b9cf2e186e4a3886156fdc00e14f69ac12d671d9b689506bf54699475b29fc6"
+        }
+      },
+      "ptxas": {
+        "path": "/tmp/qsa-flagtree134-tools.2rb7kh2h/ptxas",
+        "sha256": "9c2c084df7eb9be48f0502b6938ce2571679b2a78cad1c564b583bd7d9ea3c50"
+      },
+      "cuda": {
+        "libcuda": "/tmp/qsa-cuda134-compat.fm3vj57h/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09",
+        "libcuda_sha256": "85a8cc8cf00419ceb295ec62c481d05b4cdbdab10f25c5375d6d24bdbe00b4d9",
+        "driver_api": 13040
+      }
+    },
+    "native_topk_libraries": {
+      "vllm._C_stable_libtorch": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_C_stable_libtorch.abi3.so",
+        "sha256": "1483f8d226bf161b363be005265bdd13de986f5fc7e2ce5e20a95bd0db53857c"
+      },
+      "vllm._qutlass_C": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_qutlass_C.abi3.so",
+        "sha256": "027a05deb88f48111f50698ba77cc6bacee0b341f6af57c1152affa078fd7995"
+      },
+      "vllm._moe_C_stable_libtorch": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_moe_C_stable_libtorch.abi3.so",
+        "sha256": "d220bf1c3f82d36984c274b8849138000aeb324b81a37dbde963dd4b804bd250"
+      }
+    },
+    "operator_binding": {
+      "canonical_source": "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+      "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+      "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill.query_page_trial.loop_unroll",
+      "candidate_source": "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/qsa_prefill_loop_unroll_kernel.py",
+      "candidate_sha256": "5a5c105ba4f21a4e27dd57814866179c9733354feb1ef349e66eebaafa272ba6",
+      "candidate_is_canonical_module": false,
+      "exported_entry_is_candidate": false,
+      "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill.query_page_trial"
+    }
+  },
+  "inputs": [
+    {
+      "argument": 0,
+      "shape": [
+        16384,
+        4,
+        128
+      ],
+      "stride": [
+        512,
+        128,
+        1
+      ],
+      "dtype": "torch.bfloat16",
+      "storage_offset": 0,
+      "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+    },
+    {
+      "argument": 1,
+      "shape": [
+        284,
+        196,
+        1,
+        128
+      ],
+      "stride": [
+        25088,
+        128,
+        128,
+        1
+      ],
+      "dtype": "torch.bfloat16",
+      "storage_offset": 0,
+      "sha256": "8a807d0e1e5e616738d8c60fa972b9bc7ab965d9050dfe2c91f49f79f0172d35"
+    },
+    {
+      "argument": 2,
+      "shape": [
+        2,
+        142
+      ],
+      "stride": [
+        142,
+        1
+      ],
+      "dtype": "torch.int32",
+      "storage_offset": 0,
+      "sha256": "525077e3a7bf0e56832a14ea6a44b8efc57ff59788277175d2e87491b6927deb"
+    },
+    {
+      "argument": 3,
+      "shape": [
+        3
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int32",
+      "storage_offset": 0,
+      "sha256": "2d2a2ee83b6481452c82a56c0dfe928cd04644ca997383b8da6e275789b9d821"
+    },
+    {
+      "argument": 4,
+      "shape": [
+        16384
+      ],
+      "stride": [
+        1
+      ],
+      "dtype": "torch.int32",
+      "storage_offset": 0,
+      "sha256": "46732461017b55d6690c7fabe8daa4c0754b8ee6aad6239b350bb5222a9f6ae3"
+    },
+    {
+      "argument": 5,
+      "value": 2048
+    },
+    {
+      "argument": 6,
+      "value": 4
+    },
+    {
+      "argument": 7,
+      "value": 8192
+    },
+    {
+      "argument": 8,
+      "shape": [
+        16384,
+        512
+      ],
+      "stride": [
+        512,
+        1
+      ],
+      "dtype": "torch.int32",
+      "storage_offset": 0
+    },
+    {
+      "argument": 9,
+      "value": 110592
+    }
+  ],
+  "native_output_layout": {
+    "shape": [
+      16384,
+      512
+    ],
+    "stride": [
+      512,
+      1
+    ],
+    "storage_offset": 0
+  },
+  "score_cache_isolation": {
+    "independent_outer_entries": true,
+    "independent_device_caches": true,
+    "baseline_public_warmed_first": true,
+    "baseline_configs_before_public": [],
+    "baseline_configs_after_public": [
+      {
+        "constexprs": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='b49ed932f177e012548b551143879628775323304b131201276e61db1c40cf13', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=8, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "744526b5aec6d547fc79a59c5c4602c1ffb1a77c13373601b436bbee9f81e2bc",
+        "cubin_sha256": "ee88dd804c115dc406bb460ba15edd348428e0f1daa6200e2addd101f2ca333a"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='68bc80b620dd765a069e538eb7b9ca3b015d53d2174d7c686eed4add6e4bf72f', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=106496, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "9076cf4c4f5a67ce8a9f6ebedc48852af3b416e60f13c21bbdab86b6f5b1f0b1",
+        "cubin_sha256": "b688e6850d5d916207789877a57d14face6a048cf20ee2767a6196f0ab22edea"
+      }
+    ]
+  },
+  "cache_granularity": {
+    "production": [
+      {
+        "offset": 0,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 1,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 255,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+          "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1",
+          "ptx_static_sites": {
+            "dot": 24,
+            "shared_load": 26,
+            "shared_store": 106,
+            "global_load": 74,
+            "global_store": 96,
+            "async_copy": 0,
+            "shuffle": 193,
+            "barrier": 21,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 4854,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 1,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 255,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+          "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1",
+          "ptx_static_sites": {
+            "dot": 24,
+            "shared_load": 26,
+            "shared_store": 106,
+            "global_load": 74,
+            "global_store": 96,
+            "async_copy": 0,
+            "shuffle": 193,
+            "barrier": 21,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 9708,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 1,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 255,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+          "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1",
+          "ptx_static_sites": {
+            "dot": 24,
+            "shared_load": 26,
+            "shared_store": 106,
+            "global_load": 74,
+            "global_store": 96,
+            "async_copy": 0,
+            "shuffle": 193,
+            "barrier": 21,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 14562,
+        "rows": 1822,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(1822, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 255,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+          "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1",
+          "ptx_static_sites": {
+            "dot": 24,
+            "shared_load": 26,
+            "shared_store": 106,
+            "global_load": 74,
+            "global_store": 96,
+            "async_copy": 0,
+            "shuffle": 193,
+            "barrier": 21,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      }
+    ],
+    "policy": "Operator-local entry key appends exact existing LibTuner key",
+    "previous": [
+      {
+        "offset": 0,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 1,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 234,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "94d62ba398c1bcbff259cd53d897a6190f31d022282b392c16b2bc591aaf1633",
+          "cubin_sha256": "98edf2dfd414f98695cce9cb392c1ac72e14e677a6aabfc2c4fb7a12862b6fd9",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 58,
+            "global_load": 54,
+            "global_store": 32,
+            "async_copy": 0,
+            "shuffle": 65,
+            "barrier": 9,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 4854,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 1,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 234,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "94d62ba398c1bcbff259cd53d897a6190f31d022282b392c16b2bc591aaf1633",
+          "cubin_sha256": "98edf2dfd414f98695cce9cb392c1ac72e14e677a6aabfc2c4fb7a12862b6fd9",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 58,
+            "global_load": 54,
+            "global_store": 32,
+            "async_copy": 0,
+            "shuffle": 65,
+            "barrier": 9,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 9708,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 1,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 234,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "94d62ba398c1bcbff259cd53d897a6190f31d022282b392c16b2bc591aaf1633",
+          "cubin_sha256": "98edf2dfd414f98695cce9cb392c1ac72e14e677a6aabfc2c4fb7a12862b6fd9",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 58,
+            "global_load": 54,
+            "global_store": 32,
+            "async_copy": 0,
+            "shuffle": 65,
+            "barrier": 9,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 14562,
+        "rows": 1822,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(1822, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 234,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "94d62ba398c1bcbff259cd53d897a6190f31d022282b392c16b2bc591aaf1633",
+          "cubin_sha256": "98edf2dfd414f98695cce9cb392c1ac72e14e677a6aabfc2c4fb7a12862b6fd9",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 58,
+            "global_load": 54,
+            "global_store": 32,
+            "async_copy": 0,
+            "shuffle": 65,
+            "barrier": 9,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      }
+    ],
+    "production_baseline": [
+      {
+        "offset": 0,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 63,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 8,
+          "ptx_sha256": "744526b5aec6d547fc79a59c5c4602c1ffb1a77c13373601b436bbee9f81e2bc",
+          "cubin_sha256": "ee88dd804c115dc406bb460ba15edd348428e0f1daa6200e2addd101f2ca333a",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 8,
+            "shared_store": 24,
+            "global_load": 24,
+            "global_store": 8,
+            "async_copy": 10,
+            "shuffle": 17,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 4854,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 63,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 8,
+          "ptx_sha256": "744526b5aec6d547fc79a59c5c4602c1ffb1a77c13373601b436bbee9f81e2bc",
+          "cubin_sha256": "ee88dd804c115dc406bb460ba15edd348428e0f1daa6200e2addd101f2ca333a",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 8,
+            "shared_store": 24,
+            "global_load": 24,
+            "global_store": 8,
+            "async_copy": 10,
+            "shuffle": 17,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 9708,
+        "rows": 4854,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(4854, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 63,
+          "spill_count": 0,
+          "shared_bytes": 73728,
+          "num_warps": 8,
+          "ptx_sha256": "744526b5aec6d547fc79a59c5c4602c1ffb1a77c13373601b436bbee9f81e2bc",
+          "cubin_sha256": "ee88dd804c115dc406bb460ba15edd348428e0f1daa6200e2addd101f2ca333a",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 8,
+            "shared_store": 24,
+            "global_load": 24,
+            "global_store": 8,
+            "async_copy": 10,
+            "shuffle": 17,
+            "barrier": 3,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      },
+      {
+        "offset": 14562,
+        "rows": 1822,
+        "width": 27648,
+        "route": "rectangular",
+        "requested_tuner_key_repr": "(1822, 8192, 27648, 2, 196, 4, 128, False, 512, 128, 25088, 128, 142, 1, 'torch.bfloat16', 'torch.bfloat16', 'torch.int32', 'torch.int32', 'torch.int32', 'torch.float32')",
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "entry_count": 2,
+        "compiled": {
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 232,
+          "spill_count": 0,
+          "shared_bytes": 106496,
+          "num_warps": 4,
+          "ptx_sha256": "9076cf4c4f5a67ce8a9f6ebedc48852af3b416e60f13c21bbdab86b6f5b1f0b1",
+          "cubin_sha256": "b688e6850d5d916207789877a57d14face6a048cf20ee2767a6196f0ab22edea",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 50,
+            "global_load": 62,
+            "global_store": 32,
+            "async_copy": 18,
+            "shuffle": 65,
+            "barrier": 8,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      }
+    ]
+  },
+  "workload": {
+    "source": "https://github.com/vllm-project/vllm/pull/54513",
+    "provenance": "published query/prefix/page grid; explicit local dtype/H/D choices",
+    "prefix_unit": "original_tokens_before_query",
+    "query_lengths": [
+      8192,
+      8192
+    ],
+    "sequence_lengths": [
+      110592,
+      110592
+    ],
+    "compressed_lengths": [
+      27648,
+      27648
+    ],
+    "pages_per_request": 142,
+    "physical_pages": 284,
+    "q_shape": [
+      16384,
+      4,
+      128
+    ],
+    "cache_shape": [
+      284,
+      196,
+      1,
+      128
+    ],
+    "page_table_shape": [
+      2,
+      142
+    ],
+    "visible_first": 25600,
+    "visible_last": 27648,
+    "logits_width": 27648,
+    "expected_chunk_rows": [
+      4854,
+      4854,
+      4854,
+      1822
+    ],
+    "full_logits_bytes": 1811939328,
+    "score_workspace_bytes": 536813568
+  },
+  "chunks": [
+    {
+      "offset": 0,
+      "rows": 4854,
+      "width": 27648,
+      "native_workspace_shape": [
+        134217728
+      ],
+      "candidate_workspace_shape": [
+        4854,
+        27648
+      ]
+    },
+    {
+      "offset": 4854,
+      "rows": 4854,
+      "width": 27648,
+      "native_workspace_shape": [
+        134217728
+      ],
+      "candidate_workspace_shape": [
+        4854,
+        27648
+      ]
+    },
+    {
+      "offset": 9708,
+      "rows": 4854,
+      "width": 27648,
+      "native_workspace_shape": [
+        134217728
+      ],
+      "candidate_workspace_shape": [
+        4854,
+        27648
+      ]
+    },
+    {
+      "offset": 14562,
+      "rows": 1822,
+      "width": 27648,
+      "native_workspace_shape": [
+        134217728
+      ],
+      "candidate_workspace_shape": [
+        4854,
+        27648
+      ]
+    }
+  ],
+  "common_logits_before": [
+    {
+      "argument": 0,
+      "shape": [
+        4854,
+        27648
+      ],
+      "stride": [
+        27648,
+        1
+      ],
+      "dtype": "torch.float32",
+      "storage_offset": 0,
+      "sha256": "b9da32ea46097a8efd25b1f60d7190c99f9bd454f97e4368e0ddd1f839e49456"
+    },
+    {
+      "argument": 0,
+      "shape": [
+        4854,
+        27648
+      ],
+      "stride": [
+        27648,
+        1
+      ],
+      "dtype": "torch.float32",
+      "storage_offset": 0,
+      "sha256": "40376b45a521ac510db1e7eb455beb6ab9e6bd968f0292b3bbf5156f85cd72f3"
+    },
+    {
+      "argument": 0,
+      "shape": [
+        4854,
+        27648
+      ],
+      "stride": [
+        27648,
+        1
+      ],
+      "dtype": "torch.float32",
+      "storage_offset": 0,
+      "sha256": "fb6cf8a2d996f247220ae51fd92078f51cc2b609a3e814277fadf0beb5aa8565"
+    },
+    {
+      "argument": 0,
+      "shape": [
+        1822,
+        27648
+      ],
+      "stride": [
+        27648,
+        1
+      ],
+      "dtype": "torch.float32",
+      "storage_offset": 0,
+      "sha256": "6f8626771a238991fc7a6440494d46e91b54e3cb5a07548120a3493a74574498"
+    }
+  ],
+  "previous_tuning": {
+    "source_equivalent_sha256": "1ef12d431b65971c5617f0a34f614360008c652a36125d5679da00206b212d7c",
+    "config_group": "qsa_select_paged_prefill_stage_joint_score",
+    "baseline_kind": "joint_stage_combined_score",
+    "same_topk": true,
+    "chunks": [
+      [
+        0,
+        4854,
+        27648
+      ],
+      [
+        4854,
+        4854,
+        27648
+      ],
+      [
+        9708,
+        4854,
+        27648
+      ],
+      [
+        14562,
+        1822,
+        27648
+      ]
+    ],
+    "independent_rectangular_cache": true,
+    "independent_compact_cache": true,
+    "rectangular_configs": [
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='77e3eebafefd1cd59ff4e78682cdabbf6e67ccd0ee478cb6fe13441afa0ca0c7', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "94d62ba398c1bcbff259cd53d897a6190f31d022282b392c16b2bc591aaf1633",
+        "cubin_sha256": "98edf2dfd414f98695cce9cb392c1ac72e14e677a6aabfc2c4fb7a12862b6fd9"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='77e3eebafefd1cd59ff4e78682cdabbf6e67ccd0ee478cb6fe13441afa0ca0c7', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "94d62ba398c1bcbff259cd53d897a6190f31d022282b392c16b2bc591aaf1633",
+        "cubin_sha256": "98edf2dfd414f98695cce9cb392c1ac72e14e677a6aabfc2c4fb7a12862b6fd9"
+      }
+    ],
+    "compact_configs": []
+  },
+  "query_joint": {
+    "baseline_source_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+    "gate": "IS_FP8 and TILE_R>=32 and QUERY_PARTS==2",
+    "configs": [
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+        "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+        "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+      }
+    ]
+  },
+  "query_page": {
+    "baseline_source_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+    "page_gate": "not IS_FP8 and BLOCK_N<=PAGE_SIZE",
+    "configs": [
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+        "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+        "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+      }
+    ],
+    "same_topk": true
+  },
+  "loop_unroll": {
+    "config_group": "qsa_select_paged_prefill_stage_joint_score",
+    "kernel_sha256": "5a5c105ba4f21a4e27dd57814866179c9733354feb1ef349e66eebaafa272ba6",
+    "factory_sha256": "4202cdeb9a3605a931bdc9a38c19de52af7be9820bcf69ab5df036603377d5d9",
+    "num_stages_choices": [
+      2,
+      1
+    ],
+    "loop_unroll_factor": 2,
+    "choices": [
+      {
+        "TILE_R": 4,
+        "BLOCK_N": 64,
+        "K_TILES": 1,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 8,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 16,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 128,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 128,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 2
+      },
+      {
+        "TILE_R": 4,
+        "BLOCK_N": 64,
+        "K_TILES": 1,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 8,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 16,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 128,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 128,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      },
+      {
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 2,
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 1
+      }
+    ],
+    "configs": [
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+        "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+      },
+      {
+        "constexprs": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+        "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+        "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+      }
+    ],
+    "same_topk": true
+  },
+  "kernel_resources": {
+    "phase": "after_warmup_before_timing",
+    "ncu": null,
+    "nsys": null,
+    "limitations": "Compiled resources and static PTX counts only; no hardware counters. Null attributes mean unavailable, never zero. Native cache discovery is optional and does not modify the reference or launch kernels.",
+    "production": [
+      {
+        "constants": {
+          "num_warps": 8,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 32,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "name": "_qsa_prefill_score_kernel",
+        "registers_per_thread": 63,
+        "spill_count": 0,
+        "shared_bytes": 73728,
+        "num_warps": 8,
+        "ptx_sha256": "744526b5aec6d547fc79a59c5c4602c1ffb1a77c13373601b436bbee9f81e2bc",
+        "cubin_sha256": "ee88dd804c115dc406bb460ba15edd348428e0f1daa6200e2addd101f2ca333a",
+        "ptx_static_sites": {
+          "dot": 8,
+          "shared_load": 8,
+          "shared_store": 24,
+          "global_load": 24,
+          "global_store": 8,
+          "async_copy": 10,
+          "shuffle": 17,
+          "barrier": 3,
+          "local_load": 0,
+          "local_store": 0
+        },
+        "ptx_cache_policy_sites": {
+          "fractional_createpolicy": 0,
+          "evict_first": 0,
+          "cp_async_l2_hint": 0
+        }
+      },
+      {
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 2,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16
+        },
+        "name": "_qsa_prefill_score_kernel",
+        "registers_per_thread": 232,
+        "spill_count": 0,
+        "shared_bytes": 106496,
+        "num_warps": 4,
+        "ptx_sha256": "9076cf4c4f5a67ce8a9f6ebedc48852af3b416e60f13c21bbdab86b6f5b1f0b1",
+        "cubin_sha256": "b688e6850d5d916207789877a57d14face6a048cf20ee2767a6196f0ab22edea",
+        "ptx_static_sites": {
+          "dot": 8,
+          "shared_load": 10,
+          "shared_store": 50,
+          "global_load": 62,
+          "global_store": 32,
+          "async_copy": 18,
+          "shuffle": 65,
+          "barrier": 8,
+          "local_load": 0,
+          "local_store": 0
+        },
+        "ptx_cache_policy_sites": {
+          "fractional_createpolicy": 0,
+          "evict_first": 0,
+          "cp_async_l2_hint": 0
+        }
+      }
+    ],
+    "candidate_rectangular": [
+      {
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "name": "_qsa_prefill_score_kernel",
+        "registers_per_thread": 255,
+        "spill_count": 0,
+        "shared_bytes": 81920,
+        "num_warps": 4,
+        "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+        "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1",
+        "ptx_static_sites": {
+          "dot": 24,
+          "shared_load": 26,
+          "shared_store": 106,
+          "global_load": 74,
+          "global_store": 96,
+          "async_copy": 0,
+          "shuffle": 193,
+          "barrier": 21,
+          "local_load": 0,
+          "local_store": 0
+        },
+        "ptx_cache_policy_sites": {
+          "fractional_createpolicy": 0,
+          "evict_first": 0,
+          "cp_async_l2_hint": 0
+        }
+      },
+      {
+        "constants": {
+          "num_warps": 4,
+          "num_stages": 1,
+          "num_ctas": 1,
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1
+        },
+        "name": "_qsa_prefill_score_kernel",
+        "registers_per_thread": 255,
+        "spill_count": 0,
+        "shared_bytes": 81920,
+        "num_warps": 4,
+        "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+        "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1",
+        "ptx_static_sites": {
+          "dot": 24,
+          "shared_load": 26,
+          "shared_store": 106,
+          "global_load": 74,
+          "global_store": 96,
+          "async_copy": 0,
+          "shuffle": 193,
+          "barrier": 21,
+          "local_load": 0,
+          "local_store": 0
+        },
+        "ptx_cache_policy_sites": {
+          "fractional_createpolicy": 0,
+          "evict_first": 0,
+          "cp_async_l2_hint": 0
+        }
+      }
+    ],
+    "candidate_compact": [],
+    "native": {
+      "status": "collected",
+      "kernels": [
+        {
+          "name": "_qsa_mqa_paged_prefill_kernel",
+          "registers_per_thread": 192,
+          "spill_count": 0,
+          "shared_bytes": 106496,
+          "num_warps": 4,
+          "ptx_sha256": "08a48d0cb154cf7f7ca162862790e23b2ae9d4a0010fd6f0a8c2ef5ea735a0ef",
+          "cubin_sha256": "4fc73a9e9abbe9270769a33e5420731315a370c5d1ea3eb585a67d3cf66083c5",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 50,
+            "global_load": 60,
+            "global_store": 32,
+            "async_copy": 2,
+            "shuffle": 65,
+            "barrier": 8,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 2,
+            "evict_first": 2,
+            "cp_async_l2_hint": 16
+          }
+        }
+      ]
+    },
+    "previous_tuning": {
+      "rectangular": [
+        {
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          },
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 234,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "94d62ba398c1bcbff259cd53d897a6190f31d022282b392c16b2bc591aaf1633",
+          "cubin_sha256": "98edf2dfd414f98695cce9cb392c1ac72e14e677a6aabfc2c4fb7a12862b6fd9",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 58,
+            "global_load": 54,
+            "global_store": 32,
+            "async_copy": 0,
+            "shuffle": 65,
+            "barrier": 9,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        },
+        {
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          },
+          "name": "_qsa_prefill_score_kernel",
+          "registers_per_thread": 234,
+          "spill_count": 0,
+          "shared_bytes": 81920,
+          "num_warps": 4,
+          "ptx_sha256": "94d62ba398c1bcbff259cd53d897a6190f31d022282b392c16b2bc591aaf1633",
+          "cubin_sha256": "98edf2dfd414f98695cce9cb392c1ac72e14e677a6aabfc2c4fb7a12862b6fd9",
+          "ptx_static_sites": {
+            "dot": 8,
+            "shared_load": 10,
+            "shared_store": 58,
+            "global_load": 54,
+            "global_store": 32,
+            "async_copy": 0,
+            "shuffle": 65,
+            "barrier": 9,
+            "local_load": 0,
+            "local_store": 0
+          },
+          "ptx_cache_policy_sites": {
+            "fractional_createpolicy": 0,
+            "evict_first": 0,
+            "cp_async_l2_hint": 0
+          }
+        }
+      ],
+      "compact": []
+    }
+  },
+  "timer": {
+    "mode": "kernel",
+    "unit": "us",
+    "warmup_ms": 200.0,
+    "rep_ms": 100.0,
+    "return_mode": "median",
+    "cache_policy": "shared do_bench default, unchanged",
+    "sources": {
+      "get_latency": {
+        "path": "/tmp/flaggems-qsa-loop-unroll.UQ6D1c/benchmark/base.py",
+        "sha256": "936f41e070e3baab8b5f445ea79c4695c65b164eae7410046d5e8571d5d507fb"
+      },
+      "do_bench": {
+        "path": "/opt/flagtree/triton/testing.py",
+        "sha256": "54b1a09e41f716151e46143f94c4a816090f2f4dea72752bf5f8071293540e7f"
+      }
+    }
+  },
+  "production_score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+      "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+    },
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+      "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+    }
+  ],
+  "tuning_round1": {
+    "production": {
+      "_qsa_prefill_score_kernel": {
+        "configs": [
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          }
+        ],
+        "key_names": [
+          "num_rows",
+          "max_query_len",
+          "logits_width",
+          "num_requests",
+          "PAGE_SIZE",
+          "NUM_HEADS",
+          "HEAD_DIM",
+          "IS_FP8",
+          "stride_q_row",
+          "stride_q_head",
+          "stride_cache_block",
+          "stride_cache_token",
+          "stride_table_req",
+          "stride_table_page"
+        ],
+        "last_tuner_selection": {
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1,
+          "num_warps": 4,
+          "num_ctas": 1,
+          "num_stages": 1
+        },
+        "last_tuning_scan": [
+          {
+            "config": {
+              "TILE_R": 4,
+              "BLOCK_N": 64,
+              "K_TILES": 1,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              1.600447952747345,
+              1.59990394115448,
+              1.6218240022659303
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 8,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.4575999975204468,
+              0.45726720690727235,
+              0.45795199275016785
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 16,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.33825600147247314,
+              0.33347201347351074,
+              0.33911679983139037
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.2263679951429367,
+              0.2234880030155182,
+              0.22761599719524384
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 128,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.26870399713516235,
+              0.2682560086250305,
+              0.26921600103378296
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.2526400089263916,
+              0.2519040107727051,
+              0.2535359859466553
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.27748799324035645,
+              0.27692800760269165,
+              0.2779519855976105
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.2555840015411377,
+              0.2544960081577301,
+              0.2567487895488739
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.23001599311828613,
+              0.22598400712013245,
+              0.23097600042819977
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.2579199969768524,
+              0.2575039863586426,
+              0.2584959864616394
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 4,
+              "BLOCK_N": 64,
+              "K_TILES": 1,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.9037280082702637,
+              0.8892800211906433,
+              0.9043648123741149
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 8,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.3770560026168823,
+              0.37142398953437805,
+              0.3776319921016693
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 16,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.26822400093078613,
+              0.2677119970321655,
+              0.2687999904155731
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.22550399601459503,
+              0.2248000055551529,
+              0.22623999416828156
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 128,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.33935999870300293,
+              0.3386879861354828,
+              0.3401600122451782
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.2120320051908493,
+              0.21000959873199462,
+              0.21411840021610262
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.3312000036239624,
+              0.3303360044956207,
+              0.332179194688797
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.32017600536346436,
+              0.31775999069213867,
+              0.322323203086853
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.2624000012874603,
+              0.26096001267433167,
+              0.2651520073413849
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.2803199887275696,
+              0.2797119915485382,
+              0.2810240089893341
+            ],
+            "status": "measured"
+          }
+        ],
+        "scan_scope": "Last LibTuner tuning event only, outside acceptance timing. LibEntry cache hits may reuse a config across chunks. No scan means no new tuning event, not zero latency."
+      },
+      "_qsa_prefill_compact_score_kernel": {
+        "configs": [
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          }
+        ],
+        "key_names": [
+          "num_rows",
+          "max_query_len",
+          "logits_width",
+          "num_requests",
+          "PAGE_SIZE",
+          "NUM_HEADS",
+          "HEAD_DIM",
+          "IS_FP8",
+          "stride_q_row",
+          "stride_q_head",
+          "stride_cache_block",
+          "stride_cache_token",
+          "stride_table_req",
+          "stride_table_page"
+        ],
+        "last_tuner_selection": null,
+        "last_tuning_scan": [],
+        "scan_scope": "Last LibTuner tuning event only, outside acceptance timing. LibEntry cache hits may reuse a config across chunks. No scan means no new tuning event, not zero latency."
+      }
+    },
+    "previous": {
+      "_qsa_prefill_score_kernel": {
+        "configs": [
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 2,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 1
+          }
+        ],
+        "key_names": [
+          "num_rows",
+          "max_query_len",
+          "logits_width",
+          "num_requests",
+          "PAGE_SIZE",
+          "NUM_HEADS",
+          "HEAD_DIM",
+          "IS_FP8",
+          "stride_q_row",
+          "stride_q_head",
+          "stride_cache_block",
+          "stride_cache_token",
+          "stride_table_req",
+          "stride_table_page"
+        ],
+        "last_tuner_selection": {
+          "TILE_R": 64,
+          "BLOCK_N": 64,
+          "K_TILES": 16,
+          "QUERY_PARTS": 1,
+          "num_warps": 4,
+          "num_ctas": 1,
+          "num_stages": 1
+        },
+        "last_tuning_scan": [
+          {
+            "config": {
+              "TILE_R": 4,
+              "BLOCK_N": 64,
+              "K_TILES": 1,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              1.0468800067901611,
+              1.02457594871521,
+              1.0471999645233154
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 8,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.399616003036499,
+              0.3892799913883209,
+              0.4028800129890442
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 16,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.27025599777698517,
+              0.2696639895439148,
+              0.270687997341156
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.22124800086021423,
+              0.22070400416851044,
+              0.2218559980392456
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 128,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.320607990026474,
+              0.3163136005401611,
+              0.3218304097652435
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.20772799849510193,
+              0.2053312063217163,
+              0.21001599729061127
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.24489599466323853,
+              0.2436479926109314,
+              0.24614399671554565
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.23056000471115112,
+              0.22937600314617157,
+              0.23171840012073516
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.22307200729846954,
+              0.22249600291252136,
+              0.22393600642681122
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 2
+            },
+            "latency_quantiles_ms": [
+              0.23792000114917755,
+              0.23740799725055695,
+              0.23846399784088135
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 4,
+              "BLOCK_N": 64,
+              "K_TILES": 1,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.7308800220489502,
+              0.7304319739341736,
+              0.7311615824699402
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 8,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.3800959885120392,
+              0.3795520067214966,
+              0.3805760145187378
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 16,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.254720002412796,
+              0.25417599081993103,
+              0.2554816067218781
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.20441600680351257,
+              0.20394239723682403,
+              0.20499199628829956
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 128,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.3126400113105774,
+              0.31205120086669924,
+              0.31334400177001953
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 4,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.1886720061302185,
+              0.1878719925880432,
+              0.18977280259132384
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.3298879861831665,
+              0.32539520859718324,
+              0.33054079413414
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 64,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.30799999833106995,
+              0.30671998858451843,
+              0.3093952059745788
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 16,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.2449599951505661,
+              0.24163199961185455,
+              0.24579840004444123
+            ],
+            "status": "measured"
+          },
+          {
+            "config": {
+              "TILE_R": 32,
+              "BLOCK_N": 64,
+              "K_TILES": 4,
+              "QUERY_PARTS": 1,
+              "num_warps": 8,
+              "num_ctas": 1,
+              "num_stages": 1
+            },
+            "latency_quantiles_ms": [
+              0.2622720003128052,
+              0.26182401180267334,
+              0.26285439133644106
+            ],
+            "status": "measured"
+          }
+        ],
+        "scan_scope": "Last LibTuner tuning event only, outside acceptance timing. LibEntry cache hits may reuse a config across chunks. No scan means no new tuning event, not zero latency."
+      },
+      "_qsa_prefill_compact_score_kernel": {
+        "configs": [
+          {
+            "TILE_R": 4,
+            "BLOCK_N": 64,
+            "K_TILES": 1,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 16,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 32,
+            "BLOCK_N": 128,
+            "K_TILES": 4,
+            "num_warps": 8,
+            "num_ctas": 1,
+            "num_stages": 2
+          },
+          {
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "num_warps": 4,
+            "num_ctas": 1,
+            "num_stages": 2
+          }
+        ],
+        "key_names": [
+          "num_rows",
+          "max_query_len",
+          "logits_width",
+          "num_requests",
+          "PAGE_SIZE",
+          "NUM_HEADS",
+          "HEAD_DIM",
+          "IS_FP8",
+          "stride_q_row",
+          "stride_q_head",
+          "stride_cache_block",
+          "stride_cache_token",
+          "stride_table_req",
+          "stride_table_page"
+        ],
+        "last_tuner_selection": null,
+        "last_tuning_scan": [],
+        "scan_scope": "Last LibTuner tuning event only, outside acceptance timing. LibEntry cache hits may reuse a config across chunks. No scan means no new tuning event, not zero latency."
+      }
+    }
+  },
+  "baseline_production_score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 8,
+        "num_stages": 2,
+        "num_ctas": 1,
+        "TILE_R": 32,
+        "BLOCK_N": 64,
+        "K_TILES": 16
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='b49ed932f177e012548b551143879628775323304b131201276e61db1c40cf13', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=8, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=73728, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "744526b5aec6d547fc79a59c5c4602c1ffb1a77c13373601b436bbee9f81e2bc",
+      "cubin_sha256": "ee88dd804c115dc406bb460ba15edd348428e0f1daa6200e2addd101f2ca333a"
+    },
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 2,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='68bc80b620dd765a069e538eb7b9ca3b015d53d2174d7c686eed4add6e4bf72f', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=2, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=106496, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "9076cf4c4f5a67ce8a9f6ebedc48852af3b416e60f13c21bbdab86b6f5b1f0b1",
+      "cubin_sha256": "b688e6850d5d916207789877a57d14face6a048cf20ee2767a6196f0ab22edea"
+    }
+  ],
+  "candidate_fallback_score_configs": [
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+      "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+    },
+    {
+      "constexprs": {
+        "num_warps": 4,
+        "num_stages": 1,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 1
+      },
+      "metadata": "KernelMetadata(allowed_dot_input_precisions=['tf32', 'tf32x3', 'ieee', 'bf16x3', 'bf16x6'], arch='sm90', backend_name='cuda', cluster_dims=(1, 1, 1), debug=False, default_dot_input_precision='tf32', deprecated_fp8_dot_operand_dtypes=['fp8e4b15'], enable_fp_fusion=True, enable_reflect_ftz=True, extern_libs=[['libdevice', '/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc']], global_scratch_align=1, global_scratch_size=0, hash='068ecf3eace766349b8f60b4e173117ad8ba4a2e9bafc520297c6cae208dbb12', instrumentation_mode='', ir_override=None, kernel_init_hooks=[], launch_cooperative_grid=False, launch_pdl=False, max_num_imprecise_acc_default=1073741824, maxnreg=None, name='_qsa_prefill_score_kernel', num_ctas=1, num_stages=1, num_warps=4, profile_scratch_align=1, profile_scratch_size=0, ptx_options=None, ptx_version=None, sanitize_overflow=True, shared=81920, supported_fp8_dtypes=['fp8e4b15', 'fp8e4nv', 'fp8e5'], target=GPUTarget(backend='cuda', arch=90, warp_size=32), tensordesc_meta=[], tmem_size=0, triton_version='3.6.0', warp_size=32)",
+      "ptx_sha256": "b41c058d4aec48a0167336e201452f29e91faf2969256fa143ac665f1121672b",
+      "cubin_sha256": "7a04b8afd88e34bc228d649a668f970636249660d708e7384cdb1e019e0c9df1"
+    }
+  ],
+  "compact_score_configs": [],
+  "score_schedule": {
+    "rectangular_dot": "keys_x_query",
+    "routing_policy": "rectangular_row_capacity_ge_4x_chunk_rows",
+    "ragged_envelope": false,
+    "compact_chunks": [],
+    "historical_baseline_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+    "production_source_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c",
+    "candidate_source_sha256": "5a5c105ba4f21a4e27dd57814866179c9733354feb1ef349e66eebaafa272ba6",
+    "grids": [
+      {
+        "tile_r": 4,
+        "chunks": [
+          {
+            "rectangular": 2428,
+            "compact": 1215
+          },
+          {
+            "rectangular": 2428,
+            "compact": 1215
+          },
+          {
+            "rectangular": 2428,
+            "compact": 1215
+          },
+          {
+            "rectangular": 912,
+            "compact": 457
+          }
+        ]
+      },
+      {
+        "tile_r": 8,
+        "chunks": [
+          {
+            "rectangular": 1214,
+            "compact": 608
+          },
+          {
+            "rectangular": 1214,
+            "compact": 608
+          },
+          {
+            "rectangular": 1214,
+            "compact": 608
+          },
+          {
+            "rectangular": 456,
+            "compact": 229
+          }
+        ]
+      },
+      {
+        "tile_r": 16,
+        "chunks": [
+          {
+            "rectangular": 608,
+            "compact": 305
+          },
+          {
+            "rectangular": 608,
+            "compact": 305
+          },
+          {
+            "rectangular": 608,
+            "compact": 305
+          },
+          {
+            "rectangular": 228,
+            "compact": 115
+          }
+        ]
+      },
+      {
+        "tile_r": 32,
+        "chunks": [
+          {
+            "rectangular": 304,
+            "compact": 153
+          },
+          {
+            "rectangular": 304,
+            "compact": 153
+          },
+          {
+            "rectangular": 304,
+            "compact": 153
+          },
+          {
+            "rectangular": 114,
+            "compact": 58
+          }
+        ]
+      },
+      {
+        "tile_r": 64,
+        "chunks": [
+          {
+            "rectangular": 152,
+            "compact": 77
+          },
+          {
+            "rectangular": 152,
+            "compact": 77
+          },
+          {
+            "rectangular": 152,
+            "compact": 77
+          },
+          {
+            "rectangular": 58,
+            "compact": 30
+          }
+        ]
+      }
+    ]
+  },
+  "topk_backends": {
+    "baseline": "vLLM native CUDA _C dispatcher",
+    "candidate": "repo production persistent_topk, HAS_TLE=True"
+  },
+  "telemetry": [
+    {
+      "label": "score:before_timing",
+      "monotonic_seconds": 12711683.731347809,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 14:43:45.123, GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 43, 1980 MHz, 2619 MHz, 334.47 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 14:43:45 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:D7:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          2548308
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 2548308, 6612\n",
+          "stderr": ""
+        },
+        "temperature_c": 43.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 2548308,
+            "used_memory_mib": 6612
+          }
+        ]
+      }
+    },
+    {
+      "label": "score:after_round_1",
+      "monotonic_seconds": 12711684.823008208,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 14:43:46.110, GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 49, 1980 MHz, 2619 MHz, 429.72 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 14:43:46 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:D7:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          2548308
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 2548308, 6612\n",
+          "stderr": ""
+        },
+        "temperature_c": 49.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 2548308,
+            "used_memory_mib": 6612
+          }
+        ]
+      }
+    },
+    {
+      "label": "score:after_round_2",
+      "monotonic_seconds": 12711685.7946905,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 14:43:47.059, GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 48, 1980 MHz, 2619 MHz, 429.07 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 14:43:47 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:D7:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          2548308
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 2548308, 6612\n",
+          "stderr": ""
+        },
+        "temperature_c": 48.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 2548308,
+            "used_memory_mib": 6612
+          }
+        ]
+      }
+    },
+    {
+      "label": "topk:before_timing",
+      "monotonic_seconds": 12711686.27177572,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 14:43:47.559, GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 42, 1980 MHz, 2619 MHz, 345.40 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 14:43:47 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:D7:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          2548308
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 2548308, 6612\n",
+          "stderr": ""
+        },
+        "temperature_c": 42.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 2548308,
+            "used_memory_mib": 6612
+          }
+        ]
+      }
+    },
+    {
+      "label": "topk:after_round_1",
+      "monotonic_seconds": 12711687.291672962,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 14:43:48.689, GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 43, 1980 MHz, 2619 MHz, 360.51 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 14:43:48 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:D7:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee",
+        "status": "passed",
+        "reasons": [],
+        "allowed_self_pids": [
+          2548308
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 2548308, 6612\n",
+          "stderr": ""
+        },
+        "temperature_c": 43.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 2548308,
+            "used_memory_mib": 6612
+          }
+        ]
+      }
+    },
+    {
+      "label": "topk:after_round_2",
+      "monotonic_seconds": 12711688.4589293,
+      "clocks": {
+        "returncode": 0,
+        "stdout": "timestamp, uuid, temperature.gpu, clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W]\n2026/10/22 14:43:49.801, GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 44, 1980 MHz, 2619 MHz, 361.66 W\n",
+        "stderr": ""
+      },
+      "performance": {
+        "returncode": 0,
+        "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Thu Oct 22 14:43:49 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:D7:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+        "stderr": ""
+      },
+      "gpu_guard": {
+        "device_uuid": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee",
+        "status": "rejected",
+        "reasons": [
+          "Unattributed compute PIDs: [{'pid': 2551335, 'used_memory_mib': 664}]; only identified self PIDs allowed. Container/host PID mapping may be unavailable; do not guess ownership"
+        ],
+        "allowed_self_pids": [
+          2548308
+        ],
+        "process_query": {
+          "returncode": 0,
+          "stdout": "GPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 2548308, 6612\nGPU-83ccf064-1bbb-6765-e356-c2a85323cbee, 2551335, 664\n",
+          "stderr": ""
+        },
+        "temperature_c": 44.0,
+        "sm_clock_mhz": 1980.0,
+        "processes": [
+          {
+            "pid": 2548308,
+            "used_memory_mib": 6612
+          },
+          {
+            "pid": 2551335,
+            "used_memory_mib": 664
+          }
+        ],
+        "process_details": [
+          {
+            "pid": 2548308,
+            "program": "python",
+            "status": [
+              "Name:\tpython",
+              "State:\tR (running)",
+              "Pid:\t2548308",
+              "PPid:\t2486775",
+              "Uid:\t0\t0\t0\t0",
+              "NSpid:\t2548308"
+            ],
+            "ps": {
+              "returncode": 0,
+              "stdout": "2548308 2486775 Thu Oct 22 14:42:34 2026       01:15 python\n",
+              "stderr": ""
+            }
+          },
+          {
+            "pid": 2551335,
+            "program": "python",
+            "script": "fused_kda_gate.py",
+            "status": [
+              "Name:\tpython",
+              "State:\tR (running)",
+              "Pid:\t2551335",
+              "PPid:\t1461837",
+              "Uid:\t0\t0\t0\t0",
+              "NSpid:\t2551335\t265933"
+            ],
+            "ps": {
+              "returncode": 0,
+              "stdout": "2551335 1461837 Thu Oct 22 14:43:38 2026       00:11 python\n",
+              "stderr": ""
+            }
+          }
+        ],
+        "nvml_process_names": {
+          "returncode": 0,
+          "processes": [
+            {
+              "pid": 2548308,
+              "program": "python",
+              "memory_mib": 6612
+            },
+            {
+              "pid": 2551335,
+              "program": "python",
+              "memory_mib": 664
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "performance_guard": {
+    "status": "rejected",
+    "last_label": "topk:after_round_2",
+    "reasons": [
+      "Unattributed compute PIDs: [{'pid': 2551335, 'used_memory_mib': 664}]; only identified self PIDs allowed. Container/host PID mapping may be unavailable; do not guess ownership"
+    ]
+  },
+  "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/benchmark_qsa_prefill_triton_stages.py\", line 2188, in main\n    worker(options, definitions[options.worker], path)\n  File \"/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/benchmark_qsa_prefill_triton_stages.py\", line 1151, in worker\n    measured, observations, order = scoring.measure_scores(\n                                    ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/qsa_prefill_score_benchmark.py\", line 111, in measure_scores\n    observations.append(monitor(f\"after_round_{repeat + 1}\"))\n                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/benchmark_qsa_prefill_triton_stages.py\", line 1159, in <lambda>\n    else support.guarded_telemetry(\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-loop-unroll.UQ6D1c/tools/benchmark_qsa_prefill_stages.py\", line 288, in guarded_telemetry\n    raise RuntimeError(f\"GPU environment rejected: {check['reasons']}\")\nRuntimeError: GPU environment rejected: [\"Unattributed compute PIDs: [{'pid': 2551335, 'used_memory_mib': 664}]; only identified self PIDs allowed. Container/host PID mapping may be unavailable; do not guess ownership\"]\n",
+  "worker_error": "worker exit=1"
+}
