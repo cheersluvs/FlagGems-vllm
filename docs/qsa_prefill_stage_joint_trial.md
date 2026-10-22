@@ -146,3 +146,28 @@ also binds the bootstrap source/hash when failure occurs before source archival.
 No real GPU/driver execution was available locally. The failed report contains
 no reusable accuracy/performance result; all62 checks and30 timings still await
 successful startup with this repaired bootstrap.
+
+## Startup handoff fix: report eaa9704e (2026-10-22 04:25:17 UTC)
+
+Six archived files were verified by Git blob hash/size. Package reuse worked:
+103922442 bytes,exact pinned SHA256 bfacf8a0c2bc5cac76880d443f5bd542b209166b14f90dbe2384f962b379d00a,
+zero download attempts,and expected libcuda615.71.09 extracted in a fresh prefix.
+The subsequent engine parser rejected the newly generated compat134-package.json
+because the fresh-directory allowlist had not been updated. This was a bootstrap
+integration omission in the previous repair,not a GPU/compiler/numerical result.
+No preflight,correctness or performance data was produced.
+
+Add only compat134-package.json to the FlagTree startup-artifact allowlist.
+Do not allow existing stage-summary/case reports or remove the fresh-directory
+guard. A new CPU integration test runs actual compatibility preparation with
+mocked download/extraction,then actual FlagTree prepare/exec argument routing,
+then the actual benchmark parser up to a mocked GPU parent. It must accept all
+real startup artifacts and the frozen30 selection,while rejecting existing
+summary/case files without overwriting their contents. GPU kernels,configs,
+TopK,metric,profiles,timers and runtime identity checks remain unchanged.
+
+Handoff repair validation:32 related CPU checks passed,including the new real
+bootstrap-to-parser integration path and preservation/rejection of existing
+summary/case files. Changed-file pre-commit and diff checks passed. This verifies
+startup orchestration without CUDA;actual driver/JIT/numerics/performance remain
+pending. The integration test source is now archived with future reports.

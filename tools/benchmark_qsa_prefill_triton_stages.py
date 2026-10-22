@@ -109,6 +109,7 @@ SOURCES = sorted(
         "src/flaggems_vllm/ops/top_k_per_row_prefill.py",
         "src/flaggems_vllm/utils/triton_version_utils.py",
         "tools/qsa_prefill_flagtree_ab.py",
+        "tools/test_qsa_prefill_flagtree_ab.py",
         "tools/qsa_prefill_shared_gpu.py",
         "tools/run_qsa_prefill_flagtree_ab_h800.sh",
         "tools/with_cuda_compat134.py",
@@ -2149,7 +2150,11 @@ def main():
     directory.mkdir(parents=True, exist_ok=True)
     allowed = {"runner.txt"}
     if is_flagtree(options):
-        allowed |= {"compat134.json", "flagtree134-tools.json"}
+        allowed |= {
+            "compat134.json",
+            "compat134-package.json",
+            "flagtree134-tools.json",
+        }
     if any(p.name not in allowed for p in directory.iterdir()):
         parser.error(
             "Report directory must be fresh; existing reports are not overwritten"

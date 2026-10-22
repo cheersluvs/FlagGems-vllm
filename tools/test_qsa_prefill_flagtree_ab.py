@@ -5,6 +5,7 @@
 import argparse
 import contextlib
 import ctypes
+import hashlib
 import io
 import json
 import os
@@ -20,6 +21,7 @@ from tools import qsa_prefill_flagtree_ab as profile
 from tools import qsa_prefill_gpu_guard as gpu_guard
 from tools import qsa_prefill_score_resume as resume
 from tools import validate_qsa_ptxas_h800 as validation
+from tools import with_cuda_compat134 as compat_boot
 
 
 class EnvironmentTests(unittest.TestCase):
@@ -158,6 +160,93 @@ class EnvironmentTests(unittest.TestCase):
                 self.assertEqual(env["TRITON_PTXAS_PATH"], "/tmp/verified-ptxas")
                 self.assertNotIn("TRITON_MOCK_PTX_VERSION", env)
                 self.assertNotIn("CUDA_LAUNCH_BLOCKING", env)
+
+    def test_real_bootstrap_artifacts_reach_parent_but_existing_results_still_fail(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            report, prefix = root / "report", root / "compat"
+            report.mkdir()
+            prefix.mkdir()
+            (report / "runner.txt").write_text("runner started")
+            extra = [
+                "--candidate",
+                "query-stage-joint",
+                "--suite",
+                "scored-prefill",
+                "--compare-previous-tuning",
+                "--previous-tuning",
+                "combined",
+                "--accuracy-profile",
+                "iteration",
+                "--rounds",
+                "2",
+            ]
+
+            def extract(command, **kwargs):
+                library = Path(command[-1]) / "usr/local/cuda-13.4/compat/libcuda.so.1"
+                library.parent.mkdir(parents=True)
+                library.write_bytes(b"library")
+                return types.SimpleNamespace(returncode=0)
+
+            with patch.object(
+                compat_boot.tempfile, "mkdtemp", return_value=str(prefix)
+            ), patch.object(
+                compat_boot, "cache_candidates", return_value=[]
+            ), patch.object(
+                compat_boot, "download", side_effect=lambda p: p.write_bytes(b"package")
+            ), patch.object(
+                compat_boot, "PACKAGE_SHA256", hashlib.sha256(b"package").hexdigest()
+            ), patch.object(
+                compat_boot.subprocess, "run", side_effect=extract
+            ), patch.object(
+                compat_boot.os, "execve"
+            ), contextlib.redirect_stdout(
+                io.StringIO()
+            ):
+                self.assertEqual(
+                    compat_boot.run(Path(profile.__file__), report, extra), 0
+                )
+            options = argparse.Namespace(
+                report_dir=str(report), flagtree="/opt/flagtree", max_initial_temp_c=80
+            )
+            tool = dict(
+                ptxas=dict(path="/tmp/verified-ptxas", sha256=profile.PTXAS_SHA256)
+            )
+            with patch.object(profile, "select_gpu", return_value=True), patch.object(
+                validation, "toolchain", return_value=tool
+            ), patch.object(profile.os, "execve") as execute:
+                self.assertEqual(profile.prepare(options, extra), 0)
+                argv = execute.call_args.args[1][2:]
+            for rejected in (None, "stage-summary.json", "old-case.json"):
+                with self.subTest(rejected=rejected):
+                    sentinel = report / rejected if rejected else None
+                    if sentinel:
+                        sentinel.write_text("must preserve existing report")
+                    with patch.object(sys, "argv", argv), patch.object(
+                        bench, "parent", return_value=0
+                    ) as parent, contextlib.redirect_stdout(
+                        io.StringIO()
+                    ), contextlib.redirect_stderr(
+                        io.StringIO()
+                    ):
+                        if sentinel:
+                            with self.assertRaises(SystemExit) as error:
+                                bench.main()
+                            self.assertEqual(error.exception.code, 2)
+                            parent.assert_not_called()
+                            self.assertEqual(
+                                sentinel.read_text(), "must preserve existing report"
+                            )
+                        else:
+                            self.assertEqual(bench.main(), 0)
+                            self.assertEqual(len(parent.call_args.args[1]), 30)
+                            self.assertEqual(
+                                parent.call_args.args[0].candidate, "query-stage-joint"
+                            )
+                    if sentinel:
+                        sentinel.unlink()
 
 
 class GPUSelectionTests(unittest.TestCase):
