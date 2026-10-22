@@ -179,3 +179,45 @@ private candidate kernels/factories,YAML,TopK,runner,timer and guard sources mat
 the parent byte-for-byte. H800 JIT/numerical tests and fresh30-case speedups remain
 pending. Do not use the rejected global unroll2 candidate as the retained baseline;
 use production or the retained joint-stage candidate with these revised fixtures.
+
+## First revised-matrix H800 attempt:22d3c2ae
+
+Report branch `codex/qsa-h800-results-20261022-074232`,commit
+`22d3c2ae86ec28da5d8d4fab25a528f0c49efd69`,tested clean source
+`8b173a8e94793d94908484ba3c2688a5e759b083`,exit2. Eighteen archived
+files passed Git blob hash/size checks;all118 source snapshots match the tested
+commit and manifest. The selected manifest is exactly the new30-case matrix.
+Preflight,accuracy and first worker agree on compiler/GPU/runtime identity.
+
+All62 existing iteration correctness nodes passed in313.72s. This is not full
+suite validation;the two new functional-only select-all nodes are not included
+in that iteration profile. The first performance case was the unchanged upstream
+BF16 perf_n1_q8192_p8192_bfloat16. At score:before_timing,the guard identified:
+
+| PID | Program | Parent PID | GPU memory MiB | Role |
+| ---: | --- | ---: | ---: | --- |
+| 2726747 | python | 2696274 | 2020 | Positively identified benchmark worker |
+| 2727727 | python | 1468207 | 1162 | Separate process,outside allowed worker PIDs |
+
+The other process remained after the benchmark worker exited:the next initial
+check observed1172MiB total GPU memory and PID2727727 still holding1162MiB.
+It began after the selected worker started (reported process start times15:42:02
+and15:41:55 respectively;these are GPU-host log timestamps,not normalized UTC).
+This record therefore distinguishes the two processes;it is not evidence that
+NVML merely reported the same worker under a second namespace PID. Process owner
+and workload arguments were not established. Do not stop or attribute ownership
+to the other job from this report alone.
+
+Timing was rejected at33C,well below80C. No benchmark round completed and no
+usable score,TopK or pipeline latency/speedup exists. The one case record is
+failed;the other29 cases,including all ten FP8 cases,were never reached. The
+new eight captured FP8 fixture capacities/native comparisons remain pending on
+H800. Overall measurement_valid=false,target_met=null is correct. There is no
+candidate keep/revert or new-matrix performance conclusion from this attempt.
+
+The interruption calls for a GPU reserved for the test duration,then an explicit
+UUID selection;auto selection only observes idleness when choosing a device.
+Changing kernels,raising temperature limits or accepting the occupied-card data
+would not address this failure. All30 timings remain to be measured;retain this
+report as passing iteration-correctness evidence with its precise scope. This
+incident-recording change modifies no executable code,guard or timer.
