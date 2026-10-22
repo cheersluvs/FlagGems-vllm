@@ -61,3 +61,66 @@ unchanged. Reports archive all new implementation and test sources. No local
 Torch/Triton/CUDA execution is available: H800 compilation,numerical correctness,
 register/shared/spill changes and speedups are pending. Status: private trial;
 no production integration or performance gain is claimed.
+
+## Interrupted H800 result:711010b7 (2026-10-22 06:43:52 UTC)
+
+Report branch `codex/qsa-h800-results-20261022-064352`,commit
+`711010b7d85edc2fcb69957b08eca1c5a9baa4df`,tested clean source
+`8ca1fa9c5e34d09a9c5b2494660537ae07774d18`,exit2. Verified34 archived
+files by Git blob hash/size and118 source snapshots against the tested commit.
+Pinned native reference,compiler/runtime/loaded compatibility identities match.
+
+All62 iteration correctness nodes passed in450.33s. No compilation or numerical
+failure is reported. Eight complete BF16 cases passed their before/after numeric,
+AB/BA paired timing,source/config/TopK and sampled GPU guard checks. Audited56
+timed stage rows,224 raw samples and168 guard observations for those eight;
+sampled temperatures35–53C,SM clocks1965–1980MHz. They remain partial
+measurements,not full30-case acceptance. Sampling cannot prove continuous
+exclusive GPU ownership between observations.
+
+The ninth case `perf_n2_q8192_p102400_bfloat16` failed during a post-round
+GPU guard check: unowned compute PID2551335,664MiB. Its partial score and any
+other measurements must not be retained as a completed case. At the following
+case's idle gate,GPU utilization84%,memory1046MiB and compute processes were
+observed,causing environment_rejected/exit2. Do not infer ownership of the PID
+from its number or stop jobs on the shared machine. The report contains nine
+case records,eight passed and one failed;the other21 were never started.
+Overall measurement_valid=false,target_met=null is correct. No30-case mean
+can be reported.
+
+Arithmetic means for the eight completed cases only:
+
+| Comparison | Score | TopK | Sequential pipeline |
+| --- | ---: | ---: | ---: |
+| Native/candidate | 1.114695 | 0.902298 | 0.994624 |
+| Previous joint-stage/candidate | 0.925928 | Unchanged code | 0.971818 |
+
+All eight cases regress versus the same-run joint-stage baseline in both paired
+rounds for both score and pipeline. Mean score speedup0.925928 means roughly
+8.00% greater candidate score latency under the mean-ratio representation;
+pipeline0.971818 similarly corresponds to roughly2.90% greater latency. These
+are reciprocals of means,not means of per-case latency increases. TopK remains
+unchanged and its native comparison is retained rather than optimized.
+
+| Case | Native/score | Native/TopK | Native/pipeline | Joint-stage/score | Joint-stage/pipeline |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| perf_n1_q8192_p8192_bfloat16 | 1.200252 | 0.962512 | 1.029069 | 0.926909 | 0.970606 |
+| perf_n1_q8192_p51200_bfloat16 | 1.068113 | 0.909738 | 0.996043 | 0.921856 | 0.975717 |
+| perf_n1_q8192_p102400_bfloat16 | 1.104633 | 0.803671 | 0.942727 | 0.909031 | 0.950780 |
+| perf_n1_q16384_p8192_bfloat16 | 1.079287 | 0.995892 | 1.031155 | 0.933504 | 0.977759 |
+| perf_n1_q16384_p51200_bfloat16 | 1.124182 | 0.888106 | 0.991818 | 0.923076 | 0.973573 |
+| perf_n1_q16384_p102400_bfloat16 | 1.085191 | 0.782956 | 0.935098 | 0.912133 | 0.957550 |
+| perf_n2_q8192_p8192_bfloat16 | 1.116912 | 0.963257 | 1.009271 | 0.951148 | 0.978592 |
+| perf_n2_q8192_p51200_bfloat16 | 1.138992 | 0.912255 | 1.021807 | 0.929770 | 0.989969 |
+
+Decision: reject enabling unroll2 globally;retain the previous joint-stage private
+candidate as the optimization baseline. No production entry has been changed.
+Keep this experimental code and raw report for reproduction,without promoting
+it. No need to spend another22-case run establishing a global keep decision
+that the eight consistent regressions already rule out. This does not establish
+FP8 behavior: all completed cases are BF16. If unrolling is investigated further,
+first isolate it to FP8 while BF16 uses the original JIT unchanged,and benchmark
+against joint-stage on the same verified runtime. Recheck BF16 as controls and
+retain all TopK/pipeline stages. Do not weaken GPU guards or treat incomplete
+measurements as accepted to finish a report. No kernel/toolchain change is
+needed to explain this interruption.
