@@ -27,6 +27,7 @@ sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 from tools import benchmark_qsa_prefill_stages as support  # noqa: E402
 from tools import qsa_prefill_accuracy_profiles as accuracy_profiles  # noqa: E402
 from tools import qsa_prefill_cache_granularity as cache_trial  # noqa: E402
+from tools import qsa_prefill_loop_stage_trial as loop_stage  # noqa: E402
 from tools import qsa_prefill_observed_workloads as workloads  # noqa: E402
 from tools import qsa_prefill_packed_grid as packed  # noqa: E402
 from tools import qsa_prefill_page_table_trial as page_table  # noqa: E402
@@ -60,6 +61,11 @@ SOURCES = sorted(
         "tools/test_qsa_prefill_combined_controls.py",
         "tools/run_qsa_prefill_combined_controls_h800.sh",
         "docs/qsa_prefill_combined_controls.md",
+        "tools/qsa_prefill_loop_stage_trial.py",
+        "tools/test_qsa_prefill_loop_stage.py",
+        "tests/test_qsa_prefill_loop_stage.py",
+        "tools/run_qsa_prefill_loop_stage_h800.sh",
+        "docs/qsa_prefill_loop_stage_trial.md",
         "tools/qsa_prefill_query_controls.py",
         "tools/test_qsa_prefill_query_controls.py",
         "tools/run_qsa_prefill_query_controls_h800.sh",
@@ -291,6 +297,8 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         from tools import qsa_prefill_compact_trial as trial
 
         candidate = trial.candidate_module(ab.frozen_production())
+    elif getattr(options, "candidate", "production") == "query-loop-stage":
+        candidate = loop_stage.candidate_module(op)
     elif getattr(options, "candidate", "production") == "query-joint-page":
         candidate = query_page.candidate_module(op)
     elif getattr(options, "candidate", "production") == "query-joint":
@@ -794,7 +802,10 @@ def worker(options, case, path):
                 accepted=False,
                 reason="No FP8 rectangular baseline tile eligible to split",
             )
-    combined_trial = getattr(options, "candidate", "production") == "query-joint-page"
+    stage_trial = getattr(options, "candidate", "production") == "query-loop-stage"
+    combined_trial = (
+        stage_trial or getattr(options, "candidate", "production") == "query-joint-page"
+    )
     joint_trial = (
         combined_trial or getattr(options, "candidate", "production") == "query-joint"
     )
@@ -876,6 +887,10 @@ def worker(options, case, path):
             page_gate="not IS_FP8 and BLOCK_N<=PAGE_SIZE",
             configs=support.score_configs(candidate),
             same_topk=candidate.persistent_topk is production.persistent_topk,
+        )
+    if stage_trial:
+        result["loop_stage"] = loop_stage.metadata(
+            candidate, support.score_configs(candidate)
         )
     if retained is not None and not fastpath:
         functions[retained_stage] = dict(
@@ -1201,6 +1216,12 @@ def worker(options, case, path):
         != result["packed_grid"]["packed_configs"]
     ):
         raise RuntimeError("Packed-grid tuning changed during timing")
+    if (
+        stage_trial
+        and loop_stage.metadata(candidate, support.score_configs(candidate))
+        != result["loop_stage"]
+    ):
+        raise RuntimeError("Loop-stage metadata changed during timing")
     if result["common_logits_before"] != result["common_logits_after"]:
         raise RuntimeError("Common Top-K logits were modified during this run")
     if previous is not None and (
@@ -1251,13 +1272,14 @@ def write_table(summary, directory):
         .get("shared_gpu_exploratory", False)
     )
     kind = summary.get("manifest", {}).get("options", {}).get("candidate")
-    trial = kind == "compact-ragged" or kind in KEY_MAJOR_CANDIDATES
+    trial = kind in ("compact-ragged", "query-loop-stage", *KEY_MAJOR_CANDIDATES)
     candidate_column = (
         {
             "key-major": "gems_key_major_trial_us",
             "key-major-reuse": "gems_key_major_reuse_trial_us",
             "key-major-evict-first": "gems_key_major_evict_first_trial_us",
             "compact-ragged": "gems_compact_trial_us",
+            "query-loop-stage": "gems_loop_stage_trial_us",
         }[kind]
         if trial
         else (
@@ -1370,6 +1392,11 @@ def write_table(summary, directory):
         == "query-joint-page"
     ):
         summary["overall_acceptance"] = query_page.acceptance(summary)
+    if (
+        summary.get("manifest", {}).get("options", {}).get("candidate")
+        == "query-loop-stage"
+    ):
+        summary["overall_acceptance"] = loop_stage.acceptance(summary)
     accuracy_profiles.annotate_acceptance(
         summary["overall_acceptance"],
         summary.get("manifest", {}).get("options", {}).get("accuracy_profile", "full"),
@@ -1620,11 +1647,17 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
             "query-split",
             "query-joint",
             "query-joint-page",
+            "query-loop-stage",
         ):
             for name in ("test_query_split_score", "test_query_split_full_entry"):
                 if not any("::" + name in node for node in records):
                     error = "Missing query-split correctness coverage: " + name
                     break
+        if (
+            not error
+            and getattr(options, "candidate", "production") == "query-loop-stage"
+        ):
+            error = loop_stage.validate_full_coverage(records)
         if (
             not error
             and getattr(options, "candidate", "production") == "query-joint-page"
@@ -1865,7 +1898,7 @@ def main():
     parser.add_argument("--compare-previous-tuning", action="store_true")
     parser.add_argument("--accuracy-profile", choices=("iteration", "full"))
     parser.add_argument(
-        "--previous-tuning", choices=("eight", "round1"), default="eight"
+        "--previous-tuning", choices=("eight", "round1", "combined"), default="eight"
     )
     parser.add_argument(
         "--candidate",
@@ -1924,13 +1957,28 @@ def main():
         and options.suite != "scored-prefill"
     ):
         parser.error("Current score trial requires the frozen scored-prefill30 suite")
-    if options.compare_previous_tuning and (
-        options.candidate != "production"
-        or not is_flagtree(options)
-        or options.suite != "scored-prefill"
+    if options.compare_previous_tuning and not (
+        is_flagtree(options)
+        and options.suite == "scored-prefill"
+        and (
+            (
+                options.candidate == "production"
+                and options.previous_tuning in ("eight", "round1")
+            )
+            or (
+                options.candidate == "query-loop-stage"
+                and options.previous_tuning == "combined"
+            )
+        )
     ):
         parser.error(
-            "Previous tuning comparison requires FlagTree production scored-prefill"
+            "Previous baseline requires production eight/round1 or stage1 combined"
+        )
+    if options.candidate == "query-loop-stage" and not (
+        options.compare_previous_tuning and options.previous_tuning == "combined"
+    ):
+        parser.error(
+            "Stage1 trial requires --compare-previous-tuning --previous-tuning combined"
         )
     if options.previous_tuning != "eight" and not options.compare_previous_tuning:
         parser.error("Select --compare-previous-tuning for the previous baseline")

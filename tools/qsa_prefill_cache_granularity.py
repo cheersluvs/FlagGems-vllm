@@ -36,6 +36,21 @@ def round1_source(source):
 def previous_module(production, kind):
     from tools import qsa_prefill_tuning_round1 as round1
 
+    if kind == "combined":
+        from pathlib import Path
+
+        from tools import qsa_prefill_loop_stage_trial as stage
+        from tools import qsa_prefill_query_page_trial as combined
+
+        module = combined.candidate_module(
+            getattr(production, "production_baseline", production)
+        )
+        if (
+            hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest()
+            != stage.KERNEL_SHA256
+        ):
+            raise RuntimeError("Previous combined kernel source changed")
+        return module
     if kind not in ("eight", "round1"):
         raise ValueError("Unknown previous tuning baseline: " + kind)
     group = round1.CONFIG_GROUP if kind == "round1" else round1.PREVIOUS_CONFIG_GROUP
@@ -45,6 +60,14 @@ def previous_module(production, kind):
 def previous_identity(kind):
     from tools import qsa_prefill_tuning_round1 as round1
 
+    if kind == "combined":
+        from tools import qsa_prefill_loop_stage_trial as stage
+
+        return dict(
+            source_equivalent_sha256=stage.KERNEL_SHA256,
+            config_group="qsa_select_paged_prefill_query_joint_score",
+            baseline_kind=stage.BASELINE_KIND,
+        )
     if kind == "round1":
         return dict(
             source_equivalent_sha256=ROUND1_SOURCE_SHA256,

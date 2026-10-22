@@ -8,6 +8,9 @@ qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 qsa_python=${QSA_STOCK_PYTHON:-${PYTHON:-python}}
 qsa_kind=flagtree134-ab
 for qsa_arg in "$@"; do
+  if [[ "$qsa_arg" == query-loop-stage ]]; then
+    qsa_kind=flagtree134-loop-stage
+  fi
   if [[ "$qsa_arg" == query-joint-page ]]; then
     qsa_kind=flagtree134-query-page
   fi
