@@ -58,6 +58,8 @@ SOURCES = sorted(
         "docs/qsa_prefill_packed_grid.md",
         "tools/qsa_prefill_accuracy_profiles.py",
         "tools/test_qsa_prefill_accuracy_profiles.py",
+        "tools/test_qsa_prefill_benchmark_only.py",
+        "docs/qsa_prefill_benchmark_only.md",
         "docs/qsa_prefill_accuracy_profiles.md",
         "tools/qsa_prefill_combined_controls.py",
         "tools/test_qsa_prefill_combined_controls.py",
@@ -1888,7 +1890,25 @@ def parent(options, selected, directory):
                 "Compiler/native-extension preflight failed; see preflight.txt/json"
             )
         if is_flagtree(options):
-            run_accuracy_gate(options, directory, summary, preflight, guard)
+            if getattr(options, "skip_accuracy", False):
+                summary["accuracy"] = dict(
+                    status="skipped_by_request",
+                    counts={},
+                    error=None,
+                    profile=accuracy_profiles.name(options),
+                    full_suite_validated=False,
+                    reason="--skip-accuracy: standalone pytest not run; timed numeric checks retained",
+                )
+                support.write_json(
+                    directory / "accuracy-skipped.json", summary["accuracy"]
+                )
+                support.write_json(path, summary)
+                print(
+                    "Skipping standalone pytest; preflight and timed numeric/GPU checks remain enabled",
+                    flush=True,
+                )
+            else:
+                run_accuracy_gate(options, directory, summary, preflight, guard)
         for case in selected:
             if not idle_gate(
                 options, summary, directory, "before_" + case["name"], guard
@@ -1974,6 +1994,11 @@ def main():
     parser.add_argument("--compare-previous-tuning", action="store_true")
     parser.add_argument("--accuracy-profile", choices=("iteration", "full"))
     parser.add_argument(
+        "--skip-accuracy",
+        action="store_true",
+        help="Skip standalone pytest only; retain preflight, timed numeric validation and GPU guards",
+    )
+    parser.add_argument(
         "--previous-tuning",
         choices=("eight", "round1", "combined", "stage-joint"),
         default="eight",
@@ -2022,6 +2047,12 @@ def main():
         parser.error(
             "Iteration correctness requires FlagTree production/current score trials"
         )
+    if options.skip_accuracy and not is_flagtree(options):
+        parser.error("--skip-accuracy requires the verified FlagTree benchmark profile")
+    if options.skip_accuracy and (
+        options.accuracy or options.preflight or options.worker
+    ):
+        parser.error("--skip-accuracy is a parent scheduling option only")
     if options.max_initial_temp_c is None:
         options.max_initial_temp_c = 80 if is_flagtree(options) else 75
     if not 1 <= options.max_initial_temp_c <= 150:
