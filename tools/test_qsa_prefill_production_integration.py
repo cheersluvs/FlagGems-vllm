@@ -134,7 +134,9 @@ class ProductionIntegrationTests(unittest.TestCase):
                                 if i < 2
                                 else "i32"
                             ),
-                            (i + 1) * 10000000,
+                            # Detailed FP8 caches exceed the former10MB gap.
+                            # Fake independent allocations must not alias.
+                            (i + 1) * (1 << 40),
                             label=f"input_{i}",
                         )
                         for i, s in enumerate(shapes)

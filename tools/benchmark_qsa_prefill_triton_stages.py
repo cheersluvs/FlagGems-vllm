@@ -51,6 +51,10 @@ SOURCES = sorted(
         "tools/qsa_prefill_cache_granularity.py",
         "tools/test_qsa_prefill_cache_granularity.py",
         "docs/qsa_prefill_cache_granularity.md",
+        "tools/qsa_prefill_profiling.py",
+        "tools/test_qsa_prefill_profiling.py",
+        "tools/run_qsa_prefill_profiling_h800.sh",
+        "docs/qsa_prefill_profiling_workflow.md",
         "tools/qsa_prefill_packed_grid.py",
         "tools/qsa_prefill_packed_grid_kernel.py",
         "tools/test_qsa_prefill_packed_grid.py",
@@ -1124,7 +1128,23 @@ def worker(options, case, path):
             )
         )
 
-    for name, stage in functions.items():
+    profile_capture = getattr(options, "profile_capture", False)
+    if profile_capture:
+        from tools import qsa_prefill_profiling as profiling
+
+        profiling.capture(
+            options,
+            result,
+            path,
+            functions,
+            validate,
+            torch,
+            device,
+            lambda label: support.guarded_telemetry(
+                info["uuid"], label, result, path, guard
+            ),
+        )
+    for name, stage in () if profile_capture else functions.items():
         entry = result["stages"][name] = dict(
             status="validating",
             accepted=False,
@@ -1178,6 +1198,28 @@ def worker(options, case, path):
             accepted=not shared.enabled(options),
         )
         support.write_json(path, result)
+    if getattr(options, "diagnostic_self_control", False) and not profile_capture:
+        from tools import qsa_prefill_profiling as profiling
+
+        profiling.self_controls(
+            options,
+            result,
+            path,
+            functions,
+            timer,
+            lambda label: support.guarded_telemetry(
+                info["uuid"], label, result, path, guard
+            ),
+        )
+        result["diagnostics"]["validation_after_self_controls"] = {
+            name: validate(name)
+            for name in (
+                "score",
+                "score_vs_production",
+                "pipeline",
+                "pipeline_vs_production",
+            )
+        }
     if getattr(options, "query_control_cycles", 0):
         from tools import qsa_prefill_query_controls as controls
 
@@ -1522,6 +1564,11 @@ def child_command(options, directory, flag):
                 str(options.shared_min_free_mib),
             ]
             if shared.enabled(options)
+            else []
+        ),
+        *(
+            ["--diagnostic-self-control"]
+            if getattr(options, "diagnostic_self_control", False)
             else []
         ),
         flag,
@@ -2013,6 +2060,10 @@ def main():
         ),
         default="production",
     )
+    parser.add_argument("--diagnostic-self-control", action="store_true")
+    parser.add_argument(
+        "--profile-capture", action="store_true", help=argparse.SUPPRESS
+    )
     parser.add_argument("--list-cases", action="store_true")
     parser.add_argument("--list-accuracy-tests", action="store_true")
     parser.add_argument("--report-dir")
@@ -2189,6 +2240,16 @@ def main():
                 "Combined self-controls require FlagTree query-joint-page, "
                 "short_batch3 only, exclusive GPU, two rounds and4/8/12/16 cycles"
             )
+    if options.profile_capture and not options.worker:
+        parser.error("Hardware capture is a dedicated worker, never a benchmark parent")
+    if (options.profile_capture or options.diagnostic_self_control) and (
+        options.compiler != "flagtree"
+        or options.candidate != "query-stage-joint"
+        or options.shared_gpu_exploratory
+        or options.query_control_cycles
+        or options.combined_self_control_cycles
+    ):
+        parser.error("Profiling diagnostics require exclusive FlagTree stage-joint")
     directory = (
         Path(options.report_dir).resolve()
         if options.report_dir
@@ -2200,7 +2261,7 @@ def main():
         if options.worker and options.worker not in definitions:
             parser.error("Unknown worker case")
         path = directory / (
-            options.worker + ".json"
+            ("profile-" if options.profile_capture else "") + options.worker + ".json"
             if options.worker
             else "accuracy-runtime.json" if options.accuracy else "preflight.json"
         )
