@@ -96,3 +96,127 @@ and all frozen production/candidate/YAML/TopK/timer/guard identities passed.
 No local Torch/Triton/CUDA is available;actual H800 compilation,numerics and
 performance remain pending. No optimization or performance result is claimed by
 this script-only delivery.
+
+## Audited H800 result: 2026-10-22 02:32:40 UTC
+
+Report commit `9e9f617d3e4562eeba7bff28f755ec6f762d5bdd` tested source
+`048d0c0dba903129c69e657087aad18fda34ac00`. The diagnostic passed. Its
+54 iteration correctness nodes passed in193.27s; all144 supplemental comparisons
+passed their before/after numerical checks. This is the existing40 canonical
+plus14 combined iteration profile,not a new full-suite run.
+
+The archive audit verified18 files (17 unique Git blobs),100 source snapshots,
+seven main-stage TSV rows (six timed,one inapplicable),144 supplemental rows,
+600 raw baseline/candidate timing samples and450 guard observations. File Git
+SHA1/size,source SHA256,per-row sample statistics,AB/BA order,identity flags,
+source/buffer ownership,compiled records,validation results and acceptance
+metadata were checked. All48 shared-bank self comparisons used the exact same
+callable. Production remains SHA256
+`f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c`;
+combined remains SHA256
+`1ef12d431b65971c5617f0a34f614360008c652a36125d5679da00206b212d7c`.
+The combined kernel is identical to the previous30-case report.
+
+Both sides used the same verified FlagTree3.6.0 module,ptxas13.4.59 and
+CUDA13.4 compatibility libcuda (Driver API13040);runtime identities matched
+between preflight,accuracy and worker. Sampled temperature was32–36C,SM clock
+1980MHz,with no foreign-process observations or guard rejections. Benchmark
+telemetry spans295.41s. Correctness plus this benchmark span totals488.68s
+(8m8.68s),excluding setup and gaps;this is not the full runner wall time.
+
+### Supplemental self and cross-code comparisons
+
+Every cell below is an equal-weight arithmetic mean of16 per-comparison
+speedups: four cycles times four buffer conditions. Each speedup is that row's
+baseline two-round median divided by its candidate two-round median. These
+are not pooled-sample ratios and are not speedups versus native vLLM.
+P is current production; C is the combined candidate.
+
+| Comparison | Score | TopK | Sequential score + TopK |
+| --- | ---: | ---: | ---: |
+| P / P | 1.000276x | 0.996978x | 1.000074x |
+| C / C | 1.000038x | 0.999695x | 1.000075x |
+| P / C | 1.029989x | 1.003572x | 1.015216x |
+
+All16 P/C score comparisons and all16 P/C pipeline comparisons exceeded1;
+all32 individual paired ratios exceeded1 for each of these two stages.
+Score comparison ratios ranged1.019531–1.043194,pipeline1.008596–1.020908.
+P/C pipeline raw samples ranged22.496–22.720us for P and22.144–22.368us
+for C. The earlier27–29us slow pipeline samples did not recur.
+
+TopK code was unchanged. Its P/C mean1.003572x is a measured difference,
+not evidence of a TopK optimization. Individual same-callable C/C TopK
+comparisons ranged0.980233–1.009390,illustrating small-percent timing
+variation even without a code change.
+
+The next table isolates buffer conditions. Each cell averages four cycles;
+A and B retain the existing canonical and candidate buffer allocations.
+
+| Comparison | Stage | A/B | B/A | A/A | B/B |
+| --- | --- | ---: | ---: | ---: | ---: |
+| P / P | score | 1.002287x | 0.998745x | 1.002853x | 0.997220x |
+| P / P | topk | 0.995904x | 0.990824x | 1.000303x | 1.000882x |
+| P / P | pipeline | 1.004615x | 0.996474x | 0.999384x | 0.999824x |
+| C / C | score | 1.002661x | 0.998100x | 1.001673x | 0.997719x |
+| C / C | topk | 0.999715x | 1.002502x | 0.996550x | 1.000012x |
+| C / C | pipeline | 1.004681x | 0.995349x | 1.000269x | 1.000000x |
+| P / C | score | 1.030085x | 1.036264x | 1.027400x | 1.026208x |
+| P / C | topk | 1.002653x | 1.005903x | 1.002952x | 1.002781x |
+| P / C | pipeline | 1.019790x | 1.010748x | 1.015217x | 1.015110x |
+
+For pipeline,the exact-callable P/P shared-bank comparisons ranged
+0.996476–1.001411 (mean0.999604); C/C ranged0.998927–1.001434
+(mean1.000135). Different-bank self comparisons showed a small directional
+association: A/B means about1.0046–1.0047,B/A about0.9953–0.9965. This
+supports treating buffer condition as part of measurement context;it does
+not identify address,cache,compiler or driver behavior as the cause.
+P/C still improved on both shared banks,about1.0152x on A and1.0151x on B,
+so the observed cross-code benefit is not confined to assigning P and C
+different buffer banks.
+
+### Original main-stage measurements
+
+These rows remain separate from the144 supplemental comparisons. Latencies
+are per-row medians in microseconds; pipeline is timed sequential execution,
+not the sum of separately timed score and TopK medians.
+
+| Stage | Baseline | Baseline us | Combined us | Speedup |
+| --- | --- | ---: | ---: | ---: |
+| Score | Native vLLM | 52.528 | 12.128 | 4.331135x |
+| TopK | Native vLLM | 13.920 | 13.584 | 1.024735x |
+| Pipeline | Native vLLM | 62.224 | 22.160 | 2.807942x |
+| Score | Production | 12.528 | 12.176 | 1.028909x |
+| Pipeline | Production | 22.688 | 22.256 | 1.019410x |
+| Pipeline,swapped banks | Production | 22.608 | 22.368 | 1.010730x |
+
+`score_matched` was inapplicable for this BF16 fixture. No measurement was
+substituted into that row.
+
+### Decision and limits
+
+This fixed-tile short_batch3 diagnostic supports retaining the combined
+candidate: score improved about3%,and sequential score+TopK about1.5%,
+with self controls centered near1. The previous normal P/C pipeline0.884312x
+result was not reproduced. Its cause remains unresolved;the current run
+cannot reconstruct its device/cache state and does not invalidate or replace
+that archived observation.
+
+This run measures only observed_short_batch3_bfloat16. The acceptance JSON
+therefore correctly has measurement_valid=false,target_met=null: both planned
+and measured sets differ from the frozen30. That ineligibility is not a
+correctness or diagnostic-run failure. The previous30-case result remains
+1.164420x native pipeline arithmetic mean with10 cases below0.98;this run
+neither updates that mean nor closes the per-case performance target.
+
+Keep the candidate private and resume score optimization of the remaining
+long-context cases,especially the four upstream102400-context cases and FP8
+long100k. No further identical self-control rerun is needed before resuming
+that work. No production integration,TopK change or new optimization was
+made for this report audit.
+
+Raw evidence: [stage summary](https://github.com/cheersluvs/FlagGems-vllm/blob/9e9f617d3e4562eeba7bff28f755ec6f762d5bdd/results/qsa_select_paged_prefill/h800/flagtree134-combined-controls-20261022-023240/stage-summary.json),
+[all supplemental comparisons](https://github.com/cheersluvs/FlagGems-vllm/blob/9e9f617d3e4562eeba7bff28f755ec6f762d5bdd/results/qsa_select_paged_prefill/h800/flagtree134-combined-controls-20261022-023240/observed_short_batch3_bfloat16.combined-controls.tsv),
+[case JSON and telemetry](https://github.com/cheersluvs/FlagGems-vllm/blob/9e9f617d3e4562eeba7bff28f755ec6f762d5bdd/results/qsa_select_paged_prefill/h800/flagtree134-combined-controls-20261022-023240/observed_short_batch3_bfloat16.json),
+[correctness](https://github.com/cheersluvs/FlagGems-vllm/blob/9e9f617d3e4562eeba7bff28f755ec6f762d5bdd/results/qsa_select_paged_prefill/h800/flagtree134-combined-controls-20261022-023240/accuracy-full.json),
+[source snapshots](https://github.com/cheersluvs/FlagGems-vllm/blob/9e9f617d3e4562eeba7bff28f755ec6f762d5bdd/results/qsa_select_paged_prefill/h800/flagtree134-combined-controls-20261022-023240/sources.json),
+[acceptance metadata](https://github.com/cheersluvs/FlagGems-vllm/blob/9e9f617d3e4562eeba7bff28f755ec6f762d5bdd/results/qsa_select_paged_prefill/h800/flagtree134-combined-controls-20261022-023240/overall-acceptance.json).
