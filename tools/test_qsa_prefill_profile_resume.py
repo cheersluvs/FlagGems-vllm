@@ -120,6 +120,51 @@ class ResumeTests(unittest.TestCase):
                 (original / "qsa_indexer_vllm.py").read_bytes(),
             )
 
+    def test_counter_resume_preserves_reference_filename_and_cache(self):
+        from tools import benchmark_qsa_prefill_triton_stages as bench
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+            os.environ, clear=False
+        ):
+            options, _, original, output = self.fixture(Path(folder))
+            old, command, facts = resume.prepare(options)
+
+            def run(cmd, **kwargs):
+                self.assertEqual(
+                    cmd[cmd.index("--reference-file") + 1],
+                    str(old / "qsa_indexer_vllm.py"),
+                )
+                self.assertEqual(
+                    kwargs["env"]["TRITON_CACHE_DIR"],
+                    str(old / "cache" / options.cases[0] / "triton"),
+                )
+                name = options.cases[0]
+                save(
+                    output / ("profile-" + name + ".json"),
+                    dict(status="passed", profiling=dict(expected_profiled_launches=3)),
+                )
+                (output / ("profile-" + name + ".csv")).write_text(
+                    '"ID","Metric Name","Metric Value"\n0,x,1\n1,x,2\n2,x,3\n'
+                )
+                return 0
+
+            guard = types.SimpleNamespace(idle=lambda *a, **k: dict(status="passed"))
+            with patch.object(profiling, "find_ncu", return_value="/ncu"), patch.object(
+                bench.support,
+                "command",
+                return_value=dict(returncode=0, stdout=" ".join(profiling.SECTIONS)),
+            ), patch.object(
+                bench.support, "gpu_guard_module", return_value=guard
+            ), patch.object(
+                profiling, "run_process", side_effect=run
+            ):
+                self.assertEqual(
+                    profiling.collect_counters(
+                        options, facts, command, cache_report=old
+                    ),
+                    0,
+                )
+
     def test_source_or_tool_changes_block_resume(self):
         for target in ("source", "ptxas", "libcuda.so"):
             with self.subTest(target=target), tempfile.TemporaryDirectory() as folder:

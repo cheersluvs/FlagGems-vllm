@@ -318,7 +318,7 @@ def collect_counters(options, facts, command, *, cache_report=None):
         clock_control="none",
         profile_from_start=False,
     )
-    reference = str(report / "qsa_indexer_vllm.py")
+    reference = str((cache_report or report) / "qsa_indexer_vllm.py")
     for name in options.cases:
         check = support.gpu_guard_module().idle(
             os.environ["CUDA_VISIBLE_DEVICES"],
