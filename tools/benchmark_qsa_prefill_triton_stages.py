@@ -52,6 +52,8 @@ SOURCES = sorted(
         "tools/test_qsa_prefill_cache_granularity.py",
         "docs/qsa_prefill_cache_granularity.md",
         "tools/qsa_prefill_profiling.py",
+        "tools/qsa_prefill_report.py",
+        "tools/test_qsa_prefill_report.py",
         "tools/test_qsa_prefill_profiling.py",
         "tools/run_qsa_prefill_profiling_h800.sh",
         "docs/qsa_prefill_profiling_workflow.md",
@@ -2003,6 +2005,9 @@ def parent(options, selected, directory):
             support.write_json(path, summary)
             write_table(summary, directory)
             print(case["name"], record["status"], flush=True)
+            from tools.qsa_prefill_report import show_timing
+
+            show_timing(record, source=case_path)
         summary["status"] = (
             "passed"
             if all(c["status"] == "passed" for c in summary["cases"])

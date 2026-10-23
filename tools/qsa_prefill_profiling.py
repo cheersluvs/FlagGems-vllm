@@ -403,6 +403,9 @@ def collect_counters(options, facts, command, *, cache_report=None):
         if name in facts.get("reused_profiles", {}):
             facts["profiles"].append(facts["reused_profiles"][name])
             print("Reused verified hardware capture:", name, flush=True)
+            from tools.qsa_prefill_report import show_profile
+
+            show_profile(report, name, reused=True)
             support.write_json(output, facts)
             continue
         check = support.gpu_guard_module().idle(
@@ -451,6 +454,10 @@ def collect_counters(options, facts, command, *, cache_report=None):
             else "failed"
         )
         print("Profile", name, record["status"], flush=True)
+        if record["status"] == "passed":
+            from tools.qsa_prefill_report import show_profile
+
+            show_profile(report, name)
         if record["status"] != "passed":
             # Permission/toolchain failures normally affect every case.
             # Preserve the first full error, do not repeat it five times.

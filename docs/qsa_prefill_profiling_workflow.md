@@ -276,3 +276,83 @@ reused cases launch no worker. The actual d9d8b953 CSV/JSON was recovered locall
 against the original baseline and yielded12 matching IDs and9396 values.
 Changed-file pre-commit and shell syntax passed. Remaining four hardware
 captures and all proposed optimization probes are still pending H800 execution.
+
+## Console reporting scope (2026-10-23, before implementation)
+
+| Field | Frozen choice |
+| --- | --- |
+| Editable | Read-only report formatter/CLI, post-worker/post-capture print hooks, wrapper text artifact, focused CPU display tests and this document |
+| Read-only | Production/private/native kernels, configs/keys, builders, input data, timers, numerical/idle guards and raw metrics |
+| Console timing | Separate native/candidate and canonical/candidate tables with actual segment latencies; score/TopK/pipeline, A/A descriptive ratios and saved source identity |
+| Console counters | Per-side/per-chunk register/shared/warp/tensor/DRAM/L2/issue/config rows; profiler durations are never speedup samples |
+| Missing/anomalous | N/A for absent values; retain and flag out-of-range percentages, especially two FP8 tiny-tail L2 ratios>100; no clamping |
+| Offline display | Existing report folder only, no GPU, imports of Torch/Triton, downloads or rerun; display old reports immediately |
+| Acceptance | Display status and actual validation scope, not a new optimization result or full30 acceptance |
+
+## Complete five-case capture3621d9ca
+
+Report3621d9cac585ca730196ffd9adc427c3b6e6d6f0 verified45 report blobs and
+four resume-driver source snapshots against32bdb357. All five case captures
+pass exact original case/input/config/native+canonical+candidate binary/runtime
+matching and pre/post numeric checks. NVTX confirms36 total scorer launches:
+12 BF16 long (reused),3 short96,3 short_batch3,6 FP8 tail112 and12 FP8 long.
+There are28188 exported metric values, including device/resource attributes.
+Ten boundary GPU guards were clean at30–32C; these are snapshots, not a
+continuous guarantee. The independent benchmark files are byte-identical to
+ae841236; no benchmark/A/A/full pytest was rerun and no new speedup is claimed.
+
+For FP8 long100k the canonical TR64/BN64/KT16/W4/stages2 contrasts with the
+candidate's same tile/warps and stages1/QUERY_PARTS2. Registers/thread226->154,
+dynamic shared bytes57344->49152, active warps12.10–12.30%->17.39–18.07%,
+tensor-active18.08–18.37%->19.87–20.17%, eligible warps/scheduler0.46–0.48->
+0.69–0.71. These multiple changes coexist; this is not isolated causality for
+query splitting. The original same-run score/native1.061236, TopK/native
+0.785745 and pipeline/native0.909650 remain the performance observations.
+
+The FP8 tail112 main chunk uses the same154-register split configuration;
+its112-row tail uses the unchanged54-register small scorer. Treat those
+chunks separately. Two raw L2 derived ratios on the tiny tail are101.72%
+(canonical ID3) and102.94% (candidate ID5). Preserve and flag them; do not clamp
+them or use them as reliable physical hit-rate evidence. Short96/short_batch3
+have very low warm-cache DRAM activity, so pursue their launch/work distribution
+and graph-context behavior separately rather than applying long-tile reasoning
+indiscriminately. The cross-timing-segment pipeline discrepancy remains open.
+
+Next probe priority: fix the BF16 long candidate's actual TR64/BN64/KT16/W4/
+stages1 configuration and isolate query subtiles1 versus2, preserving full-D
+FP32 dot/per-head ReLU/sum and stores. This tests accumulator lifetime against
+query reuse; it does not assume higher occupancy automatically wins. Only after
+that controlled result consider further FP8 subdivisions. Neither probe is
+implemented or measured by this console-only change. No production integration
+is justified by a hardware-counter improvement alone.
+
+## Console and offline viewing
+
+After each ordinary benchmark worker, the engine prints native/candidate
+score,TopK,pipeline latencies and ratios, then canonical/candidate comparisons
+in a separate table, followed by available A/A ranges. Captured/reused profiles
+print per-ID/side/chunk offset/rows, actual configurations, registers,dynamic
+shared KiB,active-warp/tensor/DRAM/L2/issue metrics and percentage anomalies.
+The tables deliberately keep candidate latencies from independent measurement
+segments separate. Missing fields print N/A; zero remains zero. Counter
+percentages retain their active/elapsed denominator labels, and replay duration
+is never presented as a benchmark speedup.
+
+The profiling wrapper saves terminal-summary.txt alongside raw reports and
+uploads it. Its formatter status does not replace the measured run's exit code.
+The same CLI can immediately read the completed report without any GPU,
+Torch/Triton import, download or retiming:
+
+```bash
+python -I tools/qsa_prefill_report.py \
+  --report-dir /tmp/qsa-profiling-h800.RFNO3i
+```
+
+`--timing-only` omits the hardware tables. The full display was exercised on the
+actual3621d9ca report locally and retained under the task's analysis artifacts.
+
+Validation: all62 affected CPU checks passed, including isolated offline display,
+per-segment timing preservation, TopK visibility, NVTX chunk/config mapping,
+missing/zero/unit handling and anomalous derived percentages. Changed-file
+pre-commit, shell syntax and diff checks passed. The CLI also rendered the full
+actual3621d9ca report successfully. No GPU run was performed for this change.

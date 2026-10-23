@@ -142,6 +142,7 @@ def main():
                 "tools/qsa_prefill_profile_resume.py",
                 "tools/qsa_ncu_portable.py",
                 "tools/qsa_prefill_profiling.py",
+                "tools/qsa_prefill_report.py",
                 "tools/run_qsa_prefill_profiling_h800.sh",
             )
         }
@@ -156,6 +157,10 @@ def main():
             from tools.qsa_ncu_portable import prepare as prepare_ncu
 
             options.ncu = prepare_ncu(output, options.ncu_archive)
+        from tools.qsa_prefill_report import show_report
+
+        print("复用已保存的独立计时；本次不重跑 benchmark/A/A。", flush=True)
+        show_report(output, timing_only=True)
         print("复用已有五组计时与 A/A，仅采集硬件计数器：", original, flush=True)
         return profiling.collect_counters(
             options, facts, command, cache_report=original

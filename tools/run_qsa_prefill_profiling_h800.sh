@@ -48,6 +48,13 @@ fi
 if [[ ! -s "$qsa_report/stage-summary.json" ]]; then
   printf '{"status":"failed","error":"runner failed before Python summary; see runner.txt"}\n' > "$qsa_report/stage-summary.json"
 fi
+if "$qsa_python" -I "$qsa_repo/tools/qsa_prefill_report.py" \
+  --report-dir "$qsa_report" > "$qsa_report/terminal-summary.txt"
+then
+  echo "完整结果展示已保存：$qsa_report/terminal-summary.txt"
+else
+  echo "结果展示未完整生成；原始状态和报告已保留。"
+fi
 qsa_stamp=$(date -u +%Y%m%d-%H%M%S)
 qsa_branch="codex/qsa-h800-results-$qsa_stamp"
 qsa_tree=$(mktemp -d "${TMPDIR:-/tmp}/flaggems-qsa-flagtree134-ab-results.XXXXXX")
