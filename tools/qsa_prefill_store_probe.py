@@ -17,7 +17,7 @@ from tools import qsa_prefill_bf16_query_probe as shared  # noqa: E402
 from tools import qsa_prefill_query_split_matched as fixed  # noqa: E402
 
 CASES = ("perf_n1_q16384_p102400_bfloat16", "fp8_long100k_float8_e4m3fn")
-CANDIDATE_SHA = "a37d9fe4f3e503ac995e622cf8c074f2288e524bb3352e503fea3788bebfc321"
+CANDIDATE_SHA = "05307d6e57163394bf9bd52a6ae47a848f00916915f20b0029e0057ee6947faf"
 sha = shared.sha
 compiler_identity = shared.compiler_identity
 bind = shared.bind

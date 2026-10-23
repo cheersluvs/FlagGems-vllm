@@ -47,7 +47,7 @@ class StoreProbeTests(unittest.TestCase):
 @triton.jit
 def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
     limit = tl.minimum(visible, logits_width)
-    full = tl.multiple_of(limit // 4 * 4, 4)
+    full = tl.multiple_of(limit // 4 * 4, (1, 4))
     tl.store(ptrs, values, mask=valid_rows & (columns < full))
     tl.store(ptrs, values, mask=valid_rows & (columns >= full) & (columns < limit))
 """
@@ -79,19 +79,71 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
             b.func, b.keywords = copy.deepcopy(a.func), copy.deepcopy(a.keywords)
         self.assertEqual(ast.dump(old), ast.dump(new))
 
-    def test_bulk_tail_masks_are_disjoint_and_cover_only_original_output(self):
+    def test_actual_helper_preserves_output_with_rank_correct_alignment_hint(self):
+        import numpy as np
+
+        tree = ast.parse(
+            (probe.ROOT / "tools/qsa_prefill_store_probe_kernel.py").read_text()
+        )
+        helper = next(
+            n
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name == "_bulk_tail_store"
+        )
+        helper.decorator_list = []
+        seen = []
+
+        def multiple_of(value, factors):
+            # Mirror the documented rank contract, not the desired kernel output.
+            factors = factors if isinstance(factors, (list, tuple)) else (factors,)
+            if len(factors) != value.ndim:
+                raise ValueError("Alignment hint must have one entry per dimension")
+            for factor in factors:
+                if np.any(value % factor):
+                    raise ValueError("Alignment assertion is false")
+            seen.append((value.shape, tuple(factors)))
+            return value
+
+        scope = {
+            "tl": types.SimpleNamespace(minimum=np.minimum, multiple_of=multiple_of)
+        }
+        exec(
+            compile(
+                ast.Module(body=[helper], type_ignores=[]),
+                "actual-store-helper",
+                "exec",
+            ),
+            scope,
+        )
         for width in (4, 8, 80, 29696):
-            for visible in (0, 1, 2, 3, 4, 5, 7, 8, 9, width - 1, width, width + 1):
-                limit = min(width, visible)
-                full = limit // 4 * 4
-                self.assertEqual(full % 4, 0)
-                for valid in (False, True):
-                    for column in range(-0, min(width + 4, 100)):
-                        bulk = valid and column < full
-                        tail = valid and column >= full and column < limit
-                        expected = valid and column < visible and column < width
-                        self.assertFalse(bulk and tail)
-                        self.assertEqual(int(bulk) + int(tail), int(expected))
+            lengths = np.array(
+                [0, 1, 2, 3, 4, 5, 7, 8, 9, width - 1, width, width + 1]
+            )[None, :]
+            rows = lengths.shape[1]
+            columns = np.arange(width)[:, None]
+            ptrs = (np.arange(rows)[None, :] * width + columns) + 64
+            values = np.arange(width * rows, dtype=np.float32).reshape(width, rows)
+            valid = (np.arange(rows) % 3 != 0)[None, :]
+            output = np.full(width * rows + 128, -12345.0, dtype=np.float32)
+            writes = np.zeros_like(output, dtype=np.int32)
+
+            def store(ptr, value, mask):
+                indices = np.broadcast_to(ptr, mask.shape)[mask]
+                output[indices] = np.broadcast_to(value, mask.shape)[mask]
+                np.add.at(writes, indices, 1)
+
+            scope["tl"].store = store
+            scope["_bulk_tail_store"](ptrs, values, valid, columns, lengths, width)
+            expected = valid & (columns < lengths) & (columns < width)
+            np.testing.assert_array_equal(output[ptrs[expected]], values[expected])
+            np.testing.assert_array_equal(writes[ptrs], expected.astype(np.int32))
+            np.testing.assert_array_equal(output[ptrs[~expected]], -12345.0)
+            self.assertTrue(np.all(writes[:64] == 0) and np.all(writes[-64:] == 0))
+        self.assertTrue(
+            all(shape[0] == 1 and factors == (1, 4) for shape, factors in seen)
+        )
+        with self.assertRaisesRegex(ValueError, "one entry per dimension"):
+            multiple_of(np.zeros((1, 8), dtype=np.int32), 4)
 
     def tensor(self, **changes):
         values = dict(

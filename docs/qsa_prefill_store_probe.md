@@ -70,3 +70,18 @@ probe works, the next step is measured regression coverage before integration.
 
 Both workers explicitly select from scored-prefill; the default workload suite
 is upstream-only and omits FP8. A regression check exercises the FP8 worker.
+
+## Rank-hint fix: report86d59bbf (2026-10-23)
+
+| Project truth | Fix scope |
+| --- | --- |
+| Failure | First BF16 boundary compilation; no performance samples or new correctness pass |
+| Editable | One hint in the private store helper, its pinned SHA and CPU regression checks |
+| Read-only | Production/baseline, math, masks, fixed choices, timer and guards |
+| Contract | `visible[None,:]` and `limit` have rank2; hints require one entry per dimension |
+| Path | Use `(1,4)` for the rank2 rounded limit; keep aligned/fallback routes unchanged |
+| Validation | Execute the actual helper AST on rank-aware CPU tensors, check masks/output/canaries; rerun affected local checks |
+
+The former scalar `4` became a one-entry hint and failed rank checking. This is
+an error in the diagnostic helper, not a compiler compatibility finding. GPU
+compilation and both paired performance cases still require a rerun.

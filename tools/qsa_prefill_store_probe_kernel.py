@@ -14,7 +14,7 @@ from tools.qsa_prefill_query_joint_policy import prune_configs
 @triton.jit
 def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
     limit = tl.minimum(visible, logits_width)
-    full = tl.multiple_of(limit // 4 * 4, 4)
+    full = tl.multiple_of(limit // 4 * 4, (1, 4))
     tl.store(ptrs, values, mask=valid_rows & (columns < full))
     tl.store(ptrs, values, mask=valid_rows & (columns >= full) & (columns < limit))
 
