@@ -149,3 +149,55 @@ numerical/order/telemetry rejection and unweighted aggregation. Changed-file
 pre-commit, CLI help, shell syntax and diff checks passed. Kernel sources,
 production/YAML/benchmark definitions and the original timer remain unchanged.
 The expanded H800 run is pending; no new production optimization is accepted.
+
+## Selective BF16 subdivision: pre-coding board (2026-10-23)
+
+Report505e3cd4 completed upstream12: arithmetic means score1.005102,
+TopK1.000039,pipeline1.003337; five pipeline ratios below1. The four pure
+R64/KT16 cases average pipeline1.015384, four pureR32/KT4 average0.988972.
+Four mixed cases need direct measurement, not estimates from row fractions.
+
+| Project truth | Frozen choice |
+| --- | --- |
+| Editable | Private probe policy/helper/worker/suite/wrapper, focused CPU checks, this document |
+| Read-only | All Triton kernel sources, production/YAML, frozen26-chunk manifest, reference/timer/tolerances/GPU guards/upstream12 definitions |
+| Hypothesis | Preserve measured large-tile P2 benefit while retaining the exact original P1 JIT for R32/KT4 chunks |
+| Active set | Same frozen upstream12 inputs/configs/chunk order; same two-round kernel timer, buffers,TopK,A/A and numerical guards |
+| Autotune | Exempt fixed private probe as before; no retuning or YAML change |
+| Aggregation | P1/candidate per-stage ratios and arithmetic means/minima/regressions; never a native-vLLM/full30 acceptance claim |
+| Build/validation | CPU routing/freeze/negative checks, source identity, old and selective suite worker paths, pre-commit/shell/help; GPU run pending |
+| Profiler/timeout | Existing compiled resource records and cubin identities only; no NCU rerun;1800s/case,80C limit,120s cooldown |
+
+| Contract | Preserved |
+| --- | --- |
+| Math/layout | Original full-D FP32 dot/per-head ReLU/sum/stores; BF16 H4/D128/page196 and all frozen layouts/visible/request/chunk tails |
+| TopK/FP8/production | No implementation or routing changes; the new policy is private to the BF16 probe |
+| Boundary scope | Existing forced R64/KT16 all-row boundary guards once, plus every case's pre/post score/selection reference checks; fallback JIT binary equality mandatory |
+| Unsupported | No expanded API/dtype/backend/training support or torch compute fallback |
+
+| Path | Candidate configuration/JIT | Gate |
+| --- | --- | --- |
+| R64 and KT16 | QUERY_PARTS2, same existing BF16 split JIT | Exact non-mode params frozen; pre/post numerical and binary/config checks |
+| All other chunks | QUERY_PARTS1, exact original baseline JIT object | Same compiled cubin/PTX as baseline; not a second rewritten full-query implementation |
+| Legacy all mode | Unchanged previous P1/P2 experiment, default remains all | Old reports and checks remain readable |
+| Production integration | Deferred | Full correctness and same-run30-case evidence still required |
+
+Run the same wrapper with `--suite upstream-prefill --query-policy large-tile`.
+Default policy remains `all` to preserve historical commands. The selective
+candidate uses mixed per-chunk QUERY_PARTS:2 only forR64/KT16, otherwise1.
+Its excluded chunks route to the exact baseline JIT, and both PTX/cubin hashes
+must match that baseline before timing and after all comparisons. Large chunks
+use the unchanged private BF16 split JIT. The requested mode is labeled
+`[1,"gated"]`, not falsely reported as P2 on every chunk. Console/TSV columns
+use candidate_us, with actual per-chunk constants in the resource tables.
+The result folder includes bf16-query-upstream-gated. TopK remains an identical
+callable/buffer control; all12 cases and four A/A controls per case are retained.
+
+Validation:52 affected CPU checks passed, including joint tile/KT routing,
+exact-JIT fallback, argument/grid preservation, non-mode parameter immutability,
+selective freeze and deliberate fallback-binary rejection, mixed-mode suite
+validation, requested-policy labeling and mismatched-worker-policy stopping.
+Legacy all-mode/single/upstream worker and numerical/telemetry/report checks
+also pass. Changed-file pre-commit, shell syntax, CLI help and diff checks pass.
+All kernel sources and the frozen manifest are unchanged. H800 numerical and
+performance evidence for the selective policy is pending; no production change.

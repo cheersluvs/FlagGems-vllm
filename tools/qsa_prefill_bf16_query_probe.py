@@ -82,7 +82,7 @@ def compiler_identity(info):
     )
 
 
-def make_pair(production, traces):
+def make_pair(production, traces, policy="all"):
     from tools import qsa_prefill_bf16_query_probe_kernel as kernel
     from tools import qsa_prefill_query_split_matched as fixed
     from tools import qsa_prefill_stage_joint_trial as joint
@@ -93,7 +93,9 @@ def make_pair(production, traces):
     pair[1]._qsa_prefill_score_kernel.jit = kernel._qsa_prefill_score_kernel.fn.fn
     if pair[0].persistent_topk is not pair[1].persistent_topk:
         raise RuntimeError("Probe changed TopK")
-    return pair
+    from tools.qsa_prefill_bf16_query_policy import apply
+
+    return apply(pair, policy)
 
 
 def print_results(result):
@@ -104,10 +106,14 @@ def print_results(result):
         result.get("case", {}).get("name", "preparing"),
         flush=True,
     )
-    print("original fixed P1 vs BF16 split P2", flush=True)
-    print("仅 probe，不作为生产/全30组验收；speedup=P1/P2。", flush=True)
+    print(
+        "original fixed P1 vs candidate; query policy:",
+        result.get("query_policy", "all"),
+        flush=True,
+    )
+    print("仅 probe，不作为生产/全30组验收；speedup=P1/candidate。", flush=True)
     table(
-        ("stage", "P1_us", "P2_us", "speedup", "paired_min", "paired_max"),
+        ("stage", "P1_us", "candidate_us", "speedup", "paired_min", "paired_max"),
         [
             (
                 name,
@@ -288,12 +294,13 @@ def bind(module, chunks, common):
 
 def worker(options):
     from tools import benchmark_qsa_prefill_triton_stages as bench
-    from tools import qsa_prefill_query_split_matched as fixed
+    from tools import qsa_prefill_bf16_query_policy as policy
 
     support, scoring, ab = bench.support, bench.scoring, bench.ab
     report = Path(options.report_dir)
     upstream = getattr(options, "suite", "single") == "upstream-prefill"
     name = getattr(options, "worker_case", None) or CASE
+    query_policy = getattr(options, "query_policy", "all")
     path = report / ((name + ".json") if upstream else "probe.json")
     result = dict(
         status="running",
@@ -301,7 +308,8 @@ def worker(options):
         mode="kernel",
         stages={},
         fixed_config=None if upstream else CONFIG,
-        query_parts_pair=[1, 2],
+        query_parts_pair=policy.pair_label(query_policy),
+        query_policy=query_policy,
         source=verify_source(),
     )
     try:
@@ -342,7 +350,11 @@ def worker(options):
         if fingerprints != saved["inputs"]:
             raise RuntimeError("Probe inputs differ from the measured BF16 fixture")
         result["inputs"] = fingerprints
-        pair = make_pair(production, traces)
+        pair = (
+            make_pair(production, traces)
+            if query_policy == "all"
+            else make_pair(production, traces, policy=query_policy)
+        )
         chunks = ab.observe(pair[0], "persistent_topk", args)
         bench.verify_geometry(case, args, chunks)
         common = [c.pop("common_logits") for c in chunks]
@@ -391,7 +403,7 @@ def worker(options):
             for fn in bundle.values():
                 fn()
         device.synchronize()
-        resources = fixed.freeze_and_records(pair, query_parts=(1, 2))
+        resources = policy.freeze(pair, query_policy)
         result["kernels_before"] = resources
         timer, metadata = scoring.make_timer(
             options.kernel_warmup_ms, options.kernel_rep_ms
@@ -429,7 +441,7 @@ def worker(options):
             row.update(status="passed", measurement_validated=True)
             support.write_json(path, result)
             print_results(result)
-        result["kernels_after"] = fixed.freeze_and_records(pair, query_parts=(1, 2))
+        result["kernels_after"] = policy.freeze(pair, query_policy)
         result["common_after"] = [support.fingerprint((v,), torch) for v in common]
         if (
             result["common_after"] != result["common_before"]
@@ -446,7 +458,9 @@ def worker(options):
             "w"
         ) as stream:
             writer = csv.writer(stream, delimiter="\t")
-            writer.writerow(("stage", "P1_us", "P2_us", "speedup", "paired_ratios"))
+            writer.writerow(
+                ("stage", "P1_us", "candidate_us", "speedup", "paired_ratios")
+            )
             for name, value in result["stages"].items():
                 writer.writerow(
                     (
@@ -495,6 +509,8 @@ def prepare_environment(options, summary):
         "tools/qsa_prefill_bf16_query_probe_kernel.py",
         "tools/test_qsa_prefill_bf16_query_probe.py",
         "tools/qsa_prefill_bf16_query_upstream.py",
+        "tools/qsa_prefill_bf16_query_policy.py",
+        "tools/test_qsa_prefill_bf16_query_policy.py",
         "tools/test_qsa_prefill_bf16_query_upstream.py",
         "docs/qsa_prefill_bf16_query_configs.json",
         "tools/run_qsa_prefill_bf16_query_probe_h800.sh",
@@ -573,6 +589,7 @@ def main():
     parser.add_argument(
         "--suite", choices=("single", "upstream-prefill"), default="single"
     )
+    parser.add_argument("--query-policy", choices=("all", "large-tile"), default="all")
     parser.add_argument("--cases", choices=names, nargs="+")
     parser.add_argument("--worker-case", choices=names, help=argparse.SUPPRESS)
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)

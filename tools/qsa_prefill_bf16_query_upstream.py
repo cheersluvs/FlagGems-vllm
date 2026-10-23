@@ -63,8 +63,10 @@ def saved_record(name):
 
 
 def validate_record(record, first, rounds=None):
+    from tools import qsa_prefill_bf16_query_policy as policy
     from tools import qsa_prefill_bf16_query_probe as probe
 
+    query_policy = record.get("query_policy", "all")
     name = record["case"]["name"]
     saved, traces = saved_record(name)
     if (
@@ -76,7 +78,7 @@ def validate_record(record, first, rounds=None):
         or not record.get("compiler_matches_capture")
         or not record.get("same_buffers")
         or not record.get("same_topk")
-        or record.get("query_parts_pair") != [1, 2]
+        or record.get("query_parts_pair") != policy.pair_label(query_policy)
         or record.get("mode") != "kernel"
         or record.get("production_modified") is not False
         or record.get("kernels_before") != record.get("kernels_after")
@@ -87,10 +89,11 @@ def validate_record(record, first, rounds=None):
         raise RuntimeError("Invalid fixed upstream probe identity: " + name)
     if probe.compiler_identity(record["runtime"]) != saved["compiler_identity"]:
         raise RuntimeError("Compiler changed in upstream probe")
-    for side, parts in (("baseline", 1), ("candidate", 2)):
+    for side in ("baseline", "candidate"):
         expected = {
             (t["rows"], t["offset"], t["width"]): dict(
-                t["constants"], QUERY_PARTS=parts
+                t["constants"],
+                QUERY_PARTS=policy.parts(t["constants"], query_policy, side),
             )
             for t in traces
         }
@@ -100,6 +103,12 @@ def validate_record(record, first, rounds=None):
             raise RuntimeError(
                 "Actual upstream fixed configs differ from frozen manifest"
             )
+    if query_policy == "large-tile":
+        policy.verify_fallback(
+            record["kernels_before"]["baseline"],
+            record["kernels_before"]["candidate"],
+            query_policy,
+        )
     checks = record.get("boundary_checks", [])
     if name == first:
         if len(checks) != 2 or any(
@@ -175,7 +184,7 @@ def show(summary):
     from tools.qsa_prefill_report import fmt, table
 
     print(
-        f"\nUpstream BF16 P1/P2 probe: {len(summary['cases'])}/{len(summary['selected_cases'])} requested cases",
+        f"\nUpstream BF16 P1/candidate probe: {len(summary['cases'])}/{len(summary['selected_cases'])} requested cases",
         flush=True,
     )
     table(
@@ -191,7 +200,8 @@ def show(summary):
             for stage, value in aggregate(summary["cases"]).items()
         ],
     )
-    print("增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。", flush=True)
+    print("query policy:", summary.get("query_policy", "all"), flush=True)
+    print("增量对照 P1/candidate；没有新测原生 vLLM，不能作为全30组验收。", flush=True)
 
 
 def write_results(report, summary):
@@ -207,7 +217,15 @@ def write_results(report, summary):
     with (report / "upstream-probe-timings.tsv").open("w") as stream:
         writer = csv.writer(stream, delimiter="\t")
         writer.writerow(
-            ("case", "stage", "P1_us", "P2_us", "speedup", "paired_min", "paired_max")
+            (
+                "case",
+                "stage",
+                "P1_us",
+                "candidate_us",
+                "speedup",
+                "paired_min",
+                "paired_max",
+            )
         )
         for record in summary["cases"]:
             for name in STAGES:
@@ -242,6 +260,7 @@ def coordinate(options):
         acceptance_eligible=False,
         production_modified=False,
         source=probe.verify_source(),
+        query_policy=getattr(options, "query_policy", "all"),
         manifest_sha256=MANIFEST_SHA256,
         config_source_commit=SOURCE_COMMIT,
         options=vars(options),
@@ -277,6 +296,8 @@ def coordinate(options):
             if code:
                 raise RuntimeError(f"Upstream probe worker failed: {name}: exit={code}")
             record = json.loads((report / (name + ".json")).read_text())
+            if record.get("query_policy", "all") != summary["query_policy"]:
+                raise RuntimeError("Worker query policy differs from requested policy")
             validate_record(record, selected[0], options.rounds)
             summary["cases"].append(record)
             write_results(report, summary)

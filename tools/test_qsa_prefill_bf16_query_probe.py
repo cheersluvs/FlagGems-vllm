@@ -167,7 +167,13 @@ class ProbeTests(unittest.TestCase):
             self.assertIn(word, stream.getvalue())
 
     def run_worker(
-        self, root, *, fail_pipeline=False, case_name=None, skip_boundaries=False
+        self,
+        root,
+        *,
+        fail_pipeline=False,
+        case_name=None,
+        skip_boundaries=False,
+        query_policy="all",
     ):
         from tools import benchmark_qsa_prefill_triton_stages as bench
 
@@ -202,7 +208,10 @@ class ProbeTests(unittest.TestCase):
             kernel_rep_ms=100,
         )
 
+        from tools import qsa_prefill_bf16_query_policy as policy
         from tools import qsa_prefill_bf16_query_upstream as suite
+
+        options.query_policy = query_policy
 
         if case_name:
             options.suite = "upstream-prefill"
@@ -278,6 +287,16 @@ class ProbeTests(unittest.TestCase):
                 ),
                 contextlib.redirect_stdout(io.StringIO()),
             )
+            if query_policy != "all":
+                stack.enter_context(
+                    patch.object(
+                        policy,
+                        "freeze",
+                        return_value=dict(
+                            baseline=[], candidate=[], configs_match=True
+                        ),
+                    )
+                )
             for item in patches:
                 stack.enter_context(item)
             code = probe.worker(options)
@@ -302,6 +321,13 @@ class ProbeTests(unittest.TestCase):
                     [["baseline", "candidate"], ["candidate", "baseline"]],
                 )
             self.assertTrue((Path(folder) / "probe-timings.tsv").is_file())
+
+    def test_selective_worker_marks_gated_policy_without_relabeling_as_all_p2(self):
+        with tempfile.TemporaryDirectory() as folder:
+            code, result = self.run_worker(Path(folder), query_policy="large-tile")
+            self.assertEqual(code, 0, result.get("error"))
+            self.assertEqual(result["query_policy"], "large-tile")
+            self.assertEqual(result["query_parts_pair"], [1, "gated"])
 
     def test_failed_validation_stops_probe_and_preserves_error(self):
         with tempfile.TemporaryDirectory() as folder:

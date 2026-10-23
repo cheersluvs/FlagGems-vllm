@@ -14,11 +14,18 @@ git -C "$qsa_repo" status --short
 unset PYTHONPATH PYTHONHOME QSA_TRITON_RUNTIME_PATH QSA_NATIVE_REFERENCE_PYTHON QSA_NATIVE_REPORT_DIR QSA_NATIVE_RESULT_PATH CUDA_LAUNCH_BLOCKING
 export PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 DNN_VENDOR=nvidia VLLM_PLUGINS=""
 qsa_kind=bf16-query-probe
+qsa_policy=all
 for qsa_arg in "$@"; do
   if [[ "$qsa_arg" == upstream-prefill || "$qsa_arg" == --suite=upstream-prefill ]]; then
     qsa_kind=bf16-query-upstream
   fi
+  if [[ "$qsa_arg" == large-tile || "$qsa_arg" == --query-policy=large-tile ]]; then
+    qsa_policy=large-tile
+  fi
 done
+if [[ "$qsa_policy" == large-tile ]]; then
+  qsa_kind="$qsa_kind-gated"
+fi
 qsa_status=0
 if "$qsa_python" -I "$qsa_repo/tools/with_cuda_compat134.py" \
   --script "$qsa_repo/tools/qsa_prefill_bf16_query_probe.py" \
