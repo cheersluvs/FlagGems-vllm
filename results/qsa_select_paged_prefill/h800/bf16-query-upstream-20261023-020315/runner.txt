@@ -1,0 +1,2038 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.ijric65m
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.ijric65m/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+边界校验 passed: {'status': 'passed', 'padded': False, 'query_base': 0, 'all_rows_checked': 289, 'chunk_rows': [31, 1, 32, 1, 63, 64, 65, 32]}
+边界校验 passed: {'status': 'passed', 'padded': True, 'query_base': 17, 'all_rows_checked': 289, 'chunk_rows': [31, 1, 32, 1, 63, 64, 65, 32]}
+
+BF16 query probe: perf_n1_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  112.344  115.488  0.9728   0.9681      0.9774    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   8192/0/4096        128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  8192/0/4096        114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  112.344  115.488  0.9728   0.9681      0.9774    
+topk   214.672  214.656  1.0001   1.0000      1.0001    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   8192/0/4096        128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  8192/0/4096        114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     112.344  115.488  0.9728   0.9681      0.9774    
+topk      214.672  214.656  1.0001   1.0000      1.0001    
+pipeline  324.120  327.624  0.9893   0.9865      0.9921    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   8192/0/4096        128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  8192/0/4096        114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     112.344  115.488  0.9728   0.9681      0.9774    
+topk      214.672  214.656  1.0001   1.0000      1.0001    
+pipeline  324.120  327.624  0.9893   0.9865      0.9921    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0116  0.9997      1.0237    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   8192/0/4096        128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  8192/0/4096        114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     112.344  115.488  0.9728   0.9681      0.9774    
+topk      214.672  214.656  1.0001   1.0000      1.0001    
+pipeline  324.120  327.624  0.9893   0.9865      0.9921    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0116  0.9997      1.0237    
+P1:pipeline  0.9937  0.9872      1.0003    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   8192/0/4096        128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  8192/0/4096        114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     112.344  115.488  0.9728   0.9681      0.9774    
+topk      214.672  214.656  1.0001   1.0000      1.0001    
+pipeline  324.120  327.624  0.9893   0.9865      0.9921    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0116  0.9997      1.0237    
+P1:pipeline  0.9937  0.9872      1.0003    
+P2:score     1.0101  0.9928      1.0279    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   8192/0/4096        128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  8192/0/4096        114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     112.344  115.488  0.9728   0.9681      0.9774    
+topk      214.672  214.656  1.0001   1.0000      1.0001    
+pipeline  324.120  327.624  0.9893   0.9865      0.9921    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0116  0.9997      1.0237    
+P1:pipeline  0.9937  0.9872      1.0003    
+P2:score     1.0101  0.9928      1.0279    
+P2:pipeline  0.9993  0.9966      1.0020    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   8192/0/4096        128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  8192/0/4096        114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     112.344  115.488  0.9728   0.9681      0.9774    
+topk      214.672  214.656  1.0001   1.0000      1.0001    
+pipeline  324.120  327.624  0.9893   0.9865      0.9921    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0116  0.9997      1.0237    
+P1:pipeline  0.9937  0.9872      1.0003    
+P2:score     1.0101  0.9928      1.0279    
+P2:pipeline  0.9993  0.9966      1.0020    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   8192/0/4096        128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  8192/0/4096        114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 1/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     1      0.9728           0.9728   1            
+topk      1      1.0001           1.0001   0            
+pipeline  1      0.9893           0.9893   1            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n1_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  441.552  428.848  1.0296   1.0285      1.0307    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   8192/0/14848       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  8192/0/14848       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  441.552  428.848  1.0296   1.0285      1.0307    
+topk   422.496  422.432  1.0002   0.9995      1.0008    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   8192/0/14848       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  8192/0/14848       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     441.552  428.848  1.0296   1.0285      1.0307    
+topk      422.496  422.432  1.0002   0.9995      1.0008    
+pipeline  859.696  848.640  1.0130   1.0108      1.0153    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   8192/0/14848       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  8192/0/14848       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     441.552  428.848  1.0296   1.0285      1.0307    
+topk      422.496  422.432  1.0002   0.9995      1.0008    
+pipeline  859.696  848.640  1.0130   1.0108      1.0153    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0021  1.0018      1.0025    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   8192/0/14848       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  8192/0/14848       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     441.552  428.848  1.0296   1.0285      1.0307    
+topk      422.496  422.432  1.0002   0.9995      1.0008    
+pipeline  859.696  848.640  1.0130   1.0108      1.0153    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0021  1.0018      1.0025    
+P1:pipeline  0.9996  0.9993      0.9999    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   8192/0/14848       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  8192/0/14848       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     441.552  428.848  1.0296   1.0285      1.0307    
+topk      422.496  422.432  1.0002   0.9995      1.0008    
+pipeline  859.696  848.640  1.0130   1.0108      1.0153    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0021  1.0018      1.0025    
+P1:pipeline  0.9996  0.9993      0.9999    
+P2:score     1.0044  1.0016      1.0071    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   8192/0/14848       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  8192/0/14848       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     441.552  428.848  1.0296   1.0285      1.0307    
+topk      422.496  422.432  1.0002   0.9995      1.0008    
+pipeline  859.696  848.640  1.0130   1.0108      1.0153    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0021  1.0018      1.0025    
+P1:pipeline  0.9996  0.9993      0.9999    
+P2:score     1.0044  1.0016      1.0071    
+P2:pipeline  1.0001  0.9988      1.0014    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   8192/0/14848       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  8192/0/14848       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     441.552  428.848  1.0296   1.0285      1.0307    
+topk      422.496  422.432  1.0002   0.9995      1.0008    
+pipeline  859.696  848.640  1.0130   1.0108      1.0153    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0021  1.0018      1.0025    
+P1:pipeline  0.9996  0.9993      0.9999    
+P2:score     1.0044  1.0016      1.0071    
+P2:pipeline  1.0001  0.9988      1.0014    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   8192/0/14848       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  8192/0/14848       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 2/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     2      1.0012           0.9728   1            
+topk      2      1.0001           1.0001   0            
+pipeline  2      1.0012           0.9893   1            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n1_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  852.896  841.392  1.0137   1.0130      1.0144    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   3338/4854/27648    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  3338/4854/27648    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  852.896  841.392  1.0137   1.0130      1.0144    
+topk   708.448  708.672  0.9997   0.9996      0.9998    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   3338/4854/27648    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  3338/4854/27648    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     852.896   841.392   1.0137   1.0130      1.0144    
+topk      708.448   708.672   0.9997   0.9996      0.9998    
+pipeline  1569.120  1551.936  1.0111   1.0091      1.0131    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   3338/4854/27648    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  3338/4854/27648    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     852.896   841.392   1.0137   1.0130      1.0144    
+topk      708.448   708.672   0.9997   0.9996      0.9998    
+pipeline  1569.120  1551.936  1.0111   1.0091      1.0131    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0028  0.9988      1.0069    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   3338/4854/27648    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  3338/4854/27648    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     852.896   841.392   1.0137   1.0130      1.0144    
+topk      708.448   708.672   0.9997   0.9996      0.9998    
+pipeline  1569.120  1551.936  1.0111   1.0091      1.0131    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0028  0.9988      1.0069    
+P1:pipeline  1.0002  1.0001      1.0003    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   3338/4854/27648    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  3338/4854/27648    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     852.896   841.392   1.0137   1.0130      1.0144    
+topk      708.448   708.672   0.9997   0.9996      0.9998    
+pipeline  1569.120  1551.936  1.0111   1.0091      1.0131    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0028  0.9988      1.0069    
+P1:pipeline  1.0002  1.0001      1.0003    
+P2:score     1.0010  0.9994      1.0027    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   3338/4854/27648    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  3338/4854/27648    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     852.896   841.392   1.0137   1.0130      1.0144    
+topk      708.448   708.672   0.9997   0.9996      0.9998    
+pipeline  1569.120  1551.936  1.0111   1.0091      1.0131    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0028  0.9988      1.0069    
+P1:pipeline  1.0002  1.0001      1.0003    
+P2:score     1.0010  0.9994      1.0027    
+P2:pipeline  1.0007  1.0002      1.0012    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   3338/4854/27648    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  3338/4854/27648    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     852.896   841.392   1.0137   1.0130      1.0144    
+topk      708.448   708.672   0.9997   0.9996      0.9998    
+pipeline  1569.120  1551.936  1.0111   1.0091      1.0131    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0028  0.9988      1.0069    
+P1:pipeline  1.0002  1.0001      1.0003    
+P2:score     1.0010  0.9994      1.0027    
+P2:pipeline  1.0007  1.0002      1.0012    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   3338/4854/27648    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  3338/4854/27648    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+Upstream BF16 P1/P2 probe: 3/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     3      1.0054           0.9728   1            
+topk      3      1.0000           0.9997   1            
+pipeline  3      1.0045           0.9893   1            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n1_q16384_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  288.064  291.440  0.9884   0.9822      0.9947    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/6144       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/6144       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  288.064  291.440  0.9884   0.9822      0.9947    
+topk   458.272  458.128  1.0003   1.0002      1.0004    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/6144       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/6144       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     288.064  291.440  0.9884   0.9822      0.9947    
+topk      458.272  458.128  1.0003   1.0002      1.0004    
+pipeline  739.448  747.000  0.9899   0.9896      0.9902    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/6144       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/6144       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     288.064  291.440  0.9884   0.9822      0.9947    
+topk      458.272  458.128  1.0003   1.0002      1.0004    
+pipeline  739.448  747.000  0.9899   0.9896      0.9902    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    0.9937  0.9916      0.9959    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/6144       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/6144       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     288.064  291.440  0.9884   0.9822      0.9947    
+topk      458.272  458.128  1.0003   1.0002      1.0004    
+pipeline  739.448  747.000  0.9899   0.9896      0.9902    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9937  0.9916      0.9959    
+P1:pipeline  0.9997  0.9992      1.0002    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/6144       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/6144       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     288.064  291.440  0.9884   0.9822      0.9947    
+topk      458.272  458.128  1.0003   1.0002      1.0004    
+pipeline  739.448  747.000  0.9899   0.9896      0.9902    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9937  0.9916      0.9959    
+P1:pipeline  0.9997  0.9992      1.0002    
+P2:score     0.9984  0.9941      1.0028    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/6144       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/6144       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     288.064  291.440  0.9884   0.9822      0.9947    
+topk      458.272  458.128  1.0003   1.0002      1.0004    
+pipeline  739.448  747.000  0.9899   0.9896      0.9902    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9937  0.9916      0.9959    
+P1:pipeline  0.9997  0.9992      1.0002    
+P2:score     0.9984  0.9941      1.0028    
+P2:pipeline  1.0021  1.0003      1.0039    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/6144       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/6144       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     288.064  291.440  0.9884   0.9822      0.9947    
+topk      458.272  458.128  1.0003   1.0002      1.0004    
+pipeline  739.448  747.000  0.9899   0.9896      0.9902    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9937  0.9916      0.9959    
+P1:pipeline  0.9997  0.9992      1.0002    
+P2:score     0.9984  0.9941      1.0028    
+P2:pipeline  1.0021  1.0003      1.0039    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/6144       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/6144       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 4/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     4      1.0011           0.9728   2            
+topk      4      1.0001           0.9997   1            
+pipeline  4      1.0008           0.9893   2            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n1_q16384_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  956.296  946.592  1.0103   1.0015      1.0192    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   7943/0/16896       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   7943/7943/16896    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   498/15886/16896    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  7943/0/16896       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  7943/7943/16896    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  498/15886/16896    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q16384_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  956.296  946.592  1.0103   1.0015      1.0192    
+topk   891.472  891.344  1.0001   0.9987      1.0015    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   7943/0/16896       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   7943/7943/16896    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   498/15886/16896    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  7943/0/16896       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  7943/7943/16896    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  498/15886/16896    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q16384_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     956.296   946.592   1.0103   1.0015      1.0192    
+topk      891.472   891.344   1.0001   0.9987      1.0015    
+pipeline  1844.304  1826.064  1.0100   1.0092      1.0108    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   7943/0/16896       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   7943/7943/16896    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   498/15886/16896    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  7943/0/16896       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  7943/7943/16896    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  498/15886/16896    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q16384_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     956.296   946.592   1.0103   1.0015      1.0192    
+topk      891.472   891.344   1.0001   0.9987      1.0015    
+pipeline  1844.304  1826.064  1.0100   1.0092      1.0108    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0007  0.9953      1.0062    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   7943/0/16896       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   7943/7943/16896    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   498/15886/16896    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  7943/0/16896       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  7943/7943/16896    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  498/15886/16896    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q16384_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     956.296   946.592   1.0103   1.0015      1.0192    
+topk      891.472   891.344   1.0001   0.9987      1.0015    
+pipeline  1844.304  1826.064  1.0100   1.0092      1.0108    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0007  0.9953      1.0062    
+P1:pipeline  0.9992  0.9983      1.0002    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   7943/0/16896       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   7943/7943/16896    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   498/15886/16896    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  7943/0/16896       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  7943/7943/16896    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  498/15886/16896    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q16384_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     956.296   946.592   1.0103   1.0015      1.0192    
+topk      891.472   891.344   1.0001   0.9987      1.0015    
+pipeline  1844.304  1826.064  1.0100   1.0092      1.0108    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0007  0.9953      1.0062    
+P1:pipeline  0.9992  0.9983      1.0002    
+P2:score     1.0039  1.0011      1.0068    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   7943/0/16896       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   7943/7943/16896    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   498/15886/16896    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  7943/0/16896       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  7943/7943/16896    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  498/15886/16896    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q16384_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     956.296   946.592   1.0103   1.0015      1.0192    
+topk      891.472   891.344   1.0001   0.9987      1.0015    
+pipeline  1844.304  1826.064  1.0100   1.0092      1.0108    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0007  0.9953      1.0062    
+P1:pipeline  0.9992  0.9983      1.0002    
+P2:score     1.0039  1.0011      1.0068    
+P2:pipeline  0.9995  0.9974      1.0017    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   7943/0/16896       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   7943/7943/16896    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   498/15886/16896    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  7943/0/16896       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  7943/7943/16896    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  498/15886/16896    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n1_q16384_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     956.296   946.592   1.0103   1.0015      1.0192    
+topk      891.472   891.344   1.0001   0.9987      1.0015    
+pipeline  1844.304  1826.064  1.0100   1.0092      1.0108    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0007  0.9953      1.0062    
+P1:pipeline  0.9992  0.9983      1.0002    
+P2:score     1.0039  1.0011      1.0068    
+P2:pipeline  0.9995  0.9974      1.0017    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   7943/0/16896       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   7943/7943/16896    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   498/15886/16896    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  7943/0/16896       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  7943/7943/16896    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  498/15886/16896    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+Upstream BF16 P1/P2 probe: 5/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     5      1.0029           0.9728   2            
+topk      5      1.0001           0.9997   1            
+pipeline  5      1.0027           0.9893   2            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n1_q16384_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us     P2_us     speedup  paired_min  paired_max
+-----  --------  --------  -------  ----------  ----------
+score  1723.184  1670.752  1.0314   1.0295      1.0332    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4519/0/29696       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/4519/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/9038/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   2827/13557/29696   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4519/0/29696       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/4519/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/9038/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  2827/13557/29696   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us     P2_us     speedup  paired_min  paired_max
+-----  --------  --------  -------  ----------  ----------
+score  1723.184  1670.752  1.0314   1.0295      1.0332    
+topk   1478.160  1477.592  1.0004   0.9999      1.0009    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4519/0/29696       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/4519/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/9038/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   2827/13557/29696   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4519/0/29696       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/4519/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/9038/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  2827/13557/29696   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1723.184  1670.752  1.0314   1.0295      1.0332    
+topk      1478.160  1477.592  1.0004   0.9999      1.0009    
+pipeline  3223.888  3174.128  1.0157   1.0153      1.0161    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4519/0/29696       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/4519/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/9038/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   2827/13557/29696   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4519/0/29696       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/4519/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/9038/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  2827/13557/29696   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1723.184  1670.752  1.0314   1.0295      1.0332    
+topk      1478.160  1477.592  1.0004   0.9999      1.0009    
+pipeline  3223.888  3174.128  1.0157   1.0153      1.0161    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0017  1.0012      1.0023    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4519/0/29696       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/4519/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/9038/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   2827/13557/29696   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4519/0/29696       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/4519/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/9038/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  2827/13557/29696   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1723.184  1670.752  1.0314   1.0295      1.0332    
+topk      1478.160  1477.592  1.0004   0.9999      1.0009    
+pipeline  3223.888  3174.128  1.0157   1.0153      1.0161    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0017  1.0012      1.0023    
+P1:pipeline  1.0001  1.0000      1.0001    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4519/0/29696       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/4519/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/9038/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   2827/13557/29696   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4519/0/29696       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/4519/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/9038/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  2827/13557/29696   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1723.184  1670.752  1.0314   1.0295      1.0332    
+topk      1478.160  1477.592  1.0004   0.9999      1.0009    
+pipeline  3223.888  3174.128  1.0157   1.0153      1.0161    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0017  1.0012      1.0023    
+P1:pipeline  1.0001  1.0000      1.0001    
+P2:score     1.0027  0.9939      1.0116    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4519/0/29696       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/4519/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/9038/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   2827/13557/29696   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4519/0/29696       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/4519/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/9038/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  2827/13557/29696   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1723.184  1670.752  1.0314   1.0295      1.0332    
+topk      1478.160  1477.592  1.0004   0.9999      1.0009    
+pipeline  3223.888  3174.128  1.0157   1.0153      1.0161    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0017  1.0012      1.0023    
+P1:pipeline  1.0001  1.0000      1.0001    
+P2:score     1.0027  0.9939      1.0116    
+P2:pipeline  1.0009  1.0008      1.0011    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4519/0/29696       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/4519/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/9038/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   2827/13557/29696   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4519/0/29696       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/4519/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/9038/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  2827/13557/29696   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n1_q16384_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1723.184  1670.752  1.0314   1.0295      1.0332    
+topk      1478.160  1477.592  1.0004   0.9999      1.0009    
+pipeline  3223.888  3174.128  1.0157   1.0153      1.0161    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0017  1.0012      1.0023    
+P1:pipeline  1.0001  1.0000      1.0001    
+P2:score     1.0027  0.9939      1.0116    
+P2:pipeline  1.0009  1.0008      1.0011    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4519/0/29696       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/4519/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4519/9038/29696    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   2827/13557/29696   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4519/0/29696       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/4519/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4519/9038/29696    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  2827/13557/29696   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 6/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     6      1.0077           0.9728   2            
+topk      6      1.0001           0.9997   1            
+pipeline  6      1.0048           0.9893   2            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n2_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  217.264  223.360  0.9727   0.9694      0.9760    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/4096       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/4096       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  217.264  223.360  0.9727   0.9694      0.9760    
+topk   417.264  417.128  1.0003   1.0000      1.0006    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/4096       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/4096       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     217.264  223.360  0.9727   0.9694      0.9760    
+topk      417.264  417.128  1.0003   1.0000      1.0006    
+pipeline  628.928  636.840  0.9876   0.9866      0.9886    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/4096       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/4096       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     217.264  223.360  0.9727   0.9694      0.9760    
+topk      417.264  417.128  1.0003   1.0000      1.0006    
+pipeline  628.928  636.840  0.9876   0.9866      0.9886    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0012  0.9744      1.0286    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/4096       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/4096       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     217.264  223.360  0.9727   0.9694      0.9760    
+topk      417.264  417.128  1.0003   1.0000      1.0006    
+pipeline  628.928  636.840  0.9876   0.9866      0.9886    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0012  0.9744      1.0286    
+P1:pipeline  1.0001  0.9985      1.0018    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/4096       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/4096       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     217.264  223.360  0.9727   0.9694      0.9760    
+topk      417.264  417.128  1.0003   1.0000      1.0006    
+pipeline  628.928  636.840  0.9876   0.9866      0.9886    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0012  0.9744      1.0286    
+P1:pipeline  1.0001  0.9985      1.0018    
+P2:score     0.9994  0.9790      1.0202    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/4096       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/4096       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     217.264  223.360  0.9727   0.9694      0.9760    
+topk      417.264  417.128  1.0003   1.0000      1.0006    
+pipeline  628.928  636.840  0.9876   0.9866      0.9886    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0012  0.9744      1.0286    
+P1:pipeline  1.0001  0.9985      1.0018    
+P2:score     0.9994  0.9790      1.0202    
+P2:pipeline  1.0020  1.0019      1.0021    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/4096       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/4096       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     217.264  223.360  0.9727   0.9694      0.9760    
+topk      417.264  417.128  1.0003   1.0000      1.0006    
+pipeline  628.928  636.840  0.9876   0.9866      0.9886    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0012  0.9744      1.0286    
+P1:pipeline  1.0001  0.9985      1.0018    
+P2:score     0.9994  0.9790      1.0202    
+P2:pipeline  1.0020  1.0019      1.0021    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/4096       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/4096       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 7/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     7      1.0027           0.9727   3            
+topk      7      1.0002           0.9997   1            
+pipeline  7      1.0024           0.9876   3            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n2_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  890.728  893.528  0.9969   0.9901      1.0037    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9039/0/14848       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+baseline   7345/9039/14848    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  9039/0/14848       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+candidate  7345/9039/14848    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  890.728  893.528  0.9969   0.9901      1.0037    
+topk   837.032  837.152  0.9999   0.9998      0.9999    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9039/0/14848       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+baseline   7345/9039/14848    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  9039/0/14848       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+candidate  7345/9039/14848    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     890.728   893.528   0.9969   0.9901      1.0037    
+topk      837.032   837.152   0.9999   0.9998      0.9999    
+pipeline  1721.472  1722.064  0.9997   0.9988      1.0005    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9039/0/14848       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+baseline   7345/9039/14848    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  9039/0/14848       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+candidate  7345/9039/14848    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     890.728   893.528   0.9969   0.9901      1.0037    
+topk      837.032   837.152   0.9999   0.9998      0.9999    
+pipeline  1721.472  1722.064  0.9997   0.9988      1.0005    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    0.9974  0.9935      1.0014    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9039/0/14848       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+baseline   7345/9039/14848    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  9039/0/14848       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+candidate  7345/9039/14848    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     890.728   893.528   0.9969   0.9901      1.0037    
+topk      837.032   837.152   0.9999   0.9998      0.9999    
+pipeline  1721.472  1722.064  0.9997   0.9988      1.0005    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9974  0.9935      1.0014    
+P1:pipeline  1.0008  1.0007      1.0009    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9039/0/14848       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+baseline   7345/9039/14848    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  9039/0/14848       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+candidate  7345/9039/14848    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     890.728   893.528   0.9969   0.9901      1.0037    
+topk      837.032   837.152   0.9999   0.9998      0.9999    
+pipeline  1721.472  1722.064  0.9997   0.9988      1.0005    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9974  0.9935      1.0014    
+P1:pipeline  1.0008  1.0007      1.0009    
+P2:score     1.0113  0.9973      1.0256    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9039/0/14848       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+baseline   7345/9039/14848    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  9039/0/14848       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+candidate  7345/9039/14848    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     890.728   893.528   0.9969   0.9901      1.0037    
+topk      837.032   837.152   0.9999   0.9998      0.9999    
+pipeline  1721.472  1722.064  0.9997   0.9988      1.0005    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9974  0.9935      1.0014    
+P1:pipeline  1.0008  1.0007      1.0009    
+P2:score     1.0113  0.9973      1.0256    
+P2:pipeline  1.0001  0.9991      1.0010    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9039/0/14848       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+baseline   7345/9039/14848    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  9039/0/14848       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+candidate  7345/9039/14848    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     890.728   893.528   0.9969   0.9901      1.0037    
+topk      837.032   837.152   0.9999   0.9998      0.9999    
+pipeline  1721.472  1722.064  0.9997   0.9988      1.0005    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9974  0.9935      1.0014    
+P1:pipeline  1.0008  1.0007      1.0009    
+P2:score     1.0113  0.9973      1.0256    
+P2:pipeline  1.0001  0.9991      1.0010    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9039/0/14848       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+baseline   7345/9039/14848    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  9039/0/14848       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+candidate  7345/9039/14848    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 8/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     8      1.0020           0.9727   4            
+topk      8      1.0001           0.9997   2            
+pipeline  8      1.0020           0.9876   4            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n2_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us     P2_us     speedup  paired_min  paired_max
+-----  --------  --------  -------  ----------  ----------
+score  1674.128  1613.016  1.0379   1.0366      1.0392    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/4854/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/9708/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1822/14562/27648   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/4854/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/9708/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1822/14562/27648   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us     P2_us     speedup  paired_min  paired_max
+-----  --------  --------  -------  ----------  ----------
+score  1674.128  1613.016  1.0379   1.0366      1.0392    
+topk   1399.504  1399.872  0.9997   0.9996      0.9999    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/4854/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/9708/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1822/14562/27648   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/4854/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/9708/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1822/14562/27648   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1674.128  1613.016  1.0379   1.0366      1.0392    
+topk      1399.504  1399.872  0.9997   0.9996      0.9999    
+pipeline  3097.136  3034.240  1.0207   1.0196      1.0219    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/4854/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/9708/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1822/14562/27648   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/4854/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/9708/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1822/14562/27648   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1674.128  1613.016  1.0379   1.0366      1.0392    
+topk      1399.504  1399.872  0.9997   0.9996      0.9999    
+pipeline  3097.136  3034.240  1.0207   1.0196      1.0219    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    0.9989  0.9954      1.0024    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/4854/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/9708/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1822/14562/27648   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/4854/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/9708/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1822/14562/27648   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1674.128  1613.016  1.0379   1.0366      1.0392    
+topk      1399.504  1399.872  0.9997   0.9996      0.9999    
+pipeline  3097.136  3034.240  1.0207   1.0196      1.0219    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9989  0.9954      1.0024    
+P1:pipeline  0.9979  0.9957      1.0002    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/4854/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/9708/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1822/14562/27648   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/4854/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/9708/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1822/14562/27648   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1674.128  1613.016  1.0379   1.0366      1.0392    
+topk      1399.504  1399.872  0.9997   0.9996      0.9999    
+pipeline  3097.136  3034.240  1.0207   1.0196      1.0219    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9989  0.9954      1.0024    
+P1:pipeline  0.9979  0.9957      1.0002    
+P2:score     1.0007  0.9954      1.0059    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/4854/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/9708/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1822/14562/27648   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/4854/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/9708/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1822/14562/27648   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1674.128  1613.016  1.0379   1.0366      1.0392    
+topk      1399.504  1399.872  0.9997   0.9996      0.9999    
+pipeline  3097.136  3034.240  1.0207   1.0196      1.0219    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9989  0.9954      1.0024    
+P1:pipeline  0.9979  0.9957      1.0002    
+P2:score     1.0007  0.9954      1.0059    
+P2:pipeline  0.9997  0.9992      1.0002    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/4854/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/9708/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1822/14562/27648   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/4854/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/9708/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1822/14562/27648   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n2_q8192_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1674.128  1613.016  1.0379   1.0366      1.0392    
+topk      1399.504  1399.872  0.9997   0.9996      0.9999    
+pipeline  3097.136  3034.240  1.0207   1.0196      1.0219    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9989  0.9954      1.0024    
+P1:pipeline  0.9979  0.9957      1.0002    
+P2:score     1.0007  0.9954      1.0059    
+P2:pipeline  0.9997  0.9992      1.0002    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   4854/0/27648       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/4854/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   4854/9708/27648    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1822/14562/27648   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  4854/0/27648       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/4854/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  4854/9708/27648    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1822/14562/27648   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 9/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     9      1.0060           0.9727   4            
+topk      9      1.0001           0.9997   3            
+pipeline  9      1.0041           0.9876   4            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n4_q4096_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  187.120  190.008  0.9848   0.9738      0.9960    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/3072       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/3072       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  187.120  190.008  0.9848   0.9738      0.9960    
+topk   387.504  387.488  1.0000   0.9997      1.0004    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/3072       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/3072       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     187.120  190.008  0.9848   0.9738      0.9960    
+topk      387.504  387.488  1.0000   0.9997      1.0004    
+pipeline  569.200  575.464  0.9891   0.9890      0.9892    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/3072       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/3072       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     187.120  190.008  0.9848   0.9738      0.9960    
+topk      387.504  387.488  1.0000   0.9997      1.0004    
+pipeline  569.200  575.464  0.9891   0.9890      0.9892    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0005  1.0004      1.0005    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/3072       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/3072       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     187.120  190.008  0.9848   0.9738      0.9960    
+topk      387.504  387.488  1.0000   0.9997      1.0004    
+pipeline  569.200  575.464  0.9891   0.9890      0.9892    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0005  1.0004      1.0005    
+P1:pipeline  1.0005  1.0004      1.0005    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/3072       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/3072       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     187.120  190.008  0.9848   0.9738      0.9960    
+topk      387.504  387.488  1.0000   0.9997      1.0004    
+pipeline  569.200  575.464  0.9891   0.9890      0.9892    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0005  1.0004      1.0005    
+P1:pipeline  1.0005  1.0004      1.0005    
+P2:score     1.0017  1.0013      1.0022    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/3072       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/3072       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     187.120  190.008  0.9848   0.9738      0.9960    
+topk      387.504  387.488  1.0000   0.9997      1.0004    
+pipeline  569.200  575.464  0.9891   0.9890      0.9892    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0005  1.0004      1.0005    
+P1:pipeline  1.0005  1.0004      1.0005    
+P2:score     1.0017  1.0013      1.0022    
+P2:pipeline  0.9999  0.9986      1.0012    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/3072       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/3072       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p8192_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us    P2_us    speedup  paired_min  paired_max
+--------  -------  -------  -------  ----------  ----------
+score     187.120  190.008  0.9848   0.9738      0.9960    
+topk      387.504  387.488  1.0000   0.9997      1.0004    
+pipeline  569.200  575.464  0.9891   0.9890      0.9892    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0005  1.0004      1.0005    
+P1:pipeline  1.0005  1.0004      1.0005    
+P2:score     1.0017  1.0013      1.0022    
+P2:pipeline  0.9999  0.9986      1.0012    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                   
+---------  -----------------  ----  ------------  ------  -------------------------
+baseline   16384/0/3072       128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1
+candidate  16384/0/3072       114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 10/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     10     1.0038           0.9727   5            
+topk      10     1.0001           0.9997   3            
+pipeline  10     1.0026           0.9876   5            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n4_q4096_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  861.440  859.904  1.0018   0.9958      1.0078    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9709/0/13824       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   6675/9709/13824    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  9709/0/13824       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  6675/9709/13824    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n4_q4096_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us    P2_us    speedup  paired_min  paired_max
+-----  -------  -------  -------  ----------  ----------
+score  861.440  859.904  1.0018   0.9958      1.0078    
+topk   819.376  819.496  0.9999   0.9997      1.0000    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9709/0/13824       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   6675/9709/13824    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  9709/0/13824       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  6675/9709/13824    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n4_q4096_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     861.440   859.904   1.0018   0.9958      1.0078    
+topk      819.376   819.496   0.9999   0.9997      1.0000    
+pipeline  1682.040  1678.840  1.0019   1.0007      1.0031    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9709/0/13824       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   6675/9709/13824    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  9709/0/13824       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  6675/9709/13824    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n4_q4096_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     861.440   859.904   1.0018   0.9958      1.0078    
+topk      819.376   819.496   0.9999   0.9997      1.0000    
+pipeline  1682.040  1678.840  1.0019   1.0007      1.0031    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0070  1.0069      1.0072    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9709/0/13824       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   6675/9709/13824    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  9709/0/13824       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  6675/9709/13824    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n4_q4096_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     861.440   859.904   1.0018   0.9958      1.0078    
+topk      819.376   819.496   0.9999   0.9997      1.0000    
+pipeline  1682.040  1678.840  1.0019   1.0007      1.0031    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0070  1.0069      1.0072    
+P1:pipeline  1.0002  1.0001      1.0003    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9709/0/13824       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   6675/9709/13824    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  9709/0/13824       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  6675/9709/13824    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n4_q4096_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     861.440   859.904   1.0018   0.9958      1.0078    
+topk      819.376   819.496   0.9999   0.9997      1.0000    
+pipeline  1682.040  1678.840  1.0019   1.0007      1.0031    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0070  1.0069      1.0072    
+P1:pipeline  1.0002  1.0001      1.0003    
+P2:score     1.0024  0.9989      1.0059    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9709/0/13824       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   6675/9709/13824    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  9709/0/13824       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  6675/9709/13824    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n4_q4096_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     861.440   859.904   1.0018   0.9958      1.0078    
+topk      819.376   819.496   0.9999   0.9997      1.0000    
+pipeline  1682.040  1678.840  1.0019   1.0007      1.0031    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0070  1.0069      1.0072    
+P1:pipeline  1.0002  1.0001      1.0003    
+P2:score     1.0024  0.9989      1.0059    
+P2:pipeline  0.9994  0.9983      1.0004    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9709/0/13824       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   6675/9709/13824    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  9709/0/13824       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  6675/9709/13824    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+BF16 query probe: perf_n4_q4096_p51200_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     861.440   859.904   1.0018   0.9958      1.0078    
+topk      819.376   819.496   0.9999   0.9997      1.0000    
+pipeline  1682.040  1678.840  1.0019   1.0007      1.0031    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0070  1.0069      1.0072    
+P1:pipeline  1.0002  1.0001      1.0003    
+P2:score     1.0024  0.9989      1.0059    
+P2:pipeline  0.9994  0.9983      1.0004    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   9709/0/13824       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   6675/9709/13824    128   49152         0       R32/N64/KT4/W4/S1/CTA1/P1 
+candidate  9709/0/13824       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  6675/9709/13824    114   53248         0       R32/N64/KT4/W4/S1/CTA1/P2 
+
+Upstream BF16 P1/P2 probe: 11/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     11     1.0037           0.9727   5            
+topk      11     1.0001           0.9997   4            
+pipeline  11     1.0025           0.9876   5            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-upstream.1gsQ0Z/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+BF16 query probe: perf_n4_q4096_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us     P2_us     speedup  paired_min  paired_max
+-----  --------  --------  -------  ----------  ----------
+score  1618.800  1585.424  1.0211   1.0175      1.0246    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   5041/0/26624       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/5041/26624    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/10082/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1261/15123/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  5041/0/26624       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/5041/26624    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/10082/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1261/15123/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us     P2_us     speedup  paired_min  paired_max
+-----  --------  --------  -------  ----------  ----------
+score  1618.800  1585.424  1.0211   1.0175      1.0246    
+topk   1389.104  1389.240  0.9999   0.9999      0.9999    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   5041/0/26624       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/5041/26624    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/10082/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1261/15123/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  5041/0/26624       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/5041/26624    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/10082/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1261/15123/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1618.800  1585.424  1.0211   1.0175      1.0246    
+topk      1389.104  1389.240  0.9999   0.9999      0.9999    
+pipeline  3035.680  2999.376  1.0121   1.0119      1.0123    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   5041/0/26624       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/5041/26624    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/10082/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1261/15123/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  5041/0/26624       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/5041/26624    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/10082/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1261/15123/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1618.800  1585.424  1.0211   1.0175      1.0246    
+topk      1389.104  1389.240  0.9999   0.9999      0.9999    
+pipeline  3035.680  2999.376  1.0121   1.0119      1.0123    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    1.0024  0.9998      1.0050    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   5041/0/26624       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/5041/26624    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/10082/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1261/15123/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  5041/0/26624       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/5041/26624    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/10082/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1261/15123/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1618.800  1585.424  1.0211   1.0175      1.0246    
+topk      1389.104  1389.240  0.9999   0.9999      0.9999    
+pipeline  3035.680  2999.376  1.0121   1.0119      1.0123    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0024  0.9998      1.0050    
+P1:pipeline  0.9997  0.9992      1.0002    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   5041/0/26624       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/5041/26624    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/10082/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1261/15123/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  5041/0/26624       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/5041/26624    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/10082/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1261/15123/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1618.800  1585.424  1.0211   1.0175      1.0246    
+topk      1389.104  1389.240  0.9999   0.9999      0.9999    
+pipeline  3035.680  2999.376  1.0121   1.0119      1.0123    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0024  0.9998      1.0050    
+P1:pipeline  0.9997  0.9992      1.0002    
+P2:score     1.0007  0.9997      1.0016    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   5041/0/26624       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/5041/26624    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/10082/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1261/15123/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  5041/0/26624       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/5041/26624    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/10082/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1261/15123/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1618.800  1585.424  1.0211   1.0175      1.0246    
+topk      1389.104  1389.240  0.9999   0.9999      0.9999    
+pipeline  3035.680  2999.376  1.0121   1.0119      1.0123    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0024  0.9998      1.0050    
+P1:pipeline  0.9997  0.9992      1.0002    
+P2:score     1.0007  0.9997      1.0016    
+P2:pipeline  0.9993  0.9984      1.0002    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   5041/0/26624       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/5041/26624    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/10082/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1261/15123/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  5041/0/26624       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/5041/26624    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/10082/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1261/15123/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+BF16 query probe: perf_n4_q4096_p102400_bfloat16
+original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1618.800  1585.424  1.0211   1.0175      1.0246    
+topk      1389.104  1389.240  0.9999   0.9999      0.9999    
+pipeline  3035.680  2999.376  1.0121   1.0119      1.0123    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     1.0024  0.9998      1.0050    
+P1:pipeline  0.9997  0.9992      1.0002    
+P2:score     1.0007  0.9997      1.0016    
+P2:pipeline  0.9993  0.9984      1.0002    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  config                    
+---------  -----------------  ----  ------------  ------  --------------------------
+baseline   5041/0/26624       234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/5041/26624    234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   5041/10082/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+baseline   1261/15123/26624   234   81920         0       R64/N64/KT16/W4/S1/CTA1/P1
+candidate  5041/0/26624       176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/5041/26624    176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  5041/10082/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+candidate  1261/15123/26624   176   90112         0       R64/N64/KT16/W4/S1/CTA1/P2
+
+Upstream BF16 P1/P2 probe: 12/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     12     1.0051           0.9727   5            
+topk      12     1.0000           0.9997   5            
+pipeline  12     1.0033           0.9876   5            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
+
+Upstream BF16 P1/P2 probe: 12/12 requested cases
+stage     count  arithmetic_mean  minimum  below_1_count
+--------  -----  ---------------  -------  -------------
+score     12     1.0051           0.9727   5            
+topk      12     1.0000           0.9997   5            
+pipeline  12     1.0033           0.9876   5            
+增量对照 P1/P2；没有新测原生 vLLM，不能作为全30组验收。
