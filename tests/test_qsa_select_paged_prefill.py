@@ -1021,9 +1021,10 @@ def test_fp8_store_production_modes(sm90, heads, dim):
             c.kwargs["BLOCK_N"],
             c.kwargs["K_TILES"],
             c.kwargs["QUERY_PARTS"],
+            c.num_warps,
             c.num_stages,
         )
-        in ((8, 64, 4, 1, 2), (32, 64, 4, 2, 1))
+        in ((8, 64, 4, 1, 4, 2), (32, 64, 4, 2, 4, 1))
     ]
     assert len(configs) == 34 and len(selected) == 2
     check_score_kernel(

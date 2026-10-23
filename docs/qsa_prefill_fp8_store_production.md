@@ -107,3 +107,13 @@ also proves existing stage summaries and case results still reject the run
 without overwriting their contents.25 relevant orchestration/production-binding
 checks passed. No GPU correctness checks or performance measurements ran in
 this failed report; production/workloads/toolchain pins remain unchanged.
+
+Report7729a80bf0cf85b3f33266dd3e250b3982935da7 passed toolchain/preflight and40
+iteration checks. The next check failed before numerical launches: the new test
+selected representative configs without `num_warps`, so two legitimate P2/R32
+choices (4 and8 warps) both matched and the expected count2 was actually3.
+The selector now includes warp count, selecting P1/R8/W4/S2 and P2/R32/W4/S1.
+A CPU regression executes the actual GPU test's selection/count AST over all34
+real YAML configurations and verifies modes, warps and stages. Production code,
+tune configs, shape list and numerical tolerances remain unchanged. Remaining
+checks and all30 timings still require the next H800 run.

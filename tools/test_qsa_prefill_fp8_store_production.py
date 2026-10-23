@@ -66,6 +66,56 @@ class FP8StoreProductionTests(unittest.TestCase):
         )
         self.assertEqual(len(groups[GROUP]), 34)
 
+    def test_gpu_mode_selector_uses_full_yaml_config_including_warps(self):
+        groups = yaml.safe_load(
+            (
+                ROOT / "src/flaggems_vllm/runtime/backend/_nvidia/tune_configs.yaml"
+            ).read_text()
+        )
+        configs = [
+            types.SimpleNamespace(
+                kwargs=c["META"], num_warps=c["num_warps"], num_stages=c["num_stages"]
+            )
+            for c in groups[GROUP]
+        ]
+        function = functions(ROOT / "tests/test_qsa_select_paged_prefill.py")[
+            "test_fp8_store_production_modes"
+        ]
+        # Execute the real GPU test's selection and count assertion, rather
+        # than a copied predicate. No GPU imports or kernels are needed.
+        body = [
+            n
+            for n in function.body
+            if (
+                isinstance(n, ast.Assign)
+                and any(
+                    isinstance(t, ast.Name) and t.id == "selected" for t in n.targets
+                )
+            )
+            or isinstance(n, ast.Assert)
+        ]
+        self.assertEqual(len(body), 2)
+        ns = dict(configs=configs)
+        exec(
+            compile(
+                ast.Module(body=body, type_ignores=[]), "gpu_mode_selector", "exec"
+            ),
+            ns,
+        )
+        selected = ns["selected"]
+        self.assertEqual([c.num_warps for c in selected], [4, 4])
+        self.assertEqual([c.num_stages for c in selected], [2, 1])
+        self.assertEqual([c.kwargs["QUERY_PARTS"] for c in selected], [1, 2])
+        # The original failure was a legitimate extra8-warp choice in YAML.
+        self.assertTrue(
+            any(
+                c.kwargs == selected[1].kwargs
+                and c.num_stages == 1
+                and c.num_warps == 8
+                for c in configs
+            )
+        )
+
     def test_actual_host_dispatch_and_alignment(self):
         ns, _, _, _ = chunk.load()
         routes = []
