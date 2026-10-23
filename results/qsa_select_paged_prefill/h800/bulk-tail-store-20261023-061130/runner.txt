@@ -1,0 +1,238 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.ygq6komu
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.ygq6komu/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-store-probe.j7Zjpo/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-store-probe.j7Zjpo/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.bfloat16', 'width': 80, 'shift': 64, 'all_rows_checked': 15, 'bulk_active': True}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.bfloat16', 'width': 81, 'shift': 64, 'all_rows_checked': 15, 'bulk_active': False}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.bfloat16', 'width': 80, 'shift': 65, 'all_rows_checked': 15, 'bulk_active': False}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.float8_e4m3fn', 'width': 80, 'shift': 64, 'all_rows_checked': 15, 'bulk_active': True}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.float8_e4m3fn', 'width': 81, 'shift': 64, 'all_rows_checked': 15, 'bulk_active': False}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.float8_e4m3fn', 'width': 80, 'shift': 65, 'all_rows_checked': 15, 'bulk_active': False}
+Actual compiled stores: baseline [4519, 0, 29696] {'st.global.b32': 32}
+Actual compiled stores: baseline [4519, 4519, 29696] {'st.global.b32': 32}
+Actual compiled stores: baseline [4519, 9038, 29696] {'st.global.b32': 32}
+Actual compiled stores: baseline [2827, 13557, 29696] {'st.global.b32': 32}
+Actual compiled stores: candidate [4519, 0, 29696] {'st.global.b32': 64}
+Actual compiled stores: candidate [4519, 4519, 29696] {'st.global.b32': 64}
+Actual compiled stores: candidate [4519, 9038, 29696] {'st.global.b32': 64}
+Actual compiled stores: candidate [2827, 13557, 29696] {'st.global.b32': 64}
+Resources: baseline [4519, 0, 29696] regs 234 smem 81920 spills 0
+Resources: baseline [4519, 4519, 29696] regs 234 smem 81920 spills 0
+Resources: baseline [4519, 9038, 29696] regs 234 smem 81920 spills 0
+Resources: baseline [2827, 13557, 29696] regs 234 smem 81920 spills 0
+Resources: candidate [4519, 0, 29696] regs 255 smem 81920 spills 16
+Resources: candidate [4519, 4519, 29696] regs 255 smem 81920 spills 16
+Resources: candidate [4519, 9038, 29696] regs 255 smem 81920 spills 16
+Resources: candidate [2827, 13557, 29696] regs 255 smem 81920 spills 16
+
+Bulk/tail store probe: perf_n1_q16384_p102400_bfloat16
+kernel模式；原combined/候选；不是全30组生产验收。
+stage  original_us  bulk_tail_us  speedup  paired_min  paired_max
+-----  -----------  ------------  -------  ----------  ----------
+score  1734.720     2010.664      0.8628   0.8595      0.8660    
+A/A  ratio  min  max
+---  -----  ---  ---
+
+Bulk/tail store probe: perf_n1_q16384_p102400_bfloat16
+kernel模式；原combined/候选；不是全30组生产验收。
+stage  original_us  bulk_tail_us  speedup  paired_min  paired_max
+-----  -----------  ------------  -------  ----------  ----------
+score  1734.720     2010.664      0.8628   0.8595      0.8660    
+topk   1478.880     1479.160      0.9998   0.9997      0.9999    
+A/A  ratio  min  max
+---  -----  ---  ---
+
+Bulk/tail store probe: perf_n1_q16384_p102400_bfloat16
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1734.720     2010.664      0.8628   0.8595      0.8660    
+topk      1478.880     1479.160      0.9998   0.9997      0.9999    
+pipeline  3228.280     3477.648      0.9283   0.9236      0.9330    
+A/A  ratio  min  max
+---  -----  ---  ---
+
+Bulk/tail store probe: perf_n1_q16384_p102400_bfloat16
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1734.720     2010.664      0.8628   0.8595      0.8660    
+topk      1478.880     1479.160      0.9998   0.9997      0.9999    
+pipeline  3228.280     3477.648      0.9283   0.9236      0.9330    
+A/A             ratio   min     max   
+--------------  ------  ------  ------
+original:score  0.9993  0.9947  1.0039
+
+Bulk/tail store probe: perf_n1_q16384_p102400_bfloat16
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1734.720     2010.664      0.8628   0.8595      0.8660    
+topk      1478.880     1479.160      0.9998   0.9997      0.9999    
+pipeline  3228.280     3477.648      0.9283   0.9236      0.9330    
+A/A                ratio   min     max   
+-----------------  ------  ------  ------
+original:score     0.9993  0.9947  1.0039
+original:pipeline  0.9985  0.9957  1.0013
+
+Bulk/tail store probe: perf_n1_q16384_p102400_bfloat16
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1734.720     2010.664      0.8628   0.8595      0.8660    
+topk      1478.880     1479.160      0.9998   0.9997      0.9999    
+pipeline  3228.280     3477.648      0.9283   0.9236      0.9330    
+A/A                ratio   min     max   
+-----------------  ------  ------  ------
+original:score     0.9993  0.9947  1.0039
+original:pipeline  0.9985  0.9957  1.0013
+bulk_tail:score    0.9974  0.9909  1.0040
+
+Bulk/tail store probe: perf_n1_q16384_p102400_bfloat16
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1734.720     2010.664      0.8628   0.8595      0.8660    
+topk      1478.880     1479.160      0.9998   0.9997      0.9999    
+pipeline  3228.280     3477.648      0.9283   0.9236      0.9330    
+A/A                 ratio   min     max   
+------------------  ------  ------  ------
+original:score      0.9993  0.9947  1.0039
+original:pipeline   0.9985  0.9957  1.0013
+bulk_tail:score     0.9974  0.9909  1.0040
+bulk_tail:pipeline  0.9991  0.9964  1.0019
+
+Bulk/tail store probe: perf_n1_q16384_p102400_bfloat16
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1734.720     2010.664      0.8628   0.8595      0.8660    
+topk      1478.880     1479.160      0.9998   0.9997      0.9999    
+pipeline  3228.280     3477.648      0.9283   0.9236      0.9330    
+A/A                 ratio   min     max   
+------------------  ------  ------  ------
+original:score      0.9993  0.9947  1.0039
+original:pipeline   0.9985  0.9957  1.0013
+bulk_tail:score     0.9974  0.9909  1.0040
+bulk_tail:pipeline  0.9991  0.9964  1.0019
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-store-probe.j7Zjpo/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-store-probe.j7Zjpo/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.bfloat16', 'width': 80, 'shift': 64, 'all_rows_checked': 15, 'bulk_active': True}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.bfloat16', 'width': 81, 'shift': 64, 'all_rows_checked': 15, 'bulk_active': False}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.bfloat16', 'width': 80, 'shift': 65, 'all_rows_checked': 15, 'bulk_active': False}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.float8_e4m3fn', 'width': 80, 'shift': 64, 'all_rows_checked': 15, 'bulk_active': True}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.float8_e4m3fn', 'width': 81, 'shift': 64, 'all_rows_checked': 15, 'bulk_active': False}
+完整边界校验: {'status': 'passed', 'dtype': 'torch.float8_e4m3fn', 'width': 80, 'shift': 65, 'all_rows_checked': 15, 'bulk_active': False}
+Actual compiled stores: baseline [4519, 0, 29696] {'st.global.b32': 32}
+Actual compiled stores: baseline [4519, 4519, 29696] {'st.global.b32': 32}
+Actual compiled stores: baseline [4519, 9038, 29696] {'st.global.b32': 32}
+Actual compiled stores: baseline [2827, 13557, 29696] {'st.global.b32': 32}
+Actual compiled stores: candidate [4519, 0, 29696] {'st.global.b32': 64}
+Actual compiled stores: candidate [4519, 4519, 29696] {'st.global.b32': 64}
+Actual compiled stores: candidate [4519, 9038, 29696] {'st.global.b32': 64}
+Actual compiled stores: candidate [2827, 13557, 29696] {'st.global.b32': 64}
+Resources: baseline [4519, 0, 29696] regs 154 smem 49152 spills 0
+Resources: baseline [4519, 4519, 29696] regs 154 smem 49152 spills 0
+Resources: baseline [4519, 9038, 29696] regs 154 smem 49152 spills 0
+Resources: baseline [2827, 13557, 29696] regs 154 smem 49152 spills 0
+Resources: candidate [4519, 0, 29696] regs 144 smem 49152 spills 0
+Resources: candidate [4519, 4519, 29696] regs 144 smem 49152 spills 0
+Resources: candidate [4519, 9038, 29696] regs 144 smem 49152 spills 0
+Resources: candidate [2827, 13557, 29696] regs 144 smem 49152 spills 0
+
+Bulk/tail store probe: fp8_long100k_float8_e4m3fn
+kernel模式；原combined/候选；不是全30组生产验收。
+stage  original_us  bulk_tail_us  speedup  paired_min  paired_max
+-----  -----------  ------------  -------  ----------  ----------
+score  1272.480     1442.352      0.8822   0.8815      0.8829    
+A/A  ratio  min  max
+---  -----  ---  ---
+
+Bulk/tail store probe: fp8_long100k_float8_e4m3fn
+kernel模式；原combined/候选；不是全30组生产验收。
+stage  original_us  bulk_tail_us  speedup  paired_min  paired_max
+-----  -----------  ------------  -------  ----------  ----------
+score  1272.480     1442.352      0.8822   0.8815      0.8829    
+topk   1472.296     1472.664      0.9998   0.9997      0.9998    
+A/A  ratio  min  max
+---  -----  ---  ---
+
+Bulk/tail store probe: fp8_long100k_float8_e4m3fn
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1272.480     1442.352      0.8822   0.8815      0.8829    
+topk      1472.296     1472.664      0.9998   0.9997      0.9998    
+pipeline  2779.712     2952.864      0.9414   0.9413      0.9414    
+A/A  ratio  min  max
+---  -----  ---  ---
+
+Bulk/tail store probe: fp8_long100k_float8_e4m3fn
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1272.480     1442.352      0.8822   0.8815      0.8829    
+topk      1472.296     1472.664      0.9998   0.9997      0.9998    
+pipeline  2779.712     2952.864      0.9414   0.9413      0.9414    
+A/A             ratio   min     max   
+--------------  ------  ------  ------
+original:score  0.9996  0.9993  0.9999
+
+Bulk/tail store probe: fp8_long100k_float8_e4m3fn
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1272.480     1442.352      0.8822   0.8815      0.8829    
+topk      1472.296     1472.664      0.9998   0.9997      0.9998    
+pipeline  2779.712     2952.864      0.9414   0.9413      0.9414    
+A/A                ratio   min     max   
+-----------------  ------  ------  ------
+original:score     0.9996  0.9993  0.9999
+original:pipeline  0.9998  0.9993  1.0003
+
+Bulk/tail store probe: fp8_long100k_float8_e4m3fn
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1272.480     1442.352      0.8822   0.8815      0.8829    
+topk      1472.296     1472.664      0.9998   0.9997      0.9998    
+pipeline  2779.712     2952.864      0.9414   0.9413      0.9414    
+A/A                ratio   min     max   
+-----------------  ------  ------  ------
+original:score     0.9996  0.9993  0.9999
+original:pipeline  0.9998  0.9993  1.0003
+bulk_tail:score    0.9985  0.9976  0.9994
+
+Bulk/tail store probe: fp8_long100k_float8_e4m3fn
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1272.480     1442.352      0.8822   0.8815      0.8829    
+topk      1472.296     1472.664      0.9998   0.9997      0.9998    
+pipeline  2779.712     2952.864      0.9414   0.9413      0.9414    
+A/A                 ratio   min     max   
+------------------  ------  ------  ------
+original:score      0.9996  0.9993  0.9999
+original:pipeline   0.9998  0.9993  1.0003
+bulk_tail:score     0.9985  0.9976  0.9994
+bulk_tail:pipeline  0.9982  0.9960  1.0004
+
+Bulk/tail store probe: fp8_long100k_float8_e4m3fn
+kernel模式；原combined/候选；不是全30组生产验收。
+stage     original_us  bulk_tail_us  speedup  paired_min  paired_max
+--------  -----------  ------------  -------  ----------  ----------
+score     1272.480     1442.352      0.8822   0.8815      0.8829    
+topk      1472.296     1472.664      0.9998   0.9997      0.9998    
+pipeline  2779.712     2952.864      0.9414   0.9413      0.9414    
+A/A                 ratio   min     max   
+------------------  ------  ------  ------
+original:score      0.9996  0.9993  0.9999
+original:pipeline   0.9998  0.9993  1.0003
+bulk_tail:score     0.9985  0.9976  0.9994
+bulk_tail:pipeline  0.9982  0.9960  1.0004
