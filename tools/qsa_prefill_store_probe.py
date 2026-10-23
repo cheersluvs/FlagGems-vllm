@@ -312,7 +312,9 @@ def worker(options):
             )
         result["compiler_matches_capture"] = True
         result["boundary_checks"] = boundary_checks(production, helpers, torch, device)
-        case = next(c for c in bench.workloads.cases() if c["name"] == name)
+        case = next(
+            c for c in bench.workloads.cases("scored-prefill") if c["name"] == name
+        )
         result["case"] = case
         os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = str(case["budget_mb"])
         args = bench.workloads.make_inputs(case, helpers, torch)

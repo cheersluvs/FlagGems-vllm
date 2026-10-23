@@ -18,6 +18,14 @@ from tools import qsa_prefill_store_probe as probe
 
 
 class StoreProbeTests(unittest.TestCase):
+    def test_both_probe_cases_are_in_explicit_scored_suite(self):
+        from tools import qsa_prefill_observed_workloads as workloads
+
+        names = {c["name"] for c in workloads.cases("scored-prefill")}
+        self.assertTrue(set(probe.CASES) <= names)
+        # The default suite is upstream-only and omits FP8.
+        self.assertNotIn(probe.CASES[1], {c["name"] for c in workloads.cases()})
+
     def test_only_output_stores_change_in_the_private_scorer(self):
         probe.verify_source()
         old = ast.parse(
@@ -238,7 +246,7 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
             kernel_rep_ms=100,
         )
 
-        options.worker_case = probe.CASES[0]
+        options.worker_case = case_name or probe.CASES[0]
 
         def timer(fn):
             fn()
@@ -304,7 +312,7 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
             for item in patches:
                 stack.enter_context(item)
             code = probe.worker(options)
-        return code, json.loads((root / (probe.CASES[0] + ".json")).read_text())
+        return code, json.loads((root / (options.worker_case + ".json")).read_text())
 
     def test_worker_records_all_stages_and_four_controls_with_original_timer(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -323,6 +331,13 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
                     [["baseline", "candidate"], ["candidate", "baseline"]],
                 )
             self.assertTrue((Path(folder) / (probe.CASES[0] + ".tsv")).is_file())
+
+    def test_fp8_worker_selects_the_case_outside_default_upstream_suite(self):
+        with tempfile.TemporaryDirectory() as folder:
+            code, result = self.run_worker(Path(folder), case_name=probe.CASES[1])
+            self.assertEqual(code, 0, result.get("error"))
+            self.assertEqual(result["case"]["name"], probe.CASES[1])
+            self.assertEqual(set(result["stages"]), {"score", "topk", "pipeline"})
 
     def test_failed_pipeline_validation_stops_without_a_success_flag(self):
         with tempfile.TemporaryDirectory() as folder:

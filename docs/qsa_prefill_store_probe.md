@@ -56,7 +56,7 @@ PTX and TTGIR come from actual compiled callables. Do not compare profiler repla
 durations with these timings. The new source uses standard Triton operations;
 no NVIDIA-specific instruction/API is added by the bulk/tail change.
 
-Local validation:28 CPU checks pass across this probe, the preceding query
+Local validation:30 CPU checks pass across this probe, the preceding query
 probe, fixed-query plumbing and the shared score benchmark timer. Checks include
 AST equivalence of all scoring math, exact output-mask partition, strict original
 fixed choices, alignment routing without changing launch arguments, unchanged
@@ -67,3 +67,6 @@ scalar stores may remain or extra tail instructions may outweigh vector gains.
 
 No production changes or formal30-case acceptance claim are made here. If the
 probe works, the next step is measured regression coverage before integration.
+
+Both workers explicitly select from scored-prefill; the default workload suite
+is upstream-only and omits FP8. A regression check exercises the FP8 worker.
