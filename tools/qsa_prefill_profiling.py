@@ -184,7 +184,7 @@ def run_process(command, *, timeout, env=None, log=None):
         return 124
 
 
-def ncu_command(ncu, csv_path, worker):
+def ncu_command(ncu, csv_path, worker, *, metrics=None):
     return [
         ncu,
         "--profile-from-start",
@@ -201,7 +201,11 @@ def ncu_command(ncu, csv_path, worker):
         "raw",
         "--log-file",
         str(csv_path),
-        *[arg for section in SECTIONS for arg in ("--section", section)],
+        *(
+            ["--metrics", ",".join(metrics)]
+            if metrics is not None
+            else [arg for section in SECTIONS for arg in ("--section", section)]
+        ),
         *worker,
     ]
 
@@ -371,7 +375,7 @@ def find_ncu(explicit=None):
     return None
 
 
-def collect_counters(options, facts, command, *, cache_report=None):
+def collect_counters(options, facts, command, *, cache_report=None, metric_names=None):
     from tools import benchmark_qsa_prefill_stages as support
     from tools import benchmark_qsa_prefill_triton_stages as bench
 
@@ -392,7 +396,8 @@ def collect_counters(options, facts, command, *, cache_report=None):
     if any(section not in facts["ncu_sections"]["stdout"] for section in SECTIONS):
         raise RuntimeError("Requested Nsight Compute sections unavailable")
     facts["capture_policy"] = dict(
-        sections=SECTIONS,
+        sections=SECTIONS if metric_names is None else [],
+        metrics=metric_names,
         replay_mode="kernel",
         cache_control="none",
         clock_control="none",
@@ -425,7 +430,11 @@ def collect_counters(options, facts, command, *, cache_report=None):
             "--worker",
             name,
         ]
-        cmd = ncu_command(facts["ncu"], csv_path, worker)
+        cmd = (
+            ncu_command(facts["ncu"], csv_path, worker, metrics=metric_names)
+            if metric_names is not None
+            else ncu_command(facts["ncu"], csv_path, worker)
+        )
         record = dict(case=name, command=cmd, status="running")
         facts["profiles"].append(record)
         support.write_json(output, facts)
