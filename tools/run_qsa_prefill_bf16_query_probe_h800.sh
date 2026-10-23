@@ -13,6 +13,12 @@ git -C "$qsa_repo" rev-parse HEAD
 git -C "$qsa_repo" status --short
 unset PYTHONPATH PYTHONHOME QSA_TRITON_RUNTIME_PATH QSA_NATIVE_REFERENCE_PYTHON QSA_NATIVE_REPORT_DIR QSA_NATIVE_RESULT_PATH CUDA_LAUNCH_BLOCKING
 export PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 DNN_VENDOR=nvidia VLLM_PLUGINS=""
+qsa_kind=bf16-query-probe
+for qsa_arg in "$@"; do
+  if [[ "$qsa_arg" == upstream-prefill || "$qsa_arg" == --suite=upstream-prefill ]]; then
+    qsa_kind=bf16-query-upstream
+  fi
+done
 qsa_status=0
 if "$qsa_python" -I "$qsa_repo/tools/with_cuda_compat134.py" \
   --script "$qsa_repo/tools/qsa_prefill_bf16_query_probe.py" \
@@ -29,7 +35,7 @@ qsa_stamp=$(date -u +%Y%m%d-%H%M%S)
 qsa_branch="codex/qsa-h800-results-$qsa_stamp"
 qsa_tree=$(mktemp -d "${TMPDIR:-/tmp}/flaggems-qsa-probe-results.XXXXXX")
 git -C "$qsa_repo" worktree add -b "$qsa_branch" "$qsa_tree" HEAD
-qsa_dest="results/qsa_select_paged_prefill/h800/bf16-query-probe-$qsa_stamp"
+qsa_dest="results/qsa_select_paged_prefill/h800/$qsa_kind-$qsa_stamp"
 mkdir -p "$qsa_tree/$qsa_dest"
 shopt -s nullglob
 qsa_files=("$qsa_report"/*.json "$qsa_report"/*.txt "$qsa_report"/*.tsv)

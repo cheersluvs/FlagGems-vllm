@@ -1,0 +1,1907 @@
+{
+  "schema": 1,
+  "source_commit": "f6a41ae371cbc0907bb2b2aa4e2eca2c49966a18",
+  "candidate_source_sha256": "1ef12d431b65971c5617f0a34f614360008c652a36125d5679da00206b212d7c",
+  "compiler_identity": {
+    "torch": "2.13.0+cu129",
+    "triton": "3.6.0",
+    "vllm": "0.31.0+cu129",
+    "compiler_files": {
+      "triton.backends.nvidia.compiler": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68",
+      "triton.backends.nvidia.driver": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d",
+      "triton.knobs": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793",
+      "triton._C.libtriton": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+    },
+    "flagtree_files": {
+      "triton": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30",
+      "triton.testing": "54b1a09e41f716151e46143f94c4a816090f2f4dea72752bf5f8071293540e7f",
+      "triton.backends.nvidia.compiler": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68",
+      "triton.backends.nvidia.driver": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d",
+      "triton.knobs": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793",
+      "triton._C.libtriton": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e",
+      "triton.experimental.tle.language": "9b9cf2e186e4a3886156fdc00e14f69ac12d671d9b689506bf54699475b29fc6"
+    },
+    "ptxas": "9c2c084df7eb9be48f0502b6938ce2571679b2a78cad1c564b583bd7d9ea3c50",
+    "libcuda": "85a8cc8cf00419ceb295ec62c481d05b4cdbdab10f25c5375d6d24bdbe00b4d9"
+  },
+  "cases": [
+    {
+      "case": {
+        "name": "perf_n1_q8192_p8192_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 1,
+        "query_length": 8192,
+        "prefix_tokens": 8192,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            8192,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "563defc61b63116165bbcc31bf773362559f50943543eb0cf8d1962893202b69"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            21,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "740d0010306c425dfba5dea4d7f6237fe15d8b72daf59ec6cc9d4229de90bb6c"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            21
+          ],
+          "stride": [
+            21,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "e867a93d43e7db87c7dc4c86b601e3b89d1bca55718086b9f4af446a692fee6a"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "270e67d6266e08628bc27ec405e4cbaf41b29327111583ee3fb7b99c48abff3a"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            8192
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "972355c247b3d8a1b5470830490e51ec8e028bc0a87db1d46096d457f22d71d0"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 8192
+        },
+        {
+          "argument": 8,
+          "shape": [
+            8192,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 16384
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 8192,
+          "width": 4096,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n1_q8192_p8192_bfloat16.json",
+      "report_blob_sha1": "5df097a0ff43b4f67d5ec585885acf8d50631842",
+      "report_sha256": "6b7e4a01d9f0f1b3ac87388ecd7bf8ac1173cdd4d6f0bbcb3f76bed6337c524f"
+    },
+    {
+      "case": {
+        "name": "perf_n1_q8192_p51200_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 1,
+        "query_length": 8192,
+        "prefix_tokens": 51200,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            8192,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "563defc61b63116165bbcc31bf773362559f50943543eb0cf8d1962893202b69"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            76,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "047080858a1c478ec776d6498a1a599171ed00030c039ff5320d441c84427c18"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            76
+          ],
+          "stride": [
+            76,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "444bbabcdda50d053c5049bf9ba7bc875a1d81136e4552776057965fbd26a4c0"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "270e67d6266e08628bc27ec405e4cbaf41b29327111583ee3fb7b99c48abff3a"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            8192
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "f87037cb02a40f7f1402f71299cd771392c90d1b82a44311cb88b18c91372fa5"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 8192
+        },
+        {
+          "argument": 8,
+          "shape": [
+            8192,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 59392
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 8192,
+          "width": 14848,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n1_q8192_p51200_bfloat16.json",
+      "report_blob_sha1": "60430a68af69208a5f90e09797de9ed6fd9fd2df",
+      "report_sha256": "4c0110c16cc02bdec88eec89b5f3e2bfa654be9cf354118a97415bdad33f499d"
+    },
+    {
+      "case": {
+        "name": "perf_n1_q8192_p102400_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 1,
+        "query_length": 8192,
+        "prefix_tokens": 102400,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            8192,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "563defc61b63116165bbcc31bf773362559f50943543eb0cf8d1962893202b69"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            142,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "e1bfff1f809f4b440e903cd5635f2ec7530fa74eb1bafd81f450d213ce673268"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            142
+          ],
+          "stride": [
+            142,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "1a3c361ed882d88b5424be673721f66562d83b8056cae677a5c38b40befe3de9"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "270e67d6266e08628bc27ec405e4cbaf41b29327111583ee3fb7b99c48abff3a"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            8192
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "14cc463d30de0241ece0dbca4049c922309750143222c838306a197bba49121d"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 8192
+        },
+        {
+          "argument": 8,
+          "shape": [
+            8192,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 110592
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 4854,
+          "width": 27648,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 4854,
+          "rows": 3338,
+          "width": 27648,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n1_q8192_p102400_bfloat16.json",
+      "report_blob_sha1": "59796ebfbef00a8b6a6d6a225b5fa44d94dd1888",
+      "report_sha256": "7df4077b2e8bec4f4fe9eda73aa69fb95560da1b568aa8f21eadf5c82b8513af"
+    },
+    {
+      "case": {
+        "name": "perf_n1_q16384_p8192_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 1,
+        "query_length": 16384,
+        "prefix_tokens": 8192,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            32,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "d4e4f37825e475d174b0eb5e02ec31a83d702faa3c07bd0bd5b97d8cd797fcb8"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            32
+          ],
+          "stride": [
+            32,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "c8f374f5d2e94a8364024892487512f271701ef5b887883fc86f8ce728d324b5"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "45055f7d65263fdd23060bb67886e2269ca996e23f5d9423ee2c445432dbfe73"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "7204b8857c397bb61a0fde30f403e25e07bb44807231633955b116ade3e731e5"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 16384
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 24576
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 16384,
+          "width": 6144,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n1_q16384_p8192_bfloat16.json",
+      "report_blob_sha1": "fa091faad97443df2f7481586ba353e26537c0f9",
+      "report_sha256": "464e15d270484f95d8a18aa0f74b64fbaf5067baa0ca8bf56b96bf1445c8b534"
+    },
+    {
+      "case": {
+        "name": "perf_n1_q16384_p51200_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 1,
+        "query_length": 16384,
+        "prefix_tokens": 51200,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            87,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "ad0d62b734a5c18203fa386d0e80f63a6af95b6676f963ed08b59f5df36b1b4f"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            87
+          ],
+          "stride": [
+            87,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "ecfa010b13e99e546940092ab8f4047443ee1dd5a1f3dc0051e41d24954912f0"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "45055f7d65263fdd23060bb67886e2269ca996e23f5d9423ee2c445432dbfe73"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "48a1b22d7c94badf1ab2e1e08001ca046dfbf2d1073aa8eddf8ad198f4677180"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 16384
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 67584
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 7943,
+          "width": 16896,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 7943,
+          "rows": 7943,
+          "width": 16896,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 15886,
+          "rows": 498,
+          "width": 16896,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n1_q16384_p51200_bfloat16.json",
+      "report_blob_sha1": "ebe9cfa958b5fa1b006d4be1c92eaca723977c10",
+      "report_sha256": "e272bc503bf6b29cc9446f55937c3b0b42e93b4cd2fd53ff243ee900deaaa250"
+    },
+    {
+      "case": {
+        "name": "perf_n1_q16384_p102400_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 1,
+        "query_length": 16384,
+        "prefix_tokens": 102400,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            152,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "5f29d302812106d52af9699645c4bee7e25c34391bd5b847af39d45530e0f072"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            152
+          ],
+          "stride": [
+            152,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "a12fa7c1a2a6592e1f4a62baeaae9713ef741373f40f08a363267d5369a2b26f"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "45055f7d65263fdd23060bb67886e2269ca996e23f5d9423ee2c445432dbfe73"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "f13bf99009ed2597e4e2d06b4cae87275e4eee66692681f28930d49312c9a0ca"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 16384
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 118784
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 4519,
+          "width": 29696,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 4519,
+          "rows": 4519,
+          "width": 29696,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 9038,
+          "rows": 4519,
+          "width": 29696,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 13557,
+          "rows": 2827,
+          "width": 29696,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n1_q16384_p102400_bfloat16.json",
+      "report_blob_sha1": "2769d29d9d2456221a696449795820772ddc0fca",
+      "report_sha256": "a7ad15ba69b62c81669b3635c38a37f749ac1c9b1928b675ad3c16777cd4eb8a"
+    },
+    {
+      "case": {
+        "name": "perf_n2_q8192_p8192_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 2,
+        "query_length": 8192,
+        "prefix_tokens": 8192,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            42,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "279b1ae78e18f996586b1ffcfd87dbeba9eaff2b8c99753cd107d4b7010de9b4"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            2,
+            21
+          ],
+          "stride": [
+            21,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "e6801749bfd308a724b041306e0d60d952e55c45cd141ed379bdb26cec074944"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            3
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "2d2a2ee83b6481452c82a56c0dfe928cd04644ca997383b8da6e275789b9d821"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "d6b24cae462967e54f0ee7a8346a72cc940743f80e27af92aaabf8ce493bc7e4"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 8192
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 16384
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 16384,
+          "width": 4096,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n2_q8192_p8192_bfloat16.json",
+      "report_blob_sha1": "325525d68685812a6870b7dbfa4bf3e96e0215af",
+      "report_sha256": "d25309d7920f1964fca53f868b5d77905e8307ad6708ddf3ceae33e854ab119c"
+    },
+    {
+      "case": {
+        "name": "perf_n2_q8192_p51200_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 2,
+        "query_length": 8192,
+        "prefix_tokens": 51200,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            152,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "5f29d302812106d52af9699645c4bee7e25c34391bd5b847af39d45530e0f072"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            2,
+            76
+          ],
+          "stride": [
+            76,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "a12fa7c1a2a6592e1f4a62baeaae9713ef741373f40f08a363267d5369a2b26f"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            3
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "2d2a2ee83b6481452c82a56c0dfe928cd04644ca997383b8da6e275789b9d821"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "e87123741dc24fddec8dbbaa1660bae7391304404d66bf635cb3d4b7381b442e"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 8192
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 59392
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 9039,
+          "width": 14848,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 9039,
+          "rows": 7345,
+          "width": 14848,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n2_q8192_p51200_bfloat16.json",
+      "report_blob_sha1": "c5a536bc494e939c471d7e072e18aa9ed263bab7",
+      "report_sha256": "84c1bef43f02b118efc8914a0bc6870cc73e68dc3c595593f4fb4392f060c869"
+    },
+    {
+      "case": {
+        "name": "perf_n2_q8192_p102400_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 2,
+        "query_length": 8192,
+        "prefix_tokens": 102400,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            284,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "8a807d0e1e5e616738d8c60fa972b9bc7ab965d9050dfe2c91f49f79f0172d35"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            2,
+            142
+          ],
+          "stride": [
+            142,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "525077e3a7bf0e56832a14ea6a44b8efc57ff59788277175d2e87491b6927deb"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            3
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "2d2a2ee83b6481452c82a56c0dfe928cd04644ca997383b8da6e275789b9d821"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "46732461017b55d6690c7fabe8daa4c0754b8ee6aad6239b350bb5222a9f6ae3"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 8192
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 110592
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 4854,
+          "width": 27648,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 4854,
+          "rows": 4854,
+          "width": 27648,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 9708,
+          "rows": 4854,
+          "width": 27648,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 14562,
+          "rows": 1822,
+          "width": 27648,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n2_q8192_p102400_bfloat16.json",
+      "report_blob_sha1": "24088a1967d0e0e215e3448ca12197a568767009",
+      "report_sha256": "2a39160e19035d2b526232378bc8438e41c837ccadeaf87aa70a00f551c20517"
+    },
+    {
+      "case": {
+        "name": "perf_n4_q4096_p8192_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 4,
+        "query_length": 4096,
+        "prefix_tokens": 8192,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            64,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "cc36943df10cbd281009378eda8cb55e1150719f4cb77ac2165a4f596cb2a287"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            4,
+            16
+          ],
+          "stride": [
+            16,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "cda034fc1549cb7079b8475a4c37a4e8d50738b1c7e78f8fb4c4e0b355c5514d"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            5
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "d265818fd6e3ddb1b947a2539369b89d45e7961a1ae550655382969cdb37fb72"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "aeefe3fba591b86e3daf2ddb42a326126d6e164a2b18a50597b1761782358517"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 4096
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 12288
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 16384,
+          "width": 3072,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n4_q4096_p8192_bfloat16.json",
+      "report_blob_sha1": "543d02557733356cf61c34bc09e3b26da54d55ff",
+      "report_sha256": "2d670e46dfde4553b2e55b648416962a689da1c6d5ccad7beb74340337c46d7e"
+    },
+    {
+      "case": {
+        "name": "perf_n4_q4096_p51200_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 4,
+        "query_length": 4096,
+        "prefix_tokens": 51200,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            284,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "8a807d0e1e5e616738d8c60fa972b9bc7ab965d9050dfe2c91f49f79f0172d35"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            4,
+            71
+          ],
+          "stride": [
+            71,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "525077e3a7bf0e56832a14ea6a44b8efc57ff59788277175d2e87491b6927deb"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            5
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "d265818fd6e3ddb1b947a2539369b89d45e7961a1ae550655382969cdb37fb72"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "085a6f6fb1e76593238816961d1340c6d9321e9df358d22a7a280416f942d5a3"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 4096
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 55296
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 9709,
+          "width": 13824,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 9709,
+          "rows": 6675,
+          "width": 13824,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n4_q4096_p51200_bfloat16.json",
+      "report_blob_sha1": "92085c56b44ddd8827eb149cb2abd04670fe2529",
+      "report_sha256": "877ed504f41ea5f33ffe793f559408f8dc3b4572b5db7c5b04268485000c89a8"
+    },
+    {
+      "case": {
+        "name": "perf_n4_q4096_p102400_bfloat16",
+        "kind": "upstream_perf",
+        "requests": 4,
+        "query_length": 4096,
+        "prefix_tokens": 102400,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "bfloat16"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "47c020214b06c069d7958a87bd7d0b796b270271297e199cb379be81fd323749"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            544,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.bfloat16",
+          "storage_offset": 0,
+          "sha256": "8f7f1f81c25bf170ccef5b93995e9566e48eb45bae37a991935a859504975728"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            4,
+            136
+          ],
+          "stride": [
+            136,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "a830c34ec37f6684ed54839523963b462585840dfc3bd46e427b1f55b4aaea62"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            5
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "d265818fd6e3ddb1b947a2539369b89d45e7961a1ae550655382969cdb37fb72"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "54e22a107734e81a002d5fa53a95ff3365691ca6c535ef8176cfcb5df0529ea3"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 4096
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 106496
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 5041,
+          "width": 26624,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 5041,
+          "rows": 5041,
+          "width": 26624,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 10082,
+          "rows": 5041,
+          "width": 26624,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        },
+        {
+          "offset": 15123,
+          "rows": 1261,
+          "width": 26624,
+          "route": "rectangular",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 1
+          }
+        }
+      ],
+      "report_path": "results/qsa_select_paged_prefill/h800/flagtree134-stage-joint-20261022-084414/perf_n4_q4096_p102400_bfloat16.json",
+      "report_blob_sha1": "fd5be2735881b3ca6d5e4f917c2ec51cd55a78ad",
+      "report_sha256": "a8f15d0d9ecc3da1475190ad4cfa357c816af36ad541eb26bddb3cc342c64835"
+    }
+  ]
+}

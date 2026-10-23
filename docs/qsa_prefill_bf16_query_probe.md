@@ -89,3 +89,63 @@ fixed-entry/full-D split contracts. Changed-file pre-commit, shell syntax and
 CLI help passed. The actual3621d9ca BF16 report passes the baseline loader and
 compiler-identity extraction locally. H800 compilation, numerical correctness
 and performance of BF16 P2 remain unmeasured until the card run returns.
+
+## Upstream12 expansion: pre-coding board (2026-10-23)
+
+Probeed62e5dc: score1.028196, TopK0.999924, pipeline1.016504 for the long
+BF16 fixture; both paired pipeline samples positive. Registers234->176,
+shared80->88KiB. This supports retaining P2 privately, not production integration.
+
+| Project truth | Frozen choice |
+| --- | --- |
+| Editable | Existing probe coordinator/worker and wrapper, new upstream helper/config manifest and CPU checks, this document |
+| Read-only | Canonical and both private kernel sources, native reference, YAML/policies, original upstream12 definitions, timer/tolerances/GPU guards |
+| Active set | Exact upstream12 BF16 cases, every actual public chunk |
+| Configuration provenance | Reuse per-chunk selected P1 configs and input fingerprints from verified reportf6a41ae371cbc0907bb2b2aa4e2eca2c49966a18; freeze a SHA-pinned manifest, no retuning |
+| Metric | Same-run P1/P2 kernel-mode score/TopK/pipeline, rounds2,200ms/100ms; raw samples and paired ranges retained |
+| Aggregation | Arithmetic mean, minimum and cases below1 per stage; full12 completeness explicit; diagnostic only, not native-vLLM/full30 acceptance |
+| Validation/build | Source/manifest/runtime/input pins; first-case small all-row boundary guards; per-case pre/post numerical checks and compiled/config/common-logit freeze; CPU/pre-commit/shell checks |
+| Profiler/timeout | Static compiled resources only; no new NCU replay or native timing;1800s per case,120s cooldown,80C initial limit |
+| Autotune exemption | Private matched-config probe uses each original P1 tile/warps/stages/CTA, changing only query parts; no YAML/import/registration changes |
+| GPU delivery | Existing virtualenv + explicit FlagTree + pinned ptxas/CUDAcompat; isolated child per case, partial reports uploaded on failure |
+
+| Contract | Preserved |
+| --- | --- |
+| Inputs | Exact original upstream BF16 H4/D128/page196 inputs, strides, starts, visible lengths,512MiB budget and physical page maps; fingerprint equality mandatory |
+| Math/output | Full-D FP32 dot, per-head ReLU/head sum, real masked FP32 stores and original int32 selection semantics |
+| Boundaries | Actual request/chunk tails from each case; two existing small boundary fixtures once before the suite |
+| Unsupported/training | No new supported API/dtype/layout; inference only; no production torch fallback |
+
+| Path | Behavior | Gate |
+| --- | --- | --- |
+| Frozen input/config loading | Verified old case blob SHA/provenance captured in manifest; no old timing included | Original fixture/config source and compiler content must match |
+| P1/P2 measurement | Original public host discovers chunks under fixed P1; shared buffers, identical TopK callable and all real chunks | Unknown/mismatched geometry rejected, all numerical/telemetry guards retained |
+| Suite coordination | Sequential isolated workers, per-case live tables and cumulative stage means/minima, JSON/TSV | First failure stops, incomplete12 not presented as full12 success |
+| Integration | Not part of this change | Full correctness/full30 same-run validation required later |
+
+Enable the expansion with `--suite upstream-prefill` on the same wrapper.
+The46KB manifest contains only case/input/config/compiler fingerprints and
+original report blob identities, never historical timings. All12 original
+case blobs were verified against the Git tree atf6a41ae before extraction.
+It freezes26 chunks, including mixed R64/KT16 and R32/KT4 configurations within
+one shape; baseline per-chunk warps/stages/CTA remain exact. No autotune runs.
+The original single-case mode remains the default.
+
+Each case has an isolated worker and independent JSON/TSV. Small boundary
+checks run once in the first requested case; later records identify that case.
+Every case retains all numerical guards, four A/A controls and environmental
+checks. Cumulative terminal tables/summary report arithmetic mean, minimum and
+below-one names for score/TopK/pipeline. Only all12 validated records can mark
+full_upstream12_complete; explicit `--cases NAME ...` subsets stay partial.
+A failure stops later workers and preserves completed and failing raw files.
+Use `upstream-probe-timings.tsv` and terminal-summary.txt for the combined view.
+These P1/P2 ratios are not native-vLLM speedups and cannot be multiplied by
+old report ratios to infer new native-vLLM performance.
+
+Validation:45 affected CPU checks passed, including frozen-manifest integrity,
+real mixed chunk configs, compiler/content matching, suite-worker case selection,
+first-case boundary provenance, full12 coordination, partial-failure stopping,
+numerical/order/telemetry rejection and unweighted aggregation. Changed-file
+pre-commit, CLI help, shell syntax and diff checks passed. Kernel sources,
+production/YAML/benchmark definitions and the original timer remain unchanged.
+The expanded H800 run is pending; no new production optimization is accepted.

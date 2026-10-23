@@ -99,7 +99,12 @@ def make_pair(production, traces):
 def print_results(result):
     from tools.qsa_prefill_report import fmt, table
 
-    print("\nBF16 query probe: original fixed P1 vs BF16 split P2", flush=True)
+    print(
+        "\nBF16 query probe:",
+        result.get("case", {}).get("name", "preparing"),
+        flush=True,
+    )
+    print("original fixed P1 vs BF16 split P2", flush=True)
     print("仅 probe，不作为生产/全30组验收；speedup=P1/P2。", flush=True)
     table(
         ("stage", "P1_us", "P2_us", "speedup", "paired_min", "paired_max"),
@@ -143,13 +148,25 @@ def print_results(result):
                     fmt(kernel.get("registers_per_thread"), 0),
                     fmt(kernel.get("shared_bytes"), 0),
                     fmt(kernel.get("spill_count"), 0),
-                    kernel["constants"]["QUERY_PARTS"],
+                    "/".join(
+                        f"{label}{kernel['constants'][key]}"
+                        for label, key in (
+                            ("R", "TILE_R"),
+                            ("N", "BLOCK_N"),
+                            ("KT", "K_TILES"),
+                            ("W", "num_warps"),
+                            ("S", "num_stages"),
+                            ("CTA", "num_ctas"),
+                            ("P", "QUERY_PARTS"),
+                        )
+                    ),
                 )
             )
     if rows:
         print("编译资源（不是动态硬件计数器）", flush=True)
         table(
-            ("side", "rows/offset/width", "regs", "shared_bytes", "spills", "P"), rows
+            ("side", "rows/offset/width", "regs", "shared_bytes", "spills", "config"),
+            rows,
         )
     if result.get("error"):
         print(result["error"], flush=True)
@@ -275,29 +292,49 @@ def worker(options):
 
     support, scoring, ab = bench.support, bench.scoring, bench.ab
     report = Path(options.report_dir)
-    path = report / "probe.json"
+    upstream = getattr(options, "suite", "single") == "upstream-prefill"
+    name = getattr(options, "worker_case", None) or CASE
+    path = report / ((name + ".json") if upstream else "probe.json")
     result = dict(
         status="running",
         acceptance_eligible=False,
         mode="kernel",
         stages={},
-        fixed_config=CONFIG,
+        fixed_config=None if upstream else CONFIG,
         query_parts_pair=[1, 2],
         source=verify_source(),
     )
     try:
-        saved, traces = baseline_record(options.baseline_report)
+        if upstream:
+            from tools.qsa_prefill_bf16_query_upstream import saved_record
+
+            saved, traces = saved_record(name)
+        else:
+            saved, traces = baseline_record(options.baseline_report)
+        result["fixed_traces"] = traces
         torch, native, production, _, helpers, device, info = bench.runtime(
             report / "qsa_indexer_vllm.py", path, options
         )
         result["runtime"] = info
-        if compiler_identity(info) != compiler_identity(saved["runtime"]):
+        expected_compiler = (
+            saved["compiler_identity"]
+            if upstream
+            else compiler_identity(saved["runtime"])
+        )
+        if compiler_identity(info) != expected_compiler:
             raise RuntimeError(
                 "Compiler/torch/vLLM identity differs from the captured baseline"
             )
         result["compiler_matches_capture"] = True
-        result["boundary_checks"] = boundary_checks(production, helpers, torch, device)
-        case = next(c for c in bench.workloads.cases() if c["name"] == CASE)
+        first = (
+            getattr(options, "cases", None) or [bench.workloads.cases()[0]["name"]]
+        )[0]
+        result["boundary_checks"] = (
+            [dict(status="covered_by_first_case", case=first)]
+            if upstream and name != first
+            else boundary_checks(production, helpers, torch, device)
+        )
+        case = next(c for c in bench.workloads.cases() if c["name"] == name)
         result["case"] = case
         os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = str(case["budget_mb"])
         args = bench.workloads.make_inputs(case, helpers, torch)
@@ -405,7 +442,9 @@ def worker(options):
             )
         monitor("after_all_validation")
         result.update(status="passed", production_modified=False)
-        with (report / "probe-timings.tsv").open("w") as stream:
+        with (report / ((name + ".tsv") if upstream else "probe-timings.tsv")).open(
+            "w"
+        ) as stream:
             writer = csv.writer(stream, delimiter="\t")
             writer.writerow(("stage", "P1_us", "P2_us", "speedup", "paired_ratios"))
             for name, value in result["stages"].items():
@@ -427,9 +466,54 @@ def worker(options):
         print_results(result)
 
 
-def coordinate(options):
+def prepare_environment(options, summary):
     from tools import benchmark_qsa_prefill_triton_stages as bench
     from tools import qsa_prefill_flagtree_ab as profile
+
+    report = Path(options.report_dir)
+    baseline_record(options.baseline_report)
+    tools = json.loads(
+        (Path(options.baseline_report) / "flagtree134-tools.json").read_text()
+    )
+    assembler = Path(tools["toolchain"]["ptxas"]["path"])
+    if sha(assembler) != profile.PTXAS_SHA256:
+        raise RuntimeError("Previous ptxas13.4 binary missing or changed")
+    os.environ["TRITON_PTXAS_PATH"] = str(assembler)
+    bench.support.write_json(report / "flagtree134-tools.json", tools)
+    if not profile.select_gpu(summary, options):
+        raise RuntimeError("No exclusive idle H800 available")
+    if not bench.idle_gate(
+        options, summary, report, "before_probe", bench.support.gpu_guard_module()
+    ):
+        raise RuntimeError("Initial GPU guard rejected")
+    reference = (Path(options.baseline_report) / "qsa_indexer_vllm.py").read_bytes()
+    if hashlib.sha256(reference).hexdigest() != bench.ab.REFERENCE_SHA256:
+        raise RuntimeError("Previous native reference source changed")
+    (report / "qsa_indexer_vllm.py").write_bytes(reference)
+    paths = set(bench.SOURCES) | {
+        "tools/qsa_prefill_bf16_query_probe.py",
+        "tools/qsa_prefill_bf16_query_probe_kernel.py",
+        "tools/test_qsa_prefill_bf16_query_probe.py",
+        "tools/qsa_prefill_bf16_query_upstream.py",
+        "tools/test_qsa_prefill_bf16_query_upstream.py",
+        "docs/qsa_prefill_bf16_query_configs.json",
+        "tools/run_qsa_prefill_bf16_query_probe_h800.sh",
+        "docs/qsa_prefill_bf16_query_probe.md",
+    }
+    bench.support.write_json(
+        report / "sources.json",
+        {
+            name: dict(sha256=sha(ROOT / name), text=(ROOT / name).read_text())
+            for name in sorted(paths)
+        },
+    )
+    bench.support.write_json(
+        report / "baseline-case.json", baseline_record(options.baseline_report)[0]
+    )
+
+
+def coordinate(options):
+    from tools import benchmark_qsa_prefill_triton_stages as bench
     from tools import qsa_prefill_profiling as profiling
 
     report = Path(options.report_dir)
@@ -446,42 +530,7 @@ def coordinate(options):
     )
     output = report / "probe-summary.json"
     try:
-        baseline_record(options.baseline_report)
-        tools = json.loads(
-            (Path(options.baseline_report) / "flagtree134-tools.json").read_text()
-        )
-        assembler = Path(tools["toolchain"]["ptxas"]["path"])
-        if sha(assembler) != profile.PTXAS_SHA256:
-            raise RuntimeError("Previous ptxas13.4 binary missing or changed")
-        os.environ["TRITON_PTXAS_PATH"] = str(assembler)
-        bench.support.write_json(report / "flagtree134-tools.json", tools)
-        if not profile.select_gpu(summary, options):
-            raise RuntimeError("No exclusive idle H800 available")
-        if not bench.idle_gate(
-            options, summary, report, "before_probe", bench.support.gpu_guard_module()
-        ):
-            raise RuntimeError("Initial GPU guard rejected")
-        reference = (Path(options.baseline_report) / "qsa_indexer_vllm.py").read_bytes()
-        if hashlib.sha256(reference).hexdigest() != bench.ab.REFERENCE_SHA256:
-            raise RuntimeError("Previous native reference source changed")
-        (report / "qsa_indexer_vllm.py").write_bytes(reference)
-        paths = set(bench.SOURCES) | {
-            "tools/qsa_prefill_bf16_query_probe.py",
-            "tools/qsa_prefill_bf16_query_probe_kernel.py",
-            "tools/test_qsa_prefill_bf16_query_probe.py",
-            "tools/run_qsa_prefill_bf16_query_probe_h800.sh",
-            "docs/qsa_prefill_bf16_query_probe.md",
-        }
-        bench.support.write_json(
-            report / "sources.json",
-            {
-                name: dict(sha256=sha(ROOT / name), text=(ROOT / name).read_text())
-                for name in sorted(paths)
-            },
-        )
-        bench.support.write_json(
-            report / "baseline-case.json", baseline_record(options.baseline_report)[0]
-        )
+        prepare_environment(options, summary)
         command = [
             sys.executable,
             "-I",
@@ -518,6 +567,14 @@ def main():
     parser.add_argument("--max-initial-temp-c", type=int, default=80)
     parser.add_argument("--cooldown-timeout", type=int, default=120)
     parser.add_argument("--cooldown-interval", type=int, default=10)
+    from tools.qsa_prefill_upstream_workloads import cases as upstream_cases
+
+    names = [c["name"] for c in upstream_cases()]
+    parser.add_argument(
+        "--suite", choices=("single", "upstream-prefill"), default="single"
+    )
+    parser.add_argument("--cases", choices=names, nargs="+")
+    parser.add_argument("--worker-case", choices=names, help=argparse.SUPPRESS)
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     options = parser.parse_args()
     options.report_dir = str(Path(options.report_dir).resolve())
@@ -535,7 +592,21 @@ def main():
         parser.error(
             "Positive timing/timeout/interval and nonnegative cooldown required"
         )
+    if options.suite == "single" and (options.cases or options.worker_case):
+        parser.error("--cases/--worker-case require --suite upstream-prefill")
+    if (
+        options.suite == "upstream-prefill"
+        and options.worker
+        and not options.worker_case
+    ):
+        parser.error("Suite workers require --worker-case")
     options.compiler, options.candidate = "flagtree", "production"
+    if options.suite == "upstream-prefill" and not options.worker:
+        from tools.qsa_prefill_bf16_query_upstream import (
+            coordinate as upstream_coordinate,
+        )
+
+        return upstream_coordinate(options)
     return worker(options) if options.worker else coordinate(options)
 
 

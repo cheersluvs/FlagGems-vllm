@@ -166,7 +166,9 @@ class ProbeTests(unittest.TestCase):
         for word in ("topk", "1.0000", "original validation failure", "全30组"):
             self.assertIn(word, stream.getvalue())
 
-    def run_worker(self, root, *, fail_pipeline=False):
+    def run_worker(
+        self, root, *, fail_pipeline=False, case_name=None, skip_boundaries=False
+    ):
         from tools import benchmark_qsa_prefill_triton_stages as bench
 
         class View:
@@ -200,6 +202,17 @@ class ProbeTests(unittest.TestCase):
             kernel_rep_ms=100,
         )
 
+        from tools import qsa_prefill_bf16_query_upstream as suite
+
+        if case_name:
+            options.suite = "upstream-prefill"
+            options.worker_case = case_name
+            options.cases = (
+                [bench.workloads.cases()[0]["name"], case_name]
+                if skip_boundaries
+                else [case_name]
+            )
+
         def timer(fn):
             fn()
             return 10.0
@@ -211,6 +224,11 @@ class ProbeTests(unittest.TestCase):
 
         with contextlib.ExitStack() as stack:
             patches = (
+                patch.object(
+                    suite,
+                    "saved_record",
+                    return_value=(dict(inputs=["stable"], compiler_identity={}), []),
+                ),
                 patch.object(
                     probe,
                     "baseline_record",
@@ -263,7 +281,9 @@ class ProbeTests(unittest.TestCase):
             for item in patches:
                 stack.enter_context(item)
             code = probe.worker(options)
-        return code, json.loads((root / "probe.json").read_text())
+        return code, json.loads(
+            (root / ((case_name + ".json") if case_name else "probe.json")).read_text()
+        )
 
     def test_worker_records_all_stages_and_four_controls_with_original_timer(self):
         with tempfile.TemporaryDirectory() as folder:
