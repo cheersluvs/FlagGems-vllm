@@ -22,6 +22,16 @@ def checked_file(path, expected):
     return path
 
 
+def gpu_uuid(value):
+    from tools.qsa_prefill_gpu_guard import UUID_PATTERN
+
+    value = str(value)
+    value = value if value.startswith("GPU-") else "GPU-" + value
+    if not UUID_PATTERN.fullmatch(value):
+        raise RuntimeError("Invalid recorded GPU UUID: " + value)
+    return value
+
+
 def prepare(options):
     """Preserve original runtime/source paths so the old worker can compare exactly."""
     original = Path(options.resume_report).resolve()
@@ -62,8 +72,8 @@ def prepare(options):
     if options.flagtree != measured_options["flagtree"]:
         raise RuntimeError("Use the original FlagTree directory for a matching profile")
     options.cases = [c["case"]["name"] for c in records]
-    uuid = records[0]["runtime"]["uuid"]
-    if any(c["runtime"]["uuid"] != uuid for c in records):
+    uuid = gpu_uuid(records[0]["runtime"]["uuid"])
+    if any(gpu_uuid(c["runtime"]["uuid"]) != uuid for c in records):
         raise RuntimeError("Mixed baseline GPU identities")
     for source in original.iterdir():
         if source.is_file() and source.suffix in (".json", ".txt", ".tsv"):
@@ -106,6 +116,10 @@ def main():
     parser.add_argument("--report-dir", required=True)
     parser.add_argument("--flagtree", default="/opt/flagtree")
     parser.add_argument("--ncu")
+    parser.add_argument("--prepare-ncu", action="store_true")
+    parser.add_argument(
+        "--ncu-archive", help="Already downloaded pinned Nsight Compute archive"
+    )
     parser.add_argument("--timeout", type=int, default=1800)
     options = parser.parse_args()
     if options.timeout <= 0:
@@ -123,6 +137,7 @@ def main():
             )
             for name in (
                 "tools/qsa_prefill_profile_resume.py",
+                "tools/qsa_ncu_portable.py",
                 "tools/qsa_prefill_profiling.py",
                 "tools/run_qsa_prefill_profiling_h800.sh",
             )
@@ -130,6 +145,10 @@ def main():
         (output / "resume-sources.json").write_text(
             json.dumps(sources, indent=2) + "\n"
         )
+        if options.prepare_ncu and not profiling.find_ncu(options.ncu):
+            from tools.qsa_ncu_portable import prepare as prepare_ncu
+
+            options.ncu = prepare_ncu(output, options.ncu_archive)
         print("复用已有五组计时与 A/A，仅采集硬件计数器：", original, flush=True)
         return profiling.collect_counters(
             options, facts, command, cache_report=original

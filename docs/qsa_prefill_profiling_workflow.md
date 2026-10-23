@@ -168,3 +168,44 @@ source/tool tamper rejection, original report/log preservation, pinned worker
 paths/reference copying, missing ncu/counter failures and normal benchmark
 regression checks). Changed-file pre-commit and shell syntax passed. CUDA/ncu
 execution remains unverified locally; no production files/configs changed.
+
+## Returned resume48e8a343: provision the missing profiler
+
+Report48e8a343932f6f4db822c6b4f16647d2b6bbc849 verified30 archived blobs.
+`profiling-summary.json` confirms profiler_unavailable, ncu=null, profiles=[],
+independent_benchmark_rerun=false and124 verified original sources. Original
+measured case files and source snapshots remain unchanged. No new latency
+measurements or hardware-counter conclusions are available.
+
+Before implementation, freeze the next change: only a standalone SHA-pinned
+profiler provisioner, its CPU tests and the resume GPU-UUID normalization;
+all original worker/kernel/timing/configuration files stay read-only. The
+returned runtime UUID is bare2d17872f-4327-2beb-8049-604ecf6a3d66, whereas the
+NVML/CUDA-visible guard requires GPU- prefix. Normalize either representation
+to the same full UUID and reject malformed/mixed GPU records; this correction
+must not choose another GPU or weaken idle checks.
+
+Resume option `--prepare-ncu` searches for an existing ncu first, then downloads
+the standalone Linux-x86_64 Nsight Compute2026.3.1.2 archive only when absent.
+The [official CUDA13.4.3 manifest](https://developer.download.nvidia.com/compute/cuda/redist/redistrib_13.4.3.json)
+pins397165560 bytes and SHA256
+`a0039be47cfe551f89d82087256080a9f33c6257d99a72c1164a87466ab072aa`.
+The archive is cached in /tmp/qsa-ncu-2026.3.1.2.tar.xz and extracted into a
+fresh /tmp/qsa-ncu-portable.* prefix using Python3.12's data extraction filter.
+It does not execute an installer or touch apt, drivers, system CUDA, FlagTree,
+permissions or clocks. A matching local archive can be supplied with
+`--ncu-archive /absolute/archive.tar.xz`. Version, extraction path, executable
+hash, archive hash/size and errors are saved in ncu-preparation.json, and the
+new provisioner source is archived in resume-sources.json.
+
+Only CLI --version/section listing is checked before the original hardware
+capture. Successful extraction does not prove CUDA13.4 instrumentation or
+counter permissions; retain the actual first capture error if either fails.
+No further benchmark/A/A/standalone pytest is run in this resume mode.
+
+Local provisioner/UUID validation:55 affected CPU checks passed, including
+size+digest validation, safe archive extraction/link rejection, local-archive
+reuse without network, version metadata and bare/full GPU UUID normalization.
+Changed-file pre-commit, CLI help and shell syntax passed. The real397MB Linux
+archive was not downloaded/executed on the Mac; on-card loading, instrumentation
+and hardware-counter permissions remain to be checked by the resumed run.

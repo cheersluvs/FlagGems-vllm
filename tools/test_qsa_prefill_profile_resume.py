@@ -75,7 +75,7 @@ class ResumeTests(unittest.TestCase):
                     status="passed",
                     case=dict(name=profiling.CASES[0]),
                     runtime=dict(
-                        uuid="GPU-old",
+                        uuid="00000000-0000-0000-0000-000000000001",
                         operator_binding=dict(canonical_source=str(canonical)),
                     ),
                 )
@@ -109,7 +109,10 @@ class ResumeTests(unittest.TestCase):
             )
             self.assertNotIn("--skip-accuracy", command)
             self.assertFalse(facts["independent_benchmark_rerun"])
-            self.assertEqual(os.environ["CUDA_VISIBLE_DEVICES"], "GPU-old")
+            self.assertEqual(
+                os.environ["CUDA_VISIBLE_DEVICES"],
+                "GPU-00000000-0000-0000-0000-000000000001",
+            )
             self.assertEqual(
                 os.environ["TRITON_PTXAS_PATH"], str(Path(folder) / "ptxas")
             )
@@ -186,6 +189,13 @@ class ResumeTests(unittest.TestCase):
             options.report_dir = str(original)
             with self.assertRaisesRegex(ValueError, "differ"):
                 resume.prepare(options)
+
+    def test_gpu_uuid_normalizes_torch_and_nvml_formats(self):
+        full = "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66"
+        self.assertEqual(resume.gpu_uuid(full), full)
+        self.assertEqual(resume.gpu_uuid(full[4:]), full)
+        with self.assertRaisesRegex(RuntimeError, "Invalid"):
+            resume.gpu_uuid("auto")
 
     def test_discovery_prefers_explicit_path_then_path(self):
         with patch.object(profiling.shutil, "which", return_value="/path/ncu") as which:
