@@ -1,0 +1,93 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.fxuaz9eq
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.fxuaz9eq/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-store-probe.aOatt6/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-store-probe.aOatt6/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+Bulk/tail store probe: preparing
+kernel模式；原combined/候选；不是全30组生产验收。
+stage  original_us  bulk_tail_us  speedup  paired_min  paired_max
+-----  -----------  ------------  -------  ----------  ----------
+A/A  ratio  min  max
+---  -----  ---  ---
+Traceback (most recent call last):
+  File "/opt/flagtree/triton/language/core.py", line 65, in wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/language/core.py", line 2936, in multiple_of
+    return _semantic.multiple_of(input, values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/language/semantic.py", line 1834, in multiple_of
+    raise ValueError("Shape of input to multiple_of does not match the length of values")
+ValueError: Shape of input to multiple_of does not match the length of values
+
+The above exception was the direct cause of the following exception:
+
+triton.compiler.errors.CompilationError: at 3:11:
+def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
+    limit = tl.minimum(visible, logits_width)
+    full = tl.multiple_of(limit // 4 * 4, 4)
+           ^
+Shape of input to multiple_of does not match the length of values
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-store-probe.aOatt6/tools/qsa_prefill_store_probe.py", line 314, in worker
+    result["boundary_checks"] = boundary_checks(production, helpers, torch, device)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-store-probe.aOatt6/tools/qsa_prefill_store_probe.py", line 163, in boundary_checks
+    checked = scoring.validate_scores(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-store-probe.aOatt6/tools/qsa_prefill_score_benchmark.py", line 74, in validate_scores
+    logits = launcher(*call, **chunk.get("score_kwargs", {}))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-store-probe.aOatt6/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", line 537, in _prefill_logits
+    kernel[grid](
+  File "/tmp/flaggems-qsa-store-probe.aOatt6/tools/qsa_prefill_query_split_matched.py", line 37, in launch
+    kernel = self.jit[grid(constants) if callable(grid) else grid](
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-store-probe.aOatt6/tools/qsa_prefill_store_probe.py", line 92, in launch
+    return jit[grid](*values, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/jit.py", line 399, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/jit.py", line 763, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/jit.py", line 906, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/compiler.py", line 326, in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/backends/compiler.py", line 64, in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 189:12:
+                valid_rows=(rows_right[None, :] < request_end),
+                columns=columns[:, None],
+                visible=visible_right[None, :],
+                logits_width=logits_width,
+            )
+        else:
+            scores = tl.dot(keys, query, out_dtype=tl.float32)
+            scores = tl.reshape(scores, (BLOCK_N, BLOCK_R, HEADS_PADDED))
+            real_heads = tl.arange(0, HEADS_PADDED) < NUM_HEADS
+            scores = tl.where(real_heads[None, None, :], tl.maximum(scores, 0.0), 0.0)
+            scores = tl.sum(scores, axis=2)
+            _bulk_tail_store(
+            ^
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-store-probe.aOatt6/tools/qsa_prefill_store_probe.py", line 542, in coordinate
+    raise RuntimeError("Store-probe worker failed: " + name)
+RuntimeError: Store-probe worker failed: perf_n1_q16384_p102400_bfloat16
+
