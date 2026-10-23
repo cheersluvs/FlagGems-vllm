@@ -74,3 +74,52 @@ profile-resume, report and portable-NCU modules; pre-commit and `bash -n` passed
 Hardware validation remains pending the user's H800 run. Inspect requests and
 sectors alongside active masks/vector widths and matching IR; shared bank
 conflicts/scoreboards can direct a different probe if stores are not dominant.
+
+## Recovery board: report bffcf7c5 (2026-10-23)
+
+Both counter captures passed (24 launches). Postprocessing failed because the
+BF16 metadata uses scalar `query_length`/`prefix_tokens`, whereas the FP8
+fixture uses `query_lengths=[16384]`/`prefix_tokens=[102400]`. The strict geometry
+check must normalize these two documented forms, not relax input validation.
+
+| Project truth | Recovery choice |
+| --- | --- |
+| Editable | Diagnostic metadata parser, offline analysis entry, final capture-summary persistence, wrapper status text, regression checks and this document |
+| Read-only | Completed CSV/profile records, old benchmark data and all kernels/configuration |
+| Active set | The same two captured long cases; no new launches or timing |
+| Validation | Real archived BF16/FP8 metadata and counters; CPU checks, pre-commit and shell syntax |
+| Runtime | Offline analysis never initializes CUDA or invokes NCU; optional disassembly reads matching cached cubins only |
+
+| Contract | Preserved |
+| --- | --- |
+| Geometry | Exactly one request, Q16384/prefix102400, H4/D128/page196/ratio4, width29696 and bounded real chunks |
+| Provenance | Copy completed capture report into a fresh output; retain prior summaries/source snapshots under prior-* names |
+| Missing artifact | Keep partial status; never invent or recompile an alternative binary |
+
+| Path | Action |
+| --- | --- |
+| Normal capture | Existing strict resume/capture path unchanged |
+| Analyze existing capture | Require successful two-case hardware summary, validate each record and launch count; parse saved CSV and export matched cache artifacts |
+| Production | No changes; optimization hypothesis still awaits counter/IR analysis |
+
+The actual old `profiling-summary.json` was written before the final worker and
+is stale. The final `memory-summary.json` contains both passed profiles and
+`hardware_counters_complete=true`, despite the later postprocessing error.
+Recovery accepts completed per-worker capture evidence from this summary,
+validates profile records and saved CSV, and never accepts the overall failed
+postprocessing status as evidence of hardware failure. The capture driver now
+also persists its final successful summary.
+
+Recovery invocation (uses cached files and optional nvdisasm only):
+
+```bash
+bash tools/run_qsa_prefill_memory_h800.sh \
+  --analyze-report /tmp/qsa-memory-h800.3vgPM0
+```
+
+Local recovery validation:36 CPU checks pass, including real-schema BF16/FP8
+lengths, stale capture-summary recovery, no capture/command invocation during
+CPU analysis, and read-only source evidence. Both actual captured CSV files
+were parsed locally (all24 launches); missing GPU-local compiler caches on the
+Mac correctly produce partial-artifact status rather than reconstructed code.
+Pre-commit and shell syntax pass. H800 needs only the artifact-export recovery.

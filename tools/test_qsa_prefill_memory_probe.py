@@ -20,6 +20,7 @@ class MemoryProbeTests(unittest.TestCase):
         compiled = dict(cubin_sha256="missing", ptx_sha256="missing")
         return dict(
             case=dict(
+                requests=1,
                 name=probe.CASES[0],
                 heads=4,
                 dim=128,
@@ -172,6 +173,132 @@ class MemoryProbeTests(unittest.TestCase):
             result = probe.export_artifacts(root, probe.CASES[0], None, Mock())
             self.assertFalse(result["all_ptx_exported"])
             self.assertFalse(result["all_ttgir_exported"])
+
+    def test_fp8_list_metadata_matches_bf16_and_rejects_other_lengths(self):
+        record = self.record()
+        expected = probe.payload(record, record["chunks"][0])
+        record["case"].update(
+            name=probe.CASES[1],
+            query_lengths=[16384],
+            prefix_tokens=[102400],
+            query_base=0,
+            batch_max_seq_len=118784,
+        )
+        record["case"].pop("query_length")
+        record["case"].pop("requests")
+        self.assertEqual(probe.payload(record, record["chunks"][0]), expected)
+        for change in (
+            dict(query_lengths=[8192]),
+            dict(prefix_tokens=[102400, 0]),
+            dict(query_base=1),
+            dict(batch_max_seq_len=118785),
+        ):
+            altered = dict(record, case={**record["case"], **change})
+            with self.assertRaisesRegex(RuntimeError, "lengths changed"):
+                probe.payload(altered, record["chunks"][0])
+
+    def test_analysis_copies_completed_evidence_without_gpu_capture(self):
+        import types
+
+        from tools import benchmark_qsa_prefill_stages as support
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original, output = root / "original", root / "output"
+            original.mkdir()
+            output.mkdir()
+            profiles = []
+            self.write_traffic(original)
+            for name in probe.CASES:
+                record = self.record()
+                record["status"] = "passed"
+                if name == probe.CASES[1]:
+                    record["case"].update(
+                        name=name,
+                        query_lengths=[16384],
+                        prefix_tokens=[102400],
+                        query_base=0,
+                        batch_max_seq_len=118784,
+                    )
+                (original / ("profile-" + name + ".json")).write_text(
+                    json.dumps(record)
+                )
+                if name == probe.CASES[1]:
+                    source = original / ("profile-" + probe.CASES[0] + ".csv")
+                    (original / ("profile-" + name + ".csv")).write_bytes(
+                        source.read_bytes()
+                    )
+                profiles.append(
+                    dict(case=name, status="passed", expected_profiled_launches=3)
+                )
+            (original / "profiling-summary.json").write_text(
+                json.dumps(
+                    dict(
+                        status="passed",
+                        hardware_counters_complete=True,
+                        profiles=profiles,
+                    )
+                )
+            )
+            (original / "flagtree134-tools.json").write_text('{"toolchain": {}}')
+            # Actual failed report: postprocessor failed after all captures passed,
+            # while the old profiling-summary was written before the final worker.
+            (original / "memory-summary.json").write_text(
+                json.dumps(
+                    dict(
+                        status="failed",
+                        hardware_counters_complete=True,
+                        profiles=profiles,
+                    )
+                )
+            )
+            (original / "profiling-summary.json").write_text(
+                json.dumps(
+                    dict(
+                        status="resuming_counters",
+                        hardware_counters_complete=False,
+                        profiles=[dict(case=probe.CASES[-1], status="running")],
+                    )
+                )
+            )
+            before = {p.name: p.read_bytes() for p in original.iterdir()}
+            argv = [
+                "probe",
+                "--analyze-report",
+                str(original),
+                "--report-dir",
+                str(output),
+            ]
+            with patch.object(probe.sys, "argv", argv), patch.object(
+                profiling, "collect_counters"
+            ) as capture, patch.object(
+                support, "command"
+            ) as command, contextlib.redirect_stdout(
+                io.StringIO()
+            ):
+                self.assertEqual(
+                    probe.main(), 2
+                )  # no matching cache in this CPU fixture
+            capture.assert_not_called()
+            command.assert_not_called()
+            self.assertEqual(
+                before, {p.name: p.read_bytes() for p in original.iterdir()}
+            )
+            self.assertEqual(
+                (output / "prior-memory-summary.json").read_bytes(),
+                before["memory-summary.json"],
+            )
+            summary = json.loads((output / "memory-summary.json").read_text())
+            self.assertTrue(summary["analysis_only"])
+            self.assertTrue(summary["memory_counters_complete"])
+            self.assertEqual(len(summary["memory_cases"]), 2)
+            bad = dict(status="failed", hardware_counters_complete=False)
+            (original / "profiling-summary.json").write_text(json.dumps(bad))
+            (original / "memory-summary.json").write_text(json.dumps(bad))
+            with self.assertRaisesRegex(RuntimeError, "completed hardware captures"):
+                probe.prepare_analysis(
+                    types.SimpleNamespace(analyze_report=str(original)), output
+                )
 
     def test_coordinator_only_captures_two_cases_and_reports_partial_artifacts(self):
         from tools import benchmark_qsa_prefill_stages as support

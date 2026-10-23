@@ -18,7 +18,7 @@ qsa_status=0
 if "$qsa_python" -I "$qsa_repo/tools/qsa_prefill_memory_probe.py" \
   --report-dir "$qsa_report" "$@" 2>&1 | tee "$qsa_report/runner.txt"
 then
-  echo "访存采集完成，开始回传；本次没有重跑 benchmark。"
+  echo "访存诊断完成，开始回传；本次没有重跑 benchmark。"
 else
   qsa_status=$?
   echo "测试退出码：$qsa_status；回传已有报告。"

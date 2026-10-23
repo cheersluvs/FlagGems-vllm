@@ -90,10 +90,28 @@ def payload(record, chunk):
         case.get("page_size"),
     ) != (4, 128, 4, 196):
         raise RuntimeError("Memory-probe input metadata changed")
+    if case["name"] == CASES[0]:
+        lengths = (
+            case.get("requests"),
+            case.get("query_length"),
+            case.get("prefix_tokens"),
+        )
+    else:
+        query, prefix = case.get("query_lengths"), case.get("prefix_tokens")
+        lengths = (
+            (1, query[0], prefix[0])
+            if (
+                isinstance(query, list)
+                and isinstance(prefix, list)
+                and len(query) == len(prefix) == 1
+                and case.get("query_base") == 0
+                and case.get("batch_max_seq_len") == 118784
+            )
+            else None
+        )
     first, count = chunk["offset"], chunk["rows"]
     if (
-        case.get("query_length") != 16384
-        or case.get("prefix_tokens") != 102400
+        lengths != (1, 16384, 102400)
         or first < 0
         or count <= 0
         or first + count > 16384
@@ -269,16 +287,74 @@ def export_artifacts(report, name, nvdisasm, command):
     )
 
 
+def prepare_analysis(options, output):
+    source = Path(options.analyze_report).resolve()
+    if source == output:
+        raise ValueError("Analysis output must differ from captured report")
+    summaries = [
+        json.loads(path.read_text())
+        for path in (source / "memory-summary.json", source / "profiling-summary.json")
+        if path.is_file()
+    ]
+    # memory-summary is saved after postprocessing failure; older capture drivers
+    # wrote profiling-summary before the final worker finished. Require completed
+    # per-worker evidence, never the postprocessor's overall status alone.
+    summary = next(
+        (
+            s
+            for s in summaries
+            if s.get("hardware_counters_complete")
+            and s.get("profiles")
+            and all(p.get("status") == "passed" for p in s["profiles"])
+        ),
+        None,
+    )
+    if summary is None:
+        raise RuntimeError("Analysis requires successful completed hardware captures")
+    profiles = {p["case"]: p for p in summary["profiles"]}
+    for name in CASES:
+        profile = profiles.get(name, {})
+        record = json.loads((source / ("profile-" + name + ".json")).read_text())
+        if (
+            profile.get("status") != "passed"
+            or record.get("status") != "passed"
+            or profile.get("expected_profiled_launches") != 3 * len(record["chunks"])
+            or record["case"]["name"] != name
+        ):
+            raise RuntimeError("Incomplete or mismatched capture: " + name)
+        for chunk in record["chunks"]:
+            payload(record, chunk)
+        if not (source / ("profile-" + name + ".csv")).is_file():
+            raise RuntimeError("Missing saved counter CSV: " + name)
+    for path in source.iterdir():
+        if path.is_file() and path.suffix in (".json", ".txt", ".tsv", ".csv"):
+            prior = path.name in (
+                "runner.txt",
+                "terminal-summary.txt",
+                "run-status.txt",
+                "memory-summary.json",
+                "memory-sources.json",
+            )
+            shutil.copy2(path, output / (("prior-" if prior else "") + path.name))
+    return source
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--resume-report", required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--resume-report")
+    mode.add_argument(
+        "--analyze-report", help="Postprocess completed capture without GPU launches"
+    )
     parser.add_argument("--report-dir", required=True)
     parser.add_argument("--flagtree", default="/opt/flagtree")
-    parser.add_argument("--ncu", required=True)
+    parser.add_argument("--ncu")
     parser.add_argument("--timeout", type=int, default=1800)
     options = parser.parse_args()
     if options.timeout <= 0:
         parser.error("Positive timeout required")
+    if options.resume_report and not options.ncu:
+        parser.error("--ncu is required for counter capture")
     report = Path(options.report_dir).resolve()
     report.mkdir(parents=True, exist_ok=True)
     from tools import benchmark_qsa_prefill_stages as support
@@ -289,11 +365,18 @@ def main():
         status="preparing", acceptance_eligible=False, independent_benchmark_rerun=False
     )
     try:
-        original, worker, facts = resume.prepare(options)
-        if not set(CASES) <= set(options.cases):
-            raise RuntimeError("Missing original long-case benchmarks")
-        options.cases = list(CASES)
-        facts["cases"] = options.cases
+        if options.analyze_report:
+            original = prepare_analysis(options, report)
+            worker = None
+            facts.update(
+                analysis_only=True, original_report=str(original), cases=list(CASES)
+            )
+        else:
+            original, worker, facts = resume.prepare(options)
+            if not set(CASES) <= set(options.cases):
+                raise RuntimeError("Missing original long-case benchmarks")
+            options.cases = list(CASES)
+            facts["cases"] = options.cases
         facts["question"] = (
             "global loads vs logits stores vs shared movement/stalls; no optimized kernel yet"
         )
@@ -312,29 +395,37 @@ def main():
                 for n in source_names
             },
         )
-        selection = metric_selection(
-            options.ncu, support.command, report / "memory-metric-query.json"
-        )
-        support.write_json(report / "memory-metric-selection.json", selection)
-        print("只补采两个长序列场景；不重跑 benchmark/A/A/pytest。", flush=True)
-        print(
-            "Unavailable optional metrics:", selection["missing_optional"], flush=True
-        )
-        from tools.qsa_prefill_report import show_timing
+        if not options.analyze_report:
+            selection = metric_selection(
+                options.ncu, support.command, report / "memory-metric-query.json"
+            )
+            support.write_json(report / "memory-metric-selection.json", selection)
+            print("只补采两个长序列场景；不重跑 benchmark/A/A/pytest。", flush=True)
+            print(
+                "Unavailable optional metrics:",
+                selection["missing_optional"],
+                flush=True,
+            )
+            from tools.qsa_prefill_report import show_timing
 
-        print("以下为原始已保存计时，不是本次新 benchmark：", flush=True)
-        for name in CASES:
-            path = original / (name + ".json")
-            show_timing(json.loads(path.read_text()), source=path)
-        rc = profiling.collect_counters(
-            options,
-            facts,
-            worker,
-            cache_report=original,
-            metric_names=selection["metrics"],
-        )
-        if rc:
-            raise RuntimeError("Memory capture incomplete: " + str(rc))
+            print("以下为原始已保存计时，不是本次新 benchmark：", flush=True)
+            for name in CASES:
+                path = original / (name + ".json")
+                show_timing(json.loads(path.read_text()), source=path)
+            rc = profiling.collect_counters(
+                options,
+                facts,
+                worker,
+                cache_report=original,
+                metric_names=selection["metrics"],
+            )
+            if rc:
+                raise RuntimeError("Memory capture incomplete: " + str(rc))
+        else:
+            print(
+                "只处理已完成的两组采集；不启动 CUDA/NCU，不运行 benchmark。",
+                flush=True,
+            )
         tools = json.loads((original / "flagtree134-tools.json").read_text())[
             "toolchain"
         ]

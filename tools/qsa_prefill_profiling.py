@@ -472,6 +472,7 @@ def collect_counters(options, facts, command, *, cache_report=None, metric_names
             # Preserve the first full error, do not repeat it five times.
             raise RuntimeError("Counter capture failed; see " + str(csv_path))
     facts.update(status="passed", hardware_counters_complete=True)
+    support.write_json(output, facts)
     return 0
 
 
