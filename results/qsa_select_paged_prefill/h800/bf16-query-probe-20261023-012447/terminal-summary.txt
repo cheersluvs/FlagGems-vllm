@@ -1,0 +1,188 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.lo1u3997
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.lo1u3997/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-probe.pt4vsy/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-probe.pt4vsy/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+边界校验 passed: {'status': 'passed', 'padded': False, 'query_base': 0, 'all_rows_checked': 289, 'chunk_rows': [31, 1, 32, 1, 63, 64, 65, 32]}
+边界校验 passed: {'status': 'passed', 'padded': True, 'query_base': 17, 'all_rows_checked': 289, 'chunk_rows': [31, 1, 32, 1, 63, 64, 65, 32]}
+
+BF16 query probe: original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us     P2_us     speedup  paired_min  paired_max
+-----  --------  --------  -------  ----------  ----------
+score  1726.736  1679.384  1.0282   1.0190      1.0375    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  P
+---------  -----------------  ----  ------------  ------  -
+baseline   4519/0/29696       234   81920         0       1
+baseline   4519/4519/29696    234   81920         0       1
+baseline   4519/9038/29696    234   81920         0       1
+baseline   2827/13557/29696   234   81920         0       1
+candidate  4519/0/29696       176   90112         0       2
+candidate  4519/4519/29696    176   90112         0       2
+candidate  4519/9038/29696    176   90112         0       2
+candidate  2827/13557/29696   176   90112         0       2
+
+BF16 query probe: original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage  P1_us     P2_us     speedup  paired_min  paired_max
+-----  --------  --------  -------  ----------  ----------
+score  1726.736  1679.384  1.0282   1.0190      1.0375    
+topk   1477.192  1477.304  0.9999   0.9998      1.0001    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  P
+---------  -----------------  ----  ------------  ------  -
+baseline   4519/0/29696       234   81920         0       1
+baseline   4519/4519/29696    234   81920         0       1
+baseline   4519/9038/29696    234   81920         0       1
+baseline   2827/13557/29696   234   81920         0       1
+candidate  4519/0/29696       176   90112         0       2
+candidate  4519/4519/29696    176   90112         0       2
+candidate  4519/9038/29696    176   90112         0       2
+candidate  2827/13557/29696   176   90112         0       2
+
+BF16 query probe: original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1726.736  1679.384  1.0282   1.0190      1.0375    
+topk      1477.192  1477.304  0.9999   0.9998      1.0001    
+pipeline  3225.960  3173.584  1.0165   1.0157      1.0173    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  P
+---------  -----------------  ----  ------------  ------  -
+baseline   4519/0/29696       234   81920         0       1
+baseline   4519/4519/29696    234   81920         0       1
+baseline   4519/9038/29696    234   81920         0       1
+baseline   2827/13557/29696   234   81920         0       1
+candidate  4519/0/29696       176   90112         0       2
+candidate  4519/4519/29696    176   90112         0       2
+candidate  4519/9038/29696    176   90112         0       2
+candidate  2827/13557/29696   176   90112         0       2
+
+BF16 query probe: original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1726.736  1679.384  1.0282   1.0190      1.0375    
+topk      1477.192  1477.304  0.9999   0.9998      1.0001    
+pipeline  3225.960  3173.584  1.0165   1.0157      1.0173    
+A/A: same callable and buffers
+side:stage  ratio   paired_min  paired_max
+----------  ------  ----------  ----------
+P1:score    0.9996  0.9946      1.0047    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  P
+---------  -----------------  ----  ------------  ------  -
+baseline   4519/0/29696       234   81920         0       1
+baseline   4519/4519/29696    234   81920         0       1
+baseline   4519/9038/29696    234   81920         0       1
+baseline   2827/13557/29696   234   81920         0       1
+candidate  4519/0/29696       176   90112         0       2
+candidate  4519/4519/29696    176   90112         0       2
+candidate  4519/9038/29696    176   90112         0       2
+candidate  2827/13557/29696   176   90112         0       2
+
+BF16 query probe: original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1726.736  1679.384  1.0282   1.0190      1.0375    
+topk      1477.192  1477.304  0.9999   0.9998      1.0001    
+pipeline  3225.960  3173.584  1.0165   1.0157      1.0173    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9996  0.9946      1.0047    
+P1:pipeline  1.0008  1.0005      1.0012    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  P
+---------  -----------------  ----  ------------  ------  -
+baseline   4519/0/29696       234   81920         0       1
+baseline   4519/4519/29696    234   81920         0       1
+baseline   4519/9038/29696    234   81920         0       1
+baseline   2827/13557/29696   234   81920         0       1
+candidate  4519/0/29696       176   90112         0       2
+candidate  4519/4519/29696    176   90112         0       2
+candidate  4519/9038/29696    176   90112         0       2
+candidate  2827/13557/29696   176   90112         0       2
+
+BF16 query probe: original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1726.736  1679.384  1.0282   1.0190      1.0375    
+topk      1477.192  1477.304  0.9999   0.9998      1.0001    
+pipeline  3225.960  3173.584  1.0165   1.0157      1.0173    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9996  0.9946      1.0047    
+P1:pipeline  1.0008  1.0005      1.0012    
+P2:score     1.0046  0.9972      1.0121    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  P
+---------  -----------------  ----  ------------  ------  -
+baseline   4519/0/29696       234   81920         0       1
+baseline   4519/4519/29696    234   81920         0       1
+baseline   4519/9038/29696    234   81920         0       1
+baseline   2827/13557/29696   234   81920         0       1
+candidate  4519/0/29696       176   90112         0       2
+candidate  4519/4519/29696    176   90112         0       2
+candidate  4519/9038/29696    176   90112         0       2
+candidate  2827/13557/29696   176   90112         0       2
+
+BF16 query probe: original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1726.736  1679.384  1.0282   1.0190      1.0375    
+topk      1477.192  1477.304  0.9999   0.9998      1.0001    
+pipeline  3225.960  3173.584  1.0165   1.0157      1.0173    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9996  0.9946      1.0047    
+P1:pipeline  1.0008  1.0005      1.0012    
+P2:score     1.0046  0.9972      1.0121    
+P2:pipeline  0.9990  0.9983      0.9998    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  P
+---------  -----------------  ----  ------------  ------  -
+baseline   4519/0/29696       234   81920         0       1
+baseline   4519/4519/29696    234   81920         0       1
+baseline   4519/9038/29696    234   81920         0       1
+baseline   2827/13557/29696   234   81920         0       1
+candidate  4519/0/29696       176   90112         0       2
+candidate  4519/4519/29696    176   90112         0       2
+candidate  4519/9038/29696    176   90112         0       2
+candidate  2827/13557/29696   176   90112         0       2
+
+BF16 query probe: original fixed P1 vs BF16 split P2
+仅 probe，不作为生产/全30组验收；speedup=P1/P2。
+stage     P1_us     P2_us     speedup  paired_min  paired_max
+--------  --------  --------  -------  ----------  ----------
+score     1726.736  1679.384  1.0282   1.0190      1.0375    
+topk      1477.192  1477.304  0.9999   0.9998      1.0001    
+pipeline  3225.960  3173.584  1.0165   1.0157      1.0173    
+A/A: same callable and buffers
+side:stage   ratio   paired_min  paired_max
+-----------  ------  ----------  ----------
+P1:score     0.9996  0.9946      1.0047    
+P1:pipeline  1.0008  1.0005      1.0012    
+P2:score     1.0046  0.9972      1.0121    
+P2:pipeline  0.9990  0.9983      0.9998    
+编译资源（不是动态硬件计数器）
+side       rows/offset/width  regs  shared_bytes  spills  P
+---------  -----------------  ----  ------------  ------  -
+baseline   4519/0/29696       234   81920         0       1
+baseline   4519/4519/29696    234   81920         0       1
+baseline   4519/9038/29696    234   81920         0       1
+baseline   2827/13557/29696   234   81920         0       1
+candidate  4519/0/29696       176   90112         0       2
+candidate  4519/4519/29696    176   90112         0       2
+candidate  4519/9038/29696    176   90112         0       2
+candidate  2827/13557/29696   176   90112         0       2
