@@ -85,3 +85,49 @@ is upstream-only and omits FP8. A regression check exercises the FP8 worker.
 The former scalar `4` became a one-entry hint and failed rank checking. This is
 an error in the diagnostic helper, not a compiler compatibility finding. GPU
 compilation and both paired performance cases still require a rerun.
+
+## Paired result4642c871 and alignment-only follow-up
+
+47 report files verified against Git blobs. Both workers passed6 all-row small
+checks and pre/post sampled long-case validations; same buffers/TopK, frozen
+kernels and common logits checked.44 sampled GPU guards passed. This is a
+comparison against retained combined, not a fresh native-vLLM comparison.
+
+| Case | Stage | Original us | Bulk/tail us | Speedup |
+| --- | --- | ---: | ---: | ---: |
+| BF16 long | score |1734.720|2010.664|0.862760|
+| BF16 long | TopK |1478.880|1479.160|0.999811|
+| BF16 long | pipeline |3228.280|3477.648|0.928294|
+| FP8 long | score |1272.480|1442.352|0.882226|
+| FP8 long | TopK |1472.296|1472.664|0.999750|
+| FP8 long | pipeline |2779.712|2952.864|0.941361|
+
+All actual kernels remained scalar st.global.b32; static store sites32->64.
+BF16 registers234->255, spills0->16, shared81920 unchanged; FP8 registers154->144,
+spills0, shared49152 unchanged. Static sites are not dynamic store counts.
+Paired score regression is much larger than the sampled A/A envelope
+(~0.9909–1.0040 BF16;~0.9976–0.9999 FP8). Reject this exact variant; no production
+integration or30-case expansion. This does not disprove all output-store optimizations.
+
+| Project truth | Next isolated step |
+| --- | --- |
+| Evidence | Actual TTGIR full limit is [1,R] with tt.divisibility=[1,4]; output [key,query] store order0, sizePerThread=[4,1] |
+| Inference | Hint1 on continuous key dimension can override inferred divisibility and obstruct mask vectorization |
+| Editable | Hint(4,4), pinned SHA, optional compile-only path and tests; no other mask/math/tile changes |
+| Contract | Every rounded-limit element is a multiple of4, so4 is valid along both axes; unaligned output still uses exact original JIT |
+| Validation | Actual-helper rank/value checks; long-case score checks and small canaries; export actual PTX/TTGIR/resources |
+| Benchmark | Compile-only path does not call timer or measure_scores, run TopK stage, or claim speedup; all previous timings remain historical |
+| Path | Only if vector stores appear and resources are acceptable, consider a separate paired timing run |
+
+The override behavior is documented in the [upstream v3.6 AxisInfo implementation](https://github.com/triton-lang/triton/blob/v3.6.0/lib/Analysis/AxisInfo.cpp#L1021).
+This is supporting source evidence; the exact FlagTree outcome must be verified
+in newly emitted PTX/TTGIR, not assumed from upstream source alone.
+
+Compile-only also intercepts the public observer's initial TopK call (records
+its arguments but does not execute selection); normal paired benchmarks retain
+the observer and all TopK calls. Boundary and sampled score checks still launch
+real scorer kernels. Thus compile-only is not a GPU-free/offline command.
+
+Local follow-up validation:31 CPU checks pass, including a compile-only worker
+that fails if a performance timer or TopK/pipeline callable is used. Pre-commit
+and shell syntax pass. The corrected hint's GPU output remains unverified.

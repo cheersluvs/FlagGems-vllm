@@ -47,7 +47,7 @@ class StoreProbeTests(unittest.TestCase):
 @triton.jit
 def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
     limit = tl.minimum(visible, logits_width)
-    full = tl.multiple_of(limit // 4 * 4, (1, 4))
+    full = tl.multiple_of(limit // 4 * 4, (4, 4))
     tl.store(ptrs, values, mask=valid_rows & (columns < full))
     tl.store(ptrs, values, mask=valid_rows & (columns >= full) & (columns < limit))
 """
@@ -140,7 +140,7 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
             np.testing.assert_array_equal(output[ptrs[~expected]], -12345.0)
             self.assertTrue(np.all(writes[:64] == 0) and np.all(writes[-64:] == 0))
         self.assertTrue(
-            all(shape[0] == 1 and factors == (1, 4) for shape, factors in seen)
+            all(shape[0] == 1 and factors == (4, 4) for shape, factors in seen)
         )
         with self.assertRaisesRegex(ValueError, "one entry per dimension"):
             multiple_of(np.zeros((1, 8), dtype=np.int32), 4)
@@ -264,6 +264,7 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
         case_name=None,
         skip_boundaries=False,
         query_policy="all",
+        compile_only=False,
     ):
         from tools import benchmark_qsa_prefill_triton_stages as bench
 
@@ -273,7 +274,8 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
 
         tensor = View()
         args = (tensor,) * 10
-        topk = lambda *a, **kw: None
+        topk_calls = []
+        topk = lambda *a, **kw: topk_calls.append(True)
         pair = tuple(
             types.SimpleNamespace(
                 _prefill_logits=lambda *a, **kw: tensor, persistent_topk=topk
@@ -299,8 +301,11 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
         )
 
         options.worker_case = case_name or probe.CASES[0]
+        options.compile_only = compile_only
 
         def timer(fn):
+            if compile_only:
+                raise AssertionError("compile-only invoked the performance timer")
             fn()
             return 10.0
 
@@ -364,6 +369,8 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
             for item in patches:
                 stack.enter_context(item)
             code = probe.worker(options)
+        if compile_only:
+            self.assertEqual(topk_calls, [])
         return code, json.loads((root / (options.worker_case + ".json")).read_text())
 
     def test_worker_records_all_stages_and_four_controls_with_original_timer(self):
@@ -390,6 +397,19 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
             self.assertEqual(code, 0, result.get("error"))
             self.assertEqual(result["case"]["name"], probe.CASES[1])
             self.assertEqual(set(result["stages"]), {"score", "topk", "pipeline"})
+
+    def test_compile_only_does_not_time_or_validate_topk(self):
+        with tempfile.TemporaryDirectory() as folder:
+            code, result = self.run_worker(
+                Path(folder), compile_only=True, fail_pipeline=True
+            )
+            self.assertEqual(code, 0, result.get("error"))
+            self.assertTrue(result["compile_only"])
+            self.assertFalse(result["measurement_performed"])
+            self.assertEqual(result["stages"], {})
+            self.assertEqual(len(result["score_validation"]), 2)
+            self.assertNotIn("timer", result)
+            self.assertNotIn("self_controls", result)
 
     def test_failed_pipeline_validation_stops_without_a_success_flag(self):
         with tempfile.TemporaryDirectory() as folder:

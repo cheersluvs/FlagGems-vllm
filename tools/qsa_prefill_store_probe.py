@@ -17,7 +17,7 @@ from tools import qsa_prefill_bf16_query_probe as shared  # noqa: E402
 from tools import qsa_prefill_query_split_matched as fixed  # noqa: E402
 
 CASES = ("perf_n1_q16384_p102400_bfloat16", "fp8_long100k_float8_e4m3fn")
-CANDIDATE_SHA = "05307d6e57163394bf9bd52a6ae47a848f00916915f20b0029e0057ee6947faf"
+CANDIDATE_SHA = "715611ece37104b578bf600369956979fb710f9da94e679a23139befb637e0f9"
 sha = shared.sha
 compiler_identity = shared.compiler_identity
 bind = shared.bind
@@ -250,7 +250,14 @@ def print_results(result):
         result.get("case", {}).get("name", "preparing"),
         flush=True,
     )
-    print("kernel模式；原combined/候选；不是全30组生产验收。", flush=True)
+    print(
+        (
+            "仅编译/正确性检查；无性能计时。"
+            if result.get("compile_only")
+            else "kernel模式；原combined/候选；不是全30组生产验收。"
+        ),
+        flush=True,
+    )
     table(
         ("stage", "original_us", "bulk_tail_us", "speedup", "paired_min", "paired_max"),
         [
@@ -297,6 +304,7 @@ def worker(options):
         stages={},
         source=verify_source(),
         production_modified=False,
+        compile_only=getattr(options, "compile_only", False),
     )
     try:
         saved, traces = load_record(options.baseline_report, name)
@@ -325,7 +333,16 @@ def worker(options):
             )
         result["inputs"] = fingerprints
         pair = make_pair(production, traces)
-        chunks = ab.observe(pair[0], "persistent_topk", args)
+        if result["compile_only"]:
+            from unittest.mock import patch
+
+            # Capture original score geometry/common logits, while the observer
+            # records TopK arguments without executing the selection kernel.
+            with patch.object(pair[0], "persistent_topk", lambda *a, **kw: None):
+                chunks = ab.observe(pair[0], "persistent_topk", args)
+        else:
+            chunks = ab.observe(pair[0], "persistent_topk", args)
+        result["topk_skipped_for_compile_only"] = result["compile_only"]
         bench.verify_geometry(case, args, chunks)
         common = [c.pop("common_logits") for c in chunks]
         bundles = [bind(module, chunks, common) for module in pair]
@@ -370,7 +387,7 @@ def worker(options):
             )
 
         for bundle in bundles:
-            for fn in bundle.values():
+            for fn in [bundle["score"]] if result["compile_only"] else bundle.values():
                 fn()
         device.synchronize()
         resources = fixed.freeze_and_records(pair)
@@ -401,6 +418,26 @@ def worker(options):
                     entry.get("spill_count"),
                     flush=True,
                 )
+        if result["compile_only"]:
+            result["score_validation"] = [validate_side(i, "score") for i in (0, 1)]
+            result["kernels_after"] = fixed.freeze_and_records(pair)
+            result["common_after"] = [support.fingerprint((v,), torch) for v in common]
+            if (
+                result["kernels_after"] != resources
+                or result["common_after"] != result["common_before"]
+                or support.fingerprint(args, torch) != fingerprints
+                or verify_source() != result["source"]
+            ):
+                raise RuntimeError("Compile-only inputs/source/binaries changed")
+            support.guarded_telemetry(
+                info["uuid"],
+                "after_compile_validation",
+                result,
+                path,
+                support.gpu_guard_module(),
+            )
+            result.update(status="passed", measurement_performed=False)
+            return 0
         timer, metadata = scoring.make_timer(
             options.kernel_warmup_ms, options.kernel_rep_ms
         )
@@ -540,7 +577,15 @@ def coordinate(options):
             )
             if code or result.get("status") != "passed":
                 raise RuntimeError("Store-probe worker failed: " + name)
-            if set(result.get("stages", {})) != {"score", "topk", "pipeline"}:
+            if getattr(options, "compile_only", False):
+                if (
+                    not result.get("compile_only")
+                    or result.get("measurement_performed") is not False
+                    or result.get("stages")
+                    or len(result.get("score_validation", [])) != 2
+                ):
+                    raise RuntimeError("Invalid compile-only result")
+            elif set(result.get("stages", {})) != {"score", "topk", "pipeline"}:
                 raise RuntimeError("Missing score/TopK/pipeline timings")
         summary.update(status="passed")
         return 0
@@ -558,6 +603,11 @@ def main():
     parser.add_argument("--baseline-report", required=True)
     parser.add_argument("--flagtree", default="/opt/flagtree")
     parser.add_argument("--rounds", type=int, choices=(1, 2), default=2)
+    parser.add_argument(
+        "--compile-only",
+        action="store_true",
+        help="Compile/validate/export actual artifacts; no performance timing",
+    )
     parser.add_argument("--kernel-warmup-ms", type=int, default=200)
     parser.add_argument("--kernel-rep-ms", type=int, default=100)
     parser.add_argument("--timeout", type=int, default=1800)
