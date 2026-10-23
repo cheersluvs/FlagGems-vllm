@@ -51,8 +51,98 @@ PROBES = (
 
 
 def download(url, path):
-    with urllib.request.urlopen(url, timeout=120) as src, path.open("wb") as dst:
+    request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+    with urllib.request.urlopen(request, timeout=120) as src, path.open("wb") as dst:
         shutil.copyfileobj(src, dst)
+        return dict(
+            response_url=src.geturl(),
+            http_status=getattr(src, "status", None),
+            content_type=src.headers.get("Content-Type"),
+            content_length=src.headers.get("Content-Length"),
+            content_range=src.headers.get("Content-Range"),
+        )
+
+
+def cached_archives(name):
+    # Previous outputs of this exact wrapper only; every reuse requires the
+    # original archive digest, independently of path, mtime and filename.
+    return sorted(
+        Path(tempfile.gettempdir()).glob(f"qsa-flagtree134-tools.*/{name}.tar.xz"),
+        reverse=True,
+    )
+
+
+def prepare_archive(archive, name, url, expected):
+    record = archive.parent / "toolchain-downloads.json"
+    state = json.loads(record.read_text()) if record.exists() else {}
+    item = dict(expected_sha256=expected, url=url, cached_candidates=[], attempts=[])
+    state[name] = item
+
+    def save():
+        record.write_text(json.dumps(state, indent=2) + "\n")
+
+    def inspect(path):
+        return dict(bytes=path.stat().st_size, actual_sha256=shared.sha(path))
+
+    save()
+    for source in cached_archives(name):
+        if source.resolve() == archive.resolve():
+            continue
+        entry = dict(path=str(source), status="rejected")
+        item["cached_candidates"].append(entry)
+        try:
+            entry.update(inspect(source))
+            if entry["actual_sha256"] != expected:
+                continue
+            shutil.copyfile(source, archive)
+            if shared.sha(archive) != expected:
+                raise RuntimeError("Copied NVIDIA archive SHA256 mismatch")
+            entry["status"] = "verified"
+            item.update(
+                status="verified",
+                source_kind="verified_local_cache",
+                source_path=str(source),
+            )
+            print(
+                f"Reusing SHA256-verified NVIDIA {name} archive: {source}", flush=True
+            )
+            return item
+        except Exception as error:
+            entry["error"] = str(error)
+        finally:
+            save()
+    for attempt in range(1, 4):
+        entry = dict(attempt=attempt, status="failed")
+        item["attempts"].append(entry)
+        try:
+            archive.unlink(missing_ok=True)
+            response = download(url, archive)
+            if isinstance(response, dict):
+                entry.update(response)
+            entry.update(inspect(archive))
+            if entry["actual_sha256"] != expected:
+                raise RuntimeError(
+                    f"NVIDIA archive SHA256 mismatch: {name}; expected={expected}, "
+                    f"actual={entry['actual_sha256']}, bytes={entry['bytes']}"
+                )
+            entry["status"] = "verified"
+            item.update(status="verified", source_kind="download", source_path=url)
+            return item
+        except Exception as error:
+            entry["error"] = str(error)
+            if archive.exists():
+                entry.update(inspect(archive))
+            print(
+                f"NVIDIA {name} download attempt {attempt}/3 failed: {error}",
+                flush=True,
+            )
+        finally:
+            save()
+    item["status"] = "failed"
+    save()
+    raise RuntimeError(
+        f"Verified NVIDIA {name} archive unavailable; see toolchain-downloads.json"
+    )
 
 
 def extract_tool(archive, target, name, expected):
@@ -74,7 +164,7 @@ def toolchain(folder):
     facts = {}
     for name, (relative, digest) in TOOLS.items():
         archive = folder / (name + ".tar.xz")
-        download(REDIST + relative, archive)
+        acquisition = prepare_archive(archive, name, REDIST + relative, digest)
         target = folder / name
         extract_tool(archive, target, name, digest)
         version = shared.tool_version(target)
@@ -87,6 +177,7 @@ def toolchain(folder):
             sha256=shared.sha(target),
             url=REDIST + relative,
             archive_sha256=digest,
+            acquisition=acquisition,
         )
     return facts
 

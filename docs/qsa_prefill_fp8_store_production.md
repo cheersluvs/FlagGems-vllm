@@ -78,3 +78,22 @@ Each completed case prints score/TopK/pipeline latency and speedup; the same
 values are retained in JSON/TSV. Existing idle/external-process guards stay on.
 A test failure still uploads diagnostics. Upload uses a child shell and identity
 fallback; a push failure prints a retry command so tests need not be rerun.
+
+## Bootstrap failure b974e738 and recovery
+
+Report b974e738f186f251cc893948f928d9323985c91b failed before preflight,
+correctness or timing: the newly downloaded NVIDIA ptxas archive did not match
+its original pinned SHA256. GPU selection and isolated libcuda loading passed.
+The old log has no byte count, actual digest or response metadata, so an
+incomplete download versus an unexpected response cannot be distinguished yet.
+No operator correctness/performance conclusion follows from this report.
+
+Tool acquisition now first reuses prior `qsa-flagtree134-tools.*/<name>.tar.xz`
+archives after checking the original digest and the copied bytes. Downloads
+receive up to three attempts with the same hash requirement. The source URL,
+HTTP status/type/length/range, byte count, actual hash and attempts are saved in
+`toolchain-downloads.json`; bootstrap exports this file to the uploaded report
+even on failure. Original archive/version/binary pins stay unchanged. This is
+a tooling-only change; production SHA8e4ad799 and all workloads are unchanged.
+Local validation:27 relevant toolchain/orchestration tests and changed-file
+pre-commit passed. H800 compilation, correctness and timings remain pending.

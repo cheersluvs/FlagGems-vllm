@@ -282,7 +282,12 @@ def prepare(options, extra):
             support.write_json(report / "stage-summary.json", facts)
             return 2
         folder = Path(tempfile.mkdtemp(prefix="qsa-flagtree134-tools."))
-        facts["toolchain"] = validation.toolchain(folder)
+        try:
+            facts["toolchain"] = validation.toolchain(folder)
+        finally:
+            diagnostics = folder / "toolchain-downloads.json"
+            if diagnostics.is_file():
+                (report / diagnostics.name).write_bytes(diagnostics.read_bytes())
         if facts["toolchain"]["ptxas"]["sha256"] != PTXAS_SHA256:
             raise RuntimeError("Unexpected ptxas binary")
         facts["status"] = "ready"

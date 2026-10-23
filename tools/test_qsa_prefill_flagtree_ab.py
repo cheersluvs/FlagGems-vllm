@@ -161,6 +161,33 @@ class EnvironmentTests(unittest.TestCase):
                 self.assertNotIn("TRITON_MOCK_PTX_VERSION", env)
                 self.assertNotIn("CUDA_LAUNCH_BLOCKING", env)
 
+    def test_failed_tool_download_diagnostics_are_exported_without_starting_tests(self):
+        with tempfile.TemporaryDirectory() as folder:
+            options = argparse.Namespace(report_dir=folder, flagtree="/opt/flagtree")
+
+            def failed(directory):
+                (directory / "toolchain-downloads.json").write_text(
+                    '{"ptxas":{"status":"failed"}}'
+                )
+                raise RuntimeError("download mismatch")
+
+            with patch.object(profile, "select_gpu", return_value=True), patch.object(
+                validation, "toolchain", side_effect=failed
+            ), patch.object(profile.os, "execve") as execute:
+                self.assertEqual(profile.prepare(options, []), 1)
+            execute.assert_not_called()
+            report = Path(folder)
+            self.assertEqual(
+                json.loads((report / "toolchain-downloads.json").read_text())["ptxas"][
+                    "status"
+                ],
+                "failed",
+            )
+            self.assertIn(
+                "download mismatch",
+                json.loads((report / "stage-summary.json").read_text())["error"],
+            )
+
     def test_real_bootstrap_artifacts_reach_parent_but_existing_results_still_fail(
         self,
     ):

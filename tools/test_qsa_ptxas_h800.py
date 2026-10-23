@@ -102,6 +102,72 @@ class EvidenceTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "regular"):
                 probe.extract_tool(archive, target, "ptxas", probe.shared.sha(archive))
 
+    def test_archive_cache_rejects_wrong_bytes_then_reuses_verified_copy(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            bad, good, target = root / "bad", root / "good", root / "ptxas.tar.xz"
+            bad.write_bytes(b"bad cache")
+            good.write_bytes(b"verified archive")
+            digest = probe.shared.sha(good)
+            with patch.object(
+                probe, "cached_archives", return_value=[bad, good]
+            ), patch.object(probe, "download") as fetch:
+                result = probe.prepare_archive(
+                    target, "ptxas", "https://example.test/archive", digest
+                )
+            fetch.assert_not_called()
+            self.assertEqual(target.read_bytes(), good.read_bytes())
+            self.assertEqual(result["source_kind"], "verified_local_cache")
+            self.assertEqual(
+                [c["status"] for c in result["cached_candidates"]],
+                ["rejected", "verified"],
+            )
+            self.assertEqual(
+                json.loads((root / "toolchain-downloads.json").read_text())["ptxas"],
+                result,
+            )
+
+    def test_download_retry_records_mismatch_and_requires_pinned_hash(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            target = root / "ptxas.tar.xz"
+            digest = hashlib.sha256(b"verified").hexdigest()
+            calls = []
+
+            def fetch(url, path):
+                calls.append(url)
+                path.write_bytes(b"partial" if len(calls) == 1 else b"verified")
+                return dict(http_status=206 if len(calls) == 1 else 200)
+
+            with patch.object(probe, "cached_archives", return_value=[]), patch.object(
+                probe, "download", side_effect=fetch
+            ):
+                result = probe.prepare_archive(
+                    target, "ptxas", "https://example.test/archive", digest
+                )
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(
+                [a["status"] for a in result["attempts"]], ["failed", "verified"]
+            )
+            self.assertEqual(result["attempts"][0]["http_status"], 206)
+            self.assertEqual(result["attempts"][0]["bytes"], 7)
+            self.assertEqual(probe.shared.sha(target), digest)
+            with patch.object(probe, "cached_archives", return_value=[]), patch.object(
+                probe, "download", side_effect=lambda u, p: p.write_bytes(b"wrong")
+            ) as fetch:
+                with self.assertRaisesRegex(RuntimeError, "toolchain-downloads.json"):
+                    probe.prepare_archive(
+                        target, "ptxas", "https://example.test/archive", digest
+                    )
+            self.assertEqual(fetch.call_count, 3)
+            result = json.loads((root / "toolchain-downloads.json").read_text())[
+                "ptxas"
+            ]
+            self.assertEqual(result["status"], "failed")
+            self.assertTrue(
+                all(a["actual_sha256"] != digest for a in result["attempts"])
+            )
+
     def test_actual_reassembly_keeps_ptx_abi_and_flags(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
