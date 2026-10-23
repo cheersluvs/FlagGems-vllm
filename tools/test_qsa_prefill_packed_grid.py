@@ -22,7 +22,7 @@ from tools import qsa_prefill_packed_grid as trial
 from tools import test_qsa_prefill_tuning_round1 as tuning_tests
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"
+SOURCE = ROOT / "tools/qsa_prefill_pre_store_production.py"
 KERNEL = ROOT / "tools/qsa_prefill_packed_grid_kernel.py"
 
 

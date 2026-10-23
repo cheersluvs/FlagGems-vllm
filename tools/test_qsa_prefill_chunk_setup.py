@@ -16,6 +16,7 @@ import test_qsa_prefill_host_validation as host
 FROZEN = Path(__file__).with_name("qsa_prefill_chunk_baseline.py")
 NAMES = host.NAMES | {
     "_compact_eligible",
+    "_fp8_store_eligible",
     "_prefill_score_metadata",
     "_prefill_logits",
     "qsa_select_paged_prefill",
@@ -113,6 +114,7 @@ def load(path=None):
         triton=types.SimpleNamespace(cdiv=lambda x, y: (x + y - 1) // y),
         os=os,
         _qsa_prefill_score_kernel=Kernel(),
+        _qsa_prefill_fp8_store_score_kernel=Kernel(),
         _qsa_prefill_compact_score_kernel=Kernel(),
         _select_all_kernel=Kernel(),
         persistent_topk=topk,

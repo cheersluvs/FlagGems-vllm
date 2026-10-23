@@ -89,7 +89,7 @@ class TuningTests(unittest.TestCase):
             trial.COMPACT_CONFIG_GROUP: list(range(6)),
         }
         production = types.ModuleType("production")
-        production.__file__ = str(PRODUCTION)
+        production.__file__ = str(ROOT / ab.PRE_STORE_PRODUCTION_PATH)
         production.persistent_topk = object()
         for name in ("_qsa_prefill_score_kernel", "_qsa_prefill_compact_score_kernel"):
             setattr(

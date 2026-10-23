@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class ProfileTests(unittest.TestCase):
     def test_exact_count_and_selected_functions_exist(self):
         for candidate, count in (
-            ("production", 40),
+            ("production", 45),
             ("packed-grid", 48),
             ("page-table", 48),
             ("page-table-bf16", 48),
@@ -123,7 +123,7 @@ class ProfileTests(unittest.TestCase):
             "--list-accuracy-tests",
         ]
         for candidate, count in (
-            ("production", 40),
+            ("production", 45),
             ("packed-grid", 48),
             ("page-table", 48),
             ("page-table-bf16", 48),

@@ -92,5 +92,10 @@ def collect(native, production, candidate):
         production=libentry_records(production._qsa_prefill_score_kernel),
         candidate_rectangular=libentry_records(candidate._qsa_prefill_score_kernel),
         candidate_compact=libentry_records(candidate._qsa_prefill_compact_score_kernel),
+        candidate_fp8_store=(
+            libentry_records(candidate._qsa_prefill_fp8_store_score_kernel)
+            if hasattr(candidate, "_qsa_prefill_fp8_store_score_kernel")
+            else []
+        ),
         native=native_records(native._qsa_mqa_paged_prefill_kernel),
     )

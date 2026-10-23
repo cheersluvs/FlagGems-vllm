@@ -970,7 +970,11 @@ def test_score_cache_separates_runtime_rows(sm90, dtype):
     width = 1088
     expected = torch_logits(*args[:5], width=width)
     workspace = torch.empty((64, width), device=args[0].device, dtype=torch.float32)
-    entry = op_module._qsa_prefill_score_kernel
+    entry = (
+        op_module._qsa_prefill_fp8_store_score_kernel
+        if dtype == torch.float8_e4m3fn
+        else op_module._qsa_prefill_score_kernel
+    )
     cache = entry.kernel_cache[torch.cuda.current_device()]
     saved = dict(cache)
     cache.clear()
@@ -998,3 +1002,114 @@ def test_score_cache_separates_runtime_rows(sm90, dtype):
     finally:
         cache.clear()
         cache.update(saved)
+
+
+@pytest.mark.parametrize("heads,dim", [(4, 128), (3, 24), (5, 96), (1, 8)])
+def test_fp8_store_production_modes(sm90, heads, dim):
+    from .test_qsa_prefill_compact_trial import check_score_kernel
+
+    configs = flaggems_vllm.runtime.get_tuned_config(
+        "qsa_select_paged_prefill_fp8_store_score"
+    )
+    # Two representative modes/stages; other choices share exactly the same
+    # transferred arithmetic. Public-entry/native30 covers actual tuned choices.
+    selected = [
+        c
+        for c in configs
+        if (
+            c.kwargs["TILE_R"],
+            c.kwargs["BLOCK_N"],
+            c.kwargs["K_TILES"],
+            c.kwargs["QUERY_PARTS"],
+            c.num_stages,
+        )
+        in ((8, 64, 4, 1, 2), (32, 64, 4, 2, 1))
+    ]
+    assert len(configs) == 34 and len(selected) == 2
+    check_score_kernel(
+        torch.float8_e4m3fn,
+        heads,
+        dim,
+        op_module._qsa_prefill_fp8_store_score_kernel,
+        False,
+        configs=selected,
+        width_multiple=4,
+    )
+
+
+def test_fp8_store_production_dispatch_and_canaries(sm90, monkeypatch):
+    # The real production launcher must choose only eligible buffers. Metadata
+    # includes all tail residues, zero-visible rows and chunk offsets.
+    for dtype, width, shift, expected_route in (
+        (torch.float8_e4m3fn, 1088, 0, "fp8"),
+        (torch.float8_e4m3fn, 1088, 1, "original"),
+        (torch.float8_e4m3fn, 1089, 0, "original"),
+        (torch.bfloat16, 1088, 0, "original"),
+    ):
+        args = make_inputs(
+            (17,),
+            (1025,),
+            dtype=dtype,
+            padded=True,
+            visible=[
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                511,
+                512,
+                513,
+                514,
+                515,
+                1021,
+                1022,
+                1023,
+                1024,
+                1025,
+                1025,
+            ],
+            query_base=97,
+        )
+        expected = torch_logits(*args[:5], width=width)
+        routes = []
+
+        class Capture:
+            def __init__(self, entry, route):
+                self.entry, self.route = entry, route
+
+            def __getitem__(self, grid):
+                routes.append(self.route)
+                return self.entry[grid]
+
+        with monkeypatch.context() as patcher:
+            for name, route in (
+                ("_qsa_prefill_score_kernel", "original"),
+                ("_qsa_prefill_fp8_store_score_kernel", "fp8"),
+                ("_qsa_prefill_compact_score_kernel", "compact"),
+            ):
+                patcher.setattr(
+                    op_module, name, Capture(getattr(op_module, name), route)
+                )
+            for offset, count in ((0, 17), (1, 15), (16, 1)):
+                backing = torch.full((count * width + 32,), 12345.0, device="cuda")
+                start = 16 + shift
+                workspace = backing[start : start + count * width].view(count, width)
+                actual = op_module._prefill_logits(
+                    *args[:5], workspace, args[7], width, offset, count
+                )
+                mask = (
+                    torch.arange(width, device="cuda")[None, :]
+                    < args[4][offset : offset + count, None]
+                )
+                torch.testing.assert_close(
+                    actual[mask],
+                    expected[offset : offset + count][mask],
+                    rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
+                    atol=1e-3 * 128**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
+                )
+                assert (actual[~mask] == 12345.0).all()
+                assert (backing[:start] == 12345.0).all()
+                assert (backing[start + count * width :] == 12345.0).all()
+            assert routes == [expected_route] * 3

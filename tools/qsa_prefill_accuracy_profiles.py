@@ -111,6 +111,12 @@ def expected_nodes(candidate):
             "Iteration profile supports production/current score trials only"
         )
     nodes = tuple(PRODUCTION_FILE + "::" + case for case in PRODUCTION_CASES)
+    if candidate == "production":
+        extra = tuple(
+            f"test_fp8_store_production_modes[{h}-{d}]"
+            for h, d in ((4, 128), (3, 24), (5, 96), (1, 8))
+        ) + ("test_fp8_store_production_dispatch_and_canaries",)
+        nodes += tuple(PRODUCTION_FILE + "::" + case for case in extra)
     if candidate == "packed-grid":
         nodes = tuple(PACKED_FILE + "::" + case for case in PACKED_CASES) + nodes
     if candidate in ("query-loop-stage", "query-stage-joint", "query-loop-unroll"):

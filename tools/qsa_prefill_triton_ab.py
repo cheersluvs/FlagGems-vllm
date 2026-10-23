@@ -13,9 +13,13 @@ from unittest.mock import patch
 
 PRODUCTION_SHA256 = "d70faeb6928c2c7a56636ded833f3359368871e353ecf4c66c6dfd35cae93e73"
 INTEGRATED_PRODUCTION_SHA256 = (
-    "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c"
+    "8e4ad799a15465d854791064a4ee742cf901e9460bd7fc52c85318a7d6ee1bb5"
 )
 FROZEN_PRODUCTION_PATH = "tools/qsa_prefill_frozen_production.py"
+PRE_STORE_PRODUCTION_PATH = "tools/qsa_prefill_pre_store_production.py"
+PRE_STORE_PRODUCTION_SHA256 = (
+    "f1c5e71a3f7d5975fa639f5081a8e16a334fc3e0bf90d508808f5ed65a716d1c"
+)
 
 REFERENCE_COMMIT = "7a877ae34dcf4a7d46de08eb16db4699e1e0047c"
 REFERENCE_SHA256 = "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b"
@@ -31,6 +35,24 @@ def frozen_production():
     if hashlib.sha256(path.read_bytes()).hexdigest() != PRODUCTION_SHA256:
         raise RuntimeError("Frozen production source SHA256 mismatch")
     name = "tools.qsa_prefill_frozen_production"
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except BaseException:
+            del sys.modules[name]
+            raise
+    return sys.modules[name]
+
+
+def pre_store_production():
+    """Load the exact pre-integration host for explicit historical comparisons."""
+    path = Path(__file__).resolve().parents[1] / PRE_STORE_PRODUCTION_PATH
+    if hashlib.sha256(path.read_bytes()).hexdigest() != PRE_STORE_PRODUCTION_SHA256:
+        raise RuntimeError("Pre-store production source SHA256 mismatch")
+    name = "tools.qsa_prefill_pre_store_production"
     if name not in sys.modules:
         spec = importlib.util.spec_from_file_location(name, path)
         module = importlib.util.module_from_spec(spec)

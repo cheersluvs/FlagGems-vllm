@@ -29,7 +29,7 @@ class CombinedControlTests(unittest.TestCase):
         production = types.SimpleNamespace(
             name="production",
             persistent_topk=topk,
-            __file__=str(ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"),
+            __file__=str(ROOT / "tools/qsa_prefill_pre_store_production.py"),
         )
         candidate = types.SimpleNamespace(
             name="combined",

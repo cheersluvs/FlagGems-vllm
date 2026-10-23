@@ -24,8 +24,14 @@ def previous_module(production, rectangular_group=PREVIOUS_CONFIG_GROUP):
     """Same JIT/host/TopK, frozen eight/ten configs, independent standard entries."""
     from flaggems_vllm import runtime
     from flaggems_vllm.utils import libentry, libtuner
+    from tools import qsa_prefill_triton_ab as ab
     from tools.qsa_prefill_cache_granularity import round1_source
 
+    if (
+        hashlib.sha256(Path(production.__file__).read_bytes()).hexdigest()
+        == ab.INTEGRATED_PRODUCTION_SHA256
+    ):
+        production = ab.pre_store_production()
     try:
         source = round1_source(Path(production.__file__).read_text())
     except RuntimeError as error:
@@ -87,7 +93,10 @@ def previous_module(production, rectangular_group=PREVIOUS_CONFIG_GROUP):
 def tuning_state(module):
     """Untimed LibTuner evidence, not a per-chunk performance trace."""
     result = {}
-    for name in ("_qsa_prefill_score_kernel", "_qsa_prefill_compact_score_kernel"):
+    names = ["_qsa_prefill_score_kernel", "_qsa_prefill_compact_score_kernel"]
+    if hasattr(module, "_qsa_prefill_fp8_store_score_kernel"):
+        names.append("_qsa_prefill_fp8_store_score_kernel")
+    for name in names:
         tuner = getattr(module, name).fn
         scans = []
         for config, values in getattr(tuner, "configs_timings", {}).items():

@@ -46,6 +46,10 @@ SOURCES = sorted(
     | {
         "tools/benchmark_qsa_prefill_triton_stages.py",
         "tools/qsa_prefill_triton_ab.py",
+        "tools/qsa_prefill_pre_store_production.py",
+        "tools/test_qsa_prefill_fp8_store_production.py",
+        "tools/run_qsa_prefill_fp8_store_production_h800.sh",
+        "docs/qsa_prefill_fp8_store_production.md",
         "tools/qsa_prefill_tuning_round1.py",
         "tools/test_qsa_prefill_tuning_round1.py",
         "tools/qsa_prefill_cache_granularity.py",

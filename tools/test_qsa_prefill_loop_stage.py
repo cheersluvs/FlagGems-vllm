@@ -58,6 +58,7 @@ class LoopStageTests(unittest.TestCase):
     def test_only_new_yaml_group_changes_and_all_choices_are_exact_stage1(self):
         current = yaml.safe_load(YAML_PATH.read_text())
         current.pop(trial.CONFIG_GROUP)
+        current.pop("qsa_select_paged_prefill_fp8_store_score")
         current.pop("qsa_select_paged_prefill_stage_joint_score", None)
         # Pin all pre-existing groups without requiring history in shallow GPU clones.
         self.assertEqual(
@@ -137,7 +138,7 @@ class LoopStageTests(unittest.TestCase):
 
     def test_unchanged_math_source_and_previous_baseline_factory(self):
         kernel = ROOT / "tools/qsa_prefill_query_page_kernel.py"
-        production = ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"
+        production = ROOT / "tools/qsa_prefill_pre_store_production.py"
         self.assertEqual(
             hashlib.sha256(kernel.read_bytes()).hexdigest(), trial.KERNEL_SHA256
         )

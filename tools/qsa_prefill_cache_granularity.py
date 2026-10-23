@@ -13,6 +13,19 @@ ROUND1_SOURCE_SHA256 = (
 
 def round1_source(source):
     """Remove only the local entry class/import/decorator and require exact pin."""
+    from pathlib import Path
+
+    from tools import qsa_prefill_triton_ab as ab
+
+    if hashlib.sha256(source.encode()).hexdigest() == ab.INTEGRATED_PRODUCTION_SHA256:
+        snapshot = Path(__file__).resolve().parents[1] / ab.PRE_STORE_PRODUCTION_PATH
+        frozen = snapshot.read_text()
+        if (
+            hashlib.sha256(frozen.encode()).hexdigest()
+            != ab.PRE_STORE_PRODUCTION_SHA256
+        ):
+            raise RuntimeError("Pre-store source changed")
+        source = frozen
     if hashlib.sha256(source.encode()).hexdigest() == ROUND1_SOURCE_SHA256:
         return source
     try:
@@ -34,8 +47,18 @@ def round1_source(source):
 
 
 def previous_module(production, kind):
+    from pathlib import Path
+
+    from tools import qsa_prefill_triton_ab as ab
     from tools import qsa_prefill_tuning_round1 as round1
 
+    baseline = getattr(production, "production_baseline", production)
+    if (
+        hasattr(baseline, "__file__")
+        and hashlib.sha256(Path(baseline.__file__).read_bytes()).hexdigest()
+        == ab.INTEGRATED_PRODUCTION_SHA256
+    ):
+        production = ab.pre_store_production()
     if kind == "stage-joint":
         from tools import qsa_prefill_stage_joint_trial as joint
 

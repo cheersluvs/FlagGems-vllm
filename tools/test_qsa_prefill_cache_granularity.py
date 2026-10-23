@@ -193,7 +193,9 @@ class CacheTests(unittest.TestCase):
             hashlib.sha256(restored.encode()).hexdigest(), trial.ROUND1_SOURCE_SHA256
         )
         self.assertEqual(trial.round1_source(restored), restored)
-        with self.assertRaisesRegex(RuntimeError, "outside the operator-local"):
+        with self.assertRaisesRegex(
+            RuntimeError, "normalization mismatch|outside the operator-local"
+        ):
             trial.round1_source(source + "# unexpected body edit\n")
 
     def test_real_run_separates_tail_and_reuses_repeated_rows(self):

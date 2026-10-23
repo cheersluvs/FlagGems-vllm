@@ -65,7 +65,9 @@ def test_compact_every_config_and_chunk_boundary(sm90, dtype, heads, dim):
     check_score_kernel(dtype, heads, dim, trial._qsa_prefill_compact_score_kernel, True)
 
 
-def check_score_kernel(dtype, heads, dim, kernel, compact_grid, configs=None):
+def check_score_kernel(
+    dtype, heads, dim, kernel, compact_grid, configs=None, width_multiple=1
+):
     queries = (0, 7, 0, 33, 1, 65, 0)
     rows = sum(queries)
     visible = [0, 1, 511, 512, 513, 1025, 1537] + [1537] * (rows - 7)
@@ -88,7 +90,9 @@ def check_score_kernel(dtype, heads, dim, kernel, compact_grid, configs=None):
     table[:, ::2].copy_(args[2])
     args[2], args[3] = table[:, ::2], args[3].to(torch.int64)
     expected = helpers.torch_logits(*args[:5])
-    width = expected.shape[1]
+    width = triton.cdiv(expected.shape[1], width_multiple) * width_multiple
+    if width != expected.shape[1]:
+        expected = helpers.torch_logits(*args[:5], width=width)
     while not isinstance(kernel, triton.runtime.JITFunction):
         kernel = kernel.fn
     if configs is None:

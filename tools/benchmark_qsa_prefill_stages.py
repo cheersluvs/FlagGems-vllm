@@ -744,6 +744,10 @@ def score_configs(op, kernel_name="_qsa_prefill_score_kernel"):
                     cubin_sha256=sha256(kernel.asm["cubin"]),
                 )
             )
+    if kernel_name == "_qsa_prefill_score_kernel" and hasattr(
+        op, "_qsa_prefill_fp8_store_score_kernel"
+    ):
+        records.extend(score_configs(op, "_qsa_prefill_fp8_store_score_kernel"))
     return records
 
 

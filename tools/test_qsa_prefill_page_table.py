@@ -16,7 +16,7 @@ from tools import qsa_prefill_page_table_trial as trial
 from tools import test_qsa_prefill_tuning_round1 as goals
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCTION = ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"
+PRODUCTION = ROOT / "tools/qsa_prefill_pre_store_production.py"
 KERNEL = ROOT / "tools/qsa_prefill_page_table_kernel.py"
 
 
