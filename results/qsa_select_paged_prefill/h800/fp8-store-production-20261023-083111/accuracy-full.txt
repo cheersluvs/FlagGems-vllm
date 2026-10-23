@@ -1,0 +1,44 @@
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-production.YRbp7v/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "8e4ad799a15465d854791064a4ee742cf901e9460bd7fc52c85318a7d6ee1bb5", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-production.YRbp7v/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "8e4ad799a15465d854791064a4ee742cf901e9460bd7fc52c85318a7d6ee1bb5", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+........................................F
+=================================== FAILURES ===================================
+____________________ test_fp8_store_production_modes[4-128] ____________________
+
+sm90 = None, heads = 4, dim = 128
+
+    @pytest.mark.parametrize("heads,dim", [(4, 128), (3, 24), (5, 96), (1, 8)])
+    def test_fp8_store_production_modes(sm90, heads, dim):
+        from .test_qsa_prefill_compact_trial import check_score_kernel
+    
+        configs = flaggems_vllm.runtime.get_tuned_config(
+            "qsa_select_paged_prefill_fp8_store_score"
+        )
+        # Two representative modes/stages; other choices share exactly the same
+        # transferred arithmetic. Public-entry/native30 covers actual tuned choices.
+        selected = [
+            c
+            for c in configs
+            if (
+                c.kwargs["TILE_R"],
+                c.kwargs["BLOCK_N"],
+                c.kwargs["K_TILES"],
+                c.kwargs["QUERY_PARTS"],
+                c.num_stages,
+            )
+            in ((8, 64, 4, 1, 2), (32, 64, 4, 2, 1))
+        ]
+>       assert len(configs) == 34 and len(selected) == 2
+E       assert (34 == 34 and 3 == 2)
+E        +  where 34 = len([<triton.runtime.autotuner.Config object at 0x7fd97eaa45f0>, <triton.runtime.autotuner.Config object at 0x7fd97eaa4260...on.runtime.autotuner.Config object at 0x7fd97eaa4380>, <triton.runtime.autotuner.Config object at 0x7fd97eaa4a70>, ...])
+E        +  and   3 = len([<triton.runtime.autotuner.Config object at 0x7fd97eaa4260>, <triton.runtime.autotuner.Config object at 0x7fd97eaa49e0>, <triton.runtime.autotuner.Config object at 0x7fd97eaa4c20>])
+
+tests/test_qsa_select_paged_prefill.py:1028: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_qsa_select_paged_prefill.py::test_fp8_store_production_modes[4-128]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 40 passed in 224.29s (0:03:44)
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-production.YRbp7v/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "8e4ad799a15465d854791064a4ee742cf901e9460bd7fc52c85318a7d6ee1bb5", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-production.YRbp7v/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "8e4ad799a15465d854791064a4ee742cf901e9460bd7fc52c85318a7d6ee1bb5", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
