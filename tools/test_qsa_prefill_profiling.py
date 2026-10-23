@@ -137,6 +137,82 @@ class ProfilingTests(unittest.TestCase):
                 profiling.exported_metrics(path), dict(metric_rows=2, kernel_ids=["0"])
             )
 
+    def test_raw_wide_csv_uses_unit_row_and_counts_metric_values(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "raw.csv"
+            path.write_text(
+                '==PROF== Connected\n"ID","Kernel Name","gpu__time_duration.sum",'
+                '"sm__throughput.avg.pct_of_peak_sustained_elapsed"\n'
+                '"","","ns","%"\n"0","score","1000","0"\n"1","score","2000","n/a"\n'
+            )
+            normalized = profiling.read_metrics(path)
+            self.assertEqual(normalized["schema"], "wide")
+            self.assertEqual(normalized["units"]["gpu__time_duration.sum"], "ns")
+            self.assertEqual(
+                profiling.exported_metrics(path),
+                dict(metric_rows=3, kernel_ids=["0", "1"]),
+            )
+
+    def test_reuse_keeps_valid_capture_and_rejects_changed_binary(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original, previous, output = (
+                root / name for name in ("original", "previous", "output")
+            )
+            for path in (original, previous, output):
+                path.mkdir()
+            name = profiling.CASES[0]
+            baseline = self.record()
+            baseline["case"] = dict(name=name)
+            captured = copy.deepcopy(baseline)
+            captured["performance_guard"] = dict(status="observed_clean")
+            captured["profiling"] = dict(
+                config_and_input_match=True,
+                validation_before=dict(passed=True),
+                validation_after=dict(passed=True),
+                expected_profiled_launches=3,
+                captures=[
+                    dict(side=side) for side in ("native", "production", "candidate")
+                ],
+            )
+            (original / (name + ".json")).write_text(json.dumps(baseline))
+            capture_path = previous / ("profile-" + name + ".json")
+            capture_path.write_text(json.dumps(captured))
+            csv_path = previous / ("profile-" + name + ".csv")
+            csv_path.write_text(
+                '"ID","gpu__time_duration.sum"\n"","ns"\n0,100\n1,100\n2,100\n'
+            )
+            with patch.object(bench, "runtime_identity", return_value={}):
+                result = profiling.reuse_profiles(original, previous, output, [name])
+                self.assertEqual(result[name]["status"], "passed")
+                self.assertEqual(
+                    (output / csv_path.name).read_bytes(), csv_path.read_bytes()
+                )
+                captured["kernel_resources"]["native"]["kernels"][0][
+                    "cubin_sha256"
+                ] = "changed"
+                capture_path.write_text(json.dumps(captured))
+                with self.assertRaisesRegex(RuntimeError, "cannot be reused"):
+                    profiling.reuse_profiles(original, previous, output, [name])
+
+    def test_reused_capture_is_not_launched_again(self):
+        with tempfile.TemporaryDirectory() as folder:
+            options = self.options(Path(folder))
+            options.cases = [profiling.CASES[0]]
+            prior = dict(case=options.cases[0], status="passed", reused_from="verified")
+            facts = dict(reused_profiles={options.cases[0]: prior})
+            with patch.object(profiling, "find_ncu", return_value="/ncu"), patch.object(
+                bench.support,
+                "command",
+                return_value=dict(returncode=0, stdout=" ".join(profiling.SECTIONS)),
+            ), patch.object(profiling, "run_process") as launch:
+                self.assertEqual(
+                    profiling.collect_counters(options, facts, ["worker"]), 0
+                )
+            launch.assert_not_called()
+            self.assertEqual(facts["profiles"], [prior])
+            self.assertTrue(facts["hardware_counters_complete"])
+
     def test_ncu_captures_warmed_ranges_without_clock_changes(self):
         cmd = profiling.ncu_command("/ncu", Path("c.csv"), ["python", "worker"])
         self.assertEqual(cmd[-2:], ["python", "worker"])

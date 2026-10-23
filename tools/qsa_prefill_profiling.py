@@ -4,8 +4,10 @@
 
 import argparse
 import csv
+import hashlib
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -204,25 +206,103 @@ def ncu_command(ncu, csv_path, worker):
     ]
 
 
-def exported_metrics(path):
-    """Require actual metric rows; an error-only CSV is not a counter result."""
+def read_metrics(path):
+    """Normalize ncu long CSV and raw wide CSV; skip logs and unit rows."""
     lines = Path(path).read_text(errors="replace").splitlines()
     for index, line in enumerate(lines):
         header = next(csv.reader([line]), [])
-        if "Metric Name" not in header or "Metric Value" not in header:
+        if "ID" not in header:
             continue
-        rows = list(csv.DictReader(lines[index:]))
-        valid = [
-            row
-            for row in rows
-            if row.get("Metric Name")
-            and row.get("Metric Value") not in (None, "", "n/a")
-        ]
-        return dict(
-            metric_rows=len(valid),
-            kernel_ids=sorted({row.get("ID", "") for row in valid}),
+        long = "Metric Name" in header and "Metric Value" in header
+        metric_columns = [k for k in header if re.match(r"^[a-z]\w*__", k)]
+        if not long and not metric_columns:
+            continue
+        kernels, units = {}, {}
+        for row in csv.DictReader(lines[index:]):
+            identifier = str(row.get("ID", ""))
+            if not identifier.isdigit():
+                if not long and not identifier:
+                    units.update({k: row.get(k, "") for k in metric_columns})
+                continue
+            kernel = kernels.setdefault(identifier, dict(metadata=row, metrics={}))
+            if long:
+                key = row.get("Metric Name")
+                if key:
+                    kernel["metrics"][key] = row.get("Metric Value")
+                    units[key] = row.get("Metric Unit", "")
+            else:
+                kernel["metrics"].update({k: row.get(k) for k in metric_columns})
+        return dict(schema="long" if long else "wide", units=units, kernels=kernels)
+    return dict(schema="unrecognized", units={}, kernels={})
+
+
+def exported_metrics(path):
+    normalized = read_metrics(path)
+    kernels = {
+        key: {
+            k: v for k, v in row["metrics"].items() if v not in (None, "", "n/a", "N/A")
+        }
+        for key, row in normalized["kernels"].items()
+    }
+    return dict(
+        metric_rows=sum(len(metrics) for metrics in kernels.values()),
+        kernel_ids=sorted(
+            (key for key, metrics in kernels.items() if metrics), key=int
+        ),
+    )
+
+
+def reuse_profiles(original, previous, output, cases):
+    """Recover successful capture rejected only by the former CSV parser."""
+    from tools import benchmark_qsa_prefill_triton_stages as bench
+
+    reused = {}
+    for name in cases:
+        source = Path(previous)
+        json_path, csv_path = (
+            source / ("profile-" + name + suffix) for suffix in (".json", ".csv")
         )
-    return dict(metric_rows=0, kernel_ids=[])
+        if not json_path.is_file() and not csv_path.is_file():
+            continue
+        capture = json.loads(json_path.read_text())
+        baseline = json.loads((Path(original) / (name + ".json")).read_text())
+        proof = capture.get("profiling", {})
+        expected = 3 * len(baseline["chunks"])
+        counters = exported_metrics(csv_path)
+        if (
+            capture.get("status") != "passed"
+            or not proof.get("config_and_input_match")
+            or not proof.get("validation_before")
+            or not proof.get("validation_after")
+            or [item.get("side") for item in proof.get("captures", [])]
+            != ["native", "production", "candidate"]
+            or proof.get("expected_profiled_launches") != expected
+            or capture["case"] != baseline["case"]
+            or capture["inputs"] != baseline["inputs"]
+            or configuration_signature(capture) != configuration_signature(baseline)
+            or bench.runtime_identity(capture["runtime"])
+            != bench.runtime_identity(baseline["runtime"])
+            or capture.get("performance_guard", {}).get("status") != "observed_clean"
+            or counters["metric_rows"] == 0
+            or len(counters["kernel_ids"]) != expected
+        ):
+            raise RuntimeError("Prior capture cannot be reused safely: " + name)
+        hashes = {}
+        for suffix in (".json", ".csv", ".txt"):
+            path = source / ("profile-" + name + suffix)
+            if path.is_file():
+                hashes[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+                shutil.copy2(path, Path(output) / path.name)
+        reused[name] = dict(
+            case=name,
+            status="passed",
+            reused_from=str(source),
+            worker_status="passed",
+            counters=counters,
+            expected_profiled_launches=expected,
+            source_sha256=hashes,
+        )
+    return reused
 
 
 def engine_command(options):
@@ -320,6 +400,11 @@ def collect_counters(options, facts, command, *, cache_report=None):
     )
     reference = str((cache_report or report) / "qsa_indexer_vllm.py")
     for name in options.cases:
+        if name in facts.get("reused_profiles", {}):
+            facts["profiles"].append(facts["reused_profiles"][name])
+            print("Reused verified hardware capture:", name, flush=True)
+            support.write_json(output, facts)
+            continue
         check = support.gpu_guard_module().idle(
             os.environ["CUDA_VISIBLE_DEVICES"],
             support.command,

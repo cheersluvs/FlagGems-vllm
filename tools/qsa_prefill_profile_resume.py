@@ -118,6 +118,9 @@ def main():
     parser.add_argument("--ncu")
     parser.add_argument("--prepare-ncu", action="store_true")
     parser.add_argument(
+        "--reuse-profile-report", help="Preserve verified prior hardware captures"
+    )
+    parser.add_argument(
         "--ncu-archive", help="Already downloaded pinned Nsight Compute archive"
     )
     parser.add_argument("--timeout", type=int, default=1800)
@@ -145,6 +148,10 @@ def main():
         (output / "resume-sources.json").write_text(
             json.dumps(sources, indent=2) + "\n"
         )
+        if options.reuse_profile_report:
+            facts["reused_profiles"] = profiling.reuse_profiles(
+                original, options.reuse_profile_report, output, options.cases
+            )
         if options.prepare_ncu and not profiling.find_ncu(options.ncu):
             from tools.qsa_ncu_portable import prepare as prepare_ncu
 

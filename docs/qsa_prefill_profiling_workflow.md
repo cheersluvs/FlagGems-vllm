@@ -209,3 +209,70 @@ reuse without network, version metadata and bare/full GPU UUID normalization.
 Changed-file pre-commit, CLI help and shell syntax passed. The real397MB Linux
 archive was not downloaded/executed on the Mac; on-card loading, instrumentation
 and hardware-counter permissions remain to be checked by the resumed run.
+
+## Returned capture d9d8b953: successful first hardware capture, CSV parser bug
+
+Reportd9d8b9535448bea349432b3392c50c0902ad61fe has34 verified blobs.
+The standalone archive SHA256 matched and ncu --version/section listing passed.
+The first worker (BF16 n1/q16384/p102400) and ncu both exited0. The original
+worker validated input/config/cubin/runtime matching, pre/post numeric checks
+and clean GPU guards; all three sides and four chunks completed. Hardware
+counter permissions worked for these kernels. Other four cases were not run.
+
+Coordinator failure was a parser compatibility bug: it expected long CSV with
+Metric Name/Metric Value columns, but ncu --page raw emitted a wide table with
+804 columns, a separate units row and12 kernel rows. These contain9396
+metric values (including device/resource attributes), not zero metrics. NVTX
+labels confirm IDs0-3 native,4-7 canonical production,8-11 private candidate.
+The false empty-export diagnosis is withdrawn; the original failed status is
+preserved as provenance, and the verified first capture can be recovered.
+
+Before coding, restrict this fix to long/wide CSV normalization, exact-case
+counter reuse and focused CPU tests. No capture timer, hardware section,
+replay/cache/clock policy, original worker, kernel/config/reference or numeric
+guard changes. Reuse requires passed worker/pre-post validation, matching
+baseline inputs/case/configs/native+canonical+candidate cubins/runtime, clean
+GPU guard, all three side labels in the capture manifest and exactly the
+expected kernel IDs. Preserve original JSON/CSV/TXT bytes and their hashes.
+An invalid or partial prior capture must fail reuse, never silently pass.
+
+Selected four-chunk configurations:
+canonical TR32/BN64/KT16/W8/stages2;
+candidate TR64/BN64/KT16/W4/stages1/QUERY_PARTS1.
+Ranges below are per-kernel counters across the four chunks, not averages of
+benchmark speedups. Shared memory is the dynamic per-CTA portion.
+
+| Observation | Native | Canonical production | Private candidate |
+| --- | ---: | ---: | ---: |
+| Registers/thread | 192 | 63 | 234 |
+| Dynamic shared bytes/CTA | 106496 | 73728 | 81920 |
+| Active warps, % peak sustained active | 12.29–12.66 | 36.31–36.82 | 12.06–12.30 |
+| Tensor cycles active, % peak sustained active | 23.97–24.50 | 25.55–25.67 | 29.03–29.53 |
+| Issue active, % peak sustained active | 25.88–26.33 | 46.67–46.97 | 34.07–34.61 |
+| DRAM throughput, % peak sustained elapsed | 27.11–28.90 | 28.44–29.75 | 33.24–34.66 |
+| L2 sector hit rate, % | 89.87–93.80 | 96.92–97.60 | 94.35–95.49 |
+| Eligible warps/scheduler/active cycle | 0.32–0.33 | 1.20–1.21 | 0.44–0.45 |
+
+The independent original benchmark measured candidate/canonical score
+speedup1.124731. Lower active-warp percentage does not imply lower performance:
+the larger query tile, different warp/stage counts and BF16 page fetch change
+coexist here. This is evidence of a reuse/live-state tradeoff, not a causal
+proof that registers, occupancy or DRAM bandwidth is the sole bottleneck.
+Capture uses kernel replay, uncontrolled caches and unmodified clocks, so
+profiled duration is not substituted for graph-mode benchmark speedup. Do not
+use the high warm-cache L2 hit rate to promise the same serving-cache behavior.
+
+Next: use --reuse-profile-report /tmp/qsa-profiling-h800.70fDb1 with the original
+--resume-report /tmp/qsa-profiling-h800.Ji2cwS. Reuse all12 first-case launches
+without remeasurement, collect only remaining four cases, and reuse the already
+extracted /tmp/qsa-ncu-portable.5qd8fj5x/.../ncu via --ncu. No download,
+benchmark/A/A/full pytest or production modification is required. After the
+remaining FP8/tiny counters, choose a fixed-configuration, one-hypothesis probe
+for query reuse versus accumulator lifetime, preserving full-D math and stores.
+
+Validation:58 affected CPU checks passed, including long/wide export parsing,
+unit-row/zero/N/A handling, exact binary matching for reuse and a check that
+reused cases launch no worker. The actual d9d8b953 CSV/JSON was recovered locally
+against the original baseline and yielded12 matching IDs and9396 values.
+Changed-file pre-commit and shell syntax passed. Remaining four hardware
+captures and all proposed optimization probes are still pending H800 execution.
