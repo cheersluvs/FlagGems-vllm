@@ -2301,6 +2301,7 @@ def main():
             "compat134.json",
             "compat134-package.json",
             "flagtree134-tools.json",
+            "toolchain-downloads.json",
         }
     if any(p.name not in allowed for p in directory.iterdir()):
         parser.error(

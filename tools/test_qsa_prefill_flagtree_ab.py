@@ -241,11 +241,26 @@ class EnvironmentTests(unittest.TestCase):
             tool = dict(
                 ptxas=dict(path="/tmp/verified-ptxas", sha256=profile.PTXAS_SHA256)
             )
+
+            def acquire(directory):
+                # Exercise the real prepare() export and main() whitelist with
+                # the additional artifact emitted by tool acquisition.
+                (directory / "toolchain-downloads.json").write_text(
+                    '{"ptxas":{"status":"verified"}}'
+                )
+                return tool
+
             with patch.object(profile, "select_gpu", return_value=True), patch.object(
-                validation, "toolchain", return_value=tool
+                validation, "toolchain", side_effect=acquire
             ), patch.object(profile.os, "execve") as execute:
                 self.assertEqual(profile.prepare(options, extra), 0)
                 argv = execute.call_args.args[1][2:]
+            self.assertEqual(
+                json.loads((report / "toolchain-downloads.json").read_text())["ptxas"][
+                    "status"
+                ],
+                "verified",
+            )
             for rejected in (None, "stage-summary.json", "old-case.json"):
                 with self.subTest(rejected=rejected):
                     sentinel = report / rejected if rejected else None

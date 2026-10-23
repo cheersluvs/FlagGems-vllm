@@ -97,3 +97,13 @@ even on failure. Original archive/version/binary pins stay unchanged. This is
 a tooling-only change; production SHA8e4ad799 and all workloads are unchanged.
 Local validation:27 relevant toolchain/orchestration tests and changed-file
 pre-commit passed. H800 compilation, correctness and timings remain pending.
+
+Report08b29c742ffba6e4dab5d35e7f6b3567d018527f confirmed successful reuse of
+both pinned tool archives, but the benchmark rejected the newly exported
+`toolchain-downloads.json` as an existing result. The FlagTree bootstrap-only
+allowlist now explicitly includes this diagnostic filename. The real wrapper
+handoff regression test creates/exports it before calling benchmark main; it
+also proves existing stage summaries and case results still reject the run
+without overwriting their contents.25 relevant orchestration/production-binding
+checks passed. No GPU correctness checks or performance measurements ran in
+this failed report; production/workloads/toolchain pins remain unchanged.
