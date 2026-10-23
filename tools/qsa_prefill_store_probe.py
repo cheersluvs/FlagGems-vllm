@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
-"""Fixed-choice bulk/tail store probe; two cases, no production edits or tuning."""
+"""Fixed-choice bulk/tail store probe; long/FP8 suites without production edits or tuning."""
 
 import argparse
 import csv
@@ -77,8 +77,9 @@ def eligible(logits, width):
 
 
 class StoreJIT:
-    def __init__(self, original, bulk, names):
+    def __init__(self, original, bulk, names, fp8_only=False):
         self.original, self.bulk, self.names = original, bulk, names
+        self.fp8_only = fp8_only
 
     def __getitem__(self, grid):
         def launch(*values, **kwargs):
@@ -86,7 +87,8 @@ class StoreJIT:
             named.update(kwargs)
             jit = (
                 self.bulk
-                if eligible(named["logits_ptr"], named["logits_width"])
+                if (not self.fp8_only or named.get("IS_FP8") is True)
+                and eligible(named["logits_ptr"], named["logits_width"])
                 else self.original
             )
             return jit[grid](*values, **kwargs)
@@ -94,22 +96,27 @@ class StoreJIT:
         return launch
 
 
-def make_pair(production, traces):
+def make_pair(production, traces, store_policy="aligned"):
     from tools import qsa_prefill_stage_joint_trial as joint
     from tools import qsa_prefill_store_probe_kernel as kernel
 
+    if store_policy not in ("aligned", "fp8-only"):
+        raise ValueError("Unknown store policy")
     source = joint.candidate_module(production)
     pair = fixed.modules(source, source, traces)
     entry = pair[1]._qsa_prefill_score_kernel
     entry.jit = StoreJIT(
-        entry.jit, kernel._qsa_prefill_score_kernel.fn.fn, entry.arg_names
+        entry.jit,
+        kernel._qsa_prefill_score_kernel.fn.fn,
+        entry.arg_names,
+        fp8_only=store_policy == "fp8-only",
     )
     if pair[0].persistent_topk is not pair[1].persistent_topk:
         raise RuntimeError("Store probe changed TopK")
     return pair
 
 
-def boundary_checks(production, helpers, torch, device):
+def boundary_checks(production, helpers, torch, device, store_policy="aligned"):
     from tools import qsa_prefill_score_benchmark as scoring
 
     checks = []
@@ -155,7 +162,7 @@ def boundary_checks(production, helpers, torch, device):
                 )
                 backing.append(storage)
                 offset += count
-            pair = make_pair(production, traces)
+            pair = make_pair(production, traces, store_policy=store_policy)
             outputs = []
             for module in pair:
                 for storage in backing:
@@ -188,7 +195,11 @@ def boundary_checks(production, helpers, torch, device):
             for a, b in zip(*outputs):
                 torch.testing.assert_close(a, b, rtol=0, atol=0)
             resources = fixed.freeze_and_records(pair)
-            active = width % 4 == 0 and shift % 4 == 0
+            active = (
+                width % 4 == 0
+                and shift % 4 == 0
+                and (store_policy == "aligned" or dtype == torch.float8_e4m3fn)
+            )
             if not active:
                 for a, b in zip(resources["baseline"], resources["candidate"]):
                     if (
@@ -206,6 +217,7 @@ def boundary_checks(production, helpers, torch, device):
                     shift=shift,
                     all_rows_checked=checked,
                     bulk_active=active,
+                    fallback_binary_verified=not active,
                 )
             )
             print("完整边界校验:", checks[-1], flush=True)
@@ -215,30 +227,37 @@ def boundary_checks(production, helpers, torch, device):
 def artifact_records(pair, report, name):
     rows = []
     for side, module in zip(("baseline", "candidate"), pair):
-        for chunk, (
-            kernel,
-            config,
-        ) in module._qsa_prefill_score_kernel.compiled.items():
-            ptx = kernel.asm["ptx"]
-            # Static sites only, not dynamic transaction counts.
-            ops = re.findall(r"\bst\.global[\w.]*", re.sub(r"//[^\n]*", "", ptx))
-            prefix = f"{name}-{side}-{chunk[1]}"
-            files = {}
-            for suffix in ("ptx", "ttgir"):
-                text = kernel.asm.get(suffix)
-                if text is not None:
-                    path = report / (prefix + "." + suffix + ".txt")
-                    path.write_text(text)
-                    files[suffix] = dict(path=path.name, sha256=sha(path))
-            rows.append(
-                dict(
-                    side=side,
-                    chunk=list(chunk),
-                    constants=config,
-                    files=files,
-                    store_ops={op: ops.count(op) for op in sorted(set(ops))},
+        for route, attr in (
+            ("rectangular", "_qsa_prefill_score_kernel"),
+            ("compact", "_qsa_prefill_compact_score_kernel"),
+        ):
+            entry = getattr(module, attr, None)
+            if entry is None:
+                continue
+            for chunk, (kernel, config) in entry.compiled.items():
+                ptx = kernel.asm["ptx"]
+                # Static sites only, not dynamic transaction counts.
+                ops = re.findall(r"\bst\.global[\w.]*", re.sub(r"//[^\n]*", "", ptx))
+                prefix = f"{name}-{side}-{chunk[1]}" + (
+                    "-compact" if route == "compact" else ""
                 )
-            )
+                files = {}
+                for suffix in ("ptx", "ttgir"):
+                    text = kernel.asm.get(suffix)
+                    if text is not None:
+                        path = report / (prefix + "." + suffix + ".txt")
+                        path.write_text(text)
+                        files[suffix] = dict(path=path.name, sha256=sha(path))
+                rows.append(
+                    dict(
+                        side=side,
+                        route=route,
+                        chunk=list(chunk),
+                        constants=config,
+                        files=files,
+                        store_ops={op: ops.count(op) for op in sorted(set(ops))},
+                    )
+                )
     return rows
 
 
@@ -305,21 +324,48 @@ def worker(options):
         source=verify_source(),
         production_modified=False,
         compile_only=getattr(options, "compile_only", False),
+        store_policy=getattr(options, "store_policy", "aligned"),
+        suite=getattr(options, "suite", "long"),
     )
     try:
-        saved, traces = load_record(options.baseline_report, name)
+        from tools import qsa_prefill_store_fp8 as fp8_suite
+
+        saved, traces = (
+            fp8_suite.saved_record(name)
+            if result["suite"] == "fp8"
+            else load_record(options.baseline_report, name)
+        )
         result["fixed_traces"] = traces
         torch, native, production, _, helpers, device, info = bench.runtime(
             report / "qsa_indexer_vllm.py", path, options
         )
         result["runtime"] = info
-        expected_compiler = compiler_identity(saved["runtime"])
+        expected_compiler = (
+            saved["compiler_identity"]
+            if result["suite"] == "fp8"
+            else compiler_identity(saved["runtime"])
+        )
         if compiler_identity(info) != expected_compiler:
             raise RuntimeError(
                 "Compiler/torch/vLLM identity differs from the captured baseline"
             )
         result["compiler_matches_capture"] = True
-        result["boundary_checks"] = boundary_checks(production, helpers, torch, device)
+        if result["suite"] == "fp8":
+            result["boundary_checks"] = fp8_suite.boundary_evidence(
+                options,
+                info,
+                lambda: boundary_checks(
+                    production,
+                    helpers,
+                    torch,
+                    device,
+                    store_policy=result["store_policy"],
+                ),
+            )
+        else:
+            result["boundary_checks"] = boundary_checks(
+                production, helpers, torch, device, store_policy=result["store_policy"]
+            )
         case = next(
             c for c in bench.workloads.cases("scored-prefill") if c["name"] == name
         )
@@ -328,11 +374,9 @@ def worker(options):
         args = bench.workloads.make_inputs(case, helpers, torch)
         fingerprints = support.fingerprint(args, torch)
         if fingerprints != saved["inputs"]:
-            raise RuntimeError(
-                "Probe inputs differ from the measured long-case fixture"
-            )
+            raise RuntimeError("Probe inputs differ from the frozen fixture")
         result["inputs"] = fingerprints
-        pair = make_pair(production, traces)
+        pair = make_pair(production, traces, store_policy=result["store_policy"])
         if result["compile_only"]:
             from unittest.mock import patch
 
@@ -392,6 +436,10 @@ def worker(options):
         device.synchronize()
         resources = fixed.freeze_and_records(pair)
         result["kernels_before"] = resources
+        if result["suite"] == "fp8":
+            result["gate_records"] = fp8_suite.gate_records(
+                case, traces, chunks, resources, result["store_policy"]
+            )
         result["artifacts"] = artifact_records(pair, report, name)
         for item in result["artifacts"]:
             print(
@@ -525,8 +573,13 @@ def coordinate(options):
         git_head=bench.support.command(["git", "-C", str(ROOT), "rev-parse", "HEAD"]),
     )
     try:
+        from tools import qsa_prefill_store_fp8 as fp8_suite
+
         for name in options.cases:
-            load_record(options.baseline_report, name)
+            if options.suite == "fp8":
+                fp8_suite.saved_record(name)
+            else:
+                load_record(options.baseline_report, name)
         shared.prepare_environment(options, summary)
         names = (
             "tools/qsa_prefill_store_probe.py",
@@ -534,6 +587,9 @@ def coordinate(options):
             "tools/test_qsa_prefill_store_probe.py",
             "tools/run_qsa_prefill_store_probe_h800.sh",
             "docs/qsa_prefill_store_probe.md",
+            "tools/qsa_prefill_store_fp8.py",
+            "tools/test_qsa_prefill_store_fp8.py",
+            "docs/qsa_prefill_store_fp8_configs.json",
         )
         bench.support.write_json(
             report / "store-sources.json",
@@ -587,6 +643,8 @@ def coordinate(options):
                     raise RuntimeError("Invalid compile-only result")
             elif set(result.get("stages", {})) != {"score", "topk", "pipeline"}:
                 raise RuntimeError("Missing score/TopK/pipeline timings")
+        if options.suite == "fp8":
+            summary["aggregate"] = fp8_suite.show_summary(summary["cases"])
         summary.update(status="passed")
         return 0
     except BaseException:
@@ -614,8 +672,13 @@ def main():
     parser.add_argument("--max-initial-temp-c", type=int, default=80)
     parser.add_argument("--cooldown-timeout", type=int, default=120)
     parser.add_argument("--cooldown-interval", type=int, default=10)
-    parser.add_argument("--cases", choices=CASES, nargs="+", default=list(CASES))
-    parser.add_argument("--worker-case", choices=CASES, help=argparse.SUPPRESS)
+    from tools import qsa_prefill_store_fp8 as fp8_suite
+
+    all_names = sorted(set(CASES) | set(fp8_suite.names()))
+    parser.add_argument("--suite", choices=("long", "fp8"), default="long")
+    parser.add_argument("--store-policy", choices=("aligned", "fp8-only"))
+    parser.add_argument("--cases", choices=all_names, nargs="+")
+    parser.add_argument("--worker-case", choices=all_names, help=argparse.SUPPRESS)
     options = parser.parse_args()
     if (
         min(
@@ -630,6 +693,19 @@ def main():
         parser.error(
             "Positive timing/timeout/interval and nonnegative cooldown required"
         )
+    allowed = fp8_suite.names() if options.suite == "fp8" else list(CASES)
+    options.cases = options.cases or allowed
+    options.store_policy = options.store_policy or (
+        "fp8-only" if options.suite == "fp8" else "aligned"
+    )
+    if (
+        not set(options.cases) <= set(allowed)
+        or options.worker_case
+        and options.worker_case not in options.cases
+        or options.suite == "fp8"
+        and options.store_policy != "fp8-only"
+    ):
+        parser.error("Case/policy does not belong to selected suite")
     if len(set(options.cases)) != len(options.cases):
         parser.error("Duplicate cases")
     options.report_dir = str(Path(options.report_dir).resolve())

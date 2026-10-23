@@ -14,6 +14,11 @@ git -C "$qsa_repo" status --short
 unset PYTHONPATH PYTHONHOME QSA_TRITON_RUNTIME_PATH QSA_NATIVE_REFERENCE_PYTHON QSA_NATIVE_REPORT_DIR QSA_NATIVE_RESULT_PATH CUDA_LAUNCH_BLOCKING
 export PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 DNN_VENDOR=nvidia VLLM_PLUGINS=""
 qsa_kind=bulk-tail-store
+for qsa_arg in "$@"; do
+  if [[ "$qsa_arg" == fp8 || "$qsa_arg" == --suite=fp8 ]]; then
+    qsa_kind=bulk-tail-store-fp8
+  fi
+done
 qsa_status=0
 if "$qsa_python" -I "$qsa_repo/tools/with_cuda_compat134.py" \
   --script "$qsa_repo/tools/qsa_prefill_store_probe.py" \

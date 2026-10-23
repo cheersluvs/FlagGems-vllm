@@ -131,3 +131,58 @@ real scorer kernels. Thus compile-only is not a GPU-free/offline command.
 Local follow-up validation:31 CPU checks pass, including a compile-only worker
 that fails if a performance timer or TopK/pipeline callable is used. Pre-commit
 and shell syntax pass. The corrected hint's GPU output remains unverified.
+
+## FP8-only expansion board (2026-10-23)
+
+Paired report48b4518d: FP8 score1.085422/pipeline1.039906, both rounds positive
+and outside sampled A/A noise; BF16 score0.928992/pipeline0.975752, both rounds
+negative. Retain FP8 as promising; do not enable bulk/tail for BF16.
+
+| Project truth | Frozen expansion |
+| --- | --- |
+| Editable | Private probe policy, frozen FP8 manifest, suite orchestration/reporting, tests/wrapper/docs |
+| Read-only | All kernels incl corrected bulk/tail, production/configs/reference, timer/guards/tolerances and historical results |
+| Active set | All10 current FP8 benchmark shapes; nine rectangular cases and one compact control |
+| Baseline choices | Saved full30 reportf6a41ae371cbc0907bb2b2aa4e2eca2c49966a18, code c79389e9720c997d0bbccdfa78a047730f2d4166; per-record SHA256, fixture fingerprints and exact route/config/chunks bundled |
+| Runtime | Same pinned compiler identity; existing Ji2cwS only supplies environment/tools/reference, no old full-report directory required on H800 |
+| Benchmark |2 alternating rounds, existing kernel timer; score/unchanged TopK/sequential pipeline and paired A/A; no retuning |
+| Validation | BF16/unaligned/compact exact original JIT/binary fallback; FP8 boundary/canary and real-case sampled checks, resources frozen before/after |
+| Time | Run small boundary suite once, archive/hash it for subsequent workers; keep same reference/tolerance and all per-case pre/post stage checks |
+
+| Contract | Preserved |
+| --- | --- |
+| Gate | Bulk store only when IS_FP8=true and output16B aligned, contiguous FP32, row width divisible by4; original JIT otherwise |
+| Compact | Original compact kernel unchanged; include as a control, not an optimized case |
+| Math/layout | Corrected store helper SHA715611ece37104b578bf600369956979fb710f9da94e679a23139befb637e0f9; same input strides/workspaces/chunk scheduling |
+| TopK | Same persistent_topk/common inputs; report timings without optimization |
+
+| Path | Decision |
+| --- | --- |
+| First FP8 case | Execute full small BF16/FP8 aligned/unaligned boundary suite and preserve gate/fallback proof |
+| Later cases | Verify same source/compiler identity and hash-anchored first-case boundary evidence; still perform per-case sampled checks |
+| Compact | Export actual compact PTX/IR; require baseline/candidate PTX and cubin identity |
+| Integration | Deferred; evaluate all10 before changing production or expanding30-case acceptance |
+
+FP8 expansion command (same verified environment, no new installation):
+
+```bash
+export QSA_STOCK_PYTHON=/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python
+bash tools/run_qsa_prefill_store_probe_h800.sh \
+  --baseline-report /tmp/qsa-profiling-h800.Ji2cwS \
+  --flagtree /opt/flagtree --suite fp8 --store-policy fp8-only --rounds 2
+```
+
+The bundled manifest avoids relying on an old full benchmark checkout/report on
+the GPU. All10 source record bytes were checked against the Git tree at f6a41ae
+and their SHA256 preserved. Each worker still verifies actual input fingerprints
+and compiler identity before measuring. The first worker also validates BF16
+fallback using the exact original binary; later workers cannot reuse the small
+checks after a source/compiler/policy change. Compact remains an exact binary
+control and is included explicitly in all10 aggregation.
+
+Local validation:39 CPU checks pass across FP8 expansion, store probe, preceding
+query probe, fixed-choice plumbing and shared timer. Includes first-case-only
+boundary reuse, manifest tamper/geometry rejection, FP8 gate, compact artifact
+export/binary identity, real FP8 worker stage checks and CLI suite selection.
+Pre-commit and shell syntax pass. No H800 expansion results yet; production and
+both scorer kernel source files are unchanged in this expansion.

@@ -265,6 +265,7 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
         skip_boundaries=False,
         query_policy="all",
         compile_only=False,
+        fp8_suite=False,
     ):
         from tools import benchmark_qsa_prefill_triton_stages as bench
 
@@ -302,6 +303,9 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
 
         options.worker_case = case_name or probe.CASES[0]
         options.compile_only = compile_only
+        options.suite = "fp8" if fp8_suite else "long"
+        options.store_policy = "fp8-only" if fp8_suite else "aligned"
+        options.cases = [options.worker_case]
 
         def timer(fn):
             if compile_only:
@@ -315,6 +319,27 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
             return 3
 
         with contextlib.ExitStack() as stack:
+            if fp8_suite:
+                from tools import qsa_prefill_store_fp8 as suite
+
+                stack.enter_context(
+                    patch.object(
+                        suite,
+                        "saved_record",
+                        return_value=(
+                            dict(inputs=["stable"], compiler_identity={}),
+                            [],
+                        ),
+                    )
+                )
+                stack.enter_context(
+                    patch.object(
+                        suite, "boundary_evidence", return_value=[dict(status="passed")]
+                    )
+                )
+                stack.enter_context(
+                    patch.object(suite, "gate_records", return_value=[])
+                )
             patches = (
                 patch.object(
                     probe,
@@ -397,6 +422,19 @@ def _bulk_tail_store(ptrs, values, valid_rows, columns, visible, logits_width):
             self.assertEqual(code, 0, result.get("error"))
             self.assertEqual(result["case"]["name"], probe.CASES[1])
             self.assertEqual(set(result["stages"]), {"score", "topk", "pipeline"})
+
+    def test_full_fp8_worker_uses_manifest_and_preserves_all_stage_checks(self):
+        from tools import qsa_prefill_store_fp8 as suite
+
+        with tempfile.TemporaryDirectory() as folder:
+            code, result = self.run_worker(
+                Path(folder), case_name=suite.names()[0], fp8_suite=True
+            )
+            self.assertEqual(code, 0, result.get("error"))
+            self.assertEqual(result["store_policy"], "fp8-only")
+            self.assertEqual(result["case"]["name"], suite.names()[0])
+            self.assertEqual(set(result["stages"]), {"score", "topk", "pipeline"})
+            self.assertEqual(len(result["self_controls"]), 4)
 
     def test_compile_only_does_not_time_or_validate_topk(self):
         with tempfile.TemporaryDirectory() as folder:
