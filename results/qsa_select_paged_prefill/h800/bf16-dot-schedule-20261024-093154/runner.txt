@@ -1,0 +1,52 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.yyh2wf5k
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.yyh2wf5k/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-3521ffb6-385f-6fe2-c4ba-862823ca9042, inventory temperature=46C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-dot-schedule.AlHAAK/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-dot-schedule.AlHAAK/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Dot schedule compile: (4, 0, 1088) MMA-before-first-wait 8 -> 16 registers 205 -> 215 shared 106496 -> 106496 spills 0 gate passed
+Dot schedule compile: (3, 4, 1088) MMA-before-first-wait 8 -> 16 registers 205 -> 215 shared 106496 -> 106496 spills 0 gate passed
+Dot schedule compile: (10, 7, 1088) MMA-before-first-wait 8 -> 16 registers 205 -> 215 shared 106496 -> 106496 spills 0 gate passed
+Dot schedule compile: (5041, 0, 26624) MMA-before-first-wait 8 -> 16 registers 207 -> 215 shared 106496 -> 106496 spills 0 gate passed
+Dot schedule compile: (5041, 5041, 26624) MMA-before-first-wait 8 -> 16 registers 207 -> 215 shared 106496 -> 106496 spills 0 gate passed
+Dot schedule compile: (5041, 10082, 26624) MMA-before-first-wait 8 -> 16 registers 207 -> 215 shared 106496 -> 106496 spills 0 gate passed
+Dot schedule compile: (1261, 15123, 26624) MMA-before-first-wait 8 -> 16 registers 207 -> 215 shared 106496 -> 106496 spills 0 gate passed
+Resources: baseline [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 215 shared 106496 spills 0
+Resources: candidate [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 215 shared 106496 spills 0
+Resources: candidate [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 215 shared 106496 spills 0
+Resources: candidate [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 215 shared 106496 spills 0
+
+BF16 dot scheduling: perf_n4_q4096_p102400_bfloat16 failed
+kernel-mode production / candidate
+stage  production_us  candidate_us  speedup  paired_min  paired_max
+-----  -------------  ------------  -------  ----------  ----------
+score  1686.936       1704.336      0.98979  0.98693     0.99268   
+topk   1388.432       1388.536      0.99993  0.99967     1.00018   
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-dot-schedule.AlHAAK/tools/qsa_prefill_head_group_probe.py", line 447, in worker
+    values, _, order = scoring.measure_scores(
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-dot-schedule.AlHAAK/tools/qsa_prefill_score_benchmark.py", line 111, in measure_scores
+    observations.append(monitor(f"after_round_{repeat + 1}"))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-dot-schedule.AlHAAK/tools/qsa_prefill_head_group_probe.py", line 452, in <lambda>
+    lambda phase: monitor(label + ":" + phase),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-dot-schedule.AlHAAK/tools/qsa_prefill_head_group_probe.py", line 431, in <lambda>
+    monitor = lambda label: support.guarded_telemetry(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-dot-schedule.AlHAAK/tools/benchmark_qsa_prefill_stages.py", line 288, in guarded_telemetry
+    raise RuntimeError(f"GPU environment rejected: {check['reasons']}")
+RuntimeError: GPU environment rejected: ['SW Thermal Slowdown: Active']
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-dot-schedule.AlHAAK/tools/qsa_prefill_bf16_dot_schedule_probe.py", line 447, in coordinate
+    raise RuntimeError("Dot-schedule worker failed: " + name)
+RuntimeError: Dot-schedule worker failed: perf_n4_q4096_p102400_bfloat16
+
