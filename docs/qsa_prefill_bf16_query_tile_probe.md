@@ -57,3 +57,14 @@ aggregation. Shell syntax and CLI help pass. GPU results remain pending.
 Historical head-group regression tests pin the pre-integration production hash
 and reject current production (six errors in a broader34-test invocation).
 They are intentionally not repinned; current-baseline26 checks above pass.
+
+## 0a7693d4 compilation repair
+
+The first GPU run at9404e6e2 failed before completed boundary checks or timings:
+FlagTree rejected `tl.static_assert(TILE_R in (64, 128))` with an ast.In frontend
+error. Replace membership in both the assertion and grouped-head condition with
+explicit equality disjunctions. No algorithm/config/production/compiler change.
+The earlier NumPy execution did not validate compiler syntax support; add a
+specific AST regression check for this observed incompatibility. No resource,
+correctness or performance conclusion can be drawn from the failed run. GPU
+compilation and the original three-case experiment still require rerunning.

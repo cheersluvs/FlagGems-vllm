@@ -27,6 +27,11 @@ class QueryTileTests(unittest.TestCase):
     def test_kernel_is_production_except_group_tile_guard(self):
         probe.verify_source()
         candidate = function(probe.KERNEL, "_query_tile_score_kernel")
+        # FlagTree on H800 rejected ast.In before lowering. The NumPy model
+        # accepts Python membership, so check this frontend hazard separately.
+        self.assertFalse(
+            any(isinstance(n, (ast.In, ast.NotIn)) for n in ast.walk(candidate))
+        )
         original = function(
             probe.ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
             "_qsa_prefill_score_kernel",

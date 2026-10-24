@@ -37,7 +37,7 @@ def _query_tile_score_kernel(
     HEAD_GROUP: tl.constexpr = False,
 ):
     tl.static_assert(not IS_FP8 and NUM_HEADS == 4 and HEAD_DIM == 128)
-    tl.static_assert(TILE_R in (64, 128))
+    tl.static_assert((TILE_R == 64 or TILE_R == 128))
     request = tl.program_id(0)
     query_base = tl.load(starts_ptr)
     request_start = tl.maximum(tl.load(starts_ptr + request) - query_base, query_offset)
@@ -53,7 +53,7 @@ def _query_tile_score_kernel(
         and not IS_FP8
         and NUM_HEADS == 4
         and HEAD_DIM == 128
-        and TILE_R in (64, 128)
+        and (TILE_R == 64 or TILE_R == 128)
     )
     HEADS_PADDED: tl.constexpr = 2 if GROUP_HEADS else triton.next_power_of_2(NUM_HEADS)
     # tl.dot requires N>=16 even when TILE_R * HEADS_PADDED is smaller.

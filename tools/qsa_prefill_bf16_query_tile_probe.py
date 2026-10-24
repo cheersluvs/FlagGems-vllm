@@ -18,7 +18,7 @@ FIXED_TRACES = stage.fixed_traces
 FREEZE = stage.FREEZE
 STAGE_PATH = Path(stage.__file__).resolve()
 KERNEL = ROOT / "tools/qsa_prefill_bf16_query_tile_kernel.py"
-KERNEL_SHA = "f24940b786d678dcb734079a6c3de246a022f3b717d675afa3deb257c864e938"
+KERNEL_SHA = "b8db6ddafc62e9f2b0d9cc2319af9a43999f89c82f3d849a6ab62f98ffa276a2"
 EXTRA_SOURCES = stage.EXTRA_SOURCES | {
     "tools/qsa_prefill_bf16_query_tile_probe.py",
     "tools/qsa_prefill_bf16_query_tile_kernel.py",
