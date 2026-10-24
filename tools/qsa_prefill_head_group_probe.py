@@ -514,12 +514,16 @@ def coordinate(options):
     )
     try:
         old = json.loads((previous / "stage-summary.json").read_text())
+        baseline_commit = manifest().get(
+            "baseline_code_commit", "55a13f673a5b54a0d430a124f0e04ec5e2c155cf"
+        )
         if (
             old["status"] != "passed"
-            or old["manifest"]["git_head"]["stdout"].strip()
-            != "55a13f673a5b54a0d430a124f0e04ec5e2c155cf"
+            or old["manifest"]["git_head"]["stdout"].strip() != baseline_commit
         ):
-            raise RuntimeError("Requires successful e1c188 production report")
+            raise RuntimeError(
+                "Requires successful captured production report at the pinned code commit"
+            )
         tools = json.loads((previous / "flagtree134-tools.json").read_text())
         assembler = Path(tools["toolchain"]["ptxas"]["path"])
         if not assembler.is_file() or sha(assembler) != profile.PTXAS_SHA256:
@@ -608,7 +612,7 @@ def coordinate(options):
             for stage in ("score", "topk", "pipeline")
         }
         print(
-            "Incremental production / head-group arithmetic means:",
+            "Incremental production / candidate arithmetic means:",
             summary["aggregate"],
             flush=True,
         )
