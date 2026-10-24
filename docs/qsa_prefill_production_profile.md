@@ -48,3 +48,37 @@ three-child coordinator launch construction and offline CLI without CUDA setup.
 Historical TopK rows remain explicitly labelled; no test fabricates measured
 performance evidence. Shell syntax/CLI help and changed-file style checks pass.
 No local GPU or NCU collection is available; hardware capture remains pending.
+
+## Recovery board: ec467779
+
+The original collector failed before cudaProfilerStart: the compiled scorer
+hash differed from the historical78c3 manifest. Inputs/source/compiler/config
+checks passed and sampled scoring validation completed, but actual compiled
+records/artifacts were not persisted before rejection. There are no completed
+hardware counters. The precise PTX/cubin difference is unknown; do not label it
+as harmless debug data or profiler instrumentation without comparing artifacts.
+
+|Recovery truth|Decision|
+|---|---|
+|Editable|This document, collector and its CPU checks only|
+|Read-only|All production code/configs, numeric tolerances and historical records|
+|New preparation|Run an unprofiled, untimed preparation worker per case; record actual configs, hashes, artifacts and numerical/GPU checks before collection|
+|Identity gate|NCU capture must exactly match that successful current preparation, including PTX/cubin/resources/input/source/compiler. Historical binary matches/differences are explicitly reported separately|
+|Historical timings|Context only; never assert their binary is identical when its hash differs. No fresh speedup or benchmark claim|
+|Failure evidence|Save actual PTX/TTGIR/resource records before any binary comparison, including a failed NCU/preparation comparison|
+|Retries|Resume needs both the current preparation and capture proofs; stale collector-source records are rejected. This failed run has no reusable hardware capture|
+
+Additional evidence: the successful227ce1c1 and91236117 R32 production PTX files
+have identical text before trailing `.file 1`/DWARF sections, while those debug
+sections encode different temporary source directories and their full PTX/cubin
+hashes differ. This proves whole-file hashes vary across these two checkouts;
+it does not prove the unexported ec467779 binary differs only in debug data.
+The new preparation/capture identity check remains byte-for-byte, with no
+normalization of executable code or debug sections for acceptance.
+
+Recovery validation:33 related CPU checks pass. The added checks accept an
+explicitly recorded historical mismatch only when current preparation and NCU
+capture match exactly, reject a capture/preparation cubin change, and verify
+three untimed preparation children precede their three NCU workers. Required
+config/source/compiler/numeric/GPU/artifact gates remain. Actual GPU validation
+of this recovery is pending; no profiler counters or speedup are claimed.

@@ -101,7 +101,7 @@ def find_ncu(explicit=None):
     return None
 
 
-def freeze(module, traces):
+def freeze(module, traces, *, historical=True):
     records = base.freeze_records((module, module))["baseline"]
     expected = {(t["rows"], t["offset"], t["width"]): t for t in traces}
     if {tuple(v["chunk"]) for v in records} != set(expected):
@@ -110,7 +110,9 @@ def freeze(module, traces):
         t = expected[tuple(record["chunk"])]
         if record["constants"] != t["constants"] or record["route"] != t["route"]:
             raise RuntimeError("Production configuration changed")
-        if any(record[k] != t[k] for k in ("ptx_sha256", "cubin_sha256")):
+        if historical and any(
+            record[k] != t[k] for k in ("ptx_sha256", "cubin_sha256")
+        ):
             raise RuntimeError("Captured production binary changed")
     return records
 
@@ -133,11 +135,17 @@ def worker(options):
 
     support, scoring = bench.support, bench.scoring
     report = Path(options.report_dir)
-    path = report / ("profile-" + options.worker_case + ".json")
+    preparation = getattr(options, "prepare_only", False)
+    prefix = "prepared-" if preparation else "profile-"
+    path = report / (prefix + options.worker_case + ".json")
     result = dict(
         status="preparing",
         source=verify_source(),
-        kind="hardware_only_not_benchmark",
+        kind=(
+            "untimed_production_preparation"
+            if preparation
+            else "hardware_only_not_benchmark"
+        ),
         production_modified=False,
         measurement_performed=False,
     )
@@ -193,8 +201,24 @@ def worker(options):
         result["validation_before"] = validate()
         scores()
         device.synchronize()
-        result["compiled_before"] = freeze(module, traces)
-        result["artifacts"] = artifact_records(module, report, case["name"])
+        # Persist actual artifacts before enforcing binary identity. A failed
+        # match must still leave enough evidence to diagnose the difference.
+        result["compiled_before"] = freeze(module, traces, historical=False)
+        artifact_name = "prepared-" + case["name"] if preparation else case["name"]
+        result["artifacts"] = artifact_records(module, report, artifact_name)
+        result["historical_binary_match"] = historical_match(
+            result["compiled_before"], traces
+        )
+        support.write_json(path, result)
+        if not preparation:
+            prepared = json.loads(
+                (report / ("prepared-" + case["name"] + ".json")).read_text()
+            )
+            checked_preparation(prepared, item)
+            if result["compiled_before"] != prepared["compiled_before"]:
+                raise RuntimeError(
+                    "NCU/current preparation binary mismatch; actual artifacts saved"
+                )
         logits = tuple(c["score_args"][5] for c in chunks)
         result["logits_before"] = support.fingerprint(logits, torch)
         support.guarded_telemetry(
@@ -209,8 +233,10 @@ def worker(options):
         def launch(c):
             module._prefill_logits(*c["score_args"], **c.get("score_kwargs", {}))
 
-        result["captures"] = capture_sequence(
-            cudart, torch.cuda.nvtx, device, chunks, launch
+        result["captures"] = (
+            []
+            if preparation
+            else capture_sequence(cudart, torch.cuda.nvtx, device, chunks, launch)
         )
         support.guarded_telemetry(
             info["uuid"],
@@ -220,7 +246,7 @@ def worker(options):
             support.gpu_guard_module(),
         )
         result["validation_after"] = validate()
-        result["compiled_after"] = freeze(module, traces)
+        result["compiled_after"] = freeze(module, traces, historical=False)
         result["logits_after"] = support.fingerprint(logits, torch)
         if (
             result["compiled_before"] != result["compiled_after"]
@@ -266,7 +292,7 @@ def capture_sequence(cudart, nvtx, device, chunks, launch):
     return captures
 
 
-def checked_capture(record, item):
+def checked_common(record, item):
     if (
         record.get("status") != "passed"
         or record.get("source") != verify_source()
@@ -299,14 +325,55 @@ def checked_capture(record, item):
         raise RuntimeError("Capture chunk set changed")
     for v in record["compiled_before"]:
         t = expected[tuple(v["chunk"])]
-        if v["route"] != t["route"] or any(
-            v[k] != t[k] for k in ("constants", "ptx_sha256", "cubin_sha256")
-        ):
+        if v["route"] != t["route"] or any(v[k] != t[k] for k in ("constants",)):
             raise RuntimeError("Capture production configuration/binary changed")
     if [(v["offset"], v["rows"], v["width"]) for v in record["chunks"]] != [
         (t["offset"], t["rows"], t["width"]) for t in traces
     ]:
         raise RuntimeError("Capture geometry changed")
+    if len(record.get("telemetry", [])) != 2 or any(
+        v["gpu_guard"]["status"] != "passed" or v["gpu_guard"]["reasons"]
+        for v in record["telemetry"]
+    ):
+        raise RuntimeError("Capture GPU guard failed")
+
+
+def historical_match(records, traces):
+    expected = {(t["rows"], t["offset"], t["width"]): t for t in traces}
+    return all(
+        all(
+            r[k] == expected[tuple(r["chunk"])][k]
+            for k in ("ptx_sha256", "cubin_sha256")
+        )
+        for r in records
+    )
+
+
+def checked_preparation(record, item):
+    checked_common(record, item)
+    if (
+        record.get("kind") != "untimed_production_preparation"
+        or record.get("captures") != []
+    ):
+        raise RuntimeError("Invalid unprofiled preparation")
+    if record.get("historical_binary_match") != historical_match(
+        record["compiled_before"], item["traces"]
+    ):
+        raise RuntimeError("Historical binary comparison changed")
+
+
+def checked_capture(record, item, prepared):
+    checked_common(record, item)
+    checked_preparation(prepared, item)
+    if record.get("kind") != "hardware_only_not_benchmark":
+        raise RuntimeError("Invalid hardware capture")
+    if (
+        record["compiled_before"] != prepared["compiled_before"]
+        or record["chunks"] != prepared["chunks"]
+        or record["inputs"] != prepared["inputs"]
+    ):
+        raise RuntimeError("Capture/current preparation configuration/binary mismatch")
+    traces = item["traces"]
     wanted = [
         dict(
             index=i,
@@ -318,17 +385,9 @@ def checked_capture(record, item):
     ]
     if record["captures"] != wanted:
         raise RuntimeError("Incomplete capture labels")
-    if len(record.get("telemetry", [])) != 2 or any(
-        v["gpu_guard"]["status"] != "passed" or v["gpu_guard"]["reasons"]
-        for v in record["telemetry"]
-    ):
-        raise RuntimeError("Capture GPU guard failed")
 
 
-def counter_rows(report, name, selection):
-    record = json.loads((report / ("profile-" + name + ".json")).read_text())
-    item = next(v for v in manifest()["cases"] if v["case"]["name"] == name)
-    checked_capture(record, item)
+def checked_artifacts(record, report):
     expected_artifacts = {tuple(v["chunk"]): v for v in record["compiled_before"]}
     if {tuple(v["chunk"]) for v in record["artifacts"]} != set(expected_artifacts):
         raise RuntimeError("Incomplete compiled artifacts")
@@ -341,6 +400,15 @@ def counter_rows(report, name, selection):
         for f in a["files"].values():
             if base.sha(report / f["path"]) != f["sha256"]:
                 raise RuntimeError("Captured artifact hash mismatch")
+
+
+def counter_rows(report, name, selection):
+    record = json.loads((report / ("profile-" + name + ".json")).read_text())
+    item = next(v for v in manifest()["cases"] if v["case"]["name"] == name)
+    prepared = json.loads((report / ("prepared-" + name + ".json")).read_text())
+    checked_capture(record, item, prepared)
+    checked_artifacts(record, report)
+    checked_artifacts(prepared, report)
     raw = profiling.read_metrics(report / ("profile-" + name + ".csv"))
     rows, seen = [], set()
     for identifier, data in sorted(raw["kernels"].items(), key=lambda v: int(v[0])):
@@ -401,6 +469,7 @@ def counter_rows(report, name, selection):
         case=name,
         status="passed",
         measurement_performed=False,
+        historical_binary_match=prepared["historical_binary_match"],
         missing_queried_optional=selection["missing_optional"],
         diagnostics_complete=not any(v["missing_optional"] for v in rows),
         rows=rows,
@@ -409,6 +478,9 @@ def counter_rows(report, name, selection):
 
 def display_counters(result):
     print("\n当前生产版硬件计数器（不是 benchmark）：", result["case"], flush=True)
+    print(
+        "与历史二进制一致：", result.get("historical_binary_match", "N/A"), flush=True
+    )
     rows = result["rows"]
     table(
         (
@@ -567,9 +639,16 @@ def prepare(options, facts):
 def reuse_case(previous, report, name, selection):
     record = json.loads((previous / ("profile-" + name + ".json")).read_text())
     item = next(v for v in manifest()["cases"] if v["case"]["name"] == name)
-    checked_capture(record, item)
+    prepared = json.loads((previous / ("prepared-" + name + ".json")).read_text())
+    checked_capture(record, item, prepared)
     candidates = ["profile-" + name + suffix for suffix in (".json", ".csv", ".txt")]
-    candidates += [f["path"] for a in record["artifacts"] for f in a["files"].values()]
+    candidates += ["prepared-" + name + ".json", "prepared-" + name + ".txt"]
+    candidates += [
+        f["path"]
+        for r in (record, prepared)
+        for a in r["artifacts"]
+        for f in a["files"].values()
+    ]
     for filename in candidates:
         if Path(filename).name != filename:
             raise RuntimeError("Unsafe resume path")
@@ -623,6 +702,46 @@ def coordinate(options):
                 ):
                     raise RuntimeError("GPU admission rejected")
                 csv_path = report / ("profile-" + name + ".csv")
+                prepare_cmd = [
+                    sys.executable,
+                    "-I",
+                    str(Path(__file__).resolve()),
+                    *sys.argv[1:],
+                    "--worker-case",
+                    name,
+                    "--prepare-only",
+                ]
+                with (report / ("prepared-" + name + ".txt")).open("w") as log:
+                    prepare_rc = profiling.run_process(
+                        prepare_cmd,
+                        timeout=options.timeout,
+                        env=bench.child_environment(report, name),
+                        log=log,
+                    )
+                prepared_path = report / ("prepared-" + name + ".json")
+                if prepare_rc:
+                    print(
+                        (report / ("prepared-" + name + ".txt")).read_text(
+                            errors="replace"
+                        ),
+                        flush=True,
+                    )
+                    raise RuntimeError("Untimed preparation failed: " + name)
+                prepared = json.loads(prepared_path.read_text())
+                item = next(v for v in manifest()["cases"] if v["case"]["name"] == name)
+                checked_preparation(prepared, item)
+                checked_artifacts(prepared, report)
+                print(
+                    "当前独立准备完成；与历史二进制一致：",
+                    name,
+                    prepared["historical_binary_match"],
+                    flush=True,
+                )
+                if not prepared["historical_binary_match"]:
+                    print(
+                        "历史时延仅供背景，不作为本次二进制的性能数据；本次采集必须与当前准备产物逐字节一致。",
+                        flush=True,
+                    )
                 cmd = profiling.ncu_command(
                     facts["ncu"],
                     csv_path,
@@ -723,6 +842,7 @@ def main():
     parser.add_argument("--cooldown-timeout", type=int, default=120)
     parser.add_argument("--cooldown-interval", type=int, default=10)
     parser.add_argument("--worker-case", choices=CASES, help=argparse.SUPPRESS)
+    parser.add_argument("--prepare-only", action="store_true", help=argparse.SUPPRESS)
     o = parser.parse_args()
     if o.show_report:
         show_report(o.show_report)

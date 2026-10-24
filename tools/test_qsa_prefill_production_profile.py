@@ -85,8 +85,8 @@ class ProductionProfileTests(unittest.TestCase):
             )
         self.assertEqual(events[-2:], ["pop", "stop"])
 
-    def record(self):
-        item = probe.manifest()["cases"][0]
+    def record(self, index=0):
+        item = probe.manifest()["cases"][index]
         ident = probe.manifest()["compiler_identity"]
         runtime = dict(
             torch_version=ident["torch"],
@@ -121,6 +121,7 @@ class ProductionProfileTests(unittest.TestCase):
         ]
         record = dict(
             status="passed",
+            kind="hardware_only_not_benchmark",
             source=probe.verify_source(),
             case=item["case"],
             inputs=item["inputs"],
@@ -154,6 +155,16 @@ class ProductionProfileTests(unittest.TestCase):
         )
         return item, record
 
+    def preparation(self, record):
+        result = copy.deepcopy(record)
+        result["kind"] = "untimed_production_preparation"
+        result["captures"] = []
+        item = next(v for v in probe.manifest()["cases"] if v["case"] == record["case"])
+        result["historical_binary_match"] = probe.historical_match(
+            record["compiled_before"], item["traces"]
+        )
+        return result
+
     def test_freeze_requires_exact_current_production_configs_and_binaries(self):
         item, record = self.record()
         resources = record["compiled_before"]
@@ -171,7 +182,7 @@ class ProductionProfileTests(unittest.TestCase):
 
     def test_saved_evidence_rejects_binary_config_and_missing_validation(self):
         item, record = self.record()
-        probe.checked_capture(record, item)
+        probe.checked_capture(record, item, self.preparation(record))
         for key, value in [
             ("validation_after", 0),
             ("logits_after", "different"),
@@ -181,17 +192,17 @@ class ProductionProfileTests(unittest.TestCase):
             x = copy.deepcopy(record)
             x[key] = value
             with self.assertRaises(RuntimeError):
-                probe.checked_capture(x, item)
+                probe.checked_capture(x, item, self.preparation(record))
         x = copy.deepcopy(record)
         x["compiled_before"][0]["cubin_sha256"] = "changed"
         x["compiled_after"] = copy.deepcopy(x["compiled_before"])
         with self.assertRaisesRegex(RuntimeError, "configuration/binary"):
-            probe.checked_capture(x, item)
+            probe.checked_capture(x, item, self.preparation(record))
         x = copy.deepcopy(record)
         x["compiled_before"][0]["constants"]["num_stages"] = 1
         x["compiled_after"] = copy.deepcopy(x["compiled_before"])
         with self.assertRaisesRegex(RuntimeError, "configuration/binary"):
-            probe.checked_capture(x, item)
+            probe.checked_capture(x, item, self.preparation(record))
 
     def write_csv(self, folder, bad=None):
         item, record = self.record()
@@ -212,6 +223,10 @@ class ProductionProfileTests(unittest.TestCase):
         record["compiled_after"] = copy.deepcopy(record["compiled_before"])
         (folder / ("profile-" + name + ".json")).write_text(json.dumps(record))
         (folder / ("profile-" + name + ".txt")).write_text("synthetic worker log")
+        (folder / ("prepared-" + name + ".json")).write_text(
+            json.dumps(self.preparation(record))
+        )
+        (folder / ("prepared-" + name + ".txt")).write_text("synthetic preparation log")
         rows = []
         for i in range(2):
             row = dict(zip(probe.REQUIRED, (2, 8, 4, 16, 1048576, 524288)))
@@ -331,6 +346,14 @@ class ProductionProfileTests(unittest.TestCase):
                 return dict(case=name, rows=[], diagnostics_complete=False)
 
             def run(cmd, **kw):
+                name = cmd[cmd.index("--worker-case") + 1]
+                if "--prepare-only" in cmd:
+                    _, record = self.record(probe.CASES.index(name))
+                    prepared = self.preparation(record)
+                    (report / ("prepared-" + name + ".json")).write_text(
+                        json.dumps(prepared)
+                    )
+                    return 0
                 self.assertEqual(cmd[cmd.index("--replay-mode") + 1], "kernel")
                 self.assertEqual(cmd[cmd.index("--profile-from-start") + 1], "off")
                 self.assertEqual(cmd[cmd.index("--worker-case") - 1], folder)
@@ -350,14 +373,35 @@ class ProductionProfileTests(unittest.TestCase):
                 probe, "counter_rows", side_effect=counters
             ), patch.object(
                 probe, "display_counters"
+            ), patch.object(
+                probe, "checked_artifacts"
             ):
                 self.assertEqual(probe.coordinate(o), 0)
-                self.assertEqual(run_process.call_count, 3)
+                self.assertEqual(run_process.call_count, 6)
             facts = json.loads((report / "production-profile-summary.json").read_text())
             self.assertTrue(facts["hardware_counters_complete"])
             self.assertFalse(facts["diagnostics_complete"])
             self.assertFalse(facts["benchmark_rerun"])
             self.assertEqual([v["case"] for v in facts["cases"]], list(probe.CASES))
+
+    def test_current_preparation_allows_recorded_historical_difference_but_capture_must_match(
+        self,
+    ):
+        item, record = self.record()
+        for side in ("compiled_before", "compiled_after"):
+            record[side][0]["ptx_sha256"] = "current-ptx"
+            record[side][0]["cubin_sha256"] = "current-cubin"
+        prepared = self.preparation(record)
+        self.assertFalse(prepared["historical_binary_match"])
+        probe.checked_preparation(prepared, item)
+        probe.checked_capture(record, item, prepared)
+        record["compiled_before"][0]["cubin_sha256"] = "ncu-different"
+        record["compiled_after"] = copy.deepcopy(record["compiled_before"])
+        with self.assertRaisesRegex(RuntimeError, "preparation configuration/binary"):
+            probe.checked_capture(record, item, prepared)
+        prepared["captures"] = [dict(label="unexpected profile")]
+        with self.assertRaisesRegex(RuntimeError, "unprofiled preparation"):
+            probe.checked_preparation(prepared, item)
 
     def test_historical_topk_is_labelled_and_not_retimed(self):
         stages = {
