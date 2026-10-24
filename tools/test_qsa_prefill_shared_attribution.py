@@ -166,8 +166,39 @@ cp.async.wait_group 0;
             self.assertEqual(command.call_count, 2)
             for call in command.call_args_list:
                 self.assertIn("--import", call.args[0])
+                self.assertNotIn("--print-metric-name", call.args[0])
             self.assertTrue((root / ("source-" + name + ".sass.csv")).is_file())
             self.assertTrue((root / ("attribution-" + name + ".json")).is_file())
+
+    def test_resume_accepts_only_exact_export_revision(self):
+        import copy
+
+        with patch.object(
+            probe.current, "EXTRA_SOURCES", probe.current.EXTRA_SOURCES | probe.FILES
+        ):
+            expected = probe.current.verify_source()
+        legacy = copy.deepcopy(expected)
+        legacy["profile_sources"].update(probe.LEGACY_EXPORT_SOURCES)
+        for source in (expected, legacy):
+            self.assertEqual(
+                probe.capture_source({"source": source}, {"source": source}), source
+            )
+        bad = copy.deepcopy(legacy)
+        bad["production_sha256"] = "changed"
+        with self.assertRaisesRegex(RuntimeError, "Unknown capture"):
+            probe.capture_source({"source": bad}, {"source": bad})
+        bad = copy.deepcopy(legacy)
+        bad["profile_sources"]["tools/qsa_prefill_production_profile.py"] = "changed"
+        with self.assertRaisesRegex(RuntimeError, "Unknown capture"):
+            probe.capture_source({"source": bad}, {"source": bad})
+        bad = copy.deepcopy(legacy)
+        bad["profile_sources"][
+            "tools/qsa_prefill_shared_attribution.py"
+        ] = "unrecognized collector"
+        with self.assertRaisesRegex(RuntimeError, "Unknown capture"):
+            probe.capture_source({"source": bad}, {"source": bad})
+        with self.assertRaisesRegex(RuntimeError, "source mismatch"):
+            probe.capture_source({"source": expected}, {"source": legacy})
 
     def test_source_counter_query_and_wavefront_ratios(self):
         with tempfile.TemporaryDirectory() as folder:

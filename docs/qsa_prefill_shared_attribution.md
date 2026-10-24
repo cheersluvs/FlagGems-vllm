@@ -69,3 +69,24 @@ output conversion.
 Validation: 31 CPU tests (8 new plus existing production-profile/profiling
 checks), targeted pre-commit, bash syntax and verified old-artifact static
 mapping. GPU PC sampling remains pending; no new timing or speedup is claimed.
+
+## Export repair after 7b9a3355
+
+The first production capture and all its original provenance checks passed;
+source-page export failed because print-metric-name is supported only for the
+details page. Remove that flag from both offline source exports. Keep capture
+commands, kernels, metric selection and GPU gates unchanged. A regression check
+forbids that flag for source exports. Resume accepts the exact pinned 81206ae
+collector/doc/test hashes as well as the current revision; every other source
+field (including production and capture helpers) must still match. Preparation
+and capture must have the same source identity. All original numeric, input,
+compiler, binary, resource, chunk and GPU checks still run. No arbitrary older
+collector or mixed provenance is accepted. Reuse the local first .ncu-rep;
+only the two uncaptured configurations need new GPU work.
+
+Repair validation: 32 CPU checks and targeted pre-commit passed. Downloaded and
+Git-blob-verified all 28 uploaded report files (20 unique blobs). The actual
+archived first capture passed the repaired provenance validator: 16 before and
+16 after numeric checks, two clean GPU guards, matching preparation/capture
+binaries and verified PTX/TTGIR artifacts. Offline NCU export still requires the
+Linux card installation; this Mac validation does not claim its execution.

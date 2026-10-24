@@ -31,6 +31,12 @@ FILES = {
     "docs/qsa_prefill_shared_attribution.md",
 }
 SOURCE = ROOT / "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"
+# Exact pre-fix collector revision; production and all capture helpers are unchanged.
+LEGACY_EXPORT_SOURCES = {
+    "docs/qsa_prefill_shared_attribution.md": "9c23b0cada6aa42fe6dcb13c5d72f2ac26d13d5b24a4f5a94edc7077febd9e58",
+    "tools/qsa_prefill_shared_attribution.py": "e9b94145361bbeab24d3e98ec23670deb982b8f044abdd1825003dbcc033c41c",
+    "tools/test_qsa_prefill_shared_attribution.py": "bdda7e463fe19efdb6926b0ed79f024c8b6adce6bdbdc6d7d41822f30c03f63c",
+}
 
 
 @lru_cache(maxsize=1)
@@ -354,8 +360,6 @@ def export_source(ncu, report, name, command):
             view,
             "--section",
             "SourceCounters",
-            "--print-metric-name",
-            "name",
         ]
         if suffix.endswith(".csv"):
             cmd.append("--csv")
@@ -502,11 +506,28 @@ def capture_command(ncu, csv_path, rep, metrics, worker):
     ]
 
 
+def capture_source(record, prepared):
+    """Permit only the exact 81206ae export-only revision when resuming."""
+    with patch.object(current, "EXTRA_SOURCES", current.EXTRA_SOURCES | FILES):
+        expected = current.verify_source()
+    if record.get("source") != prepared.get("source"):
+        raise RuntimeError("Preparation/capture source mismatch")
+    if record.get("source") == expected:
+        return expected
+    legacy = dict(expected, profile_sources=dict(expected["profile_sources"]))
+    legacy["profile_sources"].update(LEGACY_EXPORT_SOURCES)
+    if record.get("source") != legacy:
+        raise RuntimeError("Unknown capture source revision; refusing resume")
+    return legacy
+
+
 def validate_capture(report, name, selection):
     item = next(v for v in current.manifest()["cases"] if v["case"]["name"] == name)
     record = json.loads((report / ("profile-" + name + ".json")).read_text())
     prepared = json.loads((report / ("prepared-" + name + ".json")).read_text())
-    current.checked_capture(record, item, prepared)
+    source = capture_source(record, prepared)
+    with patch.object(current, "verify_source", return_value=source):
+        current.checked_capture(record, item, prepared)
     current.checked_artifacts(record, report)
     current.checked_artifacts(prepared, report)
     raw = current.profiling.read_metrics(report / ("profile-" + name + ".csv"))
