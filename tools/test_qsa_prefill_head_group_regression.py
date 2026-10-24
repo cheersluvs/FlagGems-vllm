@@ -126,7 +126,7 @@ class HeadGroupRegressionTests(unittest.TestCase):
             "argv",
             [probe.__file__, "--report-dir", "/tmp/r", "--baseline-report", "/tmp/b"],
         ), patch.object(profile, "configure"), patch.object(
-            base, "coordinate", side_effect=coordinate
+            probe, "COORDINATE", side_effect=coordinate
         ):
             self.assertEqual(probe.main(), 0)
         self.assertEqual(

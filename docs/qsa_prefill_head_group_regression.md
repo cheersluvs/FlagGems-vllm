@@ -51,3 +51,13 @@ handoff/restoration. Shell syntax and pre-commit pass. GPU execution is pending;
 no correctness or speedup is inferred from CPU orchestration tests. The fresh
 runner automatically uploads existing reports on test failure and prints a
 retry command when upload fails, so no benchmark rerun is needed for upload.
+
+Report d3d182b0 passed 13 boundary fixtures and all30 pre/post sampled checks.
+Only four real chunks activate grouping; 49 excluded chunks have identical
+original PTX/cubin. Active score ratio1.055746, pipeline1.019499, TopK1.001143.
+Raw all30 means score0.999168/TopK0.999894/pipeline1.001019; FP8 tail113 has a
+second-pair timing excursion despite identical binaries and needs targeted
+rechecking rather than attributing it to changed kernel code. The grouped
+summary helper was omitted from the CLI coordinator hookup; this reporting-only
+fix connects it and tests the actual CLI path through the wrapper. Existing
+per-case data remain complete and do not require rerunning for aggregation.

@@ -261,6 +261,7 @@ def main():
         stack.enter_context(
             patch.object(gated.base, "boundary_checks", boundary_checks)
         )
+        stack.enter_context(patch.object(gated.base, "coordinate", coordinate))
         return gated.main()
 
 
