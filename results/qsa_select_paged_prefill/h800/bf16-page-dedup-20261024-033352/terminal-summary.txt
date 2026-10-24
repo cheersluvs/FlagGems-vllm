@@ -1,0 +1,181 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.z8x07j0c
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.z8x07j0c/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, inventory temperature=27C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Page-dedup boundary evidence: [{'dtype': 'torch.bfloat16', 'tile': 32, 'warps': 8, 'rows': 17, 'status': 'passed', 'page_size': 196, 'page_dedup_active': True, 'num_stages': 2, 'head_group': False, 'extra_page_checks': []}, {'dtype': 'torch.bfloat16', 'tile': 64, 'warps': 4, 'rows': 17, 'status': 'passed', 'page_size': 196, 'page_dedup_active': True, 'num_stages': 2, 'head_group': True, 'extra_page_checks': []}, {'dtype': 'torch.float8_e4m3fn', 'tile': 64, 'warps': 4, 'rows': 17, 'status': 'passed', 'page_size': 196, 'page_dedup_active': False, 'num_stages': 2, 'head_group': False, 'extra_page_checks': []}]
+Page-dedup boundary evidence: [{'dtype': 'torch.bfloat16', 'tile': 32, 'warps': 8, 'rows': 17, 'status': 'passed', 'page_size': 64, 'page_dedup_active': True, 'num_stages': 2, 'head_group': False}, {'dtype': 'torch.bfloat16', 'tile': 64, 'warps': 4, 'rows': 17, 'status': 'passed', 'page_size': 64, 'page_dedup_active': True, 'num_stages': 2, 'head_group': True}, {'dtype': 'torch.float8_e4m3fn', 'tile': 64, 'warps': 4, 'rows': 17, 'status': 'passed', 'page_size': 64, 'page_dedup_active': False, 'num_stages': 2, 'head_group': False}]
+Page-dedup boundary evidence: [{'dtype': 'torch.bfloat16', 'tile': 32, 'warps': 8, 'rows': 17, 'status': 'passed', 'page_size': 16, 'page_dedup_active': False, 'num_stages': 2, 'head_group': False}, {'dtype': 'torch.bfloat16', 'tile': 64, 'warps': 4, 'rows': 17, 'status': 'passed', 'page_size': 16, 'page_dedup_active': False, 'num_stages': 2, 'head_group': True}, {'dtype': 'torch.float8_e4m3fn', 'tile': 64, 'warps': 4, 'rows': 17, 'status': 'passed', 'page_size': 16, 'page_dedup_active': False, 'num_stages': 2, 'head_group': False}]
+Resources: baseline [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [3338, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Resources: candidate [3338, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Actual page-dedup dispatch: {'active_chunks': 2, 'original_binary_fallback_chunks': 0}
+
+BF16 page-dedup probe: perf_n1_q8192_p102400_bfloat16 passed
+Production / dedup candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     933.600        932.376       1.00131  0.98788     1.01489   
+topk      708.912        708.800       1.00016  0.99991     1.00041   
+pipeline  1656.256       1648.256      1.00485  1.00284     1.00687   
+Identical-callable A/A
+stage                production_us  candidate_us  speedup  paired_min  paired_max
+-------------------  -------------  ------------  -------  ----------  ----------
+production:score     944.352        944.072       1.00030  0.99444     1.00618   
+production:pipeline  1660.000       1660.016      0.99999  0.99823     1.00175   
+page_dedup:score     934.168        933.352       1.00087  0.99979     1.00195   
+page_dedup:pipeline  1652.160       1652.128      1.00002  0.99981     1.00023   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [4519, 0, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [4519, 4519, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [4519, 9038, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [2827, 13557, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4519, 0, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Resources: candidate [4519, 4519, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Resources: candidate [4519, 9038, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Resources: candidate [2827, 13557, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Actual page-dedup dispatch: {'active_chunks': 4, 'original_binary_fallback_chunks': 0}
+
+BF16 page-dedup probe: perf_n1_q16384_p102400_bfloat16 passed
+Production / dedup candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1949.272       1931.232      1.00934  1.00836     1.01033   
+topk      1480.928       1480.232      1.00047  1.00021     1.00074   
+pipeline  3450.520       3434.080      1.00479  1.00453     1.00505   
+Identical-callable A/A
+stage                production_us  candidate_us  speedup  paired_min  paired_max
+-------------------  -------------  ------------  -------  ----------  ----------
+production:score     1951.376       1967.552      0.99178  0.98379     0.99989   
+production:pipeline  3451.776       3457.416      0.99837  0.99623     1.00050   
+page_dedup:score     1938.528       1936.240      1.00118  1.00111     1.00126   
+page_dedup:pipeline  3440.600       3443.304      0.99921  0.99874     0.99969   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [4854, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [4854, 9708, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [1822, 14562, 27648] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Resources: candidate [4854, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Resources: candidate [4854, 9708, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 67 shared 73728 spills 0
+Resources: candidate [1822, 14562, 27648] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 213 shared 106496 spills 0
+Actual page-dedup dispatch: {'active_chunks': 4, 'original_binary_fallback_chunks': 0}
+
+BF16 page-dedup probe: perf_n2_q8192_p102400_bfloat16 passed
+Production / dedup candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1868.368       1845.296      1.01250  1.00960     1.01542   
+topk      1400.592       1399.968      1.00045  1.00039     1.00050   
+pipeline  3288.992       3255.936      1.01015  1.00568     1.01463   
+Identical-callable A/A
+stage                production_us  candidate_us  speedup  paired_min  paired_max
+-------------------  -------------  ------------  -------  ----------  ----------
+production:score     1877.456       1873.848      1.00193  0.99607     1.00782   
+production:pipeline  3290.464       3295.648      0.99843  0.99577     1.00109   
+page_dedup:score     1858.760       1849.312      1.00511  0.99456     1.01576   
+page_dedup:pipeline  3266.952       3271.120      0.99873  0.99807     0.99938   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 213 shared 106496 spills 0
+Resources: candidate [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 213 shared 106496 spills 0
+Resources: candidate [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 213 shared 106496 spills 0
+Resources: candidate [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 213 shared 106496 spills 0
+Actual page-dedup dispatch: {'active_chunks': 4, 'original_binary_fallback_chunks': 0}
+
+BF16 page-dedup probe: perf_n4_q4096_p102400_bfloat16 passed
+Production / dedup candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1673.688       1650.856      1.01383  1.01098     1.01669   
+topk      1389.376       1388.864      1.00037  1.00014     1.00060   
+pipeline  3115.680       3090.192      1.00825  1.00795     1.00855   
+Identical-callable A/A
+stage                production_us  candidate_us  speedup  paired_min  paired_max
+-------------------  -------------  ------------  -------  ----------  ----------
+production:score     1673.088       1671.496      1.00095  0.99973     1.00218   
+production:pipeline  3118.176       3111.472      1.00215  0.99960     1.00472   
+page_dedup:score     1674.240       1700.352      0.98464  0.97464     0.99459   
+page_dedup:pipeline  3091.920       3097.024      0.99835  0.99688     0.99982   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [16368, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [16368, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 213 shared 106496 spills 0
+Actual page-dedup dispatch: {'active_chunks': 1, 'original_binary_fallback_chunks': 0}
+
+BF16 page-dedup probe: observed_chunk_boundary_bfloat16 passed
+Production / dedup candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     436.208        424.112       1.02852  1.02751     1.02953   
+topk      538.256        538.272       0.99997  0.99976     1.00018   
+pipeline  955.504        963.488       0.99171  0.99171     0.99172   
+Identical-callable A/A
+stage                production_us  candidate_us  speedup  paired_min  paired_max
+-------------------  -------------  ------------  -------  ----------  ----------
+production:score     437.416        438.208       0.99819  0.99117     1.00523   
+production:pipeline  951.664        951.512       1.00016  0.99350     1.00687   
+page_dedup:score     424.928        426.256       0.99688  0.99321     1.00056   
+page_dedup:pipeline  966.176        965.104       1.00111  0.99818     1.00405   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-page-dedup.W1yOdk/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [4519, 0, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: baseline [4519, 4519, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: baseline [4519, 9038, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: baseline [2827, 13557, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: candidate [4519, 0, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: candidate [4519, 4519, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: candidate [4519, 9038, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: candidate [2827, 13557, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Actual page-dedup dispatch: {'active_chunks': 0, 'original_binary_fallback_chunks': 4}
+
+BF16 page-dedup probe: fp8_long100k_float8_e4m3fn passed
+Production / dedup candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1111.360       1110.016      1.00121  0.99991     1.00251   
+topk      1473.816       1473.560      1.00017  1.00011     1.00024   
+pipeline  2610.192       2612.432      0.99914  0.99730     1.00099   
+Identical-callable A/A
+stage                production_us  candidate_us  speedup  paired_min  paired_max
+-------------------  -------------  ------------  -------  ----------  ----------
+production:score     1110.368       1112.784      0.99783  0.99578     0.99988   
+production:pipeline  2611.968       2612.912      0.99964  0.99776     1.00152   
+page_dedup:score     1110.352       1110.000      1.00032  0.99703     1.00361   
+page_dedup:pipeline  2613.328       2609.936      1.00130  1.00020     1.00240   
+Incremental production / candidate arithmetic means: {'score': 1.011119833938504, 'topk': 1.000264439452816, 'pipeline': 1.0031495798300338}
+
+Page-dedup group arithmetic means: {
+  "changed_bf16": {
+    "count": 5,
+    "score": 1.013101642893016,
+    "topk": 1.0002825812932192,
+    "pipeline": 1.0039509791148844
+  },
+  "unchanged_fp8_control": {
+    "count": 1,
+    "score": 1.0012107891659432,
+    "topk": 1.0001737302507991,
+    "pipeline": 0.999142583405781
+  }
+}
