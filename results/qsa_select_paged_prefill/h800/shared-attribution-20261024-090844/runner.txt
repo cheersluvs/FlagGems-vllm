@@ -1,0 +1,647 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.p7shumym
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.p7shumym/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： perf_n1_q8192_p102400_bfloat16
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     1032.872   940.672        1.098  
+topk      567.648    707.560        0.802  
+pipeline  1560.832   1653.312       0.944  
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： perf_n4_q4096_p102400_bfloat16
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     1883.992   1671.248       1.127  
+topk      1122.752   1383.752       0.811  
+pipeline  2966.928   3118.984       0.951  
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： fp8_long100k_float8_e4m3fn
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     1333.344   1112.168       1.199  
+topk      1161.712   1480.864       0.784  
+pipeline  2527.704   2615.776       0.966  
+Selected H800: GPU-3521ffb6-385f-6fe2-c4ba-862823ca9042, inventory temperature=46C, policy=exclusive idle
+逐指令 shared 计数器： {'selected': ['inst_executed', 'memory_l1_wavefronts_shared', 'memory_l1_wavefronts_shared_ideal'], 'missing': []}
+
+指令级 shared/sync 归因： perf_n1_q8192_p102400_bfloat16
+source region                 instruction family  static PTX sites
+----------------------------  ------------------  ----------------
+K_operand_feed                async_copy_wait     1               
+K_operand_feed                cta_barrier         1               
+Q_operand_staging             shared_store        8               
+dot_full                      mma_fence           2               
+key_loop_pipeline_or_control  async_copy_wait     1               
+key_loop_pipeline_or_control  cta_barrier         1               
+other_source_region           mma_wait            1               
+output_layout_or_store        cta_barrier         1               
+output_layout_or_store        shared_load         8               
+output_layout_or_store        shared_store        16              
+逐指令 shared wavefront（实际与理想同时保留；不是耗时）：
+PC              source line  region             instruction                                                    actual/inst  ideal/inst  excess wavefronts
+--------------  -----------  -----------------  -------------------------------------------------------------  -----------  ----------  -----------------
+0x7f3e4d7f4140  408          Q_operand_staging        STS.128 [R50], R28                                       4.000        4.000       0.000            
+0x7f3e4d7f44a0  408          Q_operand_staging        STS.128 [R50+0x800], R8                                  4.000        4.000       0.000            
+0x7f3e4d7f4510  408          Q_operand_staging        STS.128 [R50+0x1000], R12                                4.000        4.000       0.000            
+0x7f3e4d7f4540  408          Q_operand_staging        STS.128 [R50+0x1800], R16                                4.000        4.000       0.000            
+0x7f3e4d7f4590  408          Q_operand_staging        STS.128 [R50+0x2000], R24                                4.000        4.000       0.000            
+0x7f3e4d7f45b0  408          Q_operand_staging        STS.128 [R50+0x3800], R20                                4.000        4.000       0.000            
+0x7f3e4d7f45c0  408          Q_operand_staging        STS.128 [R50+0x2800], R28                                4.000        4.000       0.000            
+0x7f3e4d7f45d0  408          Q_operand_staging        STS.128 [R50+0x3000], R32                                4.000        4.000       0.000            
+0x7f3e4d7f4840  443          K_operand_feed           LDGSTS.E.BYPASS.128 [R9+0x8000], desc[UR20][R38.64], P3  4.000        4.000       0.000            
+0x7f3e4d7f4860  443          K_operand_feed           LDGSTS.E.BYPASS.128 [R9+0x8800], desc[UR20][R44.64], P2  4.000        4.000       0.000            
+0x7f3e4d7f4870  443          K_operand_feed           LDGSTS.E.BYPASS.128 [R9+0x9000], desc[UR20][R10.64], P4  4.000        4.000       0.000            
+0x7f3e4d7f4880  443          K_operand_feed           LDGSTS.E.BYPASS.128 [R9+0x9800], desc[UR20][R12.64], P5  4.000        4.000       0.000            
+smsp__pcsamp_warps_issue_stalled_barrier samples= 9312.0 （样本占比不是耗时占比）
+region                        instruction family  samples   fraction of this reason
+----------------------------  ------------------  --------  -----------------------
+other_source_region           mma_wait            4019.000  0.432                  
+dot_full                      other_instruction   3630.000  0.390                  
+output_layout_or_store        other_instruction   1568.000  0.168                  
+key_loop_pipeline_or_control  other_instruction   95.000    0.010                  
+PC              file:line                        region                        instruction                          samples 
+--------------  -------------------------------  ----------------------------  -----------------------------------  --------
+0x7f3e4d7f5510  qsa_select_paged_prefill.py:462  other_source_region                 WARPGROUP.DEPBAR.LE gsb0, 0x0  4019.000
+0x7f3e4d7f5320  qsa_select_paged_prefill.py:461  dot_full                      @!PT  LDS RZ, [RZ]                   3630.000
+0x7f3e4d7f5cb0  qsa_select_paged_prefill.py:470  output_layout_or_store              LDS R23, [R9+UR17+0x10000]     1568.000
+0x7f3e4d7f6860  qsa_select_paged_prefill.py:431  key_loop_pipeline_or_control        EXIT                           95.000  
+smsp__pcsamp_warps_issue_stalled_barrier_not_issued samples= 4629.0 （样本占比不是耗时占比）
+region                        instruction family  samples   fraction of this reason
+----------------------------  ------------------  --------  -----------------------
+other_source_region           mma_wait            2245.000  0.485                  
+dot_full                      other_instruction   1640.000  0.354                  
+output_layout_or_store        other_instruction   698.000   0.151                  
+key_loop_pipeline_or_control  other_instruction   46.000    0.010                  
+PC              file:line                        region                        instruction                          samples 
+--------------  -------------------------------  ----------------------------  -----------------------------------  --------
+0x7f3e4d7f5510  qsa_select_paged_prefill.py:462  other_source_region                 WARPGROUP.DEPBAR.LE gsb0, 0x0  2245.000
+0x7f3e4d7f5320  qsa_select_paged_prefill.py:461  dot_full                      @!PT  LDS RZ, [RZ]                   1640.000
+0x7f3e4d7f5cb0  qsa_select_paged_prefill.py:470  output_layout_or_store              LDS R23, [R9+UR17+0x10000]     698.000 
+0x7f3e4d7f6860  qsa_select_paged_prefill.py:431  key_loop_pipeline_or_control        EXIT                           46.000  
+smsp__pcsamp_warps_issue_stalled_long_scoreboard samples= 16486.0 （样本占比不是耗时占比）
+region                  instruction family  samples    fraction of this reason
+----------------------  ------------------  ---------  -----------------------
+other_source_region     other_instruction   11652.000  0.707                  
+K_operand_feed          other_instruction   1328.000   0.081                  
+output_layout_or_store  other_instruction   1235.000   0.075                  
+dot_full                mma_fence           917.000    0.056                  
+dot_full                other_instruction   597.000    0.036                  
+Q_operand_staging       shared_store        312.000    0.019                  
+unmapped_or_inlined     other_instruction   175.000    0.011                  
+Q_operand_staging       other_instruction   143.000    0.009                  
+PC              file:line                        region                  instruction                               samples 
+--------------  -------------------------------  ----------------------  ----------------------------------------  --------
+0x7f3e4d7f4c90  qsa_select_paged_prefill.py:432  other_source_region           IADD3 R22, P4, R5, -0x40, RZ        4703.000
+0x7f3e4d7f6010  qsa_select_paged_prefill.py:435  other_source_region           IMAD.U32 R20, RZ, RZ, UR7           1781.000
+0x7f3e4d7f5f40  qsa_select_paged_prefill.py:433  other_source_region           IMAD.U32 R4, RZ, RZ, UR7            1415.000
+0x7f3e4d7f52b0  qsa_select_paged_prefill.py:441  other_source_region           ISETP.GE.AND P6, PT, R22, UR33, PT  1249.000
+0x7f3e4d7f5380  qsa_select_paged_prefill.py:461  dot_full                      WARPGROUP.ARRIVE                    917.000 
+0x7f3e4d7f60f0  qsa_select_paged_prefill.py:433  other_source_region           IMAD.U32 R20, RZ, RZ, UR7           869.000 
+0x7f3e4d7f5e00  qsa_select_paged_prefill.py:469  output_layout_or_store        IMAD.MOV.U32 R21, RZ, RZ, R11       831.000 
+0x7f3e4d7f5ec0  qsa_select_paged_prefill.py:437  other_source_region           IMAD.U32 R25, RZ, RZ, UR19          709.000 
+smsp__pcsamp_warps_issue_stalled_long_scoreboard_not_issued samples= 9788.0 （样本占比不是耗时占比）
+region                  instruction family  samples   fraction of this reason
+----------------------  ------------------  --------  -----------------------
+other_source_region     other_instruction   6854.000  0.700                  
+K_operand_feed          other_instruction   834.000   0.085                  
+output_layout_or_store  other_instruction   770.000   0.079                  
+dot_full                mma_fence           489.000   0.050                  
+dot_full                other_instruction   368.000   0.038                  
+Q_operand_staging       shared_store        200.000   0.020                  
+Q_operand_staging       other_instruction   110.000   0.011                  
+unmapped_or_inlined     other_instruction   94.000    0.010                  
+PC              file:line                        region                  instruction                               samples 
+--------------  -------------------------------  ----------------------  ----------------------------------------  --------
+0x7f3e4d7f4c90  qsa_select_paged_prefill.py:432  other_source_region           IADD3 R22, P4, R5, -0x40, RZ        2153.000
+0x7f3e4d7f6010  qsa_select_paged_prefill.py:435  other_source_region           IMAD.U32 R20, RZ, RZ, UR7           1248.000
+0x7f3e4d7f5f40  qsa_select_paged_prefill.py:433  other_source_region           IMAD.U32 R4, RZ, RZ, UR7            1063.000
+0x7f3e4d7f52b0  qsa_select_paged_prefill.py:441  other_source_region           ISETP.GE.AND P6, PT, R22, UR33, PT  788.000 
+0x7f3e4d7f5e00  qsa_select_paged_prefill.py:469  output_layout_or_store        IMAD.MOV.U32 R21, RZ, RZ, R11       540.000 
+0x7f3e4d7f60f0  qsa_select_paged_prefill.py:433  other_source_region           IMAD.U32 R20, RZ, RZ, UR7           527.000 
+0x7f3e4d7f5380  qsa_select_paged_prefill.py:461  dot_full                      WARPGROUP.ARRIVE                    489.000 
+0x7f3e4d7f5ec0  qsa_select_paged_prefill.py:437  other_source_region           IMAD.U32 R25, RZ, RZ, UR19          470.000 
+smsp__pcsamp_warps_issue_stalled_mio_throttle samples= 5848.0 （样本占比不是耗时占比）
+region                  instruction family  samples   fraction of this reason
+----------------------  ------------------  --------  -----------------------
+output_layout_or_store  other_instruction   1420.000  0.243                  
+output_layout_or_store  global_store        999.000   0.171                  
+unmapped_or_inlined     shuffle             919.000   0.157                  
+other_source_region     other_instruction   679.000   0.116                  
+dot_full                other_instruction   518.000   0.089                  
+dot_full                matrix_dot          409.000   0.070                  
+K_operand_feed          shared_store        311.000   0.053                  
+K_operand_feed          other_instruction   234.000   0.040                  
+PC              file:line                        region                  instruction                              samples
+--------------  -------------------------------  ----------------------  ---------------------------------------  -------
+0x7f3e4d7f5e40  qsa_select_paged_prefill.py:470  output_layout_or_store  @P1   STG.E desc[UR20][R20.64], R25      239.000
+0x7f3e4d7f5eb0  qsa_select_paged_prefill.py:437  other_source_region     @P4   LDG.E R31, desc[UR20][R4.64]       153.000
+0x7f3e4d7f5e60  qsa_select_paged_prefill.py:470  output_layout_or_store  @P3   STG.E desc[UR20][R20.64+0x8], R33  144.000
+0x7f3e4d7f5e50  qsa_select_paged_prefill.py:470  output_layout_or_store  @P0   STG.E desc[UR20][R20.64+0x4], R29  139.000
+0x7f3e4d7f5e70  qsa_select_paged_prefill.py:470  output_layout_or_store  @P5   STG.E desc[UR20][R20.64+0xc], R35  139.000
+0x7f3e4d7f5330  qsa_select_paged_prefill.py:461  dot_full                @!PT  LDS RZ, [RZ]                       129.000
+0x7f3e4d7f5cf0  qsa_select_paged_prefill.py:470  output_layout_or_store        LDS R25, [R9+UR17+0x10400]         117.000
+0x7f3e4d7f5320  qsa_select_paged_prefill.py:461  dot_full                @!PT  LDS RZ, [RZ]                       116.000
+smsp__pcsamp_warps_issue_stalled_mio_throttle_not_issued samples= 4480.0 （样本占比不是耗时占比）
+region                  instruction family  samples   fraction of this reason
+----------------------  ------------------  --------  -----------------------
+output_layout_or_store  other_instruction   1081.000  0.241                  
+output_layout_or_store  global_store        768.000   0.171                  
+unmapped_or_inlined     shuffle             696.000   0.155                  
+other_source_region     other_instruction   542.000   0.121                  
+dot_full                other_instruction   418.000   0.093                  
+dot_full                matrix_dot          286.000   0.064                  
+K_operand_feed          shared_store        241.000   0.054                  
+K_operand_feed          other_instruction   180.000   0.040                  
+PC              file:line                        region                  instruction                              samples
+--------------  -------------------------------  ----------------------  ---------------------------------------  -------
+0x7f3e4d7f5e40  qsa_select_paged_prefill.py:470  output_layout_or_store  @P1   STG.E desc[UR20][R20.64], R25      186.000
+0x7f3e4d7f5eb0  qsa_select_paged_prefill.py:437  other_source_region     @P4   LDG.E R31, desc[UR20][R4.64]       123.000
+0x7f3e4d7f5e60  qsa_select_paged_prefill.py:470  output_layout_or_store  @P3   STG.E desc[UR20][R20.64+0x8], R33  118.000
+0x7f3e4d7f5e50  qsa_select_paged_prefill.py:470  output_layout_or_store  @P0   STG.E desc[UR20][R20.64+0x4], R29  117.000
+0x7f3e4d7f5e70  qsa_select_paged_prefill.py:470  output_layout_or_store  @P5   STG.E desc[UR20][R20.64+0xc], R35  105.000
+0x7f3e4d7f5320  qsa_select_paged_prefill.py:461  dot_full                @!PT  LDS RZ, [RZ]                       102.000
+0x7f3e4d7f5330  qsa_select_paged_prefill.py:461  dot_full                @!PT  LDS RZ, [RZ]                       100.000
+0x7f3e4d7f5cf0  qsa_select_paged_prefill.py:470  output_layout_or_store        LDS R25, [R9+UR17+0x10400]         87.000 
+smsp__pcsamp_warps_issue_stalled_short_scoreboard samples= 1946.0 （样本占比不是耗时占比）
+region                  instruction family  samples   fraction of this reason
+----------------------  ------------------  --------  -----------------------
+unmapped_or_inlined     other_instruction   1388.000  0.713                  
+output_layout_or_store  global_store        280.000   0.144                  
+other_source_region     other_instruction   150.000   0.077                  
+Q_operand_staging       other_instruction   99.000    0.051                  
+visible_max_reduction   other_instruction   23.000    0.012                  
+K_operand_feed          other_instruction   6.000     0.003                  
+PC              file:line                        region                  instruction                                   samples
+--------------  -------------------------------  ----------------------  --------------------------------------------  -------
+0x7f3e4d7f5730  standard.py:285                  unmapped_or_inlined           FADD R33, R23, R40                      497.000
+0x7f3e4d7f5a20  standard.py:285                  unmapped_or_inlined           FADD R35, R34, R35                      244.000
+0x7f3e4d7f5da0  qsa_select_paged_prefill.py:470  output_layout_or_store  @P6   STG.E desc[UR20][R4.64+0x4], R21        163.000
+0x7f3e4d7f5970  standard.py:285                  unmapped_or_inlined           FADD R20, R28, R37                      136.000
+0x7f3e4d7f5770  standard.py:285                  unmapped_or_inlined           FADD R36, R21, R36                      119.000
+0x7f3e4d7f58e0  standard.py:285                  unmapped_or_inlined           FADD R45, R20, R45                      116.000
+0x7f3e4d7f4150  qsa_select_paged_prefill.py:409  Q_operand_staging             IMAD R28, R54, UR18, RZ                 97.000 
+0x7f3e4d7f5b90  qsa_select_paged_prefill.py:432  other_source_region           LOP3.LUT R37, R24, UR27, RZ, 0xfc, !PT  82.000 
+smsp__pcsamp_warps_issue_stalled_short_scoreboard_not_issued samples= 1044.0 （样本占比不是耗时占比）
+region                  instruction family  samples  fraction of this reason
+----------------------  ------------------  -------  -----------------------
+unmapped_or_inlined     other_instruction   697.000  0.668                  
+output_layout_or_store  global_store        179.000  0.171                  
+Q_operand_staging       other_instruction   77.000   0.074                  
+other_source_region     other_instruction   76.000   0.073                  
+visible_max_reduction   other_instruction   11.000   0.011                  
+K_operand_feed          other_instruction   4.000    0.004                  
+PC              file:line                        region                  instruction                             samples
+--------------  -------------------------------  ----------------------  --------------------------------------  -------
+0x7f3e4d7f5730  standard.py:285                  unmapped_or_inlined           FADD R33, R23, R40                249.000
+0x7f3e4d7f5da0  qsa_select_paged_prefill.py:470  output_layout_or_store  @P6   STG.E desc[UR20][R4.64+0x4], R21  97.000 
+0x7f3e4d7f5a20  standard.py:285                  unmapped_or_inlined           FADD R35, R34, R35                93.000 
+0x7f3e4d7f4150  qsa_select_paged_prefill.py:409  Q_operand_staging             IMAD R28, R54, UR18, RZ           76.000 
+0x7f3e4d7f5970  standard.py:285                  unmapped_or_inlined           FADD R20, R28, R37                75.000 
+0x7f3e4d7f5770  standard.py:285                  unmapped_or_inlined           FADD R36, R21, R36                68.000 
+0x7f3e4d7f58e0  standard.py:285                  unmapped_or_inlined           FADD R45, R20, R45                67.000 
+0x7f3e4d7f5d30  qsa_select_paged_prefill.py:470  output_layout_or_store  @P2   STG.E desc[UR20][R4.64], R23      46.000 
+smsp__pcsamp_warps_issue_stalled_warpgroup_arrive samples= 461.0 （样本占比不是耗时占比）
+region    instruction family  samples  fraction of this reason
+--------  ------------------  -------  -----------------------
+dot_full  matrix_dot          461.000  1.000                  
+PC              file:line                        region    instruction                                              samples
+--------------  -------------------------------  --------  -------------------------------------------------------  -------
+0x7f3e4d7f5390  qsa_select_paged_prefill.py:461  dot_full        HGMMA.64x64x16.F32.BF16 R24, gdesc[UR8], RZ, !UPT  461.000
+smsp__pcsamp_warps_issue_stalled_warpgroup_arrive_not_issued samples= 242.0 （样本占比不是耗时占比）
+region    instruction family  samples  fraction of this reason
+--------  ------------------  -------  -----------------------
+dot_full  matrix_dot          242.000  1.000                  
+PC              file:line                        region    instruction                                              samples
+--------------  -------------------------------  --------  -------------------------------------------------------  -------
+0x7f3e4d7f5390  qsa_select_paged_prefill.py:461  dot_full        HGMMA.64x64x16.F32.BF16 R24, gdesc[UR8], RZ, !UPT  242.000
+
+指令级 shared/sync 归因： perf_n4_q4096_p102400_bfloat16
+source region                 instruction family  static PTX sites
+----------------------------  ------------------  ----------------
+K_operand_feed                async_copy_wait     1               
+K_operand_feed                cta_barrier         1               
+Q_operand_staging             cta_barrier         1               
+Q_operand_staging             shared_store        32              
+dot_high                      mma_fence           2               
+dot_low                       mma_fence           2               
+head_reduction                mma_wait            2               
+key_loop_pipeline_or_control  async_copy_wait     1               
+key_loop_pipeline_or_control  cta_barrier         1               
+output_layout_or_store        cta_barrier         3               
+output_layout_or_store        shared_load         8               
+output_layout_or_store        shared_store        8               
+visible_max_reduction         cta_barrier         2               
+visible_max_reduction         shared_load         2               
+visible_max_reduction         shared_store        2               
+逐指令 shared wavefront（实际与理想同时保留；不是耗时）：
+PC              source line  region             instruction                            actual/inst  ideal/inst  excess wavefronts
+--------------  -----------  -----------------  -------------------------------------  -----------  ----------  -----------------
+0x7fee237f50a0  408          Q_operand_staging        STS.128 [R140+UR53], R36         4.000        4.000       0.000            
+0x7fee237f5150  408          Q_operand_staging        STS.128 [R140+UR53+0x400], R4    4.000        4.000       0.000            
+0x7fee237f51e0  408          Q_operand_staging        STS.128 [R140+UR53+0x800], R8    4.000        4.000       0.000            
+0x7fee237f5240  408          Q_operand_staging        STS.128 [R140+UR53+0xc00], R12   4.000        4.000       0.000            
+0x7fee237f55f0  408          Q_operand_staging        STS.128 [R140+UR53+0x1000], R16  4.000        4.000       0.000            
+0x7fee237f5620  408          Q_operand_staging        STS.128 [R140+UR53+0x1400], R24  4.000        4.000       0.000            
+0x7fee237f5640  408          Q_operand_staging        STS.128 [R140+UR53+0x1800], R28  4.000        4.000       0.000            
+0x7fee237f5660  408          Q_operand_staging        STS.128 [R140+UR53+0x1c00], R32  4.000        4.000       0.000            
+0x7fee237f5680  408          Q_operand_staging        STS.128 [R140+UR53+0x2000], R44  4.000        4.000       0.000            
+0x7fee237f5690  408          Q_operand_staging        STS.128 [R140+UR53+0x2400], R48  4.000        4.000       0.000            
+0x7fee237f56a0  408          Q_operand_staging        STS.128 [R140+UR53+0x2800], R52  4.000        4.000       0.000            
+0x7fee237f56b0  408          Q_operand_staging        STS.128 [R140+UR53+0x2c00], R56  4.000        4.000       0.000            
+smsp__pcsamp_warps_issue_stalled_barrier samples= 10123.0 （样本占比不是耗时占比）
+region                        instruction family  samples   fraction of this reason
+----------------------------  ------------------  --------  -----------------------
+head_reduction                mma_wait            9320.000  0.921                  
+dot_low                       other_instruction   520.000   0.051                  
+output_layout_or_store        shared_load         118.000   0.012                  
+output_layout_or_store        global_store        75.000    0.007                  
+key_loop_pipeline_or_control  other_instruction   31.000    0.003                  
+Q_operand_staging             other_instruction   23.000    0.002                  
+unmapped_or_inlined           other_instruction   22.000    0.002                  
+output_layout_or_store        shared_store        14.000    0.001                  
+PC              file:line                        region                        instruction                               samples 
+--------------  -------------------------------  ----------------------------  ----------------------------------------  --------
+0x7fee237f6a10  qsa_select_paged_prefill.py:453  head_reduction                      WARPGROUP.DEPBAR.LE gsb0, 0x0       5182.000
+0x7fee237f6db0  qsa_select_paged_prefill.py:457  head_reduction                      WARPGROUP.DEPBAR.LE gsb0, 0x0       4138.000
+0x7fee237f6840  qsa_select_paged_prefill.py:451  dot_low                       @!PT  LDS RZ, [RZ]                        520.000 
+0x7fee237f8e40  qsa_select_paged_prefill.py:470  output_layout_or_store              LDS.128 R40, [R174+UR53+0x18000]    118.000 
+0x7fee237f9450  qsa_select_paged_prefill.py:470  output_layout_or_store        @P3   STG.E desc[UR54][R88.64+0x4], R44   75.000  
+0x7fee237fac10  qsa_select_paged_prefill.py:431  key_loop_pipeline_or_control        EXIT                                31.000  
+0x7fee237f49d0  qsa_select_paged_prefill.py:420  Q_operand_staging             @!P0  LDG.E.128 R72, desc[UR54][R110.64]  23.000  
+0x7fee237f3cc0  standard.py:213                  unmapped_or_inlined           @!P1  LDS R19, [R8]                       14.000  
+smsp__pcsamp_warps_issue_stalled_barrier_not_issued samples= 8268.0 （样本占比不是耗时占比）
+region                        instruction family  samples   fraction of this reason
+----------------------------  ------------------  --------  -----------------------
+head_reduction                mma_wait            7624.000  0.922                  
+dot_low                       other_instruction   436.000   0.053                  
+output_layout_or_store        shared_load         75.000    0.009                  
+output_layout_or_store        global_store        57.000    0.007                  
+key_loop_pipeline_or_control  other_instruction   25.000    0.003                  
+Q_operand_staging             other_instruction   23.000    0.003                  
+unmapped_or_inlined           other_instruction   16.000    0.002                  
+output_layout_or_store        shared_store        12.000    0.001                  
+PC              file:line                        region                        instruction                               samples 
+--------------  -------------------------------  ----------------------------  ----------------------------------------  --------
+0x7fee237f6a10  qsa_select_paged_prefill.py:453  head_reduction                      WARPGROUP.DEPBAR.LE gsb0, 0x0       4268.000
+0x7fee237f6db0  qsa_select_paged_prefill.py:457  head_reduction                      WARPGROUP.DEPBAR.LE gsb0, 0x0       3356.000
+0x7fee237f6840  qsa_select_paged_prefill.py:451  dot_low                       @!PT  LDS RZ, [RZ]                        436.000 
+0x7fee237f8e40  qsa_select_paged_prefill.py:470  output_layout_or_store              LDS.128 R40, [R174+UR53+0x18000]    75.000  
+0x7fee237f9450  qsa_select_paged_prefill.py:470  output_layout_or_store        @P3   STG.E desc[UR54][R88.64+0x4], R44   57.000  
+0x7fee237fac10  qsa_select_paged_prefill.py:431  key_loop_pipeline_or_control        EXIT                                25.000  
+0x7fee237f49d0  qsa_select_paged_prefill.py:420  Q_operand_staging             @!P0  LDG.E.128 R72, desc[UR54][R110.64]  23.000  
+0x7fee237f9330  qsa_select_paged_prefill.py:470  output_layout_or_store              STS.128 [R176+UR53+0x18000], R4     12.000  
+smsp__pcsamp_warps_issue_stalled_long_scoreboard samples= 12037.0 （样本占比不是耗时占比）
+region               instruction family  samples   fraction of this reason
+-------------------  ------------------  --------  -----------------------
+K_operand_feed       other_instruction   5354.000  0.445                  
+other_source_region  other_instruction   5176.000  0.430                  
+Q_operand_staging    other_instruction   634.000   0.053                  
+unmapped_or_inlined  other_instruction   312.000   0.026                  
+dot_low              mma_fence           173.000   0.014                  
+Q_operand_staging    shared_store        158.000   0.013                  
+dot_low              other_instruction   121.000   0.010                  
+dot_high             mma_fence           53.000    0.004                  
+PC              file:line                        region               instruction                                   samples 
+--------------  -------------------------------  -------------------  --------------------------------------------  --------
+0x7fee237f65a0  qsa_select_paged_prefill.py:432  other_source_region        IADD3 R7, P1, R9, -0x40, RZ             3120.000
+0x7fee237f9b10  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R6, RZ, 0x1f, R27          2037.000
+0x7fee237f9af0  qsa_select_paged_prefill.py:432  other_source_region        LOP3.LUT R15, R169, 0x8, R2, 0xfe, !PT  1257.000
+0x7fee237f9e50  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R10, RZ, 0x1f, R29         711.000 
+0x7fee237f9fe0  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R12, RZ, 0x1f, R30         620.000 
+0x7fee237fa150  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R14, RZ, 0x1f, R31         597.000 
+0x7fee237f9cc0  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R8, RZ, 0x1f, R28          396.000 
+0x7fee237fa2b0  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R16, RZ, 0x1f, R32         392.000 
+smsp__pcsamp_warps_issue_stalled_long_scoreboard_not_issued samples= 9937.0 （样本占比不是耗时占比）
+region               instruction family  samples   fraction of this reason
+-------------------  ------------------  --------  -----------------------
+K_operand_feed       other_instruction   4305.000  0.433                  
+other_source_region  other_instruction   4282.000  0.431                  
+Q_operand_staging    other_instruction   594.000   0.060                  
+unmapped_or_inlined  other_instruction   274.000   0.028                  
+dot_low              mma_fence           151.000   0.015                  
+Q_operand_staging    shared_store        126.000   0.013                  
+dot_low              other_instruction   106.000   0.011                  
+dot_high             mma_fence           49.000    0.005                  
+PC              file:line                        region               instruction                                   samples 
+--------------  -------------------------------  -------------------  --------------------------------------------  --------
+0x7fee237f65a0  qsa_select_paged_prefill.py:432  other_source_region        IADD3 R7, P1, R9, -0x40, RZ             2593.000
+0x7fee237f9b10  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R6, RZ, 0x1f, R27          1514.000
+0x7fee237f9af0  qsa_select_paged_prefill.py:432  other_source_region        LOP3.LUT R15, R169, 0x8, R2, 0xfe, !PT  967.000 
+0x7fee237f9e50  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R10, RZ, 0x1f, R29         616.000 
+0x7fee237f9fe0  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R12, RZ, 0x1f, R30         538.000 
+0x7fee237fa150  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R14, RZ, 0x1f, R31         504.000 
+0x7fee237fa2b0  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R16, RZ, 0x1f, R32         323.000 
+0x7fee237f9cc0  qsa_select_paged_prefill.py:444  K_operand_feed             SHF.R.S32.HI R8, RZ, 0x1f, R28          317.000 
+smsp__pcsamp_warps_issue_stalled_mio_throttle samples= 1002.0 （样本占比不是耗时占比）
+region                  instruction family  samples  fraction of this reason
+----------------------  ------------------  -------  -----------------------
+dot_low                 matrix_dot          311.000  0.310                  
+dot_high                matrix_dot          225.000  0.225                  
+Q_operand_staging       shared_store        163.000  0.163                  
+output_layout_or_store  global_store        85.000   0.085                  
+head_reduction          matrix_dot          79.000   0.079                  
+output_layout_or_store  shared_load         35.000   0.035                  
+Q_operand_staging       other_instruction   27.000   0.027                  
+K_operand_feed          other_instruction   22.000   0.022                  
+PC              file:line                        region          instruction                                                samples
+--------------  -------------------------------  --------------  ---------------------------------------------------------  -------
+0x7fee237f69d0  qsa_select_paged_prefill.py:451  dot_low               HGMMA.64x128x16.F32.BF16 R88, gdesc[UR20], R88.gsb0  142.000
+0x7fee237f6b70  qsa_select_paged_prefill.py:455  dot_high              HGMMA.64x128x16.F32.BF16 R24, gdesc[UR24], R24       81.000 
+0x7fee237f6c10  qsa_select_paged_prefill.py:453  head_reduction        HGMMA.64x128x16.F32.BF16 R24, gdesc[UR20], R24.gsb0  79.000 
+0x7fee237f6b50  qsa_select_paged_prefill.py:455  dot_high              HGMMA.64x128x16.F32.BF16 R24, gdesc[UR40], R24       68.000 
+0x7fee237f69c0  qsa_select_paged_prefill.py:451  dot_low               HGMMA.64x128x16.F32.BF16 R88, gdesc[UR24], R88       64.000 
+0x7fee237f69a0  qsa_select_paged_prefill.py:451  dot_low               HGMMA.64x128x16.F32.BF16 R88, gdesc[UR40], R88       53.000 
+0x7fee237f6af0  qsa_select_paged_prefill.py:455  dot_high              HGMMA.64x128x16.F32.BF16 R24, gdesc[UR32], R24       29.000 
+0x7fee237f6b30  qsa_select_paged_prefill.py:455  dot_high              HGMMA.64x128x16.F32.BF16 R24, gdesc[UR44], R24       23.000 
+smsp__pcsamp_warps_issue_stalled_mio_throttle_not_issued samples= 944.0 （样本占比不是耗时占比）
+region                  instruction family  samples  fraction of this reason
+----------------------  ------------------  -------  -----------------------
+dot_low                 matrix_dot          283.000  0.300                  
+dot_high                matrix_dot          223.000  0.236                  
+Q_operand_staging       shared_store        147.000  0.156                  
+output_layout_or_store  global_store        83.000   0.088                  
+head_reduction          matrix_dot          78.000   0.083                  
+output_layout_or_store  shared_load         33.000   0.035                  
+Q_operand_staging       other_instruction   26.000   0.028                  
+K_operand_feed          other_instruction   21.000   0.022                  
+PC              file:line                        region          instruction                                                samples
+--------------  -------------------------------  --------------  ---------------------------------------------------------  -------
+0x7fee237f69d0  qsa_select_paged_prefill.py:451  dot_low               HGMMA.64x128x16.F32.BF16 R88, gdesc[UR20], R88.gsb0  124.000
+0x7fee237f6b70  qsa_select_paged_prefill.py:455  dot_high              HGMMA.64x128x16.F32.BF16 R24, gdesc[UR24], R24       81.000 
+0x7fee237f6c10  qsa_select_paged_prefill.py:453  head_reduction        HGMMA.64x128x16.F32.BF16 R24, gdesc[UR20], R24.gsb0  78.000 
+0x7fee237f6b50  qsa_select_paged_prefill.py:455  dot_high              HGMMA.64x128x16.F32.BF16 R24, gdesc[UR40], R24       68.000 
+0x7fee237f69c0  qsa_select_paged_prefill.py:451  dot_low               HGMMA.64x128x16.F32.BF16 R88, gdesc[UR24], R88       64.000 
+0x7fee237f69a0  qsa_select_paged_prefill.py:451  dot_low               HGMMA.64x128x16.F32.BF16 R88, gdesc[UR40], R88       49.000 
+0x7fee237f6af0  qsa_select_paged_prefill.py:455  dot_high              HGMMA.64x128x16.F32.BF16 R24, gdesc[UR32], R24       29.000 
+0x7fee237f6b30  qsa_select_paged_prefill.py:455  dot_high              HGMMA.64x128x16.F32.BF16 R24, gdesc[UR44], R24       23.000 
+smsp__pcsamp_warps_issue_stalled_short_scoreboard samples= 1889.0 （样本占比不是耗时占比）
+region                  instruction family  samples   fraction of this reason
+----------------------  ------------------  --------  -----------------------
+output_layout_or_store  global_store        1606.000  0.850                  
+other_source_region     other_instruction   104.000   0.055                  
+output_layout_or_store  other_instruction   72.000    0.038                  
+unmapped_or_inlined     other_instruction   40.000    0.021                  
+visible_max_reduction   other_instruction   32.000    0.017                  
+unmapped_or_inlined     shuffle             17.000    0.009                  
+K_operand_feed          other_instruction   14.000    0.007                  
+Q_operand_staging       other_instruction   4.000     0.002                  
+PC              file:line                        region                  instruction                                 samples
+--------------  -------------------------------  ----------------------  ------------------------------------------  -------
+0x7fee237f9800  qsa_select_paged_prefill.py:470  output_layout_or_store  @P3   STG.E desc[UR54][R24.64+0x8], R8      715.000
+0x7fee237f98c0  qsa_select_paged_prefill.py:470  output_layout_or_store  @P3   STG.E desc[UR54][R24.64+0xc], R16     498.000
+0x7fee237f97d0  qsa_select_paged_prefill.py:470  output_layout_or_store  @P3   STG.E desc[UR54][R24.64], R4          379.000
+0x7fee237f9420  qsa_select_paged_prefill.py:470  output_layout_or_store        P2R R11, PR, RZ, 0x1                  72.000 
+0x7fee237f3670  qsa_select_paged_prefill.py:370  other_source_region           ULEA UR4, UP0, UR7, UR4, 0x2          47.000 
+0x7fee237f3d80  qsa_select_paged_prefill.py:393  visible_max_reduction         VIMNMX R160, R160, UR13, PT           32.000 
+0x7fee237f50d0  qsa_select_paged_prefill.py:433  other_source_region           IMAD.HI.U32 R36, R173, 0x29cbc15, RZ  23.000 
+0x7fee237f3c90  standard.py:213                  unmapped_or_inlined           IMAD.U32 R32, RZ, RZ, UR5             21.000 
+smsp__pcsamp_warps_issue_stalled_short_scoreboard_not_issued samples= 1622.0 （样本占比不是耗时占比）
+region                  instruction family  samples   fraction of this reason
+----------------------  ------------------  --------  -----------------------
+output_layout_or_store  global_store        1364.000  0.841                  
+other_source_region     other_instruction   92.000    0.057                  
+output_layout_or_store  other_instruction   66.000    0.041                  
+unmapped_or_inlined     other_instruction   36.000    0.022                  
+visible_max_reduction   other_instruction   29.000    0.018                  
+unmapped_or_inlined     shuffle             17.000    0.010                  
+K_operand_feed          other_instruction   14.000    0.009                  
+Q_operand_staging       other_instruction   4.000     0.002                  
+PC              file:line                        region                  instruction                                 samples
+--------------  -------------------------------  ----------------------  ------------------------------------------  -------
+0x7fee237f9800  qsa_select_paged_prefill.py:470  output_layout_or_store  @P3   STG.E desc[UR54][R24.64+0x8], R8      594.000
+0x7fee237f98c0  qsa_select_paged_prefill.py:470  output_layout_or_store  @P3   STG.E desc[UR54][R24.64+0xc], R16     435.000
+0x7fee237f97d0  qsa_select_paged_prefill.py:470  output_layout_or_store  @P3   STG.E desc[UR54][R24.64], R4          325.000
+0x7fee237f9420  qsa_select_paged_prefill.py:470  output_layout_or_store        P2R R11, PR, RZ, 0x1                  66.000 
+0x7fee237f3670  qsa_select_paged_prefill.py:370  other_source_region           ULEA UR4, UP0, UR7, UR4, 0x2          39.000 
+0x7fee237f3d80  qsa_select_paged_prefill.py:393  visible_max_reduction         VIMNMX R160, R160, UR13, PT           29.000 
+0x7fee237f50d0  qsa_select_paged_prefill.py:433  other_source_region           IMAD.HI.U32 R36, R173, 0x29cbc15, RZ  20.000 
+0x7fee237f3c90  standard.py:213                  unmapped_or_inlined           IMAD.U32 R32, RZ, RZ, UR5             19.000 
+smsp__pcsamp_warps_issue_stalled_warpgroup_arrive samples= 91.0 （样本占比不是耗时占比）
+region    instruction family  samples  fraction of this reason
+--------  ------------------  -------  -----------------------
+dot_high  matrix_dot          46.000   0.505                  
+dot_low   matrix_dot          45.000   0.495                  
+PC              file:line                        region    instruction                                                samples
+--------------  -------------------------------  --------  ---------------------------------------------------------  -------
+0x7fee237f6ab0  qsa_select_paged_prefill.py:455  dot_high        HGMMA.64x128x16.F32.BF16 R24, gdesc[UR16], RZ, !UPT  46.000 
+0x7fee237f68f0  qsa_select_paged_prefill.py:451  dot_low         HGMMA.64x128x16.F32.BF16 R88, gdesc[UR12], RZ, !UPT  45.000 
+smsp__pcsamp_warps_issue_stalled_warpgroup_arrive_not_issued samples= 74.0 （样本占比不是耗时占比）
+region    instruction family  samples  fraction of this reason
+--------  ------------------  -------  -----------------------
+dot_low   matrix_dot          37.000   0.500                  
+dot_high  matrix_dot          37.000   0.500                  
+PC              file:line                        region    instruction                                                samples
+--------------  -------------------------------  --------  ---------------------------------------------------------  -------
+0x7fee237f68f0  qsa_select_paged_prefill.py:451  dot_low         HGMMA.64x128x16.F32.BF16 R88, gdesc[UR12], RZ, !UPT  37.000 
+0x7fee237f6ab0  qsa_select_paged_prefill.py:455  dot_high        HGMMA.64x128x16.F32.BF16 R24, gdesc[UR16], RZ, !UPT  37.000 
+
+指令级 shared/sync 归因： fp8_long100k_float8_e4m3fn
+source region                 instruction family  static PTX sites
+----------------------------  ------------------  ----------------
+K_operand_feed                async_copy_wait     1               
+K_operand_feed                cta_barrier         1               
+Q_operand_staging             cta_barrier         1               
+Q_operand_staging             shared_store        16              
+dot_full                      mma_fence           4               
+key_loop_pipeline_or_control  async_copy_wait     1               
+key_loop_pipeline_or_control  cta_barrier         1               
+other_source_region           mma_wait            2               
+output_layout_or_store        cta_barrier         3               
+output_layout_or_store        shared_load         8               
+output_layout_or_store        shared_store        16              
+visible_max_reduction         cta_barrier         2               
+visible_max_reduction         shared_load         2               
+visible_max_reduction         shared_store        2               
+逐指令 shared wavefront（实际与理想同时保留；不是耗时）：
+PC              source line  region             instruction                           actual/inst  ideal/inst  excess wavefronts
+--------------  -----------  -----------------  ------------------------------------  -----------  ----------  -----------------
+0x7f5c8b7f7c60  171          Q_operand_staging        STS.128 [R134+UR7+0x800], R8    4.000        4.000       0.000            
+0x7f5c8b7f7c70  171          Q_operand_staging        STS.128 [R134+UR7], R4          4.000        4.000       0.000            
+0x7f5c8b7f7c80  171          Q_operand_staging        STS.128 [R134+UR7+0x1000], R12  4.000        4.000       0.000            
+0x7f5c8b7f7c90  171          Q_operand_staging        STS.128 [R134+UR7+0x1800], R16  4.000        4.000       0.000            
+0x7f5c8b7f7cb0  171          Q_operand_staging        STS.128 [R134+UR7+0x2000], R20  4.000        4.000       0.000            
+0x7f5c8b7f7cc0  171          Q_operand_staging        STS.128 [R134+UR7+0x2800], R24  4.000        4.000       0.000            
+0x7f5c8b7f7cd0  171          Q_operand_staging        STS.128 [R134+UR7+0x3000], R28  4.000        4.000       0.000            
+0x7f5c8b7f7ce0  171          Q_operand_staging        STS.128 [R134+UR7+0x3800], R32  4.000        4.000       0.000            
+0x7f5c8b7f7cf0  181          Q_operand_staging        STS.128 [R134+UR7+0x4000], R36  4.000        4.000       0.000            
+0x7f5c8b7f7d00  181          Q_operand_staging        STS.128 [R134+UR7+0x4800], R40  4.000        4.000       0.000            
+0x7f5c8b7f7d10  181          Q_operand_staging        STS.128 [R134+UR7+0x5000], R44  4.000        4.000       0.000            
+0x7f5c8b7f7d20  181          Q_operand_staging        STS.128 [R134+UR7+0x5800], R48  4.000        4.000       0.000            
+smsp__pcsamp_warps_issue_stalled_barrier samples= 3221.0 （样本占比不是耗时占比）
+region                        instruction family  samples   fraction of this reason
+----------------------------  ------------------  --------  -----------------------
+other_source_region           mma_wait            2194.000  0.681                  
+dot_full                      other_instruction   629.000   0.195                  
+output_layout_or_store        shared_load         289.000   0.090                  
+output_layout_or_store        shared_store        48.000    0.015                  
+unmapped_or_inlined           other_instruction   27.000    0.008                  
+key_loop_pipeline_or_control  other_instruction   24.000    0.007                  
+K_operand_feed                other_instruction   10.000    0.003                  
+PC              file:line                        region                        instruction                           samples 
+--------------  -------------------------------  ----------------------------  ------------------------------------  --------
+0x7f5c8b7f8b80  qsa_select_paged_prefill.py:250  other_source_region                 WARPGROUP.DEPBAR.LE gsb0, 0x0   1314.000
+0x7f5c8b7fa200  qsa_select_paged_prefill.py:268  other_source_region                 WARPGROUP.DEPBAR.LE gsb0, 0x0   880.000 
+0x7f5c8b7f89f0  qsa_select_paged_prefill.py:249  dot_full                      @!PT  LDS RZ, [RZ]                    629.000 
+0x7f5c8b7f9870  qsa_select_paged_prefill.py:76   output_layout_or_store              LDS.128 R88, [R122+UR7+0xc880]  149.000 
+0x7f5c8b7faeb0  qsa_select_paged_prefill.py:76   output_layout_or_store              LDS.128 R44, [R123+UR7+0xc000]  140.000 
+0x7f5c8b7fad10  qsa_select_paged_prefill.py:76   output_layout_or_store              STS.128 [R125+UR7+0xc000], R32  48.000  
+0x7f5c8b7fc390  qsa_select_paged_prefill.py:206  key_loop_pipeline_or_control        EXIT                            24.000  
+0x7f5c8b7f6970  standard.py:213                  unmapped_or_inlined           @!P1  LDS R15, [R10]                  20.000  
+smsp__pcsamp_warps_issue_stalled_barrier_not_issued samples= 1982.0 （样本占比不是耗时占比）
+region                        instruction family  samples   fraction of this reason
+----------------------------  ------------------  --------  -----------------------
+other_source_region           mma_wait            1376.000  0.694                  
+dot_full                      other_instruction   373.000   0.188                  
+output_layout_or_store        shared_load         179.000   0.090                  
+output_layout_or_store        shared_store        24.000    0.012                  
+unmapped_or_inlined           other_instruction   17.000    0.009                  
+key_loop_pipeline_or_control  other_instruction   13.000    0.007                  
+PC              file:line                        region                        instruction                           samples
+--------------  -------------------------------  ----------------------------  ------------------------------------  -------
+0x7f5c8b7f8b80  qsa_select_paged_prefill.py:250  other_source_region                 WARPGROUP.DEPBAR.LE gsb0, 0x0   811.000
+0x7f5c8b7fa200  qsa_select_paged_prefill.py:268  other_source_region                 WARPGROUP.DEPBAR.LE gsb0, 0x0   565.000
+0x7f5c8b7f89f0  qsa_select_paged_prefill.py:249  dot_full                      @!PT  LDS RZ, [RZ]                    373.000
+0x7f5c8b7faeb0  qsa_select_paged_prefill.py:76   output_layout_or_store              LDS.128 R44, [R123+UR7+0xc000]  90.000 
+0x7f5c8b7f9870  qsa_select_paged_prefill.py:76   output_layout_or_store              LDS.128 R88, [R122+UR7+0xc880]  89.000 
+0x7f5c8b7fad10  qsa_select_paged_prefill.py:76   output_layout_or_store              STS.128 [R125+UR7+0xc000], R32  24.000 
+0x7f5c8b7f6970  standard.py:213                  unmapped_or_inlined           @!P1  LDS R15, [R10]                  15.000 
+0x7f5c8b7fc390  qsa_select_paged_prefill.py:206  key_loop_pipeline_or_control        EXIT                            13.000 
+smsp__pcsamp_warps_issue_stalled_long_scoreboard samples= 7270.0 （样本占比不是耗时占比）
+region                  instruction family  samples   fraction of this reason
+----------------------  ------------------  --------  -----------------------
+other_source_region     other_instruction   3384.000  0.465                  
+K_operand_feed          other_instruction   1908.000  0.262                  
+dot_full                other_instruction   562.000   0.077                  
+Q_operand_staging       shared_store        412.000   0.057                  
+output_layout_or_store  other_instruction   396.000   0.054                  
+dot_full                mma_fence           352.000   0.048                  
+unmapped_or_inlined     other_instruction   145.000   0.020                  
+Q_operand_staging       other_instruction   87.000    0.012                  
+PC              file:line                        region                  instruction                            samples 
+--------------  -------------------------------  ----------------------  -------------------------------------  --------
+0x7f5c8b7f8810  qsa_select_paged_prefill.py:207  other_source_region           IADD3 R25, P0, R27, -0x40, RZ    3098.000
+0x7f5c8b7fbbc0  qsa_select_paged_prefill.py:242  K_operand_feed                SHF.R.S32.HI R31, RZ, 0x1f, R35  835.000 
+0x7f5c8b7f7560  qsa_select_paged_prefill.py:242  K_operand_feed                IMAD.WIDE R38, R77, UR18, RZ     483.000 
+0x7f5c8b7f9960  qsa_select_paged_prefill.py:267  dot_full                      FENCE.VIEW.ASYNC.S               397.000 
+0x7f5c8b7f7cf0  qsa_select_paged_prefill.py:181  Q_operand_staging             STS.128 [R134+UR7+0x4000], R36   385.000 
+0x7f5c8b7fc190  qsa_select_paged_prefill.py:242  K_operand_feed                SHF.R.S32.HI R35, RZ, 0x1f, R33  234.000 
+0x7f5c8b7f8a70  qsa_select_paged_prefill.py:249  dot_full                      WARPGROUP.ARRIVE                 219.000 
+0x7f5c8b7f9bb0  qsa_select_paged_prefill.py:76   output_layout_or_store        P2R R24, PR, RZ, 0x2             174.000 
+smsp__pcsamp_warps_issue_stalled_long_scoreboard_not_issued samples= 4787.0 （样本占比不是耗时占比）
+region                  instruction family  samples   fraction of this reason
+----------------------  ------------------  --------  -----------------------
+other_source_region     other_instruction   2118.000  0.442                  
+K_operand_feed          other_instruction   1212.000  0.253                  
+dot_full                other_instruction   407.000   0.085                  
+Q_operand_staging       shared_store        343.000   0.072                  
+output_layout_or_store  other_instruction   315.000   0.066                  
+dot_full                mma_fence           221.000   0.046                  
+unmapped_or_inlined     other_instruction   87.000    0.018                  
+Q_operand_staging       other_instruction   70.000    0.015                  
+PC              file:line                        region                  instruction                            samples 
+--------------  -------------------------------  ----------------------  -------------------------------------  --------
+0x7f5c8b7f8810  qsa_select_paged_prefill.py:207  other_source_region           IADD3 R25, P0, R27, -0x40, RZ    1924.000
+0x7f5c8b7fbbc0  qsa_select_paged_prefill.py:242  K_operand_feed                SHF.R.S32.HI R31, RZ, 0x1f, R35  500.000 
+0x7f5c8b7f7cf0  qsa_select_paged_prefill.py:181  Q_operand_staging             STS.128 [R134+UR7+0x4000], R36   322.000 
+0x7f5c8b7f7560  qsa_select_paged_prefill.py:242  K_operand_feed                IMAD.WIDE R38, R77, UR18, RZ     310.000 
+0x7f5c8b7f9960  qsa_select_paged_prefill.py:267  dot_full                      FENCE.VIEW.ASYNC.S               292.000 
+0x7f5c8b7fc190  qsa_select_paged_prefill.py:242  K_operand_feed                SHF.R.S32.HI R35, RZ, 0x1f, R33  159.000 
+0x7f5c8b7f8a70  qsa_select_paged_prefill.py:249  dot_full                      WARPGROUP.ARRIVE                 138.000 
+0x7f5c8b7f9bb0  qsa_select_paged_prefill.py:76   output_layout_or_store        P2R R24, PR, RZ, 0x2             136.000 
+smsp__pcsamp_warps_issue_stalled_mio_throttle samples= 1005.0 （样本占比不是耗时占比）
+region                  instruction family  samples  fraction of this reason
+----------------------  ------------------  -------  -----------------------
+unmapped_or_inlined     shuffle             313.000  0.311                  
+output_layout_or_store  global_store        198.000  0.197                  
+dot_full                other_instruction   173.000  0.172                  
+output_layout_or_store  shared_load         142.000  0.141                  
+output_layout_or_store  shared_store        67.000   0.067                  
+Q_operand_staging       shared_store        38.000   0.038                  
+K_operand_feed          other_instruction   28.000   0.028                  
+other_source_region     other_instruction   24.000   0.024                  
+PC              file:line                        region                  instruction                            samples
+--------------  -------------------------------  ----------------------  -------------------------------------  -------
+0x7f5c8b7f9950  qsa_select_paged_prefill.py:267  dot_full                      MEMBAR.ALL.CTA                   41.000 
+0x7f5c8b7f9940  qsa_select_paged_prefill.py:267  dot_full                @!PT  LDS RZ, [RZ]                     35.000 
+0x7f5c8b7f9930  qsa_select_paged_prefill.py:267  dot_full                @!PT  LDS RZ, [RZ]                     31.000 
+0x7f5c8b7f98a0  qsa_select_paged_prefill.py:76   output_layout_or_store        LDS.128 R104, [R123+UR7+0xc080]  28.000 
+0x7f5c8b7f9920  qsa_select_paged_prefill.py:267  dot_full                @!PT  LDS RZ, [RZ]                     21.000 
+0x7f5c8b7faed0  qsa_select_paged_prefill.py:76   output_layout_or_store        LDS.128 R56, [R122+UR7+0xc800]   21.000 
+0x7f5c8b7f9880  qsa_select_paged_prefill.py:76   output_layout_or_store        LDS.128 R44, [R123+UR7+0xc000]   19.000 
+0x7f5c8b7f9890  qsa_select_paged_prefill.py:76   output_layout_or_store        LDS.128 R108, [R122+UR7+0xc800]  18.000 
+smsp__pcsamp_warps_issue_stalled_mio_throttle_not_issued samples= 880.0 （样本占比不是耗时占比）
+region                  instruction family  samples  fraction of this reason
+----------------------  ------------------  -------  -----------------------
+unmapped_or_inlined     shuffle             269.000  0.306                  
+output_layout_or_store  global_store        178.000  0.202                  
+dot_full                other_instruction   148.000  0.168                  
+output_layout_or_store  shared_load         128.000  0.145                  
+output_layout_or_store  shared_store        57.000   0.065                  
+Q_operand_staging       shared_store        34.000   0.039                  
+K_operand_feed          other_instruction   25.000   0.028                  
+other_source_region     other_instruction   21.000   0.024                  
+PC              file:line                        region                  instruction                            samples
+--------------  -------------------------------  ----------------------  -------------------------------------  -------
+0x7f5c8b7f9950  qsa_select_paged_prefill.py:267  dot_full                      MEMBAR.ALL.CTA                   34.000 
+0x7f5c8b7f9930  qsa_select_paged_prefill.py:267  dot_full                @!PT  LDS RZ, [RZ]                     28.000 
+0x7f5c8b7f9940  qsa_select_paged_prefill.py:267  dot_full                @!PT  LDS RZ, [RZ]                     28.000 
+0x7f5c8b7f98a0  qsa_select_paged_prefill.py:76   output_layout_or_store        LDS.128 R104, [R123+UR7+0xc080]  26.000 
+0x7f5c8b7faed0  qsa_select_paged_prefill.py:76   output_layout_or_store        LDS.128 R56, [R122+UR7+0xc800]   19.000 
+0x7f5c8b7f9920  qsa_select_paged_prefill.py:267  dot_full                @!PT  LDS RZ, [RZ]                     17.000 
+0x7f5c8b7f9870  qsa_select_paged_prefill.py:76   output_layout_or_store        LDS.128 R88, [R122+UR7+0xc880]   16.000 
+0x7f5c8b7f9880  qsa_select_paged_prefill.py:76   output_layout_or_store        LDS.128 R44, [R123+UR7+0xc000]   16.000 
+smsp__pcsamp_warps_issue_stalled_short_scoreboard samples= 1750.0 （样本占比不是耗时占比）
+region                  instruction family  samples  fraction of this reason
+----------------------  ------------------  -------  -----------------------
+output_layout_or_store  other_instruction   902.000  0.515                  
+unmapped_or_inlined     other_instruction   769.000  0.439                  
+other_source_region     other_instruction   24.000   0.014                  
+Q_operand_staging       other_instruction   22.000   0.013                  
+visible_max_reduction   other_instruction   21.000   0.012                  
+unmapped_or_inlined     shuffle             12.000   0.007                  
+PC              file:line                        region                  instruction                          samples
+--------------  -------------------------------  ----------------------  -----------------------------------  -------
+0x7f5c8b7faf70  qsa_select_paged_prefill.py:76   output_layout_or_store        IMAD.MOV.U32 R24, RZ, RZ, R44  346.000
+0x7f5c8b7f9480  standard.py:285                  unmapped_or_inlined           FADD R68, R68, R37             295.000
+0x7f5c8b7fab00  standard.py:285                  unmapped_or_inlined           FADD R57, R42, R57             261.000
+0x7f5c8b7faf80  qsa_select_paged_prefill.py:76   output_layout_or_store        IMAD.MOV.U32 R26, RZ, RZ, R52  91.000 
+0x7f5c8b7f92c0  standard.py:285                  unmapped_or_inlined           FADD R38, R60, R35             78.000 
+0x7f5c8b7faf90  qsa_select_paged_prefill.py:76   output_layout_or_store        IMAD.MOV.U32 R25, RZ, RZ, R56  76.000 
+0x7f5c8b7fafa0  qsa_select_paged_prefill.py:76   output_layout_or_store        IMAD.MOV.U32 R27, RZ, RZ, R48  65.000 
+0x7f5c8b7fada0  qsa_select_paged_prefill.py:279  output_layout_or_store        SEL R32, R51, 0xff800000, P0   61.000 
+smsp__pcsamp_warps_issue_stalled_short_scoreboard_not_issued samples= 1128.0 （样本占比不是耗时占比）
+region                  instruction family  samples  fraction of this reason
+----------------------  ------------------  -------  -----------------------
+output_layout_or_store  other_instruction   632.000  0.560                  
+unmapped_or_inlined     other_instruction   448.000  0.397                  
+Q_operand_staging       other_instruction   14.000   0.012                  
+visible_max_reduction   other_instruction   13.000   0.012                  
+other_source_region     other_instruction   12.000   0.011                  
+unmapped_or_inlined     shuffle             9.000    0.008                  
+PC              file:line                        region                  instruction                          samples
+--------------  -------------------------------  ----------------------  -----------------------------------  -------
+0x7f5c8b7faf70  qsa_select_paged_prefill.py:76   output_layout_or_store        IMAD.MOV.U32 R24, RZ, RZ, R44  239.000
+0x7f5c8b7f9480  standard.py:285                  unmapped_or_inlined           FADD R68, R68, R37             179.000
+0x7f5c8b7fab00  standard.py:285                  unmapped_or_inlined           FADD R57, R42, R57             148.000
+0x7f5c8b7faf80  qsa_select_paged_prefill.py:76   output_layout_or_store        IMAD.MOV.U32 R26, RZ, RZ, R52  64.000 
+0x7f5c8b7faf90  qsa_select_paged_prefill.py:76   output_layout_or_store        IMAD.MOV.U32 R25, RZ, RZ, R56  54.000 
+0x7f5c8b7fafa0  qsa_select_paged_prefill.py:76   output_layout_or_store        IMAD.MOV.U32 R27, RZ, RZ, R48  46.000 
+0x7f5c8b7f92c0  standard.py:285                  unmapped_or_inlined           FADD R38, R60, R35             45.000 
+0x7f5c8b7fada0  qsa_select_paged_prefill.py:279  output_layout_or_store        SEL R32, R51, 0xff800000, P0   42.000 
+smsp__pcsamp_warps_issue_stalled_warpgroup_arrive samples= 262.0 （样本占比不是耗时占比）
+region    instruction family  samples  fraction of this reason
+--------  ------------------  -------  -----------------------
+dot_full  other_instruction   262.000  1.000                  
+PC              file:line                        region    instruction                                                     samples
+--------------  -------------------------------  --------  --------------------------------------------------------------  -------
+0x7f5c8b7fa0a0  qsa_select_paged_prefill.py:267  dot_full        QGMMA.64x128x32.F32.E4M3.E4M3 R24, gdesc[UR8], RZ, !UPT   210.000
+0x7f5c8b7f8a80  qsa_select_paged_prefill.py:249  dot_full        QGMMA.64x128x32.F32.E4M3.E4M3 R24, gdesc[UR12], RZ, !UPT  52.000 
+smsp__pcsamp_warps_issue_stalled_warpgroup_arrive_not_issued samples= 145.0 （样本占比不是耗时占比）
+region    instruction family  samples  fraction of this reason
+--------  ------------------  -------  -----------------------
+dot_full  other_instruction   145.000  1.000                  
+PC              file:line                        region    instruction                                                     samples
+--------------  -------------------------------  --------  --------------------------------------------------------------  -------
+0x7f5c8b7fa0a0  qsa_select_paged_prefill.py:267  dot_full        QGMMA.64x128x32.F32.E4M3.E4M3 R24, gdesc[UR8], RZ, !UPT   118.000
+0x7f5c8b7f8a80  qsa_select_paged_prefill.py:249  dot_full        QGMMA.64x128x32.F32.E4M3.E4M3 R24, gdesc[UR12], RZ, !UPT  27.000 
