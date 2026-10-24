@@ -34,7 +34,8 @@ class FP8StoreProductionTests(unittest.TestCase):
             hashlib.sha256(FROZEN.read_bytes()).hexdigest(),
             ab.PRE_STORE_PRODUCTION_SHA256,
         )
-        current, old = functions(PRODUCTION), functions(FROZEN)
+        current = functions(ROOT / ab.PRE_HEAD_GROUP_PRODUCTION_PATH)
+        old = functions(FROZEN)
         for name in old.keys() - {"_prefill_logits"}:
             self.assertEqual(ast.dump(current[name]), ast.dump(old[name]), name)
         private = functions(ROOT / "tools/qsa_prefill_store_probe_kernel.py")

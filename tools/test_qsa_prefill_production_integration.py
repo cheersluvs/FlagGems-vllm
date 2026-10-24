@@ -69,7 +69,8 @@ class ProductionIntegrationTests(unittest.TestCase):
                 and node.value == "qsa_select_paged_prefill_score"
             ):
                 node.value = "qsa_select_paged_prefill_tuning_round1_score"
-        self.assertEqual(ast.dump(rect), ast.dump(current[rect.name]))
+        pre_head = functions(ROOT / ab.PRE_HEAD_GROUP_PRODUCTION_PATH)
+        self.assertEqual(ast.dump(rect), ast.dump(pre_head[rect.name]))
         compact = functions(ROOT / "tools/qsa_prefill_compact_trial.py")
         for name in ("_qsa_prefill_compact_score_kernel", "_compact_eligible"):
             self.assertEqual(ast.dump(current[name]), ast.dump(compact[name]))

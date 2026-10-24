@@ -96,6 +96,43 @@ qsa_select_paged_prefill_tuning_round1_score:
     num_warps: 8
     num_stages: 2
 
+# Production BF16 head pairing; retain every original full-head choice.
+qsa_select_paged_prefill_head_group_score:
+  - META: {TILE_R: 4, BLOCK_N: 64, K_TILES: 1, HEAD_GROUP: false}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 8, BLOCK_N: 64, K_TILES: 4, HEAD_GROUP: false}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 16, BLOCK_N: 64, K_TILES: 4, HEAD_GROUP: false}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 32, BLOCK_N: 64, K_TILES: 4, HEAD_GROUP: false}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 32, BLOCK_N: 128, K_TILES: 4, HEAD_GROUP: false}
+    num_warps: 8
+    num_stages: 2
+  - META: {TILE_R: 64, BLOCK_N: 64, K_TILES: 16, HEAD_GROUP: false}
+    num_warps: 4
+    num_stages: 2
+  - META: {TILE_R: 64, BLOCK_N: 64, K_TILES: 4, HEAD_GROUP: false}
+    num_warps: 8
+    num_stages: 2
+  - META: {TILE_R: 64, BLOCK_N: 64, K_TILES: 16, HEAD_GROUP: false}
+    num_warps: 8
+    num_stages: 2
+  - META: {TILE_R: 32, BLOCK_N: 64, K_TILES: 16, HEAD_GROUP: false}
+    num_warps: 8
+    num_stages: 2
+  - META: {TILE_R: 32, BLOCK_N: 64, K_TILES: 4, HEAD_GROUP: false}
+    num_warps: 8
+    num_stages: 2
+
+  - META: {TILE_R: 64, BLOCK_N: 64, K_TILES: 16, HEAD_GROUP: true}
+    num_warps: 4
+    num_stages: 2
+
 # Private joint algorithm/tile experiment; all original full-query choices remain.
 qsa_select_paged_prefill_query_joint_score:
   - META: {TILE_R: 4, BLOCK_N: 64, K_TILES: 1, QUERY_PARTS: 1}

@@ -1114,3 +1114,32 @@ def test_fp8_store_production_dispatch_and_canaries(sm90, monkeypatch):
                 assert (backing[:start] == 12345.0).all()
                 assert (backing[start + count * width :] == 12345.0).all()
             assert routes == [expected_route] * 3
+
+
+@pytest.mark.parametrize("heads,dim", [(4, 128), (3, 24), (8, 128), (4, 256)])
+def test_head_group_production_modes(sm90, heads, dim):
+    from .test_qsa_prefill_compact_trial import check_score_kernel
+
+    configs = flaggems_vllm.runtime.get_tuned_config(
+        "qsa_select_paged_prefill_head_group_score"
+    )
+    eligible = heads == 4 and dim == 128
+    pruned = op_module._prune_head_group_configs(
+        configs, dict(IS_FP8=False, NUM_HEADS=heads, HEAD_DIM=dim)
+    )
+    selected = [
+        c
+        for c in pruned
+        if (c.kwargs["TILE_R"], c.kwargs["BLOCK_N"], c.kwargs["K_TILES"], c.num_warps)
+        == ((64, 64, 16, 4) if eligible else (32, 64, 4, 8))
+    ]
+    assert len(configs) == 11 and len(selected) == (2 if eligible else 1)
+    assert sum(c.kwargs["HEAD_GROUP"] for c in selected) == int(eligible)
+    check_score_kernel(
+        torch.bfloat16,
+        heads,
+        dim,
+        op_module._qsa_prefill_score_kernel,
+        False,
+        configs=selected,
+    )

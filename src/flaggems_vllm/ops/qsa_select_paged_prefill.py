@@ -46,6 +46,17 @@ class _QSAScoreEntry(LibEntry):
         return super().key(spec_args, dns_args, const_args) + (self.fn.get_key(named),)
 
 
+def _prune_head_group_configs(configs, named_args, **kwargs):
+    args = {**named_args, **kwargs}
+    eligible = not args["IS_FP8"] and args["NUM_HEADS"] == 4 and args["HEAD_DIM"] == 128
+    return [
+        c
+        for c in configs
+        if not c.kwargs["HEAD_GROUP"]
+        or (eligible and c.kwargs["TILE_R"] == 64 and c.num_warps == 4)
+    ]
+
+
 def _prune_fp8_store_configs(configs, named_args, **kwargs):
     args = {**named_args, **kwargs}
     return [
@@ -304,7 +315,7 @@ def _select_all_kernel(visible_ptr, output_ptr, K: tl.constexpr, BLOCK: tl.const
 
 @_QSAScoreEntry
 @libtuner(
-    configs=runtime.get_tuned_config("qsa_select_paged_prefill_tuning_round1_score"),
+    configs=runtime.get_tuned_config("qsa_select_paged_prefill_head_group_score"),
     key=[
         "num_rows",
         "max_query_len",
@@ -322,6 +333,7 @@ def _select_all_kernel(visible_ptr, output_ptr, K: tl.constexpr, BLOCK: tl.const
         "stride_table_page",
     ],
     strategy="default",
+    prune_configs_by={"early_config_prune": _prune_head_group_configs},
 )
 @triton.jit(do_not_specialize=["num_rows", "query_offset", "max_query_len"])
 def _qsa_prefill_score_kernel(
@@ -351,6 +363,7 @@ def _qsa_prefill_score_kernel(
     TILE_R: tl.constexpr,
     BLOCK_N: tl.constexpr,
     K_TILES: tl.constexpr,
+    HEAD_GROUP: tl.constexpr = False,
 ):
     request = tl.program_id(0)
     query_base = tl.load(starts_ptr)
@@ -362,7 +375,14 @@ def _qsa_prefill_score_kernel(
     if row_start >= request_end:
         return
 
-    HEADS_PADDED: tl.constexpr = triton.next_power_of_2(NUM_HEADS)
+    GROUP_HEADS: tl.constexpr = (
+        HEAD_GROUP
+        and not IS_FP8
+        and NUM_HEADS == 4
+        and HEAD_DIM == 128
+        and TILE_R == 64
+    )
+    HEADS_PADDED: tl.constexpr = 2 if GROUP_HEADS else triton.next_power_of_2(NUM_HEADS)
     # tl.dot requires N>=16 even when TILE_R * HEADS_PADDED is smaller.
     # Fake rows do not read queries/metadata or write outside this query tile.
     BLOCK_R: tl.constexpr = max(TILE_R, triton.cdiv(16, HEADS_PADDED))
@@ -395,6 +415,18 @@ def _qsa_prefill_score_kernel(
         & (dims[:, None] < HEAD_DIM),
         other=0.0,
     )
+    if GROUP_HEADS:
+        query_high = tl.load(
+            q_ptr
+            + query_rows[None, :] * stride_q_row
+            + (heads[None, :] + 2) * stride_q_head
+            + dims[:, None],
+            mask=(query_row_lanes[None, :] < TILE_R)
+            & (query_rows[None, :] < request_end)
+            & (heads[None, :] < NUM_HEADS)
+            & (dims[:, None] < HEAD_DIM),
+            other=0.0,
+        )
     column_lanes = tl.arange(0, BLOCK_N)
     for tile in range(first_tile, last_tile):
         columns = tile * BLOCK_N + column_lanes
@@ -415,11 +447,22 @@ def _qsa_prefill_score_kernel(
             mask=live[:, None] & (dims[None, :] < HEAD_DIM),
             other=0.0,
         )
-        scores = tl.dot(keys, query, out_dtype=tl.float32)
-        scores = tl.reshape(scores, (BLOCK_N, BLOCK_R, HEADS_PADDED))
-        real_heads = tl.arange(0, HEADS_PADDED) < NUM_HEADS
-        scores = tl.where(real_heads[None, None, :], tl.maximum(scores, 0.0), 0.0)
-        scores = tl.sum(scores, axis=2)
+        if GROUP_HEADS:
+            low = tl.dot(keys, query, out_dtype=tl.float32)
+            low = tl.sum(
+                tl.maximum(tl.reshape(low, (BLOCK_N, BLOCK_R, 2)), 0.0), axis=2
+            )
+            high = tl.dot(keys, query_high, out_dtype=tl.float32)
+            high = tl.sum(
+                tl.maximum(tl.reshape(high, (BLOCK_N, BLOCK_R, 2)), 0.0), axis=2
+            )
+            scores = low + high
+        else:
+            scores = tl.dot(keys, query, out_dtype=tl.float32)
+            scores = tl.reshape(scores, (BLOCK_N, BLOCK_R, HEADS_PADDED))
+            real_heads = tl.arange(0, HEADS_PADDED) < NUM_HEADS
+            scores = tl.where(real_heads[None, None, :], tl.maximum(scores, 0.0), 0.0)
+            scores = tl.sum(scores, axis=2)
         tl.store(
             logits_ptr
             + (rows - query_offset)[None, :] * logits_width

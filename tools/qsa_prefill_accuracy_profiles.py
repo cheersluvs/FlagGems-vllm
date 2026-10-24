@@ -116,6 +116,10 @@ def expected_nodes(candidate):
             f"test_fp8_store_production_modes[{h}-{d}]"
             for h, d in ((4, 128), (3, 24), (5, 96), (1, 8))
         ) + ("test_fp8_store_production_dispatch_and_canaries",)
+        extra += tuple(
+            f"test_head_group_production_modes[{h}-{d}]"
+            for h, d in ((4, 128), (3, 24), (8, 128), (4, 256))
+        )
         nodes += tuple(PRODUCTION_FILE + "::" + case for case in extra)
     if candidate == "packed-grid":
         nodes = tuple(PACKED_FILE + "::" + case for case in PACKED_CASES) + nodes
