@@ -1,0 +1,42 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.ae27083n
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.ae27083n/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： perf_n1_q8192_p102400_bfloat16
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     1032.872   940.672        1.098  
+topk      567.648    707.560        0.802  
+pipeline  1560.832   1653.312       0.944  
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： perf_n4_q4096_p102400_bfloat16
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     1883.992   1671.248       1.127  
+topk      1122.752   1383.752       0.811  
+pipeline  2966.928   3118.984       0.951  
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： fp8_long100k_float8_e4m3fn
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     1333.344   1112.168       1.199  
+topk      1161.712   1480.864       0.784  
+pipeline  2527.704   2615.776       0.966  
+Selected H800: GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-current-profile.nq9edF/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-current-profile.nq9edF/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-current-profile.nq9edF/tools/qsa_prefill_production_profile.py", line 196, in worker
+    result["compiled_before"] = freeze(module, traces)
+                                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-current-profile.nq9edF/tools/qsa_prefill_production_profile.py", line 114, in freeze
+    raise RuntimeError("Captured production binary changed")
+RuntimeError: Captured production binary changed
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-current-profile.nq9edF/tools/qsa_prefill_production_profile.py", line 661, in coordinate
+    raise RuntimeError(
+RuntimeError: NCU worker failed: perf_n1_q8192_p102400_bfloat16; see profile-perf_n1_q8192_p102400_bfloat16.txt
+
