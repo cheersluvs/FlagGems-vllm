@@ -84,7 +84,12 @@ class HeadGroupRegressionTests(unittest.TestCase):
                 import types
 
                 self.assertEqual(
-                    probe.coordinate(types.SimpleNamespace(report_dir=folder)), 0
+                    probe.coordinate(
+                        types.SimpleNamespace(
+                            report_dir=folder, cases=[c["name"] for c in selected]
+                        )
+                    ),
+                    0,
                 )
             output = json.loads(path.read_text())
             self.assertEqual(output["cases"], cases)
@@ -93,6 +98,87 @@ class HeadGroupRegressionTests(unittest.TestCase):
                 self.assertAlmostEqual(
                     output["group_aggregates"][name]["score"], 1 + i / 10
                 )
+
+    def test_targeted_four_round_cli_handoff(self):
+        from tools import qsa_prefill_flagtree_ab as profile
+
+        case = "fp8_tail113_float8_e4m3fn"
+
+        def coordinate(options):
+            self.assertEqual(options.cases, [case])
+            self.assertEqual(options.rounds, 4)
+            self.assertIs(probe.gated.base.make_pair, probe.gated.make_pair)
+            return 0
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                probe.__file__,
+                "--report-dir",
+                "/tmp/r",
+                "--baseline-report",
+                "/tmp/b",
+                "--cases",
+                case,
+                "--rounds",
+                "4",
+            ],
+        ), patch.object(profile, "configure"), patch.object(
+            probe, "COORDINATE", side_effect=coordinate
+        ):
+            self.assertEqual(probe.main(), 0)
+
+    def test_targeted_reporting_keeps_outlier_and_rejects_changed_binary(self):
+        import types
+
+        case = "fp8_tail113_float8_e4m3fn"
+        row = dict(
+            speedup=0.95,
+            baseline_us=dict(samples=[266.0, 324.0, 267.0, 266.0]),
+            candidate_us=dict(samples=[267.0, 354.0, 267.0, 267.0]),
+            paired_ratios=dict(samples=[266 / 267, 324 / 354, 1.0, 266 / 267]),
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "head-group-summary.json"
+            detail = Path(folder) / (case + ".json")
+            stages = {k: row for k in ("score", "topk", "pipeline")}
+            original = dict(status="passed", cases=[dict(case=case, stages=stages)])
+            item = dict(
+                rounds=4,
+                stages=stages,
+                self_controls={"production:score": row},
+                kernels_before=dict(
+                    candidate=[
+                        dict(
+                            head_group_gate=dict(active=False),
+                            original_binary_verified=True,
+                        )
+                    ]
+                ),
+            )
+            path.write_text(json.dumps(original))
+            detail.write_text(json.dumps(item))
+            options = types.SimpleNamespace(report_dir=folder, cases=[case])
+            with patch.object(probe, "COORDINATE", return_value=0):
+                self.assertEqual(probe.coordinate(options), 0)
+                result = json.loads(path.read_text())
+                self.assertEqual(result["cases"], original["cases"])
+                proof = result["timing_recheck"]
+                self.assertEqual(
+                    proof["samples"]["score"]["candidate_us"],
+                    [267.0, 354.0, 267.0, 267.0],
+                )
+                self.assertEqual(proof["rounds"], 4)
+                self.assertAlmostEqual(
+                    proof["samples"]["score"]["candidate_max_min_ratio"], 354 / 267
+                )
+                item["kernels_before"]["candidate"][0][
+                    "original_binary_verified"
+                ] = False
+                detail.write_text(json.dumps(item))
+                with self.assertRaisesRegex(RuntimeError, "exact original"):
+                    probe.coordinate(options)
 
     def test_regression_cli_child_handoff_and_full_restoration(self):
         from tools import benchmark_qsa_prefill_triton_stages as bench

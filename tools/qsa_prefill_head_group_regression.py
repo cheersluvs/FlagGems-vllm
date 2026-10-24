@@ -228,6 +228,36 @@ def coordinate(options):
         for name, items in groups.items()
         if items
     }
+    if options.cases == ["fp8_tail113_float8_e4m3fn"]:
+        item = json.loads((path.parent / (options.cases[0] + ".json")).read_text())
+        records = item["kernels_before"]["candidate"]
+        if not records or any(
+            r["head_group_gate"]["active"] or not r.get("original_binary_verified")
+            for r in records
+        ):
+            raise RuntimeError(
+                "FP8 recheck must use the exact original scoring binaries"
+            )
+        result["timing_recheck"] = dict(
+            case=options.cases[0],
+            rounds=item["rounds"],
+            original_binary_verified=True,
+            samples={
+                k: dict(
+                    baseline_us=v["baseline_us"]["samples"],
+                    candidate_us=v["candidate_us"]["samples"],
+                    paired_ratios=v["paired_ratios"]["samples"],
+                    baseline_max_min_ratio=max(v["baseline_us"]["samples"])
+                    / min(v["baseline_us"]["samples"]),
+                    candidate_max_min_ratio=max(v["candidate_us"]["samples"])
+                    / min(v["candidate_us"]["samples"]),
+                )
+                for k, v in {**item["stages"], **item["self_controls"]}.items()
+            },
+            note="Raw samples preserved; no filtering or automatic acceptance decision",
+        )
+        print("\nFP8 tail113 raw timing recheck:", flush=True)
+        print(json.dumps(result["timing_recheck"], indent=2), flush=True)
     path.write_text(json.dumps(result, indent=2) + "\n")
     from tools.qsa_prefill_report import fmt, table
 

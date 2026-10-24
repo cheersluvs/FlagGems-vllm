@@ -61,3 +61,36 @@ rechecking rather than attributing it to changed kernel code. The grouped
 summary helper was omitted from the CLI coordinator hookup; this reporting-only
 fix connects it and tests the actual CLI path through the wrapper. Existing
 per-case data remain complete and do not require rerunning for aggregation.
+
+## Targeted timing recheck, 2026-10-24 (pre-code boards)
+
+|Project truth|Decision|
+|---|---|
+|Editable|Gated CLI round choices, regression reporting, matching CPU tests, this note|
+|Frozen|Production/kernel/configs/workload/timer/reference/tolerances/GPU guards; same captured e1c188 fixtures|
+|Hypothesis|FP8 tail113 second-pair excursion is transient measurement instability; cause unresolved|
+|Measurement|Only fp8_tail113_float8_e4m3fn, four alternating paired rounds, score/TopK/pipeline and four A/A controls; preserve every raw sample|
+|Build/validation|Existing 13 boundary fixtures once, sampled real-case checks, original PTX/cubin identity, CPU CLI and reporting checks|
+|Timeout/thermal|1800s worker, 200ms warmup/100ms repeat, 80C ceiling/120s cooldown unchanged|
+|Aggregation|One-case ratios only, not replacement of the original30 summary; no automatic noise filtering or acceptance declaration|
+|Autotune|Same fixed-choice exemption; no candidate/config search|
+
+|Contract|Preserved|
+|---|---|
+|Inputs/outputs/math|Identical frozen FP8 tail113 tensors and existing QSA score/selection contract|
+|Torch/autograd|Test references only, inference, no production changes or torch fallback|
+|Coverage|Boundary and sampled real checks retained; full production pytest remains separate|
+
+|Path|Action|
+|---|---|
+|FP8 recheck|Exact original scorer both sides; require binary fallback proof; show raw samples and latency spread|
+|Other shapes|Not run by the targeted command; CLI default remains two rounds|
+|Eligible BF16|No changes to dispatch or kernel; prior four-round promising override retained|
+
+Targeted recheck implementation: the gated CLI accepts `--rounds 4`; the default
+stays2. For an exactly one-case tail113 report, the coordinator checks original
+binary fallback proof and prints/saves raw samples and max/min latency ratios
+for all stages and A/A controls. Raw stage results are never rewritten. Local
+validation:31 related CPU checks, including actual four-round CLI handoff,
+preservation of anomalous samples and rejection of absent binary proof; GPU
+measurements pending. The existing runner provides automatic report upload.

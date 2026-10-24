@@ -199,7 +199,7 @@ def main():
     parser.add_argument("--report-dir", required=True)
     parser.add_argument("--baseline-report", required=True)
     parser.add_argument("--flagtree", default="/opt/flagtree")
-    parser.add_argument("--rounds", type=int, choices=(1, 2), default=2)
+    parser.add_argument("--rounds", type=int, choices=(1, 2, 4), default=2)
     parser.add_argument("--promising-rounds", type=int, choices=(2, 4), default=4)
     parser.add_argument("--kernel-warmup-ms", type=int, default=200)
     parser.add_argument("--kernel-rep-ms", type=int, default=100)
