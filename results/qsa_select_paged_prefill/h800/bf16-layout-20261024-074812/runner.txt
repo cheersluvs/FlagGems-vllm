@@ -1,0 +1,58 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.wxxollry
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.wxxollry/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-bf16-layout.GhLHXJ/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-bf16-layout.GhLHXJ/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Layout compile resources: [259, 0, 1088] registers 73 shared 73728 spills 0
+Layout compile resources: [127, 0, 1088] registers 73 shared 73728 spills 0
+Layout compile resources: [128, 127, 1088] registers 73 shared 73728 spills 0
+Layout compile resources: [4, 255, 1088] registers 73 shared 73728 spills 0
+Layout all-row boundary evidence: {'dtype': 'torch.bfloat16', 'tile': 32, 'warps': 8, 'rows': 259, 'schedules': [{'rows': 259, 'counts': [259], 'all_rows_checked': True, 'active_chunks': 1, 'status': 'passed'}, {'rows': 259, 'counts': [127, 128, 4], 'all_rows_checked': True, 'active_chunks': 3, 'status': 'passed'}], 'status': 'passed'}
+Layout compile resources: [259, 0, 1088] registers 204 shared 114688 spills 0
+Layout compile resources: [127, 0, 1088] registers 204 shared 114688 spills 0
+Layout compile resources: [128, 127, 1088] registers 204 shared 114688 spills 0
+Layout compile resources: [4, 255, 1088] registers 204 shared 114688 spills 0
+Layout all-row boundary evidence: {'dtype': 'torch.bfloat16', 'tile': 64, 'warps': 4, 'rows': 259, 'schedules': [{'rows': 259, 'counts': [259], 'all_rows_checked': True, 'active_chunks': 1, 'status': 'passed'}, {'rows': 259, 'counts': [127, 128, 4], 'all_rows_checked': True, 'active_chunks': 3, 'status': 'passed'}], 'status': 'passed'}
+Layout all-row boundary evidence: {'dtype': 'torch.float8_e4m3fn', 'tile': 64, 'warps': 4, 'rows': 259, 'schedules': [{'rows': 259, 'counts': [259], 'all_rows_checked': True, 'active_chunks': 0, 'status': 'passed'}, {'rows': 259, 'counts': [127, 128, 4], 'all_rows_checked': True, 'active_chunks': 0, 'status': 'passed'}], 'status': 'passed'}
+Layout compile resources: [4854, 0, 27648] registers 73 shared 73728 spills 0
+Layout compile resources: [3338, 4854, 27648] registers 73 shared 73728 spills 0
+Resources: baseline [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [3338, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 73 shared 73728 spills 0
+Resources: candidate [3338, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 73 shared 73728 spills 0
+Actual layout dispatch: {'active_chunks': 2, 'original_binary_fallback_chunks': 0}
+
+BF16 layout probe: perf_n1_q8192_p102400_bfloat16 failed
+Current production / query-major layout
+stage  production_us  candidate_us  speedup  paired_min  paired_max
+-----  -------------  ------------  -------  ----------  ----------
+Identical-callable A/A
+stage  production_us  candidate_us  speedup  paired_min  paired_max
+-----  -------------  ------------  -------  ----------  ----------
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-bf16-layout.GhLHXJ/tools/qsa_prefill_head_group_probe.py", line 447, in worker
+    values, _, order = scoring.measure_scores(
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-bf16-layout.GhLHXJ/tools/qsa_prefill_score_benchmark.py", line 102, in measure_scores
+    observations = [monitor("before_timing")]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-bf16-layout.GhLHXJ/tools/qsa_prefill_head_group_probe.py", line 452, in <lambda>
+    lambda phase: monitor(label + ":" + phase),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-bf16-layout.GhLHXJ/tools/qsa_prefill_head_group_probe.py", line 431, in <lambda>
+    monitor = lambda label: support.guarded_telemetry(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-bf16-layout.GhLHXJ/tools/benchmark_qsa_prefill_stages.py", line 288, in guarded_telemetry
+    raise RuntimeError(f"GPU environment rejected: {check['reasons']}")
+RuntimeError: GPU environment rejected: ["Unattributed compute PIDs: [{'pid': 4189044, 'used_memory_mib': 27134}]; only identified self PIDs allowed. Container/host PID mapping may be unavailable; do not guess ownership"]
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-bf16-layout.GhLHXJ/tools/qsa_prefill_head_group_probe.py", line 599, in coordinate
+    raise RuntimeError("Head-group worker failed: " + name)
+RuntimeError: Head-group worker failed: perf_n1_q8192_p102400_bfloat16
+
+
+Layout group arithmetic means: {}
