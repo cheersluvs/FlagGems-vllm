@@ -1,0 +1,182 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.l95x4cru
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.l95x4cru/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Query split all-row boundary evidence: {'dtype': 'torch.bfloat16', 'tile': 32, 'warps': 8, 'rows': 129, 'schedules': [{'rows': 129, 'counts': [129], 'all_rows_checked': True, 'active_chunks': 0, 'status': 'passed'}, {'rows': 129, 'counts': [33, 64, 32], 'all_rows_checked': True, 'active_chunks': 0, 'status': 'passed'}], 'status': 'passed'}
+Query split all-row boundary evidence: {'dtype': 'torch.bfloat16', 'tile': 64, 'warps': 4, 'rows': 129, 'schedules': [{'rows': 129, 'counts': [129], 'all_rows_checked': True, 'active_chunks': 1, 'status': 'passed'}, {'rows': 129, 'counts': [33, 64, 32], 'all_rows_checked': True, 'active_chunks': 3, 'status': 'passed'}], 'status': 'passed'}
+Query split all-row boundary evidence: {'dtype': 'torch.float8_e4m3fn', 'tile': 64, 'warps': 4, 'rows': 129, 'schedules': [{'rows': 129, 'counts': [129], 'all_rows_checked': True, 'active_chunks': 0, 'status': 'passed'}, {'rows': 129, 'counts': [33, 64, 32], 'all_rows_checked': True, 'active_chunks': 0, 'status': 'passed'}], 'status': 'passed'}
+Resources: baseline [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [3338, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [3338, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Actual query-split dispatch: {'active_chunks': 0, 'original_binary_fallback_chunks': 2}
+
+BF16 query-split probe: perf_n1_q8192_p102400_bfloat16 passed
+Production head groups / full-head query halves
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     939.400        942.232       0.99699  0.99543     0.99858   
+topk      709.920        709.664       1.00036  1.00036     1.00036   
+pipeline  1656.480       1657.616      0.99931  0.99855     1.00008   
+Identical-callable A/A
+stage                 production_us  candidate_us  speedup  paired_min  paired_max
+--------------------  -------------  ------------  -------  ----------  ----------
+production:score      947.136        944.056       1.00326  0.99878     1.00778   
+production:pipeline   1657.408       1662.272      0.99707  0.99319     1.00096   
+query_split:score     945.856        944.992       1.00091  0.99703     1.00482   
+query_split:pipeline  1660.832       1660.848      0.99999  0.99904     1.00094   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [4519, 0, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [4519, 4519, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [4519, 9038, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [2827, 13557, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4519, 0, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4519, 4519, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4519, 9038, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [2827, 13557, 29696] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Actual query-split dispatch: {'active_chunks': 0, 'original_binary_fallback_chunks': 4}
+
+BF16 query-split probe: perf_n1_q16384_p102400_bfloat16 passed
+Production head groups / full-head query halves
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1953.888       1956.528      0.99865  0.99735     0.99997   
+topk      1480.752       1480.720      1.00002  0.99981     1.00024   
+pipeline  3451.552       3458.904      0.99787  0.99526     1.00049   
+Identical-callable A/A
+stage                 production_us  candidate_us  speedup  paired_min  paired_max
+--------------------  -------------  ------------  -------  ----------  ----------
+production:score      1957.456       1953.440      1.00206  1.00030     1.00381   
+production:pipeline   3459.112       3457.280      1.00053  1.00034     1.00072   
+query_split:score     1963.520       1967.960      0.99774  0.98547     1.01014   
+query_split:pipeline  3456.296       3460.216      0.99887  0.99786     0.99988   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [4854, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [4854, 9708, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [1822, 14562, 27648] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4854, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4854, 9708, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [1822, 14562, 27648] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 152 shared 106496 spills 0
+Actual query-split dispatch: {'active_chunks': 1, 'original_binary_fallback_chunks': 3}
+
+BF16 query-split probe: perf_n2_q8192_p102400_bfloat16 passed
+Production head groups / full-head query halves
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1861.680       1870.592      0.99524  0.99030     1.00019   
+topk      1394.048       1393.648      1.00029  1.00025     1.00032   
+pipeline  3292.480       3296.496      0.99878  0.99860     0.99896   
+Identical-callable A/A
+stage                 production_us  candidate_us  speedup  paired_min  paired_max
+--------------------  -------------  ------------  -------  ----------  ----------
+production:score      1872.176       1878.000      0.99690  0.98865     1.00519   
+production:pipeline   3296.768       3295.824      1.00029  0.99972     1.00085   
+query_split:score     1878.000       1872.920      1.00271  0.99250     1.01307   
+query_split:pipeline  3298.960       3300.896      0.99941  0.99738     1.00146   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 152 shared 106496 spills 0
+Resources: candidate [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 152 shared 106496 spills 0
+Resources: candidate [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 152 shared 106496 spills 0
+Resources: candidate [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 152 shared 106496 spills 0
+Actual query-split dispatch: {'active_chunks': 4, 'original_binary_fallback_chunks': 0}
+
+BF16 query-split probe: perf_n4_q4096_p102400_bfloat16 passed
+Production head groups / full-head query halves
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1672.192       1818.640      0.91947  0.91900     0.91995   
+topk      1383.840       1383.600      1.00017  0.99997     1.00038   
+pipeline  3116.576       3253.296      0.95797  0.95696     0.95899   
+Identical-callable A/A
+stage                 production_us  candidate_us  speedup  paired_min  paired_max
+--------------------  -------------  ------------  -------  ----------  ----------
+production:score      1673.640       1676.792      0.99812  0.99498     1.00127   
+production:pipeline   3117.616       3120.176      0.99918  0.99894     0.99941   
+query_split:score     1818.256       1818.256      1.00000  0.99485     1.00516   
+query_split:pipeline  3254.088       3251.744      1.00072  0.99923     1.00222   
+GPU cooling; temperature=34C, utilization=8%; waiting 10s for idle limits (temperature <= 80C)
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [16368, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [16368, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 152 shared 106496 spills 0
+Actual query-split dispatch: {'active_chunks': 1, 'original_binary_fallback_chunks': 0}
+
+BF16 query-split probe: observed_chunk_boundary_bfloat16 passed
+Production head groups / full-head query halves
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     435.712        451.336       0.96538  0.96224     0.96852   
+topk      541.472        541.456       1.00003  1.00000     1.00006   
+pipeline  950.080        987.840       0.96178  0.95728     0.96631   
+Identical-callable A/A
+stage                 production_us  candidate_us  speedup  paired_min  paired_max
+--------------------  -------------  ------------  -------  ----------  ----------
+production:score      439.248        438.928       1.00073  0.99884     1.00263   
+production:pipeline   951.520        952.544       0.99892  0.99209     1.00582   
+query_split:score     453.256        454.048       0.99826  0.99767     0.99884   
+query_split:pipeline  987.232        982.016       1.00531  0.99518     1.01553   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-query-retest.tPDOLI/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: baseline [4519, 0, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: baseline [4519, 4519, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: baseline [4519, 9038, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: baseline [2827, 13557, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: candidate [4519, 0, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: candidate [4519, 4519, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: candidate [4519, 9038, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Resources: candidate [2827, 13557, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} registers 158 shared 57344 spills 0
+Actual query-split dispatch: {'active_chunks': 0, 'original_binary_fallback_chunks': 4}
+
+BF16 query-split probe: fp8_long100k_float8_e4m3fn passed
+Production head groups / full-head query halves
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1109.200       1111.696      0.99775  0.99548     1.00003   
+topk      1480.296       1480.240      1.00004  0.99991     1.00016   
+pipeline  2616.240       2613.040      1.00122  0.99993     1.00252   
+Identical-callable A/A
+stage                 production_us  candidate_us  speedup  paired_min  paired_max
+--------------------  -------------  ------------  -------  ----------  ----------
+production:score      1114.080       1111.904      1.00196  0.99915     1.00478   
+production:pipeline   2614.208       2612.576      1.00062  1.00037     1.00088   
+query_split:score     1113.280       1112.392      1.00080  1.00063     1.00096   
+query_split:pipeline  2615.168       2615.168      1.00000  0.99905     1.00096   
+Incremental production / candidate arithmetic means: {'score': 0.9789153735246161, 'topk': 1.0001517172362622, 'pipeline': 0.9861575972382084}
+
+Query-split group arithmetic means: {
+  "query_split_active": {
+    "count": 3,
+    "score": 0.9600308017188831,
+    "topk": 1.0001633530460496,
+    "pipeline": 0.9728439442849972
+  },
+  "unchanged_controls": {
+    "count": 3,
+    "score": 0.9977999453303491,
+    "topk": 1.0001400814264747,
+    "pipeline": 0.9994712501914197
+  }
+}
