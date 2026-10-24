@@ -1,0 +1,77 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.cmyosyqu
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.cmyosyqu/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-query-tile.JcTN0Y/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-query-tile.JcTN0Y/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Actual query-tile dispatch: {'active_chunks': 0, 'original_binary_fallback_chunks': 0}
+
+BF16 query-tile probe: perf_n1_q8192_p102400_bfloat16 failed
+Current production / larger query tile
+stage  production_us  candidate_us  speedup  paired_min  paired_max
+-----  -------------  ------------  -------  ----------  ----------
+Identical-callable A/A
+stage  production_us  candidate_us  speedup  paired_min  paired_max
+-----  -------------  ------------  -------  ----------  ----------
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-query-tile.JcTN0Y/tools/qsa_prefill_head_group_probe.py", line 338, in worker
+    result["boundaries"] = boundary_checks(production, helpers, torch, device)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-query-tile.JcTN0Y/tools/qsa_prefill_bf16_query_tile_probe.py", line 246, in boundary_checks
+    boundary_fixture(
+  File "/tmp/flaggems-qsa-query-tile.JcTN0Y/tools/qsa_prefill_bf16_query_tile_probe.py", line 204, in boundary_fixture
+    scoring.validate_scores(
+  File "/tmp/flaggems-qsa-query-tile.JcTN0Y/tools/qsa_prefill_score_benchmark.py", line 74, in validate_scores
+    logits = launcher(*call, **chunk.get("score_kwargs", {}))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-query-tile.JcTN0Y/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", line 841, in _prefill_logits
+    kernel[grid](
+  File "/tmp/flaggems-qsa-query-tile.JcTN0Y/tools/qsa_prefill_query_split_matched.py", line 37, in launch
+    kernel = self.jit[grid(constants) if callable(grid) else grid](
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-query-tile.JcTN0Y/tools/qsa_prefill_bf16_query_tile_probe.py", line 77, in launch
+    return (self.candidate if active else self.original)[grid](
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/jit.py", line 399, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/jit.py", line 763, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/jit.py", line 906, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/compiler.py", line 326, in compile
+    module = backend.make_ir(src, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/backends/compiler.py", line 64, in make_ir
+    return src.make_ir(self.target, options, codegen_fns, module_map, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/compiler.py", line 102, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+triton.compiler.errors.CompilationError: at 31:21:
+    table_width,
+    PAGE_SIZE: tl.constexpr,
+    NUM_HEADS: tl.constexpr,
+    HEAD_DIM: tl.constexpr,
+    IS_FP8: tl.constexpr,
+    TILE_R: tl.constexpr,
+    BLOCK_N: tl.constexpr,
+    K_TILES: tl.constexpr,
+    HEAD_GROUP: tl.constexpr = False,
+):
+    tl.static_assert(not IS_FP8 and NUM_HEADS == 4 and HEAD_DIM == 128)
+    tl.static_assert(TILE_R in (64, 128))
+                     ^
+AttributeError("'In' object has no attribute '__name__'")
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-query-tile.JcTN0Y/tools/qsa_prefill_head_group_probe.py", line 599, in coordinate
+    raise RuntimeError("Head-group worker failed: " + name)
+RuntimeError: Head-group worker failed: perf_n1_q8192_p102400_bfloat16
+
+
+Query-tile group arithmetic means: {}
