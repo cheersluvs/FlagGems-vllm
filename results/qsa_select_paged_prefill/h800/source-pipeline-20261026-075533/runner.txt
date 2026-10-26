@@ -1,0 +1,49 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.g7qn6jh0
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.g7qn6jh0/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-source-pipeline.krpeiB/tools/qsa_prefill_source_pipeline.py", line 474, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/tmp/flaggems-qsa-source-pipeline.krpeiB/tools/qsa_prefill_source_pipeline.py", line 345, in main
+    return child(args)
+           ^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-source-pipeline.krpeiB/tools/qsa_prefill_source_pipeline.py", line 311, in child
+    kernel = triton.compile(
+             ^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/compiler.py", line 268, in compile
+    key = get_cache_key(src, backend, options, env_vars=env_vars)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/cache.py", line 330, in get_cache_key
+    key = f"{triton_key()}-{src.hash()}-{backend.hash()}-{backend_options.hash()}-{str(sorted(env_vars.items()))}"
+                            ^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/compiler.py", line 97, in hash
+    key = f"{self.fn.cache_key}-{str(self.attrs)}-{sorted_sig}-{constants_key}"
+             ^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/jit.py", line 538, in cache_key
+    dependencies_finder.visit(self.parse())
+                              ^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/jit.py", line 558, in parse
+    line_flagtree_hints = hint_trigger("maps_line_numbers_to_comment_hints", self)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/hint_manager.py", line 165, in hint_trigger
+    _global_hint_manager = HintManager(hint_get_flagtree_backend())
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/hint_manager.py", line 126, in hint_get_flagtree_backend
+    if hasattr(driver, 'active') and hasattr(driver.active, 'get_active_torch_device'):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/driver.py", line 50, in active
+    self._active = self.default
+                   ^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/driver.py", line 44, in default
+    self._default = _create_driver()
+                    ^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/runtime/driver.py", line 31, in _create_driver
+    raise RuntimeError(f"{len(active_drivers)} active drivers ({active_drivers}). There should only be one.")
+RuntimeError: 0 active drivers ([]). There should only be one.
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-source-pipeline.krpeiB/tools/qsa_prefill_source_pipeline.py", line 384, in main
+    raise RuntimeError("Source compilation failed: " + job["kind"])
+RuntimeError: Source compilation failed: production
+
+Compile report: /tmp/qsa-source-pipeline-h800.C6sFoA
