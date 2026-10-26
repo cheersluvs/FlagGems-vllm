@@ -54,3 +54,31 @@ source jobs with27 signature entries and original constexpr/attribute bindings.
 CLI help,shell syntax and changed-file repository hooks pass locally. There
 is no local CUDA compilation;on-card control reproduction and candidate
 feasibility remain pending. No production/config/reference/timer change.
+
+## Repair after af502f2e (before code,2026-10-26)
+
+The first source control failed before lowering,in JITFunction.cache_key/parse.
+FlagTree's hint_trigger lazily calls hint_get_flagtree_backend,which probes the
+runtime driver even though ASTSource compilation has an explicit CUDA target.
+CUDA_VISIBLE_DEVICES is empty by design,so that probe raises0 active drivers.
+No successful compilation,performance result or executed GPU kernel exists.
+
+Editable scope is this driver/tests/board only. Preserve every frozen source,
+ABI,option,control/resource/protocol gate and the hidden-GPU compile policy.
+For the pinned hint-manager source only,select HintManager('cuda') in a scoped
+in-memory context before ASTSource compilation. Retain its original handler and
+hint_trigger;do not stub hint behavior,construct a GPU driver,patch installed
+files,or alter compiler passes. Restore any previous manager on exit. An existing
+non-CUDA manager is an error. Record manager source hash and handler identity.
+Add regression coverage for driver-free lazy hint invocation,handler use,
+restoration on success/error,and conflicting existing backend rejection.
+There are no completed jobs to resume;rerun the three source compilations.
+
+Repair validation:48 applicable CPU tests pass,including three new hint-state
+regressions. The exact pinned hint_manager.py was also executed locally against
+a driver fixture that raises the reported0-active-drivers error:lazy original
+selection reproduces the failure;explicit CUDA selection calls its original
+Nvidia handler and returns its hook result without driver discovery;state is
+restored afterward. This validates selection plumbing,not GPU compilation.
+Changed-file hooks,CLI and shell syntax pass. All compiler/control/resource
+checks remain unchanged. Installed compiler files and production are untouched.

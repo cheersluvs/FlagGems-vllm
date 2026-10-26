@@ -4,6 +4,7 @@
 
 import argparse
 import ast
+import contextlib
 import importlib
 import importlib.util
 import json
@@ -24,6 +25,7 @@ OP = "src/flaggems_vllm/ops/qsa_select_paged_prefill.py"
 EXPLICIT = "tools/qsa_prefill_explicit_prefetch_kernel.py"
 PRODUCTION_SHA = "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e"
 EXPLICIT_SHA = "7d9a3397135c2428ccb82c80391d477f0d5caf71ef94dafe73681e3ec3ba671d"
+HINT_MANAGER_SHA = "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb"
 SOURCES = (
     OP,
     EXPLICIT,
@@ -238,6 +240,36 @@ def prepare(previous, report):
     return jobs
 
 
+@contextlib.contextmanager
+def cuda_hints(module):
+    """Select the explicit compile target without invoking device discovery.
+
+    Keep the pinned FlagTree HintManager/handler/trigger unchanged. The only
+    scoped state change is its otherwise lazily initialized backend selection.
+    """
+    path = Path(module.__file__).resolve()
+    if trace.sha(path) != HINT_MANAGER_SHA:
+        raise RuntimeError("Unsupported FlagTree hint-manager source")
+    previous = module._global_hint_manager
+    if previous is not None and previous.backend_name != "cuda":
+        raise RuntimeError("Conflicting existing hint backend")
+    try:
+        if previous is None:
+            module._global_hint_manager = module.HintManager("cuda")
+        selected = module._global_hint_manager
+        yield dict(
+            backend=selected.backend_name,
+            handler=type(selected.handler).__module__
+            + "."
+            + type(selected.handler).__qualname__,
+            source=str(path),
+            sha256=HINT_MANAGER_SHA,
+            selection="explicit CUDA target;native handler;no device discovery",
+        )
+    finally:
+        module._global_hint_manager = previous
+
+
 def child(args):
     job = json.loads(Path(args.worker_spec).read_text())
     folder = Path(job["directory"])
@@ -308,16 +340,21 @@ def child(args):
         job["constants"],
         {tuple(k): [tuple(v) for v in values] for k, values in job["attrs"]},
     )
-    kernel = triton.compile(
-        src,
-        target=GPUTarget(**metadata["target"]),
-        options=trace.restore_options(metadata),
-    )
+    from triton.compiler import hint_manager
+
+    with cuda_hints(hint_manager) as hints:
+        print("Offline hint backend:", json.dumps(hints), flush=True)
+        kernel = triton.compile(
+            src,
+            target=GPUTarget(**metadata["target"]),
+            options=trace.restore_options(metadata),
+        )
     for name in ("ttir", "ttgir", "llir", "ptx"):
         (folder / (name + ".txt")).write_text(kernel.asm[name])
     (folder / "kernel.cubin").write_bytes(kernel.asm["cubin"])
     result = dict(
         status="compiled",
+        hint_backend=hints,
         gpu_kernel_executed=False,
         ptx_sha256=trace.sha(folder / "ptx.txt"),
         cubin_sha256=trace.sha(folder / "kernel.cubin"),

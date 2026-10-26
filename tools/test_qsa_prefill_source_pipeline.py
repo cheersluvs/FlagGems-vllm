@@ -3,8 +3,10 @@
 """Check Python-source-only compilation, captured ABI and strict feasibility gates."""
 
 import ast
+import types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tools import qsa_prefill_source_pipeline as p
 from tools.test_qsa_prefill_producer_first import PTX, final_ir
@@ -127,6 +129,70 @@ class SourcePipelineTests(unittest.TestCase):
             dict(candidate, schedule=dict(schedule, mma_sites=8)),
         ):
             self.assertIsNotNone(p.gate(control, bad))
+
+    def hint_module(self):
+        result = types.SimpleNamespace(
+            __file__="/tmp/hint_manager.py", _global_hint_manager=None
+        )
+        calls = []
+
+        class Handler:
+            def trigger(self, hook, value):
+                calls.append((hook, value))
+                return "native result"
+
+        class Manager:
+            def __init__(self, backend):
+                calls.append(("construct", backend))
+                self.backend_name, self.handler = backend, Handler()
+
+        def trigger(hook, value):
+            if result._global_hint_manager is None:
+                raise AssertionError("Unexpected GPU driver discovery")
+            return result._global_hint_manager.handler.trigger(hook, value)
+
+        result.HintManager = Manager
+        result.hint_trigger = trigger
+        return result, calls
+
+    def test_explicit_hint_backend_keeps_native_handler_without_driver_discovery(self):
+        module, calls = self.hint_module()
+        original = module.hint_trigger
+        with patch.object(p.trace, "sha", return_value=p.HINT_MANAGER_SHA):
+            with p.cuda_hints(module) as evidence:
+                self.assertEqual(evidence["backend"], "cuda")
+                self.assertIs(module.hint_trigger, original)
+                self.assertEqual(module.hint_trigger("parse", 17), "native result")
+            self.assertIsNone(module._global_hint_manager)
+        self.assertEqual(calls, [("construct", "cuda"), ("parse", 17)])
+
+    def test_hint_selection_restores_state_on_compile_error_and_reuses_cuda_manager(
+        self,
+    ):
+        module, _ = self.hint_module()
+        with patch.object(p.trace, "sha", return_value=p.HINT_MANAGER_SHA):
+            with self.assertRaisesRegex(RuntimeError, "compile failed"):
+                with p.cuda_hints(module):
+                    raise RuntimeError("compile failed")
+            self.assertIsNone(module._global_hint_manager)
+            previous = module._global_hint_manager = module.HintManager("cuda")
+            with p.cuda_hints(module):
+                self.assertIs(module._global_hint_manager, previous)
+            self.assertIs(module._global_hint_manager, previous)
+            module._global_hint_manager = module.HintManager("npu")
+            with self.assertRaisesRegex(RuntimeError, "Conflicting"):
+                with p.cuda_hints(module):
+                    self.fail("Conflicting manager must not be used")
+            self.assertEqual(module._global_hint_manager.backend_name, "npu")
+
+    def test_changed_hint_manager_source_is_rejected_before_backend_selection(self):
+        module, calls = self.hint_module()
+        with patch.object(p.trace, "sha", return_value="different"):
+            with self.assertRaisesRegex(RuntimeError, "Unsupported"):
+                with p.cuda_hints(module):
+                    self.fail("Unpinned module accepted")
+        self.assertIsNone(module._global_hint_manager)
+        self.assertEqual(calls, [])
 
     def test_source_compiler_has_no_gpu_run_ir_override_or_backend_patch(self):
         tree = ast.parse(Path(p.__file__).read_text())
