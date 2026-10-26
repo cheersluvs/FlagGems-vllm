@@ -1,0 +1,181 @@
+perf_n1_q8192_p102400_bfloat16-baseline exit 0 PTX identity passed pass sections 8
+  // -----// IR Dump Before TritonGPUAssignLatencies (tritongpu-assign-latencies) ('builtin.module' operation) //----- // events 12
+  // -----// IR Dump Before TritonGPUScheduleLoops (tritongpu-schedule-loops) ('builtin.module' operation) //----- // events 12
+  // -----// IR Dump Before TritonTleTileStylePipelineSchedule (triton-tle-tile-style-pipeline-schedule) ('builtin.module' operation) //----- // events 67
+  // -----// IR Dump Before TritonTleMaterializeTileStylePipeline (triton-tle-materialize-tile-style-pipeline) ('builtin.module' operation) //----- // events 67
+  // -----// IR Dump Before TritonGPUPipeline (tritongpu-pipeline) ('builtin.module' operation) //----- // events 67
+    %query_base = tt.load %starts_ptr : !tt.ptr<i32> loc(#loc132) 
+    %request_start_18 = tt.load %request_start : !tt.ptr<i32> loc(#loc134) 
+    %request_end_21 = tt.load %request_end : !tt.ptr<i32> loc(#loc138) 
+    %visible_41 = tt.load %visible_39, %valid_rows_36, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim  
+    %visible_42 = tt.load %visible_40, %valid_rows_37, %cst_6 : tensor<32x!tt.ptr<i32>, #blocked2> loc(# 
+    %query_73 = tt.load %query_72, %query_62, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #blocked1> loc(#loc 
+    scf.for %arg17 = %first_tile_44 to %last_tile_47 step %c1_i32  : i32 { 
+    %columns = arith.muli %arg17, %c64_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loc(#loc loop.cluster = 1 loop.stage = 0
+    %columns_96 = tt.splat %columns {loop.cluster = 0 : i32, loop.stage = 1 : i32} : i32 -> tensor<64xi3 loop.cluster = 0 loop.stage = 1
+    %columns_97 = tt.splat %columns {loop.cluster = 0 : i32, loop.stage = 1 : i32} : i32 -> tensor<64xi3 loop.cluster = 0 loop.stage = 1
+    %columns_98 = tt.splat %columns {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi3 loop.cluster = 1 loop.stage = 0
+    %columns_99 = arith.addi %columns_96, %column_lanes {loop.cluster = 0 : i32, loop.stage = 1 : i32} : loop.cluster = 0 loop.stage = 1
+  // -----// IR Dump Before TritonTleScheduleTmaStoreSync (triton-tle-schedule-tma-store-sync) ('builtin.module' operation) //----- // events 16
+  // -----// SoftwarePipeliner internal IR Dump After: LowerLoops events 77
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %33 = tt.load %31, %27, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %34 = tt.load %32, %28, %cst_6 : tensor<32x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %75 = tt.load %74, %64, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %118:2 = scf.for %arg17 = %38 to %44 step %c1_i32 iter_args(%arg18 = %c-1_i32, %arg19 = %c-1_i32) -> 
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 0 : i32} 2 : i32 loop.cluster = 1 loop.stage = 0
+    %120 = arith.addi %arg18, %c1_i32_18 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %121 = arith.cmpi sge, %120, %c2_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %122 = arith.select %121, %c0_i32, %120 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %123 = arith.addi %arg19, %c1_i32_18 {loop.cluster = 0 : i32, loop.stage = 1 : i32} : i32 loop.cluster = 0 loop.stage = 1
+  // -----// SoftwarePipeliner internal IR Dump After: ExpandLoops events 108
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 0 : i32} 2 : i32 loop.cluster = 1 loop.stage = 0
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %33 = tt.load %31, %27, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %34 = tt.load %32, %28, %cst_6 : tensor<32x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %75 = tt.load %74, %64, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %119 = arith.cmpi sge, %c0_i32, %c2_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %120 = arith.select %119, %c0_i32, %c0_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %121 = arith.muli %38, %c64_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %122 = tt.splat %121 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi32, #ttg.sli loop.cluster = 1 loop.stage = 0
+    %123 = arith.addi %122, %79 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : tensor<64xi32, #ttg.sli loop.cluster = 1 loop.stage = 0
+perf_n1_q8192_p102400_bfloat16-candidate exit 0 PTX identity passed pass sections 8
+  // -----// IR Dump Before TritonGPUAssignLatencies (tritongpu-assign-latencies) ('builtin.module' operation) //----- // events 12
+  // -----// IR Dump Before TritonGPUScheduleLoops (tritongpu-schedule-loops) ('builtin.module' operation) //----- // events 12
+  // -----// IR Dump Before TritonTleTileStylePipelineSchedule (triton-tle-tile-style-pipeline-schedule) ('builtin.module' operation) //----- // events 67
+  // -----// IR Dump Before TritonTleMaterializeTileStylePipeline (triton-tle-materialize-tile-style-pipeline) ('builtin.module' operation) //----- // events 67
+  // -----// IR Dump Before TritonGPUPipeline (tritongpu-pipeline) ('builtin.module' operation) //----- // events 67
+    %query_base = tt.load %starts_ptr : !tt.ptr<i32> loc(#loc132) 
+    %request_start_18 = tt.load %request_start : !tt.ptr<i32> loc(#loc134) 
+    %request_end_21 = tt.load %request_end : !tt.ptr<i32> loc(#loc138) 
+    %visible_41 = tt.load %visible_39, %valid_rows_36, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim  
+    %visible_42 = tt.load %visible_40, %valid_rows_37, %cst_6 : tensor<32x!tt.ptr<i32>, #blocked2> loc(# 
+    %query_73 = tt.load %query_72, %query_62, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #blocked1> loc(#loc 
+    scf.for %arg17 = %first_tile_44 to %last_tile_47 step %c1_i32  : i32 { 
+    %columns = arith.muli %arg17, %c64_i32 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 loc(#loc loop.cluster = 2 loop.stage = 0
+    %columns_96 = tt.splat %columns {loop.cluster = 1 : i32, loop.stage = 1 : i32} : i32 -> tensor<64xi3 loop.cluster = 1 loop.stage = 1
+    %columns_97 = tt.splat %columns {loop.cluster = 0 : i32, loop.stage = 2 : i32} : i32 -> tensor<64xi3 loop.cluster = 0 loop.stage = 2
+    %columns_98 = tt.splat %columns {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi3 loop.cluster = 2 loop.stage = 0
+    %columns_99 = arith.addi %columns_96, %column_lanes {loop.cluster = 1 : i32, loop.stage = 1 : i32} : loop.cluster = 1 loop.stage = 1
+  // -----// IR Dump Before TritonTleScheduleTmaStoreSync (triton-tle-schedule-tma-store-sync) ('builtin.module' operation) //----- // events 18
+  // -----// SoftwarePipeliner internal IR Dump After: LowerLoops events 94
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %33 = tt.load %31, %27, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %34 = tt.load %32, %28, %cst_6 : tensor<32x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %75 = tt.load %74, %64, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %120:4 = scf.for %arg17 = %38 to %44 step %c1_i32 iter_args(%arg18 = %c-1_i32, %arg19 = %c-1_i32, %a 
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 1 : i32} 2 : i32 loop.cluster = 1 loop.stage = 1
+    %122 = arith.addi %arg20, %c1_i32_18 {loop.cluster = 1 : i32, loop.stage = 1 : i32} : i32 loop.cluster = 1 loop.stage = 1
+    %123 = arith.cmpi sge, %122, %c2_i32 {loop.cluster = 1 : i32, loop.stage = 1 : i32} : i32 loop.cluster = 1 loop.stage = 1
+    %124 = arith.select %123, %c0_i32, %122 {loop.cluster = 1 : i32, loop.stage = 1 : i32} : i32 loop.cluster = 1 loop.stage = 1
+    %125 = arith.addi %arg21, %c1_i32_18 {loop.cluster = 0 : i32, loop.stage = 2 : i32} : i32 loop.cluster = 0 loop.stage = 2
+  // -----// SoftwarePipeliner internal IR Dump After: ExpandLoops events 157
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 1 : i32} 2 : i32 loop.cluster = 1 loop.stage = 1
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %33 = tt.load %31, %27, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %34 = tt.load %32, %28, %cst_6 : tensor<32x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %75 = tt.load %74, %64, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %121 = arith.cmpi sge, %c0_i32, %c1_i32 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 2 loop.stage = 0
+    %122 = arith.select %121, %c0_i32, %c0_i32 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 2 loop.stage = 0
+    %123 = arith.muli %38, %c64_i32 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 2 loop.stage = 0
+    %124 = tt.splat %123 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi32, #ttg.sli loop.cluster = 2 loop.stage = 0
+    %125 = arith.addi %124, %79 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : tensor<64xi32, #ttg.sli loop.cluster = 2 loop.stage = 0
+perf_n4_q4096_p102400_bfloat16-baseline exit 0 PTX identity passed pass sections 8
+  // -----// IR Dump Before TritonGPUAssignLatencies (tritongpu-assign-latencies) ('builtin.module' operation) //----- // events 14
+  // -----// IR Dump Before TritonGPUScheduleLoops (tritongpu-schedule-loops) ('builtin.module' operation) //----- // events 14
+  // -----// IR Dump Before TritonTleTileStylePipelineSchedule (triton-tle-tile-style-pipeline-schedule) ('builtin.module' operation) //----- // events 72
+  // -----// IR Dump Before TritonTleMaterializeTileStylePipeline (triton-tle-materialize-tile-style-pipeline) ('builtin.module' operation) //----- // events 72
+  // -----// IR Dump Before TritonGPUPipeline (tritongpu-pipeline) ('builtin.module' operation) //----- // events 72
+    %query_base = tt.load %starts_ptr : !tt.ptr<i32> loc(#loc138) 
+    %request_start_18 = tt.load %request_start : !tt.ptr<i32> loc(#loc140) 
+    %request_end_21 = tt.load %request_end : !tt.ptr<i32> loc(#loc144) 
+    %visible_44 = tt.load %visible_42, %valid_rows_39, %cst_9 : tensor<64x!tt.ptr<i32>, #ttg.slice<{dim  
+    %visible_45 = tt.load %visible_43, %valid_rows_40, %cst_4 : tensor<64x!tt.ptr<i32>, #blocked2> loc(# 
+    %query_76 = tt.load %query_75, %query_65, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #blocked1> loc(#loc 
+    %query_high_82 = tt.load %query_high_81, %query_65, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #blocked1 
+    scf.for %arg18 = %first_tile_47 to %last_tile_50 step %c1_i32  : i32 { 
+    %columns = arith.muli %arg18, %c64_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loc(#loc loop.cluster = 1 loop.stage = 0
+    %columns_100 = tt.splat %columns {loop.cluster = 0 : i32, loop.stage = 1 : i32} : i32 -> tensor<64xi loop.cluster = 0 loop.stage = 1
+    %columns_101 = tt.splat %columns {loop.cluster = 0 : i32, loop.stage = 1 : i32} : i32 -> tensor<64xi loop.cluster = 0 loop.stage = 1
+    %columns_102 = tt.splat %columns {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi loop.cluster = 1 loop.stage = 0
+  // -----// IR Dump Before TritonTleScheduleTmaStoreSync (triton-tle-schedule-tma-store-sync) ('builtin.module' operation) //----- // events 20
+  // -----// SoftwarePipeliner internal IR Dump After: LowerLoops events 82
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %36 = tt.load %34, %30, %cst_9 : tensor<64x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %37 = tt.load %35, %31, %cst_4 : tensor<64x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %78 = tt.load %77, %67, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %85 = tt.load %84, %67, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %120:2 = scf.for %arg18 = %41 to %47 step %c1_i32 iter_args(%arg19 = %c-1_i32, %arg20 = %c-1_i32) -> 
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 0 : i32} 2 : i32 loop.cluster = 1 loop.stage = 0
+    %122 = arith.addi %arg19, %c1_i32_18 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %123 = arith.cmpi sge, %122, %c2_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %124 = arith.select %123, %c0_i32, %122 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+  // -----// SoftwarePipeliner internal IR Dump After: ExpandLoops events 113
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 0 : i32} 2 : i32 loop.cluster = 1 loop.stage = 0
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %36 = tt.load %34, %30, %cst_9 : tensor<64x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %37 = tt.load %35, %31, %cst_4 : tensor<64x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %78 = tt.load %77, %67, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %85 = tt.load %84, %67, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %121 = arith.cmpi sge, %c0_i32, %c2_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %122 = arith.select %121, %c0_i32, %c0_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %123 = arith.muli %41, %c64_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %124 = tt.splat %123 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi32, #ttg.sli loop.cluster = 1 loop.stage = 0
+perf_n4_q4096_p102400_bfloat16-candidate exit 0 PTX identity passed pass sections 8
+  // -----// IR Dump Before TritonGPUAssignLatencies (tritongpu-assign-latencies) ('builtin.module' operation) //----- // events 14
+  // -----// IR Dump Before TritonGPUScheduleLoops (tritongpu-schedule-loops) ('builtin.module' operation) //----- // events 14
+  // -----// IR Dump Before TritonTleTileStylePipelineSchedule (triton-tle-tile-style-pipeline-schedule) ('builtin.module' operation) //----- // events 72
+  // -----// IR Dump Before TritonTleMaterializeTileStylePipeline (triton-tle-materialize-tile-style-pipeline) ('builtin.module' operation) //----- // events 72
+  // -----// IR Dump Before TritonGPUPipeline (tritongpu-pipeline) ('builtin.module' operation) //----- // events 72
+    %query_base = tt.load %starts_ptr : !tt.ptr<i32> loc(#loc138) 
+    %request_start_18 = tt.load %request_start : !tt.ptr<i32> loc(#loc140) 
+    %request_end_21 = tt.load %request_end : !tt.ptr<i32> loc(#loc144) 
+    %visible_44 = tt.load %visible_42, %valid_rows_39, %cst_9 : tensor<64x!tt.ptr<i32>, #ttg.slice<{dim  
+    %visible_45 = tt.load %visible_43, %valid_rows_40, %cst_4 : tensor<64x!tt.ptr<i32>, #blocked2> loc(# 
+    %query_76 = tt.load %query_75, %query_65, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #blocked1> loc(#loc 
+    %query_high_82 = tt.load %query_high_81, %query_65, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #blocked1 
+    scf.for %arg18 = %first_tile_47 to %last_tile_50 step %c1_i32  : i32 { 
+    %columns = arith.muli %arg18, %c64_i32 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 loc(#loc loop.cluster = 2 loop.stage = 0
+    %columns_100 = tt.splat %columns {loop.cluster = 0 : i32, loop.stage = 2 : i32} : i32 -> tensor<64xi loop.cluster = 0 loop.stage = 2
+    %columns_101 = tt.splat %columns {loop.cluster = 1 : i32, loop.stage = 1 : i32} : i32 -> tensor<64xi loop.cluster = 1 loop.stage = 1
+    %columns_102 = tt.splat %columns {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi loop.cluster = 2 loop.stage = 0
+  // -----// IR Dump Before TritonTleScheduleTmaStoreSync (triton-tle-schedule-tma-store-sync) ('builtin.module' operation) //----- // events 22
+  // -----// SoftwarePipeliner internal IR Dump After: LowerLoops events 99
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %36 = tt.load %34, %30, %cst_9 : tensor<64x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %37 = tt.load %35, %31, %cst_4 : tensor<64x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %78 = tt.load %77, %67, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %85 = tt.load %84, %67, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %122:4 = scf.for %arg18 = %41 to %47 step %c1_i32 iter_args(%arg19 = %c-1_i32, %arg20 = %c-1_i32, %a 
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 1 : i32} 2 : i32 loop.cluster = 1 loop.stage = 1
+    %124 = arith.addi %arg21, %c1_i32_18 {loop.cluster = 1 : i32, loop.stage = 1 : i32} : i32 loop.cluster = 1 loop.stage = 1
+    %125 = arith.cmpi sge, %124, %c2_i32 {loop.cluster = 1 : i32, loop.stage = 1 : i32} : i32 loop.cluster = 1 loop.stage = 1
+    %126 = arith.select %125, %c0_i32, %124 {loop.cluster = 1 : i32, loop.stage = 1 : i32} : i32 loop.cluster = 1 loop.stage = 1
+  // -----// SoftwarePipeliner internal IR Dump After: ExpandLoops events 162
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 1 : i32} 2 : i32 loop.cluster = 1 loop.stage = 1
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %36 = tt.load %34, %30, %cst_9 : tensor<64x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %37 = tt.load %35, %31, %cst_4 : tensor<64x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %78 = tt.load %77, %67, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %85 = tt.load %84, %67, %cst_5 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %123 = arith.cmpi sge, %c0_i32, %c1_i32 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 2 loop.stage = 0
+    %124 = arith.select %123, %c0_i32, %c0_i32 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 2 loop.stage = 0
+    %125 = arith.muli %41, %c64_i32 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 2 loop.stage = 0
+    %126 = tt.splat %125 {loop.cluster = 2 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi32, #ttg.sli loop.cluster = 2 loop.stage = 0
+Compile-only trace archive: /tmp/qsa-pipeline-trace-h800.KBmOhk/pass-traces.tar.gz
