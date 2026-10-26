@@ -1,0 +1,66 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.3he0jtib
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.3he0jtib/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： fp8_first_chunk_float8_e4m3fn
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     113.856    102.768        1.108  
+topk      351.360    345.248        1.018  
+pipeline  464.680    445.000        1.044  
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： fp8_tail113_float8_e4m3fn
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     346.608    266.992        1.298  
+topk      529.952    550.216        0.963  
+pipeline  873.664    814.160        1.073  
+
+历史独立 kernel 计时，来源78c3ca4f（本次不重测）： fp8_long100k_float8_e4m3fn
+stage     native_us  production_us  speedup
+--------  ---------  -------------  -------
+score     1333.344   1112.168       1.199  
+topk      1161.712   1480.864       0.784  
+pipeline  2527.704   2615.776       0.966  
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+当前独立准备完成；与历史二进制一致： fp8_first_chunk_float8_e4m3fn False
+历史时延仅供背景，不作为本次二进制的性能数据；本次采集必须与当前准备产物逐字节一致。
+
+当前生产版硬件计数器（不是 benchmark）： fp8_first_chunk_float8_e4m3fn
+与历史二进制一致： False
+chunk  offset  rows   regs  sharedKiB  spill  LDsec/req  STsec/req  STsector/payload  DRAMreadMiB  DRAMwriteMiB
+-----  ------  -----  ----  ---------  -----  ---------  ---------  ----------------  -----------  ------------
+0      0       16384  127   24.000     0      7.148      15.008     1.006             13.116       106.648     
+chunk  warp%   tensor%  issue%  DRAM%   L2hit%  eligible  longSB%  shortSB%  MIO%   LG%    barrier%  sharedLDconflicts  sharedSTconflicts
+-----  ------  -------  ------  ------  ------  --------  -------  --------  -----  -----  --------  -----------------  -----------------
+0      23.780  19.500   45.110  37.890  91.470  0.860     23.230   6.430     4.700  0.100  12.010    4368.000           22806.000        
+当前独立准备完成；与历史二进制一致： fp8_tail113_float8_e4m3fn False
+历史时延仅供背景，不作为本次二进制的性能数据；本次采集必须与当前准备产物逐字节一致。
+
+当前生产版硬件计数器（不是 benchmark）： fp8_tail113_float8_e4m3fn
+与历史二进制一致： False
+chunk  offset  rows   regs  sharedKiB  spill  LDsec/req  STsec/req  STsector/payload  DRAMreadMiB  DRAMwriteMiB
+-----  ------  -----  ----  ---------  -----  ---------  ---------  ----------------  -----------  ------------
+0      0       16256  158   56.000     0      7.270      15.654     1.002             33.087       363.781     
+1      16256   113    55    22.000     0      6.717      15.596     1.001             1.071        0.005       
+chunk  warp%   tensor%  issue%  DRAM%   L2hit%  eligible  longSB%  shortSB%  MIO%   LG%    barrier%  sharedLDconflicts  sharedSTconflicts
+-----  ------  -------  ------  ------  ------  --------  -------  --------  -----  -----  --------  -----------------  -----------------
+0      18.150  22.640   45.180  50.110  93.210  0.720     22.670   6.150     3.370  0.200  10.260    104710.000         112973.000       
+1      19.840  8.630    52.020  3.500   70.500  0.970     45.280   2.780     0.200  0.000  7.980     0.000              19875.000        
+当前独立准备完成；与历史二进制一致： fp8_long100k_float8_e4m3fn False
+历史时延仅供背景，不作为本次二进制的性能数据；本次采集必须与当前准备产物逐字节一致。
+
+当前生产版硬件计数器（不是 benchmark）： fp8_long100k_float8_e4m3fn
+与历史二进制一致： False
+chunk  offset  rows  regs  sharedKiB  spill  LDsec/req  STsec/req  STsector/payload  DRAMreadMiB  DRAMwriteMiB
+-----  ------  ----  ----  ---------  -----  ---------  ---------  ----------------  -----------  ------------
+0      0       4519  158   56.000     0      7.359      15.913     1.000             15.000       446.793     
+1      4519    4519  158   56.000     0      7.393      15.931     1.000             15.161       466.344     
+2      9038    4519  158   56.000     0      7.398      15.920     1.000             16.083       485.940     
+3      13557   2827  158   56.000     0      7.410      15.934     1.000             9.593        312.553     
+chunk  warp%   tensor%  issue%  DRAM%   L2hit%  eligible  longSB%  shortSB%  MIO%   LG%    barrier%  sharedLDconflicts  sharedSTconflicts
+-----  ------  -------  ------  ------  ------  --------  -------  --------  -----  -----  --------  -----------------  -----------------
+0      17.830  23.370   44.540  51.800  97.110  0.700     22.200   6.150     3.360  0.120  9.820     118401.000         165543.000       
+1      18.130  23.470   45.780  50.930  96.420  0.720     22.430   5.940     3.080  0.140  10.210    121898.000         163544.000       
+2      18.350  23.830   45.860  50.580  95.440  0.730     22.620   5.920     3.310  0.160  10.020    133886.000         156105.000       
+3      17.390  22.970   44.930  45.530  96.680  0.700     22.940   5.900     3.150  0.110  10.070    76913.000          102971.000       
