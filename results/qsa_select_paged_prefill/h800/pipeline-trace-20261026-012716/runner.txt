@@ -1,0 +1,82 @@
+perf_n1_q8192_p102400_bfloat16-baseline exit 1 PTX identity None pass sections 8
+  // -----// IR Dump Before TritonGPUAssignLatencies (tritongpu-assign-latencies) ('builtin.module' operation) //----- // events 12
+  // -----// IR Dump Before TritonGPUScheduleLoops (tritongpu-schedule-loops) ('builtin.module' operation) //----- // events 12
+  // -----// IR Dump Before TritonTleTileStylePipelineSchedule (triton-tle-tile-style-pipeline-schedule) ('builtin.module' operation) //----- // events 67
+  // -----// IR Dump Before TritonTleMaterializeTileStylePipeline (triton-tle-materialize-tile-style-pipeline) ('builtin.module' operation) //----- // events 67
+  // -----// IR Dump Before TritonGPUPipeline (tritongpu-pipeline) ('builtin.module' operation) //----- // events 67
+    %query_base = tt.load %starts_ptr : !tt.ptr<i32> loc(#loc132) 
+    %request_start_18 = tt.load %request_start : !tt.ptr<i32> loc(#loc134) 
+    %request_end_21 = tt.load %request_end : !tt.ptr<i32> loc(#loc138) 
+    %visible_41 = tt.load %visible_39, %valid_rows_36, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim  
+    %visible_42 = tt.load %visible_40, %valid_rows_37, %cst_6 : tensor<32x!tt.ptr<i32>, #blocked2> loc(# 
+    %query_73 = tt.load %query_72, %query_62, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #blocked1> loc(#loc 
+    scf.for %arg17 = %first_tile_44 to %last_tile_47 step %c1_i32  : i32 { 
+    %columns = arith.muli %arg17, %c64_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loc(#loc loop.cluster = 1 loop.stage = 0
+    %columns_96 = tt.splat %columns {loop.cluster = 0 : i32, loop.stage = 1 : i32} : i32 -> tensor<64xi3 loop.cluster = 0 loop.stage = 1
+    %columns_97 = tt.splat %columns {loop.cluster = 0 : i32, loop.stage = 1 : i32} : i32 -> tensor<64xi3 loop.cluster = 0 loop.stage = 1
+    %columns_98 = tt.splat %columns {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi3 loop.cluster = 1 loop.stage = 0
+    %columns_99 = arith.addi %columns_96, %column_lanes {loop.cluster = 0 : i32, loop.stage = 1 : i32} : loop.cluster = 0 loop.stage = 1
+  // -----// IR Dump Before TritonTleScheduleTmaStoreSync (triton-tle-schedule-tma-store-sync) ('builtin.module' operation) //----- // events 16
+  // -----// SoftwarePipeliner internal IR Dump After: LowerLoops events 77
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %33 = tt.load %31, %27, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %34 = tt.load %32, %28, %cst_6 : tensor<32x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %75 = tt.load %74, %64, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %118:2 = scf.for %arg17 = %38 to %44 step %c1_i32 iter_args(%arg18 = %c-1_i32, %arg19 = %c-1_i32) -> 
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 0 : i32} 2 : i32 loop.cluster = 1 loop.stage = 0
+    %120 = arith.addi %arg18, %c1_i32_18 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %121 = arith.cmpi sge, %120, %c2_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %122 = arith.select %121, %c0_i32, %120 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %123 = arith.addi %arg19, %c1_i32_18 {loop.cluster = 0 : i32, loop.stage = 1 : i32} : i32 loop.cluster = 0 loop.stage = 1
+  // -----// SoftwarePipeliner internal IR Dump After: ExpandLoops events 108
+    %c2_i32 = arith.constant {loop.cluster = 1 : i32, loop.stage = 0 : i32} 2 : i32 loop.cluster = 1 loop.stage = 0
+    %1 = tt.load %arg3 : !tt.ptr<i32> 
+    %3 = tt.load %2 : !tt.ptr<i32> 
+    %7 = tt.load %6 : !tt.ptr<i32> 
+    %33 = tt.load %31, %27, %cst_9 : tensor<32x!tt.ptr<i32>, #ttg.slice<{dim = 0, parent = #ttg.blocked< 
+    %34 = tt.load %32, %28, %cst_6 : tensor<32x!tt.ptr<i32>, #ttg.blocked<{sizePerThread = [1], threadsP 
+    %75 = tt.load %74, %64, %cst_4 : tensor<128x128x!tt.ptr<bf16>, #ttg.blocked<{sizePerThread = [8, 1], 
+    %119 = arith.cmpi sge, %c0_i32, %c2_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %120 = arith.select %119, %c0_i32, %c0_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %121 = arith.muli %38, %c64_i32 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 loop.cluster = 1 loop.stage = 0
+    %122 = tt.splat %121 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : i32 -> tensor<64xi32, #ttg.sli loop.cluster = 1 loop.stage = 0
+    %123 = arith.addi %122, %79 {loop.cluster = 1 : i32, loop.stage = 0 : i32} : tensor<64xi32, #ttg.sli loop.cluster = 1 loop.stage = 0
+Compiler log: /tmp/qsa-pipeline-trace-h800.CnJ0PO/perf_n1_q8192_p102400_bfloat16-baseline/compiler.txt
+      scf.yield %196, %160, %c2_i32, %198, %230 : i32, i32, i32, i32, !ttg.async.token
+    } {tt.scheduled_max_stage = 1 : i32}
+    %155 = ttg.async_wait {num = 0 : i32}
+    ttg.local_dealloc %117 : !ttg.memdesc<2x64x128xbf16, #ttg.nvmma_shared<{swizzlingByteWidth = 128, transposed = false, elementBitWidth = 16}>, #ttg.shared_memory, mutable>
+    tt.return
+  }
+}
+
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-pipeline-trace.ovrW6I/tools/qsa_prefill_pipeline_trace.py", line 347, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/tmp/flaggems-qsa-pipeline-trace.ovrW6I/tools/qsa_prefill_pipeline_trace.py", line 229, in main
+    return child(args.worker_spec, args.flagtree)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-pipeline-trace.ovrW6I/tools/qsa_prefill_pipeline_trace.py", line 187, in child
+    kernel = triton.compile(job["ir"], target=GPUTarget(**target), options=metadata)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/compiler/compiler.py", line 346, in compile
+    next_module = compile_ir(module, metadata)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/backends/nvidia/compiler.py", line 661, in <lambda>
+    stages["llir"] = lambda src, metadata: self.make_llir(src, metadata, options, capability)
+                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/flagtree/triton/backends/nvidia/compiler.py", line 523, in make_llir
+    features = get_features(options, self.target.arch)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 3, in __hash__
+TypeError: unhashable type: 'list'
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-pipeline-trace.ovrW6I/tools/qsa_prefill_pipeline_trace.py", line 324, in main
+    raise RuntimeError("Replay/trace did not validate: " + job["name"])
+RuntimeError: Replay/trace did not validate: perf_n1_q8192_p102400_bfloat16-baseline
+
+Compile-only trace archive: /tmp/qsa-pipeline-trace-h800.CnJ0PO/pass-traces.tar.gz
