@@ -1,0 +1,35 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.fxzqq40v
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.fxzqq40v/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-double-buffer.SoNzfM/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-double-buffer.SoNzfM/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Producer boundary: mixed_edges R32/R64 all17 rows, guards, masked outputs passed
+Producer boundary: single_tile R32/R64 all17 rows, guards, masked outputs passed
+Producer boundary: zero_visible R32/R64 all17 rows, guards, masked outputs passed
+Resources: baseline [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 217 shared 106496 spills 0
+Resources: candidate [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 217 shared 106496 spills 0
+Resources: candidate [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 217 shared 106496 spills 0
+Resources: candidate [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 217 shared 106496 spills 0
+
+Producer runtime: perf_n4_q4096_p102400_bfloat16 passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1703.952       1619.248      1.05231  1.05150     1.05313   
+topk      1387.104       1387.744      0.99954  0.99952     0.99956   
+pipeline  3105.712       3033.448      1.02382  1.02219     1.02546   
+identical-callable A/A
+stage                    production_us  candidate_us  speedup  paired_min  paired_max
+-----------------------  -------------  ------------  -------  ----------  ----------
+production:score         1702.128       1701.104      1.00060  0.99177     1.00966   
+production:pipeline      3105.304       3111.056      0.99815  0.99600     1.00031   
+producer_first:score     1618.224       1611.424      1.00422  0.99898     1.00955   
+producer_first:pipeline  3005.056       3027.424      0.99261  0.98541     0.99989   
+Incremental production / candidate arithmetic means: {'score': 1.0523106919326628, 'topk': 0.999538794856098, 'pipeline': 1.0238224014817652}
