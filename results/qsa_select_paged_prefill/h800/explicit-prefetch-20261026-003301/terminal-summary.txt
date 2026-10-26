@@ -1,0 +1,73 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.8si7ci3y
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.8si7ci3y/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-explicit-prefetch.rxrsXp/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-explicit-prefetch.rxrsXp/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Explicit prefetch compile: (4, 0, 1088) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 63 -> 92 shared 73728 -> 49152 spills 0 gate passed
+Explicit prefetch compile: (3, 4, 1088) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 63 -> 92 shared 73728 -> 49152 spills 0 gate passed
+Explicit prefetch compile: (10, 7, 1088) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 63 -> 92 shared 73728 -> 49152 spills 0 gate passed
+Explicit prefetch compile: (4, 0, 1088) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 205 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (3, 4, 1088) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 205 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (10, 7, 1088) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 205 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (4854, 0, 27648) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 63 -> 92 shared 73728 -> 49152 spills 0 gate passed
+Explicit prefetch compile: (3338, 4854, 27648) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 63 -> 92 shared 73728 -> 49152 spills 0 gate passed
+Resources: baseline [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: baseline [3338, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 63 shared 73728 spills 0
+Resources: candidate [4854, 0, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 92 shared 49152 spills 0
+Resources: candidate [3338, 4854, 27648] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': False} registers 92 shared 49152 spills 0
+Explicit prefetch compile: (4854, 0, 27648) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 63 -> 92 shared 73728 -> 49152 spills 0 gate passed
+Explicit prefetch compile: (3338, 4854, 27648) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 63 -> 92 shared 73728 -> 49152 spills 0 gate passed
+
+Explicit next-K prefetch: perf_n1_q8192_p102400_bfloat16 passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     927.328        1132.792      0.81862  0.81569     0.82155   
+topk      708.320        708.064       1.00036  1.00023     1.00050   
+pipeline  1648.432       1835.432      0.89812  0.89147     0.90478   
+identical-callable A/A
+stage                       production_us  candidate_us  speedup  paired_min  paired_max
+--------------------------  -------------  ------------  -------  ----------  ----------
+production:score            938.928        938.656       1.00029  0.99997     1.00061   
+production:pipeline         1647.824       1648.128      0.99982  0.99979     0.99984   
+explicit_prefetch:score     1133.040       1133.264      0.99980  0.99944     1.00017   
+explicit_prefetch:pipeline  1841.488       1846.792      0.99713  0.98429     1.01015   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-explicit-prefetch.rxrsXp/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-explicit-prefetch.rxrsXp/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Explicit prefetch compile: (5041, 0, 26624) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 207 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (5041, 5041, 26624) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 207 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (5041, 10082, 26624) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 207 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (1261, 15123, 26624) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 207 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Resources: baseline [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: baseline [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 207 shared 106496 spills 0
+Resources: candidate [5041, 0, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 215 shared 81920 spills 0
+Resources: candidate [5041, 5041, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 215 shared 81920 spills 0
+Resources: candidate [5041, 10082, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 215 shared 81920 spills 0
+Resources: candidate [1261, 15123, 26624] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'HEAD_GROUP': True} registers 215 shared 81920 spills 0
+Explicit prefetch compile: (5041, 0, 26624) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 207 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (5041, 5041, 26624) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 207 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (5041, 10082, 26624) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 207 -> 215 shared 106496 -> 81920 spills 0 gate passed
+Explicit prefetch compile: (1261, 15123, 26624) early actual K reads 0 -> 1 K shared slots 2 -> 1 registers 207 -> 215 shared 106496 -> 81920 spills 0 gate passed
+
+Explicit next-K prefetch: perf_n4_q4096_p102400_bfloat16 passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1725.360       1723.928      1.00083  0.99188     1.00995   
+topk      1388.848       1388.928      0.99994  0.99986     1.00002   
+pipeline  3104.064       3138.760      0.98895  0.98739     0.99050   
+identical-callable A/A
+stage                       production_us  candidate_us  speedup  paired_min  paired_max
+--------------------------  -------------  ------------  -------  ----------  ----------
+production:score            1705.584       1716.096      0.99387  0.98891     0.99888   
+production:pipeline         3089.072       3114.472      0.99184  0.98631     0.99741   
+explicit_prefetch:score     1721.656       1721.936      0.99984  0.98321     1.01675   
+explicit_prefetch:pipeline  3146.912       3131.928      1.00478  0.99961     1.01005   
+Incremental production / candidate arithmetic means: {'score': 0.9097261198701558, 'topk': 1.0001519381035378, 'pipeline': 0.9435312835271619}
