@@ -80,7 +80,7 @@ class InferenceWorkloadTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "cannot truncate"):
                 workloads.geometry(dict(original, **overrides))
 
-    def test_pytest_uses_thirty_two_and_thirty_scored_inputs(self):
+    def test_pytest_uses_ten_fp8_inputs(self):
         source = bench.ROOT / "benchmark/test_qsa_select_paged_prefill_perf.py"
         tree = ast.parse(source.read_text())
         definitions = [
@@ -112,7 +112,7 @@ class InferenceWorkloadTests(unittest.TestCase):
         benchmark = namespace["QSAPrefillBenchmark"]()
         benchmark.set_shapes()
         self.assertEqual(
-            benchmark.shapes, [(c["name"],) for c in observed.cases("scored-prefill")]
+            benchmark.shapes, [(c["name"],) for c in observed.cases("fp8-prefill")]
         )
         self.assertEqual(benchmark.set_more_shapes(), [])
         self.assertEqual(
@@ -122,7 +122,7 @@ class InferenceWorkloadTests(unittest.TestCase):
         with patch.object(
             observed, "make_inputs", return_value=tuple(range(10))
         ) as builder:
-            for shape, case in zip(benchmark.shapes, observed.cases("scored-prefill")):
+            for shape, case in zip(benchmark.shapes, observed.cases("fp8-prefill")):
                 self.assertEqual(
                     next(
                         namespace["_inputs"](
@@ -137,7 +137,7 @@ class InferenceWorkloadTests(unittest.TestCase):
                 self.assertEqual(builder.call_args.kwargs["device"], "cuda:3")
         scored = namespace["QSAScoredBenchmark"]()
         scored.set_shapes()
-        self.assertEqual(len(scored.shapes), 30)
+        self.assertEqual(len(scored.shapes), 10)
         for shape in scored.shapes:
             self.assertFalse(
                 observed.geometry(namespace["BENCHMARK_CASES"][shape]).get("select_all")

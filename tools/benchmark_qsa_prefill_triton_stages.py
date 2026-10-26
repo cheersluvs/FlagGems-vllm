@@ -2048,7 +2048,7 @@ def main():
     parser.add_argument(
         "--suite",
         choices=workloads.SUITES,
-        default="upstream-prefill",
+        default="fp8-prefill",
     )
     parser.add_argument("--cases", nargs="+")
     parser.add_argument("--compare-previous-tuning", action="store_true")

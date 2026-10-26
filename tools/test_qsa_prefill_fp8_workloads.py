@@ -197,8 +197,8 @@ class FP8WorkloadsTests(unittest.TestCase):
         )
         exec(compile(ast.Module(body=body, type_ignores=[]), str(path), "exec"), ns)
         for cls, counts in (
-            ("QSAPrefillBenchmark", (20, 10)),
-            ("QSAScoredBenchmark", (20, 10)),
+            ("QSAPrefillBenchmark", (0, 10)),
+            ("QSAScoredBenchmark", (0, 10)),
         ):
             obj = ns[cls]()
             obj.set_shapes()
@@ -215,7 +215,7 @@ class FP8WorkloadsTests(unittest.TestCase):
                 )
         wrong = next(iter(ns["BENCHMARK_CASES"]))
         with self.assertRaises(AssertionError):
-            next(ns["_inputs"](wrong, "FP8", "cuda:0"))
+            next(ns["_inputs"](wrong, "BF16", "cuda:0"))
 
     def test_actual_fp8_reference_contract_and_bf16_behavior(self):
         helpers = types.SimpleNamespace(

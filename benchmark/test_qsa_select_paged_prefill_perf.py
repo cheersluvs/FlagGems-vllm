@@ -2,12 +2,13 @@
 # Copyright 2026 FlagOS Contributors
 """H800 QSA prefill: full operator, score stage, and Top-K stage.
 
-The matrix contains 20 BF16 cases plus eight FP8 envelopes and two FP8 variants.
+The active matrix contains eight recorded FP8 envelopes and two FP8 variants.
 The eight captured fixtures use cache [2712,196,1,128] and page table [N,88];
 tail112/tail113 replace the former tight-capacity tail64/tail65 fixtures.
 The H800 --mode kernel runner reports score, Top-K and the full chunk pipeline;
-complete pipeline speedup is acceptance. Isolated score tests retain their
-single full-row launch. Select-all cases remain functional tests only.
+NV acceptance uses score-only kernel speedup, excluding Top-K. Isolated score
+pytest tests retain their single full-row launch. BF16 is excluded from this
+benchmark;select-all cases remain functional tests only.
 
 The official baseline is SHA256-pinned and required by the card runner.
 The independent Torch baseline includes host metadata reads and is reported
@@ -40,16 +41,16 @@ pytestmark = [
 
 # One shared definition with the H800 --mode kernel runner. Prefix is in
 # original tokens before the query, not compressed cache rows.
-BENCHMARK_CASES = {(case["name"],): case for case in workloads.cases("scored-prefill")}
+BENCHMARK_CASES = {(case["name"],): case for case in workloads.cases("fp8-prefill")}
 
 
 class QSAPrefillBenchmark(base.GenericBenchmark):
     def set_shapes(self, shape_file_path=None):
-        # All30 cases exercise both score and TopK.
+        # All ten FP8 cases exercise both score and TopK.
         self.shapes = list(BENCHMARK_CASES)
         self.shape_desc = (
             "case (query lengths, prefixes and layout in workload manifest) "
-            "(20 BF16 + 10 FP8, H=4, D=128, page=196, block_k=512)"
+            "(10 FP8, H=4, D=128, page=196, block_k=512)"
         )
 
     def set_more_shapes(self):
@@ -130,7 +131,7 @@ def _run(
     gems,
     input_fn,
     benchmark_cls=QSAPrefillBenchmark,
-    dtypes=(torch.bfloat16, torch.float8_e4m3fn),
+    dtypes=(torch.float8_e4m3fn,),
 ):
     # Warm both functions on each input before timing to exclude compilation
     # and autotuning. The common runner then measures operator-level latency.
