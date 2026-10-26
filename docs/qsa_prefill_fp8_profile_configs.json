@@ -1,0 +1,599 @@
+{
+  "report_commit": "78c3ca4f929c52719640be4fc068b6f5ebaa154c",
+  "baseline_code_commit": "314a9de2cde6ec360ca7d6c45fa07a72b88e9c7d",
+  "production_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+  "compiler_identity": {
+    "torch": "2.13.0+cu129",
+    "triton": "3.6.0",
+    "vllm": "0.31.0+cu129",
+    "compiler_files": {
+      "triton.backends.nvidia.compiler": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68",
+      "triton.backends.nvidia.driver": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d",
+      "triton.knobs": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793",
+      "triton._C.libtriton": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+    },
+    "flagtree_files": {
+      "triton": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30",
+      "triton.testing": "54b1a09e41f716151e46143f94c4a816090f2f4dea72752bf5f8071293540e7f",
+      "triton.backends.nvidia.compiler": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68",
+      "triton.backends.nvidia.driver": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d",
+      "triton.knobs": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793",
+      "triton._C.libtriton": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e",
+      "triton.experimental.tle.language": "9b9cf2e186e4a3886156fdc00e14f69ac12d671d9b689506bf54699475b29fc6"
+    },
+    "ptxas": "9c2c084df7eb9be48f0502b6938ce2571679b2a78cad1c564b583bd7d9ea3c50",
+    "libcuda": "85a8cc8cf00419ceb295ec62c481d05b4cdbdab10f25c5375d6d24bdbe00b4d9"
+  },
+  "cases": [
+    {
+      "case": {
+        "name": "fp8_first_chunk_float8_e4m3fn",
+        "kind": "fp8_perf",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          0
+        ],
+        "batch_max_seq_len": 16384,
+        "recorded_shape": [
+          16384,
+          1,
+          4,
+          128,
+          16384,
+          16384
+        ],
+        "recorded_count": 48,
+        "capture_line": 378,
+        "query_lengths_synthetic": false,
+        "layout_provenance": "captured cache/table extents; assumed contiguous strides and shuffled pages",
+        "physical_pages": 2712,
+        "table_columns": 88,
+        "cache_page_stride_factor": 1,
+        "captured_parameters": [
+          16384,
+          4,
+          128,
+          2712,
+          196,
+          1,
+          128,
+          1,
+          88,
+          2,
+          16384,
+          2048,
+          4,
+          16384,
+          16384,
+          512,
+          16384
+        ],
+        "query_base": 0,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "float8_e4m3fn"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.float8_e4m3fn",
+          "storage_offset": 0,
+          "sha256": "02b02965c75e0cd67c21f1bc3b1f3e28ffb2b49bcefb0a198de40db24564f994"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            2712,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.float8_e4m3fn",
+          "storage_offset": 0,
+          "sha256": "52d927998e4fd71e5f79c5ebf006d75c1999a0c2cdfdde9fce6bf7774ce4e7f7"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            88
+          ],
+          "stride": [
+            88,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "f2ad073b3f597eabb1d5abe3bfcdda1b9765c8068be27b9a39194da98f8aec50"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "45055f7d65263fdd23060bb67886e2269ca996e23f5d9423ee2c445432dbfe73"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "ba798dd08b7326be17e8391d36116ceeaf66b21c68adaa2c2e9df77bc8c474c5"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 16384
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 16384
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 16384,
+          "width": 4096,
+          "route": "fp8",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 1,
+            "num_ctas": 1,
+            "TILE_R": 32,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          },
+          "ptx_sha256": "89421d8cacafc8ddd88c9b61bf7aa6ecd58f6e3ab33446f2aa9b0d3065ed612d",
+          "cubin_sha256": "e803e8271716068c19b35d32c3e2209b9b95e2a523ec0fff8f7dc60ce98b9a41"
+        }
+      ]
+    },
+    {
+      "case": {
+        "name": "fp8_tail113_float8_e4m3fn",
+        "kind": "fp8_perf",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16369
+        ],
+        "prefix_tokens": [
+          16482
+        ],
+        "batch_max_seq_len": 32851,
+        "recorded_shape": [
+          16369,
+          1,
+          4,
+          128,
+          16369,
+          32851
+        ],
+        "recorded_count": 48,
+        "capture_line": 348,
+        "query_lengths_synthetic": false,
+        "layout_provenance": "captured cache/table extents; assumed contiguous strides and shuffled pages",
+        "physical_pages": 2712,
+        "table_columns": 88,
+        "cache_page_stride_factor": 1,
+        "captured_parameters": [
+          16369,
+          4,
+          128,
+          2712,
+          196,
+          1,
+          128,
+          1,
+          88,
+          2,
+          16369,
+          2048,
+          4,
+          16369,
+          16369,
+          512,
+          32851
+        ],
+        "query_base": 0,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "float8_e4m3fn"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16369,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.float8_e4m3fn",
+          "storage_offset": 0,
+          "sha256": "6e0f36d7f437afaa067cb37b82584b1f38cd425c8074bb37005e13e5d981eba4"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            2712,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.float8_e4m3fn",
+          "storage_offset": 0,
+          "sha256": "60e7191af989e1ffe352f9d13176b4c5c9362980c849016b2dc7d6d34330ea6a"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            88
+          ],
+          "stride": [
+            88,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "b8c6225ec2f8845bae2655877ee0814a023db1321f6dde2a52773d5e601c93ee"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "945299dee17034364471ecf9cf9b709439fcf63d8f660cdd9963af6edb962801"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16369
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "ba1f1ed876807d2dddec18a1b69d8cd5c63625ddca6cbfd8f10cb4be9677c717"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 16369
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16369,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 32851
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 16256,
+          "width": 8256,
+          "route": "fp8",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 2,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2
+          },
+          "ptx_sha256": "6d987c7fd39290426a5eff99a75383ef811b0af1510455efe31aa9e17ceda6e6",
+          "cubin_sha256": "1ef93109b0cec43e682aac110e7532d0303525a1cbd0576feae17a44ccd6654a"
+        },
+        {
+          "offset": 16256,
+          "rows": 113,
+          "width": 8256,
+          "route": "fp8",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 2,
+            "num_ctas": 1,
+            "TILE_R": 8,
+            "BLOCK_N": 64,
+            "K_TILES": 4,
+            "QUERY_PARTS": 1
+          },
+          "ptx_sha256": "6db2105fef6faec66841f47d022ee15d01dc2a75f30f033cc2c96a335eb54f3c",
+          "cubin_sha256": "fc8d644c1f9248cc92dd41f475ddc74763d1497a6f2843b9b0e563a64282220d"
+        }
+      ]
+    },
+    {
+      "case": {
+        "name": "fp8_long100k_float8_e4m3fn",
+        "kind": "fp8_perf",
+        "origin": "dtype_variant",
+        "variant_of": "perf_n1_q16384_p102400_bfloat16",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          102400
+        ],
+        "batch_max_seq_len": 118784,
+        "query_lengths_synthetic": false,
+        "query_base": 0,
+        "page_size": 196,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "budget_mb": 512,
+        "dtype": "float8_e4m3fn"
+      },
+      "inputs": [
+        {
+          "argument": 0,
+          "shape": [
+            16384,
+            4,
+            128
+          ],
+          "stride": [
+            512,
+            128,
+            1
+          ],
+          "dtype": "torch.float8_e4m3fn",
+          "storage_offset": 0,
+          "sha256": "02b02965c75e0cd67c21f1bc3b1f3e28ffb2b49bcefb0a198de40db24564f994"
+        },
+        {
+          "argument": 1,
+          "shape": [
+            152,
+            196,
+            1,
+            128
+          ],
+          "stride": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "dtype": "torch.float8_e4m3fn",
+          "storage_offset": 0,
+          "sha256": "561ee293530efe284bbf1816b3a7e890c9efa2f46e7cca3fcf0c4defecacaa71"
+        },
+        {
+          "argument": 2,
+          "shape": [
+            1,
+            152
+          ],
+          "stride": [
+            152,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "a12fa7c1a2a6592e1f4a62baeaae9713ef741373f40f08a363267d5369a2b26f"
+        },
+        {
+          "argument": 3,
+          "shape": [
+            2
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "45055f7d65263fdd23060bb67886e2269ca996e23f5d9423ee2c445432dbfe73"
+        },
+        {
+          "argument": 4,
+          "shape": [
+            16384
+          ],
+          "stride": [
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0,
+          "sha256": "f13bf99009ed2597e4e2d06b4cae87275e4eee66692681f28930d49312c9a0ca"
+        },
+        {
+          "argument": 5,
+          "value": 2048
+        },
+        {
+          "argument": 6,
+          "value": 4
+        },
+        {
+          "argument": 7,
+          "value": 16384
+        },
+        {
+          "argument": 8,
+          "shape": [
+            16384,
+            512
+          ],
+          "stride": [
+            512,
+            1
+          ],
+          "dtype": "torch.int32",
+          "storage_offset": 0
+        },
+        {
+          "argument": 9,
+          "value": 118784
+        }
+      ],
+      "traces": [
+        {
+          "offset": 0,
+          "rows": 4519,
+          "width": 29696,
+          "route": "fp8",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 2,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2
+          },
+          "ptx_sha256": "6d987c7fd39290426a5eff99a75383ef811b0af1510455efe31aa9e17ceda6e6",
+          "cubin_sha256": "1ef93109b0cec43e682aac110e7532d0303525a1cbd0576feae17a44ccd6654a"
+        },
+        {
+          "offset": 4519,
+          "rows": 4519,
+          "width": 29696,
+          "route": "fp8",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 2,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2
+          },
+          "ptx_sha256": "6d987c7fd39290426a5eff99a75383ef811b0af1510455efe31aa9e17ceda6e6",
+          "cubin_sha256": "1ef93109b0cec43e682aac110e7532d0303525a1cbd0576feae17a44ccd6654a"
+        },
+        {
+          "offset": 9038,
+          "rows": 4519,
+          "width": 29696,
+          "route": "fp8",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 2,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2
+          },
+          "ptx_sha256": "6d987c7fd39290426a5eff99a75383ef811b0af1510455efe31aa9e17ceda6e6",
+          "cubin_sha256": "1ef93109b0cec43e682aac110e7532d0303525a1cbd0576feae17a44ccd6654a"
+        },
+        {
+          "offset": 13557,
+          "rows": 2827,
+          "width": 29696,
+          "route": "fp8",
+          "constants": {
+            "num_warps": 4,
+            "num_stages": 2,
+            "num_ctas": 1,
+            "TILE_R": 64,
+            "BLOCK_N": 64,
+            "K_TILES": 16,
+            "QUERY_PARTS": 2
+          },
+          "ptx_sha256": "6d987c7fd39290426a5eff99a75383ef811b0af1510455efe31aa9e17ceda6e6",
+          "cubin_sha256": "1ef93109b0cec43e682aac110e7532d0303525a1cbd0576feae17a44ccd6654a"
+        }
+      ]
+    }
+  ]
+}
