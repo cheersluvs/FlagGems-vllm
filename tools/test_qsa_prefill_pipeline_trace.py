@@ -3,6 +3,8 @@
 """Check pinned-cache replay, pass extraction and the no-launch contract."""
 
 import ast
+import copy
+import dataclasses
 import hashlib
 import json
 import os
@@ -214,6 +216,43 @@ module {
                         json.loads((root / "result.json").read_text())["status"],
                         "replay_mismatch",
                     )
+
+    def test_cached_JSON_tuple_options_are_hashable_without_value_changes(self):
+        metadata = dict(
+            cluster_dims=[1, 1, 1],
+            supported_fp8_dtypes=["fp8e4b15", "fp8e4nv", "fp8e5"],
+            deprecated_fp8_dot_operand_dtypes=["fp8e4b15"],
+            allowed_dot_input_precisions=["tf32", "tf32x3", "ieee", "bf16x3", "bf16x6"],
+            extern_libs=[
+                [
+                    "libdevice",
+                    "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc",
+                ]
+            ],
+            num_warps=8,
+            num_stages=2,
+            ptx_version=None,
+        )
+        before = copy.deepcopy(metadata)
+        options_type = dataclasses.make_dataclass(
+            "FrozenOptions", [(name, object) for name in metadata], frozen=True
+        )
+        with self.assertRaises(TypeError):
+            hash(options_type(**metadata))
+        restored = trace.restore_options(metadata)
+        hash(options_type(**restored))
+        self.assertEqual(metadata, before)
+        self.assertEqual(json.loads(json.dumps(restored)), metadata)
+        self.assertEqual(
+            restored["extern_libs"],
+            (
+                (
+                    "libdevice",
+                    "/opt/flagtree/triton/backends/nvidia/lib/libdevice.10.bc",
+                ),
+            ),
+        )
+        self.assertEqual(restored["num_stages"], 2)
 
     def test_trace_coverage_requires_latencies_schedule_and_both_internal_states(self):
         events = [

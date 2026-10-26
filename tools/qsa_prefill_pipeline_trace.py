@@ -129,6 +129,27 @@ def prepare(source, report):
     return jobs
 
 
+def restore_options(metadata):
+    # These CUDAOptions fields are tuples in memory but arrays in cached JSON.
+    # Restore only their container types; preserve every element and all other
+    # fields. extern_libs is a tuple of (name, path) pairs after __post_init__.
+    names = {
+        "cluster_dims",
+        "supported_fp8_dtypes",
+        "deprecated_fp8_dot_operand_dtypes",
+        "allowed_dot_input_precisions",
+        "extern_libs",
+    }
+
+    def tuples(value):
+        return tuple(tuples(v) for v in value) if isinstance(value, list) else value
+
+    return {
+        name: tuples(value) if name in names else value
+        for name, value in metadata.items()
+    }
+
+
 def child(spec, flagtree):
     job = json.loads(Path(spec).read_text())
     folder = Path(job["directory"])
@@ -184,7 +205,9 @@ def child(spec, flagtree):
         raise RuntimeError("Unexpected cached target: " + str(target))
     # Explicit target and asm access only: do not use .run, .warmup, .n_regs,
     # .n_spills or a launcher, which would initialize GPU binary handles.
-    kernel = triton.compile(job["ir"], target=GPUTarget(**target), options=metadata)
+    kernel = triton.compile(
+        job["ir"], target=GPUTarget(**target), options=restore_options(metadata)
+    )
     ptx = kernel.asm["ptx"]
     (folder / "replayed-ptx.txt").write_text(ptx)
     (folder / "replayed-ttgir.txt").write_text(kernel.asm["ttgir"])

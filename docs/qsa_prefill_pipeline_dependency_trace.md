@@ -103,3 +103,24 @@ file order must not be interpreted as a unified chronological pass sequence.
 The collector requires latency assignment, loop scheduling, LowerLoops and
 ExpandLoops coverage, and exact original PTX identity. Missing original TTIR
 cache is an explicit failure, not permission to recreate or retime the workload.
+
+## Replay failure c8fa151d and fix
+
+The first R32 baseline child reached LLVM lowering and failed in
+`get_features(options, arch)`: frozen CUDAOptions hashing saw JSON lists in
+supported_fp8_dtypes/deprecated_fp8_dot_operand_dtypes/allowed_dot_input_precisions.
+The replay script failed to restore the tuple types. This is a diagnostic-driver
+error, not an operator compilation regression. No GPU kernel was launched.
+
+Restore the five tuple-valued CUDAOptions fields (also cluster_dims and the
+nested extern_libs pairs), preserving every element, option and original JSON.
+A CPU regression reproduces the frozen-options hash failure with the captured
+field values, then verifies a hashable reconstruction and identical JSON values.
+Nine CPU tests and applicable style checks pass after the fix.
+
+The partial R32 trace is retained: lower-loads emits K copy at(stage0,cluster1),
+dot/store at(stage1,cluster0). ExpandLoops places the steady-state dot/store
+before next-K copy, before WGMMA wait insertion. This directly corroborates the
+consumer-first coarse scheduling explanation. The full replay stopped before
+PTX identity validation, so these remain partial localization evidence; the
+other three children and complete four-way identity proof still require replay.
