@@ -19,7 +19,7 @@ SPEC.loader.exec_module(scoring)
 
 
 class ScoreBenchmarkTests(unittest.TestCase):
-    def test_shared_benchmark_kernel_branch_and_ms_to_us_conversion(self):
+    def check_shared_branch(self, mode):
         source = Path(__file__).resolve().parents[1] / "benchmark/base.py"
         tree = ast.parse(source.read_text())
         cls = next(
@@ -41,6 +41,7 @@ class ScoreBenchmarkTests(unittest.TestCase):
 
         testing = types.ModuleType("triton.testing")
         testing.do_bench = do_bench
+        testing.do_bench_cudagraph = do_bench
         triton = types.ModuleType("triton")
         triton.__path__ = []
         triton.testing = testing
@@ -81,16 +82,48 @@ class ScoreBenchmarkTests(unittest.TestCase):
                 "triton.testing": testing,
             },
         ):
-            timer, info = scoring.make_timer(1000, 100)
+            timer, info = scoring.make_timer(
+                1000, 100, **({"mode": mode} if mode != "kernel" else {})
+            )
             self.assertEqual(timer(lambda: ran.append("score")), 1250)
+            if mode == "cudagraph":
+
+                def capture_failure(fn, **kwargs):
+                    raise RuntimeError("capture failed")
+
+                testing.do_bench_cudagraph = capture_failure
+                with self.assertRaisesRegex(RuntimeError, "capture failed"):
+                    timer(lambda: ran.append("must not use kernel fallback"))
         self.assertIs(base.Config, original)
         self.assertEqual(ran, ["score"])
         self.assertEqual(
-            calls, [dict(warmup=1000, rep=100, return_mode="median", grad_to_none=None)]
+            calls,
+            [
+                dict(
+                    rep=100,
+                    return_mode="median",
+                    grad_to_none=None,
+                    **({"warmup": 1000} if mode == "kernel" else {}),
+                )
+            ],
         )
         self.assertFalse(info["includes_topk"])
-        self.assertEqual(info["mode"], "kernel")
+        self.assertEqual(info["mode"], mode)
+        self.assertEqual(info["warmup_ms"], 1000 if mode == "kernel" else None)
+        self.assertIn(
+            "do_bench_cudagraph" if mode == "cudagraph" else "do_bench", info["sources"]
+        )
         self.assertEqual(info["unit"], "us")
+
+    def test_shared_benchmark_kernel_branch_and_ms_to_us_conversion(self):
+        self.check_shared_branch("kernel")
+
+    def test_shared_benchmark_cudagraph_branch_and_ms_to_us_conversion(self):
+        self.check_shared_branch("cudagraph")
+
+    def test_unsupported_mode_rejected_without_loading_gpu_modules(self):
+        with self.assertRaises(ValueError):
+            scoring.make_timer(20, 20, mode="operator")
 
     def test_score_callable_uses_only_bound_launcher_and_chunk_arguments(self):
         calls = []

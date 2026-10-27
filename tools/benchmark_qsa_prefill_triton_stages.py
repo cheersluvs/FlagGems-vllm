@@ -45,6 +45,9 @@ SOURCES = sorted(
     set(support.SOURCES)
     | {
         "tools/benchmark_qsa_prefill_triton_stages.py",
+        "docs/qsa_prefill_fp8_cudagraph.md",
+        "tools/test_qsa_prefill_cudagraph.py",
+        "tools/run_qsa_prefill_fp8_cudagraph_h800.sh",
         "tools/qsa_prefill_triton_ab.py",
         "tools/qsa_prefill_pre_store_production.py",
         "tools/qsa_prefill_pre_head_group_production.py",
@@ -983,7 +986,7 @@ def worker(options, case, path):
             matched.freeze_and_records(matched_pair, query_parts=matched_parts)
         )
     timer, timer_info = scoring.make_timer(
-        options.kernel_warmup_ms, options.kernel_rep_ms
+        options.kernel_warmup_ms, options.kernel_rep_ms, mode=options.mode
     )
     result["timer"] = {k: v for k, v in timer_info.items() if k != "includes_topk"}
     result["production_score_configs"] = support.score_configs(candidate)
@@ -1531,6 +1534,8 @@ def child_command(options, directory, flag):
         sys.executable,
         "-I",
         str(Path(__file__).resolve()),
+        "--mode",
+        getattr(options, "mode", "kernel"),
         "--compiler",
         getattr(options, "compiler", "stock"),
         "--flagtree",
@@ -2040,7 +2045,7 @@ def parent(options, selected, directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("kernel",), default="kernel")
+    parser.add_argument("--mode", choices=("kernel", "cudagraph"), default="kernel")
     parser.add_argument("--compiler", choices=("stock", "flagtree"), default="stock")
     parser.add_argument("--flagtree", default="/opt/flagtree")
     parser.add_argument("--shared-gpu-exploratory", action="store_true")
@@ -2095,6 +2100,19 @@ def main():
     parser.add_argument("--preflight", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--worker", help=argparse.SUPPRESS)
     options = parser.parse_args()
+    if options.mode == "cudagraph" and (
+        options.compiler != "flagtree"
+        or options.candidate != "production"
+        or options.suite != "fp8-prefill"
+        or options.compare_previous_tuning
+        or options.profile_capture
+        or options.diagnostic_self_control
+        or options.query_control_cycles
+        or options.combined_self_control_cycles
+    ):
+        parser.error(
+            "CUDA Graph mode currently requires FlagTree production and fp8-prefill without candidate diagnostics"
+        )
     if options.accuracy_profile is None:
         options.accuracy_profile = (
             "iteration"

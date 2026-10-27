@@ -376,7 +376,10 @@ class AccuracyTests(unittest.TestCase):
                 (2, 200, 100),
             )
             self.assertEqual(options.max_initial_temp_c, 80)
-            self.assertEqual(len(parent.call_args.args[1]), 12)
+            self.assertEqual(
+                parent.call_args.args[1], bench.workloads.cases("fp8-prefill")
+            )
+            self.assertEqual(len(parent.call_args.args[1]), 10)
             child = bench.child_command(options, Path(folder), "--accuracy")
             self.assertEqual(child[child.index("--max-initial-temp-c") + 1], "80")
             self.assertEqual(child[child.index("--rounds") + 1], "2")

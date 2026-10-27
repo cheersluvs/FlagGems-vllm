@@ -9,7 +9,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 
-def make_timer(warmup_ms, rep_ms):
+def make_timer(warmup_ms, rep_ms, mode="kernel"):
+    if mode not in ("kernel", "cudagraph"):
+        raise ValueError("Unsupported QSA timer mode: " + str(mode))
     import triton.testing as testing
 
     from benchmark import base, consts
@@ -17,12 +19,21 @@ def make_timer(warmup_ms, rep_ms):
     instance = object.__new__(base.Benchmark)
     instance.is_backward = False
     config = SimpleNamespace(
-        mode=consts.BenchMode.KERNEL, warm_up=warmup_ms, repetition=rep_ms
+        mode=(
+            consts.BenchMode.CUDAGRAPH
+            if mode == "cudagraph"
+            else consts.BenchMode.KERNEL
+        ),
+        warm_up=warmup_ms,
+        repetition=rep_ms,
     )
     sources = {}
     for name, fn in (
         ("get_latency", base.Benchmark.get_latency),
-        ("do_bench", testing.do_bench),
+        (
+            ("do_bench_cudagraph" if mode == "cudagraph" else "do_bench"),
+            testing.do_bench_cudagraph if mode == "cudagraph" else testing.do_bench,
+        ),
     ):
         path = Path(inspect.getsourcefile(fn)).resolve()
         sources[name] = dict(
@@ -34,12 +45,22 @@ def make_timer(warmup_ms, rep_ms):
             return base.Benchmark.get_latency(instance, fn) * 1000.0
 
     return measure, dict(
-        mode="kernel",
+        mode=mode,
         unit="us",
-        warmup_ms=warmup_ms,
+        warmup_ms=warmup_ms if mode == "kernel" else None,
         rep_ms=rep_ms,
         return_mode="median",
-        cache_policy="shared do_bench default, unchanged",
+        cache_policy=(
+            "shared do_bench_cudagraph default,no explicit L2 flush"
+            if mode == "cudagraph"
+            else "shared do_bench default, unchanged"
+        ),
+        warmup_policy=(
+            "do_bench_cudagraph internal warmup;Config.warm_up not forwarded"
+            if mode == "cudagraph"
+            else "Config.warm_up forwarded to do_bench"
+        ),
+        requested_warmup_ms=warmup_ms,
         includes_topk=False,
         sources=sources,
     )

@@ -68,7 +68,7 @@ def show_timing(record, *, source=None):
     stages = record.get("stages", {})
     for title, names, label in (
         (
-            "原生 vLLM 对候选 [独立 kernel benchmark, us]",
+            f"原生 vLLM 对候选 [独立 {record.get('timer', {}).get('mode', 'kernel')} benchmark, us]",
             ("score", "topk", "pipeline"),
             "native_us",
         ),
