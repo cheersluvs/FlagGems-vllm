@@ -498,8 +498,8 @@ def worker(options):
                 )
             rows["topk"] = dict(common_topk, shared_callable_measurement=True)
         # Four A/A controls preserve the existing coordinator contract; all
-        # three variants also participate in direct measured cross-comparisons.
-        for index in (0, 2):
+        # selected variants also participate in direct measured cross-comparisons.
+        for index in (0, len(VARIANTS) - 1):
             for stage_name in ("score", "pipeline"):
                 label = VARIANTS[index] + ":" + stage_name
                 result["self_controls"][label] = measure(
@@ -510,7 +510,7 @@ def worker(options):
             for row in rows.values():
                 row["measurement_validated"] = True
                 row["validation_scope"] = (
-                    "all three variants validated before/after entire timing block"
+                    f"all {len(VARIANTS)} variants validated before/after entire timing block"
                 )
         result["stages"] = result["comparisons"]["production/paired32"]
         result["kernels_after"] = freeze_records(modules)
