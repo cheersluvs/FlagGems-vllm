@@ -1,0 +1,119 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.n1o4_wmh
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.n1o4_wmh/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+production {
+  "status": "compiled",
+  "hint_backend": {
+    "backend": "cuda",
+    "handler": "triton.backends.nvidia.nvidia_hint_handler.NvidiaHintHandler",
+    "source": "/opt/flagtree/triton/compiler/hint_manager.py",
+    "sha256": "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb",
+    "selection": "explicit CUDA target;native handler;no device discovery"
+  },
+  "gpu_kernel_executed": false,
+  "ptx_sha256": "3ec8b73fcd400b73eeb9cfa1b4faf34a607eb79d3625994ee4e2cc5a3e33a96b",
+  "cubin_sha256": "a39698b2bb414be4b83dd2d624d2e27dc86a1a89ad17fde20cab906a20bbc9f6",
+  "code_sha256": "e11d6fa2b66a8aa7304e98dd87227228f5f6d504998e290b6b65b8f66cea4acc",
+  "shared_bytes": 57344,
+  "schedule": {
+    "schedule_error": "Unidentified K-copy/dot/wait schedule",
+    "K_slots": null,
+    "early_K_copies": 0,
+    "dot_sites": 2,
+    "waits": [
+      "      %scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc268)",
+      "      %scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)"
+    ],
+    "mma_sites": 8,
+    "async_copy_sites": 8
+  },
+  "protocol_error": "No early K-copy protocol",
+  "registers_per_thread": 158,
+  "spill_store_bytes": 0,
+  "spill_load_bytes": 0,
+  "instructions": {
+    "dot_epilogue_order": [
+      "%max_visible = \"tt.reduce\"(%visible_45) <{axis = 0 : i32}> ({",
+      "tt.reduce.return %max_visible_144 : i32 loc(#loc287)",
+      "%scores_left_161 = ttng.warp_group_dot %keys_160, %query_left_75, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> -> tensor<64x128xf32, #mma> loc(#loc267)",
+      "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc268)",
+      "%scores_left_166 = \"tt.reduce\"(%scores_left_165) <{axis = 2 : i32}> ({",
+      "tt.reduce.return %scores_left_203 : f32 loc(#loc297)",
+      "%50 = ttg.convert_layout %47 : tensor<64x32xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x32xf32, #blocked3> loc(#loc271)",
+      "tt.store %45, %50, %49 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc271)",
+      "tt.store %45, %50, %54 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc275)",
+      "%scores_right = ttng.warp_group_dot %keys_160, %query_right_89, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> -> tensor<64x128xf32, #mma> loc(#loc276)",
+      "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)",
+      "%scores_right_171 = \"tt.reduce\"(%scores_right_170) <{axis = 2 : i32}> ({",
+      "tt.reduce.return %scores_right_203 : f32 loc(#loc299)",
+      "%59 = ttg.convert_layout %56 : tensor<64x32xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x32xf32, #blocked3> loc(#loc281)",
+      "tt.store %55, %59, %58 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc281)",
+      "tt.store %55, %59, %63 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc285)"
+    ],
+    "dot_sites": 2,
+    "dot_wait_sites": 2,
+    "mma_sites": 8,
+    "mma_wait_sites": 2,
+    "barriers": 8,
+    "async_copy_sites": 8
+  }
+}
+paired {
+  "status": "compiled",
+  "hint_backend": {
+    "backend": "cuda",
+    "handler": "triton.backends.nvidia.nvidia_hint_handler.NvidiaHintHandler",
+    "source": "/opt/flagtree/triton/compiler/hint_manager.py",
+    "sha256": "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb",
+    "selection": "explicit CUDA target;native handler;no device discovery"
+  },
+  "gpu_kernel_executed": false,
+  "ptx_sha256": "0cfaaa41383a24a1a5f7679808d71a1e55715667b4892002c1637e07ce7d0603",
+  "cubin_sha256": "3ff9aefcf6dacc13f26ebfc17fdffa481266aa7c932d866ac5893ea34500f4ed",
+  "code_sha256": "0fe25924f9cdaaee6b2253cbea28178919031a7c3c6a8243c76999d66d246c7f",
+  "shared_bytes": 57344,
+  "schedule": {
+    "schedule_error": "Unidentified K-copy/dot/wait schedule",
+    "K_slots": null,
+    "early_K_copies": 0,
+    "dot_sites": 2,
+    "waits": [
+      "      %scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 1 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc269)",
+      "      %scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)"
+    ],
+    "mma_sites": 8,
+    "async_copy_sites": 8
+  },
+  "protocol_error": "No early K-copy protocol",
+  "registers_per_thread": 206,
+  "spill_store_bytes": 0,
+  "spill_load_bytes": 0,
+  "instructions": {
+    "dot_epilogue_order": [
+      "%max_visible = \"tt.reduce\"(%visible_45) <{axis = 0 : i32}> ({",
+      "tt.reduce.return %max_visible_144 : i32 loc(#loc287)",
+      "%scores_left_161 = ttng.warp_group_dot %keys_160, %query_left_75, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> -> tensor<64x128xf32, #mma> loc(#loc267)",
+      "%scores_right = ttng.warp_group_dot %keys_160, %query_right_89, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> -> tensor<64x128xf32, #mma> loc(#loc268)",
+      "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 1 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc269)",
+      "%scores_left_166 = \"tt.reduce\"(%scores_left_165) <{axis = 2 : i32}> ({",
+      "tt.reduce.return %scores_left_203 : f32 loc(#loc297)",
+      "%50 = ttg.convert_layout %47 : tensor<64x32xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x32xf32, #blocked3> loc(#loc272)",
+      "tt.store %45, %50, %49 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc272)",
+      "tt.store %45, %50, %54 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc276)",
+      "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)",
+      "%scores_right_171 = \"tt.reduce\"(%scores_right_170) <{axis = 2 : i32}> ({",
+      "tt.reduce.return %scores_right_203 : f32 loc(#loc299)",
+      "%59 = ttg.convert_layout %56 : tensor<64x32xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x32xf32, #blocked3> loc(#loc281)",
+      "tt.store %55, %59, %58 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc281)",
+      "tt.store %55, %59, %63 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc285)"
+    ],
+    "dot_sites": 2,
+    "dot_wait_sites": 2,
+    "mma_sites": 8,
+    "mma_wait_sites": 2,
+    "barriers": 8,
+    "async_copy_sites": 8
+  }
+}
+Decision: not_promising reason: candidate resource usage increased
+Compile report: /tmp/qsa-fp8-dot-issue-h800.gKeNJw
