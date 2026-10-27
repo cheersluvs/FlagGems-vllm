@@ -38,3 +38,19 @@ Local validation:28 CPU checks passed,covering fixed-length/causal visible
 shifts,cache capacity/one-chunk budget bounds,adapter dispatch isolation,
 nonmisleading diagnostic summary and the existing source-JIT/full10 gates.
 CLI,shell syntax and changed-file hooks pass. GPU measurements remain pending.
+
+
+## Per-point runtime provenance repair
+
+| Board | Decision |
+| --- | --- |
+| Evidence | ff9531b6 failed in width8192 compiler_runtime/loaded_cuda before operator import: child report lacks compat134.json;no completed numerical/timing point |
+| Scope | Width adapter/tests/document only;fixture,compiler,CUDA library and acceptance gates unchanged |
+| Implementation | Copy exact qsa_indexer_vllm.py,compat134.json,compat134-package.json,flagtree134-tools.json into each point before runtime initialization;preserve absolute paths and byte hashes |
+| Validation | Exercise the existing loaded_cuda verifier against a staged child report with mocked mapping/driver API,plus exact provenance copying and missing-file rejection;no actual CUDA execution in CPU tests |
+| Replay | Existing offline compile proof remains valid. Start a fresh four-point runtime report because no point completed |
+
+Repair validation:30 CPU checks pass,including the actual existing loaded_cuda
+verifier on staged metadata,unchanged absolute library identity and rejection
+after simulated library corruption. No GPU timing was completed in the failed
+report and no new GPU result is claimed locally.

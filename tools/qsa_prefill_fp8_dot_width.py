@@ -47,6 +47,23 @@ def verify_source():
     )
 
 
+POINT_FILES = (
+    "qsa_indexer_vllm.py",
+    "compat134.json",
+    "compat134-package.json",
+    "flagtree134-tools.json",
+)
+
+
+def prepare_point_report(root, folder):
+    # Runtime validates the library actually mapped into this same process.
+    # Copy provenance verbatim;do not regenerate paths or relax those checks.
+    payload = {name: (root / name).read_bytes() for name in POINT_FILES}
+    folder.mkdir()
+    for name, data in payload.items():
+        (folder / name).write_bytes(data)
+
+
 def worker(options):
     from tools import benchmark_qsa_prefill_triton_stages as bench
 
@@ -83,10 +100,7 @@ def worker(options):
     try:
         for width in WIDTHS:
             folder = root / ("width-" + str(width))
-            folder.mkdir()
-            (folder / "qsa_indexer_vllm.py").write_bytes(
-                (root / "qsa_indexer_vllm.py").read_bytes()
-            )
+            prepare_point_report(root, folder)
             item = copy.deepcopy(seed)
             item["case"].update(
                 query_lengths=[ROWS],

@@ -2,6 +2,7 @@
 # Copyright 2026 FlagOS Contributors
 """Controlled width invariants and diagnostic receipt/dispatch isolation."""
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -50,6 +51,65 @@ class WidthProbeTests(unittest.TestCase):
             self.assertEqual(p.main(), 0)
         self.assertIs(p.full.WORKER, original_worker)
         self.assertIs(p.full.COORDINATE, original_coordinate)
+
+    def test_point_report_preserves_all_runtime_provenance_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            payload = {
+                name: (name + "\n/absolute/original/path\n").encode()
+                for name in p.POINT_FILES
+            }
+            for name, data in payload.items():
+                (root / name).write_bytes(data)
+            for width in p.WIDTHS:
+                point = root / ("width-" + str(width))
+                p.prepare_point_report(root, point)
+                for name, data in payload.items():
+                    self.assertEqual((point / name).read_bytes(), data)
+            (root / "compat134.json").unlink()
+            missing = root / "missing"
+            with self.assertRaises(FileNotFoundError):
+                p.prepare_point_report(root, missing)
+            self.assertFalse(missing.exists())
+
+    def test_staged_point_is_accepted_by_existing_loaded_cuda_verifier(self):
+        from tools import qsa_prefill_flagtree_ab as profile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            library = root / "libcuda.so.615.test"
+            library.write_bytes(b"fake library for CPU provenance test")
+            digest = hashlib.sha256(library.read_bytes()).hexdigest()
+            for name in p.POINT_FILES:
+                (root / name).write_text("{}")
+            (root / "compat134.json").write_text(
+                json.dumps(dict(libcuda=str(library), libcuda_sha256=digest))
+            )
+            point = root / "width-8192"
+            p.prepare_point_report(root, point)
+
+            def api_version(pointer):
+                pointer._obj.value = 13040
+                return 0
+
+            def path(value):
+                if str(value) == "/proc/self/maps":
+                    return SimpleNamespace(read_text=lambda: "mapping " + str(library))
+                return Path(value)
+
+            with patch.object(profile, "Path", path), patch.object(
+                profile, "LIBCUDA_SHA256", digest
+            ), patch.object(
+                profile.ctypes,
+                "CDLL",
+                lambda name: SimpleNamespace(cuDriverGetVersion=api_version),
+            ):
+                receipt = profile.loaded_cuda(point)
+                self.assertEqual(receipt["driver_api"], 13040)
+                self.assertEqual(receipt["libcuda"], str(library.resolve()))
+                library.write_bytes(b"changed")
+                with self.assertRaisesRegex(RuntimeError, "identity changed"):
+                    profile.loaded_cuda(point)
 
     def test_coordinator_does_not_publish_last_width_as_full_scan_mean(self):
         with tempfile.TemporaryDirectory() as tmp:
