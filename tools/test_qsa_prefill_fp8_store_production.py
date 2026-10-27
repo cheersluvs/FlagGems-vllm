@@ -63,9 +63,9 @@ class FP8StoreProductionTests(unittest.TestCase):
             ).read_text()
         )
         self.assertEqual(
-            groups[GROUP], groups["qsa_select_paged_prefill_stage_joint_score"]
+            groups[GROUP][:-1], groups["qsa_select_paged_prefill_stage_joint_score"]
         )
-        self.assertEqual(len(groups[GROUP]), 34)
+        self.assertEqual(len(groups[GROUP]), 35)
 
     def test_gpu_mode_selector_uses_full_yaml_config_including_warps(self):
         groups = yaml.safe_load(
@@ -104,9 +104,9 @@ class FP8StoreProductionTests(unittest.TestCase):
             ns,
         )
         selected = ns["selected"]
-        self.assertEqual([c.num_warps for c in selected], [4, 4])
-        self.assertEqual([c.num_stages for c in selected], [2, 1])
-        self.assertEqual([c.kwargs["QUERY_PARTS"] for c in selected], [1, 2])
+        self.assertEqual([c.num_warps for c in selected], [4, 4, 4])
+        self.assertEqual([c.num_stages for c in selected], [2, 1, 2])
+        self.assertEqual([c.kwargs["QUERY_PARTS"] for c in selected], [1, 2, 2])
         # The original failure was a legitimate extra8-warp choice in YAML.
         self.assertTrue(
             any(
@@ -173,8 +173,10 @@ class FP8StoreProductionTests(unittest.TestCase):
             ns["_fp8_store_eligible"](q, chunk.Array((rows, 1088), "f32"), 1084)
         )
 
-    def test_actual_pruning(self):
-        node = functions(PRODUCTION)["_prune_fp8_store_configs"]
+    def test_original_pruning_snapshot(self):
+        node = functions(ROOT / ab.PRE_PAIRED_PRODUCTION_PATH)[
+            "_prune_fp8_store_configs"
+        ]
         ns = {}
         exec(
             compile(ast.Module(body=[node], type_ignores=[]), str(PRODUCTION), "exec"),

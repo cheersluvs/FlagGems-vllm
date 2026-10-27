@@ -8,6 +8,7 @@ vllm/models/qwen4_exp/nvidia/ops/qsa_indexer.py.
 
 Rectangular scoring uses keys x query with dtype-specific tuned configurations.
 Aligned FP8 logits use vector bulk writes followed by a masked scalar tail.
+H4/D128 R32 split-query tiles issue both dots before the left epilogue.
 Low-utilization ragged batches use compact request-local query tiles.
 Top-K is provided by this repository, without a vLLM extension dependency.
 Selection order and tie-breaking are unspecified. Device-resident metadata
@@ -59,14 +60,32 @@ def _prune_head_group_configs(configs, named_args, **kwargs):
 
 def _prune_fp8_store_configs(configs, named_args, **kwargs):
     args = {**named_args, **kwargs}
-    return [
-        c
-        for c in configs
-        if c.kwargs["QUERY_PARTS"] == 1
-        or (
-            args["IS_FP8"] and c.kwargs["QUERY_PARTS"] == 2 and c.kwargs["TILE_R"] >= 32
+    paired = args["IS_FP8"] and args["NUM_HEADS"] == 4 and args["HEAD_DIM"] == 128
+    result = []
+    for config in configs:
+        meta = config.kwargs
+        split = meta["QUERY_PARTS"] == 2
+        if split and (not args["IS_FP8"] or meta["TILE_R"] < 32):
+            continue
+        added = (
+            meta["TILE_R"] == 32
+            and meta["BLOCK_N"] == 64
+            and meta["K_TILES"] == 16
+            and split
+            and config.num_warps == 4
         )
-    ]
+        if not paired and added:
+            continue
+        if (
+            paired
+            and split
+            and not (
+                meta["TILE_R"] == 32 and meta["BLOCK_N"] == 64 and config.num_warps == 4
+            )
+        ):
+            continue
+        result.append(config)
+    return result
 
 
 @triton.jit
@@ -144,6 +163,9 @@ def _qsa_prefill_fp8_store_score_kernel(
     # Fake rows do not read queries/metadata or write outside this query tile.
     BLOCK_R: tl.constexpr = max(TILE_R, triton.cdiv(16, HEADS_PADDED))
     SPLIT_QUERY: tl.constexpr = IS_FP8 and TILE_R >= 32 and QUERY_PARTS == 2
+    PAIR_DOT: tl.constexpr = (
+        NUM_HEADS == 4 and HEAD_DIM == 128 and TILE_R == 32 and BLOCK_N == 64
+    )
     row_lanes = tl.arange(0, BLOCK_R)
     rows = row_start + row_lanes
     valid_rows = (row_lanes < TILE_R) & (rows < request_end)
@@ -247,6 +269,8 @@ def _qsa_prefill_fp8_store_score_kernel(
         )
         if SPLIT_QUERY:
             scores_left = tl.dot(keys, query_left, out_dtype=tl.float32)
+            if PAIR_DOT:
+                scores_right = tl.dot(keys, query_right, out_dtype=tl.float32)
             scores_left = tl.reshape(scores_left, (BLOCK_N, HALF_R, HEADS_PADDED))
             real_heads_left = tl.arange(0, HEADS_PADDED) < NUM_HEADS
             scores_left = tl.where(
@@ -264,7 +288,8 @@ def _qsa_prefill_fp8_store_score_kernel(
                 visible=visible_left[None, :],
                 logits_width=logits_width,
             )
-            scores_right = tl.dot(keys, query_right, out_dtype=tl.float32)
+            if not PAIR_DOT:
+                scores_right = tl.dot(keys, query_right, out_dtype=tl.float32)
             scores_right = tl.reshape(scores_right, (BLOCK_N, HALF_R, HEADS_PADDED))
             real_heads_right = tl.arange(0, HEADS_PADDED) < NUM_HEADS
             scores_right = tl.where(

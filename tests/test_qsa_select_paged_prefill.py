@@ -1011,8 +1011,8 @@ def test_fp8_store_production_modes(sm90, heads, dim):
     configs = flaggems_vllm.runtime.get_tuned_config(
         "qsa_select_paged_prefill_fp8_store_score"
     )
-    # Two representative modes/stages; other choices share exactly the same
-    # transferred arithmetic. Public-entry/native30 covers actual tuned choices.
+    # Tail mode plus paired K4/stage1 and K16/stage2 modes; other choices share
+    # transferred arithmetic. Public-entry benchmarks cover actual tuned choices.
     selected = [
         c
         for c in configs
@@ -1024,9 +1024,9 @@ def test_fp8_store_production_modes(sm90, heads, dim):
             c.num_warps,
             c.num_stages,
         )
-        in ((8, 64, 4, 1, 4, 2), (32, 64, 4, 2, 4, 1))
+        in ((8, 64, 4, 1, 4, 2), (32, 64, 4, 2, 4, 1), (32, 64, 16, 2, 4, 2))
     ]
-    assert len(configs) == 34 and len(selected) == 2
+    assert len(configs) == 35 and len(selected) == 3
     check_score_kernel(
         torch.float8_e4m3fn,
         heads,

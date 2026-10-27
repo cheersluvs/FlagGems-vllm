@@ -56,7 +56,11 @@ class HeadGroupProductionTests(unittest.TestCase):
         )
         current, old = functions(PRODUCTION), functions(frozen)
         for name, node in old.items():
-            if name != "_qsa_prefill_score_kernel":
+            if name not in {
+                "_qsa_prefill_score_kernel",
+                "_prune_fp8_store_configs",
+                "_qsa_prefill_fp8_store_score_kernel",
+            }:
                 self.assertEqual(ast.dump(current[name]), ast.dump(node), name)
         self.assertEqual(
             ast.dump(normalize(current["_qsa_prefill_score_kernel"].body, False)),
