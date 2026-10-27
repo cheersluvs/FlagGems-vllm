@@ -1,0 +1,1684 @@
+{
+  "status": "passed",
+  "acceptance_eligible": false,
+  "production_modified": false,
+  "source": {
+    "production_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+    "manifest_sha256": "4f29130c68f17c528ce49c6d4e4ab1351ec36359bc45269cfa170b2948737caa",
+    "driver_sha256": "df424d57c632a55c6ddd831df3d9c6a93213cb5cd7104ddce79e577aeb4ea833",
+    "base_driver_sha256": "e68d084b7c552fc70800cdcbcd25dcbade1237d61fc42a694cdd8921815143a9",
+    "compile_summary_sha256": "4421fc08e618735df720de1fa56feab599aa3cc73cdf6b90f8d803b40f9b6dd2",
+    "profiles": {
+      "production": {
+        "result": {
+          "status": "compiled",
+          "hint_backend": {
+            "backend": "cuda",
+            "handler": "triton.backends.nvidia.nvidia_hint_handler.NvidiaHintHandler",
+            "source": "/opt/flagtree/triton/compiler/hint_manager.py",
+            "sha256": "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb",
+            "selection": "explicit CUDA target;native handler;no device discovery"
+          },
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "06bef1ad72baae0383d4327b4598de2a22024c71afb1fcd2ea6a4d4337581388",
+          "cubin_sha256": "4a718e814e7cbecf82bd5a09c8de09e2968aad52249c69c61ae388fecb5ed250",
+          "code_sha256": "e11d6fa2b66a8aa7304e98dd87227228f5f6d504998e290b6b65b8f66cea4acc",
+          "shared_bytes": 57344,
+          "schedule": {
+            "schedule_error": "Unidentified K-copy/dot/wait schedule",
+            "K_slots": null,
+            "early_K_copies": 0,
+            "dot_sites": 2,
+            "waits": [
+              "      %scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "      %scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)"
+            ],
+            "mma_sites": 8,
+            "async_copy_sites": 8
+          },
+          "protocol_error": "No early K-copy protocol",
+          "registers_per_thread": 158,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0,
+          "instructions": {
+            "dot_epilogue_order": [
+              "%max_visible = \"tt.reduce\"(%visible_45) <{axis = 0 : i32}> ({",
+              "tt.reduce.return %max_visible_144 : i32 loc(#loc287)",
+              "%scores_left_161 = ttng.warp_group_dot %keys_160, %query_left_75, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> -> tensor<64x128xf32, #mma> loc(#loc267)",
+              "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "%scores_left_166 = \"tt.reduce\"(%scores_left_165) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_left_203 : f32 loc(#loc297)",
+              "%50 = ttg.convert_layout %47 : tensor<64x32xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x32xf32, #blocked3> loc(#loc271)",
+              "tt.store %45, %50, %49 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc271)",
+              "tt.store %45, %50, %54 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc275)",
+              "%scores_right = ttng.warp_group_dot %keys_160, %query_right_89, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> -> tensor<64x128xf32, #mma> loc(#loc276)",
+              "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)",
+              "%scores_right_171 = \"tt.reduce\"(%scores_right_170) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_right_203 : f32 loc(#loc299)",
+              "%59 = ttg.convert_layout %56 : tensor<64x32xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x32xf32, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %58 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %63 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc285)"
+            ],
+            "dot_sites": 2,
+            "dot_wait_sites": 2,
+            "mma_sites": 8,
+            "mma_wait_sites": 2,
+            "barriers": 8,
+            "async_copy_sites": 8
+          }
+        },
+        "source": "/tmp/qsa-fp8-dot-issue-h800.kpEg6w/production/kernel.py"
+      },
+      "sequential32": {
+        "result": {
+          "status": "compiled",
+          "hint_backend": {
+            "backend": "cuda",
+            "handler": "triton.backends.nvidia.nvidia_hint_handler.NvidiaHintHandler",
+            "source": "/opt/flagtree/triton/compiler/hint_manager.py",
+            "sha256": "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb",
+            "selection": "explicit CUDA target;native handler;no device discovery"
+          },
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "d9e4065211fe68047f4bdb9f423e56914501e744bb490936a01276709146de8b",
+          "cubin_sha256": "ece9af8d4eca16cc346c2fb3b2ca97802e96f94290986972a6fd6519684cd2a1",
+          "code_sha256": "f359c949db809303ac322f20f7ddee4d68b0b26fb0cc4719664e29422f1727ad",
+          "shared_bytes": 36864,
+          "schedule": {
+            "schedule_error": "Unidentified K-copy/dot/wait schedule",
+            "K_slots": null,
+            "early_K_copies": 0,
+            "dot_sites": 2,
+            "waits": [
+              "      %scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "      %scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc277)"
+            ],
+            "mma_sites": 8,
+            "async_copy_sites": 8
+          },
+          "protocol_error": "No early K-copy protocol",
+          "registers_per_thread": 94,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0,
+          "instructions": {
+            "dot_epilogue_order": [
+              "%max_visible = \"tt.reduce\"(%visible_42) <{axis = 0 : i32}> ({",
+              "tt.reduce.return %max_visible_144 : i32 loc(#loc287)",
+              "%scores_left_161 = ttng.warp_group_dot %keys_160, %query_left_75, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> -> tensor<64x64xf32, #mma> loc(#loc267)",
+              "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "%scores_left_166 = \"tt.reduce\"(%scores_left_165) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_left_203 : f32 loc(#loc297)",
+              "%50 = ttg.convert_layout %47 : tensor<64x16xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x16xf32, #blocked3> loc(#loc271)",
+              "tt.store %45, %50, %49 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc271)",
+              "tt.store %45, %50, %54 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc275)",
+              "%scores_right = ttng.warp_group_dot %keys_160, %query_right_89, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> -> tensor<64x64xf32, #mma> loc(#loc276)",
+              "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc277)",
+              "%scores_right_171 = \"tt.reduce\"(%scores_right_170) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_right_203 : f32 loc(#loc299)",
+              "%59 = ttg.convert_layout %56 : tensor<64x16xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x16xf32, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %58 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %63 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc285)"
+            ],
+            "dot_sites": 2,
+            "dot_wait_sites": 2,
+            "mma_sites": 8,
+            "mma_wait_sites": 2,
+            "barriers": 5,
+            "async_copy_sites": 8
+          }
+        },
+        "source": "/tmp/qsa-fp8-dot-issue-h800.kpEg6w/sequential32/kernel.py",
+        "lifetime": {
+          "status": "reviewed_under_explicit_sync_assumptions",
+          "slots": 2,
+          "warp_groups": 1,
+          "K_tile_bytes": 8192,
+          "iterations_checked": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "wait_protocol": [
+            "0",
+            "0"
+          ],
+          "buffer_or_sync_rewrite": false
+        }
+      },
+      "paired32": {
+        "result": {
+          "status": "compiled",
+          "hint_backend": {
+            "backend": "cuda",
+            "handler": "triton.backends.nvidia.nvidia_hint_handler.NvidiaHintHandler",
+            "source": "/opt/flagtree/triton/compiler/hint_manager.py",
+            "sha256": "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb",
+            "selection": "explicit CUDA target;native handler;no device discovery"
+          },
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "eee2aad24d50d3c8cf9bd91449269a91ff980cc47345efd04784b4751322488b",
+          "cubin_sha256": "f6d90458bd22c1dddc58684958ad09d535c5e58730e371f4b13cbf7cee62b199",
+          "code_sha256": "93326549724c4447e2f4c810e0114550f75ddd9682894216134a774a9ebc6cfd",
+          "shared_bytes": 36864,
+          "schedule": {
+            "schedule_error": "Unidentified K-copy/dot/wait schedule",
+            "K_slots": null,
+            "early_K_copies": 0,
+            "dot_sites": 2,
+            "waits": [
+              "      %scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 1 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc269)",
+              "      %scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc277)"
+            ],
+            "mma_sites": 8,
+            "async_copy_sites": 8
+          },
+          "protocol_error": "No early K-copy protocol",
+          "registers_per_thread": 114,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0,
+          "instructions": {
+            "dot_epilogue_order": [
+              "%max_visible = \"tt.reduce\"(%visible_42) <{axis = 0 : i32}> ({",
+              "tt.reduce.return %max_visible_144 : i32 loc(#loc287)",
+              "%scores_left_161 = ttng.warp_group_dot %keys_160, %query_left_75, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> -> tensor<64x64xf32, #mma> loc(#loc267)",
+              "%scores_right = ttng.warp_group_dot %keys_160, %query_right_89, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> -> tensor<64x64xf32, #mma> loc(#loc268)",
+              "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 1 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc269)",
+              "%scores_left_166 = \"tt.reduce\"(%scores_left_165) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_left_203 : f32 loc(#loc297)",
+              "%50 = ttg.convert_layout %47 : tensor<64x16xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x16xf32, #blocked3> loc(#loc272)",
+              "tt.store %45, %50, %49 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc272)",
+              "tt.store %45, %50, %54 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc276)",
+              "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc277)",
+              "%scores_right_171 = \"tt.reduce\"(%scores_right_170) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_right_203 : f32 loc(#loc299)",
+              "%59 = ttg.convert_layout %56 : tensor<64x16xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x16xf32, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %58 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %63 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc285)"
+            ],
+            "dot_sites": 2,
+            "dot_wait_sites": 2,
+            "mma_sites": 8,
+            "mma_wait_sites": 2,
+            "barriers": 5,
+            "async_copy_sites": 8
+          }
+        },
+        "source": "/tmp/qsa-fp8-dot-issue-h800.kpEg6w/paired32/kernel.py",
+        "lifetime": {
+          "status": "reviewed_under_explicit_sync_assumptions",
+          "slots": 2,
+          "warp_groups": 1,
+          "K_tile_bytes": 8192,
+          "iterations_checked": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "wait_protocol": [
+            "1",
+            "0"
+          ],
+          "buffer_or_sync_rewrite": false
+        }
+      }
+    },
+    "sources": {
+      "docs/qsa_prefill_async_pipeline_probe.md": "f35d6ac1227ebf518e41e71505633179ab07bd5100c55d33f50f99e8a0b8c55e",
+      "docs/qsa_prefill_bf16_dot_schedule_probe.md": "67ce3ee43dd08c16c3a609588747afd9edf87d0ce8dce3b351bf77bc55ba5532",
+      "docs/qsa_prefill_bf16_stage_depth_configs.json": "19efb9803313e303ad503b0864c48c5253f3fc3674daef1fcdf8a652b702f583",
+      "docs/qsa_prefill_bf16_stage_depth_probe.md": "5b35b1ffa80e54ed68382e6c8c6d93ce52f3773ffbb6335362a97bc75227587f",
+      "docs/qsa_prefill_double_buffer.md": "695dc23f8ea6f81ecaa0540255185c8f2295b6bf8addedb0b3dde52788fde23f",
+      "docs/qsa_prefill_fp8_dot_issue.md": "bed0be96bc520656b850ea086f7eb14834adb96771b050d872860cddc31be49b",
+      "docs/qsa_prefill_fp8_dot_runtime.md": "7ae10fb9c7444c8e925357725b2897321dedf5295b163f18de8a0d4d8a1532e2",
+      "docs/qsa_prefill_fp8_producer.md": "174eb2936e24c270b63a89fed098e1008ad890d2ec427f899350ad070ca8dd48",
+      "docs/qsa_prefill_fp8_producer_runtime.md": "bd71ef8870aab2f6eccd59f09e4a6852e9c62f2ca2df106adecc7623ba7ee856",
+      "docs/qsa_prefill_fp8_profile_configs.json": "4f29130c68f17c528ce49c6d4e4ab1351ec36359bc45269cfa170b2948737caa",
+      "docs/qsa_prefill_producer_first_probe.md": "f9c12ceae72c0d2363286848bdd827c0dc9b04340ef4cec2cdc0971014bad305",
+      "docs/qsa_prefill_producer_runtime.md": "7d4dc969a7149659ecf1ee91d481f4b359c9acf9873b6880347bd856e3723929",
+      "docs/qsa_prefill_source_pipeline.md": "fba5f8796060849c57dea7f5ebf7f6cf7de1ca611f0f62db0e3f7e9f5013edfe",
+      "src/flaggems_vllm/ops/qsa_select_paged_prefill.py": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+      "tools/qsa_prefill_async_pipeline_kernel.py": "db9896ef6b23d99f718885693687a274d95d5808088fb90b3c59081178251272",
+      "tools/qsa_prefill_async_pipeline_probe.py": "162184b3735732712ec94f4e28210ce6b719f8584897328d2ad1c423d642d24d",
+      "tools/qsa_prefill_bf16_dot_schedule_kernel.py": "e140f8dbb79a996427fdd893ef1e1c52a0cf48add6f83c72bee099b4182d51a3",
+      "tools/qsa_prefill_bf16_dot_schedule_probe.py": "b2224e3585a4af8be1ee3a6098150fda027a1d366592af72bd0592f99306731a",
+      "tools/qsa_prefill_bf16_stage_depth_probe.py": "3655fa82a2f7c982569c907aac4e68acb8d8dab7e4bbc10772ae5e100a8dba81",
+      "tools/qsa_prefill_double_buffer.py": "09c0337e53309199177004bbd2a69161af63733e53f2fc4f4721a67148173416",
+      "tools/qsa_prefill_double_buffer_runtime.py": "456faa57d36ecef423185e8047350b2cc09323fc754aaaaaf0c233c67cdceafd",
+      "tools/qsa_prefill_explicit_prefetch_kernel.py": "7d9a3397135c2428ccb82c80391d477f0d5caf71ef94dafe73681e3ec3ba671d",
+      "tools/qsa_prefill_fp8_dot_issue.py": "516ed52abfc62849d27aff6765d04f344ad63debc4fec27babfeb875b5acf58f",
+      "tools/qsa_prefill_fp8_dot_runtime.py": "8801184755df11a5099b20a17cee5b4fb0a34644502da8a8b6b9daf0f3b06c67",
+      "tools/qsa_prefill_fp8_producer.py": "71ba464eb91df34fe0a4d74c9e8854d9a1870f64ed19e802baef61430374064b",
+      "tools/qsa_prefill_fp8_producer_runtime.py": "df424d57c632a55c6ddd831df3d9c6a93213cb5cd7104ddce79e577aeb4ea833",
+      "tools/qsa_prefill_fp8_profile.py": "85e6be71387905017b91a950321d400ee74aedef8d71109bda43f6bdb885ba5f",
+      "tools/qsa_prefill_pipeline_trace.py": "9bb7a4b5f83efba4f95964736a63dfddcf60be94efa19efb05593a19d6a19c96",
+      "tools/qsa_prefill_producer_first.py": "b329d3ad70e78f9f1952f7ca9fb9191e38d80f6bfd21dc77323d920d625ae50a",
+      "tools/qsa_prefill_producer_runtime.py": "e68d084b7c552fc70800cdcbcd25dcbade1237d61fc42a694cdd8921815143a9",
+      "tools/qsa_prefill_source_pipeline.py": "b22b8fda6e830778f91f2334f44f0e8747c550bda54f996f5ab896fc49999cda",
+      "tools/run_qsa_prefill_async_pipeline_h800.sh": "4ebb0727df78c809d73f22a08b3e6ca0994f89a07ffd1084521de320e46f5f09",
+      "tools/run_qsa_prefill_bf16_dot_schedule_h800.sh": "c9cf89c6f30db6792b4466816aef2eb757ffd3cc605cb43fa052580f3a904974",
+      "tools/run_qsa_prefill_bf16_stage_depth_h800.sh": "a2355b55535cf4adc040dea3a8c6227f4f93204ba34925cecfa5d5beb2d2236d",
+      "tools/run_qsa_prefill_double_buffer.sh": "f22a875f59ec24928635cd3bd2859f0b61d48210ef0a8f4d9d318bfa82198574",
+      "tools/run_qsa_prefill_fp8_dot_issue_h800.sh": "03073a9ced09baab498d6932c7282d14456d0c83c5f366ced7a0e9d7edb31552",
+      "tools/run_qsa_prefill_fp8_dot_runtime_h800.sh": "dcec83f857eb360dae8490c2a4b764258563acf38f7fceaca70863f1d3fe5839",
+      "tools/run_qsa_prefill_fp8_producer_h800.sh": "44d848b507e3e82f9817004e674ea36a9ed199ce8f39f0ee65aec1dab72da9a7",
+      "tools/run_qsa_prefill_fp8_producer_runtime_h800.sh": "3eb0af438825e493b440554a3b989e70ff87353bd5b55d9ca8ad0ddf566166bf",
+      "tools/run_qsa_prefill_producer_first.sh": "7f3189400be800a927f6690daf76c583994c3fae702914850f37be9ffe92c72f",
+      "tools/run_qsa_prefill_producer_runtime.sh": "39b2c07918c6e65164ad570aed4fbe4cac6d9cb211bfe712a51a2ef1e5b7d832",
+      "tools/run_qsa_prefill_source_pipeline.sh": "4115b74b4ded869c999e37ca1b3681ca09ee834fcb6ca1a0416432bb3691c2a6",
+      "tools/test_qsa_prefill_async_pipeline_probe.py": "11bb028edc0060a9503f308b2b7702c5089ecbb61983d0fd525c34db401abaad",
+      "tools/test_qsa_prefill_bf16_dot_schedule_probe.py": "e51818a988885c50537e79821a61c31b38038227aaed58941113628d4703a4ae",
+      "tools/test_qsa_prefill_bf16_stage_depth_probe.py": "e956598d323930aedaa3b847b5b8c1b5fac5f806743ac6264f6f77e9fc5a941c",
+      "tools/test_qsa_prefill_double_buffer.py": "8d1f47fb1d678e5c7e7ee5d3ac4bd28332ffb96dcb41e0d56374e9bc78af5a01",
+      "tools/test_qsa_prefill_fp8_dot_issue.py": "082d8ff19e79e28cca6005a6de08c0db819cf45b6c094e122980e6737e588298",
+      "tools/test_qsa_prefill_fp8_dot_runtime.py": "f23302a10abad5aa4311354bde7c0156084be16b886f4cef2b4afd74f571e4da",
+      "tools/test_qsa_prefill_fp8_producer.py": "cc8353d2c7d158bc32f210259c303589e7339bb8044cbf62763d38514ae4c1f9",
+      "tools/test_qsa_prefill_fp8_producer_runtime.py": "bba5fe905b4fe9f9adb9dee129d3d3ad3dec613fff1965e5190908388d96af33",
+      "tools/test_qsa_prefill_producer_first.py": "c09ebfc4290600f1ec311d7accd2f38899a52e8fe1c31fae94ea8ec22814ec40",
+      "tools/test_qsa_prefill_producer_runtime.py": "da57a1cd3e55f5168e1cb81b1630d5f577f0a8ecddc039f4b0e51a7d54cea322",
+      "tools/test_qsa_prefill_source_pipeline.py": "0f285bfcf5280ec6248f0a83087b38587d591a8e04bac3270f43d3279dbcce12"
+    }
+  },
+  "options": {
+    "report_dir": "/tmp/qsa-fp8-dot-runtime-h800.lzouax",
+    "baseline_report": "/tmp/qsa-head-group-production-h800.Dy5oqx",
+    "flagtree": "/opt/flagtree",
+    "rounds": 2,
+    "kernel_warmup_ms": 20,
+    "kernel_rep_ms": 20,
+    "timeout": 1800,
+    "max_initial_temp_c": 80,
+    "cooldown_timeout": 120,
+    "cooldown_interval": 10,
+    "cases": [
+      "fp8_tail113_float8_e4m3fn",
+      "fp8_long100k_float8_e4m3fn"
+    ],
+    "worker_case": null,
+    "compiler": "flagtree",
+    "candidate": "production"
+  },
+  "git_head": {
+    "returncode": 0,
+    "stdout": "75b5c8629e3ba75ef44ac7d3875ba692445b6b71\n",
+    "stderr": ""
+  },
+  "git_status": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "cases": [
+    {
+      "case": "fp8_tail113_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              267.39200949668884,
+              265.00800251960754
+            ],
+            "median": 266.2000060081482,
+            "mean": 266.2000060081482,
+            "min": 265.00800251960754,
+            "max": 267.39200949668884,
+            "stdev": 1.6857474998902287
+          },
+          "candidate_us": {
+            "samples": [
+              262.5119984149933,
+              265.82400500774384
+            ],
+            "median": 264.16800171136856,
+            "mean": 264.16800171136856,
+            "min": 262.5119984149933,
+            "max": 265.82400500774384,
+            "stdev": 2.3419423210684656
+          },
+          "speedup": 1.0076920909558147,
+          "paired_ratios": {
+            "samples": [
+              1.0185896687052793,
+              0.9969302904449411
+            ],
+            "median": 1.0077599795751102,
+            "mean": 1.0077599795751102,
+            "min": 0.9969302904449411,
+            "max": 1.0185896687052793,
+            "stdev": 0.015315493244169668
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all three variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              808.3679974079132,
+              809.8400235176086
+            ],
+            "median": 809.1040104627609,
+            "mean": 809.1040104627609,
+            "min": 808.3679974079132,
+            "max": 809.8400235176086,
+            "stdev": 1.0408796442492945
+          },
+          "candidate_us": {
+            "samples": [
+              807.1679770946503,
+              807.9520165920258
+            ],
+            "median": 807.559996843338,
+            "mean": 807.559996843338,
+            "min": 807.1679770946503,
+            "max": 807.9520165920258,
+            "stdev": 0.5543996453123001
+          },
+          "speedup": 1.0019119491127078,
+          "paired_ratios": {
+            "samples": [
+              1.0014867045612765,
+              1.0023367810053208
+            ],
+            "median": 1.0019117427832986,
+            "mean": 1.0019117427832986,
+            "min": 1.0014867045612765,
+            "max": 1.0023367810053208,
+            "stdev": 0.0006010948181106169
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all three variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              550.0479936599731,
+              550.0479936599731
+            ],
+            "median": 550.0479936599731,
+            "mean": 550.0479936599731,
+            "min": 550.0479936599731,
+            "max": 550.0479936599731,
+            "stdev": 0.0
+          },
+          "candidate_us": {
+            "samples": [
+              549.7919917106628,
+              550.0159859657288
+            ],
+            "median": 549.9039888381958,
+            "mean": 549.9039888381958,
+            "min": 549.7919917106628,
+            "max": 550.0159859657288,
+            "stdev": 0.15838785670393976
+          },
+          "speedup": 1.0002618726626835,
+          "paired_ratios": {
+            "samples": [
+              1.0004656341910578,
+              1.0000581941162823
+            ],
+            "median": 1.0002619141536702,
+            "mean": 1.0002619141536702,
+            "min": 1.0000581941162823,
+            "max": 1.0004656341910578,
+            "stdev": 0.0002881036398009495
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all three variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/sequential32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                266.7520046234131,
+                264.9119943380356
+              ],
+              "median": 265.83199948072433,
+              "mean": 265.83199948072433,
+              "min": 264.9119943380356,
+              "max": 266.7520046234131,
+              "stdev": 1.3010837502434265
+            },
+            "candidate_us": {
+              "samples": [
+                268.5279995203018,
+                272.19200134277344
+              ],
+              "median": 270.3600004315376,
+              "mean": 270.3600004315376,
+              "min": 268.5279995203018,
+              "max": 272.19200134277344,
+              "stdev": 2.59084053494955
+            },
+            "speedup": 0.983251956859055,
+            "paired_ratios": {
+              "samples": [
+                0.9933861835634966,
+                0.973254147921966
+              ],
+              "median": 0.9833201657427313,
+              "mean": 0.9833201657427313,
+              "min": 0.973254147921966,
+              "max": 0.9933861835634966,
+              "stdev": 0.014235498921215593
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                809.503972530365,
+                814.4960105419159
+              ],
+              "median": 811.9999915361404,
+              "mean": 811.9999915361404,
+              "min": 809.503972530365,
+              "max": 814.4960105419159,
+              "stdev": 3.5299039299086523
+            },
+            "candidate_us": {
+              "samples": [
+                808.1279993057251,
+                818.9280033111572
+              ],
+              "median": 813.5280013084412,
+              "mean": 813.5280013084412,
+              "min": 808.1279993057251,
+              "max": 818.9280033111572,
+              "stdev": 7.636756069082933
+            },
+            "speedup": 0.9981217490119048,
+            "paired_ratios": {
+              "samples": [
+                1.0017026674311769,
+                0.9945880556638416
+              ],
+              "median": 0.9981453615475092,
+              "mean": 0.9981453615475092,
+              "min": 0.9945880556638416,
+              "max": 1.0017026674311769,
+              "stdev": 0.0050307902261923975
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                550.0479936599731,
+                550.0479936599731
+              ],
+              "median": 550.0479936599731,
+              "mean": 550.0479936599731,
+              "min": 550.0479936599731,
+              "max": 550.0479936599731,
+              "stdev": 0.0
+            },
+            "candidate_us": {
+              "samples": [
+                549.7919917106628,
+                550.0159859657288
+              ],
+              "median": 549.9039888381958,
+              "mean": 549.9039888381958,
+              "min": 549.7919917106628,
+              "max": 550.0159859657288,
+              "stdev": 0.15838785670393976
+            },
+            "speedup": 1.0002618726626835,
+            "paired_ratios": {
+              "samples": [
+                1.0004656341910578,
+                1.0000581941162823
+              ],
+              "median": 1.0002619141536702,
+              "mean": 1.0002619141536702,
+              "min": 1.0000581941162823,
+              "max": 1.0004656341910578,
+              "stdev": 0.0002881036398009495
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          }
+        },
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                267.39200949668884,
+                265.00800251960754
+              ],
+              "median": 266.2000060081482,
+              "mean": 266.2000060081482,
+              "min": 265.00800251960754,
+              "max": 267.39200949668884,
+              "stdev": 1.6857474998902287
+            },
+            "candidate_us": {
+              "samples": [
+                262.5119984149933,
+                265.82400500774384
+              ],
+              "median": 264.16800171136856,
+              "mean": 264.16800171136856,
+              "min": 262.5119984149933,
+              "max": 265.82400500774384,
+              "stdev": 2.3419423210684656
+            },
+            "speedup": 1.0076920909558147,
+            "paired_ratios": {
+              "samples": [
+                1.0185896687052793,
+                0.9969302904449411
+              ],
+              "median": 1.0077599795751102,
+              "mean": 1.0077599795751102,
+              "min": 0.9969302904449411,
+              "max": 1.0185896687052793,
+              "stdev": 0.015315493244169668
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                808.3679974079132,
+                809.8400235176086
+              ],
+              "median": 809.1040104627609,
+              "mean": 809.1040104627609,
+              "min": 808.3679974079132,
+              "max": 809.8400235176086,
+              "stdev": 1.0408796442492945
+            },
+            "candidate_us": {
+              "samples": [
+                807.1679770946503,
+                807.9520165920258
+              ],
+              "median": 807.559996843338,
+              "mean": 807.559996843338,
+              "min": 807.1679770946503,
+              "max": 807.9520165920258,
+              "stdev": 0.5543996453123001
+            },
+            "speedup": 1.0019119491127078,
+            "paired_ratios": {
+              "samples": [
+                1.0014867045612765,
+                1.0023367810053208
+              ],
+              "median": 1.0019117427832986,
+              "mean": 1.0019117427832986,
+              "min": 1.0014867045612765,
+              "max": 1.0023367810053208,
+              "stdev": 0.0006010948181106169
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                550.0479936599731,
+                550.0479936599731
+              ],
+              "median": 550.0479936599731,
+              "mean": 550.0479936599731,
+              "min": 550.0479936599731,
+              "max": 550.0479936599731,
+              "stdev": 0.0
+            },
+            "candidate_us": {
+              "samples": [
+                549.7919917106628,
+                550.0159859657288
+              ],
+              "median": 549.9039888381958,
+              "mean": 549.9039888381958,
+              "min": 549.7919917106628,
+              "max": 550.0159859657288,
+              "stdev": 0.15838785670393976
+            },
+            "speedup": 1.0002618726626835,
+            "paired_ratios": {
+              "samples": [
+                1.0004656341910578,
+                1.0000581941162823
+              ],
+              "median": 1.0002619141536702,
+              "mean": 1.0002619141536702,
+              "min": 1.0000581941162823,
+              "max": 1.0004656341910578,
+              "stdev": 0.0002881036398009495
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          }
+        },
+        "sequential32/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                270.143985748291,
+                272.38398790359497
+              ],
+              "median": 271.263986825943,
+              "mean": 271.263986825943,
+              "min": 270.143985748291,
+              "max": 272.38398790359497,
+              "stdev": 1.5839207138879086
+            },
+            "candidate_us": {
+              "samples": [
+                265.3760015964508,
+                266.2080079317093
+              ],
+              "median": 265.79200476408005,
+              "mean": 265.79200476408005,
+              "min": 265.3760015964508,
+              "max": 266.2080079317093,
+              "stdev": 0.588317321651442
+            },
+            "speedup": 1.020587459230461,
+            "paired_ratios": {
+              "samples": [
+                1.0179669002590925,
+                1.0231998279085204
+              ],
+              "median": 1.0205833640838065,
+              "mean": 1.0205833640838065,
+              "min": 1.0179669002590925,
+              "max": 1.0231998279085204,
+              "stdev": 0.0037002386263690085
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                818.3040022850037,
+                813.616007566452
+              ],
+              "median": 815.9600049257278,
+              "mean": 815.9600049257278,
+              "min": 813.616007566452,
+              "max": 818.3040022850037,
+              "stdev": 3.314912855654582
+            },
+            "candidate_us": {
+              "samples": [
+                812.2879862785339,
+                808.4319829940796
+              ],
+              "median": 810.3599846363068,
+              "mean": 810.3599846363068,
+              "min": 808.4319829940796,
+              "max": 812.2879862785339,
+              "stdev": 2.7266060707152677
+            },
+            "speedup": 1.006910534078178,
+            "paired_ratios": {
+              "samples": [
+                1.0074062599817977,
+                1.0064124436952298
+              ],
+              "median": 1.0069093518385137,
+              "mean": 1.0069093518385137,
+              "min": 1.0064124436952298,
+              "max": 1.0074062599817977,
+              "stdev": 0.0007027342354858072
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                550.0479936599731,
+                550.0479936599731
+              ],
+              "median": 550.0479936599731,
+              "mean": 550.0479936599731,
+              "min": 550.0479936599731,
+              "max": 550.0479936599731,
+              "stdev": 0.0
+            },
+            "candidate_us": {
+              "samples": [
+                549.7919917106628,
+                550.0159859657288
+              ],
+              "median": 549.9039888381958,
+              "mean": 549.9039888381958,
+              "min": 549.7919917106628,
+              "max": 550.0159859657288,
+              "stdev": 0.15838785670393976
+            },
+            "speedup": 1.0002618726626835,
+            "paired_ratios": {
+              "samples": [
+                1.0004656341910578,
+                1.0000581941162823
+              ],
+              "median": 1.0002619141536702,
+              "mean": 1.0002619141536702,
+              "min": 1.0000581941162823,
+              "max": 1.0004656341910578,
+              "stdev": 0.0002881036398009495
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          }
+        }
+      }
+    },
+    {
+      "case": "fp8_long100k_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              1105.9520244598389,
+              1101.6639471054077
+            ],
+            "median": 1103.8079857826233,
+            "mean": 1103.8079857826233,
+            "min": 1101.6639471054077,
+            "max": 1105.9520244598389,
+            "stdev": 3.0321285755707383
+          },
+          "candidate_us": {
+            "samples": [
+              1062.5280141830444,
+              1057.8880310058594
+            ],
+            "median": 1060.208022594452,
+            "mean": 1060.208022594452,
+            "min": 1057.8880310058594,
+            "max": 1062.5280141830444,
+            "stdev": 3.2809635691790566
+          },
+          "speedup": 1.0411239702577209,
+          "paired_ratios": {
+            "samples": [
+              1.0408685791782932,
+              1.0413804815032508
+            ],
+            "median": 1.0411245303407721,
+            "mean": 1.0411245303407721,
+            "min": 1.0408685791782932,
+            "max": 1.0413804815032508,
+            "stdev": 0.00036196960528265697
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all three variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              2601.5360355377197,
+              2601.0560989379883
+            ],
+            "median": 2601.296067237854,
+            "mean": 2601.296067237854,
+            "min": 2601.0560989379883,
+            "max": 2601.5360355377197,
+            "stdev": 0.33936642420971874
+          },
+          "candidate_us": {
+            "samples": [
+              2558.271884918213,
+              2579.9999237060547
+            ],
+            "median": 2569.135904312134,
+            "mean": 2569.135904312134,
+            "min": 2558.271884918213,
+            "max": 2579.9999237060547,
+            "stdev": 15.364043568767267
+          },
+          "speedup": 1.0125178908876489,
+          "paired_ratios": {
+            "samples": [
+              1.0169114748414982,
+              1.0081613084707721
+            ],
+            "median": 1.0125363916561352,
+            "mean": 1.0125363916561352,
+            "min": 1.0081613084707721,
+            "max": 1.0169114748414982,
+            "stdev": 0.006187301977250921
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all three variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              1474.0960001945496,
+              1474.7200012207031
+            ],
+            "median": 1474.4080007076263,
+            "mean": 1474.4080007076263,
+            "min": 1474.0960001945496,
+            "max": 1474.7200012207031,
+            "stdev": 0.4412353570605496
+          },
+          "candidate_us": {
+            "samples": [
+              1474.128007888794,
+              1474.2880463600159
+            ],
+            "median": 1474.208027124405,
+            "mean": 1474.208027124405,
+            "min": 1474.128007888794,
+            "max": 1474.2880463600159,
+            "stdev": 0.11316428825175047
+          },
+          "speedup": 1.0001356481443202,
+          "paired_ratios": {
+            "samples": [
+              0.9999782870320127,
+              1.0002929921745982
+            ],
+            "median": 1.0001356396033054,
+            "mean": 1.0001356396033054,
+            "min": 0.9999782870320127,
+            "max": 1.0002929921745982,
+            "stdev": 0.00022253014039646493
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all three variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/sequential32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                1108.3199977874756,
+                1107.088029384613
+              ],
+              "median": 1107.7040135860443,
+              "mean": 1107.7040135860443,
+              "min": 1107.088029384613,
+              "max": 1108.3199977874756,
+              "stdev": 0.8711332118716687
+            },
+            "candidate_us": {
+              "samples": [
+                1120.3199625015259,
+                1128.2879710197449
+              ],
+              "median": 1124.3039667606354,
+              "mean": 1124.3039667606354,
+              "min": 1120.3199625015259,
+              "max": 1128.2879710197449,
+              "stdev": 5.634232855784825
+            },
+            "speedup": 0.9852353512347563,
+            "paired_ratios": {
+              "samples": [
+                0.9892888057736149,
+                0.981210522331483
+              ],
+              "median": 0.985249664052549,
+              "mean": 0.985249664052549,
+              "min": 0.981210522331483,
+              "max": 0.9892888057736149,
+              "stdev": 0.005712209002278475
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                2604.5119762420654,
+                2596.640110015869
+              ],
+              "median": 2600.5760431289673,
+              "mean": 2600.5760431289673,
+              "min": 2596.640110015869,
+              "max": 2604.5119762420654,
+              "stdev": 5.566249989136753
+            },
+            "candidate_us": {
+              "samples": [
+                2618.7520027160645,
+                2643.296003341675
+              ],
+              "median": 2631.0240030288696,
+              "mean": 2631.0240030288696,
+              "min": 2618.7520027160645,
+              "max": 2643.296003341675,
+              "stdev": 17.355229279815944
+            },
+            "speedup": 0.9884273348077212,
+            "paired_ratios": {
+              "samples": [
+                0.9945622852185966,
+                0.9823493497259396
+              ],
+              "median": 0.9884558174722681,
+              "mean": 0.9884558174722681,
+              "min": 0.9823493497259396,
+              "max": 0.9945622852185966,
+              "stdev": 0.008635849505051639
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                1474.0960001945496,
+                1474.7200012207031
+              ],
+              "median": 1474.4080007076263,
+              "mean": 1474.4080007076263,
+              "min": 1474.0960001945496,
+              "max": 1474.7200012207031,
+              "stdev": 0.4412353570605496
+            },
+            "candidate_us": {
+              "samples": [
+                1474.128007888794,
+                1474.2880463600159
+              ],
+              "median": 1474.208027124405,
+              "mean": 1474.208027124405,
+              "min": 1474.128007888794,
+              "max": 1474.2880463600159,
+              "stdev": 0.11316428825175047
+            },
+            "speedup": 1.0001356481443202,
+            "paired_ratios": {
+              "samples": [
+                0.9999782870320127,
+                1.0002929921745982
+              ],
+              "median": 1.0001356396033054,
+              "mean": 1.0001356396033054,
+              "min": 0.9999782870320127,
+              "max": 1.0002929921745982,
+              "stdev": 0.00022253014039646493
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          }
+        },
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                1105.9520244598389,
+                1101.6639471054077
+              ],
+              "median": 1103.8079857826233,
+              "mean": 1103.8079857826233,
+              "min": 1101.6639471054077,
+              "max": 1105.9520244598389,
+              "stdev": 3.0321285755707383
+            },
+            "candidate_us": {
+              "samples": [
+                1062.5280141830444,
+                1057.8880310058594
+              ],
+              "median": 1060.208022594452,
+              "mean": 1060.208022594452,
+              "min": 1057.8880310058594,
+              "max": 1062.5280141830444,
+              "stdev": 3.2809635691790566
+            },
+            "speedup": 1.0411239702577209,
+            "paired_ratios": {
+              "samples": [
+                1.0408685791782932,
+                1.0413804815032508
+              ],
+              "median": 1.0411245303407721,
+              "mean": 1.0411245303407721,
+              "min": 1.0408685791782932,
+              "max": 1.0413804815032508,
+              "stdev": 0.00036196960528265697
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                2601.5360355377197,
+                2601.0560989379883
+              ],
+              "median": 2601.296067237854,
+              "mean": 2601.296067237854,
+              "min": 2601.0560989379883,
+              "max": 2601.5360355377197,
+              "stdev": 0.33936642420971874
+            },
+            "candidate_us": {
+              "samples": [
+                2558.271884918213,
+                2579.9999237060547
+              ],
+              "median": 2569.135904312134,
+              "mean": 2569.135904312134,
+              "min": 2558.271884918213,
+              "max": 2579.9999237060547,
+              "stdev": 15.364043568767267
+            },
+            "speedup": 1.0125178908876489,
+            "paired_ratios": {
+              "samples": [
+                1.0169114748414982,
+                1.0081613084707721
+              ],
+              "median": 1.0125363916561352,
+              "mean": 1.0125363916561352,
+              "min": 1.0081613084707721,
+              "max": 1.0169114748414982,
+              "stdev": 0.006187301977250921
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                1474.0960001945496,
+                1474.7200012207031
+              ],
+              "median": 1474.4080007076263,
+              "mean": 1474.4080007076263,
+              "min": 1474.0960001945496,
+              "max": 1474.7200012207031,
+              "stdev": 0.4412353570605496
+            },
+            "candidate_us": {
+              "samples": [
+                1474.128007888794,
+                1474.2880463600159
+              ],
+              "median": 1474.208027124405,
+              "mean": 1474.208027124405,
+              "min": 1474.128007888794,
+              "max": 1474.2880463600159,
+              "stdev": 0.11316428825175047
+            },
+            "speedup": 1.0001356481443202,
+            "paired_ratios": {
+              "samples": [
+                0.9999782870320127,
+                1.0002929921745982
+              ],
+              "median": 1.0001356396033054,
+              "mean": 1.0001356396033054,
+              "min": 0.9999782870320127,
+              "max": 1.0002929921745982,
+              "stdev": 0.00022253014039646493
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          }
+        },
+        "sequential32/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                1129.1040182113647,
+                1108.7999939918518
+              ],
+              "median": 1118.9520061016083,
+              "mean": 1118.9520061016083,
+              "min": 1108.7999939918518,
+              "max": 1129.1040182113647,
+              "stdev": 14.357113210993498
+            },
+            "candidate_us": {
+              "samples": [
+                1054.3040037155151,
+                1068.0639743804932
+              ],
+              "median": 1061.1839890480042,
+              "mean": 1061.1839890480042,
+              "min": 1054.3040037155151,
+              "max": 1068.0639743804932,
+              "stdev": 9.72976856613393
+            },
+            "speedup": 1.0544373243940743,
+            "paired_ratios": {
+              "samples": [
+                1.0709472924623675,
+                1.038140055828572
+              ],
+              "median": 1.05454367414547,
+              "mean": 1.05454367414547,
+              "min": 1.038140055828572,
+              "max": 1.0709472924623675,
+              "stdev": 0.023198219495748504
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                2641.4079666137695,
+                2637.8560066223145
+              ],
+              "median": 2639.631986618042,
+              "mean": 2639.631986618042,
+              "min": 2637.8560066223145,
+              "max": 2641.4079666137695,
+              "stdev": 2.5116149964611973
+            },
+            "candidate_us": {
+              "samples": [
+                2549.855947494507,
+                2563.7760162353516
+              ],
+              "median": 2556.815981864929,
+              "mean": 2556.815981864929,
+              "min": 2549.855947494507,
+              "max": 2563.7760162353516,
+              "stdev": 9.842975001234192
+            },
+            "speedup": 1.0323902875062236,
+            "paired_ratios": {
+              "samples": [
+                1.0359047808991806,
+                1.028894876119382
+              ],
+              "median": 1.0323998285092812,
+              "mean": 1.0323998285092812,
+              "min": 1.028894876119382,
+              "max": 1.0359047808991806,
+              "stdev": 0.004956751205267639
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                1474.0960001945496,
+                1474.7200012207031
+              ],
+              "median": 1474.4080007076263,
+              "mean": 1474.4080007076263,
+              "min": 1474.0960001945496,
+              "max": 1474.7200012207031,
+              "stdev": 0.4412353570605496
+            },
+            "candidate_us": {
+              "samples": [
+                1474.128007888794,
+                1474.2880463600159
+              ],
+              "median": 1474.208027124405,
+              "mean": 1474.208027124405,
+              "min": 1474.128007888794,
+              "max": 1474.2880463600159,
+              "stdev": 0.11316428825175047
+            },
+            "speedup": 1.0001356481443202,
+            "paired_ratios": {
+              "samples": [
+                0.9999782870320127,
+                1.0002929921745982
+              ],
+              "median": 1.0001356396033054,
+              "mean": 1.0001356396033054,
+              "min": 0.9999782870320127,
+              "max": 1.0002929921745982,
+              "stdev": 0.00022253014039646493
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all three variants validated before/after entire timing block"
+          }
+        }
+      }
+    }
+  ],
+  "gpu_inventory": {
+    "returncode": 0,
+    "stdout": "GPU-198a9496-3d7a-f01d-ee60-190fe0bc5b51, NVIDIA H800, 65\nGPU-497db188-9a65-ed86-3516-2de784681f95, NVIDIA H800, 29\nGPU-2d17872f-4327-2beb-8049-604ecf6a3d66, NVIDIA H800, 28\nGPU-3521ffb6-385f-6fe2-c4ba-862823ca9042, NVIDIA H800, 43\nGPU-bd27977f-e405-2b21-3608-291991a0b4f4, NVIDIA H800, 29\nGPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, NVIDIA H800, 27\nGPU-83ccf064-1bbb-6765-e356-c2a85323cbee, NVIDIA H800, 32\nGPU-56b64cc2-61c8-2e60-f861-6da66026f6a0, NVIDIA H800, 38\n",
+    "stderr": ""
+  },
+  "gpu_selection_policy": "lowest inventory temperature first; configured idle guard required",
+  "gpu_selection_checks": [
+    {
+      "device_uuid": "GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, 27, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 14:57:13 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:CC:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 27,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "inventory_temperature_c": 27
+    }
+  ],
+  "gpu_uuid": "GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937",
+  "idle_gpu_checks": [
+    {
+      "device_uuid": "GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, 27, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 14:57:14 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:CC:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 27,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_tail113_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, 31, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 14:57:56 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:CC:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 31,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_long100k_float8_e4m3fn",
+      "attempt": 1
+    }
+  ],
+  "aggregate": {
+    "score": 1.0244080306067678,
+    "topk": 1.0001987604035019,
+    "pipeline": 1.0072149200001783
+  },
+  "probe": "fp8_r32_source_paired_issue"
+}
