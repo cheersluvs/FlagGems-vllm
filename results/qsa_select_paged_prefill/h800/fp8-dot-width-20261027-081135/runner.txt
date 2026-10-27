@@ -1,0 +1,43 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.wzr66_hx
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.wzr66_hx/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-dot-width.V5N547/tools/qsa_prefill_fp8_dot_runtime.py", line 349, in worker
+    torch, _, production, _, helpers, device, info = bench.runtime(
+                                                     ^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.V5N547/tools/benchmark_qsa_prefill_triton_stages.py", line 251, in runtime
+    stock = check_stock_environment(torch, triton, diagnostic_path, options)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.V5N547/tools/benchmark_qsa_prefill_triton_stages.py", line 240, in check_stock_environment
+    return profile.compiler_runtime(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.V5N547/tools/qsa_prefill_flagtree_ab.py", line 117, in compiler_runtime
+    cuda=loaded_cuda(report),
+         ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.V5N547/tools/qsa_prefill_flagtree_ab.py", line 55, in loaded_cuda
+    metadata = json.loads((Path(report) / "compat134.json").read_text())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/pathlib.py", line 1027, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.12.13-linux-x86_64-gnu/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/qsa-fp8-dot-width-h800.Yf1QaC/width-8192/compat134.json'
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-dot-width.V5N547/tools/qsa_prefill_fp8_dot_width.py", line 176, in worker
+    raise RuntimeError("Width worker failed: " + str(width))
+RuntimeError: Width worker failed: 8192
+
+
+Width crossover summary (production / candidate):
+8192 failed {}
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-dot-width.V5N547/tools/qsa_prefill_head_group_probe.py", line 599, in coordinate
+    raise RuntimeError("Head-group worker failed: " + name)
+RuntimeError: Head-group worker failed: fp8_long100k_float8_e4m3fn
+
+Use fp8-dot-width-summary.json for all four points;outer case receipt is the last width only.
