@@ -51,3 +51,36 @@ missing or changed prepared IR fails rather than silently recreating it.
 CLI help exposes only the two FP8 cases;bash syntax and changed-file hooks pass.
 No local GPU compilation/execution or speedup claim;card numerical and runtime
 binary/resource/fallback gates remain mandatory.
+
+## Boundary-fixture repair after a0a1f33d (before code,2026-10-27)
+
+The first production-baseline boundary score check failed before candidate
+warmup/launch. No runtime PTX artifacts or timings exist. The fixture extends
+visible counts to8255/8256 but reuses the real tail113 page table,whose valid
+prefix covers42 pages(8232 columns). Its next page is padded-1. Production
+correctly writes-inf for invalid physical IDs;the frozen score reference
+indexes cache[-1] instead of representing invalid-page semantics. The23
+mismatches at columns8232..8254 exactly match this fixture error.
+
+Editable:private boundary setup/tests/this board only. Keep production,reference,
+comparison tolerances,real workloads,main/tail routing,compile proof and timing
+unchanged. Create a separate stride-preserving boundary page-table copy and
+complete only invalid IDs in the prefix required by the extended boundary
+visibility using deterministic valid physical IDs. Preserve valid IDs and all
+untested padding. Validate prefix validity and record filled positions,capacity,
+stride and mapping policy before scoring. Both baseline and candidate get the
+same corrected private table;real benchmark builders are untouched. Add CPU
+regression for the actual42-page/8256-width failure geometry and a small mock
+execution of the table-completion helper. Reuse99bf compile artifacts;no compile
+probe/NCU rerun is needed. Boundary plus two-case runtime must rerun because
+neither completed in this report.
+
+Repair validation:38 applicable CPU checks pass,including exact23-column
+failure reproduction and stride-preserving private-table copy execution with
+mock tensors. Valid page mappings and padding beyond the tested prefix remain
+unchanged;the real input table is not mutated. A new progress JSON records
+scenario/case/production-or-candidate side/table completion and score outcome
+before continuing,so a future failure identifies its phase explicitly. Original
+score reference,tolerances,compiler/routing/resource/timer/GPU gates are unchanged.
+No successful GPU boundary test or measured stage exists in a0a1f33d;corrected
+boundary/runtime remain pending. No production or real workload mutation.

@@ -385,12 +385,60 @@ def freeze_records(pair):
     return records
 
 
+def boundary_page_plan(rows, num_pages, page_size, width):
+    """Complete a private fixture's tested prefix;do not modify the real table."""
+    if num_pages <= 0 or page_size <= 0 or width < 0 or not rows:
+        raise ValueError("Invalid boundary page-table geometry")
+    required = (width + page_size - 1) // page_size
+    planned, filled = copy.deepcopy(rows), []
+    for request, row in enumerate(planned):
+        if required > len(row):
+            raise ValueError("Boundary visibility exceeds table capacity")
+        for logical in range(required):
+            previous = row[logical]
+            if not 0 <= previous < num_pages:
+                row[logical] = logical % num_pages
+                filled.append(
+                    dict(
+                        request=request,
+                        logical_page=logical,
+                        previous=previous,
+                        physical_page=row[logical],
+                    )
+                )
+        if any(not 0 <= value < num_pages for value in row[:required]):
+            raise RuntimeError("Incomplete valid boundary page prefix")
+    return planned, dict(
+        policy="private valid-prefix completion;real benchmark inputs unchanged",
+        required_pages=required,
+        tested_visible_width=width,
+        filled=filled,
+    )
+
+
+def boundary_page_table(table, num_pages, page_size, width, torch):
+    # Host reads and Torch copies are diagnostic fixture preparation only.
+    # They occur before scoring/timing and are never production fallbacks.
+    planned, proof = boundary_page_plan(table.tolist(), num_pages, page_size, width)
+    private = torch.empty_strided(
+        table.shape, table.stride(), dtype=table.dtype, device=table.device
+    )
+    private.copy_(torch.tensor(planned, dtype=table.dtype, device=table.device))
+    if private.shape != table.shape or private.stride() != table.stride():
+        raise RuntimeError("Boundary table shape/strides changed")
+    proof.update(
+        shape=list(private.shape), stride=list(private.stride()), num_pages=num_pages
+    )
+    return private, proof
+
+
 def boundary_checks(production, helpers, torch, device):
     from tools import benchmark_qsa_prefill_triton_stages as bench
     from tools import qsa_prefill_score_benchmark as scoring
 
     checks = []
     count, offset, total = 35, 5, 43
+    progress = []
     for scenario in ("mixed_edges", "single_tile", "zero_visible"):
         configs = []
         for saved in manifest()["cases"]:
@@ -402,6 +450,9 @@ def boundary_checks(production, helpers, torch, device):
                 [97, 97 + total], dtype=torch.int32, device=args[0].device
             )
             width = saved["traces"][0]["width"]
+            args[2], table_proof = boundary_page_table(
+                args[2], args[1].shape[0], args[1].shape[1], width, torch
+            )
             edges = [
                 0,
                 1,
@@ -459,10 +510,23 @@ def boundary_checks(production, helpers, torch, device):
             pair = make_pair(production, traces)
             before = bench.support.fingerprint(args[:5], torch)
             counts = []
-            for module in pair:
+            for side, module in zip(("production", "candidate"), pair):
                 backing.fill_(-12345.0)
-                counts.append(
-                    scoring.validate_scores(
+                entry = dict(
+                    case=saved["case"]["name"],
+                    scenario=scenario,
+                    side=side,
+                    status="running",
+                    boundary_table=table_proof,
+                )
+                progress.append(entry)
+                progress_path = (
+                    Path(os.environ["QSA_PRODUCER_RUNTIME_REPORT"])
+                    / "fp8-boundary-progress.json"
+                )
+                probe.trace.save(progress_path, progress)
+                try:
+                    checked = scoring.validate_scores(
                         module._prefill_logits,
                         chunks,
                         args,
@@ -470,7 +534,13 @@ def boundary_checks(production, helpers, torch, device):
                         lambda n: list(range(n)),
                         device,
                     )
-                )
+                except BaseException as exc:
+                    entry.update(status="failed", error=repr(exc))
+                    probe.trace.save(progress_path, progress)
+                    raise
+                counts.append(checked)
+                entry.update(status="scores_passed", checked_rows=checked)
+                probe.trace.save(progress_path, progress)
                 mask = (
                     torch.arange(width, device=args[0].device)[None, :]
                     < args[4][offset : offset + count, None]
@@ -490,6 +560,7 @@ def boundary_checks(production, helpers, torch, device):
                     case=saved["case"]["name"],
                     checked_rows=counts,
                     resources=freeze_records(pair),
+                    boundary_table=table_proof,
                     status="passed",
                 )
             )

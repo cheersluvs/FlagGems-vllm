@@ -249,6 +249,67 @@ class FP8RuntimeTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Ambiguous"):
                     p.profiles()
 
+    def test_boundary_pages_cover_full_visible_width_without_changing_real_padding(
+        self,
+    ):
+        original = [list(range(42)) + [-1] * (88 - 42)]
+        snapshot = copy.deepcopy(original)
+        # Reproduce the exact failed reference interval:23 columns of page42.
+        self.assertEqual(
+            [i for i in range(8255) if original[0][i // 196] < 0],
+            list(range(8232, 8255)),
+        )
+        planned, proof = p.boundary_page_plan(original, 2712, 196, 8256)
+        self.assertEqual(original, snapshot)
+        self.assertEqual(planned[0][:42], original[0][:42])
+        self.assertEqual(planned[0][42], 42)
+        self.assertEqual(planned[0][43:], original[0][43:])
+        self.assertEqual(proof["required_pages"], 43)
+        self.assertEqual(
+            proof["filled"],
+            [dict(request=0, logical_page=42, previous=-1, physical_page=42)],
+        )
+        self.assertTrue(all(0 <= planned[0][i // 196] < 2712 for i in range(8256)))
+        self.assertEqual(
+            p.boundary_page_plan(planned, 2712, 196, 8256)[1]["filled"], []
+        )
+        self.assertEqual(p.boundary_page_plan([[0, 999, -1]], 2, 1, 2)[0], [[0, 1, -1]])
+        for args in ((original, 0, 196, 8256), (original, 2712, 196, 88 * 196 + 1)):
+            with self.assertRaises(ValueError):
+                p.boundary_page_plan(*args)
+
+    def test_private_boundary_table_executes_stride_preserving_copy(self):
+        class Tensor:
+            def __init__(self, rows, stride):
+                self.rows = copy.deepcopy(rows)
+                self.shape = (len(rows), len(rows[0]))
+                self.dtype, self.device = "i32", "cuda"
+                self._stride = stride
+
+            def stride(self):
+                return self._stride
+
+            def tolist(self):
+                return copy.deepcopy(self.rows)
+
+            def copy_(self, other):
+                self.rows = copy.deepcopy(other.rows)
+
+        torch = types.SimpleNamespace(
+            empty_strided=lambda shape, stride, **kw: Tensor(
+                [[0] * shape[1] for _ in range(shape[0])], stride
+            ),
+            tensor=lambda rows, **kw: Tensor(rows, (len(rows[0]), 1)),
+        )
+        original = Tensor([list(range(42)) + [-1] * 46], (176, 2))
+        private, proof = p.boundary_page_table(original, 2712, 196, 8256, torch)
+        self.assertIsNot(original, private)
+        self.assertEqual(private.stride(), original.stride())
+        self.assertEqual(private.shape, original.shape)
+        self.assertEqual(original.rows[0][42], -1)
+        self.assertEqual(private.rows[0][42], 42)
+        self.assertEqual(proof["stride"], [176, 2])
+
     def test_real_cli_worker_dispatch_uses_fp8_callbacks_and_no_bf16_work(self):
         def selected(options):
             self.assertEqual(options.worker_case, p.CASES[0])
