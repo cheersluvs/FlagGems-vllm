@@ -151,7 +151,41 @@ def gate(a, b):
     return None
 
 
-def prepare(previous, report):
+def tile32_gate(original, sequential, paired):
+    if paired["spill_store_bytes"] or paired["spill_load_bytes"]:
+        return "candidate spills"
+    if any(paired[k] > original[k] for k in ("registers_per_thread", "shared_bytes")):
+        return "candidate exceeds original R64 resource ceiling"
+    if any(
+        sequential["instructions"][k] != paired["instructions"][k]
+        for k in ("dot_sites", "mma_sites")
+    ):
+        return "same-tile matrix work changed"
+    if (
+        sequential["instructions"]["dot_sites"] != 2
+        or sequential["instructions"]["mma_sites"] == 0
+    ):
+        return "unrecognized R32 matrix work"
+    if paired["code_sha256"] == sequential["code_sha256"]:
+        return "compiler emitted identical executable PTX"
+    order = paired["instructions"]["dot_epilogue_order"]
+    dots = [
+        i for i, line in enumerate(order) if re.search(r"\bttng.warp_group_dot\b", line)
+    ]
+    waits = [i for i, line in enumerate(order) if "ttng.warp_group_dot_wait" in line]
+    if (
+        len(dots) != 2
+        or len(waits) != 2
+        or not (dots[0] < dots[1] < waits[0] < waits[1])
+    ):
+        return "paired issue not retained"
+    pendings = [re.search(r"pendings = (\d+)", order[i]) for i in waits]
+    if any(v is None for v in pendings) or [v.group(1) for v in pendings] != ["1", "0"]:
+        return "unexpected paired wait protocol"
+    return None
+
+
+def prepare(previous, report, tile32=False):
     folder = previous / (CASE + "-replay")
     old = json.loads((folder / "spec.json").read_text())
     ir = folder / (NAME + ".ttir")
@@ -170,12 +204,20 @@ def prepare(previous, report):
     if any(options[k] != v for k, v in expected.items()):
         raise RuntimeError("Launch configuration changed")
     jobs = []
-    for kind in ("production", "paired"):
+    for kind in (
+        ("production", "sequential32", "paired32")
+        if tile32
+        else ("production", "paired")
+    ):
         dest = report / kind
         dest.mkdir()
         module = dest / "kernel.py"
-        module.write_text(source(kind))
+        module.write_text(
+            source("paired" if kind.startswith("paired") else "production")
+        )
         sig, fixed, attrs = abi(ir.read_text())
+        if kind.endswith("32"):
+            fixed["TILE_R"] = 32
         (dest / "options.json").write_bytes(metadata.read_bytes())
         job = dict(
             kind=kind,
@@ -202,6 +244,11 @@ def main():
     parser.add_argument("--flagtree", default="/opt/flagtree")
     parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--worker-spec")
+    parser.add_argument(
+        "--tile32",
+        action="store_true",
+        help="R64 source control plus R32 sequential/paired controls",
+    )
     args = parser.parse_args()
     if args.worker_spec:
         return compiler.child(args)
@@ -222,7 +269,7 @@ def main():
                 for n in dict.fromkeys(SOURCES)
             },
         )
-        for job in prepare(Path(args.source_report).resolve(), report):
+        for job in prepare(Path(args.source_report).resolve(), report, args.tile32):
             dest = Path(job["directory"])
             code = trace.run_job(
                 [
@@ -261,7 +308,7 @@ def main():
                     raise RuntimeError(
                         "Source control did not reproduce original executable/resources"
                     )
-            else:
+            elif not args.tile32:
                 reason = gate(summary["jobs"][0]["result"], result)
                 summary.update(
                     status=(
@@ -270,6 +317,24 @@ def main():
                     reason=reason,
                 )
                 print("Decision:", summary["status"], "reason:", reason, flush=True)
+        if args.tile32:
+            original, sequential, paired = [j["result"] for j in summary["jobs"]]
+            reason = tile32_gate(original, sequential, paired)
+            summary.update(
+                status="not_promising" if reason else "pending_lifetime_and_accuracy",
+                reason=reason,
+                tile32=True,
+                resource_delta_vs_sequential={
+                    k: paired[k] - sequential[k]
+                    for k in ("registers_per_thread", "shared_bytes")
+                },
+            )
+            print(
+                "R32 paired minus sequential resources:",
+                summary["resource_delta_vs_sequential"],
+                flush=True,
+            )
+            print("Decision:", summary["status"], "reason:", reason, flush=True)
         return 0
     except Exception:
         summary.update(status="failed", error=traceback.format_exc())
@@ -278,7 +343,7 @@ def main():
     finally:
         trace.save(report / "fp8-dot-issue-summary.json", summary)
         with tarfile.open(report / "fp8-dot-issue-artifacts.tar.gz", "w:gz") as archive:
-            for kind in ("production", "paired"):
+            for kind in ("production", "paired", "sequential32", "paired32"):
                 folder = report / kind
                 if folder.is_dir():
                     for path in sorted(folder.iterdir()):

@@ -120,6 +120,53 @@ class DotIssueTests(unittest.TestCase):
         c["instructions"]["mma_sites"] = 4
         self.assertIsNotNone(p.gate(a, c))
 
+    def test_tile32_accepts_overlap_cost_only_under_original_ceiling(self):
+        original = dict(registers_per_thread=158, shared_bytes=57344)
+        sequential = dict(
+            code_sha256="sequential",
+            registers_per_thread=90,
+            shared_bytes=32768,
+            spill_store_bytes=0,
+            spill_load_bytes=0,
+            instructions=dict(dot_sites=2, mma_sites=8),
+        )
+        order = [
+            "%a = ttng.warp_group_dot",
+            "%b = ttng.warp_group_dot",
+            "%l = ttng.warp_group_dot_wait {pendings = 1 : i32}",
+            "tt.reduce",
+            "tt.store",
+            "%r = ttng.warp_group_dot_wait {pendings = 0 : i32}",
+        ]
+        paired = dict(
+            sequential,
+            code_sha256="paired",
+            registers_per_thread=120,
+            instructions=dict(dot_sites=2, mma_sites=8, dot_epilogue_order=order),
+        )
+        self.assertIsNone(p.tile32_gate(original, sequential, paired))
+        for key, value in (
+            ("registers_per_thread", 159),
+            ("shared_bytes", 65536),
+            ("spill_load_bytes", 4),
+            ("code_sha256", "sequential"),
+        ):
+            self.assertIsNotNone(
+                p.tile32_gate(original, sequential, dict(paired, **{key: value}))
+            )
+        for changed in (
+            [line.replace("pendings = 1", "pendings = 0") for line in order],
+            [order[0], order[2], order[1], *order[3:]],
+            [line.replace("pendings = 1", "unknown = 1") for line in order],
+        ):
+            bad = dict(
+                paired,
+                instructions=dict(paired["instructions"], dot_epilogue_order=changed),
+            )
+            self.assertIsNotNone(p.tile32_gate(original, sequential, bad))
+        bad = dict(paired, instructions=dict(paired["instructions"], mma_sites=4))
+        self.assertIsNotNone(p.tile32_gate(original, sequential, bad))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -46,3 +46,26 @@ The actual archived TTIR/options passed preparation: 17 runtime arguments and
 10 original constexpr values, including num_requests=1 and stride_table_page=1.
 MLIR f8E4M3FN/f32 pointer types are mapped to the pinned ASTSource's
 fp8e4nv/fp32 spelling. This Mac has not compiled or run either GPU kernel.
+
+
+## TILE_R32 follow-up boards
+
+| Scope | Decision |
+| --- | --- |
+| Evidence | Report64f812a: R64 paired issue works (wait1/0), but registers158->206, shared56KiB unchanged, zero spill; no runtime measurement |
+| One hypothesis | Halve query rows per CTA to reduce simultaneously live accumulators while preserving paired issue |
+| Editable/read-only | Extend this diagnostic only; production, compiler, TopK and workloads remain unchanged |
+
+| Implementation | Decision |
+| --- | --- |
+| Three compilations | R64 original source control; R32 original order control; R32 paired issue candidate |
+| Changed constant | Only TILE_R64->32 for the two R32 jobs; BLOCK_N64/K_TILES16/PARTS2/warps4/stages2 remain fixed |
+| Comparison | Compare instruction work between the two R32 jobs; R64 and R32 have different work per CTA and must not be compared by raw MMA counts |
+| Source | Same original helper and kernel; paired moves only the existing right dot assignment |
+
+| Validation | Decision |
+| --- | --- |
+| Compile gates | Original R64 must reproduce prior executable/resources; R32 paired must preserve same-tile dot/MMA work, have wait1 before first epilogue and wait0 afterwards, zero spill, registers<=158 and shared<=57344 |
+| Control-relative cost | Print R32 sequential versus paired resource delta; allow an increase versus R32 sequential only within the original R64 resource ceiling, since eliminating all overlap cost is not required |
+| Limits | Smaller tile approximately doubles main CTA count/query reloads for aligned requests. Lower per-CTA resources do not establish speedup; changed pipeline needs lifetime review before runtime |
+| CLI | Add --tile32 to run these three compilations; omit it to replay the historical two-job experiment |
