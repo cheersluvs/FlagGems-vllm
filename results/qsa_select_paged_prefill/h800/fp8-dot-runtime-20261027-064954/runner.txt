@@ -1,0 +1,38 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat._n8o1f4l
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat._n8o1f4l/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/tools/qsa_prefill_fp8_dot_runtime.py", line 348, in worker
+    result["boundaries"] = boundary_checks(production, helpers, torch, device)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/tools/qsa_prefill_fp8_dot_runtime.py", line 299, in boundary_checks
+    checks = fp8.boundary_checks(production, helpers, torch, device)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/tools/qsa_prefill_fp8_producer_runtime.py", line 529, in boundary_checks
+    checked = scoring.validate_scores(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/tools/qsa_prefill_score_benchmark.py", line 74, in validate_scores
+    logits = launcher(*call, **chunk.get("score_kwargs", {}))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", line 841, in _prefill_logits
+    kernel[grid](
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/tools/qsa_prefill_query_split_matched.py", line 37, in launch
+    kernel = self.jit[grid(constants) if callable(grid) else grid](
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/tools/qsa_prefill_fp8_dot_runtime.py", line 211, in launch
+    check_kernel(kernel, self.expected)
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/tools/qsa_prefill_fp8_dot_runtime.py", line 222, in check_kernel
+    or kernel.n_regs != expected["registers_per_thread"]
+       ^^^^^^^^^^^^^
+AttributeError: 'CompiledKernel' object has no attribute 'n_regs'
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-dot-runtime.HldYDA/tools/qsa_prefill_head_group_probe.py", line 599, in coordinate
+    raise RuntimeError("Head-group worker failed: " + name)
+RuntimeError: Head-group worker failed: fp8_tail113_float8_e4m3fn
+
