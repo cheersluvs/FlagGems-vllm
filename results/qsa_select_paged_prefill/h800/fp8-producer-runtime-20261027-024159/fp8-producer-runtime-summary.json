@@ -1,0 +1,344 @@
+{
+  "status": "failed",
+  "acceptance_eligible": false,
+  "production_modified": false,
+  "source": {
+    "production_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+    "manifest_sha256": "4f29130c68f17c528ce49c6d4e4ab1351ec36359bc45269cfa170b2948737caa",
+    "driver_sha256": "2ab3490f48bf8f22f629fb9cdc07486ff1ccb484562929abb118346054d4c537",
+    "base_driver_sha256": "e68d084b7c552fc70800cdcbcd25dcbade1237d61fc42a694cdd8921815143a9",
+    "producer_profiles": [
+      {
+        "control_code_sha256": "e11d6fa2b66a8aa7304e98dd87227228f5f6d504998e290b6b65b8f66cea4acc",
+        "candidate_ptx_sha256": "19a04c8eb5da56735868e90c368db25be586476e3d9e8646f6072003759add9c",
+        "control": {
+          "status": "compiled",
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "e1a00df3db738150cd2baeedacba5bf7cea8f6eb7c0a562023a2cb75921d55b8",
+          "cubin_sha256": "2d0397a0a9a3bec738a8a240f99f122778904ef40ef00bd13a1ef74aaaccdc59",
+          "shared_bytes": 57344,
+          "schedule": {
+            "K_slots": 2,
+            "early_K_copies": 0,
+            "dot_sites": 2,
+            "waits": [
+              "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)"
+            ],
+            "K16byte_copy_sites": 4,
+            "mma_sites": 8,
+            "before_first_MMA": 0,
+            "after_last_MMA": 4,
+            "all_K_fragments_before_first_MMA": false,
+            "protocol_error": "No early K-copy protocol"
+          },
+          "registers_per_thread": 158,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0
+        },
+        "candidate": {
+          "status": "compiled",
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "19a04c8eb5da56735868e90c368db25be586476e3d9e8646f6072003759add9c",
+          "cubin_sha256": "fbe904c0559acff916cf51deb7edd00f9db2f98dbc23e567c1c98369fe5e326f",
+          "shared_bytes": 65536,
+          "schedule": {
+            "K_slots": 3,
+            "early_K_copies": 1,
+            "dot_sites": 2,
+            "waits": [
+              "%scores_left_191:3 = ttng.warp_group_dot_wait %scores_left_190, %keys_189, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc269)",
+              "%scores_right_196:3 = ttng.warp_group_dot_wait %scores_right, %keys_189, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc278)"
+            ],
+            "K16byte_copy_sites": 4,
+            "mma_sites": 8,
+            "before_first_MMA": 4,
+            "after_last_MMA": 0,
+            "all_K_fragments_before_first_MMA": true,
+            "PTX_protocol": {
+              "status": "passed",
+              "loop_header_line": 664,
+              "loop_backedge_line": 1698,
+              "mma_sites": 8,
+              "post_WGMMA_CTA_barriers": 2,
+              "current_copy_wait": 1,
+              "epilogue_drain": true
+            }
+          },
+          "registers_per_thread": 162,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0
+        },
+        "options_sha256": "1d535376c07db69eaf7a34f0dac9b7fd545ba227bfea5dbb0fa76e7ca2144f42",
+        "lifetime_review": {
+          "status": "checked_under_explicit_sync_assumptions",
+          "slots": 3,
+          "K_tile_bytes": 8192,
+          "warp_groups": 1,
+          "counters": [
+            {
+              "initial": 0,
+              "increment": 1,
+              "wrap": 3
+            },
+            {
+              "initial": -1,
+              "increment": 1,
+              "wrap": 3
+            }
+          ],
+          "PTX_protocol": {
+            "status": "passed",
+            "loop_header_line": 664,
+            "loop_backedge_line": 1698,
+            "mma_sites": 8,
+            "post_WGMMA_CTA_barriers": 2,
+            "current_copy_wait": 1,
+            "epilogue_drain": true
+          },
+          "model": [
+            {
+              "iterations": 0,
+              "safe": true,
+              "states": 1
+            },
+            {
+              "iterations": 1,
+              "safe": true,
+              "states": 8
+            },
+            {
+              "iterations": 2,
+              "safe": true,
+              "states": 15
+            },
+            {
+              "iterations": 3,
+              "safe": true,
+              "states": 22
+            },
+            {
+              "iterations": 4,
+              "safe": true,
+              "states": 29
+            },
+            {
+              "iterations": 5,
+              "safe": true,
+              "states": 36
+            },
+            {
+              "iterations": 6,
+              "safe": true,
+              "states": 43
+            },
+            {
+              "iterations": 7,
+              "safe": true,
+              "states": 50
+            },
+            {
+              "iterations": 8,
+              "safe": true,
+              "states": 57
+            },
+            {
+              "iterations": 9,
+              "safe": true,
+              "states": 64
+            },
+            {
+              "iterations": 10,
+              "safe": true,
+              "states": 71
+            },
+            {
+              "iterations": 11,
+              "safe": true,
+              "states": 78
+            },
+            {
+              "iterations": 12,
+              "safe": true,
+              "states": 85
+            },
+            {
+              "iterations": 13,
+              "safe": true,
+              "states": 92
+            },
+            {
+              "iterations": 14,
+              "safe": true,
+              "states": 99
+            },
+            {
+              "iterations": 15,
+              "safe": true,
+              "states": 106
+            },
+            {
+              "iterations": 16,
+              "safe": true,
+              "states": 113
+            }
+          ],
+          "buffer_rewrite": false,
+          "scope": "structural and abstract lifetime review;GPU numerical validation required"
+        },
+        "case": "fp8_p2_main",
+        "covered_cases": [
+          "fp8_tail113_float8_e4m3fn",
+          "fp8_long100k_float8_e4m3fn"
+        ],
+        "override_file": "/tmp/qsa-fp8-producer-runtime-h800.gZoGuv/fp8-producer-main.ttgir",
+        "override_sha256": "79d3ca6594b1f07cc9f0f185afae9be322adf2f46669ecaded7bc8362133547a"
+      }
+    ],
+    "runtime_sources": {
+      "docs/qsa_prefill_async_pipeline_probe.md": "f35d6ac1227ebf518e41e71505633179ab07bd5100c55d33f50f99e8a0b8c55e",
+      "docs/qsa_prefill_bf16_dot_schedule_probe.md": "67ce3ee43dd08c16c3a609588747afd9edf87d0ce8dce3b351bf77bc55ba5532",
+      "docs/qsa_prefill_bf16_stage_depth_configs.json": "19efb9803313e303ad503b0864c48c5253f3fc3674daef1fcdf8a652b702f583",
+      "docs/qsa_prefill_bf16_stage_depth_probe.md": "5b35b1ffa80e54ed68382e6c8c6d93ce52f3773ffbb6335362a97bc75227587f",
+      "docs/qsa_prefill_fp8_producer.md": "174eb2936e24c270b63a89fed098e1008ad890d2ec427f899350ad070ca8dd48",
+      "docs/qsa_prefill_fp8_producer_runtime.md": "43d266240f80cbde07a56eeed90563a32dbebea795edb2e786172767e1678fe3",
+      "docs/qsa_prefill_fp8_profile_configs.json": "4f29130c68f17c528ce49c6d4e4ab1351ec36359bc45269cfa170b2948737caa",
+      "docs/qsa_prefill_producer_first_probe.md": "f9c12ceae72c0d2363286848bdd827c0dc9b04340ef4cec2cdc0971014bad305",
+      "docs/qsa_prefill_producer_runtime.md": "7d4dc969a7149659ecf1ee91d481f4b359c9acf9873b6880347bd856e3723929",
+      "tools/qsa_prefill_async_pipeline_kernel.py": "db9896ef6b23d99f718885693687a274d95d5808088fb90b3c59081178251272",
+      "tools/qsa_prefill_async_pipeline_probe.py": "162184b3735732712ec94f4e28210ce6b719f8584897328d2ad1c423d642d24d",
+      "tools/qsa_prefill_bf16_dot_schedule_kernel.py": "e140f8dbb79a996427fdd893ef1e1c52a0cf48add6f83c72bee099b4182d51a3",
+      "tools/qsa_prefill_bf16_dot_schedule_probe.py": "b2224e3585a4af8be1ee3a6098150fda027a1d366592af72bd0592f99306731a",
+      "tools/qsa_prefill_bf16_stage_depth_probe.py": "3655fa82a2f7c982569c907aac4e68acb8d8dab7e4bbc10772ae5e100a8dba81",
+      "tools/qsa_prefill_double_buffer.py": "09c0337e53309199177004bbd2a69161af63733e53f2fc4f4721a67148173416",
+      "tools/qsa_prefill_fp8_producer.py": "71ba464eb91df34fe0a4d74c9e8854d9a1870f64ed19e802baef61430374064b",
+      "tools/qsa_prefill_fp8_producer_runtime.py": "2ab3490f48bf8f22f629fb9cdc07486ff1ccb484562929abb118346054d4c537",
+      "tools/qsa_prefill_fp8_profile.py": "85e6be71387905017b91a950321d400ee74aedef8d71109bda43f6bdb885ba5f",
+      "tools/qsa_prefill_pipeline_trace.py": "9bb7a4b5f83efba4f95964736a63dfddcf60be94efa19efb05593a19d6a19c96",
+      "tools/qsa_prefill_producer_first.py": "b329d3ad70e78f9f1952f7ca9fb9191e38d80f6bfd21dc77323d920d625ae50a",
+      "tools/qsa_prefill_producer_runtime.py": "e68d084b7c552fc70800cdcbcd25dcbade1237d61fc42a694cdd8921815143a9",
+      "tools/run_qsa_prefill_async_pipeline_h800.sh": "4ebb0727df78c809d73f22a08b3e6ca0994f89a07ffd1084521de320e46f5f09",
+      "tools/run_qsa_prefill_bf16_dot_schedule_h800.sh": "c9cf89c6f30db6792b4466816aef2eb757ffd3cc605cb43fa052580f3a904974",
+      "tools/run_qsa_prefill_bf16_stage_depth_h800.sh": "a2355b55535cf4adc040dea3a8c6227f4f93204ba34925cecfa5d5beb2d2236d",
+      "tools/run_qsa_prefill_fp8_producer_h800.sh": "44d848b507e3e82f9817004e674ea36a9ed199ce8f39f0ee65aec1dab72da9a7",
+      "tools/run_qsa_prefill_fp8_producer_runtime_h800.sh": "3eb0af438825e493b440554a3b989e70ff87353bd5b55d9ca8ad0ddf566166bf",
+      "tools/run_qsa_prefill_producer_first.sh": "7f3189400be800a927f6690daf76c583994c3fae702914850f37be9ffe92c72f",
+      "tools/run_qsa_prefill_producer_runtime.sh": "39b2c07918c6e65164ad570aed4fbe4cac6d9cb211bfe712a51a2ef1e5b7d832",
+      "tools/test_qsa_prefill_async_pipeline_probe.py": "11bb028edc0060a9503f308b2b7702c5089ecbb61983d0fd525c34db401abaad",
+      "tools/test_qsa_prefill_bf16_dot_schedule_probe.py": "e51818a988885c50537e79821a61c31b38038227aaed58941113628d4703a4ae",
+      "tools/test_qsa_prefill_bf16_stage_depth_probe.py": "e956598d323930aedaa3b847b5b8c1b5fac5f806743ac6264f6f77e9fc5a941c",
+      "tools/test_qsa_prefill_fp8_producer.py": "cc8353d2c7d158bc32f210259c303589e7339bb8044cbf62763d38514ae4c1f9",
+      "tools/test_qsa_prefill_fp8_producer_runtime.py": "09941f06280b6ef919b37a1f1a5c190a1eecd5d33f4dc25b8e0859d521d4aaca",
+      "tools/test_qsa_prefill_producer_first.py": "c09ebfc4290600f1ec311d7accd2f38899a52e8fe1c31fae94ea8ec22814ec40",
+      "tools/test_qsa_prefill_producer_runtime.py": "da57a1cd3e55f5168e1cb81b1630d5f577f0a8ecddc039f4b0e51a7d54cea322"
+    }
+  },
+  "options": {
+    "report_dir": "/tmp/qsa-fp8-producer-runtime-h800.gZoGuv",
+    "baseline_report": "/tmp/qsa-head-group-production-h800.Dy5oqx",
+    "flagtree": "/opt/flagtree",
+    "rounds": 2,
+    "kernel_warmup_ms": 20,
+    "kernel_rep_ms": 20,
+    "timeout": 1800,
+    "max_initial_temp_c": 80,
+    "cooldown_timeout": 120,
+    "cooldown_interval": 10,
+    "cases": [
+      "fp8_tail113_float8_e4m3fn",
+      "fp8_long100k_float8_e4m3fn"
+    ],
+    "worker_case": null,
+    "compiler": "flagtree",
+    "candidate": "production"
+  },
+  "git_head": {
+    "returncode": 0,
+    "stdout": "6938c08e6be1ae2f67b2b1e18425718822294cee\n",
+    "stderr": ""
+  },
+  "git_status": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "cases": [
+    {
+      "case": "fp8_tail113_float8_e4m3fn",
+      "exit_code": 1,
+      "status": "failed",
+      "stages": {}
+    }
+  ],
+  "gpu_inventory": {
+    "returncode": 0,
+    "stdout": "GPU-198a9496-3d7a-f01d-ee60-190fe0bc5b51, NVIDIA H800, 63\nGPU-497db188-9a65-ed86-3516-2de784681f95, NVIDIA H800, 30\nGPU-2d17872f-4327-2beb-8049-604ecf6a3d66, NVIDIA H800, 28\nGPU-3521ffb6-385f-6fe2-c4ba-862823ca9042, NVIDIA H800, 44\nGPU-bd27977f-e405-2b21-3608-291991a0b4f4, NVIDIA H800, 29\nGPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, NVIDIA H800, 28\nGPU-83ccf064-1bbb-6765-e356-c2a85323cbee, NVIDIA H800, 32\nGPU-56b64cc2-61c8-2e60-f861-6da66026f6a0, NVIDIA H800, 38\n",
+    "stderr": ""
+  },
+  "gpu_selection_policy": "lowest inventory temperature first; configured idle guard required",
+  "gpu_selection_checks": [
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 28, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 10:41:43 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 28,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "inventory_temperature_c": 28
+    }
+  ],
+  "gpu_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+  "idle_gpu_checks": [
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 28, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 10:41:44 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 28,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_tail113_float8_e4m3fn",
+      "attempt": 1
+    }
+  ],
+  "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-fp8-runtime.Dm99zd/tools/qsa_prefill_async_pipeline_probe.py\", line 446, in coordinate\n    raise RuntimeError(\"Async-pipeline worker failed: \" + name)\nRuntimeError: Async-pipeline worker failed: fp8_tail113_float8_e4m3fn\n"
+}

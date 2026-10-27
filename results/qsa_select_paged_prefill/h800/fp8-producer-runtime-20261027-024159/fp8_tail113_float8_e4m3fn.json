@@ -1,0 +1,467 @@
+{
+  "status": "failed",
+  "acceptance_eligible": false,
+  "production_modified": false,
+  "stages": {},
+  "algorithm": "fp8_three_buffer_producer_first",
+  "config_scope": "original fixed FP8 main configs;TR8/P1 tail exact original",
+  "source": {
+    "production_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+    "manifest_sha256": "4f29130c68f17c528ce49c6d4e4ab1351ec36359bc45269cfa170b2948737caa",
+    "driver_sha256": "2ab3490f48bf8f22f629fb9cdc07486ff1ccb484562929abb118346054d4c537",
+    "base_driver_sha256": "e68d084b7c552fc70800cdcbcd25dcbade1237d61fc42a694cdd8921815143a9",
+    "producer_profiles": [
+      {
+        "control_code_sha256": "e11d6fa2b66a8aa7304e98dd87227228f5f6d504998e290b6b65b8f66cea4acc",
+        "candidate_ptx_sha256": "19a04c8eb5da56735868e90c368db25be586476e3d9e8646f6072003759add9c",
+        "control": {
+          "status": "compiled",
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "e1a00df3db738150cd2baeedacba5bf7cea8f6eb7c0a562023a2cb75921d55b8",
+          "cubin_sha256": "2d0397a0a9a3bec738a8a240f99f122778904ef40ef00bd13a1ef74aaaccdc59",
+          "shared_bytes": 57344,
+          "schedule": {
+            "K_slots": 2,
+            "early_K_copies": 0,
+            "dot_sites": 2,
+            "waits": [
+              "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)"
+            ],
+            "K16byte_copy_sites": 4,
+            "mma_sites": 8,
+            "before_first_MMA": 0,
+            "after_last_MMA": 4,
+            "all_K_fragments_before_first_MMA": false,
+            "protocol_error": "No early K-copy protocol"
+          },
+          "registers_per_thread": 158,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0
+        },
+        "candidate": {
+          "status": "compiled",
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "19a04c8eb5da56735868e90c368db25be586476e3d9e8646f6072003759add9c",
+          "cubin_sha256": "fbe904c0559acff916cf51deb7edd00f9db2f98dbc23e567c1c98369fe5e326f",
+          "shared_bytes": 65536,
+          "schedule": {
+            "K_slots": 3,
+            "early_K_copies": 1,
+            "dot_sites": 2,
+            "waits": [
+              "%scores_left_191:3 = ttng.warp_group_dot_wait %scores_left_190, %keys_189, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc269)",
+              "%scores_right_196:3 = ttng.warp_group_dot_wait %scores_right, %keys_189, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc278)"
+            ],
+            "K16byte_copy_sites": 4,
+            "mma_sites": 8,
+            "before_first_MMA": 4,
+            "after_last_MMA": 0,
+            "all_K_fragments_before_first_MMA": true,
+            "PTX_protocol": {
+              "status": "passed",
+              "loop_header_line": 664,
+              "loop_backedge_line": 1698,
+              "mma_sites": 8,
+              "post_WGMMA_CTA_barriers": 2,
+              "current_copy_wait": 1,
+              "epilogue_drain": true
+            }
+          },
+          "registers_per_thread": 162,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0
+        },
+        "options_sha256": "1d535376c07db69eaf7a34f0dac9b7fd545ba227bfea5dbb0fa76e7ca2144f42",
+        "lifetime_review": {
+          "status": "checked_under_explicit_sync_assumptions",
+          "slots": 3,
+          "K_tile_bytes": 8192,
+          "warp_groups": 1,
+          "counters": [
+            {
+              "initial": 0,
+              "increment": 1,
+              "wrap": 3
+            },
+            {
+              "initial": -1,
+              "increment": 1,
+              "wrap": 3
+            }
+          ],
+          "PTX_protocol": {
+            "status": "passed",
+            "loop_header_line": 664,
+            "loop_backedge_line": 1698,
+            "mma_sites": 8,
+            "post_WGMMA_CTA_barriers": 2,
+            "current_copy_wait": 1,
+            "epilogue_drain": true
+          },
+          "model": [
+            {
+              "iterations": 0,
+              "safe": true,
+              "states": 1
+            },
+            {
+              "iterations": 1,
+              "safe": true,
+              "states": 8
+            },
+            {
+              "iterations": 2,
+              "safe": true,
+              "states": 15
+            },
+            {
+              "iterations": 3,
+              "safe": true,
+              "states": 22
+            },
+            {
+              "iterations": 4,
+              "safe": true,
+              "states": 29
+            },
+            {
+              "iterations": 5,
+              "safe": true,
+              "states": 36
+            },
+            {
+              "iterations": 6,
+              "safe": true,
+              "states": 43
+            },
+            {
+              "iterations": 7,
+              "safe": true,
+              "states": 50
+            },
+            {
+              "iterations": 8,
+              "safe": true,
+              "states": 57
+            },
+            {
+              "iterations": 9,
+              "safe": true,
+              "states": 64
+            },
+            {
+              "iterations": 10,
+              "safe": true,
+              "states": 71
+            },
+            {
+              "iterations": 11,
+              "safe": true,
+              "states": 78
+            },
+            {
+              "iterations": 12,
+              "safe": true,
+              "states": 85
+            },
+            {
+              "iterations": 13,
+              "safe": true,
+              "states": 92
+            },
+            {
+              "iterations": 14,
+              "safe": true,
+              "states": 99
+            },
+            {
+              "iterations": 15,
+              "safe": true,
+              "states": 106
+            },
+            {
+              "iterations": 16,
+              "safe": true,
+              "states": 113
+            }
+          ],
+          "buffer_rewrite": false,
+          "scope": "structural and abstract lifetime review;GPU numerical validation required"
+        },
+        "case": "fp8_p2_main",
+        "covered_cases": [
+          "fp8_tail113_float8_e4m3fn",
+          "fp8_long100k_float8_e4m3fn"
+        ],
+        "override_file": "/tmp/qsa-fp8-producer-runtime-h800.gZoGuv/fp8-producer-main.ttgir",
+        "override_sha256": "79d3ca6594b1f07cc9f0f185afae9be322adf2f46669ecaded7bc8362133547a"
+      }
+    ],
+    "runtime_sources": {
+      "docs/qsa_prefill_async_pipeline_probe.md": "f35d6ac1227ebf518e41e71505633179ab07bd5100c55d33f50f99e8a0b8c55e",
+      "docs/qsa_prefill_bf16_dot_schedule_probe.md": "67ce3ee43dd08c16c3a609588747afd9edf87d0ce8dce3b351bf77bc55ba5532",
+      "docs/qsa_prefill_bf16_stage_depth_configs.json": "19efb9803313e303ad503b0864c48c5253f3fc3674daef1fcdf8a652b702f583",
+      "docs/qsa_prefill_bf16_stage_depth_probe.md": "5b35b1ffa80e54ed68382e6c8c6d93ce52f3773ffbb6335362a97bc75227587f",
+      "docs/qsa_prefill_fp8_producer.md": "174eb2936e24c270b63a89fed098e1008ad890d2ec427f899350ad070ca8dd48",
+      "docs/qsa_prefill_fp8_producer_runtime.md": "43d266240f80cbde07a56eeed90563a32dbebea795edb2e786172767e1678fe3",
+      "docs/qsa_prefill_fp8_profile_configs.json": "4f29130c68f17c528ce49c6d4e4ab1351ec36359bc45269cfa170b2948737caa",
+      "docs/qsa_prefill_producer_first_probe.md": "f9c12ceae72c0d2363286848bdd827c0dc9b04340ef4cec2cdc0971014bad305",
+      "docs/qsa_prefill_producer_runtime.md": "7d4dc969a7149659ecf1ee91d481f4b359c9acf9873b6880347bd856e3723929",
+      "tools/qsa_prefill_async_pipeline_kernel.py": "db9896ef6b23d99f718885693687a274d95d5808088fb90b3c59081178251272",
+      "tools/qsa_prefill_async_pipeline_probe.py": "162184b3735732712ec94f4e28210ce6b719f8584897328d2ad1c423d642d24d",
+      "tools/qsa_prefill_bf16_dot_schedule_kernel.py": "e140f8dbb79a996427fdd893ef1e1c52a0cf48add6f83c72bee099b4182d51a3",
+      "tools/qsa_prefill_bf16_dot_schedule_probe.py": "b2224e3585a4af8be1ee3a6098150fda027a1d366592af72bd0592f99306731a",
+      "tools/qsa_prefill_bf16_stage_depth_probe.py": "3655fa82a2f7c982569c907aac4e68acb8d8dab7e4bbc10772ae5e100a8dba81",
+      "tools/qsa_prefill_double_buffer.py": "09c0337e53309199177004bbd2a69161af63733e53f2fc4f4721a67148173416",
+      "tools/qsa_prefill_fp8_producer.py": "71ba464eb91df34fe0a4d74c9e8854d9a1870f64ed19e802baef61430374064b",
+      "tools/qsa_prefill_fp8_producer_runtime.py": "2ab3490f48bf8f22f629fb9cdc07486ff1ccb484562929abb118346054d4c537",
+      "tools/qsa_prefill_fp8_profile.py": "85e6be71387905017b91a950321d400ee74aedef8d71109bda43f6bdb885ba5f",
+      "tools/qsa_prefill_pipeline_trace.py": "9bb7a4b5f83efba4f95964736a63dfddcf60be94efa19efb05593a19d6a19c96",
+      "tools/qsa_prefill_producer_first.py": "b329d3ad70e78f9f1952f7ca9fb9191e38d80f6bfd21dc77323d920d625ae50a",
+      "tools/qsa_prefill_producer_runtime.py": "e68d084b7c552fc70800cdcbcd25dcbade1237d61fc42a694cdd8921815143a9",
+      "tools/run_qsa_prefill_async_pipeline_h800.sh": "4ebb0727df78c809d73f22a08b3e6ca0994f89a07ffd1084521de320e46f5f09",
+      "tools/run_qsa_prefill_bf16_dot_schedule_h800.sh": "c9cf89c6f30db6792b4466816aef2eb757ffd3cc605cb43fa052580f3a904974",
+      "tools/run_qsa_prefill_bf16_stage_depth_h800.sh": "a2355b55535cf4adc040dea3a8c6227f4f93204ba34925cecfa5d5beb2d2236d",
+      "tools/run_qsa_prefill_fp8_producer_h800.sh": "44d848b507e3e82f9817004e674ea36a9ed199ce8f39f0ee65aec1dab72da9a7",
+      "tools/run_qsa_prefill_fp8_producer_runtime_h800.sh": "3eb0af438825e493b440554a3b989e70ff87353bd5b55d9ca8ad0ddf566166bf",
+      "tools/run_qsa_prefill_producer_first.sh": "7f3189400be800a927f6690daf76c583994c3fae702914850f37be9ffe92c72f",
+      "tools/run_qsa_prefill_producer_runtime.sh": "39b2c07918c6e65164ad570aed4fbe4cac6d9cb211bfe712a51a2ef1e5b7d832",
+      "tools/test_qsa_prefill_async_pipeline_probe.py": "11bb028edc0060a9503f308b2b7702c5089ecbb61983d0fd525c34db401abaad",
+      "tools/test_qsa_prefill_bf16_dot_schedule_probe.py": "e51818a988885c50537e79821a61c31b38038227aaed58941113628d4703a4ae",
+      "tools/test_qsa_prefill_bf16_stage_depth_probe.py": "e956598d323930aedaa3b847b5b8c1b5fac5f806743ac6264f6f77e9fc5a941c",
+      "tools/test_qsa_prefill_fp8_producer.py": "cc8353d2c7d158bc32f210259c303589e7339bb8044cbf62763d38514ae4c1f9",
+      "tools/test_qsa_prefill_fp8_producer_runtime.py": "09941f06280b6ef919b37a1f1a5c190a1eecd5d33f4dc25b8e0859d521d4aaca",
+      "tools/test_qsa_prefill_producer_first.py": "c09ebfc4290600f1ec311d7accd2f38899a52e8fe1c31fae94ea8ec22814ec40",
+      "tools/test_qsa_prefill_producer_runtime.py": "da57a1cd3e55f5168e1cb81b1630d5f577f0a8ecddc039f4b0e51a7d54cea322"
+    }
+  },
+  "case": {
+    "name": "fp8_tail113_float8_e4m3fn",
+    "kind": "fp8_perf",
+    "origin": "recorded_envelope",
+    "query_lengths": [
+      16369
+    ],
+    "prefix_tokens": [
+      16482
+    ],
+    "batch_max_seq_len": 32851,
+    "recorded_shape": [
+      16369,
+      1,
+      4,
+      128,
+      16369,
+      32851
+    ],
+    "recorded_count": 48,
+    "capture_line": 348,
+    "query_lengths_synthetic": false,
+    "layout_provenance": "captured cache/table extents; assumed contiguous strides and shuffled pages",
+    "physical_pages": 2712,
+    "table_columns": 88,
+    "cache_page_stride_factor": 1,
+    "captured_parameters": [
+      16369,
+      4,
+      128,
+      2712,
+      196,
+      1,
+      128,
+      1,
+      88,
+      2,
+      16369,
+      2048,
+      4,
+      16369,
+      16369,
+      512,
+      32851
+    ],
+    "query_base": 0,
+    "page_size": 196,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "budget_mb": 512,
+    "dtype": "float8_e4m3fn"
+  },
+  "fixed_traces": [
+    {
+      "offset": 0,
+      "rows": 16256,
+      "width": 8256,
+      "route": "fp8",
+      "constants": {
+        "num_warps": 4,
+        "num_stages": 2,
+        "num_ctas": 1,
+        "TILE_R": 64,
+        "BLOCK_N": 64,
+        "K_TILES": 16,
+        "QUERY_PARTS": 2
+      },
+      "ptx_sha256": "6d987c7fd39290426a5eff99a75383ef811b0af1510455efe31aa9e17ceda6e6",
+      "cubin_sha256": "1ef93109b0cec43e682aac110e7532d0303525a1cbd0576feae17a44ccd6654a"
+    },
+    {
+      "offset": 16256,
+      "rows": 113,
+      "width": 8256,
+      "route": "fp8",
+      "constants": {
+        "num_warps": 4,
+        "num_stages": 2,
+        "num_ctas": 1,
+        "TILE_R": 8,
+        "BLOCK_N": 64,
+        "K_TILES": 4,
+        "QUERY_PARTS": 1
+      },
+      "ptx_sha256": "6db2105fef6faec66841f47d022ee15d01dc2a75f30f033cc2c96a335eb54f3c",
+      "cubin_sha256": "fc8d644c1f9248cc92dd41f475ddc74763d1497a6f2843b9b0e563a64282220d"
+    }
+  ],
+  "runtime": {
+    "python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python",
+    "platform": "Linux-5.15.0-78-generic-x86_64-with-glibc2.39",
+    "torch_version": "2.13.0+cu129",
+    "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py",
+    "triton_version": "3.6.0",
+    "triton_source": "/opt/flagtree/triton/__init__.py",
+    "triton_init_sha256": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30",
+    "compiler_files": {
+      "triton.backends.nvidia.compiler": {
+        "path": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+        "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+      },
+      "triton.backends.nvidia.driver": {
+        "path": "/opt/flagtree/triton/backends/nvidia/driver.py",
+        "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+      },
+      "triton.knobs": {
+        "path": "/opt/flagtree/triton/knobs.py",
+        "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+      },
+      "triton._C.libtriton": {
+        "path": "/opt/flagtree/triton/_C/libtriton.so",
+        "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+      }
+    },
+    "ptxas": {
+      "path": "/tmp/qsa-flagtree134-tools.nu44yi3c/ptxas",
+      "sha256": "9c2c084df7eb9be48f0502b6938ce2571679b2a78cad1c564b583bd7d9ea3c50",
+      "version": {
+        "returncode": 0,
+        "stdout": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2026 NVIDIA Corporation\nBuilt on Mon_Aug_03_13:24:11_PDT_2026\nCuda compilation tools, release 13.4, V13.4.59\nBuild cuda_13.4.r13.4/compiler.38657139_0\n",
+        "stderr": ""
+      }
+    },
+    "cuda": "12.9",
+    "vendor": "nvidia",
+    "device": "_CudaDeviceProperties(name='NVIDIA H800', major=9, minor=0, total_memory=81090MB, multi_processor_count=132, uuid=2d17872f-4327-2beb-8049-604ecf6a3d66, pci_bus_id=110, pci_device_id=0, pci_domain_id=0, L2_cache_size=50MB)",
+    "uuid": "2d17872f-4327-2beb-8049-604ecf6a3d66",
+    "versions": {
+      "torch": "2.13.0+cu129",
+      "triton": "3.7.1",
+      "flagtree": "0.6.1",
+      "vllm": "0.31.0+cu129"
+    },
+    "allow_tf32": false,
+    "environment": {
+      "PYTHONPATH": null,
+      "QSA_TRITON_RUNTIME_PATH": "/opt/flagtree",
+      "CUDA_VISIBLE_DEVICES": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "CUDA_LAUNCH_BLOCKING": null,
+      "LD_LIBRARY_PATH": "/tmp/qsa-cuda134-compat.betov483/root/usr/local/cuda-13.4/compat:/tmp/qsa-vllm031-h800.PQnVpV/compat-root/usr/local/cuda-12.9/compat:/usr/local/nvidia/lib:/usr/local/nvidia/lib64",
+      "TRITON_CACHE_DIR": "/tmp/qsa-fp8-producer-runtime-h800.gZoGuv/cache/fp8_tail113_float8_e4m3fn/triton",
+      "FLAGGEMS_CACHE_DIR": "/tmp/qsa-fp8-producer-runtime-h800.gZoGuv/cache/fp8_tail113_float8_e4m3fn/gems",
+      "TRITON_PTXAS_PATH": "/tmp/qsa-flagtree134-tools.nu44yi3c/ptxas",
+      "TRITON_DISABLE_LINE_INFO": null,
+      "TRITON_OVERRIDE_ARCH": null,
+      "DISABLE_PTXAS_OPT": null,
+      "PTXAS_OPTIONS": null,
+      "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB": null
+    },
+    "nvidia_smi": {
+      "returncode": 0,
+      "stdout": "Tue Oct 27 10:41:54 2026       \n+-----------------------------------------------------------------------------------------+\n| NVIDIA-SMI 570.124.06             Driver Version: 570.124.06     CUDA Version: 13.4     |\n|-----------------------------------------+------------------------+----------------------+\n| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |\n| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |\n|                                         |                        |               MIG M. |\n|=========================================+========================+======================|\n|   0  NVIDIA H800                    Off |   00000000:1A:00.0 Off |                    0 |\n| N/A   63C    P0            126W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   1  NVIDIA H800                    Off |   00000000:5D:00.0 Off |                    0 |\n| N/A   30C    P0            130W /  700W |     862MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   2  NVIDIA H800                    Off |   00000000:6E:00.0 Off |                    0 |\n| N/A   28C    P0             68W /  700W |       4MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   3  NVIDIA H800                    Off |   00000000:7E:00.0 Off |                    0 |\n| N/A   44C    P0             76W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   4  NVIDIA H800                    Off |   00000000:B8:00.0 Off |                    0 |\n| N/A   29C    P0             71W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   5  NVIDIA H800                    Off |   00000000:CC:00.0 Off |                    0 |\n| N/A   28C    P0             73W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   6  NVIDIA H800                    Off |   00000000:D7:00.0 Off |                    0 |\n| N/A   32C    P0            129W /  700W |     956MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n|   7  NVIDIA H800                    Off |   00000000:E1:00.0 Off |                    0 |\n| N/A   38C    P0             74W /  700W |       1MiB /  81559MiB |      0%      Default |\n|                                         |                        |             Disabled |\n+-----------------------------------------+------------------------+----------------------+\n                                                                                         \n+-----------------------------------------------------------------------------------------+\n| Processes:                                                                              |\n|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |\n|        ID   ID                                                               Usage      |\n|=========================================================================================|\n|    1   N/A  N/A         1208913      C   /usr/bin/python3                        768MiB |\n|    6   N/A  N/A         3057732      C   /usr/bin/python3                        874MiB |\n+-----------------------------------------------------------------------------------------+\n",
+      "stderr": ""
+    },
+    "compiler_profile": "flagtree",
+    "flagtree_runtime": {
+      "profile": "flagtree-cuda134",
+      "version": "3.6.0",
+      "files": {
+        "triton": {
+          "path": "/opt/flagtree/triton/__init__.py",
+          "sha256": "df3092178f70be89b50d22905cedae5bac414cc38677053616fc56802c91af30"
+        },
+        "triton.testing": {
+          "path": "/opt/flagtree/triton/testing.py",
+          "sha256": "54b1a09e41f716151e46143f94c4a816090f2f4dea72752bf5f8071293540e7f"
+        },
+        "triton.backends.nvidia.compiler": {
+          "path": "/opt/flagtree/triton/backends/nvidia/compiler.py",
+          "sha256": "7357b379581baf59b088e939853c57e75bffc6b158d3059eb217be972d59ee68"
+        },
+        "triton.backends.nvidia.driver": {
+          "path": "/opt/flagtree/triton/backends/nvidia/driver.py",
+          "sha256": "45868d30c38de18f154cffe807374fcd0fcac6c149c2ff9ace6dc9a62b59091d"
+        },
+        "triton.knobs": {
+          "path": "/opt/flagtree/triton/knobs.py",
+          "sha256": "233f2698dcaf166056b8794df1caf55a0a438025f086eeb6ec1c064038b86793"
+        },
+        "triton._C.libtriton": {
+          "path": "/opt/flagtree/triton/_C/libtriton.so",
+          "sha256": "0435ea3da94763e73816bd48d9bf3565e258ba709eb0167a382b067ec862357e"
+        },
+        "triton.experimental.tle.language": {
+          "path": "/opt/flagtree/triton/experimental/tle/language/__init__.py",
+          "sha256": "9b9cf2e186e4a3886156fdc00e14f69ac12d671d9b689506bf54699475b29fc6"
+        }
+      },
+      "ptxas": {
+        "path": "/tmp/qsa-flagtree134-tools.nu44yi3c/ptxas",
+        "sha256": "9c2c084df7eb9be48f0502b6938ce2571679b2a78cad1c564b583bd7d9ea3c50"
+      },
+      "cuda": {
+        "libcuda": "/tmp/qsa-cuda134-compat.betov483/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09",
+        "libcuda_sha256": "85a8cc8cf00419ceb295ec62c481d05b4cdbdab10f25c5375d6d24bdbe00b4d9",
+        "driver_api": 13040
+      }
+    },
+    "native_topk_libraries": {
+      "vllm._C_stable_libtorch": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_C_stable_libtorch.abi3.so",
+        "sha256": "1483f8d226bf161b363be005265bdd13de986f5fc7e2ce5e20a95bd0db53857c"
+      },
+      "vllm._qutlass_C": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_qutlass_C.abi3.so",
+        "sha256": "027a05deb88f48111f50698ba77cc6bacee0b341f6af57c1152affa078fd7995"
+      },
+      "vllm._moe_C_stable_libtorch": {
+        "path": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/_moe_C_stable_libtorch.abi3.so",
+        "sha256": "d220bf1c3f82d36984c274b8849138000aeb324b81a37dbde963dd4b804bd250"
+      }
+    },
+    "operator_binding": {
+      "canonical_source": "/tmp/flaggems-qsa-fp8-runtime.Dm99zd/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+      "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+      "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill",
+      "candidate_source": "/tmp/flaggems-qsa-fp8-runtime.Dm99zd/src/flaggems_vllm/ops/qsa_select_paged_prefill.py",
+      "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+      "candidate_is_canonical_module": true,
+      "exported_entry_is_candidate": true,
+      "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"
+    }
+  },
+  "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-fp8-runtime.Dm99zd/tools/qsa_prefill_head_group_probe.py\", line 338, in worker\n    result[\"boundaries\"] = boundary_checks(production, helpers, torch, device)\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-fp8-runtime.Dm99zd/tools/qsa_prefill_fp8_producer_runtime.py\", line 465, in boundary_checks\n    scoring.validate_scores(\n  File \"/tmp/flaggems-qsa-fp8-runtime.Dm99zd/tools/qsa_prefill_score_benchmark.py\", line 88, in validate_scores\n    torch.testing.assert_close(\n  File \"/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/testing/_comparison.py\", line 1631, in assert_close\n    raise error_metas[0].to_error(msg)\nAssertionError: Tensor-likes are not close!\n\nMismatched elements: 23 / 8255 (0.3%)\nGreatest absolute difference: inf at index (8232,) (up to 0.011313708498984762 allowed)\nGreatest relative difference: inf at index (8232,) (up to 0.001 allowed)\n",
+  "rounds": 2,
+  "self_controls": {}
+}

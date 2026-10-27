@@ -1,0 +1,31 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.betov483
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.betov483/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-runtime.Dm99zd/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-runtime.Dm99zd/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+
+Producer runtime: fp8_tail113_float8_e4m3fn failed
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-runtime.Dm99zd/tools/qsa_prefill_head_group_probe.py", line 338, in worker
+    result["boundaries"] = boundary_checks(production, helpers, torch, device)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-runtime.Dm99zd/tools/qsa_prefill_fp8_producer_runtime.py", line 465, in boundary_checks
+    scoring.validate_scores(
+  File "/tmp/flaggems-qsa-fp8-runtime.Dm99zd/tools/qsa_prefill_score_benchmark.py", line 88, in validate_scores
+    torch.testing.assert_close(
+  File "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/testing/_comparison.py", line 1631, in assert_close
+    raise error_metas[0].to_error(msg)
+AssertionError: Tensor-likes are not close!
+
+Mismatched elements: 23 / 8255 (0.3%)
+Greatest absolute difference: inf at index (8232,) (up to 0.011313708498984762 allowed)
+Greatest relative difference: inf at index (8232,) (up to 0.001 allowed)
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-runtime.Dm99zd/tools/qsa_prefill_async_pipeline_probe.py", line 446, in coordinate
+    raise RuntimeError("Async-pipeline worker failed: " + name)
+RuntimeError: Async-pipeline worker failed: fp8_tail113_float8_e4m3fn
+
