@@ -1,0 +1,265 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.sot74_jc
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.sot74_jc/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+FP8 boundary: mixed_edges all35 offset rows,left32/right3,guards/masks passed
+FP8 boundary: single_tile all35 offset rows,left32/right3,guards/masks passed
+FP8 boundary: zero_visible all35 offset rows,left32/right3,guards/masks passed
+Resources: production [16384, 0, 4096] {'num_warps': 4, 'num_stages': 1, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 127 shared 24576 spills 0
+Resources: paired32 [16384, 0, 4096] {'num_warps': 4, 'num_stages': 1, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 2} regs 116 shared 28672 spills 0
+Measured (pending final validation): shared_topk left_us 342.77600049972534 right_us 342.9120033979416 ratio 0.9996033883419986
+Measured (pending final validation): production/paired32:score left_us 102.48000174760818 right_us 100.96000134944916 ratio 1.0150554712543822
+Measured (pending final validation): production/paired32:pipeline left_us 441.383995115757 right_us 439.7919923067093 ratio 1.003619899490888
+Measured (pending final validation): production:score left_us 102.72799991071224 right_us 102.63999924063683 ratio 1.0008573720842409
+Measured (pending final validation): production:pipeline left_us 443.08000057935715 right_us 441.5920004248619 ratio 1.003369626607963
+Measured (pending final validation): paired32:score left_us 100.94400122761726 right_us 100.53600184619427 ratio 1.0040582415645212
+Measured (pending final validation): paired32:pipeline left_us 441.44800305366516 right_us 442.50399619340897 ratio 0.9976135963769189
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_first_chunk_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     102.480        100.960       1.01506  1.01430     1.01581   
+pipeline  441.384        439.792       1.00362  1.00324     1.00400   
+topk      342.776        342.912       0.99960  0.99958     0.99963   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [16384, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: paired32 [16384, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 534.4400107860565 right_us 534.4720035791397 ratio 0.9999401413116703
+Measured (pending final validation): production/paired32:score left_us 258.7919980287552 right_us 255.8160051703453 ratio 1.0116333333265375
+Measured (pending final validation): production/paired32:pipeline left_us 792.3920005559921 right_us 789.0879958868027 ratio 1.0041871181495752
+Measured (pending final validation): production:score left_us 261.3999992609024 right_us 261.07199490070343 ratio 1.0012563751248913
+Measured (pending final validation): production:pipeline left_us 792.592003941536 right_us 794.3200021982193 ratio 0.9978245565365328
+Measured (pending final validation): paired32:score left_us 257.29600340127945 right_us 257.3839947581291 ratio 0.9996581319792928
+Measured (pending final validation): paired32:pipeline left_us 791.1600023508072 right_us 792.4080044031143 ratio 0.9984250511789728
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_budget_exact_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     258.792        255.816       1.01163  1.00605     1.01724   
+pipeline  792.392        789.088       1.00419  0.99980     1.00857   
+topk      534.440        534.472       0.99994  0.99967     1.00021   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [15768, 0, 8512] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: production [563, 15768, 8512] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 2} regs 94 shared 36864 spills 0
+Resources: paired32 [15768, 0, 8512] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Resources: paired32 [563, 15768, 8512] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 2} regs 94 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 562.1920078992844 right_us 562.1999949216843 ratio 0.999985793272017
+Measured (pending final validation): production/paired32:score left_us 276.13600343465805 right_us 272.7839946746826 ratio 1.0122881430927535
+Measured (pending final validation): production/paired32:pipeline left_us 824.0319788455963 right_us 825.5600035190582 ratio 0.9981491052534661
+Measured (pending final validation): production:score left_us 274.59199726581573 right_us 274.23999458551407 ratio 1.0012835570567804
+Measured (pending final validation): production:pipeline left_us 828.9119899272919 right_us 830.9440016746521 ratio 0.9975545743837552
+Measured (pending final validation): paired32:score left_us 274.1599977016449 right_us 273.6080065369606 ratio 1.0020174525287868
+Measured (pending final validation): paired32:pipeline left_us 825.7920145988464 right_us 826.0800093412399 ratio 0.9996513718536499
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_dominant_long_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     276.136        272.784       1.01229  1.00660     1.01804   
+pipeline  824.032        825.560       0.99815  0.99392     1.00238   
+topk      562.192        562.200       0.99999  0.99943     1.00054   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [16256, 0, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: production [112, 16256, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 8, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 55 shared 22528 spills 0
+Resources: paired32 [16256, 0, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Resources: paired32 [112, 16256, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 8, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 55 shared 22528 spills 0
+Measured (pending final validation): shared_topk left_us 550.7040023803711 right_us 550.6399869918823 ratio 1.0001162563380812
+Measured (pending final validation): production/paired32:score left_us 268.8800096511841 right_us 266.55200123786926 ratio 1.0087337870378146
+Measured (pending final validation): production/paired32:pipeline left_us 811.1439943313599 right_us 813.4240061044693 ratio 0.9971970193207986
+Measured (pending final validation): production:score left_us 267.5199955701828 right_us 268.264003098011 ratio 0.997226584561342
+Measured (pending final validation): production:pipeline left_us 813.2400065660477 right_us 807.7600002288818 ratio 1.006784201168185
+Measured (pending final validation): paired32:score left_us 267.0560032129288 right_us 266.7359933257103 ratio 1.0011997251785503
+Measured (pending final validation): paired32:pipeline left_us 811.271995306015 right_us 812.2560083866119 ratio 0.9987885431804296
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_tail112_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     268.880        266.552       1.00873  1.00649     1.01098   
+pipeline  811.144        813.424       0.99720  0.99243     1.00197   
+topk      550.704        550.640       1.00012  1.00000     1.00023   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [16256, 0, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: production [113, 16256, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 8, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 55 shared 22528 spills 0
+Resources: paired32 [16256, 0, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Resources: paired32 [113, 16256, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 8, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 55 shared 22528 spills 0
+Measured (pending final validation): shared_topk left_us 547.1200048923492 right_us 547.0879971981049 ratio 1.0000585055684064
+Measured (pending final validation): production/paired32:score left_us 268.3439925312996 right_us 264.95201140642166 ratio 1.0128022471196674
+Measured (pending final validation): production/paired32:pipeline left_us 813.1280094385147 right_us 809.9279999732971 ratio 1.0039509801677717
+Measured (pending final validation): production:score left_us 267.7600085735321 right_us 266.1520019173622 ratio 1.0060416853699607
+Measured (pending final validation): production:pipeline left_us 812.3520016670227 right_us 814.4560009241104 ratio 0.9974166814969742
+Measured (pending final validation): paired32:score left_us 266.6559964418411 right_us 266.1600038409233 ratio 1.0018635129011129
+Measured (pending final validation): paired32:pipeline left_us 812.8640055656433 right_us 807.2879910469055 ratio 1.006907094593971
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_tail113_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     268.344        264.952       1.01280  1.00761     1.01807   
+pipeline  813.128        809.928       1.00395  1.00366     1.00424   
+topk      547.120        547.088       1.00006  0.99988     1.00023   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [16256, 0, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: production [73, 16256, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 16, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 80 shared 28672 spills 0
+Resources: paired32 [16256, 0, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Resources: paired32 [73, 16256, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 16, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 80 shared 28672 spills 0
+Measured (pending final validation): shared_topk left_us 591.2320017814636 right_us 591.264009475708 ratio 0.9999458656476101
+Measured (pending final validation): production/paired32:score left_us 303.5520017147064 right_us 295.3760027885437 ratio 1.027679970102432
+Measured (pending final validation): production/paired32:pipeline left_us 891.1679983139038 right_us 877.5839805603027 ratio 1.0154788807162685
+Measured (pending final validation): production:score left_us 302.5520071387291 right_us 302.71199345588684 ratio 0.9994714899950567
+Measured (pending final validation): production:pipeline left_us 890.3439790010452 right_us 887.7919912338257 ratio 1.0028745334407363
+Measured (pending final validation): paired32:score left_us 296.7199981212616 right_us 296.5279892086983 ratio 1.00064752373992
+Measured (pending final validation): paired32:pipeline left_us 878.6080032587051 right_us 878.9920061826706 ratio 0.9995631326323056
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_two_balanced_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     303.552        295.376       1.02768  1.02763     1.02773   
+pipeline  891.168        877.584       1.01548  1.01210     1.01887   
+topk      591.232        591.264       0.99995  0.99978     1.00011   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [16256, 0, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: production [128, 16256, 8256] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 75 shared 40960 spills 0
+Resources: paired32 [16256, 0, 8256] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Resources: paired32 [128, 16256, 8256] {'num_warps': 8, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 1} regs 75 shared 40960 spills 0
+Measured (pending final validation): shared_topk left_us 550.7839918136597 right_us 550.8320033550262 ratio 0.9999128381410772
+Measured (pending final validation): production/paired32:score left_us 268.96799355745316 right_us 266.744002699852 ratio 1.0083375477427459
+Measured (pending final validation): production/paired32:pipeline left_us 812.3759925365448 right_us 809.5280081033707 ratio 1.0035180801709958
+Measured (pending final validation): production:score left_us 267.2000005841255 right_us 266.87999069690704 ratio 1.0011990778566158
+Measured (pending final validation): production:pipeline left_us 809.6719980239868 right_us 808.4080070257187 ratio 1.0015635557630342
+Measured (pending final validation): paired32:score left_us 267.304003238678 right_us 266.6480019688606 ratio 1.002460176956038
+Measured (pending final validation): paired32:pipeline left_us 810.7439875602722 right_us 813.4640157222748 ratio 0.9966562403383173
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_two_skewed_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     268.968        266.744       1.00834  1.00802     1.00866   
+pipeline  812.376        809.528       1.00352  0.99945     1.00759   
+topk      550.784        550.832       0.99991  0.99988     0.99994   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [2316, 0, 8512] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 2} regs 94 shared 36864 spills 0
+Resources: paired32 [2316, 0, 8512] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 102.98400186002254 right_us 102.9600016772747 ratio 1.000233102004243
+Measured (pending final validation): production/paired32:score left_us 59.35999937355518 right_us 56.6560011357069 ratio 1.0477265988358666
+Measured (pending final validation): production/paired32:pipeline left_us 156.76800161600113 right_us 153.50400656461716 ratio 1.0212632564089459
+Measured (pending final validation): production:score left_us 59.79200080037117 right_us 59.55200083553791 ratio 1.004030090701672
+Measured (pending final validation): production:pipeline left_us 156.74400329589844 right_us 156.8159982562065 ratio 0.9995408953097346
+Measured (pending final validation): paired32:score left_us 56.943999603390694 right_us 56.991999968886375 ratio 0.9991577701164744
+Measured (pending final validation): paired32:pipeline left_us 153.45600247383118 right_us 153.43999862670898 ratio 1.0001043003601762
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_short_tail_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     59.360         56.656        1.04773  1.04558     1.04989   
+pipeline  156.768        153.504       1.02126  1.01898     1.02354   
+topk      102.984        102.960       1.00023  0.99907     1.00140   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [8896, 0, 1088] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4} regs 114 shared 40960 spills 0
+Resources: paired32 [8896, 0, 1088] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 4} regs 146 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 160.60800105333328 right_us 160.61599552631378 ratio 0.999950226171719
+Measured (pending final validation): production/paired32:score left_us 54.70400117337704 right_us 60.472000390291214 ratio 0.9046170263975553
+Measured (pending final validation): production/paired32:pipeline left_us 209.1519981622696 right_us 215.34399688243866 ratio 0.9712460119166942
+Measured (pending final validation): production:score left_us 54.75999973714352 right_us 54.57599833607674 ratio 1.00337147109859
+Measured (pending final validation): production:pipeline left_us 209.07200127840042 right_us 208.93599838018417 ratio 1.0006509309035811
+Measured (pending final validation): paired32:score left_us 60.11199951171875 right_us 60.496000573039055 ratio 0.9936524554072514
+Measured (pending final validation): paired32:pipeline left_us 215.40000289678574 right_us 215.2480036020279 ratio 1.0007061589060722
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_compact_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     54.704         60.472        0.90462  0.90417     0.90506   
+pipeline  209.152        215.344       0.97125  0.97058     0.97191   
+topk      160.608        160.616       0.99995  0.99900     1.00090   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 1, 'retained_overlap_chunks': 1, 'reason': 'compact-preserving split/paired source actually executed'}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-all.tHYTdY/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [4519, 0, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: production [4519, 4519, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: production [4519, 9038, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: production [2827, 13557, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: paired32 [4519, 0, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Resources: paired32 [4519, 4519, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Resources: paired32 [4519, 9038, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Resources: paired32 [2827, 13557, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 1471.351981163025 right_us 1470.8639681339264 ratio 1.0003317866503438
+Measured (pending final validation): production/paired32:score left_us 1103.5920083522797 right_us 1062.4160170555115 ratio 1.03875693761742
+Measured (pending final validation): production/paired32:pipeline left_us 2595.2799320220947 right_us 2567.7120685577393 ratio 1.010736353114483
+Measured (pending final validation): production:score left_us 1112.0720207691193 right_us 1105.7519912719727 ratio 1.0057155940455296
+Measured (pending final validation): production:pipeline left_us 2606.2079668045044 right_us 2607.2800159454346 ratio 0.9995888247006943
+Measured (pending final validation): paired32:score left_us 1062.6400113105774 right_us 1061.7119669914246 ratio 1.0008741017790188
+Measured (pending final validation): paired32:pipeline left_us 2552.6078939437866 right_us 2567.263960838318 ratio 0.9942911725797976
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_long100k_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     1103.592       1062.416      1.03876  1.03765     1.03985   
+pipeline  2595.280       2567.712      1.01074  1.00620     1.01529   
+topk      1471.352       1470.864      1.00033  1.00021     1.00046   
+Actual optimization coverage: {'applicable': True, 'applied_chunks': 4, 'retained_overlap_chunks': 4, 'reason': 'paired source actually executed'}
+Incremental production / candidate arithmetic means: {'score': 1.0087631062527174, 'topk': 1.0000077903447167, 'pipeline': 1.0029346704709887}
+Actual source-candidate cases mean: {'count': 10, 'score': 1.0087631062527174, 'topk': 1.0000077903447167, 'pipeline': 1.0029346704709887}

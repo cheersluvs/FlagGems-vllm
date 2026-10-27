@@ -1,0 +1,3903 @@
+{
+  "status": "passed",
+  "acceptance_eligible": false,
+  "production_modified": false,
+  "source": {
+    "production_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+    "manifest_sha256": "4f29130c68f17c528ce49c6d4e4ab1351ec36359bc45269cfa170b2948737caa",
+    "driver_sha256": "df424d57c632a55c6ddd831df3d9c6a93213cb5cd7104ddce79e577aeb4ea833",
+    "base_driver_sha256": "e68d084b7c552fc70800cdcbcd25dcbade1237d61fc42a694cdd8921815143a9",
+    "compile_summary_sha256": "4421fc08e618735df720de1fa56feab599aa3cc73cdf6b90f8d803b40f9b6dd2",
+    "profiles": {
+      "production": {
+        "result": {
+          "status": "compiled",
+          "hint_backend": {
+            "backend": "cuda",
+            "handler": "triton.backends.nvidia.nvidia_hint_handler.NvidiaHintHandler",
+            "source": "/opt/flagtree/triton/compiler/hint_manager.py",
+            "sha256": "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb",
+            "selection": "explicit CUDA target;native handler;no device discovery"
+          },
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "06bef1ad72baae0383d4327b4598de2a22024c71afb1fcd2ea6a4d4337581388",
+          "cubin_sha256": "4a718e814e7cbecf82bd5a09c8de09e2968aad52249c69c61ae388fecb5ed250",
+          "code_sha256": "e11d6fa2b66a8aa7304e98dd87227228f5f6d504998e290b6b65b8f66cea4acc",
+          "shared_bytes": 57344,
+          "schedule": {
+            "schedule_error": "Unidentified K-copy/dot/wait schedule",
+            "K_slots": null,
+            "early_K_copies": 0,
+            "dot_sites": 2,
+            "waits": [
+              "      %scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "      %scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)"
+            ],
+            "mma_sites": 8,
+            "async_copy_sites": 8
+          },
+          "protocol_error": "No early K-copy protocol",
+          "registers_per_thread": 158,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0,
+          "instructions": {
+            "dot_epilogue_order": [
+              "%max_visible = \"tt.reduce\"(%visible_45) <{axis = 0 : i32}> ({",
+              "tt.reduce.return %max_visible_144 : i32 loc(#loc287)",
+              "%scores_left_161 = ttng.warp_group_dot %keys_160, %query_left_75, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> -> tensor<64x128xf32, #mma> loc(#loc267)",
+              "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "%scores_left_166 = \"tt.reduce\"(%scores_left_165) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_left_203 : f32 loc(#loc297)",
+              "%50 = ttg.convert_layout %47 : tensor<64x32xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x32xf32, #blocked3> loc(#loc271)",
+              "tt.store %45, %50, %49 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc271)",
+              "tt.store %45, %50, %54 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc275)",
+              "%scores_right = ttng.warp_group_dot %keys_160, %query_right_89, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> -> tensor<64x128xf32, #mma> loc(#loc276)",
+              "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x128xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x128xf8E4M3FN, #shared, #smem> loc(#loc277)",
+              "%scores_right_171 = \"tt.reduce\"(%scores_right_170) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_right_203 : f32 loc(#loc299)",
+              "%59 = ttg.convert_layout %56 : tensor<64x32xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x32xf32, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %58 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %63 : tensor<64x32x!tt.ptr<f32>, #blocked3> loc(#loc285)"
+            ],
+            "dot_sites": 2,
+            "dot_wait_sites": 2,
+            "mma_sites": 8,
+            "mma_wait_sites": 2,
+            "barriers": 8,
+            "async_copy_sites": 8
+          }
+        },
+        "source": "/tmp/qsa-fp8-dot-issue-h800.kpEg6w/production/kernel.py"
+      },
+      "sequential32": {
+        "result": {
+          "status": "compiled",
+          "hint_backend": {
+            "backend": "cuda",
+            "handler": "triton.backends.nvidia.nvidia_hint_handler.NvidiaHintHandler",
+            "source": "/opt/flagtree/triton/compiler/hint_manager.py",
+            "sha256": "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb",
+            "selection": "explicit CUDA target;native handler;no device discovery"
+          },
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "d9e4065211fe68047f4bdb9f423e56914501e744bb490936a01276709146de8b",
+          "cubin_sha256": "ece9af8d4eca16cc346c2fb3b2ca97802e96f94290986972a6fd6519684cd2a1",
+          "code_sha256": "f359c949db809303ac322f20f7ddee4d68b0b26fb0cc4719664e29422f1727ad",
+          "shared_bytes": 36864,
+          "schedule": {
+            "schedule_error": "Unidentified K-copy/dot/wait schedule",
+            "K_slots": null,
+            "early_K_copies": 0,
+            "dot_sites": 2,
+            "waits": [
+              "      %scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "      %scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc277)"
+            ],
+            "mma_sites": 8,
+            "async_copy_sites": 8
+          },
+          "protocol_error": "No early K-copy protocol",
+          "registers_per_thread": 94,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0,
+          "instructions": {
+            "dot_epilogue_order": [
+              "%max_visible = \"tt.reduce\"(%visible_42) <{axis = 0 : i32}> ({",
+              "tt.reduce.return %max_visible_144 : i32 loc(#loc287)",
+              "%scores_left_161 = ttng.warp_group_dot %keys_160, %query_left_75, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> -> tensor<64x64xf32, #mma> loc(#loc267)",
+              "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc268)",
+              "%scores_left_166 = \"tt.reduce\"(%scores_left_165) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_left_203 : f32 loc(#loc297)",
+              "%50 = ttg.convert_layout %47 : tensor<64x16xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x16xf32, #blocked3> loc(#loc271)",
+              "tt.store %45, %50, %49 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc271)",
+              "tt.store %45, %50, %54 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc275)",
+              "%scores_right = ttng.warp_group_dot %keys_160, %query_right_89, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> -> tensor<64x64xf32, #mma> loc(#loc276)",
+              "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc277)",
+              "%scores_right_171 = \"tt.reduce\"(%scores_right_170) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_right_203 : f32 loc(#loc299)",
+              "%59 = ttg.convert_layout %56 : tensor<64x16xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x16xf32, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %58 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %63 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc285)"
+            ],
+            "dot_sites": 2,
+            "dot_wait_sites": 2,
+            "mma_sites": 8,
+            "mma_wait_sites": 2,
+            "barriers": 5,
+            "async_copy_sites": 8
+          }
+        },
+        "source": "/tmp/qsa-fp8-dot-issue-h800.kpEg6w/sequential32/kernel.py",
+        "lifetime": {
+          "status": "reviewed_under_explicit_sync_assumptions",
+          "slots": 2,
+          "warp_groups": 1,
+          "K_tile_bytes": 8192,
+          "iterations_checked": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "wait_protocol": [
+            "0",
+            "0"
+          ],
+          "buffer_or_sync_rewrite": false
+        }
+      },
+      "paired32": {
+        "result": {
+          "status": "compiled",
+          "hint_backend": {
+            "backend": "cuda",
+            "handler": "triton.backends.nvidia.nvidia_hint_handler.NvidiaHintHandler",
+            "source": "/opt/flagtree/triton/compiler/hint_manager.py",
+            "sha256": "0742283d2f4927f0fd09d3770254d04d82b4f4f9b6a34251d1bee043c08c52fb",
+            "selection": "explicit CUDA target;native handler;no device discovery"
+          },
+          "gpu_kernel_executed": false,
+          "ptx_sha256": "eee2aad24d50d3c8cf9bd91449269a91ff980cc47345efd04784b4751322488b",
+          "cubin_sha256": "f6d90458bd22c1dddc58684958ad09d535c5e58730e371f4b13cbf7cee62b199",
+          "code_sha256": "93326549724c4447e2f4c810e0114550f75ddd9682894216134a774a9ebc6cfd",
+          "shared_bytes": 36864,
+          "schedule": {
+            "schedule_error": "Unidentified K-copy/dot/wait schedule",
+            "K_slots": null,
+            "early_K_copies": 0,
+            "dot_sites": 2,
+            "waits": [
+              "      %scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 1 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc269)",
+              "      %scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc277)"
+            ],
+            "mma_sites": 8,
+            "async_copy_sites": 8
+          },
+          "protocol_error": "No early K-copy protocol",
+          "registers_per_thread": 114,
+          "spill_store_bytes": 0,
+          "spill_load_bytes": 0,
+          "instructions": {
+            "dot_epilogue_order": [
+              "%max_visible = \"tt.reduce\"(%visible_42) <{axis = 0 : i32}> ({",
+              "tt.reduce.return %max_visible_144 : i32 loc(#loc287)",
+              "%scores_left_161 = ttng.warp_group_dot %keys_160, %query_left_75, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> -> tensor<64x64xf32, #mma> loc(#loc267)",
+              "%scores_right = ttng.warp_group_dot %keys_160, %query_right_89, %cst_3 {inputPrecision = 0 : i32, isAsync = true, maxNumImpreciseAcc = 1073741824 : i32, tle.explicit_wgmma_commit} : !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable> * !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> -> tensor<64x64xf32, #mma> loc(#loc268)",
+              "%scores_left_162:3 = ttng.warp_group_dot_wait %scores_left_161, %keys_160, %query_left_75 {pendings = 1 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc269)",
+              "%scores_left_166 = \"tt.reduce\"(%scores_left_165) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_left_203 : f32 loc(#loc297)",
+              "%50 = ttg.convert_layout %47 : tensor<64x16xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x16xf32, #blocked3> loc(#loc272)",
+              "tt.store %45, %50, %49 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc272)",
+              "tt.store %45, %50, %54 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc276)",
+              "%scores_right_167:3 = ttng.warp_group_dot_wait %scores_right, %keys_160, %query_right_89 {pendings = 0 : i32} : tensor<64x64xf32, #mma>, !ttg.memdesc<64x128xf8E4M3FN, #shared1, #smem, mutable>, !ttg.memdesc<128x64xf8E4M3FN, #shared, #smem> loc(#loc277)",
+              "%scores_right_171 = \"tt.reduce\"(%scores_right_170) <{axis = 2 : i32}> ({",
+              "tt.reduce.return %scores_right_203 : f32 loc(#loc299)",
+              "%59 = ttg.convert_layout %56 : tensor<64x16xf32, #ttg.slice<{dim = 2, parent = #linear}>> -> tensor<64x16xf32, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %58 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc281)",
+              "tt.store %55, %59, %63 : tensor<64x16x!tt.ptr<f32>, #blocked3> loc(#loc285)"
+            ],
+            "dot_sites": 2,
+            "dot_wait_sites": 2,
+            "mma_sites": 8,
+            "mma_wait_sites": 2,
+            "barriers": 5,
+            "async_copy_sites": 8
+          }
+        },
+        "source": "/tmp/qsa-fp8-dot-issue-h800.kpEg6w/paired32/kernel.py",
+        "lifetime": {
+          "status": "reviewed_under_explicit_sync_assumptions",
+          "slots": 2,
+          "warp_groups": 1,
+          "K_tile_bytes": 8192,
+          "iterations_checked": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "wait_protocol": [
+            "1",
+            "0"
+          ],
+          "buffer_or_sync_rewrite": false
+        }
+      }
+    },
+    "sources": {
+      "docs/qsa_prefill_async_pipeline_probe.md": "f35d6ac1227ebf518e41e71505633179ab07bd5100c55d33f50f99e8a0b8c55e",
+      "docs/qsa_prefill_bf16_dot_schedule_probe.md": "67ce3ee43dd08c16c3a609588747afd9edf87d0ce8dce3b351bf77bc55ba5532",
+      "docs/qsa_prefill_bf16_stage_depth_configs.json": "19efb9803313e303ad503b0864c48c5253f3fc3674daef1fcdf8a652b702f583",
+      "docs/qsa_prefill_bf16_stage_depth_probe.md": "5b35b1ffa80e54ed68382e6c8c6d93ce52f3773ffbb6335362a97bc75227587f",
+      "docs/qsa_prefill_double_buffer.md": "695dc23f8ea6f81ecaa0540255185c8f2295b6bf8addedb0b3dde52788fde23f",
+      "docs/qsa_prefill_fp8_dot_all.md": "bd7352558b9ae0b97c12394377e113045d03ed33ffe6a28f6929ab799f4bb8eb",
+      "docs/qsa_prefill_fp8_dot_full.md": "c2a56ca1114703bdc9247560d85918cd203820a5d33aad8bb5b439cea541281d",
+      "docs/qsa_prefill_fp8_dot_full_configs.json": "2b875a887ad327873a3d5753ccb02fd0432e70167f086d40bcffac8477c0a7da",
+      "docs/qsa_prefill_fp8_dot_issue.md": "bed0be96bc520656b850ea086f7eb14834adb96771b050d872860cddc31be49b",
+      "docs/qsa_prefill_fp8_dot_runtime.md": "7ae10fb9c7444c8e925357725b2897321dedf5295b163f18de8a0d4d8a1532e2",
+      "docs/qsa_prefill_fp8_producer.md": "174eb2936e24c270b63a89fed098e1008ad890d2ec427f899350ad070ca8dd48",
+      "docs/qsa_prefill_fp8_producer_runtime.md": "bd71ef8870aab2f6eccd59f09e4a6852e9c62f2ca2df106adecc7623ba7ee856",
+      "docs/qsa_prefill_fp8_profile_configs.json": "4f29130c68f17c528ce49c6d4e4ab1351ec36359bc45269cfa170b2948737caa",
+      "docs/qsa_prefill_producer_first_probe.md": "f9c12ceae72c0d2363286848bdd827c0dc9b04340ef4cec2cdc0971014bad305",
+      "docs/qsa_prefill_producer_runtime.md": "7d4dc969a7149659ecf1ee91d481f4b359c9acf9873b6880347bd856e3723929",
+      "docs/qsa_prefill_source_pipeline.md": "fba5f8796060849c57dea7f5ebf7f6cf7de1ca611f0f62db0e3f7e9f5013edfe",
+      "src/flaggems_vllm/ops/qsa_select_paged_prefill.py": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e",
+      "tools/qsa_prefill_async_pipeline_kernel.py": "db9896ef6b23d99f718885693687a274d95d5808088fb90b3c59081178251272",
+      "tools/qsa_prefill_async_pipeline_probe.py": "162184b3735732712ec94f4e28210ce6b719f8584897328d2ad1c423d642d24d",
+      "tools/qsa_prefill_bf16_dot_schedule_kernel.py": "e140f8dbb79a996427fdd893ef1e1c52a0cf48add6f83c72bee099b4182d51a3",
+      "tools/qsa_prefill_bf16_dot_schedule_probe.py": "b2224e3585a4af8be1ee3a6098150fda027a1d366592af72bd0592f99306731a",
+      "tools/qsa_prefill_bf16_stage_depth_probe.py": "3655fa82a2f7c982569c907aac4e68acb8d8dab7e4bbc10772ae5e100a8dba81",
+      "tools/qsa_prefill_double_buffer.py": "09c0337e53309199177004bbd2a69161af63733e53f2fc4f4721a67148173416",
+      "tools/qsa_prefill_double_buffer_runtime.py": "456faa57d36ecef423185e8047350b2cc09323fc754aaaaaf0c233c67cdceafd",
+      "tools/qsa_prefill_explicit_prefetch_kernel.py": "7d9a3397135c2428ccb82c80391d477f0d5caf71ef94dafe73681e3ec3ba671d",
+      "tools/qsa_prefill_fp8_dot_all.py": "620769aa4a4e4d2bfafc3641a5fa2e5ed3914bf63c79fe9dbdc7c9b51f70c517",
+      "tools/qsa_prefill_fp8_dot_full.py": "03d878d604d1f32038179e929d849f7bb8f42a09393e960c743308461c82f8b9",
+      "tools/qsa_prefill_fp8_dot_issue.py": "516ed52abfc62849d27aff6765d04f344ad63debc4fec27babfeb875b5acf58f",
+      "tools/qsa_prefill_fp8_dot_runtime.py": "813d9a5a982cef1fde053a6e5915edb62a314d1c67d80b3e26b49bf9910db814",
+      "tools/qsa_prefill_fp8_producer.py": "71ba464eb91df34fe0a4d74c9e8854d9a1870f64ed19e802baef61430374064b",
+      "tools/qsa_prefill_fp8_producer_runtime.py": "df424d57c632a55c6ddd831df3d9c6a93213cb5cd7104ddce79e577aeb4ea833",
+      "tools/qsa_prefill_fp8_profile.py": "85e6be71387905017b91a950321d400ee74aedef8d71109bda43f6bdb885ba5f",
+      "tools/qsa_prefill_pipeline_trace.py": "9bb7a4b5f83efba4f95964736a63dfddcf60be94efa19efb05593a19d6a19c96",
+      "tools/qsa_prefill_producer_first.py": "b329d3ad70e78f9f1952f7ca9fb9191e38d80f6bfd21dc77323d920d625ae50a",
+      "tools/qsa_prefill_producer_runtime.py": "e68d084b7c552fc70800cdcbcd25dcbade1237d61fc42a694cdd8921815143a9",
+      "tools/qsa_prefill_source_pipeline.py": "b22b8fda6e830778f91f2334f44f0e8747c550bda54f996f5ab896fc49999cda",
+      "tools/run_qsa_prefill_async_pipeline_h800.sh": "4ebb0727df78c809d73f22a08b3e6ca0994f89a07ffd1084521de320e46f5f09",
+      "tools/run_qsa_prefill_bf16_dot_schedule_h800.sh": "c9cf89c6f30db6792b4466816aef2eb757ffd3cc605cb43fa052580f3a904974",
+      "tools/run_qsa_prefill_bf16_stage_depth_h800.sh": "a2355b55535cf4adc040dea3a8c6227f4f93204ba34925cecfa5d5beb2d2236d",
+      "tools/run_qsa_prefill_double_buffer.sh": "f22a875f59ec24928635cd3bd2859f0b61d48210ef0a8f4d9d318bfa82198574",
+      "tools/run_qsa_prefill_fp8_dot_all_h800.sh": "b1be2ffebfdd95e0cf5782f4a7370da2121022b98ddfdcf9264352779eb89768",
+      "tools/run_qsa_prefill_fp8_dot_full_h800.sh": "4dfb6d93418c9b8d98d846111e1a90cfadbf7327bd1e3dcc863e4a8e24c52c1c",
+      "tools/run_qsa_prefill_fp8_dot_issue_h800.sh": "03073a9ced09baab498d6932c7282d14456d0c83c5f366ced7a0e9d7edb31552",
+      "tools/run_qsa_prefill_fp8_dot_runtime_h800.sh": "dcec83f857eb360dae8490c2a4b764258563acf38f7fceaca70863f1d3fe5839",
+      "tools/run_qsa_prefill_fp8_producer_h800.sh": "44d848b507e3e82f9817004e674ea36a9ed199ce8f39f0ee65aec1dab72da9a7",
+      "tools/run_qsa_prefill_fp8_producer_runtime_h800.sh": "3eb0af438825e493b440554a3b989e70ff87353bd5b55d9ca8ad0ddf566166bf",
+      "tools/run_qsa_prefill_producer_first.sh": "7f3189400be800a927f6690daf76c583994c3fae702914850f37be9ffe92c72f",
+      "tools/run_qsa_prefill_producer_runtime.sh": "39b2c07918c6e65164ad570aed4fbe4cac6d9cb211bfe712a51a2ef1e5b7d832",
+      "tools/run_qsa_prefill_source_pipeline.sh": "4115b74b4ded869c999e37ca1b3681ca09ee834fcb6ca1a0416432bb3691c2a6",
+      "tools/test_qsa_prefill_async_pipeline_probe.py": "11bb028edc0060a9503f308b2b7702c5089ecbb61983d0fd525c34db401abaad",
+      "tools/test_qsa_prefill_bf16_dot_schedule_probe.py": "e51818a988885c50537e79821a61c31b38038227aaed58941113628d4703a4ae",
+      "tools/test_qsa_prefill_bf16_stage_depth_probe.py": "e956598d323930aedaa3b847b5b8c1b5fac5f806743ac6264f6f77e9fc5a941c",
+      "tools/test_qsa_prefill_double_buffer.py": "8d1f47fb1d678e5c7e7ee5d3ac4bd28332ffb96dcb41e0d56374e9bc78af5a01",
+      "tools/test_qsa_prefill_fp8_dot_all.py": "37745620fab0d7a9e62373c40a8497eef0f4d266fc4cf34009db1011732b3366",
+      "tools/test_qsa_prefill_fp8_dot_full.py": "6b1ba36ef0d7efb9de82a75c479dd6a68bc05fee8391511464b660d2e44d1393",
+      "tools/test_qsa_prefill_fp8_dot_issue.py": "082d8ff19e79e28cca6005a6de08c0db819cf45b6c094e122980e6737e588298",
+      "tools/test_qsa_prefill_fp8_dot_runtime.py": "f23302a10abad5aa4311354bde7c0156084be16b886f4cef2b4afd74f571e4da",
+      "tools/test_qsa_prefill_fp8_producer.py": "cc8353d2c7d158bc32f210259c303589e7339bb8044cbf62763d38514ae4c1f9",
+      "tools/test_qsa_prefill_fp8_producer_runtime.py": "bba5fe905b4fe9f9adb9dee129d3d3ad3dec613fff1965e5190908388d96af33",
+      "tools/test_qsa_prefill_producer_first.py": "c09ebfc4290600f1ec311d7accd2f38899a52e8fe1c31fae94ea8ec22814ec40",
+      "tools/test_qsa_prefill_producer_runtime.py": "da57a1cd3e55f5168e1cb81b1630d5f577f0a8ecddc039f4b0e51a7d54cea322",
+      "tools/test_qsa_prefill_source_pipeline.py": "0f285bfcf5280ec6248f0a83087b38587d591a8e04bac3270f43d3279dbcce12"
+    },
+    "full10_manifest_sha256": "2b875a887ad327873a3d5753ccb02fd0432e70167f086d40bcffac8477c0a7da",
+    "candidate_scope": "all10 FP8 main paths;compact uses compact-preserving split",
+    "coverage_policy": "all10 paths actually execute paired source",
+    "extended_source_gates": true
+  },
+  "options": {
+    "report_dir": "/tmp/qsa-fp8-dot-all-h800.xHFsuR",
+    "baseline_report": "/tmp/qsa-head-group-production-h800.Dy5oqx",
+    "flagtree": "/opt/flagtree",
+    "rounds": 2,
+    "kernel_warmup_ms": 20,
+    "kernel_rep_ms": 20,
+    "timeout": 1800,
+    "max_initial_temp_c": 80,
+    "cooldown_timeout": 120,
+    "cooldown_interval": 10,
+    "cases": [
+      "fp8_first_chunk_float8_e4m3fn",
+      "fp8_budget_exact_float8_e4m3fn",
+      "fp8_dominant_long_float8_e4m3fn",
+      "fp8_tail112_float8_e4m3fn",
+      "fp8_tail113_float8_e4m3fn",
+      "fp8_two_balanced_float8_e4m3fn",
+      "fp8_two_skewed_float8_e4m3fn",
+      "fp8_short_tail_float8_e4m3fn",
+      "fp8_compact_float8_e4m3fn",
+      "fp8_long100k_float8_e4m3fn"
+    ],
+    "worker_case": null,
+    "compiler": "flagtree",
+    "candidate": "production"
+  },
+  "git_head": {
+    "returncode": 0,
+    "stdout": "b2882cc4ae90b092ea00638652abfea89b719c32\n",
+    "stderr": ""
+  },
+  "git_status": {
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "cases": [
+    {
+      "case": "fp8_first_chunk_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              102.81600058078766,
+              102.14400291442871
+            ],
+            "median": 102.48000174760818,
+            "mean": 102.48000174760818,
+            "min": 102.14400291442871,
+            "max": 102.81600058078766,
+            "stdev": 0.47517410682394706
+          },
+          "candidate_us": {
+            "samples": [
+              101.21600329875946,
+              100.70399940013885
+            ],
+            "median": 100.96000134944916,
+            "mean": 100.96000134944916,
+            "min": 100.70399940013885,
+            "max": 101.21600329875946,
+            "stdev": 0.36204142870857975
+          },
+          "speedup": 1.0150554712543822,
+          "paired_ratios": {
+            "samples": [
+              1.0158077500581157,
+              1.0142993676802063
+            ],
+            "median": 1.0150535588691612,
+            "mean": 1.0150535588691612,
+            "min": 1.0142993676802063,
+            "max": 1.0158077500581157,
+            "stdev": 0.001066587408042027
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              441.3439929485321,
+              441.4239972829819
+            ],
+            "median": 441.383995115757,
+            "mean": 441.383995115757,
+            "min": 441.3439929485321,
+            "max": 441.4239972829819,
+            "stdev": 0.05657160741374751
+          },
+          "candidate_us": {
+            "samples": [
+              439.58398699760437,
+              439.9999976158142
+            ],
+            "median": 439.7919923067093,
+            "mean": 439.7919923067093,
+            "min": 439.58398699760437,
+            "max": 439.9999976158142,
+            "stdev": 0.2941639291817849
+          },
+          "speedup": 1.003619899490888,
+          "paired_ratios": {
+            "samples": [
+              1.0040037990531656,
+              1.003236362897463
+            ],
+            "median": 1.0036200809753142,
+            "mean": 1.0036200809753142,
+            "min": 1.003236362897463,
+            "max": 1.0040037990531656,
+            "stdev": 0.0005426593098250632
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              342.8640067577362,
+              342.6879942417145
+            ],
+            "median": 342.77600049972534,
+            "mean": 342.77600049972534,
+            "min": 342.6879942417145,
+            "max": 342.8640067577362,
+            "stdev": 0.12445964365267008
+          },
+          "candidate_us": {
+            "samples": [
+              343.00801157951355,
+              342.81599521636963
+            ],
+            "median": 342.9120033979416,
+            "mean": 342.9120033979416,
+            "min": 342.81599521636963,
+            "max": 343.00801157951355,
+            "stdev": 0.13577607247784512
+          },
+          "speedup": 0.9996033883419986,
+          "paired_ratios": {
+            "samples": [
+              0.9995801706755646,
+              0.9996266190129945
+            ],
+            "median": 0.9996033948442795,
+            "mean": 0.9996033948442795,
+            "min": 0.9995801706755646,
+            "max": 0.9996266190129945,
+            "stdev": 3.2843934371558286e-05
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                102.81600058078766,
+                102.14400291442871
+              ],
+              "median": 102.48000174760818,
+              "mean": 102.48000174760818,
+              "min": 102.14400291442871,
+              "max": 102.81600058078766,
+              "stdev": 0.47517410682394706
+            },
+            "candidate_us": {
+              "samples": [
+                101.21600329875946,
+                100.70399940013885
+              ],
+              "median": 100.96000134944916,
+              "mean": 100.96000134944916,
+              "min": 100.70399940013885,
+              "max": 101.21600329875946,
+              "stdev": 0.36204142870857975
+            },
+            "speedup": 1.0150554712543822,
+            "paired_ratios": {
+              "samples": [
+                1.0158077500581157,
+                1.0142993676802063
+              ],
+              "median": 1.0150535588691612,
+              "mean": 1.0150535588691612,
+              "min": 1.0142993676802063,
+              "max": 1.0158077500581157,
+              "stdev": 0.001066587408042027
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                441.3439929485321,
+                441.4239972829819
+              ],
+              "median": 441.383995115757,
+              "mean": 441.383995115757,
+              "min": 441.3439929485321,
+              "max": 441.4239972829819,
+              "stdev": 0.05657160741374751
+            },
+            "candidate_us": {
+              "samples": [
+                439.58398699760437,
+                439.9999976158142
+              ],
+              "median": 439.7919923067093,
+              "mean": 439.7919923067093,
+              "min": 439.58398699760437,
+              "max": 439.9999976158142,
+              "stdev": 0.2941639291817849
+            },
+            "speedup": 1.003619899490888,
+            "paired_ratios": {
+              "samples": [
+                1.0040037990531656,
+                1.003236362897463
+              ],
+              "median": 1.0036200809753142,
+              "mean": 1.0036200809753142,
+              "min": 1.003236362897463,
+              "max": 1.0040037990531656,
+              "stdev": 0.0005426593098250632
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                342.8640067577362,
+                342.6879942417145
+              ],
+              "median": 342.77600049972534,
+              "mean": 342.77600049972534,
+              "min": 342.6879942417145,
+              "max": 342.8640067577362,
+              "stdev": 0.12445964365267008
+            },
+            "candidate_us": {
+              "samples": [
+                343.00801157951355,
+                342.81599521636963
+              ],
+              "median": 342.9120033979416,
+              "mean": 342.9120033979416,
+              "min": 342.81599521636963,
+              "max": 343.00801157951355,
+              "stdev": 0.13577607247784512
+            },
+            "speedup": 0.9996033883419986,
+            "paired_ratios": {
+              "samples": [
+                0.9995801706755646,
+                0.9996266190129945
+              ],
+              "median": 0.9996033948442795,
+              "mean": 0.9996033948442795,
+              "min": 0.9995801706755646,
+              "max": 0.9996266190129945,
+              "stdev": 3.2843934371558286e-05
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_budget_exact_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              259.68000292778015,
+              257.9039931297302
+            ],
+            "median": 258.7919980287552,
+            "mean": 258.7919980287552,
+            "min": 257.9039931297302,
+            "max": 259.68000292778015,
+            "stdev": 1.255828571654854
+          },
+          "candidate_us": {
+            "samples": [
+              255.280002951622,
+              256.3520073890686
+            ],
+            "median": 255.8160051703453,
+            "mean": 255.8160051703453,
+            "min": 255.280002951622,
+            "max": 256.3520073890686,
+            "stdev": 0.7580216071805569
+          },
+          "speedup": 1.0116333333265375,
+          "paired_ratios": {
+            "samples": [
+              1.0172359758903324,
+              1.0060541197101147
+            ],
+            "median": 1.0116450478002235,
+            "mean": 1.0116450478002235,
+            "min": 1.0060541197101147,
+            "max": 1.0172359758903324,
+            "stdev": 0.007906766331284655
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              796.3359951972961,
+              788.4480059146881
+            ],
+            "median": 792.3920005559921,
+            "mean": 792.3920005559921,
+            "min": 788.4480059146881,
+            "max": 796.3359951972961,
+            "stdev": 5.57765071165895
+          },
+          "candidate_us": {
+            "samples": [
+              789.5680069923401,
+              788.6079847812653
+            ],
+            "median": 789.0879958868027,
+            "mean": 789.0879958868027,
+            "min": 788.6079847812653,
+            "max": 789.5680069923401,
+            "stdev": 0.6788382155407148
+          },
+          "speedup": 1.0041871181495752,
+          "paired_ratios": {
+            "samples": [
+              1.0085717609439837,
+              0.9997971376530995
+            ],
+            "median": 1.0041844492985417,
+            "mean": 1.0041844492985417,
+            "min": 0.9997971376530995,
+            "max": 1.0085717609439837,
+            "stdev": 0.0062045956313416285
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              534.5280170440674,
+              534.3520045280457
+            ],
+            "median": 534.4400107860565,
+            "mean": 534.4400107860565,
+            "min": 534.3520045280457,
+            "max": 534.5280170440674,
+            "stdev": 0.12445964365267008
+          },
+          "candidate_us": {
+            "samples": [
+              534.415990114212,
+              534.5280170440674
+            ],
+            "median": 534.4720035791397,
+            "mean": 534.4720035791397,
+            "min": 534.415990114212,
+            "max": 534.5280170440674,
+            "stdev": 0.07921500177622533
+          },
+          "speedup": 0.9999401413116703,
+          "paired_ratios": {
+            "samples": [
+              1.0002096249586983,
+              0.9996707141433014
+            ],
+            "median": 0.9999401695509998,
+            "mean": 0.9999401695509998,
+            "min": 0.9996707141433014,
+            "max": 1.0002096249586983,
+            "stdev": 0.00038106749202185546
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                259.68000292778015,
+                257.9039931297302
+              ],
+              "median": 258.7919980287552,
+              "mean": 258.7919980287552,
+              "min": 257.9039931297302,
+              "max": 259.68000292778015,
+              "stdev": 1.255828571654854
+            },
+            "candidate_us": {
+              "samples": [
+                255.280002951622,
+                256.3520073890686
+              ],
+              "median": 255.8160051703453,
+              "mean": 255.8160051703453,
+              "min": 255.280002951622,
+              "max": 256.3520073890686,
+              "stdev": 0.7580216071805569
+            },
+            "speedup": 1.0116333333265375,
+            "paired_ratios": {
+              "samples": [
+                1.0172359758903324,
+                1.0060541197101147
+              ],
+              "median": 1.0116450478002235,
+              "mean": 1.0116450478002235,
+              "min": 1.0060541197101147,
+              "max": 1.0172359758903324,
+              "stdev": 0.007906766331284655
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                796.3359951972961,
+                788.4480059146881
+              ],
+              "median": 792.3920005559921,
+              "mean": 792.3920005559921,
+              "min": 788.4480059146881,
+              "max": 796.3359951972961,
+              "stdev": 5.57765071165895
+            },
+            "candidate_us": {
+              "samples": [
+                789.5680069923401,
+                788.6079847812653
+              ],
+              "median": 789.0879958868027,
+              "mean": 789.0879958868027,
+              "min": 788.6079847812653,
+              "max": 789.5680069923401,
+              "stdev": 0.6788382155407148
+            },
+            "speedup": 1.0041871181495752,
+            "paired_ratios": {
+              "samples": [
+                1.0085717609439837,
+                0.9997971376530995
+              ],
+              "median": 1.0041844492985417,
+              "mean": 1.0041844492985417,
+              "min": 0.9997971376530995,
+              "max": 1.0085717609439837,
+              "stdev": 0.0062045956313416285
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                534.5280170440674,
+                534.3520045280457
+              ],
+              "median": 534.4400107860565,
+              "mean": 534.4400107860565,
+              "min": 534.3520045280457,
+              "max": 534.5280170440674,
+              "stdev": 0.12445964365267008
+            },
+            "candidate_us": {
+              "samples": [
+                534.415990114212,
+                534.5280170440674
+              ],
+              "median": 534.4720035791397,
+              "mean": 534.4720035791397,
+              "min": 534.415990114212,
+              "max": 534.5280170440674,
+              "stdev": 0.07921500177622533
+            },
+            "speedup": 0.9999401413116703,
+            "paired_ratios": {
+              "samples": [
+                1.0002096249586983,
+                0.9996707141433014
+              ],
+              "median": 0.9999401695509998,
+              "mean": 0.9999401695509998,
+              "min": 0.9996707141433014,
+              "max": 1.0002096249586983,
+              "stdev": 0.00038106749202185546
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_dominant_long_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              276.3200104236603,
+              275.9519964456558
+            ],
+            "median": 276.13600343465805,
+            "mean": 276.13600343465805,
+            "min": 275.9519964456558,
+            "max": 276.3200104236603,
+            "stdev": 0.26022517941838746
+          },
+          "candidate_us": {
+            "samples": [
+              271.42399549484253,
+              274.1439938545227
+            ],
+            "median": 272.7839946746826,
+            "mean": 272.7839946746826,
+            "min": 271.42399549484253,
+            "max": 274.1439938545227,
+            "stdev": 1.9233292849461383
+          },
+          "speedup": 1.0122881430927535,
+          "paired_ratios": {
+            "samples": [
+              1.0180382538393176,
+              1.006595083721194
+            ],
+            "median": 1.0123166687802558,
+            "mean": 1.0123166687802558,
+            "min": 1.006595083721194,
+            "max": 1.0180382538393176,
+            "stdev": 0.008091543188796364
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              827.3599743843079,
+              820.7039833068848
+            ],
+            "median": 824.0319788455963,
+            "mean": 824.0319788455963,
+            "min": 820.7039833068848,
+            "max": 827.3599743843079,
+            "stdev": 4.706496426363025
+          },
+          "candidate_us": {
+            "samples": [
+              825.3920078277588,
+              825.7279992103577
+            ],
+            "median": 825.5600035190582,
+            "mean": 825.5600035190582,
+            "min": 825.3920078277588,
+            "max": 825.7279992103577,
+            "stdev": 0.23758178505590966
+          },
+          "speedup": 0.9981491052534661,
+          "paired_ratios": {
+            "samples": [
+              1.002384281090543,
+              0.993915652723079
+            ],
+            "median": 0.998149966906811,
+            "mean": 0.998149966906811,
+            "min": 0.993915652723079,
+            "max": 1.002384281090543,
+            "stdev": 0.0059882245459825425
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              562.0479881763458,
+              562.3360276222229
+            ],
+            "median": 562.1920078992844,
+            "mean": 562.1920078992844,
+            "min": 562.0479881763458,
+            "max": 562.3360276222229,
+            "stdev": 0.2036746454288954
+          },
+          "candidate_us": {
+            "samples": [
+              562.3679757118225,
+              562.032014131546
+            ],
+            "median": 562.1999949216843,
+            "mean": 562.1999949216843,
+            "min": 562.032014131546,
+            "max": 562.3679757118225,
+            "stdev": 0.2375607116316542
+          },
+          "speedup": 0.999985793272017,
+          "paired_ratios": {
+            "samples": [
+              0.9994309997202958,
+              1.0005409184584382
+            ],
+            "median": 0.9999859590893669,
+            "mean": 0.9999859590893669,
+            "min": 0.9994309997202958,
+            "max": 1.0005409184584382,
+            "stdev": 0.0007848310663064844
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                276.3200104236603,
+                275.9519964456558
+              ],
+              "median": 276.13600343465805,
+              "mean": 276.13600343465805,
+              "min": 275.9519964456558,
+              "max": 276.3200104236603,
+              "stdev": 0.26022517941838746
+            },
+            "candidate_us": {
+              "samples": [
+                271.42399549484253,
+                274.1439938545227
+              ],
+              "median": 272.7839946746826,
+              "mean": 272.7839946746826,
+              "min": 271.42399549484253,
+              "max": 274.1439938545227,
+              "stdev": 1.9233292849461383
+            },
+            "speedup": 1.0122881430927535,
+            "paired_ratios": {
+              "samples": [
+                1.0180382538393176,
+                1.006595083721194
+              ],
+              "median": 1.0123166687802558,
+              "mean": 1.0123166687802558,
+              "min": 1.006595083721194,
+              "max": 1.0180382538393176,
+              "stdev": 0.008091543188796364
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                827.3599743843079,
+                820.7039833068848
+              ],
+              "median": 824.0319788455963,
+              "mean": 824.0319788455963,
+              "min": 820.7039833068848,
+              "max": 827.3599743843079,
+              "stdev": 4.706496426363025
+            },
+            "candidate_us": {
+              "samples": [
+                825.3920078277588,
+                825.7279992103577
+              ],
+              "median": 825.5600035190582,
+              "mean": 825.5600035190582,
+              "min": 825.3920078277588,
+              "max": 825.7279992103577,
+              "stdev": 0.23758178505590966
+            },
+            "speedup": 0.9981491052534661,
+            "paired_ratios": {
+              "samples": [
+                1.002384281090543,
+                0.993915652723079
+              ],
+              "median": 0.998149966906811,
+              "mean": 0.998149966906811,
+              "min": 0.993915652723079,
+              "max": 1.002384281090543,
+              "stdev": 0.0059882245459825425
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                562.0479881763458,
+                562.3360276222229
+              ],
+              "median": 562.1920078992844,
+              "mean": 562.1920078992844,
+              "min": 562.0479881763458,
+              "max": 562.3360276222229,
+              "stdev": 0.2036746454288954
+            },
+            "candidate_us": {
+              "samples": [
+                562.3679757118225,
+                562.032014131546
+              ],
+              "median": 562.1999949216843,
+              "mean": 562.1999949216843,
+              "min": 562.032014131546,
+              "max": 562.3679757118225,
+              "stdev": 0.2375607116316542
+            },
+            "speedup": 0.999985793272017,
+            "paired_ratios": {
+              "samples": [
+                0.9994309997202958,
+                1.0005409184584382
+              ],
+              "median": 0.9999859590893669,
+              "mean": 0.9999859590893669,
+              "min": 0.9994309997202958,
+              "max": 1.0005409184584382,
+              "stdev": 0.0007848310663064844
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_tail112_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              269.6320116519928,
+              268.12800765037537
+            ],
+            "median": 268.8800096511841,
+            "mean": 268.8800096511841,
+            "min": 268.12800765037537,
+            "max": 269.6320116519928,
+            "stdev": 1.0634914284753891
+          },
+          "candidate_us": {
+            "samples": [
+              266.7040079832077,
+              266.3999944925308
+            ],
+            "median": 266.55200123786926,
+            "mean": 266.55200123786926,
+            "min": 266.3999944925308,
+            "max": 266.7040079832077,
+            "stdev": 0.21497000082981502
+          },
+          "speedup": 1.0087337870378146,
+          "paired_ratios": {
+            "samples": [
+              1.010978476442579,
+              1.0064865360118955
+            ],
+            "median": 1.0087325062272372,
+            "mean": 1.0087325062272372,
+            "min": 1.0064865360118955,
+            "max": 1.010978476442579,
+            "stdev": 0.0031762815392223746
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              814.767986536026,
+              807.5200021266937
+            ],
+            "median": 811.1439943313599,
+            "mean": 811.1439943313599,
+            "min": 807.5200021266937,
+            "max": 814.767986536026,
+            "stdev": 5.125098925773226
+          },
+          "candidate_us": {
+            "samples": [
+              813.1680190563202,
+              813.6799931526184
+            ],
+            "median": 813.4240061044693,
+            "mean": 813.4240061044693,
+            "min": 813.1680190563202,
+            "max": 813.6799931526184,
+            "stdev": 0.3620203552843243
+          },
+          "speedup": 0.9971970193207986,
+          "paired_ratios": {
+            "samples": [
+              1.001967573050355,
+              0.9924294672626057
+            ],
+            "median": 0.9971985201564804,
+            "mean": 0.9971985201564804,
+            "min": 0.9924294672626057,
+            "max": 1.001967573050355,
+            "stdev": 0.0067444592821921685
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              550.6560206413269,
+              550.7519841194153
+            ],
+            "median": 550.7040023803711,
+            "mean": 550.7040023803711,
+            "min": 550.6560206413269,
+            "max": 550.7519841194153,
+            "stdev": 0.06785642610253939
+          },
+          "candidate_us": {
+            "samples": [
+              550.5279898643494,
+              550.7519841194153
+            ],
+            "median": 550.6399869918823,
+            "mean": 550.6399869918823,
+            "min": 550.5279898643494,
+            "max": 550.7519841194153,
+            "stdev": 0.15838785670393976
+          },
+          "speedup": 1.0001162563380812,
+          "paired_ratios": {
+            "samples": [
+              1.0002325599775754,
+              1.0
+            ],
+            "median": 1.0001162799887877,
+            "mean": 1.0001162799887877,
+            "min": 1.0,
+            "max": 1.0002325599775754,
+            "stdev": 0.0001644447371761784
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                269.6320116519928,
+                268.12800765037537
+              ],
+              "median": 268.8800096511841,
+              "mean": 268.8800096511841,
+              "min": 268.12800765037537,
+              "max": 269.6320116519928,
+              "stdev": 1.0634914284753891
+            },
+            "candidate_us": {
+              "samples": [
+                266.7040079832077,
+                266.3999944925308
+              ],
+              "median": 266.55200123786926,
+              "mean": 266.55200123786926,
+              "min": 266.3999944925308,
+              "max": 266.7040079832077,
+              "stdev": 0.21497000082981502
+            },
+            "speedup": 1.0087337870378146,
+            "paired_ratios": {
+              "samples": [
+                1.010978476442579,
+                1.0064865360118955
+              ],
+              "median": 1.0087325062272372,
+              "mean": 1.0087325062272372,
+              "min": 1.0064865360118955,
+              "max": 1.010978476442579,
+              "stdev": 0.0031762815392223746
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                814.767986536026,
+                807.5200021266937
+              ],
+              "median": 811.1439943313599,
+              "mean": 811.1439943313599,
+              "min": 807.5200021266937,
+              "max": 814.767986536026,
+              "stdev": 5.125098925773226
+            },
+            "candidate_us": {
+              "samples": [
+                813.1680190563202,
+                813.6799931526184
+              ],
+              "median": 813.4240061044693,
+              "mean": 813.4240061044693,
+              "min": 813.1680190563202,
+              "max": 813.6799931526184,
+              "stdev": 0.3620203552843243
+            },
+            "speedup": 0.9971970193207986,
+            "paired_ratios": {
+              "samples": [
+                1.001967573050355,
+                0.9924294672626057
+              ],
+              "median": 0.9971985201564804,
+              "mean": 0.9971985201564804,
+              "min": 0.9924294672626057,
+              "max": 1.001967573050355,
+              "stdev": 0.0067444592821921685
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                550.6560206413269,
+                550.7519841194153
+              ],
+              "median": 550.7040023803711,
+              "mean": 550.7040023803711,
+              "min": 550.6560206413269,
+              "max": 550.7519841194153,
+              "stdev": 0.06785642610253939
+            },
+            "candidate_us": {
+              "samples": [
+                550.5279898643494,
+                550.7519841194153
+              ],
+              "median": 550.6399869918823,
+              "mean": 550.6399869918823,
+              "min": 550.5279898643494,
+              "max": 550.7519841194153,
+              "stdev": 0.15838785670393976
+            },
+            "speedup": 1.0001162563380812,
+            "paired_ratios": {
+              "samples": [
+                1.0002325599775754,
+                1.0
+              ],
+              "median": 1.0001162799887877,
+              "mean": 1.0001162799887877,
+              "min": 1.0,
+              "max": 1.0002325599775754,
+              "stdev": 0.0001644447371761784
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_tail113_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              267.69599318504333,
+              268.99199187755585
+            ],
+            "median": 268.3439925312996,
+            "mean": 268.3439925312996,
+            "min": 267.69599318504333,
+            "max": 268.99199187755585,
+            "stdev": 0.9164094638844966
+          },
+          "candidate_us": {
+            "samples": [
+              262.9440128803253,
+              266.960009932518
+            ],
+            "median": 264.95201140642166,
+            "mean": 264.95201140642166,
+            "min": 262.9440128803253,
+            "max": 266.960009932518,
+            "stdev": 2.839738748830635
+          },
+          "speedup": 1.0128022471196674,
+          "paired_ratios": {
+            "samples": [
+              1.0180722133684055,
+              1.00761155929516
+            ],
+            "median": 1.0128418863317827,
+            "mean": 1.0128418863317827,
+            "min": 1.00761155929516,
+            "max": 1.0180722133684055,
+            "stdev": 0.007396799430838558
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              814.6719932556152,
+              811.5840256214142
+            ],
+            "median": 813.1280094385147,
+            "mean": 813.1280094385147,
+            "min": 811.5840256214142,
+            "max": 814.6719932556152,
+            "stdev": 2.1835228542281424
+          },
+          "candidate_us": {
+            "samples": [
+              811.2320005893707,
+              808.6239993572235
+            ],
+            "median": 809.9279999732971,
+            "mean": 809.9279999732971,
+            "min": 808.6239993572235,
+            "max": 811.2320005893707,
+            "stdev": 1.8441353565941683
+          },
+          "speedup": 1.0039509801677717,
+          "paired_ratios": {
+            "samples": [
+              1.0042404548436765,
+              1.0036605718684377
+            ],
+            "median": 1.0039505133560571,
+            "mean": 1.0039505133560571,
+            "min": 1.0036605718684377,
+            "max": 1.0042404548436765,
+            "stdev": 0.0004100391840859935
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              547.1360087394714,
+              547.104001045227
+            ],
+            "median": 547.1200048923492,
+            "mean": 547.1200048923492,
+            "min": 547.104001045227,
+            "max": 547.1360087394714,
+            "stdev": 0.022632857650350096
+          },
+          "candidate_us": {
+            "samples": [
+              547.0079779624939,
+              547.1680164337158
+            ],
+            "median": 547.0879971981049,
+            "mean": 547.0879971981049,
+            "min": 547.0079779624939,
+            "max": 547.1680164337158,
+            "stdev": 0.11316428825175047
+          },
+          "speedup": 1.0000585055684064,
+          "paired_ratios": {
+            "samples": [
+              1.0002340565076482,
+              0.9998830059751921
+            ],
+            "median": 1.00005853124142,
+            "mean": 1.00005853124142,
+            "min": 0.9998830059751921,
+            "max": 1.0002340565076482,
+            "stdev": 0.00024823021203885555
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                267.69599318504333,
+                268.99199187755585
+              ],
+              "median": 268.3439925312996,
+              "mean": 268.3439925312996,
+              "min": 267.69599318504333,
+              "max": 268.99199187755585,
+              "stdev": 0.9164094638844966
+            },
+            "candidate_us": {
+              "samples": [
+                262.9440128803253,
+                266.960009932518
+              ],
+              "median": 264.95201140642166,
+              "mean": 264.95201140642166,
+              "min": 262.9440128803253,
+              "max": 266.960009932518,
+              "stdev": 2.839738748830635
+            },
+            "speedup": 1.0128022471196674,
+            "paired_ratios": {
+              "samples": [
+                1.0180722133684055,
+                1.00761155929516
+              ],
+              "median": 1.0128418863317827,
+              "mean": 1.0128418863317827,
+              "min": 1.00761155929516,
+              "max": 1.0180722133684055,
+              "stdev": 0.007396799430838558
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                814.6719932556152,
+                811.5840256214142
+              ],
+              "median": 813.1280094385147,
+              "mean": 813.1280094385147,
+              "min": 811.5840256214142,
+              "max": 814.6719932556152,
+              "stdev": 2.1835228542281424
+            },
+            "candidate_us": {
+              "samples": [
+                811.2320005893707,
+                808.6239993572235
+              ],
+              "median": 809.9279999732971,
+              "mean": 809.9279999732971,
+              "min": 808.6239993572235,
+              "max": 811.2320005893707,
+              "stdev": 1.8441353565941683
+            },
+            "speedup": 1.0039509801677717,
+            "paired_ratios": {
+              "samples": [
+                1.0042404548436765,
+                1.0036605718684377
+              ],
+              "median": 1.0039505133560571,
+              "mean": 1.0039505133560571,
+              "min": 1.0036605718684377,
+              "max": 1.0042404548436765,
+              "stdev": 0.0004100391840859935
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                547.1360087394714,
+                547.104001045227
+              ],
+              "median": 547.1200048923492,
+              "mean": 547.1200048923492,
+              "min": 547.104001045227,
+              "max": 547.1360087394714,
+              "stdev": 0.022632857650350096
+            },
+            "candidate_us": {
+              "samples": [
+                547.0079779624939,
+                547.1680164337158
+              ],
+              "median": 547.0879971981049,
+              "mean": 547.0879971981049,
+              "min": 547.0079779624939,
+              "max": 547.1680164337158,
+              "stdev": 0.11316428825175047
+            },
+            "speedup": 1.0000585055684064,
+            "paired_ratios": {
+              "samples": [
+                1.0002340565076482,
+                0.9998830059751921
+              ],
+              "median": 1.00005853124142,
+              "mean": 1.00005853124142,
+              "min": 0.9998830059751921,
+              "max": 1.0002340565076482,
+              "stdev": 0.00024823021203885555
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_two_balanced_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              302.39999294281006,
+              304.7040104866028
+            ],
+            "median": 303.5520017147064,
+            "mean": 303.5520017147064,
+            "min": 302.39999294281006,
+            "max": 304.7040104866028,
+            "stdev": 1.629186429188609
+          },
+          "candidate_us": {
+            "samples": [
+              294.23999786376953,
+              296.51200771331787
+            ],
+            "median": 295.3760027885437,
+            "mean": 295.3760027885437,
+            "min": 294.23999786376953,
+            "max": 296.51200771331787,
+            "stdev": 1.6065535715382586
+          },
+          "speedup": 1.027679970102432,
+          "paired_ratios": {
+            "samples": [
+              1.0277324467723064,
+              1.027627895532667
+            ],
+            "median": 1.0276801711524866,
+            "mean": 1.0276801711524866,
+            "min": 1.027627895532667,
+            "max": 1.0277324467723064,
+            "stdev": 7.392889053045984e-05
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              892.3679888248444,
+              889.9680078029633
+            ],
+            "median": 891.1679983139038,
+            "mean": 891.1679983139038,
+            "min": 889.9680078029633,
+            "max": 892.3679888248444,
+            "stdev": 1.6970428552911483
+          },
+          "candidate_us": {
+            "samples": [
+              875.8399784564972,
+              879.3279826641083
+            ],
+            "median": 877.5839805603027,
+            "mean": 877.5839805603027,
+            "min": 875.8399784564972,
+            "max": 879.3279826641083,
+            "stdev": 2.466391428009008
+          },
+          "speedup": 1.0154788807162685,
+          "paired_ratios": {
+            "samples": [
+              1.0188710389738942,
+              1.0121001780321135
+            ],
+            "median": 1.015485608503004,
+            "mean": 1.015485608503004,
+            "min": 1.0121001780321135,
+            "max": 1.0188710389738942,
+            "stdev": 0.004787721686404266
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              591.1679863929749,
+              591.2960171699524
+            ],
+            "median": 591.2320017814636,
+            "mean": 591.2320017814636,
+            "min": 591.1679863929749,
+            "max": 591.2960171699524,
+            "stdev": 0.09053143060140038
+          },
+          "candidate_us": {
+            "samples": [
+              591.2960171699524,
+              591.2320017814636
+            ],
+            "median": 591.264009475708,
+            "mean": 591.264009475708,
+            "min": 591.2320017814636,
+            "max": 591.2960171699524,
+            "stdev": 0.04526571530070019
+          },
+          "speedup": 0.9999458656476101,
+          "paired_ratios": {
+            "samples": [
+              0.9997834743119186,
+              1.0001082745661531
+            ],
+            "median": 0.9999458744390359,
+            "mean": 0.9999458744390359,
+            "min": 0.9997834743119186,
+            "max": 1.0001082745661531,
+            "stdev": 0.00022966846230035526
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                302.39999294281006,
+                304.7040104866028
+              ],
+              "median": 303.5520017147064,
+              "mean": 303.5520017147064,
+              "min": 302.39999294281006,
+              "max": 304.7040104866028,
+              "stdev": 1.629186429188609
+            },
+            "candidate_us": {
+              "samples": [
+                294.23999786376953,
+                296.51200771331787
+              ],
+              "median": 295.3760027885437,
+              "mean": 295.3760027885437,
+              "min": 294.23999786376953,
+              "max": 296.51200771331787,
+              "stdev": 1.6065535715382586
+            },
+            "speedup": 1.027679970102432,
+            "paired_ratios": {
+              "samples": [
+                1.0277324467723064,
+                1.027627895532667
+              ],
+              "median": 1.0276801711524866,
+              "mean": 1.0276801711524866,
+              "min": 1.027627895532667,
+              "max": 1.0277324467723064,
+              "stdev": 7.392889053045984e-05
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                892.3679888248444,
+                889.9680078029633
+              ],
+              "median": 891.1679983139038,
+              "mean": 891.1679983139038,
+              "min": 889.9680078029633,
+              "max": 892.3679888248444,
+              "stdev": 1.6970428552911483
+            },
+            "candidate_us": {
+              "samples": [
+                875.8399784564972,
+                879.3279826641083
+              ],
+              "median": 877.5839805603027,
+              "mean": 877.5839805603027,
+              "min": 875.8399784564972,
+              "max": 879.3279826641083,
+              "stdev": 2.466391428009008
+            },
+            "speedup": 1.0154788807162685,
+            "paired_ratios": {
+              "samples": [
+                1.0188710389738942,
+                1.0121001780321135
+              ],
+              "median": 1.015485608503004,
+              "mean": 1.015485608503004,
+              "min": 1.0121001780321135,
+              "max": 1.0188710389738942,
+              "stdev": 0.004787721686404266
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                591.1679863929749,
+                591.2960171699524
+              ],
+              "median": 591.2320017814636,
+              "mean": 591.2320017814636,
+              "min": 591.1679863929749,
+              "max": 591.2960171699524,
+              "stdev": 0.09053143060140038
+            },
+            "candidate_us": {
+              "samples": [
+                591.2960171699524,
+                591.2320017814636
+              ],
+              "median": 591.264009475708,
+              "mean": 591.264009475708,
+              "min": 591.2320017814636,
+              "max": 591.2960171699524,
+              "stdev": 0.04526571530070019
+            },
+            "speedup": 0.9999458656476101,
+            "paired_ratios": {
+              "samples": [
+                0.9997834743119186,
+                1.0001082745661531
+              ],
+              "median": 0.9999458744390359,
+              "mean": 0.9999458744390359,
+              "min": 0.9997834743119186,
+              "max": 1.0001082745661531,
+              "stdev": 0.00022966846230035526
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_two_skewed_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              268.41598749160767,
+              269.51999962329865
+            ],
+            "median": 268.96799355745316,
+            "mean": 268.96799355745316,
+            "min": 268.41598749160767,
+            "max": 269.51999962329865,
+            "stdev": 0.780654464830907
+          },
+          "candidate_us": {
+            "samples": [
+              266.11199975013733,
+              267.37600564956665
+            ],
+            "median": 266.744002699852,
+            "mean": 266.744002699852,
+            "min": 266.11199975013733,
+            "max": 267.37600564956665,
+            "stdev": 0.8937871429462743
+          },
+          "speedup": 1.0083375477427459,
+          "paired_ratios": {
+            "samples": [
+              1.0086579626008358,
+              1.00801864762892
+            ],
+            "median": 1.008338305114878,
+            "mean": 1.008338305114878,
+            "min": 1.00801864762892,
+            "max": 1.0086579626008358,
+            "stdev": 0.0004520639519558473
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              815.4399991035461,
+              809.3119859695435
+            ],
+            "median": 812.3759925365448,
+            "mean": 812.3759925365448,
+            "min": 809.3119859695435,
+            "max": 815.4399991035461,
+            "stdev": 4.333159642253526
+          },
+          "candidate_us": {
+            "samples": [
+              809.2960119247437,
+              809.7600042819977
+            ],
+            "median": 809.5280081033707,
+            "mean": 809.5280081033707,
+            "min": 809.2960119247437,
+            "max": 809.7600042819977,
+            "stdev": 0.3280921422330546
+          },
+          "speedup": 1.0035180801709958,
+          "paired_ratios": {
+            "samples": [
+              1.007591767521738,
+              0.9994467270424754
+            ],
+            "median": 1.0035192472821066,
+            "mean": 1.0035192472821066,
+            "min": 0.9994467270424754,
+            "max": 1.007591767521738,
+            "stdev": 0.0057594133559255665
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              550.8480072021484,
+              550.7199764251709
+            ],
+            "median": 550.7839918136597,
+            "mean": 550.7839918136597,
+            "min": 550.7199764251709,
+            "max": 550.8480072021484,
+            "stdev": 0.09053143060140038
+          },
+          "candidate_us": {
+            "samples": [
+              550.9120225906372,
+              550.7519841194153
+            ],
+            "median": 550.8320033550262,
+            "mean": 550.8320033550262,
+            "min": 550.7519841194153,
+            "max": 550.9120225906372,
+            "stdev": 0.11316428825175047
+          },
+          "speedup": 0.9999128381410772,
+          "paired_ratios": {
+            "samples": [
+              0.9998838010682944,
+              0.9999418836515032
+            ],
+            "median": 0.9999128423598989,
+            "mean": 0.9999128423598989,
+            "min": 0.9998838010682944,
+            "max": 0.9999418836515032,
+            "stdev": 4.107058845571668e-05
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                268.41598749160767,
+                269.51999962329865
+              ],
+              "median": 268.96799355745316,
+              "mean": 268.96799355745316,
+              "min": 268.41598749160767,
+              "max": 269.51999962329865,
+              "stdev": 0.780654464830907
+            },
+            "candidate_us": {
+              "samples": [
+                266.11199975013733,
+                267.37600564956665
+              ],
+              "median": 266.744002699852,
+              "mean": 266.744002699852,
+              "min": 266.11199975013733,
+              "max": 267.37600564956665,
+              "stdev": 0.8937871429462743
+            },
+            "speedup": 1.0083375477427459,
+            "paired_ratios": {
+              "samples": [
+                1.0086579626008358,
+                1.00801864762892
+              ],
+              "median": 1.008338305114878,
+              "mean": 1.008338305114878,
+              "min": 1.00801864762892,
+              "max": 1.0086579626008358,
+              "stdev": 0.0004520639519558473
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                815.4399991035461,
+                809.3119859695435
+              ],
+              "median": 812.3759925365448,
+              "mean": 812.3759925365448,
+              "min": 809.3119859695435,
+              "max": 815.4399991035461,
+              "stdev": 4.333159642253526
+            },
+            "candidate_us": {
+              "samples": [
+                809.2960119247437,
+                809.7600042819977
+              ],
+              "median": 809.5280081033707,
+              "mean": 809.5280081033707,
+              "min": 809.2960119247437,
+              "max": 809.7600042819977,
+              "stdev": 0.3280921422330546
+            },
+            "speedup": 1.0035180801709958,
+            "paired_ratios": {
+              "samples": [
+                1.007591767521738,
+                0.9994467270424754
+              ],
+              "median": 1.0035192472821066,
+              "mean": 1.0035192472821066,
+              "min": 0.9994467270424754,
+              "max": 1.007591767521738,
+              "stdev": 0.0057594133559255665
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                550.8480072021484,
+                550.7199764251709
+              ],
+              "median": 550.7839918136597,
+              "mean": 550.7839918136597,
+              "min": 550.7199764251709,
+              "max": 550.8480072021484,
+              "stdev": 0.09053143060140038
+            },
+            "candidate_us": {
+              "samples": [
+                550.9120225906372,
+                550.7519841194153
+              ],
+              "median": 550.8320033550262,
+              "mean": 550.8320033550262,
+              "min": 550.7519841194153,
+              "max": 550.9120225906372,
+              "stdev": 0.11316428825175047
+            },
+            "speedup": 0.9999128381410772,
+            "paired_ratios": {
+              "samples": [
+                0.9998838010682944,
+                0.9999418836515032
+              ],
+              "median": 0.9999128423598989,
+              "mean": 0.9999128423598989,
+              "min": 0.9998838010682944,
+              "max": 0.9999418836515032,
+              "stdev": 4.107058845571668e-05
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_short_tail_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              59.26400050520897,
+              59.4559982419014
+            ],
+            "median": 59.35999937355518,
+            "mean": 59.35999937355518,
+            "min": 59.26400050520897,
+            "max": 59.4559982419014,
+            "stdev": 0.13576290158768548
+          },
+          "candidate_us": {
+            "samples": [
+              56.44800141453743,
+              56.86400085687637
+            ],
+            "median": 56.6560011357069,
+            "mean": 56.6560011357069,
+            "min": 56.44800141453743,
+            "max": 56.86400085687637,
+            "stdev": 0.2941560266476891
+          },
+          "speedup": 1.0477265988358666,
+          "paired_ratios": {
+            "samples": [
+              1.049886603955943,
+              1.0455823956451629
+            ],
+            "median": 1.0477344998005529,
+            "mean": 1.0477344998005529,
+            "min": 1.0455823956451629,
+            "max": 1.049886603955943,
+            "stdev": 0.0030435348841920643
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              157.21599757671356,
+              156.3200056552887
+            ],
+            "median": 156.76800161600113,
+            "mean": 156.76800161600113,
+            "min": 156.3200056552887,
+            "max": 157.21599757671356,
+            "stdev": 0.6335619635278869
+          },
+          "candidate_us": {
+            "samples": [
+              153.60000729560852,
+              153.4080058336258
+            ],
+            "median": 153.50400656461716,
+            "mean": 153.50400656461716,
+            "min": 153.4080058336258,
+            "max": 153.60000729560852,
+            "stdev": 0.1357655357657174
+          },
+          "speedup": 1.0212632564089459,
+          "paired_ratios": {
+            "samples": [
+              1.0235416022744448,
+              1.01898205902514
+            ],
+            "median": 1.0212618306497925,
+            "mean": 1.0212618306497925,
+            "min": 1.01898205902514,
+            "max": 1.0235416022744448,
+            "stdev": 0.0032240839506968073
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              103.05600240826607,
+              102.91200131177902
+            ],
+            "median": 102.98400186002254,
+            "mean": 102.98400186002254,
+            "min": 102.91200131177902,
+            "max": 103.05600240826607,
+            "stdev": 0.10182415182428806
+          },
+          "candidate_us": {
+            "samples": [
+              102.91200131177902,
+              103.00800204277039
+            ],
+            "median": 102.9600016772747,
+            "mean": 102.9600016772747,
+            "min": 102.91200131177902,
+            "max": 103.00800204277039,
+            "stdev": 0.0678827678828587
+          },
+          "speedup": 1.000233102004243,
+          "paired_ratios": {
+            "samples": [
+              1.0013992643681158,
+              0.999068026472822
+            ],
+            "median": 1.0002336454204688,
+            "mean": 1.0002336454204688,
+            "min": 0.999068026472822,
+            "max": 1.0013992643681158,
+            "stdev": 0.001648434124321279
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                59.26400050520897,
+                59.4559982419014
+              ],
+              "median": 59.35999937355518,
+              "mean": 59.35999937355518,
+              "min": 59.26400050520897,
+              "max": 59.4559982419014,
+              "stdev": 0.13576290158768548
+            },
+            "candidate_us": {
+              "samples": [
+                56.44800141453743,
+                56.86400085687637
+              ],
+              "median": 56.6560011357069,
+              "mean": 56.6560011357069,
+              "min": 56.44800141453743,
+              "max": 56.86400085687637,
+              "stdev": 0.2941560266476891
+            },
+            "speedup": 1.0477265988358666,
+            "paired_ratios": {
+              "samples": [
+                1.049886603955943,
+                1.0455823956451629
+              ],
+              "median": 1.0477344998005529,
+              "mean": 1.0477344998005529,
+              "min": 1.0455823956451629,
+              "max": 1.049886603955943,
+              "stdev": 0.0030435348841920643
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                157.21599757671356,
+                156.3200056552887
+              ],
+              "median": 156.76800161600113,
+              "mean": 156.76800161600113,
+              "min": 156.3200056552887,
+              "max": 157.21599757671356,
+              "stdev": 0.6335619635278869
+            },
+            "candidate_us": {
+              "samples": [
+                153.60000729560852,
+                153.4080058336258
+              ],
+              "median": 153.50400656461716,
+              "mean": 153.50400656461716,
+              "min": 153.4080058336258,
+              "max": 153.60000729560852,
+              "stdev": 0.1357655357657174
+            },
+            "speedup": 1.0212632564089459,
+            "paired_ratios": {
+              "samples": [
+                1.0235416022744448,
+                1.01898205902514
+              ],
+              "median": 1.0212618306497925,
+              "mean": 1.0212618306497925,
+              "min": 1.01898205902514,
+              "max": 1.0235416022744448,
+              "stdev": 0.0032240839506968073
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                103.05600240826607,
+                102.91200131177902
+              ],
+              "median": 102.98400186002254,
+              "mean": 102.98400186002254,
+              "min": 102.91200131177902,
+              "max": 103.05600240826607,
+              "stdev": 0.10182415182428806
+            },
+            "candidate_us": {
+              "samples": [
+                102.91200131177902,
+                103.00800204277039
+              ],
+              "median": 102.9600016772747,
+              "mean": 102.9600016772747,
+              "min": 102.91200131177902,
+              "max": 103.00800204277039,
+              "stdev": 0.0678827678828587
+            },
+            "speedup": 1.000233102004243,
+            "paired_ratios": {
+              "samples": [
+                1.0013992643681158,
+                0.999068026472822
+              ],
+              "median": 1.0002336454204688,
+              "mean": 1.0002336454204688,
+              "min": 0.999068026472822,
+              "max": 1.0013992643681158,
+              "stdev": 0.001648434124321279
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_compact_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              54.496001452207565,
+              54.91200089454651
+            ],
+            "median": 54.70400117337704,
+            "mean": 54.70400117337704,
+            "min": 54.496001452207565,
+            "max": 54.91200089454651,
+            "stdev": 0.2941560266476891
+          },
+          "candidate_us": {
+            "samples": [
+              60.27200073003769,
+              60.67200005054474
+            ],
+            "median": 60.472000390291214,
+            "mean": 60.472000390291214,
+            "min": 60.27200073003769,
+            "max": 60.67200005054474,
+            "stdev": 0.282842232000546
+          },
+          "speedup": 0.9046170263975553,
+          "paired_ratios": {
+            "samples": [
+              0.9041677859060758,
+              0.9050633051292247
+            ],
+            "median": 0.9046155455176503,
+            "mean": 0.9046155455176503,
+            "min": 0.9041677859060758,
+            "max": 0.9050633051292247,
+            "stdev": 0.000633227715371496
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              209.02399718761444,
+              209.27999913692474
+            ],
+            "median": 209.1519981622696,
+            "mean": 209.1519981622696,
+            "min": 209.02399718761444,
+            "max": 209.27999913692474,
+            "stdev": 0.18102071435428987
+          },
+          "candidate_us": {
+            "samples": [
+              215.36000072956085,
+              215.32799303531647
+            ],
+            "median": 215.34399688243866,
+            "mean": 215.34399688243866,
+            "min": 215.32799303531647,
+            "max": 215.36000072956085,
+            "stdev": 0.022632857650350096
+          },
+          "speedup": 0.9712460119166942,
+          "paired_ratios": {
+            "samples": [
+              0.9705794784524407,
+              0.971912644458634
+            ],
+            "median": 0.9712460614555374,
+            "mean": 0.9712460614555374,
+            "min": 0.9705794784524407,
+            "max": 0.971912644458634,
+            "stdev": 0.0009426907234266444
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              160.70400178432465,
+              160.51200032234192
+            ],
+            "median": 160.60800105333328,
+            "mean": 160.60800105333328,
+            "min": 160.51200032234192,
+            "max": 160.70400178432465,
+            "stdev": 0.1357655357657174
+          },
+          "candidate_us": {
+            "samples": [
+              160.5599969625473,
+              160.67199409008026
+            ],
+            "median": 160.61599552631378,
+            "mean": 160.61599552631378,
+            "min": 160.5599969625473,
+            "max": 160.67199409008026,
+            "stdev": 0.07919392835196988
+          },
+          "speedup": 0.999950226171719,
+          "paired_ratios": {
+            "samples": [
+              1.0008968910345142,
+              0.9990042211858736
+            ],
+            "median": 0.9999505561101939,
+            "mean": 0.9999505561101939,
+            "min": 0.9990042211858736,
+            "max": 1.0008968910345142,
+            "stdev": 0.0013383196845210567
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                54.496001452207565,
+                54.91200089454651
+              ],
+              "median": 54.70400117337704,
+              "mean": 54.70400117337704,
+              "min": 54.496001452207565,
+              "max": 54.91200089454651,
+              "stdev": 0.2941560266476891
+            },
+            "candidate_us": {
+              "samples": [
+                60.27200073003769,
+                60.67200005054474
+              ],
+              "median": 60.472000390291214,
+              "mean": 60.472000390291214,
+              "min": 60.27200073003769,
+              "max": 60.67200005054474,
+              "stdev": 0.282842232000546
+            },
+            "speedup": 0.9046170263975553,
+            "paired_ratios": {
+              "samples": [
+                0.9041677859060758,
+                0.9050633051292247
+              ],
+              "median": 0.9046155455176503,
+              "mean": 0.9046155455176503,
+              "min": 0.9041677859060758,
+              "max": 0.9050633051292247,
+              "stdev": 0.000633227715371496
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                209.02399718761444,
+                209.27999913692474
+              ],
+              "median": 209.1519981622696,
+              "mean": 209.1519981622696,
+              "min": 209.02399718761444,
+              "max": 209.27999913692474,
+              "stdev": 0.18102071435428987
+            },
+            "candidate_us": {
+              "samples": [
+                215.36000072956085,
+                215.32799303531647
+              ],
+              "median": 215.34399688243866,
+              "mean": 215.34399688243866,
+              "min": 215.32799303531647,
+              "max": 215.36000072956085,
+              "stdev": 0.022632857650350096
+            },
+            "speedup": 0.9712460119166942,
+            "paired_ratios": {
+              "samples": [
+                0.9705794784524407,
+                0.971912644458634
+              ],
+              "median": 0.9712460614555374,
+              "mean": 0.9712460614555374,
+              "min": 0.9705794784524407,
+              "max": 0.971912644458634,
+              "stdev": 0.0009426907234266444
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                160.70400178432465,
+                160.51200032234192
+              ],
+              "median": 160.60800105333328,
+              "mean": 160.60800105333328,
+              "min": 160.51200032234192,
+              "max": 160.70400178432465,
+              "stdev": 0.1357655357657174
+            },
+            "candidate_us": {
+              "samples": [
+                160.5599969625473,
+                160.67199409008026
+              ],
+              "median": 160.61599552631378,
+              "mean": 160.61599552631378,
+              "min": 160.5599969625473,
+              "max": 160.67199409008026,
+              "stdev": 0.07919392835196988
+            },
+            "speedup": 0.999950226171719,
+            "paired_ratios": {
+              "samples": [
+                1.0008968910345142,
+                0.9990042211858736
+              ],
+              "median": 0.9999505561101939,
+              "mean": 0.9999505561101939,
+              "min": 0.9990042211858736,
+              "max": 1.0008968910345142,
+              "stdev": 0.0013383196845210567
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 1,
+        "retained_overlap_chunks": 1,
+        "reason": "compact-preserving split/paired source actually executed"
+      }
+    },
+    {
+      "case": "fp8_long100k_float8_e4m3fn",
+      "exit_code": 0,
+      "status": "passed",
+      "stages": {
+        "score": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              1094.43199634552,
+              1112.7520203590393
+            ],
+            "median": 1103.5920083522797,
+            "mean": 1103.5920083522797,
+            "min": 1094.43199634552,
+            "max": 1112.7520203590393,
+            "stdev": 12.954213211459878
+          },
+          "candidate_us": {
+            "samples": [
+              1054.7200441360474,
+              1070.1119899749756
+            ],
+            "median": 1062.4160170555115,
+            "mean": 1062.4160170555115,
+            "min": 1054.7200441360474,
+            "max": 1070.1119899749756,
+            "stdev": 10.88374927836221
+          },
+          "speedup": 1.03875693761742,
+          "paired_ratios": {
+            "samples": [
+              1.037651652142443,
+              1.039846325229064
+            ],
+            "median": 1.0387489886857535,
+            "mean": 1.0387489886857535,
+            "min": 1.037651652142443,
+            "max": 1.039846325229064,
+            "stdev": 0.0015518682220372587
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": false,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "pipeline": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              2601.151943206787,
+              2589.4079208374023
+            ],
+            "median": 2595.2799320220947,
+            "mean": 2595.2799320220947,
+            "min": 2589.4079208374023,
+            "max": 2601.151943206787,
+            "stdev": 8.304277855798473
+          },
+          "candidate_us": {
+            "samples": [
+              2561.984062194824,
+              2573.4400749206543
+            ],
+            "median": 2567.7120685577393,
+            "mean": 2567.7120685577393,
+            "min": 2561.984062194824,
+            "max": 2573.4400749206543,
+            "stdev": 8.100624283793833
+          },
+          "speedup": 1.010736353114483,
+          "paired_ratios": {
+            "samples": [
+              1.0152881048676035,
+              1.0062048640931498
+            ],
+            "median": 1.0107464844803766,
+            "mean": 1.0107464844803766,
+            "min": 1.0062048640931498,
+            "max": 1.0152881048676035,
+            "stdev": 0.00642282114676633
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        },
+        "topk": {
+          "status": "passed",
+          "baseline_us": {
+            "samples": [
+              1471.664011478424,
+              1471.0399508476257
+            ],
+            "median": 1471.351981163025,
+            "mean": 1471.351981163025,
+            "min": 1471.0399508476257,
+            "max": 1471.664011478424,
+            "stdev": 0.4412775039090605
+          },
+          "candidate_us": {
+            "samples": [
+              1470.9919691085815,
+              1470.7359671592712
+            ],
+            "median": 1470.8639681339264,
+            "mean": 1470.8639681339264,
+            "min": 1470.7359671592712,
+            "max": 1470.9919691085815,
+            "stdev": 0.18102071435428987
+          },
+          "speedup": 1.0003317866503438,
+          "paired_ratios": {
+            "samples": [
+              1.0004568633846789,
+              1.000206688144672
+            ],
+            "median": 1.0003317757646755,
+            "mean": 1.0003317757646755,
+            "min": 1.000206688144672,
+            "max": 1.0004568633846789,
+            "stdev": 0.00017690060869378837
+          },
+          "measurement_order": [
+            [
+              "baseline",
+              "candidate"
+            ],
+            [
+              "candidate",
+              "baseline"
+            ]
+          ],
+          "includes_topk": true,
+          "measurement_validated": true,
+          "shared_callable_measurement": true,
+          "validation_scope": "all 2 variants validated before/after entire timing block"
+        }
+      },
+      "comparisons": {
+        "production/paired32": {
+          "score": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                1094.43199634552,
+                1112.7520203590393
+              ],
+              "median": 1103.5920083522797,
+              "mean": 1103.5920083522797,
+              "min": 1094.43199634552,
+              "max": 1112.7520203590393,
+              "stdev": 12.954213211459878
+            },
+            "candidate_us": {
+              "samples": [
+                1054.7200441360474,
+                1070.1119899749756
+              ],
+              "median": 1062.4160170555115,
+              "mean": 1062.4160170555115,
+              "min": 1054.7200441360474,
+              "max": 1070.1119899749756,
+              "stdev": 10.88374927836221
+            },
+            "speedup": 1.03875693761742,
+            "paired_ratios": {
+              "samples": [
+                1.037651652142443,
+                1.039846325229064
+              ],
+              "median": 1.0387489886857535,
+              "mean": 1.0387489886857535,
+              "min": 1.037651652142443,
+              "max": 1.039846325229064,
+              "stdev": 0.0015518682220372587
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": false,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "pipeline": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                2601.151943206787,
+                2589.4079208374023
+              ],
+              "median": 2595.2799320220947,
+              "mean": 2595.2799320220947,
+              "min": 2589.4079208374023,
+              "max": 2601.151943206787,
+              "stdev": 8.304277855798473
+            },
+            "candidate_us": {
+              "samples": [
+                2561.984062194824,
+                2573.4400749206543
+              ],
+              "median": 2567.7120685577393,
+              "mean": 2567.7120685577393,
+              "min": 2561.984062194824,
+              "max": 2573.4400749206543,
+              "stdev": 8.100624283793833
+            },
+            "speedup": 1.010736353114483,
+            "paired_ratios": {
+              "samples": [
+                1.0152881048676035,
+                1.0062048640931498
+              ],
+              "median": 1.0107464844803766,
+              "mean": 1.0107464844803766,
+              "min": 1.0062048640931498,
+              "max": 1.0152881048676035,
+              "stdev": 0.00642282114676633
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          },
+          "topk": {
+            "status": "passed",
+            "baseline_us": {
+              "samples": [
+                1471.664011478424,
+                1471.0399508476257
+              ],
+              "median": 1471.351981163025,
+              "mean": 1471.351981163025,
+              "min": 1471.0399508476257,
+              "max": 1471.664011478424,
+              "stdev": 0.4412775039090605
+            },
+            "candidate_us": {
+              "samples": [
+                1470.9919691085815,
+                1470.7359671592712
+              ],
+              "median": 1470.8639681339264,
+              "mean": 1470.8639681339264,
+              "min": 1470.7359671592712,
+              "max": 1470.9919691085815,
+              "stdev": 0.18102071435428987
+            },
+            "speedup": 1.0003317866503438,
+            "paired_ratios": {
+              "samples": [
+                1.0004568633846789,
+                1.000206688144672
+              ],
+              "median": 1.0003317757646755,
+              "mean": 1.0003317757646755,
+              "min": 1.000206688144672,
+              "max": 1.0004568633846789,
+              "stdev": 0.00017690060869378837
+            },
+            "measurement_order": [
+              [
+                "baseline",
+                "candidate"
+              ],
+              [
+                "candidate",
+                "baseline"
+              ]
+            ],
+            "includes_topk": true,
+            "measurement_validated": true,
+            "shared_callable_measurement": true,
+            "validation_scope": "all 2 variants validated before/after entire timing block"
+          }
+        }
+      },
+      "optimization_coverage": {
+        "applicable": true,
+        "applied_chunks": 4,
+        "retained_overlap_chunks": 4,
+        "reason": "paired source actually executed"
+      }
+    }
+  ],
+  "gpu_inventory": {
+    "returncode": 0,
+    "stdout": "GPU-198a9496-3d7a-f01d-ee60-190fe0bc5b51, NVIDIA H800, 64\nGPU-497db188-9a65-ed86-3516-2de784681f95, NVIDIA H800, 30\nGPU-2d17872f-4327-2beb-8049-604ecf6a3d66, NVIDIA H800, 28\nGPU-3521ffb6-385f-6fe2-c4ba-862823ca9042, NVIDIA H800, 44\nGPU-bd27977f-e405-2b21-3608-291991a0b4f4, NVIDIA H800, 29\nGPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, NVIDIA H800, 28\nGPU-83ccf064-1bbb-6765-e356-c2a85323cbee, NVIDIA H800, 32\nGPU-56b64cc2-61c8-2e60-f861-6da66026f6a0, NVIDIA H800, 38\n",
+    "stderr": ""
+  },
+  "gpu_selection_policy": "lowest inventory temperature first; configured idle guard required",
+  "gpu_selection_checks": [
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 28, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:23:44 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 28,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "inventory_temperature_c": 28
+    }
+  ],
+  "gpu_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+  "idle_gpu_checks": [
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 28, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:23:44 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 28,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_first_chunk_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 31, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:24:19 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 31,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_budget_exact_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:24:51 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 32,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_dominant_long_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:25:24 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 32,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_tail112_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:25:57 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 32,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_tail113_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 5, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:26:29 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 32,
+      "utilization_percent": 5,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_two_balanced_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:27:02 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 32,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_two_skewed_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 5, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:27:34 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 32,
+      "utilization_percent": 5,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_short_tail_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 0, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:28:06 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 32,
+      "utilization_percent": 0,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_compact_float8_e4m3fn",
+      "attempt": 1
+    },
+    {
+      "device_uuid": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66",
+      "status": "passed",
+      "reasons": [],
+      "queries": {
+        "gpu": {
+          "returncode": 0,
+          "stdout": "GPU-2d17872f-4327-2beb-8049-604ecf6a3d66, 32, 3, 1\n",
+          "stderr": ""
+        },
+        "performance": {
+          "returncode": 0,
+          "stdout": "\n==============NVSMI LOG==============\n\nTimestamp                                 : Tue Oct 27 17:28:37 2026\nDriver Version                            : 570.124.06\nCUDA Version                              : 13.4\n\nAttached GPUs                             : 8\nGPU 00000000:6E:00.0\n    Performance State                     : P0\n    Clocks Event Reasons\n        Idle                              : Not Active\n        Applications Clocks Setting       : Not Active\n        SW Power Cap                      : Not Active\n        HW Slowdown                       : Not Active\n            HW Thermal Slowdown           : Not Active\n            HW Power Brake Slowdown       : Not Active\n        Sync Boost                        : Not Active\n        SW Thermal Slowdown               : Not Active\n        Display Clock Setting             : Not Active\n    Sparse Operation Mode                 : Disabled\n\n",
+          "stderr": ""
+        },
+        "processes": {
+          "returncode": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      },
+      "max_initial_temp_c": 80,
+      "temperature_c": 32,
+      "utilization_percent": 3,
+      "memory_mib": 1,
+      "processes": [],
+      "retryable_utilization": false,
+      "label": "before_fp8_long100k_float8_e4m3fn",
+      "attempt": 1
+    }
+  ],
+  "aggregate": {
+    "score": 1.0087631062527174,
+    "topk": 1.0000077903447167,
+    "pipeline": 1.0029346704709887
+  },
+  "probe": "fp8_r32_source_paired_issue",
+  "applicable_mean": {
+    "count": 10,
+    "score": 1.0087631062527174,
+    "topk": 1.0000077903447167,
+    "pipeline": 1.0029346704709887
+  }
+}
