@@ -1,0 +1,47 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.fbzb8h2m
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.fbzb8h2m/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-b12f795a-ee0a-5bec-3aae-fe0a8708d937, inventory temperature=28C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+FP8 boundary: mixed_edges all35 offset rows,left32/right3,guards/masks passed
+FP8 boundary: single_tile all35 offset rows,left32/right3,guards/masks passed
+FP8 boundary: zero_visible all35 offset rows,left32/right3,guards/masks passed
+Resources: production [4519, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: paired32 [4519, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/tools/qsa_prefill_fp8_dot_runtime.py", line 491, in worker
+    common_topk = measure("shared_topk", 0, 0, "topk")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/tools/qsa_prefill_fp8_dot_runtime.py", line 462, in measure
+    values, _, order = scoring.measure_scores(
+                       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/tools/qsa_prefill_score_benchmark.py", line 102, in measure_scores
+    observations = [monitor("before_timing")]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/tools/qsa_prefill_fp8_dot_runtime.py", line 467, in <lambda>
+    lambda phase: monitor(label + ":" + phase),
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/tools/qsa_prefill_fp8_dot_runtime.py", line 457, in <lambda>
+    monitor = lambda label: support.guarded_telemetry(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/tools/benchmark_qsa_prefill_stages.py", line 288, in guarded_telemetry
+    raise RuntimeError(f"GPU environment rejected: {check['reasons']}")
+RuntimeError: GPU environment rejected: ["Unattributed compute PIDs: [{'pid': 4051628, 'used_memory_mib': 42470}]; only identified self PIDs allowed. Container/host PID mapping may be unavailable; do not guess ownership"]
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/tools/qsa_prefill_fp8_dot_width.py", line 190, in worker
+    raise RuntimeError("Width worker failed: " + str(width))
+RuntimeError: Width worker failed: 8192
+
+
+Width crossover summary (production / candidate):
+8192 failed {}
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/tools/qsa_prefill_head_group_probe.py", line 599, in coordinate
+    raise RuntimeError("Head-group worker failed: " + name)
+RuntimeError: Head-group worker failed: fp8_long100k_float8_e4m3fn
+
+Use fp8-dot-width-summary.json for all four points;outer case receipt is the last width only.
