@@ -51,3 +51,22 @@ routing and grid recomputation with TILE_R32. The complete returned compile
 archive/source snapshot passed the new proof loader and both lifetime checks.
 CLI/help,shell syntax and changed-file hooks passed. GPU correctness/performance
 has not been run on this Mac.
+
+
+## Prelaunch lazy-resource repair
+
+| Board | Decision |
+| --- | --- |
+| Evidence | Report b5b4771 stopped in first production boundary call: warmup returns a CompiledKernel without n_regs; no candidate timing was obtained |
+| Scope | Runtime checker/tests/document only; preserve source, compilation proof, fixtures and all gates |
+| Implementation | First verify executable PTX and metadata.shared; if register/spill fields are absent, call pinned CompiledKernel._init_handles to load the CUDA module and query resources without invoking a launcher |
+| Validation | A lazy fake kernel must initialize once before launch; altered PTX/shared must reject before loading; unsupported/missing resource interfaces and spills reject before launch |
+| Replay | Reuse the exact prior offline compile report. Runtime validation restarts because the first boundary was incomplete; no completed timings exist to resume |
+
+Pinned FlagTree compiler.py creates n_regs/n_spills in _init_handles via
+load_binary. Module loading and resource queries do not execute the GPU kernel.
+The checker never accesses the run property or invokes the generated launcher.
+
+Repair validation:20 CPU checks pass, including lazy module initialization,
+no execution after a resource mismatch, the original prelaunch/fallback/grid
+checks, and unchanged source/ABI checks. No GPU runtime result is claimed.

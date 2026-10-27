@@ -107,6 +107,72 @@ class DotRuntimeTests(unittest.TestCase):
         proxy[(1, 2, 3)](113, 5, 8256, **dict(config, TILE_R=8, QUERY_PARTS=1))
         self.assertEqual(len(original.launches), 1)
 
+    def test_lazy_resources_are_loaded_once_without_launching(self):
+        kernel = self.kernel()
+        expected = self.expected(kernel)
+        del kernel.n_regs
+        del kernel.n_spills
+        calls = []
+
+        def initialize():
+            calls.append("load_module_only")
+            kernel.n_regs, kernel.n_spills = 114, 0
+
+        kernel._init_handles = initialize
+        target = FakeJIT(kernel)
+        proxy = p.SourceJIT(
+            FakeJIT(kernel),
+            target,
+            ["num_rows", "query_offset", "logits_width"],
+            expected,
+        )
+        proxy[(1, 2, 3)](35, 5, 8256, **dict(self.named(), TILE_R=32))
+        self.assertEqual(calls, ["load_module_only"])
+        self.assertEqual(len(target.launches), 1)
+        p.check_kernel(kernel, expected)
+        self.assertEqual(calls, ["load_module_only"])
+
+    def test_static_mismatch_rejects_before_loading_and_unknown_resources_reject(self):
+        kernel = self.kernel()
+        expected = self.expected(kernel)
+        del kernel.n_regs
+        del kernel.n_spills
+        kernel._init_handles = lambda: self.fail("must not load altered executable")
+        kernel.asm["ptx"] += "\nbar.sync 0;"
+        with self.assertRaisesRegex(RuntimeError, "not loaded"):
+            p.check_kernel(kernel, expected)
+        kernel = self.kernel()
+        del kernel.n_regs
+        del kernel.n_spills
+        with self.assertRaisesRegex(RuntimeError, "Unsupported lazy"):
+            p.check_kernel(kernel, expected)
+        kernel._init_handles = lambda: None
+        with self.assertRaisesRegex(RuntimeError, "register/spill"):
+            p.check_kernel(kernel, expected)
+
+    def test_lazy_bad_resources_reject_before_candidate_execution(self):
+        for registers, spills in ((115, 0), (114, 1)):
+            kernel = self.kernel()
+            expected = self.expected(kernel)
+            del kernel.n_regs
+            del kernel.n_spills
+
+            def initialize():
+                kernel.n_regs, kernel.n_spills = registers, spills
+
+            kernel._init_handles = initialize
+            target = FakeJIT(kernel)
+            proxy = p.SourceJIT(
+                FakeJIT(kernel),
+                target,
+                ["num_rows", "query_offset", "logits_width"],
+                expected,
+            )
+            with self.assertRaisesRegex(RuntimeError, "register/spill"):
+                proxy[(1, 2, 3)](35, 5, 8256, **dict(self.named(), TILE_R=32))
+            self.assertFalse(target.launches)
+            self.assertFalse(proxy.prepared)
+
     def test_fixed_entry_recomputes_grid_with_smaller_tile(self):
         kernel = self.kernel()
         target, original = FakeJIT(kernel), FakeJIT(kernel)

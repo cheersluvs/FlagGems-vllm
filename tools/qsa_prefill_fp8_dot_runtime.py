@@ -216,14 +216,26 @@ class SourceJIT:
 
 
 def check_kernel(kernel, expected):
+    # warmup compiles but does not initialize CUDA module handles. Check static
+    # executable identity first, then load/query resources without launching.
     if (
         fp8.runtime.code_sha(kernel.asm["ptx"]) != expected["code_sha256"]
         or kernel.metadata.shared != expected["shared_bytes"]
-        or kernel.n_regs != expected["registers_per_thread"]
-        or kernel.n_spills
     ):
         raise RuntimeError(
-            "Source JIT executable/resources differ from offline proof;not launched"
+            "Source JIT executable/shared differs from offline proof;not loaded or launched"
+        )
+    if not all(hasattr(kernel, key) for key in ("n_regs", "n_spills")):
+        initialize = getattr(kernel, "_init_handles", None)
+        if not callable(initialize):
+            raise RuntimeError("Unsupported lazy resource interface;not launched")
+        initialize()
+    if (
+        getattr(kernel, "n_regs", None) != expected["registers_per_thread"]
+        or getattr(kernel, "n_spills", None) != 0
+    ):
+        raise RuntimeError(
+            "Source JIT register/spill resources differ from offline proof;not launched"
         )
 
 
