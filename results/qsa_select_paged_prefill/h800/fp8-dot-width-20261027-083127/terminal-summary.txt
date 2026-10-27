@@ -1,0 +1,104 @@
+Preparing isolated CUDA 13.4 compat: /tmp/qsa-cuda134-compat.v5hyva59
+Reusing SHA256-verified CUDA compatibility package: /tmp/qsa-cuda134-compat.z8xn9s_v/cuda-compat-13-4.deb
+Starting diagnostic with isolated libcuda: /tmp/qsa-cuda134-compat.v5hyva59/root/usr/local/cuda-13.4/compat/libcuda.so.615.71.09
+Selected H800: GPU-3521ffb6-385f-6fe2-c4ba-862823ca9042, inventory temperature=48C, policy=exclusive idle
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+FP8 boundary: mixed_edges all35 offset rows,left32/right3,guards/masks passed
+FP8 boundary: single_tile all35 offset rows,left32/right3,guards/masks passed
+FP8 boundary: zero_visible all35 offset rows,left32/right3,guards/masks passed
+Resources: production [4519, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: paired32 [4519, 0, 8192] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 179.967999458313 right_us 179.9280047416687 ratio 1.0002222817771014
+Measured (pending final validation): production/paired32:score left_us 109.28800143301487 right_us 101.75999999046326 ratio 1.073978001604335
+Measured (pending final validation): production/paired32:pipeline left_us 285.7440114021301 right_us 278.6960005760193 ratio 1.025289242800556
+Measured (pending final validation): production:score left_us 108.76000113785267 right_us 109.16000045835972 ratio 0.9963356603258752
+Measured (pending final validation): production:pipeline left_us 285.631999373436 right_us 285.288006067276 ratio 1.0012057755630948
+Measured (pending final validation): paired32:score left_us 100.93600116670132 right_us 101.34399868547916 ratio 0.9959741324195814
+Measured (pending final validation): paired32:pipeline left_us 278.096005320549 right_us 278.4160003066063 ratio 0.9988506587778544
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_long100k_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     109.288        101.760       1.07398  1.07134     1.07661   
+pipeline  285.744        278.696       1.02529  1.02287     1.02771   
+topk      179.968        179.928       1.00022  0.99884     1.00160   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [4519, 0, 16384] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: paired32 [4519, 0, 16384] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 266.30400121212006 right_us 266.2639990448952 ratio 1.000150234982455
+Measured (pending final validation): production/paired32:score left_us 180.27200549840927 right_us 180.33599853515625 ratio 0.9996451455213226
+Measured (pending final validation): production/paired32:pipeline left_us 446.55999541282654 right_us 445.6000030040741 ratio 1.0021543815131968
+Measured (pending final validation): production:score left_us 179.98399585485458 right_us 180.06400018930435 ratio 0.9995556894528298
+Measured (pending final validation): production:pipeline left_us 443.55999678373337 right_us 444.43199783563614 ratio 0.9980379426860592
+Measured (pending final validation): paired32:score left_us 180.9919998049736 right_us 181.0239963233471 ratio 0.9998232470886548
+Measured (pending final validation): paired32:pipeline left_us 446.23199850320816 right_us 445.76001167297363 ratio 1.0010588361851103
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_long100k_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     180.272        180.336       0.99965  0.99399     1.00535   
+pipeline  446.560        445.600       1.00215  0.99896     1.00537   
+topk      266.304        266.264       1.00015  1.00000     1.00030   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [4519, 0, 24576] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: paired32 [4519, 0, 24576] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 357.7279970049858 right_us 357.695996761322 ratio 1.000089462124132
+Measured (pending final validation): production/paired32:score left_us 278.5840034484863 right_us 256.3759982585907 ratio 1.0866227936341208
+Measured (pending final validation): production/paired32:pipeline left_us 634.7840130329132 right_us 613.6080026626587 ratio 1.0345106489458489
+Measured (pending final validation): production:score left_us 278.1279981136322 right_us 276.7679989337921 ratio 1.0049138599299026
+Measured (pending final validation): production:pipeline left_us 632.2319954633713 right_us 631.400004029274 ratio 1.0013176931086283
+Measured (pending final validation): paired32:score left_us 256.3359960913658 right_us 256.8240016698837 ratio 0.9980998443473161
+Measured (pending final validation): paired32:pipeline left_us 610.4400008916855 right_us 609.8159998655319 ratio 1.0010232611579413
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_long100k_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     278.584        256.376       1.08662  1.08473     1.08854   
+pipeline  634.784        613.608       1.03451  1.03348     1.03554   
+topk      357.728        357.696       1.00009  1.00000     1.00018   
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-fp8-dot-width.Bc3YzT/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "0d7e80e240966565a7c78151c8344f17e0627e73920f5229aadcc0f0fb42f10e", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+Resources: production [4519, 0, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 64, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 158 shared 57344 spills 0
+Resources: paired32 [4519, 0, 29696] {'num_warps': 4, 'num_stages': 2, 'num_ctas': 1, 'TILE_R': 32, 'BLOCK_N': 64, 'K_TILES': 16, 'QUERY_PARTS': 2} regs 114 shared 36864 spills 0
+Measured (pending final validation): shared_topk left_us 434.04000252485275 right_us 434.2479929327965 ratio 0.9995210331162638
+Measured (pending final validation): production/paired32:score left_us 330.999992787838 right_us 308.4399923682213 ratio 1.0731422674679754
+Measured (pending final validation): production/paired32:pipeline left_us 761.568009853363 right_us 740.1599884033203 ratio 1.028923505438634
+Measured (pending final validation): production:score left_us 330.1439955830574 right_us 331.2399983406067 ratio 0.9966912125255408
+Measured (pending final validation): production:pipeline left_us 761.4079713821411 right_us 760.8479857444763 ratio 1.0007360019979772
+Measured (pending final validation): paired32:score left_us 309.1360032558441 right_us 308.6320012807846 ratio 1.0016330191715959
+Measured (pending final validation): paired32:pipeline left_us 745.6960082054138 right_us 743.8239902257919 ratio 1.0025167485913618
+
+Direct comparison: production/paired32
+
+Producer runtime: fp8_long100k_float8_e4m3fn passed
+kernel-mode production / candidate
+stage     production_us  candidate_us  speedup  paired_min  paired_max
+--------  -------------  ------------  -------  ----------  ----------
+score     331.000        308.440       1.07314  1.07237     1.07392   
+pipeline  761.568        740.160       1.02892  1.02814     1.02970   
+topk      434.040        434.248       0.99952  0.99908     0.99996   
+
+Width crossover summary (production / candidate):
+8192 passed {'score': 1.073978001604335, 'pipeline': 1.025289242800556, 'topk': 1.0002222817771014}
+16384 passed {'score': 0.9996451455213226, 'pipeline': 1.0021543815131968, 'topk': 1.000150234982455}
+24576 passed {'score': 1.0866227936341208, 'pipeline': 1.0345106489458489, 'topk': 1.000089462124132}
+29696 passed {'score': 1.0731422674679754, 'pipeline': 1.028923505438634, 'topk': 0.9995210331162638}
+Incremental production / candidate arithmetic means: {'score': 1.0731422674679754, 'topk': 0.9995210331162638, 'pipeline': 1.028923505438634}
+Use fp8-dot-width-summary.json for all four points;outer case receipt is the last width only.
