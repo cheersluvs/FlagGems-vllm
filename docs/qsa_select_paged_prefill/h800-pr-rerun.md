@@ -54,3 +54,19 @@ QSA_STOCK_PYTHON=/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python bash tools/run_qsa
 
 Run as child bash, never source the script into an interactive container shell.
 After return, send the printed result branch and commit back to this chat.
+
+## Import dependency fix after report 993b035
+
+That run passed the PR byte/GPU/toolchain checks but failed before correctness:
+latest-upstream mhc_pre imports flag_gems while the selected vLLM virtualenv
+does not contain it. No accuracy or timing results were generated.
+
+The wrapper now downloads the SHA256-pinned pure-Python FlagGems 5.0.2 wheel
+and extracts only flag_gems and its dist-info into the report's python-deps
+folder. It installs no packages into the virtualenv, invokes no pip resolver
+and does not change Torch, FlagTree or PTXAS. Every compiler-profile check
+verifies dependency bytes/import location and records the dependency identity.
+The existing compiler identity checks remain active after package imports.
+
+No PR production/test/config byte changed. There are no completed GPU results
+to resume from report 993b035; rerun preflight, correctness and all ten timings.

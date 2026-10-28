@@ -40,6 +40,9 @@ def sha(path):
 
 
 def configure(directory):
+    from tools.qsa_prefill_pr_dependencies import configure as configure_dependencies
+
+    configure_dependencies()
     root = Path(directory).resolve()
     if not (root / "triton/__init__.py").is_file():
         raise RuntimeError("FlagTree package missing: " + str(root))
@@ -109,7 +112,10 @@ def compiler_runtime(torch, triton, directory, report):
     if sha(assembler) != PTXAS_SHA256:
         raise RuntimeError("Expected verified NVIDIA ptxas 13.4.59")
     torch.cuda.init()
+    from tools.qsa_prefill_pr_dependencies import configure as configure_dependencies
+
     return dict(
+        flag_gems_dependency=configure_dependencies(),
         profile="flagtree-cuda134",
         version=triton.__version__,
         files=files,

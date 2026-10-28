@@ -22,8 +22,10 @@ git -C "$qsa_repo" status --short
 git -C "$qsa_repo" rev-parse HEAD
 unset PYTHONPATH PYTHONHOME QSA_TRITON_RUNTIME_PATH QSA_NATIVE_REFERENCE_PYTHON QSA_NATIVE_REPORT_DIR QSA_NATIVE_RESULT_PATH CUDA_LAUNCH_BLOCKING
 export PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 DNN_VENDOR=nvidia VLLM_PLUGINS=""
+export QSA_PR_DEPENDENCY_REPORT="$qsa_report"
 qsa_status=0
 if { "$qsa_python" -I "$qsa_repo/tools/qsa_prefill_pr_validation.py" &&
+  "$qsa_python" -I "$qsa_repo/tools/qsa_prefill_pr_dependencies.py" --report "$qsa_report" &&
   "$qsa_python" -I "$qsa_repo/tools/with_cuda_compat134.py" \
   --script "$qsa_repo/tools/qsa_prefill_flagtree_ab.py" \
   --candidate production --mode kernel --suite fp8-prefill \

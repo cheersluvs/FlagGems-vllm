@@ -42,6 +42,7 @@ from tools import qsa_prefill_triton_ab as ab  # noqa: E402
 from tools import qsa_prefill_tuning_round1 as round1  # noqa: E402
 
 SOURCES = [
+    "tools/qsa_prefill_pr_dependencies.py",
     "benchmark/base.py",
     "benchmark/conftest.py",
     "benchmark/consts.py",
