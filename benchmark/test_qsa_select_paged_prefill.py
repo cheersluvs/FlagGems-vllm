@@ -30,6 +30,7 @@ import torch
 import flaggems_vllm
 from tests.test_qsa_select_paged_prefill import (
     BENCHMARK_CASES,
+    QsaPrefillCase,
     _benchmark_geometry,
     make_benchmark_inputs,
     torch_select,
@@ -50,20 +51,27 @@ class QSAPrefillBenchmark(base.GenericBenchmark):
 
 def _inputs(shape, dtype, device, *, stage):
     case = dict(BENCHMARK_CASES[shape], dtype=str(dtype).removeprefix("torch."))
-    args = make_benchmark_inputs(case, device=device)
+    inputs = QsaPrefillCase(*make_benchmark_inputs(case, device=device))
     if stage == "full":
-        yield args
+        yield inputs.launch_args()
         return
     op_module = import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
     width = _benchmark_geometry(case)["logits_width"]
-    workspace = torch.empty((args[0].shape[0] * width,), device=device)
-    score_args = (*args[:5], workspace, args[7], width, 0, args[0].shape[0])
+    workspace = torch.empty((inputs.q.shape[0] * width,), device=device)
+    score_args = (
+        *inputs.score_args(),
+        workspace,
+        inputs.max_query_len,
+        width,
+        0,
+        inputs.q.shape[0],
+    )
     if stage == "score":
         yield score_args
         return
     logits = op_module._prefill_logits(*score_args)
     topk_workspace = torch.empty((1024 * 1024,), dtype=torch.uint8, device=device)
-    yield logits, args[4], args[5], args[6], args[8], topk_workspace
+    yield logits, inputs.visible_blocks, inputs.token_topk, inputs.compress_ratio, inputs.block_indices, topk_workspace
 
 
 def _gems_topk(logits, visible, token_topk, ratio, output, workspace, *, topk):
