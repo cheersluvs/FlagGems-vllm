@@ -69,6 +69,32 @@ class PRValidationTests(unittest.TestCase):
                 self.assertEqual(error.exception.code, 2)
                 parent.assert_not_called()
 
+    def test_native_schema_registration_precedes_flaggems_import(self):
+        import ast
+        import inspect
+
+        from tools import benchmark_qsa_prefill_triton_stages as timer
+
+        tree = ast.parse(inspect.getsource(timer.runtime))
+        native_load = [
+            n.lineno
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "native" for t in n.targets)
+        ]
+        gems_import = [
+            n.lineno
+            for n in ast.walk(tree)
+            if isinstance(n, ast.Import)
+            and any(alias.name == "flaggems_vllm" for alias in n.names)
+        ]
+        self.assertEqual(len(native_load), 1)
+        self.assertEqual(len(gems_import), 1)
+        self.assertLess(native_load[0], gems_import[0])
+        self.assertIn(
+            "faulthandler.enable(all_threads=True)", inspect.getsource(timer.runtime)
+        )
+
     def test_byte_change_is_rejected(self):
         original = validation.PINS
         pins = json.loads(original.read_text())

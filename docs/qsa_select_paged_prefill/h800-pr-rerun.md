@@ -78,3 +78,16 @@ accuracy/benchmark outputs and every other unexpected entry still fail closed.
 A CPU regression drives the actual CLI parser through this guard (GPU parent
 mocked), checking all ten cases are scheduled and existing stage-summary.json
 is rejected. No production or timing code was modified by this correction.
+
+Report 9677817 passed GPU admission and reached imports, then aborted in the
+native stable-extension schema registration API. There were no QSA results.
+Static inspection of the pinned FlagGems 5.0.2 wheel shows its patch_util
+imports legacy vLLM extension modules and defines fallback schemas when they
+appear absent. Loading FlagGems first can therefore conflict with newer native
+stable-extension registration; this is a hypothesis pending the next H800 run.
+
+The runtime now loads the pinned native vLLM reference before importing
+FlagGems-vllm. No schema, kernel, package byte or compiler is patched. Import
+phase markers and Python faulthandler are enabled to locate any remaining
+native abort. Existing post-import compiler/module and public-entry identity
+checks remain mandatory. PR production hashes remain unchanged.

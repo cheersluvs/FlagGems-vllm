@@ -208,12 +208,27 @@ def runtime(reference_path, diagnostic_path=None, options=None):
     if options.candidate != "production" or options.suite != "fp8-prefill":
         raise RuntimeError("PR revalidation requires production and all ten FP8 cases")
     configure_environment(options)
+    import faulthandler
+
+    faulthandler.enable(all_threads=True)
     import torch
     import triton
 
     stock = check_stock_environment(torch, triton, diagnostic_path, options)
-    import flaggems_vllm
     from tests import qsa_select_prefill_utils as helpers
+
+    if not importlib.metadata.version("vllm").startswith("0.31.0"):
+        raise RuntimeError(
+            "Select the existing vLLM 0.31.0 virtualenv with native CUDA extensions"
+        )
+    os.environ["QSA_VLLM_REFERENCE_FILE"] = str(reference_path)
+    if hashlib.sha256(reference_path.read_bytes()).hexdigest() != ab.REFERENCE_SHA256:
+        raise RuntimeError("Pinned original native vLLM source SHA256 mismatch")
+    print("Import phase: pinned native vLLM before FlagGems", flush=True)
+    native = helpers.vllm_reference()
+    utils = importlib.import_module("vllm.triton_utils")
+    print("Import phase: native vLLM loaded; importing FlagGems-vllm", flush=True)
+    import flaggems_vllm
 
     op = importlib.import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
     topk_name = "persistent_topk" if is_flagtree(options) else "top_k_per_row_prefill"
@@ -233,15 +248,7 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         != ab.INTEGRATED_PRODUCTION_SHA256
     ):
         raise RuntimeError("Production source changed; review and repin the experiment")
-    if not importlib.metadata.version("vllm").startswith("0.31.0"):
-        raise RuntimeError(
-            "Select the existing vLLM 0.31.0 virtualenv with native CUDA extensions"
-        )
-    os.environ["QSA_VLLM_REFERENCE_FILE"] = str(reference_path)
-    if hashlib.sha256(reference_path.read_bytes()).hexdigest() != ab.REFERENCE_SHA256:
-        raise RuntimeError("Pinned original native vLLM source SHA256 mismatch")
-    native = helpers.vllm_reference()
-    utils = importlib.import_module("vllm.triton_utils")
+    print("Import phase: both packages loaded", flush=True)
     if any(
         module.triton is not triton for module in (native, utils, op, old_topk)
     ) or any(module.tl is not triton.language for module in (native, op, old_topk)):
