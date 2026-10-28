@@ -227,6 +227,47 @@ def torch_logits(q, cache, table, starts, visible, width=None):
     return logits
 
 
+def torch_select(
+    q,
+    cache,
+    table,
+    starts,
+    visible,
+    token_topk,
+    ratio,
+    max_query_len,
+    output,
+    max_seq_len,
+):
+    """Select compressed groups with Torch FP32 scores and unsorted TopK.
+
+    Request-local row chunks bound the temporary score tensors. This reference
+    includes host metadata reads and is separate from native vLLM timings.
+    """
+    del max_query_len
+    k = token_topk // ratio
+    width = min(table.shape[1] * cache.shape[1], (max_seq_len + ratio - 1) // ratio)
+    output.fill_(-1)
+    offsets = (starts - starts[0]).cpu().tolist()
+    for request, (begin, end) in enumerate(zip(offsets, offsets[1:])):
+        for first in range(begin, end, 256):
+            last = min(first + 256, end)
+            local_starts = torch.tensor(
+                [0, last - first], dtype=starts.dtype, device=starts.device
+            )
+            scores = torch_logits(
+                q[first:last],
+                cache,
+                table[request : request + 1],
+                local_starts,
+                visible[first:last],
+                width,
+            )
+            selected = torch.topk(scores, min(k, width), dim=1, sorted=False).indices
+            selected = torch.where(selected < visible[first:last, None], selected, -1)
+            output[first:last, : selected.shape[1]].copy_(selected.to(torch.int32))
+
+
 def upstream_torch_logits(q, cache, table, starts, visible):
     """Upstream fixture's exact FP32 einsum/reduction, before sqrt(D) scaling.
 
