@@ -20,17 +20,28 @@ No linked issue.
 ### Progress
 - [ ] Change is properly reviewed (1 reviewer required, 2 recommended).
 - [ ] Change is responded to an issue.
-- [ ] Change is fully covered by a UT.
+- [x] Targeted QSA production tests and ten FP8 stage benchmarks passed on H800.
 
-Preparation only: latest-upstream-base GPU validation and a compatible
-FlagGems-vllm submission gate are pending. Do not mark historical results as
-validation of this branch.
+Validated production/test/config bytes correspond to a4f8ab9. The full retained
+QSA file passed 140 tests; one optional second-SM90 case was skipped. This is
+not a claim that every test in the repository ran. Subsequent changes only
+update this PR's documentation/evidence. Submission-gate adaptation is pending.
 
 ### Performance
-Ten FP8 envelopes; NV acceptance uses score-only `--mode kernel`, excluding
-TopK. Historical H800 source 16bc82f passed 49 iteration-profile tests and all
-ten stage benchmarks: arithmetic mean score 1.2344x, TopK 0.9569x and measured
-pipeline 1.0556x against native vLLM. The long100k pipeline remained 0.9838x.
-These figures precede the PR's upstream TopK update and require revalidation.
-See docs/qsa_select_paged_prefill/h800-historical-results.json for per-case
-stage timings and docs/qsa_select_paged_prefill/README.md for scope/limitations.
+NV acceptance uses score-only `--mode kernel`, excluding TopK. Against native
+vLLM, ten FP8 cases yielded arithmetic means of **1.2325x score**, **0.9572x
+TopK**, and **1.0578x measured pipeline**. Nine score cases exceeded 1x; compact
+was 0.9945x. Long100k's TopK cost leaves its pipeline at 0.9824x. TopK was not
+optimized by this change.
+
+Both score implementations used the same FlagTree/PTXAS13.4/CUDA compatibility
+profile. Native TopK used the original CUDA extension; production used TLE.
+Two alternating rounds, 20ms warmup/measurement; all 90 GPU guards passed and
+all captured production kernels had zero spills.
+
+Report: https://github.com/cheersluvs/FlagGems-vllm/tree/5a9978ddd6d8774ebff511c90c449092002171b9/results/qsa_select_paged_prefill/h800/nv-pr-revalidation-20261028-025220
+
+Per-case score/TopK/pipeline times are in
+`docs/qsa_select_paged_prefill/h800-pr-validation.json`.
+Environment setup uses an isolated pinned FlagGems import dependency and
+loads native vLLM before FlagGems-vllm; no compiler/schema patch is required.

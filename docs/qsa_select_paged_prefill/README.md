@@ -87,12 +87,42 @@ The PR preserves the exact score-operator source SHA256 but rebases onto a
 newer upstream persistent_topk. Consequently these historical measurements
 must not be relabeled as validation of the prepared PR branch.
 
+## Current PR validation (2026-10-28)
+
+Report commit: `5a9978ddd6d8774ebff511c90c449092002171b9`.
+Validated PR production/test/config version: `a4f8ab9`.
+Runner commit: `b69df69`. Independent audit verified all 27 pinned PR/framework
+files and all 73 source snapshots. The later documentation-only update does
+not change tested production, test, benchmark or tuning bytes.
+
+The entire retained QSA test file passed: **140 passed, 1 skipped**. The sole
+skip is the optional second-SM90 device-guard case with one visible GPU. This
+is the targeted QSA suite, not the entire repository test suite.
+
+All ten FP8 stage benchmarks passed. Equal-weight arithmetic means:
+**score 1.2325x; TopK 0.9572x; directly measured pipeline 1.0578x**.
+Nine score cases exceed 1x; compact is 0.9945x. Long100k's pipeline is 0.9824x,
+with score 1.2591x and TopK 0.7856x. TopK optimization remains outside scope.
+See h800-pr-validation.json for individual times/ratios.
+
+Both score paths used the same FlagTree/PTXAS13.4/CUDA compatibility profile.
+All 90 GPU guards passed (30-37C); all captured production kernels had zero
+spills. Native TopK remained CUDA and production TopK remained TLE.
+
+Latest upstream package imports require FlagGems, absent from the original
+vLLM virtualenv. The runner extracted digest-pinned FlagGems 5.0.2 into an
+isolated report directory and loaded native vLLM before FlagGems-vllm. No
+compiler, source schema or production kernel was patched. This import order
+passed; it does not identify the exact conflicting schema from the earlier
+aborted import. Runtime/source identities were checked after imports.
+
 ## Preparation status
 
 - Production source and retained test bodies extracted without algorithm changes.
 - Latest upstream exports, backend registrations and TopK additions preserved.
-- Mac cannot execute CUDA tests; new-base H800 correctness/performance pending.
-- The personal FlagGems submission skill is incompatible with this repository:
+- New-base targeted H800 correctness and ten-case performance validation passed.
+- Local Mac validation was static/CPU-only; GPU evidence came from the user run.
+- The personal FlagGems submission skill remains incompatible with this repository:
   its checker expects src/flag_gems, conf/operators.yaml and ATen dispatch.
-  It was run and failed; its submission gate is not waived or marked passed.
-- No PR has been created. A draft description is provided in pr-description.md.
+  That submission gate has not been marked passed or bypassed.
+- No PR has been created. An updated description is in pr-description.md.
