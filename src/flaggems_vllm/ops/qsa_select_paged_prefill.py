@@ -1,19 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
-"""BF16/FP8 QSA paged prefill selection for NVIDIA SM90.
+"""Select compressed QSA key groups for packed BF16/FP8 prefill on NVIDIA SM90.
 
-API/semantics reference: vllm-project/vllm, commit
+API and semantics follow vllm-project/vllm commit
 7a877ae34dcf4a7d46de08eb16db4699e1e0047c,
 vllm/models/qwen4_exp/nvidia/ops/qsa_indexer.py.
 
-Rectangular scoring uses keys x query with dtype-specific tuned configurations.
-Aligned FP8 logits use vector bulk writes followed by a masked scalar tail.
-H4/D128 R32 split-query tiles issue both dots before the left epilogue.
-Low-utilization ragged batches use compact request-local query tiles.
-Top-K is provided by this repository, without a vLLM extension dependency.
+Scores are accumulated in FP32 and TopK uses the repository implementation.
 Selection order and tie-breaking are unspecified. Device-resident metadata
-must satisfy the documented value preconditions; validation does not copy it
-to the host. Autograd is not supported.
+must satisfy the public API preconditions. Autograd is not supported.
 """
 
 import os
@@ -29,7 +24,7 @@ from flaggems_vllm.utils.libentry import LibEntry
 
 
 class _QSAScoreEntry(LibEntry):
-    """Keep the outer runtime cache consistent with the existing score tuner."""
+    """Include score-tuner parameters in the outer runtime cache key."""
 
     def key(self, spec_args, dns_args, const_args):
         named = {
@@ -646,8 +641,8 @@ def _qsa_prefill_compact_score_kernel(
 
 
 def _compact_eligible(total_rows, requests, max_query_len, chunk_rows):
-    # Capacity (before TILE_R rounding) must be at least 4x the actual rows.
-    # This excludes the measured two-request regressions without a shape list.
+    # Use compact grids when rectangular capacity is at least four times the
+    # chunk size, so fewer programs can offset the request-lookup overhead.
     return (
         requests > 1
         and total_rows < requests * max_query_len
@@ -657,8 +652,8 @@ def _compact_eligible(total_rows, requests, max_query_len, chunk_rows):
 
 
 def _check_nonoverlapping_strides(tensor, name):
-    # Empty tensors may report contiguous even when the conservative stride
-    # rule below rejects their layout. Keep that existing error behavior.
+    # Empty tensors also undergo the stride check: contiguity alone does not
+    # establish that their declared dimensions have nonoverlapping strides.
     if tensor.is_contiguous() and tensor.numel():
         return
     extent = 1
@@ -835,15 +830,15 @@ def _prefill_logits(
             else logits_workspace[:num_queries]
         )
     else:
-        # Preserve direct private-helper calls using the original flat buffer.
+        # A flat workspace contains num_queries consecutive logits rows.
         logits = logits_workspace[: num_queries * logits_width].view(
             num_queries, logits_width
         )
     if launch_metadata is None:
         launch_metadata = _prefill_score_metadata(q, k_cache, page_table)
     strides, layout, constants = launch_metadata
-    # Keep the measured compact gate: avoid binary-search overhead for
-    # uniform requests, small chunks and the two-request regression cases.
+    # Request lookup adds a binary search, so use a compact grid only when
+    # the rectangular grid leaves substantial capacity unused.
     compact = _compact_eligible(q.shape[0], layout[0], max_query_len, num_queries)
     if compact:
         kernel = _qsa_prefill_compact_score_kernel
@@ -898,13 +893,12 @@ def qsa_select_paged_prefill(
     Matching BF16/FP8 Q is [tokens,H,D], K is [pages,page_size,1,D], H,D>0.
     Heads and dimensions are inferred from Q; compilation must fit device
     resources. Padded head/dimension lanes do not contribute to the score.
-    ``query_start_loc``
-    is [requests+1] and its first entry may be nonzero. Caller-provided
-    ``visible_blocks`` is int32 [tokens]. ``block_indices`` is contiguous
-    int32 [tokens,token_topk//compress_ratio]. Short rows are padded with -1.
+    ``query_start_loc`` is [requests+1] and its first entry may be nonzero.
+    Caller-provided ``visible_blocks`` is int32 [tokens]. ``block_indices`` is
+    contiguous int32 [tokens,token_topk//compress_ratio]. Short rows are padded with -1.
     The caller must supply valid device-resident metadata and finite Q/K.
     Only logits workspace is limited by VLLM_SPARSE_INDEXER_MAX_LOGITS_MB;
-    zero requests one row per chunk, as in vLLM. At least one logits row is
+    a zero budget selects one row per chunk, as in vLLM. At least one row is
     allocated, and the existing Top-K operator allocates additional scratch.
     """
     rows, k = _validate_inputs(

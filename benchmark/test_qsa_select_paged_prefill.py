@@ -5,7 +5,6 @@
 
 Ten FP8 cases cover eight recorded inference envelopes and two dtype variants.
 Fixtures and the pinned native reference are shared with the correctness tests.
-NV acceptance uses score-only --mode kernel; full and TopK results are also kept.
 The isolated score comparison uses a single full-row launch.
 """
 

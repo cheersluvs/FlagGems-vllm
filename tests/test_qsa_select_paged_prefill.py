@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+"""QSA prefill correctness, native vLLM comparisons and shared FP8 fixtures."""
 
 import hashlib
 import importlib.util
@@ -230,7 +231,7 @@ def upstream_torch_logits(q, cache, table, starts, visible):
     """Upstream fixture's exact FP32 einsum/reduction, before sqrt(D) scaling.
 
     Only use with the upstream fixtures whose entire page tables are valid.
-    Keep the original synthetic Torch baseline unchanged.
+    Other fixtures may contain sentinel page IDs and use ``torch_logits``.
     """
     lengths = starts[1:] - starts[:-1]
     token_to_req = torch.repeat_interleave(
@@ -301,7 +302,7 @@ def assert_upstream_selection(logits, visible, output, *, dtype, head_dim=128):
 
 
 def vllm_reference():
-    """Load only the pinned upstream file; never silently relabel a baseline."""
+    """Load the SHA256-verified vLLM reference and its native TopK operators."""
     path = os.environ.get("QSA_VLLM_REFERENCE_FILE")
     if os.environ.get("QSA_NATIVE_REFERENCE_PYTHON"):
         raise NotImplementedError(
@@ -339,9 +340,9 @@ def vllm_reference():
 
 
 def assert_native_selection(logits, visible, actual, native, *, dtype, head_dim):
-    """Direct comparison under the existing score/tie tolerance contract.
+    """Compare selected scores, counts and padding against native vLLM.
 
-    Strict BF16 upstream index comparisons remain in their original tests.
+    Upstream BF16 fixtures separately check exact index sets.
     Synthetic ties may choose different equivalent indices; compare their
     selected score multisets directly, including valid counts and -1 padding.
     """
@@ -627,7 +628,7 @@ def _benchmark_paged_inputs(case, *, device="cuda"):
     cache, table = args[1:3]
     if "physical_pages" in case:
         # Model two adjacent layer pages in each physical block. Unused pages
-        # are zeroed so fingerprints never depend on uninitialized GPU memory.
+        # are zeroed to keep unused storage deterministic.
         factor = case["cache_page_stride_factor"]
         storage = torch.zeros(
             (info["physical_pages"], factor, case["page_size"], 1, case["dim"]),
@@ -673,7 +674,7 @@ def _benchmark_paged_inputs(case, *, device="cuda"):
 
 def make_benchmark_inputs(case, *, device="cuda"):
     if case["kind"] == "fp8_perf" and "physical_pages" in case:
-        # Use captured full cache/table capacities with the existing safe remap.
+        # Remap live pages into the captured full cache and table capacities.
         return _benchmark_paged_inputs(case, device=device)
     info = _benchmark_geometry(case)
     visible = [
@@ -847,8 +848,8 @@ def test_parameterized_heads_and_dims(
         (heads, dim, dtype)
         for dtype in (torch.bfloat16, torch.float8_e4m3fn)
         for heads, dim in ((1, 32), (3, 64), (5, 96), (8, 256))
-        # Original vLLM BF16 H8/D256 exceeds H800 shared memory. Keep this
-        # shape in our independent default/one-row tests above.
+        # Native vLLM BF16 H8/D256 exceeds H800 shared memory. Independent
+        # Torch comparisons cover this shape with default and one-row chunks.
         if not (dtype == torch.bfloat16 and (heads, dim) == (8, 256))
     ],
 )
@@ -1305,7 +1306,7 @@ def test_upstream_no_complete_blocks_dim8(sm90, compare_vllm):
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
 def test_dim8_scored_selection(sm90, dtype):
-    # D=8 must also work when the score and existing Top-K paths are necessary.
+    # Require scoring and TopK rather than the select-all fast path at D=8.
     args = make_inputs((7,), (1025,), dtype=dtype, head_dim=8)
     op(*args)
     assert_selection(
@@ -1327,16 +1328,15 @@ def test_noncurrent_cuda_device(sm90):
     assert_selection(torch_logits(*args[:5]), args[4], args[8])
 
 
-# Production integration gates deliberately call the official public export.
-# Historical trial modules are references only; they never replace this binding.
+# Exercise cache and dispatch behavior through the public operator entry point.
 
 
 @pytest.mark.parametrize(
     "dtype", [torch.bfloat16, torch.float8_e4m3fn], ids=["bf16", "fp8"]
 )
 def test_score_cache_separates_runtime_rows(sm90, dtype):
-    # Same pointers/strides/dtypes/width, distinct existing num_rows tuner keys.
-    # Exercise the real entry miss/hit paths without changing JIT specialization.
+    # Keep pointers, strides, dtypes and width fixed while varying num_rows.
+    # Cache misses and hits must preserve the score-tuner key distinction.
     args = make_inputs((81,), (1025,), query_base=97, dtype=dtype, padded=True)
     width = 1088
     expected = torch_logits(*args[:5], width=width)
@@ -1376,7 +1376,7 @@ def test_score_cache_separates_runtime_rows(sm90, dtype):
 
 
 def test_fp8_store_production_dispatch_and_canaries(sm90, monkeypatch):
-    # The real production launcher must choose only eligible buffers. Metadata
+    # Vector stores require aligned buffers and compatible layouts. Metadata
     # includes all tail residues, zero-visible rows and chunk offsets.
     for dtype, width, shift, expected_route in (
         (torch.float8_e4m3fn, 1088, 0, "fp8"),
