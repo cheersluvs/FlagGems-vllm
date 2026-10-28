@@ -477,6 +477,7 @@ def test_cpu_is_explicitly_unsupported():
         op(*make_inputs((1,), (17,), device="cpu"))
 
 
+@pytest.mark.qsa_select_paged_prefill
 def test_top_level_export():
     assert op is op_module.qsa_select_paged_prefill
     assert "qsa_select_paged_prefill" not in dict(flaggems_vllm._FULL_CONFIG)

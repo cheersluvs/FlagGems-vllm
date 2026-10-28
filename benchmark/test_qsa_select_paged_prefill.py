@@ -24,9 +24,9 @@ import flaggems_vllm
 from flaggems_vllm.ops.top_k_per_row_prefill import top_k_per_row_prefill
 from tests import qsa_select_prefill_utils as input_helpers
 from tests.qsa_select_prefill_utils import torch_select, vllm_reference
-from tools import qsa_prefill_observed_workloads as workloads
 
 from . import base
+from . import qsa_select_prefill_workloads as workloads
 
 op_module = import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
 pytestmark = [
@@ -39,9 +39,9 @@ pytestmark = [
     ),
 ]
 
-# One shared definition with the H800 --mode kernel runner. Prefix is in
+# Frozen matrix validated by the H800 --mode kernel runner. Prefix is in
 # original tokens before the query, not compressed cache rows.
-BENCHMARK_CASES = {(case["name"],): case for case in workloads.cases("fp8-prefill")}
+BENCHMARK_CASES = {(case["name"],): case for case in workloads.cases()}
 
 
 class QSAPrefillBenchmark(base.GenericBenchmark):
