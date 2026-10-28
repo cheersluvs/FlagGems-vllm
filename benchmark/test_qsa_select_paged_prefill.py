@@ -51,7 +51,9 @@ class QSAPrefillBenchmark(base.GenericBenchmark):
 
 def _inputs(shape, dtype, device, *, stage):
     case = dict(BENCHMARK_CASES[shape], dtype=str(dtype).removeprefix("torch."))
-    inputs = QsaPrefillCase(*make_benchmark_inputs(case, device=device))
+    inputs = QsaPrefillCase(
+        operands=make_benchmark_inputs(case, device=device), device=device
+    )
     if stage == "full":
         yield inputs.launch_args()
         return

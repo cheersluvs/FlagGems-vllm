@@ -12,67 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""QSA prefill correctness, native vLLM comparisons and shared FP8 fixtures."""
-
-import hashlib
-import importlib.util
-import os
-import sys
-from dataclasses import dataclass
-from importlib import import_module
-from pathlib import Path
+"""Correctness tests and shared inference fixtures for QSA paged prefill."""
 
 import pytest
 import torch
-import triton
 
 import flaggems_vllm
 
 from . import conftest as cfg
 
-REFERENCE_COMMIT = "7a877ae34dcf4a7d46de08eb16db4699e1e0047c"
-REFERENCE_SHA256 = "4d09eb2f409e7cd71c7849c4f3bdd71d722bce6feaccb558f7ae67ac2d489a2b"
-
-
-@dataclass
-class QsaPrefillCase:
-    """Named operator operands shared by correctness tests and benchmarks."""
-
-    q: torch.Tensor
-    k_cache: torch.Tensor
-    page_table: torch.Tensor
-    query_start_loc: torch.Tensor
-    visible_blocks: torch.Tensor
-    token_topk: int
-    compress_ratio: int
-    max_query_len: int
-    block_indices: torch.Tensor
-    max_seq_len: int
-
-    def score_args(self):
-        return (
-            self.q,
-            self.k_cache,
-            self.page_table,
-            self.query_start_loc,
-            self.visible_blocks,
-        )
-
-    def launch_args(self):
-        return (
-            *self.score_args(),
-            self.token_topk,
-            self.compress_ratio,
-            self.max_query_len,
-            self.block_indices,
-            self.max_seq_len,
-        )
-
-    def run_kernel(self):
-        return flaggems_vllm.qsa_select_paged_prefill(*self.launch_args())
-
-    def run_reference(self, width=None):
-        return torch_logits(*self.score_args(), width=width)
+BF16_RTOL = 2e-4
+BF16_ATOL = 2e-3
+FP8_RTOL = 1e-3
+FP8_ATOL_PER_SQRT_DIM = 1e-3
 
 
 def make_inputs(
@@ -163,7 +115,7 @@ def make_inputs(
 def make_upstream_prefill_inputs(*, seq_len_slack=0, device=None, dtype=torch.bfloat16):
     """Exact BF16/FP8 inputs from upstream test_qsa_prefill_selection_correctness.
 
-    Source: REFERENCE_COMMIT, tests/models/qwen4_exp/test_qsa_reference.py.
+    Source: vLLM tests/models/qwen4_exp/test_qsa_reference.py.
     The oversized page table and page size 24 exercise clipped logits widths
     that need not coincide with the physical page geometry.
     """
@@ -397,44 +349,6 @@ def assert_upstream_selection(logits, visible, output, *, dtype, head_dim=128):
             )
 
 
-def vllm_reference():
-    """Load the SHA256-verified vLLM reference and its native TopK operators."""
-    path = os.environ.get("QSA_VLLM_REFERENCE_FILE")
-    if os.environ.get("QSA_NATIVE_REFERENCE_PYTHON"):
-        raise NotImplementedError(
-            "Only in-process pinned vLLM comparisons are supported"
-        )
-    try:
-        if path:
-            source_path = Path(path)
-            if hashlib.sha256(source_path.read_bytes()).hexdigest() != REFERENCE_SHA256:
-                raise RuntimeError("QSA_VLLM_REFERENCE_FILE has the wrong SHA256")
-            spec = importlib.util.spec_from_file_location("_qsa_vllm_reference", path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[spec.name] = module
-            spec.loader.exec_module(module)
-        else:
-            module = import_module("vllm.models.qwen4_exp.nvidia.ops.qsa_indexer")
-            source_path = Path(module.__file__)
-            if hashlib.sha256(source_path.read_bytes()).hexdigest() != REFERENCE_SHA256:
-                raise RuntimeError(
-                    "installed vLLM QSA source is not the pinned baseline"
-                )
-        import_module("vllm._custom_ops")
-        for name in ("persistent_topk", "cooperative_topk"):
-            if not hasattr(torch.ops._C, name):
-                raise RuntimeError(f"vLLM build does not expose {name}")
-    except (ImportError, AttributeError, OSError, RuntimeError) as exc:
-        message = (
-            f"Pinned vLLM QSA baseline unavailable: {exc}. "
-            "Set QSA_VLLM_REFERENCE_FILE to the pinned source with a compatible vLLM build."
-        )
-        if os.environ.get("QSA_REQUIRE_VLLM_REFERENCE") == "1":
-            pytest.fail(message)
-        pytest.skip(message)
-    return module
-
-
 def assert_native_selection(logits, visible, actual, native, *, dtype, head_dim):
     """Compare selected scores, counts and padding against native vLLM.
 
@@ -457,6 +371,14 @@ def assert_native_selection(logits, visible, actual, native, *, dtype, head_dim)
             rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
             atol=1e-3 if dtype == torch.float8_e4m3fn else 2e-3,
         )
+
+
+def vllm_reference():
+    """Import vLLM's own QSA operator when it is available."""
+    return pytest.importorskip(
+        "vllm.models.qwen4_exp.nvidia.ops.qsa_indexer",
+        reason="vLLM QSA is required for the native cross-check",
+    )
 
 
 # FP8 benchmark fixtures: eight captured envelopes and two dtype variants.
@@ -799,36 +721,289 @@ def make_benchmark_inputs(case, *, device=None):
 BENCHMARK_CASES = {(case["name"],): case for case in _benchmark_cases()}
 
 
-op_module = import_module("flaggems_vllm.ops.qsa_select_paged_prefill")
-op = flaggems_vllm.qsa_select_paged_prefill
-pytestmark = pytest.mark.qsa_select_paged_prefill
+class QsaPrefillCase:
+    """Build one packed prefill launch and its independent Torch reference."""
 
-
-@pytest.fixture
-def accelerator():
-    if torch.device(cfg.device).type == "cpu":
-        pytest.skip("QSA prefill requires an accelerator")
-    # Match the independent FP32 reference without TF32 rounding on NVIDIA.
-    if flaggems_vllm.vendor_name == "nvidia":
-        old = torch.backends.cuda.matmul.allow_tf32
-        torch.backends.cuda.matmul.allow_tf32 = False
-        try:
-            yield
-        finally:
-            torch.backends.cuda.matmul.allow_tf32 = old
-    else:
-        yield
-
-
-@pytest.fixture
-def sm90(accelerator):
-    if (
-        flaggems_vllm.vendor_name != "nvidia"
-        or not torch.cuda.is_available()
-        or torch.cuda.get_device_capability() != (9, 0)
+    def __init__(
+        self,
+        *,
+        query_lengths=(7, 0, 13),
+        compressed_lengths=(1536, 17, 2048),
+        dtype=torch.bfloat16,
+        device=None,
+        metadata_dtype=torch.int32,
+        fixture="packed",
+        seq_len_slack=0,
+        decode_query_len=1,
+        zero_scores=False,
+        operands=None,
+        **settings,
     ):
-        pytest.skip("NVIDIA SM90 implementation or native vLLM test")
+        self.fixture = fixture
+        self.device = cfg.device if device is None else device
+        if operands is None:
+            if fixture == "upstream_prefill":
+                operands = make_upstream_prefill_inputs(
+                    seq_len_slack=seq_len_slack, dtype=dtype, device=self.device
+                )
+            elif fixture == "upstream_split":
+                operands = make_upstream_split_prefill_inputs(
+                    decode_query_len, device=self.device
+                )
+            elif fixture == "no_complete_blocks":
+                operands = make_upstream_no_complete_blocks_inputs(device=self.device)
+            else:
+                operands = make_inputs(
+                    query_lengths,
+                    compressed_lengths,
+                    dtype=dtype,
+                    device=self.device,
+                    **settings,
+                )
+        (
+            self.q,
+            self.k_cache,
+            self.page_table,
+            self.query_start_loc,
+            self.visible_blocks,
+            self.token_topk,
+            self.compress_ratio,
+            self.max_query_len,
+            self.block_indices,
+            self.max_seq_len,
+        ) = operands
+        self.page_table = self.page_table.to(metadata_dtype)
+        self.query_start_loc = self.query_start_loc.to(metadata_dtype)
+        if zero_scores:
+            self.q.zero_()
 
+    def outputs(self):
+        return torch.full_like(self.block_indices, -17)
+
+    def score_args(self):
+        return (
+            self.q,
+            self.k_cache,
+            self.page_table,
+            self.query_start_loc,
+            self.visible_blocks,
+        )
+
+    def launch_args(self, output=None):
+        return (
+            *self.score_args(),
+            self.token_topk,
+            self.compress_ratio,
+            self.max_query_len,
+            self.block_indices if output is None else output,
+            self.max_seq_len,
+        )
+
+    def run_kernel(self):
+        output = self.outputs()
+        pointer = output.data_ptr()
+        result = flaggems_vllm.qsa_select_paged_prefill(*self.launch_args(output))
+        assert result is None
+        assert output.data_ptr() == pointer
+        return output
+
+    def run_reference(self):
+        output = self.outputs()
+        torch_select(*self.launch_args(output))
+        return output
+
+    def reference_scores(self):
+        if self.fixture in ("upstream_prefill", "upstream_split", "no_complete_blocks"):
+            return upstream_torch_logits(*self.score_args())
+        return torch_logits(*self.score_args())
+
+
+def _assert_matches(actual, expected, case) -> None:
+    """Check selection values, valid counts, unique indices and -1 padding."""
+    scores = case.reference_scores()
+    dtype, dim = case.q.dtype, case.q.shape[-1]
+    for output in (actual, expected):
+        if case.fixture in ("upstream_prefill", "upstream_split", "no_complete_blocks"):
+            assert_upstream_selection(
+                scores, case.visible_blocks, output, dtype=dtype, head_dim=dim
+            )
+        else:
+            fp8 = dtype == torch.float8_e4m3fn
+            assert_selection(
+                scores,
+                case.visible_blocks,
+                output,
+                rtol=FP8_RTOL if fp8 else BF16_RTOL,
+                atol=FP8_ATOL_PER_SQRT_DIM * dim**0.5 if fp8 else BF16_ATOL,
+            )
+    assert_native_selection(
+        scores, case.visible_blocks, actual, expected, dtype=dtype, head_dim=dim
+    )
+
+
+# Each entry describes a batch layout or a public API boundary. The native
+# comparison uses the same table; only unsupported native resource cases skip.
+CASES = [
+    pytest.param(dict(query_lengths=(1,), compressed_lengths=(17,)), id="single-short"),
+    pytest.param(
+        dict(
+            query_lengths=(7, 0, 13),
+            compressed_lengths=(1536, 17, 2048),
+            query_base=19,
+            padded=True,
+        ),
+        id="ragged-strided",
+    ),
+    pytest.param(
+        dict(
+            query_lengths=(33, 19),
+            compressed_lengths=(1537, 4097),
+            k=1024,
+            page_size=64,
+            query_base=61,
+        ),
+        id="topk1024",
+    ),
+    pytest.param(
+        dict(query_lengths=(17,), compressed_lengths=(4097,), k=2048), id="topk2048"
+    ),
+    pytest.param(
+        dict(
+            query_lengths=(39, 34),
+            compressed_lengths=(4096, 8192),
+            query_base=113,
+            budget_mb=1,
+        ),
+        id="cross-request-chunks",
+    ),
+    pytest.param(
+        dict(query_lengths=(7,), compressed_lengths=(1025,), head_dim=8),
+        id="dim8-scored",
+    ),
+    *[
+        pytest.param(
+            dict(
+                query_lengths=(7,),
+                compressed_lengths=(1537,),
+                visible=[0, 1, 511, 512, 513, 1024, 1537],
+                zero_scores=True,
+                page_size=page,
+            ),
+            id=f"ties-page{page}",
+        )
+        for page in (16, 64)
+    ],
+    *[
+        pytest.param(
+            dict(
+                query_lengths=lengths,
+                compressed_lengths=(17,),
+                visible=visible,
+                num_heads=heads,
+                head_dim=dim,
+            ),
+            id=f"{name}-h{heads}-d{dim}",
+        )
+        for name, lengths, visible in (
+            ("empty", (0,), []),
+            ("select-all", (5,), [0, 1, 3, 16, 17]),
+        )
+        for heads, dim in ((4, 128), (1, 1), (5, 96))
+    ],
+    *[
+        pytest.param(
+            dict(
+                query_lengths=(4, 0, 5),
+                compressed_lengths=(1025, 16, 1537),
+                query_base=37,
+                padded=True,
+                visible=[0, 1, 511, 1025, 512, 513, 800, 1024, 1537],
+                num_heads=heads,
+                head_dim=dim,
+                budget_mb=budget,
+            ),
+            id=f"h{heads}-d{dim}-budget{budget}",
+        )
+        for heads, dim in ((1, 7), (3, 24), (5, 96), (8, 256))
+        for budget in (0, 512)
+    ],
+    *[
+        pytest.param(
+            dict(fixture="upstream_prefill", seq_len_slack=slack, budget_mb=budget),
+            id=f"upstream-slack{slack}-budget{budget}",
+        )
+        for slack in (0, 1792)
+        for budget in (0, 512)
+    ],
+    *[
+        pytest.param(
+            dict(fixture="upstream_split", decode_query_len=length),
+            id=f"split-decode{length}",
+        )
+        for length in (1, 2, 3, 4)
+    ],
+    pytest.param(dict(fixture="no_complete_blocks"), id="no-complete-blocks"),
+    *[
+        pytest.param(
+            dict(
+                query_lengths=(rows,), compressed_lengths=(context,), k=k, query_base=53
+            ),
+            id=f"topk-r{rows}-k{k}",
+        )
+        for rows, context, k in (
+            (1, 4096, 1024),
+            (1, 8192, 2048),
+            (65, 8192, 512),
+            (65, 8192, 1024),
+            (65, 8192, 2048),
+        )
+    ],
+    *[
+        pytest.param(
+            dict(
+                query_lengths=(3, 7),
+                compressed_lengths=(1025, 1537),
+                query_base=19,
+                num_heads=heads,
+                head_dim=dim,
+            ),
+            id=f"native-h{heads}-d{dim}",
+        )
+        for heads, dim in ((1, 32), (3, 64))
+    ],
+    pytest.param(dict(metadata_dtype=torch.int64), id="metadata-int64"),
+]
+if not cfg.QUICK_MODE:
+    CASES += [
+        pytest.param(
+            dict(
+                query_lengths=(129, 67, 31),
+                compressed_lengths=(8193, 4097, 1025),
+                query_base=97,
+                padded=True,
+                page_size=64,
+            ),
+            id="ragged-long",
+        ),
+        pytest.param(
+            dict(query_lengths=(512,), compressed_lengths=(16385,), k=1024),
+            id="long-prefill",
+        ),
+        *[
+            pytest.param(
+                dict(
+                    query_lengths=(4, 0, 5),
+                    compressed_lengths=(1025, 16, 1537),
+                    query_base=37,
+                    padded=True,
+                    num_heads=heads,
+                    head_dim=dim,
+                ),
+                id=f"h{heads}-d{dim}",
+            )
+            for heads, dim in ((1, 1), (2, 16), (5, 40), (12, 192), (17, 33), (3, 160))
+        ],
+    ]
 
 DTYPES = [
     pytest.param(torch.bfloat16, id="bf16"),
@@ -843,461 +1018,86 @@ DTYPES = [
 ]
 
 
-CASES = [
-    ((1,), (17,), 512, 16, 0, False),
-    ((7, 0, 13), (1536, 17, 2048), 512, 16, 19, True),
-    ((33, 19), (1537, 4097), 1024, 64, 61, False),
-    ((17,), (4097,), 2048, 16, 0, False),
-]
-if not cfg.QUICK_MODE:
-    CASES += [
-        ((129, 67, 31), (8193, 4097, 1025), 512, 64, 97, True),
-        ((512,), (16385,), 1024, 16, 0, False),
-    ]
-
-
-@pytest.mark.parametrize("lengths,contexts,k,page_size,base,padded", CASES)
-@pytest.mark.parametrize("metadata_dtype", [torch.int32, torch.int64])
-def test_matches_torch(
-    accelerator, lengths, contexts, k, page_size, base, padded, metadata_dtype
-):
-    inputs = QsaPrefillCase(
-        *make_inputs(
-            lengths, contexts, k=k, page_size=page_size, query_base=base, padded=padded
-        )
-    )
-    inputs.page_table = inputs.page_table.to(metadata_dtype)
-    inputs.query_start_loc = inputs.query_start_loc.to(metadata_dtype)
-    reference = inputs.run_reference()
-    pointer = inputs.block_indices.data_ptr()
-    assert inputs.run_kernel() is None
-    assert inputs.block_indices.data_ptr() == pointer
-    assert_selection(reference, inputs.visible_blocks, inputs.block_indices)
-
-
-@pytest.mark.parametrize("page_size", [16, 64])
-def test_visible_counts_and_ties(accelerator, page_size):
-    counts = [0, 1, 511, 512, 513, 1024, 1537]
-    inputs = QsaPrefillCase(
-        *make_inputs((len(counts),), (1537,), page_size=page_size, visible=counts)
-    )
-    inputs.q.zero_()  # Equal scores: valid unique selection matters, not tie order.
-    inputs.run_kernel()
-    assert_selection(
-        inputs.run_reference(),
-        inputs.visible_blocks,
-        inputs.block_indices,
-        rtol=0,
-        atol=0,
-    )
-
-
-@pytest.mark.parametrize("num_heads,head_dim", [(1, 7), (5, 96)])
-@pytest.mark.parametrize("dtype", DTYPES)
-def test_parameterized_selection_matches_torch(accelerator, num_heads, head_dim, dtype):
-    inputs = QsaPrefillCase(
-        *make_inputs(
-            (4, 0, 5),
-            (1025, 16, 1537),
-            query_base=37,
-            padded=True,
-            visible=[0, 1, 511, 1025, 512, 513, 800, 1024, 1537],
-            dtype=dtype,
-            num_heads=num_heads,
-            head_dim=head_dim,
-        )
-    )
-    expected = inputs.run_reference()
-    inputs.run_kernel()
-    assert_selection(
-        expected,
-        inputs.visible_blocks,
-        inputs.block_indices,
-        rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
-        atol=1e-3 * head_dim**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
-    )
-
-
-def test_empty_and_select_all_matches_torch(accelerator):
-    for lengths, visible in (((0,), []), ((5,), [0, 1, 3, 16, 17])):
-        inputs = QsaPrefillCase(*make_inputs(lengths, (17,), visible=visible))
-        expected = inputs.run_reference()
-        assert inputs.run_kernel() is None
-        assert_selection(expected, inputs.visible_blocks, inputs.block_indices)
-
-
-def test_relu_precedes_head_sum_and_score_is_unscaled(sm90):
-    inputs = QsaPrefillCase(
-        *make_inputs((5,), (1025,), visible=[0, 1, 512, 1024, 1025])
-    )
-    inputs.q.zero_()
-    inputs.k_cache.zero_()
-    inputs.q[:, 0, 0] = 2
-    inputs.q[:, 1, 0] = -3
-    inputs.k_cache[..., 0] = 1
-    scores = _scores(inputs.launch_args(), 0, 5)
-    mask = (
-        torch.arange(scores.shape[1], device="cuda")[None, :]
-        < inputs.visible_blocks[:, None]
-    )
-    torch.testing.assert_close(
-        scores[mask], torch.full_like(scores[mask], 2), rtol=0, atol=0
-    )
-
-
-def _scores(args, offset, count, workspace=None):
-    width = args[2].shape[1] * args[1].shape[1]
-    if workspace is None:
-        workspace = torch.full((count * width,), 12345.0, device="cuda")
-    return op_module._prefill_logits(
-        *args[:5], workspace, args[7], width, offset, count
-    )
-
-
-PARAMETERIZED_SHAPES = [(1, 7), (3, 24), (5, 96), (8, 256)]
-if not cfg.QUICK_MODE:
-    PARAMETERIZED_SHAPES += [(1, 1), (2, 16), (5, 40), (12, 192), (17, 33), (3, 160)]
-
-
-@pytest.mark.parametrize("num_heads,head_dim", PARAMETERIZED_SHAPES)
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-@pytest.mark.parametrize("force_chunk", [False, True])
-def test_parameterized_heads_and_dims(
-    sm90, monkeypatch, num_heads, head_dim, dtype, force_chunk
-):
-    monkeypatch.setenv(
-        "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
-    )
-    inputs = QsaPrefillCase(
-        *make_inputs(
-            (4, 0, 5),
-            (1025, 16, 1537),
-            query_base=37,
-            padded=True,
-            visible=[0, 1, 511, 1025, 512, 513, 800, 1024, 1537],
-            dtype=dtype,
-            num_heads=num_heads,
-            head_dim=head_dim,
-        )
-    )
-    expected = inputs.run_reference()
-    original_score = op_module._prefill_logits
-    chunks = []
-
-    def checked_score(*score_args, **score_kwargs):
-        scores = original_score(*score_args, **score_kwargs)
-        width, offset, count = score_args[-3:]
-        chunks.append((offset, count))
-        mask = (
-            torch.arange(width, device=inputs.q.device)[None, :]
-            < inputs.visible_blocks[offset : offset + count, None]
-        )
-        fp8 = dtype == torch.float8_e4m3fn
-        torch.testing.assert_close(
-            scores[mask],
-            expected[offset : offset + count, :width][mask],
-            rtol=1e-3 if fp8 else 2e-4,
-            atol=1e-3 * head_dim**0.5 if fp8 else 2e-3,
-        )
-        return scores
-
-    monkeypatch.setattr(op_module, "_prefill_logits", checked_score)
-    inputs.run_kernel()
-    assert chunks == ([(row, 1) for row in range(9)] if force_chunk else [(0, 9)])
-    if dtype == torch.float8_e4m3fn:
-        assert_upstream_selection(
-            expected,
-            inputs.visible_blocks,
-            inputs.block_indices,
-            dtype=dtype,
-            head_dim=head_dim,
-        )
+@pytest.fixture
+def accelerator():
+    if torch.device(cfg.device).type == "cpu":
+        pytest.skip("QSA prefill requires an accelerator")
+    if flaggems_vllm.vendor_name == "nvidia":
+        old = torch.backends.cuda.matmul.allow_tf32
+        torch.backends.cuda.matmul.allow_tf32 = False
+        try:
+            yield
+        finally:
+            torch.backends.cuda.matmul.allow_tf32 = old
     else:
-        # Small D produces exact ties. Check scores/count/unique indices rather
-        # than requiring the same choice among tied boundary indices.
-        assert_selection(expected, inputs.visible_blocks, inputs.block_indices)
+        yield
 
 
-@pytest.mark.parametrize(
-    "num_heads,head_dim,dtype",
-    [
-        (heads, dim, dtype)
-        for dtype in (torch.bfloat16, torch.float8_e4m3fn)
-        for heads, dim in ((1, 32), (3, 64), (5, 96), (8, 256))
-        # Native vLLM BF16 H8/D256 exceeds H800 shared memory. Independent
-        # Torch comparisons cover this shape with default and one-row chunks.
-        if not (dtype == torch.bfloat16 and (heads, dim) == (8, 256))
-    ],
+def _case(settings, dtype, monkeypatch) -> QsaPrefillCase:
+    settings = dict(settings)
+    fixture = settings.get("fixture", "packed")
+    if fixture in ("upstream_split", "no_complete_blocks") and dtype != torch.bfloat16:
+        pytest.skip("The upstream fixture uses BF16 inputs")
+    budget = settings.pop("budget_mb", 512)
+    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
+    return QsaPrefillCase(dtype=dtype, **settings)
+
+
+@pytest.mark.qsa_select_paged_prefill
+@pytest.mark.parametrize("settings", CASES)
+@pytest.mark.parametrize("dtype", DTYPES)
+def test_qsa_select_paged_prefill_matches_torch_reference(
+    accelerator, monkeypatch, settings, dtype
+) -> None:
+    case = _case(settings, dtype, monkeypatch)
+    _assert_matches(case.run_kernel(), case.run_reference(), case)
+
+
+@pytest.mark.qsa_select_paged_prefill
+@pytest.mark.skipif(
+    flaggems_vllm.vendor_name != "nvidia"
+    or not torch.cuda.is_available()
+    or torch.cuda.get_device_capability() != (9, 0),
+    reason="Native vLLM QSA comparison requires NVIDIA SM90",
 )
-def test_parameterized_against_vllm(sm90, num_heads, head_dim, dtype):
+@pytest.mark.parametrize("settings", CASES)
+@pytest.mark.parametrize("dtype", DTYPES)
+def test_qsa_select_paged_prefill_matches_vllm(
+    accelerator, monkeypatch, settings, dtype
+) -> None:
     reference = vllm_reference()
-    inputs = QsaPrefillCase(
-        *make_inputs(
-            (3, 7),
-            (1025, 1537),
-            query_base=19,
-            dtype=dtype,
-            num_heads=num_heads,
-            head_dim=head_dim,
-        )
+    case = _case(settings, dtype, monkeypatch)
+    # These are the native scored head/dimension configurations covered by
+    # the original direct-vLLM tests. Smaller padded dimensions remain Torch
+    # reference cases; empty/select-all batches do not launch a native dot.
+    visible_bound = min(
+        case.page_table.shape[1] * case.k_cache.shape[1],
+        (case.max_seq_len + case.compress_ratio - 1) // case.compress_ratio,
     )
-    expected = inputs.run_reference()
-    native_args = list(inputs.launch_args())
-    native_args[8] = torch.empty_like(inputs.block_indices)
-    reference.qsa_select_paged_prefill(*native_args)
-    inputs.run_kernel()
-    for output in (native_args[8], inputs.block_indices):
-        if dtype == torch.float8_e4m3fn:
-            assert_upstream_selection(
-                expected, inputs.visible_blocks, output, dtype=dtype, head_dim=head_dim
-            )
-        else:
-            assert_selection(expected, inputs.visible_blocks, output)
-    assert_native_selection(
-        expected,
-        inputs.visible_blocks,
-        inputs.block_indices,
-        native_args[8],
-        dtype=dtype,
-        head_dim=head_dim,
+    if (
+        case.fixture == "packed"
+        and case.q.shape[0] > 0
+        and visible_bound > case.token_topk // case.compress_ratio
+        and case.q.shape[1:] not in ((4, 128), (1, 32), (3, 64), (5, 96), (8, 256))
+    ):
+        pytest.skip("Native cross-check is limited to validated head/dimension pairs")
+    if dtype == torch.bfloat16 and case.q.shape[1:] == (8, 256):
+        pytest.skip("Native BF16 H8/D256 exceeds H800 shared memory")
+    monkeypatch.setattr(
+        reference.envs,
+        "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB",
+        settings.get("budget_mb", 512),
     )
+    actual = case.run_kernel()
+    expected = case.outputs()
+    reference.qsa_select_paged_prefill(*case.launch_args(expected))
+    _assert_matches(actual, expected, case)
 
 
-@pytest.mark.parametrize(
-    "rows,context,k",
-    [
-        (1, 4096, 1024),
-        (1, 8192, 2048),
-        (65, 8192, 512),
-        (65, 8192, 1024),
-        (65, 8192, 2048),
-    ],
+@pytest.mark.qsa_select_paged_prefill
+@pytest.mark.skipif(
+    flaggems_vllm.vendor_name != "nvidia", reason="NVIDIA wrapper error contract"
 )
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-def test_native_vllm_topk_dispatch(sm90, monkeypatch, rows, context, k, dtype):
-    # One unsplit chunk: <=64 rows uses native cooperative_topk; 65 rows
-    # uses native persistent_topk, with both additional supported K values.
-    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "512")
-    reference = vllm_reference()
-    monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 512)
-    inputs = QsaPrefillCase(
-        *make_inputs((rows,), (context,), k=k, dtype=dtype, query_base=53)
-    )
-    expected = inputs.run_reference()
-    native_args = list(inputs.launch_args())
-    native_args[8] = torch.empty_like(inputs.block_indices)
-    reference.qsa_select_paged_prefill(*native_args)
-    inputs.run_kernel()
-    for output in (native_args[8], inputs.block_indices):
-        if dtype == torch.float8_e4m3fn:
-            assert_upstream_selection(
-                expected, inputs.visible_blocks, output, dtype=dtype
-            )
-        else:
-            assert_selection(expected, inputs.visible_blocks, output)
-    assert_native_selection(
-        expected,
-        inputs.visible_blocks,
-        inputs.block_indices,
-        native_args[8],
-        dtype=dtype,
-        head_dim=128,
-    )
-
-
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-def test_native_vllm_empty_and_select_all(sm90, dtype):
-    reference = vllm_reference()
-    empty = make_inputs((0,), (17,), dtype=dtype, num_heads=3, head_dim=64)
-    assert reference.qsa_select_paged_prefill(*empty) is None
-    assert op(*empty) is None
-    assert empty[8].numel() == 0
-    assert_native_selection(
-        torch_logits(*empty[:5]), empty[4], empty[8], empty[8], dtype=dtype, head_dim=64
-    )
-    inputs = QsaPrefillCase(
-        *make_inputs(
-            (5,),
-            (17,),
-            visible=[0, 1, 3, 16, 17],
-            dtype=dtype,
-            num_heads=3,
-            head_dim=64,
-        )
-    )
-    native_args = list(inputs.launch_args())
-    native_args[8] = torch.empty_like(inputs.block_indices)
-    reference.qsa_select_paged_prefill(*native_args)
-    inputs.run_kernel()
-    torch.testing.assert_close(
-        inputs.block_indices.sort().values, native_args[8].sort().values, rtol=0, atol=0
-    )
-    assert_native_selection(
-        inputs.run_reference(),
-        inputs.visible_blocks,
-        inputs.block_indices,
-        native_args[8],
-        dtype=dtype,
-        head_dim=64,
-    )
-
-
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-@pytest.mark.parametrize(
-    "num_heads,head_dim", [(4, 8), (4, 128), (1, 7), (3, 24), (2, 40)]
-)
-def test_every_autotune_candidate(sm90, dtype, num_heads, head_dim):
-    inputs = QsaPrefillCase(
-        *make_inputs(
-            (3, 0, 6),
-            (1025, 16, 1537),
-            query_base=97,
-            dtype=dtype,
-            head_dim=head_dim,
-            num_heads=num_heads,
-        )
-    )
-    width = inputs.page_table.shape[1] * inputs.k_cache.shape[1]
-    expected = inputs.run_reference()
-    kernel = op_module._qsa_prefill_score_kernel
-    while not isinstance(kernel, triton.runtime.JITFunction):
-        kernel = kernel.fn
-    configs = flaggems_vllm.runtime.get_tuned_config(
-        "qsa_select_paged_prefill_reuse_score"
-    )
-    assert configs
-    for config in configs:
-        scores = torch.full((inputs.q.shape[0], width), 12345.0, device="cuda")
-        meta = config.kwargs
-        grid = (
-            inputs.page_table.shape[0],
-            triton.cdiv(inputs.max_query_len, meta["TILE_R"]),
-            triton.cdiv(width, meta["BLOCK_N"] * meta["K_TILES"]),
-        )
-        kernel[grid](
-            *inputs.score_args(),
-            scores,
-            inputs.q.stride(0),
-            inputs.q.stride(1),
-            inputs.k_cache.stride(0),
-            inputs.k_cache.stride(1),
-            inputs.page_table.stride(0),
-            inputs.page_table.stride(1),
-            inputs.q.shape[0],
-            0,
-            inputs.max_query_len,
-            width,
-            inputs.page_table.shape[0],
-            inputs.k_cache.shape[0],
-            inputs.page_table.shape[1],
-            PAGE_SIZE=inputs.k_cache.shape[1],
-            NUM_HEADS=num_heads,
-            HEAD_DIM=head_dim,
-            IS_FP8=dtype == torch.float8_e4m3fn,
-            **meta,
-            num_warps=config.num_warps,
-            num_stages=config.num_stages,
-        )
-        mask = (
-            torch.arange(width, device="cuda")[None, :] < inputs.visible_blocks[:, None]
-        )
-        fp8 = dtype == torch.float8_e4m3fn
-        torch.testing.assert_close(
-            scores[mask],
-            expected[mask],
-            rtol=1e-3 if fp8 else 2e-4,
-            atol=1e-3 * head_dim**0.5 if fp8 else 2e-3,
-        )
-
-
-def test_workspace_reuse_and_cross_request_chunks(sm90, monkeypatch):
-    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "1")
-    # width 8192 => 32 rows/chunk, splitting both requests and the last chunk.
-    inputs = QsaPrefillCase(*make_inputs((39, 34), (4096, 8192), query_base=113))
-    expected = inputs.run_reference()
-    inputs.run_kernel()
-    assert_selection(expected, inputs.visible_blocks, inputs.block_indices)
-    # The same buffer may contain larger scores from an earlier request.
-    width = inputs.page_table.shape[1] * inputs.k_cache.shape[1]
-    workspace = torch.full((32 * width,), 98765.0, device="cuda")
-    for offset in range(0, inputs.q.shape[0], 32):
-        count = min(32, inputs.q.shape[0] - offset)
-        scores = _scores(inputs.launch_args(), offset, count, workspace)
-        mask = (
-            torch.arange(width, device="cuda")[None, :]
-            < inputs.visible_blocks[offset : offset + count, None]
-        )
-        torch.testing.assert_close(
-            scores[mask], expected[offset : offset + count][mask], rtol=2e-4, atol=2e-3
-        )
-
-
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-@pytest.mark.parametrize("num_heads,head_dim", [(4, 128), (1, 1), (5, 96)])
-def test_empty_and_select_all_do_not_launch_score(
-    sm90, monkeypatch, dtype, num_heads, head_dim
-):
-    def forbidden(*args, **kwargs):
-        raise AssertionError(
-            "score/Top-K must not run for an empty or select-all batch"
-        )
-
-    monkeypatch.setattr(op_module, "_prefill_logits", forbidden)
-    monkeypatch.setattr(op_module, "persistent_topk", forbidden)
-    empty = make_inputs(
-        (0,), (17,), dtype=dtype, num_heads=num_heads, head_dim=head_dim
-    )
-    assert op(*empty) is None
-    inputs = QsaPrefillCase(
-        *make_inputs(
-            (5,),
-            (17,),
-            visible=[0, 1, 3, 16, 17],
-            dtype=dtype,
-            num_heads=num_heads,
-            head_dim=head_dim,
-        )
-    )
-    inputs.run_kernel()
-    for row, count in enumerate([0, 1, 3, 16, 17]):
-        torch.testing.assert_close(
-            inputs.block_indices[row, :count],
-            torch.arange(count, device="cuda", dtype=torch.int32),
-        )
-        assert (inputs.block_indices[row, count:] == -1).all()
-
-
-@pytest.mark.parametrize("bad_budget", ["-1", "invalid"])
-def test_bad_workspace_budget(sm90, monkeypatch, bad_budget):
-    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", bad_budget)
-    with pytest.raises(ValueError, match="VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"):
-        op(*make_inputs((1,), (1025,)))
-
-
-def test_persistent_topk_workspace_reused_across_chunks(sm90, monkeypatch):
-    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "1")
-    inputs = QsaPrefillCase(*make_inputs((39, 34), (4096, 8192), query_base=113))
-    expected = inputs.run_reference()
-    original = op_module.persistent_topk
-    launches = []
-
-    def checked_topk(logits, lengths, output, workspace, *, k, max_seq_len):
-        assert workspace.dtype == torch.uint8
-        assert workspace.numel() == 1024 * 1024
-        assert max_seq_len == logits.shape[1] == 8192
-        assert k == 512
-        launches.append((logits.shape[0], workspace.data_ptr()))
-        return original(
-            logits, lengths, output, workspace, k=k, max_seq_len=max_seq_len
-        )
-
-    monkeypatch.setattr(op_module, "persistent_topk", checked_topk)
-    inputs.run_kernel()
-    assert [rows for rows, _ in launches] == [32, 32, 9]
-    assert len({pointer for _, pointer in launches}) == 1
-    assert_selection(expected, inputs.visible_blocks, inputs.block_indices)
-
-
 @pytest.mark.parametrize(
     "case",
     [
@@ -1315,8 +1115,8 @@ def test_persistent_topk_workspace_reused_across_chunks(sm90, monkeypatch):
         "overlap",
     ],
 )
-def test_invalid_contract(sm90, case):
-    inputs = QsaPrefillCase(*make_inputs((8,), (1025,)))
+def test_qsa_select_paged_prefill_invalid_contract(accelerator, case) -> None:
+    inputs = QsaPrefillCase(query_lengths=(8,), compressed_lengths=(1025,))
     error = NotImplementedError
     if case == "dtype":
         inputs.q = inputs.q.float()
@@ -1334,13 +1134,13 @@ def test_invalid_contract(sm90, case):
     elif case == "cache_dim":
         inputs.k_cache = inputs.k_cache[..., :64]
     elif case == "dim_stride":
-        inputs.q = torch.empty((8, 4, 256), device="cuda", dtype=torch.bfloat16)[
+        inputs.q = torch.empty((8, 4, 256), device=cfg.device, dtype=torch.bfloat16)[
             ..., ::2
         ]
     elif case == "output_stride":
-        inputs.block_indices = torch.empty((8, 1024), device="cuda", dtype=torch.int32)[
-            :, ::2
-        ]
+        inputs.block_indices = torch.empty(
+            (8, 1024), device=cfg.device, dtype=torch.int32
+        )[:, ::2]
     elif case == "visible_dtype":
         inputs.visible_blocks = inputs.visible_blocks.long()
         error = ValueError
@@ -1355,359 +1155,4 @@ def test_invalid_contract(sm90, case):
         inputs.visible_blocks = inputs.block_indices.view(-1)[:8]
         error = ValueError
     with pytest.raises(error):
-        inputs.run_kernel()
-
-
-@pytest.mark.skipif(
-    flaggems_vllm.vendor_name != "nvidia",
-    reason="NVIDIA wrapper error contract",
-)
-def test_cpu_is_explicitly_unsupported():
-    with pytest.raises(NotImplementedError, match="NVIDIA CUDA SM90"):
-        op(*make_inputs((1,), (17,), device="cpu"))
-
-
-@pytest.mark.qsa_select_paged_prefill
-def test_top_level_export():
-    assert callable(flaggems_vllm.qsa_select_paged_prefill)
-    assert "qsa_select_paged_prefill" in flaggems_vllm.ops.__all__
-
-
-def test_against_pinned_vllm(sm90, monkeypatch):
-    reference = vllm_reference()
-    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "1")
-    # Also handle a vLLM build that has already cached its environment registry.
-    monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", 1)
-    inputs = QsaPrefillCase(*make_inputs((39, 34), (4096, 8192), query_base=113))
-    expected = inputs.run_reference()
-    vllm_output = torch.empty_like(inputs.block_indices)
-    vllm_args = list(inputs.launch_args())
-    vllm_args[8] = vllm_output
-    reference.qsa_select_paged_prefill(*vllm_args)
-    inputs.run_kernel()
-    assert_selection(expected, inputs.visible_blocks, vllm_output)
-    assert_selection(expected, inputs.visible_blocks, inputs.block_indices)
-    assert_native_selection(
-        expected,
-        inputs.visible_blocks,
-        inputs.block_indices,
-        vllm_output,
-        dtype=inputs.q.dtype,
-        head_dim=inputs.q.shape[2],
-    )
-
-
-@pytest.mark.parametrize("seq_len_slack", [0, 1792])
-@pytest.mark.parametrize("force_chunk", [False, True])
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-def test_upstream_prefill_scenarios(
-    sm90, monkeypatch, seq_len_slack, force_chunk, dtype
-):
-    monkeypatch.setenv(
-        "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "0" if force_chunk else "512"
-    )
-    inputs = QsaPrefillCase(
-        *make_upstream_prefill_inputs(seq_len_slack=seq_len_slack, dtype=dtype)
-    )
-    expected = upstream_torch_logits(*inputs.score_args())
-    chunks = []
-    score = op_module._prefill_logits
-
-    def checked_score(*score_args, **score_kwargs):
-        logits = score(*score_args, **score_kwargs)
-        width, offset, count = score_args[-3:]
-        chunks.append((width, offset, count))
-        mask = (
-            torch.arange(width, device=inputs.q.device)[None, :]
-            < inputs.visible_blocks[offset : offset + count, None]
-        )
-        torch.testing.assert_close(
-            logits[mask],
-            expected[offset : offset + count, :width][mask],
-            rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
-            atol=1e-3 * 128**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
-        )
-        return logits
-
-    monkeypatch.setattr(op_module, "_prefill_logits", checked_score)
-    inputs.run_kernel()
-    # slack=0 clips inside a page: 1280 % 24 != 0. With slack=1792 the
-    # max_seq_len bound exceeds the 1536-column page-table capacity.
-    expected_width = 1280 if seq_len_slack == 0 else 1536
-    expected_chunks = (
-        [(expected_width, row, 1) for row in range(36)]
-        if force_chunk
-        else [(expected_width, 0, 36)]
-    )
-    assert chunks == expected_chunks
-    assert_upstream_selection(
-        expected, inputs.visible_blocks, inputs.block_indices, dtype=dtype
-    )
-
-
-@pytest.mark.parametrize("seq_len_slack", [0, 1792])
-@pytest.mark.parametrize("force_chunk", [False, True])
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float8_e4m3fn])
-def test_upstream_prefill_against_vllm(
-    sm90, monkeypatch, seq_len_slack, force_chunk, dtype
-):
-    reference = vllm_reference()
-    budget = 0 if force_chunk else 512
-    monkeypatch.setenv("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", str(budget))
-    monkeypatch.setattr(reference.envs, "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", budget)
-    inputs = QsaPrefillCase(
-        *make_upstream_prefill_inputs(seq_len_slack=seq_len_slack, dtype=dtype)
-    )
-    expected = upstream_torch_logits(*inputs.score_args())
-    baseline_args = list(inputs.launch_args())
-    baseline_args[8] = torch.empty_like(inputs.block_indices)
-    reference.qsa_select_paged_prefill(*baseline_args)
-    inputs.run_kernel()
-    assert_native_selection(
-        expected,
-        inputs.visible_blocks,
-        inputs.block_indices,
-        baseline_args[8],
-        dtype=dtype,
-        head_dim=128,
-    )
-    assert_upstream_selection(
-        expected, inputs.visible_blocks, baseline_args[8], dtype=dtype
-    )
-    assert_upstream_selection(
-        expected, inputs.visible_blocks, inputs.block_indices, dtype=dtype
-    )
-    if dtype == torch.bfloat16:
-        torch.testing.assert_close(
-            inputs.block_indices.sort().values,
-            baseline_args[8].sort().values,
-            rtol=0,
-            atol=0,
-        )
-
-
-@pytest.mark.parametrize("decode_query_len", [1, 2, 3, 4])
-@pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
-def test_upstream_split_prefill(accelerator, request, decode_query_len, compare_vllm):
-    if compare_vllm:
-        request.getfixturevalue("sm90")
-    reference = vllm_reference() if compare_vllm else None
-    inputs = QsaPrefillCase(*make_upstream_split_prefill_inputs(decode_query_len))
-    expected = upstream_torch_logits(*inputs.score_args())
-    inputs.run_kernel()
-    assert_upstream_selection(
-        expected, inputs.visible_blocks, inputs.block_indices, dtype=torch.bfloat16
-    )
-    if reference is not None:
-        baseline_args = list(inputs.launch_args())
-        baseline_args[8] = torch.empty_like(inputs.block_indices)
-        reference.qsa_select_paged_prefill(*baseline_args)
-        assert_native_selection(
-            expected,
-            inputs.visible_blocks,
-            inputs.block_indices,
-            baseline_args[8],
-            dtype=torch.bfloat16,
-            head_dim=128,
-        )
-        assert_upstream_selection(
-            expected, inputs.visible_blocks, baseline_args[8], dtype=torch.bfloat16
-        )
-        torch.testing.assert_close(
-            inputs.block_indices.sort().values,
-            baseline_args[8].sort().values,
-            rtol=0,
-            atol=0,
-        )
-
-
-@pytest.mark.parametrize("compare_vllm", [False, True], ids=["torch", "vllm"])
-def test_upstream_no_complete_blocks_dim8(accelerator, request, compare_vllm):
-    if compare_vllm:
-        request.getfixturevalue("sm90")
-    reference = vllm_reference() if compare_vllm else None
-    inputs = QsaPrefillCase(*make_upstream_no_complete_blocks_inputs())
-    assert inputs.run_kernel() is None
-    torch.testing.assert_close(
-        inputs.block_indices, torch.full_like(inputs.block_indices, -1), rtol=0, atol=0
-    )
-    if reference is not None:
-        baseline_args = list(inputs.launch_args())
-        baseline_args[8] = torch.empty_like(inputs.block_indices)
-        reference.qsa_select_paged_prefill(*baseline_args)
-        torch.testing.assert_close(
-            inputs.block_indices, baseline_args[8], rtol=0, atol=0
-        )
-        assert_native_selection(
-            inputs.run_reference(),
-            inputs.visible_blocks,
-            inputs.block_indices,
-            baseline_args[8],
-            dtype=torch.bfloat16,
-            head_dim=8,
-        )
-
-
-@pytest.mark.parametrize("dtype", DTYPES)
-def test_dim8_scored_selection(accelerator, dtype):
-    # Require scoring and TopK rather than the select-all fast path at D=8.
-    inputs = QsaPrefillCase(*make_inputs((7,), (1025,), dtype=dtype, head_dim=8))
-    inputs.run_kernel()
-    assert_selection(
-        inputs.run_reference(),
-        inputs.visible_blocks,
-        inputs.block_indices,
-        rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
-        atol=1e-3 * 8**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
-    )
-
-
-def test_noncurrent_cuda_device(sm90):
-    if torch.cuda.device_count() < 2 or torch.cuda.get_device_capability(1) != (9, 0):
-        pytest.skip("a second SM90 device is needed for device-guard validation")
-    previous = torch.cuda.current_device()
-    inputs = QsaPrefillCase(*make_inputs((5,), (1025,), device="cuda:1"))
-    inputs.run_kernel()
-    assert torch.cuda.current_device() == previous
-    assert_selection(
-        inputs.run_reference(), inputs.visible_blocks, inputs.block_indices
-    )
-
-
-# Exercise cache and dispatch behavior through the public operator entry point.
-
-
-@pytest.mark.parametrize(
-    "dtype", [torch.bfloat16, torch.float8_e4m3fn], ids=["bf16", "fp8"]
-)
-def test_score_cache_separates_runtime_rows(sm90, dtype):
-    # Keep pointers, strides, dtypes and width fixed while varying num_rows.
-    # Cache misses and hits must preserve the score-tuner key distinction.
-    inputs = QsaPrefillCase(
-        *make_inputs((81,), (1025,), query_base=97, dtype=dtype, padded=True)
-    )
-    width = 1088
-    expected = inputs.run_reference(width=width)
-    workspace = torch.empty((64, width), device=inputs.q.device, dtype=torch.float32)
-    entry = (
-        op_module._qsa_prefill_fp8_store_score_kernel
-        if dtype == torch.float8_e4m3fn
-        else op_module._qsa_prefill_score_kernel
-    )
-    cache = entry.kernel_cache[torch.cuda.current_device()]
-    saved = dict(cache)
-    cache.clear()
-    keys = []
-    try:
-        for offset, count in ((0, 64), (64, 17), (0, 64)):
-            actual = op_module._prefill_logits(
-                *inputs.score_args(),
-                workspace,
-                inputs.max_query_len,
-                width,
-                offset,
-                count,
-            )
-            mask = (
-                torch.arange(width, device=inputs.q.device)[None, :]
-                < inputs.visible_blocks[offset : offset + count, None]
-            )
-            torch.testing.assert_close(
-                actual[mask],
-                expected[offset : offset + count][mask],
-                rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
-                atol=1e-3 * 128**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
-            )
-            keys.append(set(cache))
-        assert len(keys[0]) == 1
-        assert len(keys[1]) == 2 and keys[0] < keys[1]
-        assert keys[2] == keys[1]
-        assert op is op_module.qsa_select_paged_prefill
-    finally:
-        cache.clear()
-        cache.update(saved)
-
-
-def test_fp8_store_production_dispatch_and_canaries(sm90, monkeypatch):
-    # Vector stores require aligned buffers and compatible layouts. Metadata
-    # includes all tail residues, zero-visible rows and chunk offsets.
-    for dtype, width, shift, expected_route in (
-        (torch.float8_e4m3fn, 1088, 0, "fp8"),
-        (torch.float8_e4m3fn, 1088, 1, "original"),
-        (torch.float8_e4m3fn, 1089, 0, "original"),
-        (torch.bfloat16, 1088, 0, "original"),
-    ):
-        inputs = QsaPrefillCase(
-            *make_inputs(
-                (17,),
-                (1025,),
-                dtype=dtype,
-                padded=True,
-                visible=[
-                    0,
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    511,
-                    512,
-                    513,
-                    514,
-                    515,
-                    1021,
-                    1022,
-                    1023,
-                    1024,
-                    1025,
-                    1025,
-                ],
-                query_base=97,
-            )
-        )
-        expected = inputs.run_reference(width=width)
-        routes = []
-
-        class Capture:
-            def __init__(self, entry, route):
-                self.entry, self.route = entry, route
-
-            def __getitem__(self, grid):
-                routes.append(self.route)
-                return self.entry[grid]
-
-        with monkeypatch.context() as patcher:
-            for name, route in (
-                ("_qsa_prefill_score_kernel", "original"),
-                ("_qsa_prefill_fp8_store_score_kernel", "fp8"),
-                ("_qsa_prefill_compact_score_kernel", "compact"),
-            ):
-                patcher.setattr(
-                    op_module, name, Capture(getattr(op_module, name), route)
-                )
-            for offset, count in ((0, 17), (1, 15), (16, 1)):
-                backing = torch.full((count * width + 32,), 12345.0, device="cuda")
-                start = 16 + shift
-                workspace = backing[start : start + count * width].view(count, width)
-                actual = op_module._prefill_logits(
-                    *inputs.score_args(),
-                    workspace,
-                    inputs.max_query_len,
-                    width,
-                    offset,
-                    count,
-                )
-                mask = (
-                    torch.arange(width, device="cuda")[None, :]
-                    < inputs.visible_blocks[offset : offset + count, None]
-                )
-                torch.testing.assert_close(
-                    actual[mask],
-                    expected[offset : offset + count][mask],
-                    rtol=1e-3 if dtype == torch.float8_e4m3fn else 2e-4,
-                    atol=1e-3 * 128**0.5 if dtype == torch.float8_e4m3fn else 2e-3,
-                )
-                assert (actual[~mask] == 12345.0).all()
-                assert (backing[:start] == 12345.0).all()
-                assert (backing[start + count * width :] == 12345.0).all()
-            assert routes == [expected_route] * 3
+        flaggems_vllm.qsa_select_paged_prefill(*inputs.launch_args())
