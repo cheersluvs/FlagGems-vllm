@@ -50,7 +50,7 @@ Run on H800/H100 in a compatible FlagTree/TLE + vLLM environment:
 
 ```bash
 PYTHONPATH="$PWD/src:$PWD" python -m pytest -q tests/test_qsa_select_paged_prefill.py --quick
-PYTHONPATH="$PWD/src:$PWD" python -m pytest -s benchmark/test_qsa_select_paged_prefill_perf.py --mode kernel --iter 2 --warmup 1 -k 'full_vs_vllm or scores_vs_vllm or topk_vs_vllm'
+PYTHONPATH="$PWD/src:$PWD" python -m pytest -s benchmark/test_qsa_select_paged_prefill.py --mode kernel --iter 2 --warmup 1 -k 'full_vs_vllm or scores_vs_vllm or topk_vs_vllm'
 ```
 
 A SHA256-pinned native vLLM baseline is required. Set QSA_VLLM_REFERENCE_FILE
@@ -126,3 +126,8 @@ aborted import. Runtime/source identities were checked after imports.
   its checker expects src/flag_gems, conf/operators.yaml and ATen dispatch.
   That submission gate has not been marked passed or bypassed.
 - No PR has been created. An updated description is in pr-description.md.
+
+Benchmark naming follows `benchmark/test_<operator>.py`. The former `_perf`
+suffix was removed after validation; contents and workload definitions are
+byte-identical, so the recorded GPU measurements remain applicable. Historical
+source snapshots retain their original filenames.

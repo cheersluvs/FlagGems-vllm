@@ -24,8 +24,8 @@ No linked issue.
 
 Validated production/test/config bytes correspond to a4f8ab9. The full retained
 QSA file passed 140 tests; one optional second-SM90 case was skipped. This is
-not a claim that every test in the repository ran. Subsequent changes only
-update this PR's documentation/evidence. Submission-gate adaptation is pending.
+not a claim that every test in the repository ran. Subsequent changes update documentation/evidence and rename the unchanged
+benchmark file to `benchmark/test_qsa_select_paged_prefill.py`. Submission-gate adaptation is pending.
 
 ### Performance
 NV acceptance uses score-only `--mode kernel`, excluding TopK. Against native
