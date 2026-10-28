@@ -51,10 +51,15 @@ for _alias, _target in _COMPAT_OP_ALIASES.items():
     if _target in globals():
         globals()[_alias] = globals()[_target]
 
+# Direct-call model APIs have no ATen schema to register.
+_DIRECT_CALL_OPS = frozenset({"qsa_select_paged_prefill"})
+
 _FULL_CONFIG = tuple(
     (op_name, globals()[op_name])
     for op_name in getattr(_ops_module, "__all__", [])
-    if op_name in globals() and callable(globals()[op_name])
+    if op_name in globals()
+    and callable(globals()[op_name])
+    and op_name not in _DIRECT_CALL_OPS
 )
 
 if "weight_norm_interface" in globals():
