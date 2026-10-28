@@ -23,7 +23,7 @@ import triton
 import triton.language as tl
 
 from flaggems_vllm import runtime
-from flaggems_vllm.ops.persistent_topk import persistent_topk
+from flaggems_vllm.ops.persistent_topk import HAS_TLE, persistent_topk
 from flaggems_vllm.utils import libentry, libtuner
 from flaggems_vllm.utils.libentry import LibEntry
 
@@ -929,6 +929,8 @@ def qsa_select_paged_prefill(
                 visible_blocks, block_indices, K=k, BLOCK=256, num_warps=4
             )
             return
+        if not HAS_TLE:
+            raise NotImplementedError("QSA prefill Top-K requires Triton TLE")
         try:
             budget_mb = int(os.environ.get("VLLM_SPARSE_INDEXER_MAX_LOGITS_MB", "512"))
         except ValueError as exc:
