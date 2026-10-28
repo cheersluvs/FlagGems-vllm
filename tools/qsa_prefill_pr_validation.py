@@ -56,6 +56,32 @@ def validate_records(records):
     return None
 
 
+def fresh_report_error(directory, *, flagtree):
+    """Permit bootstrap inputs, never existing benchmark/accuracy outputs."""
+    allowed = {"runner.txt"}
+    if flagtree:
+        from tools.qsa_prefill_pr_dependencies import WHEEL
+
+        allowed |= {
+            "compat134.json",
+            "compat134-package.json",
+            "flagtree134-tools.json",
+            "toolchain-downloads.json",
+            "flag-gems-dependency.json",
+            "python-deps",
+            WHEEL,
+        }
+    unexpected = sorted(
+        p.name for p in Path(directory).iterdir() if p.name not in allowed
+    )
+    if unexpected:
+        return (
+            "Report directory must be fresh; unexpected existing entries: "
+            + ", ".join(unexpected)
+        )
+    return None
+
+
 def summarize(report):
     path = Path(report)
     file = path / "stage-summary.json"

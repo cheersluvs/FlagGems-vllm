@@ -70,3 +70,11 @@ The existing compiler identity checks remain active after package imports.
 
 No PR production/test/config byte changed. There are no completed GPU results
 to resume from report 993b035; rerun preflight, correctness and all ten timings.
+
+Report 15de94b hit the fresh-directory guard before preflight: the dependency
+bootstrap's wheel, JSON and python-deps directory were not yet allowlisted.
+The guard now permits precisely those additional bootstrap names. Completed
+accuracy/benchmark outputs and every other unexpected entry still fail closed.
+A CPU regression drives the actual CLI parser through this guard (GPU parent
+mocked), checking all ten cases are scheduled and existing stage-summary.json
+is rejected. No production or timing code was modified by this correction.

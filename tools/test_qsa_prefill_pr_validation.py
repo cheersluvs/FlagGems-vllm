@@ -21,6 +21,54 @@ class PRValidationTests(unittest.TestCase):
         self.assertEqual(len(fp8.cases()), 10)
         self.assertTrue(all((timer.ROOT / name).is_file() for name in timer.SOURCES))
 
+    def test_new_dependency_bootstrap_reaches_parent_but_results_are_rejected(self):
+        import contextlib
+        import io
+        import sys
+
+        from tools import benchmark_qsa_prefill_triton_stages as timer
+        from tools.qsa_prefill_pr_dependencies import WHEEL
+
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            for name in (
+                "runner.txt",
+                "compat134.json",
+                "compat134-package.json",
+                "flagtree134-tools.json",
+                "toolchain-downloads.json",
+                "flag-gems-dependency.json",
+                WHEEL,
+            ):
+                (folder / name).write_text("bootstrap placeholder; not executed")
+            (folder / "python-deps").mkdir()
+            args = [
+                "timer",
+                "--compiler",
+                "flagtree",
+                "--candidate",
+                "production",
+                "--accuracy-profile",
+                "full",
+                "--report-dir",
+                directory,
+            ]
+            with patch.object(sys, "argv", args), patch.object(
+                timer, "parent", return_value=0
+            ) as parent:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(timer.main(), 0)
+                self.assertEqual(len(parent.call_args[0][1]), 10)
+            (folder / "stage-summary.json").write_text("{}")
+            with patch.object(sys, "argv", args), patch.object(
+                timer, "parent"
+            ) as parent:
+                with contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit) as error:
+                        timer.main()
+                self.assertEqual(error.exception.code, 2)
+                parent.assert_not_called()
+
     def test_byte_change_is_rejected(self):
         original = validation.PINS
         pins = json.loads(original.read_text())

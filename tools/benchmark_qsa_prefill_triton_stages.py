@@ -2144,18 +2144,11 @@ def main():
             print(result["error"], file=sys.stderr)
             return 1
     directory.mkdir(parents=True, exist_ok=True)
-    allowed = {"runner.txt"}
-    if is_flagtree(options):
-        allowed |= {
-            "compat134.json",
-            "compat134-package.json",
-            "flagtree134-tools.json",
-            "toolchain-downloads.json",
-        }
-    if any(p.name not in allowed for p in directory.iterdir()):
-        parser.error(
-            "Report directory must be fresh; existing reports are not overwritten"
-        )
+    from tools.qsa_prefill_pr_validation import fresh_report_error
+
+    error = fresh_report_error(directory, flagtree=is_flagtree(options))
+    if error:
+        parser.error(error)
     print("Reports:", directory, flush=True)
     selected = [c for c in all_cases if not options.cases or c["name"] in options.cases]
     return parent(options, selected, directory)
