@@ -193,10 +193,12 @@ def worker(args):
     result = dict(status="failed", case=args.worker, python=sys.executable)
     try:
         os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
-        if args.suite == "topk-diagnostic":
-            cache = Path(args.report) / ".triton-cache" / args.worker
+        if args.suite == "topk-diagnostic" or args.fresh_cache:
+            cache_name = args.worker if args.suite == "topk-diagnostic" else "shared"
+            cache = Path(args.report) / ".triton-cache" / cache_name
             cache.mkdir(parents=True, exist_ok=True)
             os.environ["TRITON_CACHE_DIR"] = str(cache)
+        result["cache_directory"] = os.environ.get("TRITON_CACHE_DIR")
         import torch
         import torch_npu
 
@@ -425,6 +427,16 @@ def worker(args):
                         trace=trace,
                     )
                 torch.npu.synchronize()
+                before_native = output.cpu()
+                result["output_before_native"] = dict(
+                    below_minus_one=int((before_native < -1).sum()),
+                    sentinel_count=int((before_native == -123456).sum()),
+                    prefix=before_native.flatten()[:64].tolist(),
+                )
+                if result["output_before_native"]["below_minus_one"]:
+                    result["output_before_native"][
+                        "full_output"
+                    ] = before_native.tolist()
                 baseline = torch.empty_like(output)
                 qsa_select_paged_prefill(
                     query,
@@ -458,6 +470,9 @@ def worker(args):
                     assert len({t["logits_pointer"] for t in trace}) == 1
                     assert len({t["topk_workspace_pointer"] for t in trace}) == 1
                 baseline = baseline.cpu()
+                result["native_call_preserved_output"] = bool(
+                    torch.equal(before_native, output.cpu())
+                )
                 result["native_reference_output"] = dict(
                     shape=list(baseline.shape),
                     padding_count=int((baseline == -1).sum()),
@@ -479,9 +494,53 @@ def worker(args):
             torch.npu.synchronize()
             assert returned is None and output.data_ptr() == pointer
             assert len(native_calls) == (1 if rows else 0)
-            assert (guard[:16] == -123456).all() and (guard[-16:] == -123456).all()
-            assert (output >= -1).all()
-            assert ((output == -1) | (output < key_lengths[:, None])).all()
+            cpu_output, cpu_guard, cpu_lengths = (
+                output.cpu(),
+                guard.cpu(),
+                key_lengths.cpu(),
+            )
+            result["output_checks"] = dict(
+                cpu_lower_bound=bool((cpu_output >= -1).all()),
+                cpu_upper_bound=bool(
+                    ((cpu_output == -1) | (cpu_output < cpu_lengths[:, None])).all()
+                ),
+                cpu_canaries=bool(
+                    (cpu_guard[:16] == -123456).all()
+                    and (cpu_guard[-16:] == -123456).all()
+                ),
+                below_minus_one=int((cpu_output < -1).sum()),
+                sentinel_count=int((cpu_output == -123456).sum()),
+                prefix=cpu_output.flatten()[:64].tolist(),
+                output_storage_offset=output.storage_offset(),
+            )
+            checks = result["output_checks"]
+            if not all(
+                checks[key]
+                for key in ("cpu_lower_bound", "cpu_upper_bound", "cpu_canaries")
+            ):
+                checks["full_output"] = cpu_output.tolist()
+            checks["device_lower_bound"] = bool((output >= -1).all())
+            checks["device_upper_bound"] = bool(
+                ((output == -1) | (output < key_lengths[:, None])).all()
+            )
+            checks["device_canaries"] = bool(
+                (guard[:16] == -123456).all() and (guard[-16:] == -123456).all()
+            )
+            print("output_checks", json.dumps(checks), flush=True)
+            assert (
+                checks["cpu_lower_bound"]
+                and checks["cpu_upper_bound"]
+                and checks["cpu_canaries"]
+            ), "Invalid output data (CPU check)"
+            assert (
+                checks["device_lower_bound"]
+                and checks["device_upper_bound"]
+                and checks["device_canaries"]
+            ), "Device-side range/canary check disagrees with valid CPU output"
+            if args.suite in ("pipeline", "production"):
+                assert result[
+                    "native_call_preserved_output"
+                ], "Native reference call changed production output"
             result["adapter"] = dict(
                 query_start_loc=starts_cpu.tolist(),
                 query_stride=list(query.stride()),
@@ -612,6 +671,11 @@ def main():
     )
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument(
+        "--fresh-cache",
+        action="store_true",
+        help="Use a fresh report-local Triton cache",
+    )
+    parser.add_argument(
         "--suite",
         choices=(
             "native",
@@ -664,6 +728,7 @@ def main():
         packages={},
         cases=[],
         suite=args.suite,
+        fresh_cache=args.fresh_cache or args.suite == "topk-diagnostic",
         scope="native BF16 baseline probe; no performance claim",
     )
     for name in (
@@ -773,6 +838,7 @@ def main():
                         args.suite,
                         "--output",
                         str(output),
+                        *(["--fresh-cache"] if args.fresh_cache else []),
                     ],
                     stdout=log,
                     stderr=subprocess.STDOUT,
