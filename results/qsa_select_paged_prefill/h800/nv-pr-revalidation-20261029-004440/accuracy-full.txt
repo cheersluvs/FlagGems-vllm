@@ -1,0 +1,114 @@
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Import phase: pinned native vLLM before FlagGems
+Verified installed vLLM QSA: /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/models/qwen4_exp/nvidia/ops/qsa_indexer.py
+Import phase: native vLLM loaded; importing FlagGems-vllm
+[Note] No specialized fused operators were found for the nvidia, generic fused operators will be used by default.
+Import phase: both packages loaded
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-pr-recheck.ok2A0q/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "cad1e63ffdd118ce8bcb699d6936b4ef9cc38a6ede836f57c6c2387ac3d3e0ed", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-pr-recheck.ok2A0q/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "cad1e63ffdd118ce8bcb699d6936b4ef9cc38a6ede836f57c6c2387ac3d3e0ed", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
+........................................................................ [ 36%]
+.sssss.................F
+=================================== FAILURES ===================================
+_______ test_qsa_select_paged_prefill_matches_vllm[bf16-ragged-strided] ________
+
+accelerator = None
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f1190d0e960>
+settings = {'query_lengths': (7, 0, 13), 'compressed_lengths': (1536, 17, 2048), 'query_base': 19, 'padded': True}
+dtype = torch.bfloat16
+
+    @pytest.mark.qsa_select_paged_prefill
+    @pytest.mark.skipif(
+        flaggems_vllm.vendor_name != "nvidia"
+        or not torch.cuda.is_available()
+        or torch.cuda.get_device_capability() != (9, 0),
+        reason="Native vLLM QSA comparison requires NVIDIA SM90",
+    )
+    @pytest.mark.parametrize("settings", CASES)
+    @pytest.mark.parametrize("dtype", DTYPES)
+    def test_qsa_select_paged_prefill_matches_vllm(
+        accelerator, monkeypatch, settings, dtype
+    ) -> None:
+        reference = vllm_reference()
+        case = _case(settings, dtype, monkeypatch)
+        # These are the native scored head/dimension configurations covered by
+        # the original direct-vLLM tests. Smaller padded dimensions remain Torch
+        # reference cases; empty/select-all batches do not launch a native dot.
+        visible_bound = min(
+            case.page_table.shape[1] * case.k_cache.shape[1],
+            (case.max_seq_len + case.compress_ratio - 1) // case.compress_ratio,
+        )
+        if (
+            case.fixture == "packed"
+            and case.q.shape[0] > 0
+            and visible_bound > case.token_topk // case.compress_ratio
+            and case.q.shape[1:] not in ((4, 128), (1, 32), (3, 64), (5, 96), (8, 256))
+        ):
+            pytest.skip("Native cross-check is limited to validated head/dimension pairs")
+        if dtype == torch.bfloat16 and case.q.shape[1:] == (8, 256):
+            pytest.skip("Native BF16 H8/D256 exceeds H800 shared memory")
+        monkeypatch.setattr(
+            reference.envs,
+            "VLLM_SPARSE_INDEXER_MAX_LOGITS_MB",
+            settings.get("budget_mb", 512),
+        )
+        actual = case.run_kernel()
+        expected = case.outputs()
+        reference.qsa_select_paged_prefill(*case.launch_args(expected))
+>       _assert_matches(actual, expected, case)
+
+tests/test_qsa_select_paged_prefill.py:754: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/test_qsa_select_paged_prefill.py:492: in _assert_matches
+    assert_selection(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+logits = tensor([[29.2124,  9.5720, 12.3737,  ...,    -inf,    -inf,    -inf],
+        [ 4.3340,  0.0000, 14.0512,  ...,    -in...6954, 11.5641,    -inf],
+        [42.5428, 31.7177, 31.9052,  ..., 18.8810, 25.1573, 45.5378]],
+       device='cuda:0')
+visible = tensor([1534, 1534, 1535, 1535, 1535, 1535, 1536, 2045, 2045, 2045, 2045, 2046,
+        2046, 2046, 2046, 2047, 2047, 2047, 2047, 2048], device='cuda:0',
+       dtype=torch.int32)
+output = tensor([[1280, 1296, 1312,  ..., 1209, 1241, 1273],
+        [ 408,  416,  420,  ...,  235,  255,  541],
+        [1296,......,  524,  522, 1224],
+        [1800, 1816, 1820,  ...,  493, 1954, 1698]], device='cuda:0',
+       dtype=torch.int32)
+rtol = 0.0002, atol = 0.002
+
+    def assert_selection(logits, visible, output, *, rtol=2e-4, atol=2e-3):
+        """Check count, range, uniqueness, padding and the selected score multiset."""
+        k = output.shape[1]
+        lengths = visible.cpu().tolist()
+        for row, length in enumerate(lengths):
+            selected = output[row]
+            valid = selected[selected >= 0].long()
+            count = min(length, k)
+            assert valid.numel() == count, (row, length, selected)
+            assert (selected >= -1).all(), (row, selected)
+            assert (valid < length).all(), (row, valid, length)
+            assert valid.unique().numel() == count, (row, valid)
+            assert (selected == -1).sum().item() == k - count
+            if count:
+                actual = logits[row, valid].sort().values
+                expected = logits[row, :length].topk(count).values.sort().values
+>               torch.testing.assert_close(actual, expected, rtol=rtol, atol=atol)
+E               AssertionError: Tensor-likes are not close!
+E               
+E               Mismatched elements: 512 / 512 (100.0%)
+E               Greatest absolute difference: 23.602752685546875 at index (39,) (up to 0.002 allowed)
+E               Greatest relative difference: 1.0 at index (0,) (up to 0.0002 allowed)
+
+tests/test_qsa_select_paged_prefill.py:312: AssertionError
+=========================== short test summary info ============================
+SKIPPED [5] tests/test_qsa_select_paged_prefill.py:700: The upstream fixture uses BF16 inputs
+FAILED tests/test_qsa_select_paged_prefill.py::test_qsa_select_paged_prefill_matches_vllm[bf16-ragged-strided]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 90 passed, 5 skipped in 734.76s (0:12:14)
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Import phase: pinned native vLLM before FlagGems
+Verified installed vLLM QSA: /tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/vllm/models/qwen4_exp/nvidia/ops/qsa_indexer.py
+Import phase: native vLLM loaded; importing FlagGems-vllm
+Import phase: both packages loaded
+Selected environment: {"python": "/tmp/qsa-vllm031-h800.PQnVpV/venv/bin/python", "prefix": "/tmp/qsa-vllm031-h800.PQnVpV/venv", "isolated": true, "torch_version": "2.13.0+cu129", "torch_source": "/tmp/qsa-vllm031-h800.PQnVpV/venv/lib/python3.12/site-packages/torch/__init__.py", "triton_version": "3.6.0", "triton_source": "/opt/flagtree/triton/__init__.py"}
+Operator binding: {"canonical_source": "/tmp/flaggems-qsa-pr-recheck.ok2A0q/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "canonical_sha256": "cad1e63ffdd118ce8bcb699d6936b4ef9cc38a6ede836f57c6c2387ac3d3e0ed", "candidate_module": "flaggems_vllm.ops.qsa_select_paged_prefill", "candidate_source": "/tmp/flaggems-qsa-pr-recheck.ok2A0q/src/flaggems_vllm/ops/qsa_select_paged_prefill.py", "candidate_sha256": "cad1e63ffdd118ce8bcb699d6936b4ef9cc38a6ede836f57c6c2387ac3d3e0ed", "candidate_is_canonical_module": true, "exported_entry_is_candidate": true, "public_function_module": "flaggems_vllm.ops.qsa_select_paged_prefill"}
