@@ -263,11 +263,29 @@ def worker(args):
             else:
                 from qsa_prefill_pipeline_910b_trial import load_topk
             result["existing_topk"] = load_topk().probe_identity
+        if args.suite == "benchmark" and args.worker == "environment":
+            from benchmark_qsa_prefill_stages_910b import profiler_inventory
+            from qsa_prefill_production_910b import load_production
+
+            result["production_entry"] = load_production()[3]
+            print(
+                "production_entry", json.dumps(result["production_entry"]), flush=True
+            )
+            result["profiler_inventory"] = profiler_inventory()
+            print(
+                "profiler_inventory",
+                json.dumps(result["profiler_inventory"]),
+                flush=True,
+            )
         if args.worker == "environment":
             result["status"] = "passed"
             return 0
         if args.suite == "topk-diagnostic":
             from diagnose_qsa_topk_import_910b import run
+
+            return run(args, result)
+        if args.suite == "benchmark":
+            from benchmark_qsa_prefill_stages_910b import run
 
             return run(args, result)
         config = CASES[args.worker]
@@ -670,6 +688,9 @@ def main():
         help="logical index after ASCEND_RT_VISIBLE_DEVICES",
     )
     parser.add_argument("--timeout", type=int, default=180)
+    parser.add_argument("--rounds", type=int, default=2)
+    parser.add_argument("--warmup", type=int, default=2)
+    parser.add_argument("--iterations", type=int, default=3)
     parser.add_argument(
         "--fresh-cache",
         action="store_true",
@@ -684,6 +705,7 @@ def main():
             "pipeline",
             "production",
             "topk-diagnostic",
+            "benchmark",
         ),
         default="native",
     )
@@ -695,6 +717,9 @@ def main():
             "isolated_topk",
             "normal_topk",
             "isolated_after_import",
+            "short16_g1024",
+            "medium32_g8192",
+            "long32_g25600",
             *CASES,
             *ADAPTER_CASES,
             *SCORE_CASES,
@@ -703,9 +728,15 @@ def main():
     )
     parser.add_argument("--output")
     args = parser.parse_args()
+    if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
+        parser.error("Timing counts must be positive")
     if args.device < 0 or args.timeout <= 0:
         parser.error("Invalid device or timeout")
-    if args.suite == "topk-diagnostic":
+    if args.suite == "benchmark":
+        from benchmark_qsa_prefill_stages_910b import CASES as benchmark_cases
+
+        CASES = benchmark_cases
+    elif args.suite == "topk-diagnostic":
         from diagnose_qsa_topk_import_910b import CASES as diagnostic_cases
 
         CASES = dict.fromkeys(diagnostic_cases)
@@ -820,6 +851,21 @@ def main():
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
             )
         }
+    if args.suite == "benchmark":
+        root = Path(__file__).resolve().parents[1]
+        summary["scope"] = (
+            "Three BF16 diagnostic shapes: stage timing and public/native comparisons, not kernel-mode acceptance"
+        )
+        summary["source_hashes"] = {
+            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            for name in (
+                "tools/benchmark_qsa_prefill_stages_910b.py",
+                "tools/qsa_prefill_production_910b.py",
+                "tools/qsa_lightning_baseline_910b.py",
+                "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+                "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+            )
+        }
     for name in ("environment", *CASES):
         output = report / f"{name}.json"
         with (report / f"{name}.txt").open("w") as log:
@@ -839,6 +885,12 @@ def main():
                         "--output",
                         str(output),
                         *(["--fresh-cache"] if args.fresh_cache else []),
+                        "--rounds",
+                        str(args.rounds),
+                        "--warmup",
+                        str(args.warmup),
+                        "--iterations",
+                        str(args.iterations),
                     ],
                     stdout=log,
                     stderr=subprocess.STDOUT,
@@ -857,7 +909,7 @@ def main():
         print((report / f"{name}.txt").read_text()[-8000:], flush=True)
         write(report / "summary.json", summary)
         if (
-            args.suite in ("score", "pipeline", "production")
+            args.suite in ("score", "pipeline", "production", "benchmark")
             and name != "environment"
             and code
         ):
