@@ -1,0 +1,265 @@
+{
+  "status": "passed",
+  "case": "offset_ragged",
+  "python": "/flagos/bin/python3",
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "inputs": {
+    "query": [
+      6,
+      4,
+      128
+    ],
+    "key": [
+      36,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      6,
+      9
+    ],
+    "request_lengths": [
+      3,
+      0,
+      2,
+      1
+    ],
+    "visible": [
+      0,
+      1,
+      511,
+      512,
+      513,
+      1537
+    ],
+    "page_size": 192,
+    "dtype": "torch.bfloat16",
+    "sparse_count": 512,
+    "weights": 0.08838834764831843,
+    "rtol": 0.001,
+    "atol": 0.002
+  },
+  "adapter": {
+    "query_start_loc": [
+      137,
+      140,
+      140,
+      142,
+      143
+    ],
+    "query_stride": [
+      512,
+      128,
+      1
+    ],
+    "key_stride": [
+      24576,
+      128,
+      128,
+      1
+    ],
+    "table_stride": [
+      9,
+      1
+    ],
+    "query_storage_offset": 70144,
+    "metadata_dtype": "torch.int64",
+    "native_calls": 1,
+    "output_pointer_preserved": true,
+    "canaries_preserved": true
+  },
+  "adapter_output": {
+    "shape": [
+      6,
+      1,
+      512
+    ],
+    "dtype": "torch.int32"
+  },
+  "rows": [
+    {
+      "row": 0,
+      "visible": 0,
+      "valid_count": 0,
+      "unique_valid": 0,
+      "expected_count": 0,
+      "output_prefix": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "minus_one": 512,
+      "out_of_range": 0
+    },
+    {
+      "row": 1,
+      "visible": 1,
+      "valid_count": 1,
+      "unique_valid": 1,
+      "expected_count": 1,
+      "output_prefix": [
+        0,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "minus_one": 511,
+      "out_of_range": 0,
+      "selected_score_max_abs_error": 0.0
+    },
+    {
+      "row": 2,
+      "visible": 511,
+      "valid_count": 511,
+      "unique_valid": 511,
+      "expected_count": 511,
+      "output_prefix": [
+        3,
+        116,
+        234,
+        374,
+        244,
+        490,
+        123,
+        503,
+        413,
+        262,
+        304,
+        354,
+        370,
+        505,
+        217,
+        340
+      ],
+      "minus_one": 1,
+      "out_of_range": 0,
+      "selected_score_max_abs_error": 0.0
+    },
+    {
+      "row": 3,
+      "visible": 512,
+      "valid_count": 512,
+      "unique_valid": 512,
+      "expected_count": 512,
+      "output_prefix": [
+        65,
+        7,
+        27,
+        274,
+        131,
+        260,
+        23,
+        214,
+        472,
+        240,
+        259,
+        191,
+        419,
+        459,
+        244,
+        421
+      ],
+      "minus_one": 0,
+      "out_of_range": 0,
+      "selected_score_max_abs_error": 0.0
+    },
+    {
+      "row": 4,
+      "visible": 513,
+      "valid_count": 512,
+      "unique_valid": 512,
+      "expected_count": 512,
+      "output_prefix": [
+        240,
+        140,
+        112,
+        234,
+        311,
+        328,
+        241,
+        259,
+        265,
+        342,
+        470,
+        430,
+        179,
+        206,
+        12,
+        417
+      ],
+      "minus_one": 0,
+      "out_of_range": 0,
+      "selected_score_max_abs_error": 0.0
+    },
+    {
+      "row": 5,
+      "visible": 1537,
+      "valid_count": 512,
+      "unique_valid": 512,
+      "expected_count": 512,
+      "output_prefix": [
+        349,
+        775,
+        73,
+        522,
+        323,
+        548,
+        604,
+        1303,
+        205,
+        1209,
+        330,
+        1344,
+        1221,
+        126,
+        375,
+        3
+      ],
+      "minus_one": 0,
+      "out_of_range": 0,
+      "selected_score_max_abs_error": 0.0
+    }
+  ],
+  "normalization": "Mask raw negative/out-of-visibility indices to -1; no deduplication or replacement TopK",
+  "errors": []
+}
