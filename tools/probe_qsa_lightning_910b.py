@@ -235,9 +235,27 @@ def worker(args):
             result["score_source_sha256"] = hashlib.sha256(
                 Path(qsa_prefill_score_910b_trial.__file__).read_bytes()
             ).hexdigest()
-        if args.suite == "pipeline":
-            from qsa_prefill_pipeline_910b_trial import load_topk
+        if args.suite in ("pipeline", "production"):
+            if args.suite == "production":
+                from qsa_prefill_production_910b import load_production, load_topk
 
+                result["production_entry"] = load_production()[3]
+                if args.worker == "environment":
+                    from qsa_prefill_production_910b import check_rejections
+
+                    result["contract_rejections"] = check_rejections(
+                        f"npu:{args.device}"
+                    )
+                    print(
+                        "production_entry",
+                        json.dumps(result["production_entry"]),
+                        flush=True,
+                    )
+                    print(
+                        "contract_rejections", result["contract_rejections"], flush=True
+                    )
+            else:
+                from qsa_prefill_pipeline_910b_trial import load_topk
             result["existing_topk"] = load_topk().probe_identity
         if args.worker == "environment":
             result["status"] = "passed"
@@ -245,7 +263,7 @@ def worker(args):
         config = CASES[args.worker]
         lengths, visible, page = config["lengths"], config["visible"], config["page"]
         K, HEADS = config.get("k", 512), config.get("heads", 4)
-        atol = 1e-3 if args.suite == "pipeline" else ATOL
+        atol = 1e-3 if args.suite in ("pipeline", "production") else ATOL
         rows, requests = sum(lengths), len(lengths)
         torch.set_num_threads(min(4, torch.get_num_threads()))
         capacity = max(K + 1, max(visible, default=0))
@@ -283,7 +301,7 @@ def worker(args):
             rtol=RTOL,
             atol=atol,
         )
-        if args.suite in ("adapter", "score", "pipeline"):
+        if args.suite in ("adapter", "score", "pipeline", "production"):
             from qsa_lightning_baseline_910b import qsa_select_paged_prefill
 
             base = config.get("base", 0)
@@ -343,12 +361,20 @@ def worker(args):
                     raise AssertionError("Adapter mapped rows to incorrect requests")
                 return torch_npu.npu_lightning_indexer(*operands, **kwargs)
 
-            if args.suite == "pipeline":
-                from qsa_prefill_pipeline_910b_trial import load_topk
-                from qsa_prefill_pipeline_910b_trial import (
-                    qsa_select_paged_prefill as pipeline,
+            if args.suite in ("pipeline", "production"):
+                if args.suite == "production":
+                    from qsa_prefill_production_910b import load_topk
+                    from qsa_prefill_production_910b import (
+                        qsa_select_paged_prefill as pipeline,
+                    )
+                else:
+                    from qsa_prefill_pipeline_910b_trial import load_topk
+                    from qsa_prefill_pipeline_910b_trial import (
+                        qsa_select_paged_prefill as pipeline,
+                    )
+                os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = str(
+                    config.get("budget_mb", 512)
                 )
-
                 os.environ["FLAGGEMS_ASCEND_PTK_PATH"] = config.get("route", "auto")
                 topk_module = load_topk()
                 if config.get("zero_query"):
@@ -417,7 +443,10 @@ def worker(args):
                     persistent_segmerge_state=dict(topk_module._PSEGMERGE_STATE),
                     chunks=trace,
                 )
+                print("pipeline", json.dumps(result["pipeline"]), flush=True)
                 if trace:
+                    if args.suite == "production" and config.get("budget_mb") == 0:
+                        assert len(trace) == rows and all(t["rows"] == 1 for t in trace)
                     assert len({t["logits_pointer"] for t in trace}) == 1
                     assert len({t["topk_workspace_pointer"] for t in trace}) == 1
                 baseline = baseline.cpu()
@@ -500,7 +529,7 @@ def worker(args):
                 raw_out_of_range=int(((raw < -1) | (raw >= count)).sum()),
                 raw_prefix=raw[:16].tolist(),
             )
-            if args.suite in ("adapter", "pipeline"):
+            if args.suite in ("adapter", "pipeline", "production"):
                 info["output_prefix"] = info.pop("raw_prefix")
                 info["minus_one"] = info.pop("raw_minus_one")
                 info["out_of_range"] = info.pop("raw_out_of_range")
@@ -511,7 +540,7 @@ def worker(args):
             ):
                 errors.append(f"row {row}: valid group count/uniqueness mismatch")
                 continue
-            if args.suite == "pipeline" and not count:
+            if args.suite in ("pipeline", "production") and not count:
                 if not (baseline[row] == -1).all():
                     errors.append(f"row {row}: native zero-visible padding differs")
             if not count:
@@ -527,7 +556,7 @@ def worker(args):
             info["selected_score_max_abs_error"] = float(
                 (actual - expected).abs().max()
             )
-            if args.suite == "pipeline":
+            if args.suite in ("pipeline", "production"):
                 reference = baseline[row].cpu().long()
                 reference_valid = reference[reference >= 0]
                 if (
@@ -575,11 +604,20 @@ def main():
     )
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument(
-        "--suite", choices=("native", "adapter", "score", "pipeline"), default="native"
+        "--suite",
+        choices=("native", "adapter", "score", "pipeline", "production"),
+        default="native",
     )
     parser.add_argument(
         "--worker",
-        choices=("environment", *CASES, *ADAPTER_CASES, *SCORE_CASES, *PIPELINE_CASES),
+        choices=(
+            "environment",
+            "zero_budget",
+            *CASES,
+            *ADAPTER_CASES,
+            *SCORE_CASES,
+            *PIPELINE_CASES,
+        ),
     )
     parser.add_argument("--output")
     args = parser.parse_args()
@@ -589,8 +627,10 @@ def main():
         CASES = ADAPTER_CASES
     elif args.suite == "score":
         CASES = SCORE_CASES
-    elif args.suite == "pipeline":
-        CASES = PIPELINE_CASES
+    elif args.suite in ("pipeline", "production"):
+        CASES = dict(PIPELINE_CASES)
+        if args.suite == "production":
+            CASES["zero_budget"] = dict(ADAPTER_CASES["offset_ragged"], budget_mb=0)
     if args.worker:
         if not args.output:
             parser.error("Worker mode requires --output")
@@ -648,7 +688,7 @@ def main():
         summary["scope"] = (
             "BF16 Triton score compile/correctness probe; no TopK or performance claim"
         )
-    if args.suite == "pipeline":
+    if args.suite in ("pipeline", "production"):
         root = Path(__file__).resolve().parents[1]
         summary["source_hashes"] = {
             name: hashlib.sha256((root / name).read_bytes()).hexdigest()
@@ -663,6 +703,22 @@ def main():
         summary["scope"] = (
             "score + existing Ascend TopK correctness against native LightningIndexer; no performance claim"
         )
+    if args.suite == "production":
+        root = Path(__file__).resolve().parents[1]
+        summary["scope"] = (
+            "normal public Ascend entry correctness; no performance claim"
+        )
+        summary["source_hashes"] = {
+            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            for name in (
+                "src/flaggems_vllm/__init__.py",
+                "src/flaggems_vllm/runtime/backend/_ascend/ops/__init__.py",
+                "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+                "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+                "tools/qsa_prefill_production_910b.py",
+                "tools/qsa_lightning_baseline_910b.py",
+            )
+        }
     for name in ("environment", *CASES):
         output = report / f"{name}.json"
         with (report / f"{name}.txt").open("w") as log:
@@ -698,7 +754,11 @@ def main():
         print(f"{name}: {value['status']}, exit={code}", flush=True)
         print((report / f"{name}.txt").read_text()[-8000:], flush=True)
         write(report / "summary.json", summary)
-        if args.suite in ("score", "pipeline") and name != "environment" and code:
+        if (
+            args.suite in ("score", "pipeline", "production")
+            and name != "environment"
+            and code
+        ):
             summary["status"] = "failed"
             names = list(CASES)
             summary["not_run"] = names[names.index(name) + 1 :]
