@@ -8,7 +8,8 @@ qsa_flagtree=/opt/flagtree
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --flagtree) [[ $# -ge 2 ]] || exit 2; qsa_flagtree=$2; shift 2 ;;
-    *) echo "Unsupported option: $1 (only --flagtree is accepted)" >&2; exit 2 ;;
+    --reuse-accuracy-report) [[ $# -ge 2 ]] || exit 2; export QSA_REUSE_ACCURACY_REPORT=$2; shift 2 ;;
+    *) echo "Unsupported option: $1" >&2; exit 2 ;;
   esac
 done
 qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)

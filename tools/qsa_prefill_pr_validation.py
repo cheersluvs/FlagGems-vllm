@@ -64,6 +64,56 @@ def validate_records(records):
     return None
 
 
+def comparable_accuracy_runtime(value):
+    """Ignore relocated temporary paths, retaining content hashes and GPU ID."""
+    if isinstance(value, dict):
+        return {
+            key: comparable_accuracy_runtime(item)
+            for key, item in value.items()
+            if key
+            not in {"path", "source", "canonical_source", "candidate_source", "libcuda"}
+        }
+    if isinstance(value, list):
+        return [comparable_accuracy_runtime(item) for item in value]
+    return value
+
+
+def reuse_accuracy(previous, destination, runtime, identity_fn):
+    previous, destination = Path(previous).resolve(), Path(destination).resolve()
+    pins = verify_checkout()
+    manifest = json.loads((previous / "manifest.json").read_text())
+    for name, digest in pins["files"].items():
+        if manifest["source_hashes"].get(name) != digest:
+            raise RuntimeError("Previous correctness source differs: " + name)
+    records = json.loads((previous / "accuracy-full.json").read_text())
+    error = validate_records(records)
+    if error:
+        raise RuntimeError(error)
+    saved = json.loads((previous / "accuracy-runtime.json").read_text())
+    if saved.get("status") != "passed" or saved.get("accuracy_profile") != "full":
+        raise RuntimeError("Previous correctness process did not finish successfully")
+    if comparable_accuracy_runtime(
+        identity_fn(saved["runtime"])
+    ) != comparable_accuracy_runtime(identity_fn(runtime)):
+        raise RuntimeError(
+            "Previous correctness compiler/GPU/native-library identity differs"
+        )
+    evidence = {
+        "previous_report": str(previous),
+        "pr_commit": pins["pr_commit"],
+        "files": {},
+    }
+    for name in ("accuracy-full.json", "accuracy-full.txt", "accuracy-runtime.json"):
+        content = (previous / name).read_bytes()
+        (destination / name).write_bytes(content)
+        evidence["files"][name] = hashlib.sha256(content).hexdigest()
+    (destination / "accuracy-reuse.json").write_text(
+        json.dumps(evidence, indent=2) + "\n"
+    )
+    print("Reusing verified full correctness:", previous, flush=True)
+    return evidence
+
+
 def fresh_report_error(directory, *, flagtree):
     """Permit bootstrap inputs, never existing benchmark/accuracy outputs."""
     allowed = {"runner.txt"}

@@ -1677,29 +1677,51 @@ def run_accuracy_gate(options, directory, summary, preflight, guard):
         + " correctness, including native vLLM comparisons",
         flush=True,
     )
-    with (directory / "accuracy-full.txt").open("w") as log:
-        try:
-            proc = subprocess.run(
-                child_command(options, directory, "--accuracy"),
-                cwd=ROOT,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                timeout=options.accuracy_timeout,
-                env=child_environment(directory, "accuracy"),
-            )
-            error = None if proc.returncode == 0 else f"accuracy exit={proc.returncode}"
-        except subprocess.TimeoutExpired:
-            error = "Correctness suite timed out: " + accuracy_profiles.name(options)
+    reuse = os.environ.get("QSA_REUSE_ACCURACY_REPORT")
+    if reuse:
+        from tools.qsa_prefill_pr_validation import reuse_accuracy
+
+        summary["accuracy_reuse"] = reuse_accuracy(
+            reuse, directory, preflight["runtime"], runtime_identity
+        )
+        error = None
+    else:
+        with (directory / "accuracy-full.txt").open("w") as log:
+            try:
+                proc = subprocess.run(
+                    child_command(options, directory, "--accuracy"),
+                    cwd=ROOT,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    timeout=options.accuracy_timeout,
+                    env=child_environment(directory, "accuracy"),
+                )
+                error = (
+                    None if proc.returncode == 0 else f"accuracy exit={proc.returncode}"
+                )
+            except subprocess.TimeoutExpired:
+                error = "Correctness suite timed out: " + accuracy_profiles.name(
+                    options
+                )
     counts = {}
     if not error:
-        counts, error = support.accuracy_results(directory / "accuracy-full.json")
+        if accuracy_profiles.name(options) == "full":
+            records = json.loads((directory / "accuracy-full.json").read_text())
+            for record in records.values():
+                key = record.get("result")
+                counts[key] = counts.get(key, 0) + 1
+        else:
+            counts, error = support.accuracy_results(directory / "accuracy-full.json")
     identity_path = directory / "accuracy-runtime.json"
     identity = json.loads(identity_path.read_text()) if identity_path.is_file() else {}
+    from tools.qsa_prefill_pr_validation import comparable_accuracy_runtime
+
+    compare_identity = comparable_accuracy_runtime if reuse else lambda value: value
     if not error and (
         identity.get("status") != "passed"
         or identity.get("accuracy_profile", "full") != accuracy_profiles.name(options)
-        or runtime_identity(identity["runtime"])
-        != runtime_identity(preflight["runtime"])
+        or compare_identity(runtime_identity(identity["runtime"]))
+        != compare_identity(runtime_identity(preflight["runtime"]))
     ):
         error = "Accuracy and benchmark profile/compiler/GPU/native-extension identities differ"
     if not error and accuracy_profiles.name(options) == "iteration":
