@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 PRODUCTION_SHA256 = "d70faeb6928c2c7a56636ded833f3359368871e353ecf4c66c6dfd35cae93e73"
 INTEGRATED_PRODUCTION_SHA256 = (
-    "6d6158aa6f06147ff5d15e2eb80d8013307999e0ca28f77dda870e775c17c40d"
+    "cad1e63ffdd118ce8bcb699d6936b4ef9cc38a6ede836f57c6c2387ac3d3e0ed"
 )
 PRE_PAIRED_PRODUCTION_PATH = "tools/qsa_prefill_pre_paired_production.py"
 PRE_PAIRED_PRODUCTION_SHA256 = (

@@ -42,6 +42,9 @@ from tools import qsa_prefill_triton_ab as ab  # noqa: E402
 from tools import qsa_prefill_tuning_round1 as round1  # noqa: E402
 
 SOURCES = [
+    "tools/select_tests.py",
+    "benchmark/test_qsa_select_paged_prefill.py",
+    "conf/operators.yaml",
     "tools/qsa_prefill_pr_dependencies.py",
     "benchmark/base.py",
     "benchmark/conftest.py",
@@ -226,6 +229,19 @@ def runtime(reference_path, diagnostic_path=None, options=None):
         raise RuntimeError("Pinned original native vLLM source SHA256 mismatch")
     print("Import phase: pinned native vLLM before FlagGems", flush=True)
     native = helpers.vllm_reference()
+    # New PR tests import the installed vLLM module. Require its bytes to
+    # match the original stage baseline before any FlagGems import or timing.
+    installed_native = importlib.import_module(
+        "vllm.models.qwen4_exp.nvidia.ops.qsa_indexer"
+    )
+    installed_source = Path(installed_native.__file__).resolve()
+    if hashlib.sha256(installed_source.read_bytes()).hexdigest() != ab.REFERENCE_SHA256:
+        raise RuntimeError(
+            "Installed vLLM QSA differs from the pinned stage baseline: "
+            + str(installed_source)
+        )
+    native = installed_native
+    print("Verified installed vLLM QSA:", installed_source, flush=True)
     utils = importlib.import_module("vllm.triton_utils")
     print("Import phase: native vLLM loaded; importing FlagGems-vllm", flush=True)
     import flaggems_vllm

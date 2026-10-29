@@ -43,13 +43,21 @@ def validate_records(records):
         ]
         if not matches:
             return "Missing PR correctness function: " + name
+        if not any(record.get("result") == "passed" for record in matches):
+            return "No executed passing cases for PR correctness function: " + name
+        expected_count = json.loads(PINS.read_text())["expected_test_counts"][name]
+        if len(matches) != expected_count:
+            return f"Incomplete correctness collection for {name}: {len(matches)}/{expected_count}"
         for record in matches:
             if record.get("result") == "passed":
                 continue
-            if (
-                name == "test_noncurrent_cuda_device"
-                and record.get("result") == "skipped"
-                and "a second SM90 device" in record.get("reason", "")
+            allowed_skips = (
+                "The upstream fixture uses BF16 inputs",
+                "Native cross-check is limited to validated head/dimension pairs",
+                "Native BF16 H8/D256 exceeds H800 shared memory",
+            )
+            if record.get("result") == "skipped" and any(
+                reason in record.get("reason", "") for reason in allowed_skips
             ):
                 continue
             return "Nonpassing PR correctness function: " + name
