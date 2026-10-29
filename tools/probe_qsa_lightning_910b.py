@@ -193,6 +193,10 @@ def worker(args):
     result = dict(status="failed", case=args.worker, python=sys.executable)
     try:
         os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
+        if args.suite == "topk-diagnostic":
+            cache = Path(args.report) / ".triton-cache" / args.worker
+            cache.mkdir(parents=True, exist_ok=True)
+            os.environ["TRITON_CACHE_DIR"] = str(cache)
         import torch
         import torch_npu
 
@@ -260,6 +264,10 @@ def worker(args):
         if args.worker == "environment":
             result["status"] = "passed"
             return 0
+        if args.suite == "topk-diagnostic":
+            from diagnose_qsa_topk_import_910b import run
+
+            return run(args, result)
         config = CASES[args.worker]
         lengths, visible, page = config["lengths"], config["visible"], config["page"]
         K, HEADS = config.get("k", 512), config.get("heads", 4)
@@ -605,7 +613,14 @@ def main():
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument(
         "--suite",
-        choices=("native", "adapter", "score", "pipeline", "production"),
+        choices=(
+            "native",
+            "adapter",
+            "score",
+            "pipeline",
+            "production",
+            "topk-diagnostic",
+        ),
         default="native",
     )
     parser.add_argument(
@@ -613,6 +628,9 @@ def main():
         choices=(
             "environment",
             "zero_budget",
+            "isolated_topk",
+            "normal_topk",
+            "isolated_after_import",
             *CASES,
             *ADAPTER_CASES,
             *SCORE_CASES,
@@ -623,7 +641,11 @@ def main():
     args = parser.parse_args()
     if args.device < 0 or args.timeout <= 0:
         parser.error("Invalid device or timeout")
-    if args.suite == "adapter":
+    if args.suite == "topk-diagnostic":
+        from diagnose_qsa_topk_import_910b import CASES as diagnostic_cases
+
+        CASES = dict.fromkeys(diagnostic_cases)
+    elif args.suite == "adapter":
         CASES = ADAPTER_CASES
     elif args.suite == "score":
         CASES = SCORE_CASES
@@ -717,6 +739,20 @@ def main():
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
                 "tools/qsa_prefill_production_910b.py",
                 "tools/qsa_lightning_baseline_910b.py",
+            )
+        }
+    if args.suite == "topk-diagnostic":
+        root = Path(__file__).resolve().parents[1]
+        summary["scope"] = (
+            "TopK import/write diagnostic only; passed means collection completed, not correctness acceptance"
+        )
+        summary["source_hashes"] = {
+            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            for name in (
+                "tools/diagnose_qsa_topk_import_910b.py",
+                "tools/qsa_prefill_pipeline_910b_trial.py",
+                "tools/qsa_prefill_production_910b.py",
+                "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
             )
         }
     for name in ("environment", *CASES):
