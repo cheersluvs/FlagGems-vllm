@@ -42,7 +42,7 @@ def run(args, result):
         from qsa_prefill_pipeline_910b_trial import load_topk
 
         module = load_topk()
-    os.environ["FLAGGEMS_ASCEND_PTK_PATH"] = "radix"
+    os.environ["FLAGGEMS_ASCEND_PTK_PATH"] = "auto"
     device = f"npu:{args.device}"
     rows, k, width = 6, 512, 1728
     visible = [0, 1, 511, 512, 513, 1537]
@@ -67,7 +67,8 @@ def run(args, result):
         loader=module.probe_identity,
         triton=dict(version=triton.__version__, source=triton.__file__),
         cache_directory=os.environ.get("TRITON_CACHE_DIR"),
-        route="radix",
+        initial_route="auto",
+        observed_route="radix",
         stages=stages,
     )
 
@@ -150,7 +151,9 @@ def run(args, result):
     # Run first with no observer or extra synchronization between TopK kernels.
     guard, output, workspace = buffers()
     module.persistent_topk(logits, lengths, output, workspace, k=k, max_seq_len=width)
-    before = snapshot("unmodified_guarded_before_native", output, guard, verify=True)
+    before = snapshot(
+        "unmodified_auto_guarded_before_native", output, guard, verify=True
+    )
     from qsa_lightning_baseline_910b import qsa_select_paged_prefill
 
     native_output = torch.empty_like(output)
@@ -166,13 +169,21 @@ def run(args, result):
         native_output,
         max(visible) * 4,
     )
-    after = snapshot("unmodified_guarded_after_native", output, guard, verify=True)
+    after = snapshot("unmodified_auto_guarded_after_native", output, guard, verify=True)
     result["native_call_preserved_output"] = bool(torch.equal(before, after))
     guard, output, workspace = buffers(False)
     module.persistent_topk(logits, lengths, output, workspace, k=k, max_seq_len=width)
-    snapshot("unmodified_base_allocation", output, verify=True)
+    snapshot("unmodified_auto_base_allocation", output, verify=True)
 
-    # Observe the existing kernels in a second call; no generated code is changed.
+    result["auto_route_states"] = dict(
+        segmerge=dict(module._SEGMERGE_STATE), persistent=dict(module._PSEGMERGE_STATE)
+    )
+    os.environ["FLAGGEMS_ASCEND_PTK_PATH"] = "radix"
+    guard, output, workspace = buffers()
+    module.persistent_topk(logits, lengths, output, workspace, k=k, max_seq_len=width)
+    snapshot("unmodified_radix_guarded", output, guard, verify=True)
+
+    # Observe the existing radix kernels separately; generated code is unchanged.
     guard, output, workspace = buffers()
 
     class Observe:
@@ -209,7 +220,7 @@ def run(args, result):
         module.persistent_topk(
             logits, lengths, output, workspace, k=k, max_seq_len=width
         )
-    snapshot("observed_final", output, guard, verify=True)
+    snapshot("observed_radix_final", output, guard, verify=True)
     result["topk_source_sha256"] = hashlib.sha256(
         Path(module.__file__).read_bytes()
     ).hexdigest()
