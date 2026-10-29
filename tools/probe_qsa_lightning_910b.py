@@ -97,6 +97,22 @@ SCORE_CASES = {
     "score_page16": dict(lengths=[2], visible=[17, 513], page=16, width=527),
 }
 
+PIPELINE_CASES = {
+    "topk_control": dict(
+        lengths=[6], visible=[0, 1, 511, 512, 513, 1537], page=192, topk_only=True
+    ),
+    **ADAPTER_CASES,
+    "chunk_reuse": dict(
+        lengths=[7, 0, 11],
+        visible=[1000 + i * 4 for i in range(18)],
+        page=192,
+        base=211,
+        chunk_rows=5,
+    ),
+    "radix_control": dict(lengths=[3], visible=[0, 513, 1537], page=192, route="radix"),
+    "ties": dict(lengths=[3], visible=[0, 513, 1537], page=192, zero_query=True),
+}
+
 K, HEADS, DIM = 512, 4, 128
 RTOL, ATOL = 1e-3, 2e-3
 
@@ -219,12 +235,17 @@ def worker(args):
             result["score_source_sha256"] = hashlib.sha256(
                 Path(qsa_prefill_score_910b_trial.__file__).read_bytes()
             ).hexdigest()
+        if args.suite == "pipeline":
+            from qsa_prefill_pipeline_910b_trial import load_topk
+
+            result["existing_topk"] = load_topk().probe_identity
         if args.worker == "environment":
             result["status"] = "passed"
             return 0
         config = CASES[args.worker]
         lengths, visible, page = config["lengths"], config["visible"], config["page"]
         K, HEADS = config.get("k", 512), config.get("heads", 4)
+        atol = 1e-3 if args.suite == "pipeline" else ATOL
         rows, requests = sum(lengths), len(lengths)
         torch.set_num_threads(min(4, torch.get_num_threads()))
         capacity = max(K + 1, max(visible, default=0))
@@ -260,9 +281,9 @@ def worker(args):
             sparse_count=K,
             weights=1 / math.sqrt(DIM),
             rtol=RTOL,
-            atol=ATOL,
+            atol=atol,
         )
-        if args.suite in ("adapter", "score"):
+        if args.suite in ("adapter", "score", "pipeline"):
             from qsa_lightning_baseline_910b import qsa_select_paged_prefill
 
             base = config.get("base", 0)
@@ -322,19 +343,102 @@ def worker(args):
                     raise AssertionError("Adapter mapped rows to incorrect requests")
                 return torch_npu.npu_lightning_indexer(*operands, **kwargs)
 
-            returned = qsa_select_paged_prefill(
-                query,
-                key,
-                table,
-                starts,
-                key_lengths,
-                K * 4,
-                4,
-                max(lengths),
-                output,
-                capacity * 4,
-                native=captured_native,
-            )
+            if args.suite == "pipeline":
+                from qsa_prefill_pipeline_910b_trial import load_topk
+                from qsa_prefill_pipeline_910b_trial import (
+                    qsa_select_paged_prefill as pipeline,
+                )
+
+                os.environ["FLAGGEMS_ASCEND_PTK_PATH"] = config.get("route", "auto")
+                topk_module = load_topk()
+                if config.get("zero_query"):
+                    q_cpu.zero_()
+                    query.zero_()
+                trace = []
+                if config.get("topk_only"):
+                    width = columns * page
+                    cpu_logits = torch.full((rows, width), -torch.inf)
+                    for row, length in enumerate(visible):
+                        positions = torch.arange(length)
+                        physical = table_cpu[owner_cpu[row], positions // page].long()
+                        keys = key_cpu[physical, positions % page, 0].float()
+                        cpu_logits[row, :length] = (
+                            torch.einsum("hd,kd->hk", q_cpu[row].float(), keys)
+                            .clamp_min(0)
+                            .sum(0)
+                        )
+                    logits = cpu_logits.to(device)
+                    workspace = torch.empty(
+                        (1024 * 1024,), device=device, dtype=torch.uint8
+                    )
+                    topk_module.persistent_topk(
+                        logits, key_lengths, output, workspace, k=K, max_seq_len=width
+                    )
+                    returned = None
+                else:
+                    returned = pipeline(
+                        query,
+                        key,
+                        table,
+                        starts,
+                        key_lengths,
+                        K * 4,
+                        4,
+                        max(lengths),
+                        output,
+                        capacity * 4,
+                        chunk_rows=config.get("chunk_rows", 16),
+                        trace=trace,
+                    )
+                torch.npu.synchronize()
+                baseline = torch.empty_like(output)
+                qsa_select_paged_prefill(
+                    query,
+                    key,
+                    table,
+                    starts,
+                    key_lengths,
+                    K * 4,
+                    4,
+                    max(lengths),
+                    baseline,
+                    capacity * 4,
+                    native=captured_native,
+                )
+                result["pipeline"] = dict(
+                    kind=(
+                        "topk_only"
+                        if config.get("topk_only")
+                        else "score_plus_existing_topk"
+                    ),
+                    existing_topk=topk_module.probe_identity,
+                    route_mode=os.environ["FLAGGEMS_ASCEND_PTK_PATH"],
+                    segmerge_state=dict(topk_module._SEGMERGE_STATE),
+                    persistent_segmerge_state=dict(topk_module._PSEGMERGE_STATE),
+                    chunks=trace,
+                )
+                if trace:
+                    assert len({t["logits_pointer"] for t in trace}) == 1
+                    assert len({t["topk_workspace_pointer"] for t in trace}) == 1
+                baseline = baseline.cpu()
+                result["native_reference_output"] = dict(
+                    shape=list(baseline.shape),
+                    padding_count=int((baseline == -1).sum()),
+                )
+            else:
+                returned = qsa_select_paged_prefill(
+                    query,
+                    key,
+                    table,
+                    starts,
+                    key_lengths,
+                    K * 4,
+                    4,
+                    max(lengths),
+                    output,
+                    capacity * 4,
+                    native=captured_native,
+                )
             torch.npu.synchronize()
             assert returned is None and output.data_ptr() == pointer
             assert len(native_calls) == (1 if rows else 0)
@@ -396,7 +500,7 @@ def worker(args):
                 raw_out_of_range=int(((raw < -1) | (raw >= count)).sum()),
                 raw_prefix=raw[:16].tolist(),
             )
-            if args.suite == "adapter":
+            if args.suite in ("adapter", "pipeline"):
                 info["output_prefix"] = info.pop("raw_prefix")
                 info["minus_one"] = info.pop("raw_minus_one")
                 info["out_of_range"] = info.pop("raw_out_of_range")
@@ -407,6 +511,9 @@ def worker(args):
             ):
                 errors.append(f"row {row}: valid group count/uniqueness mismatch")
                 continue
+            if args.suite == "pipeline" and not count:
+                if not (baseline[row] == -1).all():
+                    errors.append(f"row {row}: native zero-visible padding differs")
             if not count:
                 continue
             positions = torch.arange(count)
@@ -420,7 +527,25 @@ def worker(args):
             info["selected_score_max_abs_error"] = float(
                 (actual - expected).abs().max()
             )
-            if not torch.allclose(actual, expected, rtol=RTOL, atol=ATOL):
+            if args.suite == "pipeline":
+                reference = baseline[row].cpu().long()
+                reference_valid = reference[reference >= 0]
+                if (
+                    reference_valid.numel() != expected_count
+                    or reference_valid.unique().numel() != expected_count
+                    or (reference_valid >= count).any()
+                ):
+                    errors.append(f"row {row}: invalid native baseline groups")
+                else:
+                    native_values = scores[reference_valid].sort().values
+                    info["native_selected_score_max_abs_error"] = float(
+                        (actual - native_values).abs().max()
+                    )
+                    if not torch.allclose(actual, native_values, rtol=RTOL, atol=atol):
+                        errors.append(
+                            f"row {row}: pipeline differs from native baseline selection"
+                        )
+            if not torch.allclose(actual, expected, rtol=RTOL, atol=atol):
                 errors.append(f"row {row}: selected scores differ from FP32 reference")
         result["normalization"] = (
             "Mask raw negative/out-of-visibility indices to -1; no deduplication or replacement TopK"
@@ -450,10 +575,11 @@ def main():
     )
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument(
-        "--suite", choices=("native", "adapter", "score"), default="native"
+        "--suite", choices=("native", "adapter", "score", "pipeline"), default="native"
     )
     parser.add_argument(
-        "--worker", choices=("environment", *CASES, *ADAPTER_CASES, *SCORE_CASES)
+        "--worker",
+        choices=("environment", *CASES, *ADAPTER_CASES, *SCORE_CASES, *PIPELINE_CASES),
     )
     parser.add_argument("--output")
     args = parser.parse_args()
@@ -463,6 +589,8 @@ def main():
         CASES = ADAPTER_CASES
     elif args.suite == "score":
         CASES = SCORE_CASES
+    elif args.suite == "pipeline":
+        CASES = PIPELINE_CASES
     if args.worker:
         if not args.output:
             parser.error("Worker mode requires --output")
@@ -520,6 +648,21 @@ def main():
         summary["scope"] = (
             "BF16 Triton score compile/correctness probe; no TopK or performance claim"
         )
+    if args.suite == "pipeline":
+        root = Path(__file__).resolve().parents[1]
+        summary["source_hashes"] = {
+            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            for name in (
+                "tools/qsa_prefill_pipeline_910b_trial.py",
+                "tools/qsa_prefill_score_910b_trial.py",
+                "tools/qsa_lightning_baseline_910b.py",
+                "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+                "src/flaggems_vllm/utils/triton_version_utils.py",
+            )
+        }
+        summary["scope"] = (
+            "score + existing Ascend TopK correctness against native LightningIndexer; no performance claim"
+        )
     for name in ("environment", *CASES):
         output = report / f"{name}.json"
         with (report / f"{name}.txt").open("w") as log:
@@ -555,13 +698,13 @@ def main():
         print(f"{name}: {value['status']}, exit={code}", flush=True)
         print((report / f"{name}.txt").read_text()[-8000:], flush=True)
         write(report / "summary.json", summary)
-        if args.suite == "score" and name != "environment" and code:
+        if args.suite in ("score", "pipeline") and name != "environment" and code:
             summary["status"] = "failed"
             names = list(CASES)
             summary["not_run"] = names[names.index(name) + 1 :]
             write(report / "summary.json", summary)
             print(
-                "Stopping score probe at first failure; see per-case diagnostics.",
+                "Stopping integration probe at first failure; see per-case diagnostics.",
                 flush=True,
             )
             return 1
