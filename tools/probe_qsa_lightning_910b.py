@@ -555,6 +555,16 @@ def main():
         print(f"{name}: {value['status']}, exit={code}", flush=True)
         print((report / f"{name}.txt").read_text()[-8000:], flush=True)
         write(report / "summary.json", summary)
+        if args.suite == "score" and name != "environment" and code:
+            summary["status"] = "failed"
+            names = list(CASES)
+            summary["not_run"] = names[names.index(name) + 1 :]
+            write(report / "summary.json", summary)
+            print(
+                "Stopping score probe at first failure; see per-case diagnostics.",
+                flush=True,
+            )
+            return 1
         if name == "environment" and code:
             summary["status"] = "environment_unavailable"
             write(report / "summary.json", summary)
