@@ -727,17 +727,12 @@ def test_qsa_select_paged_prefill_matches_vllm(
 ) -> None:
     reference = vllm_reference()
     case = _case(settings, dtype, monkeypatch)
-    # These are the native scored head/dimension configurations covered by
-    # the original direct-vLLM tests. Smaller padded dimensions remain Torch
-    # reference cases; empty/select-all batches do not launch a native dot.
-    visible_bound = min(
-        case.page_table.shape[1] * case.k_cache.shape[1],
-        (case.max_seq_len + case.compress_ratio - 1) // case.compress_ratio,
-    )
+    # Native vLLM scores every nonempty batch, including select-all inputs.
+    # Restrict its cross-check to validated dot shapes; smaller dimensions
+    # remain covered by the independent Torch test.
     if (
         case.fixture == "packed"
         and case.q.shape[0] > 0
-        and visible_bound > case.token_topk // case.compress_ratio
         and case.q.shape[1:] not in ((4, 128), (1, 32), (3, 64), (5, 96), (8, 256))
     ):
         pytest.skip("Native cross-check is limited to validated head/dimension pairs")
