@@ -1,0 +1,1243 @@
+{
+  "status": "passed",
+  "packages": {
+    "torch": "2.10.0+cpu",
+    "torch-npu": "2.10.0",
+    "triton": null,
+    "triton-ascend": null,
+    "flagtree": "0.6.1+ascend3.5",
+    "vllm": "0.24.0+flagos",
+    "vllm-ascend": null
+  },
+  "cases": [
+    {
+      "status": "passed",
+      "case": "environment",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "tile_tail",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          1,
+          4,
+          128
+        ],
+        "key": [
+          3,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          1,
+          3
+        ],
+        "request_lengths": [
+          1
+        ],
+        "visible": [
+          37
+        ],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          1,
+          67
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 37,
+        "inactive_values": 30,
+        "max_abs_error": 3.814697265625e-06,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            512,
+            128,
+            1
+          ],
+          "key": [
+            24576,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            3,
+            1
+          ]
+        },
+        "query_start_loc": [
+          0,
+          1
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_ragged",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          6,
+          4,
+          128
+        ],
+        "key": [
+          36,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          6,
+          9
+        ],
+        "request_lengths": [
+          3,
+          0,
+          2,
+          1
+        ],
+        "visible": [
+          0,
+          1,
+          511,
+          512,
+          513,
+          1537
+        ],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          6,
+          1551
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 3074,
+        "inactive_values": 6232,
+        "max_abs_error": 7.62939453125e-06,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            512,
+            128,
+            1
+          ],
+          "key": [
+            24576,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            9,
+            1
+          ]
+        },
+        "query_start_loc": [
+          137,
+          140,
+          140,
+          142,
+          143
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_chunk",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          6,
+          4,
+          128
+        ],
+        "key": [
+          36,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          6,
+          9
+        ],
+        "request_lengths": [
+          3,
+          0,
+          2,
+          1
+        ],
+        "visible": [
+          0,
+          1,
+          511,
+          512,
+          513,
+          1537
+        ],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          4,
+          1551
+        ],
+        "offset": 1,
+        "dtype": "torch.float32",
+        "valid_values": 1537,
+        "inactive_values": 4667,
+        "max_abs_error": 7.62939453125e-06,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            512,
+            128,
+            1
+          ],
+          "key": [
+            24576,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            9,
+            1
+          ]
+        },
+        "query_start_loc": [
+          137,
+          140,
+          140,
+          142,
+          143
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_strided",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          3,
+          4,
+          128
+        ],
+        "key": [
+          27,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          3,
+          9
+        ],
+        "request_lengths": [
+          2,
+          0,
+          1
+        ],
+        "visible": [
+          513,
+          1537,
+          0
+        ],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          3,
+          1547
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 2050,
+        "inactive_values": 2591,
+        "max_abs_error": 7.62939453125e-06,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            640,
+            128,
+            1
+          ],
+          "key": [
+            24704,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            18,
+            2
+          ]
+        },
+        "query_start_loc": [
+          53,
+          55,
+          55,
+          56
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_heads1",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          3,
+          1,
+          128
+        ],
+        "key": [
+          9,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          3,
+          9
+        ],
+        "request_lengths": [
+          3
+        ],
+        "visible": [
+          0,
+          512,
+          1537
+        ],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          3,
+          1728
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 2049,
+        "inactive_values": 3135,
+        "max_abs_error": 5.7220458984375e-06,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            128,
+            128,
+            1
+          ],
+          "key": [
+            24576,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            9,
+            1
+          ]
+        },
+        "query_start_loc": [
+          0,
+          3
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_heads64",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          4,
+          64,
+          128
+        ],
+        "key": [
+          9,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          4,
+          9
+        ],
+        "request_lengths": [
+          4
+        ],
+        "visible": [
+          0,
+          511,
+          513,
+          1537
+        ],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          4,
+          1728
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 2561,
+        "inactive_values": 4351,
+        "max_abs_error": 6.103515625e-05,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            8192,
+            128,
+            1
+          ],
+          "key": [
+            24576,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            9,
+            1
+          ]
+        },
+        "query_start_loc": [
+          0,
+          4
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_batch128",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          128,
+          4,
+          128
+        ],
+        "key": [
+          172,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          128,
+          43
+        ],
+        "request_lengths": [
+          63,
+          0,
+          33,
+          32
+        ],
+        "visible": [
+          8193,
+          8192,
+          8191,
+          8190,
+          8189,
+          8188,
+          8187,
+          8186,
+          8185,
+          8184,
+          8183,
+          8182,
+          8181,
+          8180,
+          8179,
+          8178,
+          8177,
+          8176,
+          8175,
+          8174,
+          8173,
+          8172,
+          8171,
+          8170,
+          8169,
+          8168,
+          8167,
+          8166,
+          8165,
+          8164,
+          8163,
+          8193,
+          8192,
+          8191,
+          8190,
+          8189,
+          8188,
+          8187,
+          8186,
+          8185,
+          8184,
+          8183,
+          8182,
+          8181,
+          8180,
+          8179,
+          8178,
+          8177,
+          8176,
+          8175,
+          8174,
+          8173,
+          8172,
+          8171,
+          8170,
+          8169,
+          8168,
+          8167,
+          8166,
+          8165,
+          8164,
+          8163,
+          8193,
+          8192,
+          8191,
+          8190,
+          8189,
+          8188,
+          8187,
+          8186,
+          8185,
+          8184,
+          8183,
+          8182,
+          8181,
+          8180,
+          8179,
+          8178,
+          8177,
+          8176,
+          8175,
+          8174,
+          8173,
+          8172,
+          8171,
+          8170,
+          8169,
+          8168,
+          8167,
+          8166,
+          8165,
+          8164,
+          8163,
+          8193,
+          8192,
+          8191,
+          8190,
+          8189,
+          8188,
+          8187,
+          8186,
+          8185,
+          8184,
+          8183,
+          8182,
+          8181,
+          8180,
+          8179,
+          8178,
+          8177,
+          8176,
+          8175,
+          8174,
+          8173,
+          8172,
+          8171,
+          8170,
+          8169,
+          8168,
+          8167,
+          8166,
+          8165,
+          8164,
+          8163,
+          8193,
+          8192,
+          8191,
+          8190
+        ],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          128,
+          8256
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 1046838,
+        "inactive_values": 9930,
+        "max_abs_error": 1.9073486328125e-05,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            512,
+            128,
+            1
+          ],
+          "key": [
+            24576,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            43,
+            1
+          ]
+        },
+        "query_start_loc": [
+          211,
+          274,
+          274,
+          307,
+          339
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_empty",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          0,
+          4,
+          128
+        ],
+        "key": [
+          6,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          0,
+          3
+        ],
+        "request_lengths": [
+          0,
+          0
+        ],
+        "visible": [],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          0,
+          576
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 0,
+        "inactive_values": 0,
+        "max_abs_error": 0.0,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            512,
+            128,
+            1
+          ],
+          "key": [
+            24576,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            3,
+            1
+          ]
+        },
+        "query_start_loc": [
+          137,
+          137,
+          137
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_zero",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          3,
+          4,
+          128
+        ],
+        "key": [
+          6,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          3,
+          3
+        ],
+        "request_lengths": [
+          1,
+          2
+        ],
+        "visible": [
+          0,
+          0,
+          0
+        ],
+        "page_size": 192,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          3,
+          576
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 0,
+        "inactive_values": 1728,
+        "max_abs_error": 0.0,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            512,
+            128,
+            1
+          ],
+          "key": [
+            24576,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            3,
+            1
+          ]
+        },
+        "query_start_loc": [
+          0,
+          1,
+          3
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_page196",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          2,
+          4,
+          128
+        ],
+        "key": [
+          3,
+          196,
+          1,
+          128
+        ],
+        "page_table": [
+          2,
+          3
+        ],
+        "request_lengths": [
+          2
+        ],
+        "visible": [
+          193,
+          513
+        ],
+        "page_size": 196,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          2,
+          517
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 706,
+        "inactive_values": 328,
+        "max_abs_error": 7.62939453125e-06,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            512,
+            128,
+            1
+          ],
+          "key": [
+            25088,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            3,
+            1
+          ]
+        },
+        "query_start_loc": [
+          0,
+          2
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "score_page16",
+      "python": "/flagos/bin/python3",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        },
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py",
+          "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+      "inputs": {
+        "query": [
+          2,
+          4,
+          128
+        ],
+        "key": [
+          33,
+          16,
+          1,
+          128
+        ],
+        "page_table": [
+          2,
+          33
+        ],
+        "request_lengths": [
+          2
+        ],
+        "visible": [
+          17,
+          513
+        ],
+        "page_size": 16,
+        "dtype": "torch.bfloat16",
+        "sparse_count": 512,
+        "weights": 0.08838834764831843,
+        "rtol": 0.001,
+        "atol": 0.002
+      },
+      "score": {
+        "shape": [
+          2,
+          527
+        ],
+        "offset": 0,
+        "dtype": "torch.float32",
+        "valid_values": 530,
+        "inactive_values": 524,
+        "max_abs_error": 7.62939453125e-06,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "canaries_preserved": true,
+        "input_strides": {
+          "q": [
+            512,
+            128,
+            1
+          ],
+          "key": [
+            2048,
+            128,
+            128,
+            1
+          ],
+          "table": [
+            33,
+            1
+          ]
+        },
+        "query_start_loc": [
+          0,
+          2
+        ],
+        "scale": "unscaled",
+        "includes_topk": false
+      },
+      "exit_code": 0
+    }
+  ],
+  "suite": "score",
+  "scope": "BF16 Triton score compile/correctness probe; no TopK or performance claim",
+  "cann_version_files": {
+    "/usr/local/Ascend/driver/version.info": "Version=25.2.0\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C21SPC008B208\ncompatible_version=[V100R001C17],[V100R001C18],[V100R001C19],[V100R001C20],[V100R001C21]\ncompatible_version_fw=[7.0.0,7.7.99]\npackage_version=25.2.0\n"
+  },
+  "script_sha256": "2ef941ff96a423595a8f375ff9c9cc3ae2ad9431cc9bbba4a42e75b1459dee16",
+  "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3"
+}

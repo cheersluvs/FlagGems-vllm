@@ -1,0 +1,92 @@
+{
+  "status": "passed",
+  "case": "tile_tail",
+  "python": "/flagos/bin/python3",
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    },
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/flagtree/triton/__init__.py",
+      "source_sha256": "4ec1df745c6bfd03257370a2aab1534e7a31eaa62110cad2ff6c3b56a67cfc50"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "score_source_sha256": "85f3225dafff987fe3f29eabd3b2227651561a2a13fb90c9b0303e7ecb61c6a3",
+  "inputs": {
+    "query": [
+      1,
+      4,
+      128
+    ],
+    "key": [
+      3,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      1,
+      3
+    ],
+    "request_lengths": [
+      1
+    ],
+    "visible": [
+      37
+    ],
+    "page_size": 192,
+    "dtype": "torch.bfloat16",
+    "sparse_count": 512,
+    "weights": 0.08838834764831843,
+    "rtol": 0.001,
+    "atol": 0.002
+  },
+  "score": {
+    "shape": [
+      1,
+      67
+    ],
+    "offset": 0,
+    "dtype": "torch.float32",
+    "valid_values": 37,
+    "inactive_values": 30,
+    "max_abs_error": 3.814697265625e-06,
+    "rtol": 0.001,
+    "atol": 0.001,
+    "canaries_preserved": true,
+    "input_strides": {
+      "q": [
+        512,
+        128,
+        1
+      ],
+      "key": [
+        24576,
+        128,
+        128,
+        1
+      ],
+      "table": [
+        3,
+        1
+      ]
+    },
+    "query_start_loc": [
+      0,
+      1
+    ],
+    "scale": "unscaled",
+    "includes_topk": false
+  }
+}
