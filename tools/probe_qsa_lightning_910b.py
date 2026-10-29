@@ -61,12 +61,116 @@ ADAPTER_CASES = {
     ),
 }
 
+SCORE_CASES = {
+    "tile_tail": dict(lengths=[1], visible=[37], page=192, width=67),
+    "score_ragged": dict(
+        lengths=[3, 0, 2, 1],
+        visible=[0, 1, 511, 512, 513, 1537],
+        page=192,
+        base=137,
+        width=1551,
+        int64=True,
+    ),
+    "score_chunk": dict(
+        lengths=[3, 0, 2, 1],
+        visible=[0, 1, 511, 512, 513, 1537],
+        page=192,
+        base=137,
+        width=1551,
+        offset=1,
+        count=4,
+    ),
+    "score_strided": dict(
+        lengths=[2, 0, 1],
+        visible=[513, 1537, 0],
+        page=192,
+        base=53,
+        strided=True,
+        width=1547,
+    ),
+    "score_heads1": ADAPTER_CASES["heads1"],
+    "score_heads64": ADAPTER_CASES["heads64"],
+    "score_batch128": ADAPTER_CASES["batch128"],
+    "score_empty": ADAPTER_CASES["empty_batch"],
+    "score_zero": ADAPTER_CASES["all_zero"],
+    "score_page196": dict(lengths=[2], visible=[193, 513], page=196, width=517),
+    "score_page16": dict(lengths=[2], visible=[17, 513], page=16, width=527),
+}
+
 K, HEADS, DIM = 512, 4, 128
 RTOL, ATOL = 1e-3, 2e-3
 
 
 def write(path, value):
     Path(path).write_text(json.dumps(value, indent=2) + "\n")
+
+
+def score_trial(
+    config,
+    query,
+    key,
+    table,
+    starts,
+    visible,
+    q_cpu,
+    key_cpu,
+    table_cpu,
+    owner_cpu,
+    result,
+):
+    import torch
+    from qsa_prefill_score_910b_trial import score
+
+    rows = query.shape[0]
+    offset = config.get("offset", 0)
+    count = config.get("count", rows)
+    width = config.get("width", table.shape[1] * key.shape[1])
+    guard = torch.full((count * width + 32,), 12345.0, device=query.device)
+    output = guard[16 : 16 + count * width].view(count, width)
+    pointer = output.data_ptr()
+    assert score(query, key, table, starts, visible, output, offset=offset) is output
+    torch.npu.synchronize()
+    assert output.data_ptr() == pointer
+    assert (guard[:16] == 12345.0).all() and (guard[-16:] == 12345.0).all()
+    actual = output.cpu()
+    expected = torch.full((count, width), -torch.inf)
+    lengths = config["visible"]
+    page = key.shape[1]
+    for local in range(count):
+        row = local + offset
+        live = min(lengths[row], width)
+        if not live:
+            continue
+        columns = torch.arange(live)
+        pages = table_cpu[owner_cpu[row], columns // page].long()
+        keys = key_cpu[pages, columns % page, 0].float()
+        expected[local, :live] = (
+            torch.einsum("hd,kd->hk", q_cpu[row].float(), keys).clamp_min(0).sum(0)
+        )
+    finite = torch.isfinite(expected)
+    assert torch.isneginf(actual[~finite]).all()
+    error = (actual[finite] - expected[finite]).abs()
+    result["score"] = dict(
+        shape=list(output.shape),
+        offset=offset,
+        dtype=str(output.dtype),
+        valid_values=int(finite.sum()),
+        inactive_values=int((~finite).sum()),
+        max_abs_error=float(error.max()) if error.numel() else 0.0,
+        rtol=1e-3,
+        atol=1e-3,
+        canaries_preserved=True,
+        input_strides=dict(
+            q=list(query.stride()), key=list(key.stride()), table=list(table.stride())
+        ),
+        query_start_loc=starts.cpu().tolist(),
+        scale="unscaled",
+        includes_topk=False,
+    )
+    torch.testing.assert_close(actual[finite], expected[finite], rtol=1e-3, atol=1e-3)
+    result["status"] = "passed"
+    print("score", json.dumps(result["score"]), flush=True)
+    return 0
 
 
 def worker(args):
@@ -101,6 +205,20 @@ def worker(args):
             )
         except (AttributeError, RuntimeError):
             result["native_schema"] = "not exposed through torch.ops.npu"
+        if args.suite == "score":
+            import qsa_prefill_score_910b_trial
+            import triton
+
+            result["runtime"]["triton"] = dict(
+                version=triton.__version__,
+                source=triton.__file__,
+                source_sha256=hashlib.sha256(
+                    Path(triton.__file__).read_bytes()
+                ).hexdigest(),
+            )
+            result["score_source_sha256"] = hashlib.sha256(
+                Path(qsa_prefill_score_910b_trial.__file__).read_bytes()
+            ).hexdigest()
         if args.worker == "environment":
             result["status"] = "passed"
             return 0
@@ -144,7 +262,7 @@ def worker(args):
             rtol=RTOL,
             atol=ATOL,
         )
-        if args.suite == "adapter":
+        if args.suite in ("adapter", "score"):
             from qsa_lightning_baseline_910b import qsa_select_paged_prefill
 
             base = config.get("base", 0)
@@ -176,6 +294,20 @@ def worker(args):
                 )
                 storage[:, ::2].copy_(table)
                 table = storage[:, ::2]
+            if args.suite == "score":
+                return score_trial(
+                    config,
+                    query,
+                    key,
+                    table,
+                    starts,
+                    key_lengths,
+                    q_cpu,
+                    key_cpu,
+                    table_cpu,
+                    owner_cpu,
+                    result,
+                )
             guard = torch.full(
                 (rows * K + 32,), -123456, device=device, dtype=torch.int32
             )
@@ -317,14 +449,20 @@ def main():
         help="logical index after ASCEND_RT_VISIBLE_DEVICES",
     )
     parser.add_argument("--timeout", type=int, default=180)
-    parser.add_argument("--suite", choices=("native", "adapter"), default="native")
-    parser.add_argument("--worker", choices=("environment", *CASES, *ADAPTER_CASES))
+    parser.add_argument(
+        "--suite", choices=("native", "adapter", "score"), default="native"
+    )
+    parser.add_argument(
+        "--worker", choices=("environment", *CASES, *ADAPTER_CASES, *SCORE_CASES)
+    )
     parser.add_argument("--output")
     args = parser.parse_args()
     if args.device < 0 or args.timeout <= 0:
         parser.error("Invalid device or timeout")
     if args.suite == "adapter":
         CASES = ADAPTER_CASES
+    elif args.suite == "score":
+        CASES = SCORE_CASES
     if args.worker:
         if not args.output:
             parser.error("Worker mode requires --output")
@@ -375,6 +513,13 @@ def main():
         summary["adapter_sha256"] = hashlib.sha256(
             adapter_path.read_bytes()
         ).hexdigest()
+    if args.suite == "score":
+        summary["score_source_sha256"] = hashlib.sha256(
+            Path(__file__).with_name("qsa_prefill_score_910b_trial.py").read_bytes()
+        ).hexdigest()
+        summary["scope"] = (
+            "BF16 Triton score compile/correctness probe; no TopK or performance claim"
+        )
     for name in ("environment", *CASES):
         output = report / f"{name}.json"
         with (report / f"{name}.txt").open("w") as log:
