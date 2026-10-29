@@ -750,7 +750,11 @@ def test_qsa_select_paged_prefill_matches_vllm(
     )
     actual = case.run_kernel()
     expected = case.outputs()
-    reference.qsa_select_paged_prefill(*case.launch_args(expected))
+    # Native vLLM indexes page-table columns with unit stride. Keep the
+    # production input strided while comparing the same logical page IDs.
+    native_args = list(case.launch_args(expected))
+    native_args[2] = case.page_table.contiguous()
+    reference.qsa_select_paged_prefill(*native_args)
     _assert_matches(actual, expected, case)
 
 
