@@ -1,0 +1,387 @@
+{
+  "status": "passed",
+  "case": "empty_requests",
+  "python": "/flagos/bin/python3",
+  "cache_directory": "/tmp/qsa-ascend910b-lightning.CqMXBKXo/.triton-cache/shared",
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-910b-recheck.Fl0PwQ/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-910b-recheck.Fl0PwQ/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-910b-recheck.Fl0PwQ/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+      "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/flagtree/triton/__init__.py"
+    }
+  },
+  "existing_topk": {
+    "source": "/tmp/flaggems-qsa-910b-recheck.Fl0PwQ/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4",
+    "has_tle": true,
+    "loader": "normal package import"
+  },
+  "inputs": {
+    "query": [
+      3,
+      4,
+      128
+    ],
+    "key": [
+      15,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      3,
+      3
+    ],
+    "request_lengths": [
+      0,
+      2,
+      0,
+      1,
+      0
+    ],
+    "visible": [
+      512,
+      513,
+      0
+    ],
+    "page_size": 192,
+    "dtype": "torch.bfloat16",
+    "sparse_count": 512,
+    "weights": 0.08838834764831843,
+    "rtol": 0.001,
+    "atol": 0.001
+  },
+  "output_before_native": {
+    "below_minus_one": 0,
+    "sentinel_count": 0,
+    "prefix": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63
+    ]
+  },
+  "pipeline": {
+    "kind": "score_plus_existing_topk",
+    "existing_topk": {
+      "source": "/tmp/flaggems-qsa-910b-recheck.Fl0PwQ/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+      "sha256": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4",
+      "has_tle": true,
+      "loader": "normal package import"
+    },
+    "route_mode": "auto",
+    "segmerge_state": {
+      "probed": true,
+      "usable": false
+    },
+    "persistent_segmerge_state": {
+      "usable": true
+    },
+    "chunks": [
+      {
+        "offset": 0,
+        "rows": 3,
+        "width": 576,
+        "logits_pointer": 20616936491008,
+        "topk_workspace_pointer": 20616937734144
+      }
+    ]
+  },
+  "native_call_preserved_output": true,
+  "native_reference_output": {
+    "shape": [
+      3,
+      512
+    ],
+    "padding_count": 512
+  },
+  "output_checks": {
+    "cpu_lower_bound": true,
+    "cpu_upper_bound": true,
+    "cpu_canaries": true,
+    "below_minus_one": 0,
+    "sentinel_count": 0,
+    "prefix": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63
+    ],
+    "output_storage_offset": 16,
+    "device_lower_bound": true,
+    "device_upper_bound": true,
+    "device_canaries": true
+  },
+  "adapter": {
+    "query_start_loc": [
+      97,
+      97,
+      99,
+      99,
+      100,
+      100
+    ],
+    "query_stride": [
+      512,
+      128,
+      1
+    ],
+    "key_stride": [
+      24576,
+      128,
+      128,
+      1
+    ],
+    "table_stride": [
+      3,
+      1
+    ],
+    "query_storage_offset": 49664,
+    "metadata_dtype": "torch.int32",
+    "native_calls": 1,
+    "output_pointer_preserved": true,
+    "canaries_preserved": true
+  },
+  "adapter_output": {
+    "shape": [
+      3,
+      1,
+      512
+    ],
+    "dtype": "torch.int32"
+  },
+  "rows": [
+    {
+      "row": 0,
+      "visible": 512,
+      "valid_count": 512,
+      "unique_valid": 512,
+      "expected_count": 512,
+      "output_prefix": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "minus_one": 0,
+      "out_of_range": 0,
+      "selected_score_max_abs_error": 0.0,
+      "native_selected_score_max_abs_error": 0.0
+    },
+    {
+      "row": 1,
+      "visible": 513,
+      "valid_count": 512,
+      "unique_valid": 512,
+      "expected_count": 512,
+      "output_prefix": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "minus_one": 0,
+      "out_of_range": 0,
+      "selected_score_max_abs_error": 0.0,
+      "native_selected_score_max_abs_error": 0.0
+    },
+    {
+      "row": 2,
+      "visible": 0,
+      "valid_count": 0,
+      "unique_valid": 0,
+      "expected_count": 0,
+      "output_prefix": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "minus_one": 512,
+      "out_of_range": 0
+    }
+  ],
+  "normalization": "Mask raw negative/out-of-visibility indices to -1; no deduplication or replacement TopK",
+  "errors": []
+}
