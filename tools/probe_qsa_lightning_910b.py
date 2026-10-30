@@ -972,6 +972,10 @@ def main():
             value = dict(status="failed", error="worker exited without complete JSON")
         value["exit_code"] = code
         summary["cases"].append(value)
+        if args.suite == "torch-stages":
+            summary["comparison_complete"] = all(
+                item.get("comparison_complete", True) for item in summary["cases"]
+            )
         print(f"{name}: {value['status']}, exit={code}", flush=True)
         print((report / f"{name}.txt").read_text()[-8000:], flush=True)
         write(report / "summary.json", summary)
