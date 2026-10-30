@@ -17,19 +17,32 @@
 import collections
 import gzip
 import json
+from decimal import Decimal
 from pathlib import Path
 
 
 def summarize(events):
     categories = collections.Counter(str(e.get("cat", "")) for e in events)
-    tasks = [
+    hardware_pids = {
+        e.get("pid")
+        for e in events
+        if e.get("ph") == "M"
+        and e.get("name") == "process_name"
+        and e.get("args", {}).get("name") == "Ascend Hardware"
+    }
+    selected = [
         e
         for e in events
         if e.get("ph") == "X"
-        and str(e.get("cat", "")).lower() in ("kernel", "npu", "npu_kernel")
+        and (
+            e.get("pid") in hardware_pids
+            or str(e.get("cat", "")).lower() in ("kernel", "npu", "npu_kernel")
+        )
         and isinstance(e.get("dur"), (int, float))
         and e["dur"] > 0
     ]
+    origin = min((Decimal(str(e["ts"])) for e in selected), default=Decimal(0))
+    tasks = [dict(e, ts=float(Decimal(str(e["ts"])) - origin)) for e in selected]
     if not tasks:
         raise RuntimeError(
             f"No recognized device tasks; inspect trace categories: {dict(categories)}"
@@ -61,6 +74,8 @@ def summarize(events):
         entry["sum_us"] += event["dur"]
     return dict(
         task_count=len(tasks),
+        timestamp_origin_us=str(origin),
+        hardware_pids=sorted(hardware_pids),
         device_task_duration_sum_us=sum(e["dur"] for e in tasks),
         device_task_union_us=busy,
         device_task_envelope_us=envelope,
