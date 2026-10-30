@@ -1,0 +1,444 @@
+{
+  "status": "passed",
+  "case": "long32_g25600",
+  "python": "/flagos/bin/python3",
+  "cache_directory": "/tmp/qsa-ascend910b-lightning.poypOXl6/.triton-cache/shared",
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "npu_smi_before": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.7        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4069 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.9        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3441 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.9        34                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.8        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.1       39                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.2        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        38                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.1        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 1280324       | python3                  | 105                     |\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  },
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+      "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/flagtree/triton/__init__.py"
+    }
+  },
+  "score_correctness": {
+    "max_abs_error": 2.288818359375e-05,
+    "valid_scores": 819128,
+    "masked_scores": 72,
+    "rtol": 0.001,
+    "atol": 0.001
+  },
+  "selection_correctness": {
+    "topk": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "prepared_pipeline": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "public_total": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_adapter_total": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_fused": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    }
+  },
+  "shape": {
+    "query": [
+      32,
+      4,
+      128
+    ],
+    "cache": [
+      268,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      2,
+      134
+    ],
+    "request_query_lengths": [
+      16,
+      16
+    ],
+    "visible_min": 25596,
+    "visible_max": 25600,
+    "logits_width": 25600,
+    "page": 192,
+    "group_topk": 512,
+    "token_topk": 2048,
+    "compress_ratio": 4,
+    "dtype": "bfloat16",
+    "chunks": [
+      [
+        0,
+        16
+      ],
+      [
+        16,
+        16
+      ]
+    ]
+  },
+  "timing_policy": {
+    "rounds": 2,
+    "warmup": 1,
+    "iterations": 3,
+    "units": "microseconds per invocation",
+    "order": "alternating forward/reverse each round",
+    "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+    "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+    "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+    "public_scope": "unchanged public API, includes request mapping and allocations",
+    "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+    "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+    "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+    "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+  },
+  "samples": {
+    "score": [],
+    "topk": [],
+    "prepared_pipeline": [],
+    "native_fused": [],
+    "public_total": [],
+    "native_adapter_total": [],
+    "request_mapping": []
+  },
+  "core_properties": {
+    "max_shared_mem": 1,
+    "num_aicore": 20,
+    "num_vectorcore": 40
+  },
+  "probe": {
+    "kind": "score",
+    "variants": {
+      "score_p8": {
+        "parameters": {
+          "programs": 8
+        },
+        "status": "passed",
+        "samples": [
+          {
+            "wall_us": 9408.629809816679,
+            "event_us": 9354.000091552734
+          },
+          {
+            "wall_us": 9415.949384371439,
+            "event_us": 9379.226684570312
+          }
+        ],
+        "correctness": {
+          "selection": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "max_score_error": 2.288818359375e-05,
+          "masked_scores": true
+        },
+        "latency": {
+          "wall_us": {
+            "median": 9412.289597094059,
+            "min": 9408.629809816679,
+            "max": 9415.949384371439,
+            "range_over_median": 0.0007776614265056057
+          },
+          "event_us": {
+            "median": 9366.613388061523,
+            "min": 9354.000091552734,
+            "max": 9379.226684570312,
+            "range_over_median": 0.0026932458907433267
+          }
+        },
+        "timeline": {
+          "trace_file": "long32_g25600-score_p8-trace.json.gz",
+          "compressed_bytes": 1830,
+          "task_count": 6,
+          "timestamp_origin_us": "1793322707460371.818",
+          "hardware_pids": [
+            1311052192
+          ],
+          "device_task_duration_sum_us": 27842.875999999997,
+          "device_task_union_us": 27842.875999999997,
+          "device_task_envelope_us": 27857.496,
+          "uncovered_envelope_us": 14.62000000000262,
+          "uncovered_fraction": 0.0005248138597956766,
+          "categories": {
+            "cpu_op": 33,
+            "dequeue": 6,
+            "async_task_queue": 12,
+            "enqueue": 6,
+            "": 51,
+            "HostToDevice": 6
+          },
+          "largest_gaps": [
+            {
+              "start_us": 13927.818,
+              "end_us": 13930.938,
+              "duration_us": 3.1200000000008004
+            },
+            {
+              "start_us": 23222.444,
+              "end_us": 23225.504,
+              "duration_us": 3.0600000000013097
+            },
+            {
+              "start_us": 9266.944,
+              "end_us": 9269.824,
+              "duration_us": 2.8800000000010186
+            },
+            {
+              "start_us": 4645.492,
+              "end_us": 4648.312,
+              "duration_us": 2.819999999999709
+            },
+            {
+              "start_us": 18554.71,
+              "end_us": 18557.45,
+              "duration_us": 2.7400000000016007
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 6,
+              "sum_us": 27842.875999999997
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "device_task_us_per_call": 9280.958666666666,
+        "device_speedup_vs_baseline": 1.0
+      },
+      "score_p16": {
+        "parameters": {
+          "programs": 16
+        },
+        "status": "passed",
+        "samples": [
+          {
+            "wall_us": 4810.41893362999,
+            "event_us": 4771.386782328288
+          },
+          {
+            "wall_us": 4832.605520884196,
+            "event_us": 4776.133219401042
+          }
+        ],
+        "correctness": {
+          "selection": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "max_score_error": 2.288818359375e-05,
+          "masked_scores": true
+        },
+        "latency": {
+          "wall_us": {
+            "median": 4821.512227257093,
+            "min": 4810.41893362999,
+            "max": 4832.605520884196,
+            "range_over_median": 0.004601582700294914
+          },
+          "event_us": {
+            "median": 4773.760000864665,
+            "min": 4771.386782328288,
+            "max": 4776.133219401042,
+            "range_over_median": 0.0009942764344864825
+          }
+        },
+        "timeline": {
+          "trace_file": "long32_g25600-score_p16-trace.json.gz",
+          "compressed_bytes": 1827,
+          "task_count": 6,
+          "timestamp_origin_us": "1793322711286142.796",
+          "hardware_pids": [
+            1311052192
+          ],
+          "device_task_duration_sum_us": 14009.7,
+          "device_task_union_us": 14009.699999999997,
+          "device_task_envelope_us": 14023.619999999999,
+          "uncovered_envelope_us": 13.920000000001892,
+          "uncovered_fraction": 0.000992611037663734,
+          "categories": {
+            "cpu_op": 33,
+            "dequeue": 6,
+            "async_task_queue": 12,
+            "enqueue": 6,
+            "": 51,
+            "HostToDevice": 6
+          },
+          "largest_gaps": [
+            {
+              "start_us": 7010.799999999999,
+              "end_us": 7013.92,
+              "duration_us": 3.1200000000008004
+            },
+            {
+              "start_us": 2328.408,
+              "end_us": 2331.388,
+              "duration_us": 2.980000000000018
+            },
+            {
+              "start_us": 9364.908,
+              "end_us": 9367.548,
+              "duration_us": 2.640000000001237
+            },
+            {
+              "start_us": 4663.794,
+              "end_us": 4666.414,
+              "duration_us": 2.619999999999891
+            },
+            {
+              "start_us": 11698.394,
+              "end_us": 11700.954,
+              "duration_us": 2.5599999999994907
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 6,
+              "sum_us": 14009.7
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "device_task_us_per_call": 4669.899999999999,
+        "device_speedup_vs_baseline": 1.987399872945174
+      },
+      "score_p20": {
+        "parameters": {
+          "programs": 20
+        },
+        "status": "passed",
+        "samples": [
+          {
+            "wall_us": 3896.597151954969,
+            "event_us": 3862.2798919677734
+          },
+          {
+            "wall_us": 3915.5930280685425,
+            "event_us": 3878.8731892903647
+          }
+        ],
+        "correctness": {
+          "selection": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "max_score_error": 2.288818359375e-05,
+          "masked_scores": true
+        },
+        "latency": {
+          "wall_us": {
+            "median": 3906.095090011756,
+            "min": 3896.597151954969,
+            "max": 3915.5930280685425,
+            "range_over_median": 0.004863137142295322
+          },
+          "event_us": {
+            "median": 3870.5765406290693,
+            "min": 3862.2798919677734,
+            "max": 3878.8731892903647,
+            "range_over_median": 0.004287035057545834
+          }
+        },
+        "timeline": {
+          "trace_file": "long32_g25600-score_p20-trace.json.gz",
+          "compressed_bytes": 1832,
+          "task_count": 6,
+          "timestamp_origin_us": "1793322715088918.116",
+          "hardware_pids": [
+            1311052192
+          ],
+          "device_task_duration_sum_us": 11404.387999999999,
+          "device_task_union_us": 11404.388,
+          "device_task_envelope_us": 11418.288,
+          "uncovered_envelope_us": 13.899999999999636,
+          "uncovered_fraction": 0.00121734536736152,
+          "categories": {
+            "cpu_op": 33,
+            "dequeue": 6,
+            "async_task_queue": 12,
+            "enqueue": 6,
+            "": 51,
+            "HostToDevice": 6
+          },
+          "largest_gaps": [
+            {
+              "start_us": 5713.394,
+              "end_us": 5716.454,
+              "duration_us": 3.0599999999994907
+            },
+            {
+              "start_us": 3808.996,
+              "end_us": 3812.036,
+              "duration_us": 3.0399999999999636
+            },
+            {
+              "start_us": 1905.378,
+              "end_us": 1908.078,
+              "duration_us": 2.7000000000000455
+            },
+            {
+              "start_us": 7614.2919999999995,
+              "end_us": 7616.852,
+              "duration_us": 2.5600000000004
+            },
+            {
+              "start_us": 9514.99,
+              "end_us": 9517.53,
+              "duration_us": 2.540000000000873
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 6,
+              "sum_us": 11404.387999999999
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "device_task_us_per_call": 3801.462666666667,
+        "device_speedup_vs_baseline": 2.441417812161424
+      }
+    },
+    "production_source_modified": false,
+    "rounds": 2,
+    "histogram_route": "radix",
+    "profiler_iterations": 3
+  }
+}

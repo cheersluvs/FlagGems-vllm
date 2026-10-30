@@ -1,0 +1,915 @@
+{
+  "status": "passed",
+  "packages": {
+    "torch": "2.10.0+cpu",
+    "torch-npu": "2.10.0",
+    "triton": null,
+    "triton-ascend": null,
+    "flagtree": "0.6.1+ascend3.5",
+    "vllm": "0.24.0+flagos",
+    "vllm-ascend": null
+  },
+  "cases": [
+    {
+      "status": "passed",
+      "case": "environment",
+      "python": "/flagos/bin/python3",
+      "cache_directory": "/tmp/qsa-ascend910b-lightning.poypOXl6/.triton-cache/shared",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+          "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py"
+        }
+      },
+      "profiler_inventory": {
+        "msprof": "/usr/local/Ascend/cann-9.0.0/bin/msprof",
+        "collected": false,
+        "help_exit_code": 0,
+        "help": "\nUsage:\n      msprof [--options]\n\nThis is subcommand for operator optimization situation:\n      op                                Use binary msopprof to operator optimization (msprof op ...)\n\nOptions:\n      --output                          <Optional> Specify the directory that is used for storing data results.\n      --application                     <Optional> Specify application path, considering the risk of privilege escalation, please pay attention to\n\t\t\t\t\t\t   the group of the application and confirm whether it is the same as the user currently.\n\t\t\t\t\t\t   [Note] This option will be discarded in later versions.\n\t\t\t\t\t\t   you can try to use: msprof [msprof arguments] <app> [app arguments]\n      --ascendcl                        <Optional> Show acl profiling data, the default value is on.\n      --ge-api                          <Optional> Specify if report GE event, the default value is off. The possible parameters are 'l0', 'l1' or 'off'.\n      --runtime-api                     <Optional> Show runtime api profiling data, the default value is off.\n      --task-time                       <Optional> Show task profiling data, the default value is on. The possible parameters are 'l0', 'l1', 'l2', 'on' or 'off'.\n      --task-memory                     <Optional> Show the memory usage of the operator, the default value is off. The possible parameters are 'on' or 'off'.\n      --ai-core                         <Optional> Turn on / off the ai core profiling, the default value is on when collecting app Profiling.\n      --aic-mode                        <Optional> Set the aic profiling mode to task-based or sample-based.\n\t\t\t\t\t\t   In task-based mode, profiling data will be collected by tasks.\n\t\t\t\t\t\t   In sample-based mode, profiling data will be collected in a specific interval.\n\t\t\t\t\t\t   The default value is task-based in AI task mode, sample-based in system mode.\n      --aic-freq                        <Optional> The aic sampling frequency in hertz, the default value is 100 Hz, the range is 1 to 100 Hz.\n      --environment                     <Optional> User app custom environment variable configuration.\n      --sys-period                      <Optional> Set total sampling period of system profiling in seconds.\n      --sys-devices                     <Optional> Specify the profiling scope by device ID when collect sys profiling.The value is all or ID list (split with ',').\n      --hccl                            <Optional> Show hccl profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --msproftx                        <Optional> Show msproftx and mstx data, the default value is off.\n      --mstx-domain-include             <Optional> Choose to only include mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` filters the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-exclude at the same time.\n      --mstx-domain-exclude             <Optional> Choose to exclude mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` excludes the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-include at the same time.\n      --storage-limit                   <Optional> Specify the output directory volume. range 200MB ~ 4294967295MB.\n      --model-execution                 <Optional> Show ge model execution profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --aic-metrics                     <Optional> The aic metrics groups, include ArithmeticUtilization, PipeUtilization, Memory, MemoryL0, ResourceConflictRatio, MemoryUB, L2Cache, MemoryAccess.\n\t\t\t\t\t\t   the default value is PipeUtilization.\n      --python-path                     <Optional> Specify the python interpreter path that is used for analysis, please ensure the python version is 3.7.5 or later.\n      --parse                           <Optional> Switch for using msprof to parse collecting data, the default value is off.\n      --query                           <Optional> Switch for using msprof to query collecting data, the default value is off.\n      --export                          <Optional> Switch for using msprof to export collecting data, the default value is off.\n      --clear                           <Optional> Switch for using msprof to analyze or export data in clear mode, the default value is off.\n      --analyze                         <Optional> Switch for using msprof to analyze collecting data, the default value is off.\n      --rule                            <Optional> Switch specified rule for using msprof to analyze collecting data, include communication, communication_matrix.\n\t\t\t\t\t\t   the default value is communication,communication_matrix.\n      --iteration-id                    <Optional> The export iteration id, only used when argument export is on, the default value is 1.\n      --model-id                        <Optional> The export model id, only used when argument export is on, msprof will export minium accessible model by default.\n      --summary-format                  <Optional> The export summary file format, only used when argument export is on, include csv, json, the default value is csv.\n      --type                            <Optional> The export type, only used when argument `export` is on \n\t\t\t\t\t\t   or when collecting data, include text, db.\n\t\t\t\t\t\t   the default value is text(which will also export the database).\n      --reports                         <Optional> Specify the path that is used for controlling the export scope of collecting results\n      --aicpu                           <Optional> Show aicpu profiling data, the default value is off.\n      --sys-hardware-mem                <Optional> LLC, DDR, HBM acquisition switch, optional on / off, the default value is off.\n      --sys-hardware-mem-freq           <Optional> LLC, DDR, HBM acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --llc-profiling                   <Optional> The llc profiling groups, include read, write. the default value is read.\n      --sys-cpu-profiling               <Optional> The CPU acquisition switch, optional on / off,the default value is off.\n      --sys-cpu-freq                    <Optional> The cpu sampling frequency in hertz. the default value is 50 Hz, the range is 1 to 50 Hz.\n      --sys-profiling                   <Optional> The System CPU usage and system memory acquisition switch,the default value is off.\n      --sys-sampling-freq               <Optional> The sys sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-pid-profiling               <Optional> The CPU usage of the process and the memory acquisition switch of the process,the default value is off.\n      --sys-pid-sampling-freq           <Optional> The pid sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-io-profiling                <Optional> NIC, ROCE acquisition switch, the default value is off.\n      --sys-io-sampling-freq            <Optional> NIC, ROCE acquisition frequency, range 1 ~ 100, the default value is 100, unit Hz.\n      --instr-profiling                 <Optional> Show instr profiling data, the default value is off.\n      --instr-profiling-freq            <Optional> The instr profiling sampling period in clock-cycle, the default value is 1000 cycle, the range is 300 to 30000 cycle.\n      --sys-interconnection-profiling   <Optional> PCIE, HCCS acquisition switch, the default value is off.\n      --sys-interconnection-freq        <Optional> PCIE, HCCS acquisition frequency, range 1 ~ 50, the default value is 50, unit Hz.\n      --dvpp-profiling                  <Optional> DVPP acquisition switch, the default value is off.\n      --dvpp-freq                       <Optional> DVPP acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --l2                              <Optional> L2 Cache and SMMU acquisition switch. The default value is off.\n      --host-sys                        <Optional> The host-sys data type, include cpu, mem, disk, network, osrt\n      --host-sys-pid                    <Optional> Set the PID of the app process for which you want to collect performance data.\n      --host-sys-usage                  <Optional> The host-sys-usage data type, include cpu, mem.(full-platform)\n      --host-sys-usage-freq             <Optional> The sampling frequency in hertz. the default value is 50 Hz the range is 1 to 50 Hz.\n      --dynamic                         <Optional> Dynamic profiling switch, the default value is off.\n      --pid                             <Optional> Dynamic profiling pids of the target processes\n      --delay                           <Optional> Collect start delay time in seconds, range 1 ~ 4294967295s.\n      --duration                        <Optional> Collection duration in seconds, range 1 ~ 4294967295s.\n      --help                            <Optional> help message.\n"
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "short16_g1024",
+      "python": "/flagos/bin/python3",
+      "cache_directory": "/tmp/qsa-ascend910b-lightning.poypOXl6/.triton-cache/shared",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "npu_smi_before": {
+        "exit_code": 0,
+        "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.6        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4070 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.9        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3441 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.9        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.8        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.0       38                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.1        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.1        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 1265225       | python3                  | 105                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+      },
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+          "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py"
+        }
+      },
+      "score_correctness": {
+        "max_abs_error": 1.1444091796875e-05,
+        "valid_scores": 16348,
+        "masked_scores": 36,
+        "rtol": 0.001,
+        "atol": 0.001
+      },
+      "selection_correctness": {
+        "topk": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "prepared_pipeline": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "public_total": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_adapter_total": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_fused": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        }
+      },
+      "shape": {
+        "query": [
+          16,
+          4,
+          128
+        ],
+        "cache": [
+          6,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          1,
+          6
+        ],
+        "request_query_lengths": [
+          16
+        ],
+        "visible_min": 1020,
+        "visible_max": 1024,
+        "logits_width": 1024,
+        "page": 192,
+        "group_topk": 512,
+        "token_topk": 2048,
+        "compress_ratio": 4,
+        "dtype": "bfloat16",
+        "chunks": [
+          [
+            0,
+            16
+          ]
+        ]
+      },
+      "timing_policy": {
+        "rounds": 2,
+        "warmup": 1,
+        "iterations": 3,
+        "units": "microseconds per invocation",
+        "order": "alternating forward/reverse each round",
+        "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+        "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+        "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+        "public_scope": "unchanged public API, includes request mapping and allocations",
+        "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+        "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+        "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+        "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+      },
+      "samples": {
+        "score": [],
+        "topk": [],
+        "prepared_pipeline": [],
+        "native_fused": [],
+        "public_total": [],
+        "native_adapter_total": [],
+        "request_mapping": []
+      },
+      "core_properties": {
+        "max_shared_mem": 1,
+        "num_aicore": 20,
+        "num_vectorcore": 40
+      },
+      "probe": {
+        "kind": "score",
+        "variants": {
+          "score_p8": {
+            "parameters": {
+              "programs": 8
+            },
+            "status": "passed",
+            "samples": [
+              {
+                "wall_us": 290.8725291490555,
+                "event_us": 250.6999969482422
+              },
+              {
+                "wall_us": 371.31334344546,
+                "event_us": 326.14666223526
+              }
+            ],
+            "correctness": {
+              "selection": {
+                "rows": 16,
+                "max_selected_score_error": 0.0,
+                "ranges_and_uniqueness": true
+              },
+              "max_score_error": 1.1444091796875e-05,
+              "masked_scores": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 331.0929362972578,
+                "min": 290.8725291490555,
+                "max": 371.31334344546,
+                "range_over_median": 0.24295539251306816
+              },
+              "event_us": {
+                "median": 288.4233295917511,
+                "min": 250.6999969482422,
+                "max": 326.14666223526,
+                "range_over_median": 0.261583088281412
+              }
+            },
+            "timeline": {
+              "trace_file": "short16_g1024-score_p8-trace.json.gz",
+              "compressed_bytes": 1385,
+              "task_count": 3,
+              "timestamp_origin_us": "1793322661986327.792",
+              "hardware_pids": [
+                1295590816
+              ],
+              "device_task_duration_sum_us": 564.312,
+              "device_task_union_us": 564.312,
+              "device_task_envelope_us": 747.7339999999999,
+              "uncovered_envelope_us": 183.4219999999999,
+              "uncovered_fraction": 0.24530381124838502,
+              "categories": {
+                "cpu_op": 18,
+                "dequeue": 3,
+                "async_task_queue": 6,
+                "enqueue": 3,
+                "": 42,
+                "HostToDevice": 3
+              },
+              "largest_gaps": [
+                {
+                  "start_us": 189.304,
+                  "end_us": 305.184,
+                  "duration_us": 115.88000000000002
+                },
+                {
+                  "start_us": 493.38800000000003,
+                  "end_us": 560.93,
+                  "duration_us": 67.54199999999992
+                }
+              ],
+              "kernels": {
+                "MIX_AIC": {
+                  "count": 3,
+                  "sum_us": 564.312
+                }
+              },
+              "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+            },
+            "device_task_us_per_call": 188.104,
+            "device_speedup_vs_baseline": 1.0
+          },
+          "score_p16": {
+            "parameters": {
+              "programs": 16
+            },
+            "status": "passed",
+            "samples": [
+              {
+                "wall_us": 229.56853111584982,
+                "event_us": 194.40666834513345
+              },
+              {
+                "wall_us": 243.72960130373636,
+                "event_us": 206.70000712076822
+              }
+            ],
+            "correctness": {
+              "selection": {
+                "rows": 16,
+                "max_selected_score_error": 0.0,
+                "ranges_and_uniqueness": true
+              },
+              "max_score_error": 1.1444091796875e-05,
+              "masked_scores": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 236.6490662097931,
+                "min": 229.56853111584982,
+                "max": 243.72960130373636,
+                "range_over_median": 0.05983995802177612
+              },
+              "event_us": {
+                "median": 200.55333773295084,
+                "min": 194.40666834513345,
+                "max": 206.70000712076822,
+                "range_over_median": 0.06129710387569867
+              }
+            },
+            "timeline": {
+              "trace_file": "short16_g1024-score_p16-trace.json.gz",
+              "compressed_bytes": 1387,
+              "task_count": 3,
+              "timestamp_origin_us": "1793322665718834.300",
+              "hardware_pids": [
+                1295590816
+              ],
+              "device_task_duration_sum_us": 291.664,
+              "device_task_union_us": 291.664,
+              "device_task_envelope_us": 297.244,
+              "uncovered_envelope_us": 5.580000000000041,
+              "uncovered_fraction": 0.01877245629852929,
+              "categories": {
+                "cpu_op": 18,
+                "dequeue": 3,
+                "async_task_queue": 6,
+                "enqueue": 3,
+                "": 42,
+                "HostToDevice": 3
+              },
+              "largest_gaps": [
+                {
+                  "start_us": 98.862,
+                  "end_us": 101.802,
+                  "duration_us": 2.940000000000012
+                },
+                {
+                  "start_us": 197.464,
+                  "end_us": 200.104,
+                  "duration_us": 2.640000000000015
+                }
+              ],
+              "kernels": {
+                "MIX_AIC": {
+                  "count": 3,
+                  "sum_us": 291.664
+                }
+              },
+              "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+            },
+            "device_task_us_per_call": 97.22133333333333,
+            "device_speedup_vs_baseline": 1.934801689615448
+          },
+          "score_p20": {
+            "parameters": {
+              "programs": 20
+            },
+            "status": "passed",
+            "samples": [
+              {
+                "wall_us": 224.12960728009543,
+                "event_us": 190.36666552225748
+              },
+              {
+                "wall_us": 228.59436770280203,
+                "event_us": 195.0733264287313
+              }
+            ],
+            "correctness": {
+              "selection": {
+                "rows": 16,
+                "max_selected_score_error": 0.0,
+                "ranges_and_uniqueness": true
+              },
+              "max_score_error": 1.1444091796875e-05,
+              "masked_scores": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 226.36198749144873,
+                "min": 224.12960728009543,
+                "max": 228.59436770280203,
+                "range_over_median": 0.01972398489775263
+              },
+              "event_us": {
+                "median": 192.71999597549438,
+                "min": 190.36666552225748,
+                "max": 195.0733264287313,
+                "range_over_median": 0.02442227586530407
+              }
+            },
+            "timeline": {
+              "trace_file": "short16_g1024-score_p20-trace.json.gz",
+              "compressed_bytes": 1384,
+              "task_count": 3,
+              "timestamp_origin_us": "1793322669434435.288",
+              "hardware_pids": [
+                1295590816
+              ],
+              "device_task_duration_sum_us": 239.926,
+              "device_task_union_us": 239.92600000000004,
+              "device_task_envelope_us": 946.14,
+              "uncovered_envelope_us": 706.2139999999999,
+              "uncovered_fraction": 0.7464159638108525,
+              "categories": {
+                "cpu_op": 18,
+                "dequeue": 3,
+                "async_task_queue": 6,
+                "enqueue": 3,
+                "": 42,
+                "HostToDevice": 3
+              },
+              "largest_gaps": [
+                {
+                  "start_us": 82.182,
+                  "end_us": 625.974,
+                  "duration_us": 543.792
+                },
+                {
+                  "start_us": 704.2760000000001,
+                  "end_us": 866.698,
+                  "duration_us": 162.4219999999999
+                }
+              ],
+              "kernels": {
+                "MIX_AIC": {
+                  "count": 3,
+                  "sum_us": 239.926
+                }
+              },
+              "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+            },
+            "device_task_us_per_call": 79.97533333333335,
+            "device_speedup_vs_baseline": 2.352025207772396
+          }
+        },
+        "production_source_modified": false,
+        "rounds": 2,
+        "histogram_route": "radix",
+        "profiler_iterations": 3
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "long32_g25600",
+      "python": "/flagos/bin/python3",
+      "cache_directory": "/tmp/qsa-ascend910b-lightning.poypOXl6/.triton-cache/shared",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "npu_smi_before": {
+        "exit_code": 0,
+        "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.7        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4069 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.9        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3441 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.9        34                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.8        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.1       39                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.2        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        38                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.1        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 1280324       | python3                  | 105                     |\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+      },
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+          "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py"
+        }
+      },
+      "score_correctness": {
+        "max_abs_error": 2.288818359375e-05,
+        "valid_scores": 819128,
+        "masked_scores": 72,
+        "rtol": 0.001,
+        "atol": 0.001
+      },
+      "selection_correctness": {
+        "topk": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "prepared_pipeline": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "public_total": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_adapter_total": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_fused": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        }
+      },
+      "shape": {
+        "query": [
+          32,
+          4,
+          128
+        ],
+        "cache": [
+          268,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          2,
+          134
+        ],
+        "request_query_lengths": [
+          16,
+          16
+        ],
+        "visible_min": 25596,
+        "visible_max": 25600,
+        "logits_width": 25600,
+        "page": 192,
+        "group_topk": 512,
+        "token_topk": 2048,
+        "compress_ratio": 4,
+        "dtype": "bfloat16",
+        "chunks": [
+          [
+            0,
+            16
+          ],
+          [
+            16,
+            16
+          ]
+        ]
+      },
+      "timing_policy": {
+        "rounds": 2,
+        "warmup": 1,
+        "iterations": 3,
+        "units": "microseconds per invocation",
+        "order": "alternating forward/reverse each round",
+        "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+        "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+        "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+        "public_scope": "unchanged public API, includes request mapping and allocations",
+        "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+        "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+        "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+        "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+      },
+      "samples": {
+        "score": [],
+        "topk": [],
+        "prepared_pipeline": [],
+        "native_fused": [],
+        "public_total": [],
+        "native_adapter_total": [],
+        "request_mapping": []
+      },
+      "core_properties": {
+        "max_shared_mem": 1,
+        "num_aicore": 20,
+        "num_vectorcore": 40
+      },
+      "probe": {
+        "kind": "score",
+        "variants": {
+          "score_p8": {
+            "parameters": {
+              "programs": 8
+            },
+            "status": "passed",
+            "samples": [
+              {
+                "wall_us": 9408.629809816679,
+                "event_us": 9354.000091552734
+              },
+              {
+                "wall_us": 9415.949384371439,
+                "event_us": 9379.226684570312
+              }
+            ],
+            "correctness": {
+              "selection": {
+                "rows": 32,
+                "max_selected_score_error": 0.0,
+                "ranges_and_uniqueness": true
+              },
+              "max_score_error": 2.288818359375e-05,
+              "masked_scores": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 9412.289597094059,
+                "min": 9408.629809816679,
+                "max": 9415.949384371439,
+                "range_over_median": 0.0007776614265056057
+              },
+              "event_us": {
+                "median": 9366.613388061523,
+                "min": 9354.000091552734,
+                "max": 9379.226684570312,
+                "range_over_median": 0.0026932458907433267
+              }
+            },
+            "timeline": {
+              "trace_file": "long32_g25600-score_p8-trace.json.gz",
+              "compressed_bytes": 1830,
+              "task_count": 6,
+              "timestamp_origin_us": "1793322707460371.818",
+              "hardware_pids": [
+                1311052192
+              ],
+              "device_task_duration_sum_us": 27842.875999999997,
+              "device_task_union_us": 27842.875999999997,
+              "device_task_envelope_us": 27857.496,
+              "uncovered_envelope_us": 14.62000000000262,
+              "uncovered_fraction": 0.0005248138597956766,
+              "categories": {
+                "cpu_op": 33,
+                "dequeue": 6,
+                "async_task_queue": 12,
+                "enqueue": 6,
+                "": 51,
+                "HostToDevice": 6
+              },
+              "largest_gaps": [
+                {
+                  "start_us": 13927.818,
+                  "end_us": 13930.938,
+                  "duration_us": 3.1200000000008004
+                },
+                {
+                  "start_us": 23222.444,
+                  "end_us": 23225.504,
+                  "duration_us": 3.0600000000013097
+                },
+                {
+                  "start_us": 9266.944,
+                  "end_us": 9269.824,
+                  "duration_us": 2.8800000000010186
+                },
+                {
+                  "start_us": 4645.492,
+                  "end_us": 4648.312,
+                  "duration_us": 2.819999999999709
+                },
+                {
+                  "start_us": 18554.71,
+                  "end_us": 18557.45,
+                  "duration_us": 2.7400000000016007
+                }
+              ],
+              "kernels": {
+                "MIX_AIC": {
+                  "count": 6,
+                  "sum_us": 27842.875999999997
+                }
+              },
+              "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+            },
+            "device_task_us_per_call": 9280.958666666666,
+            "device_speedup_vs_baseline": 1.0
+          },
+          "score_p16": {
+            "parameters": {
+              "programs": 16
+            },
+            "status": "passed",
+            "samples": [
+              {
+                "wall_us": 4810.41893362999,
+                "event_us": 4771.386782328288
+              },
+              {
+                "wall_us": 4832.605520884196,
+                "event_us": 4776.133219401042
+              }
+            ],
+            "correctness": {
+              "selection": {
+                "rows": 32,
+                "max_selected_score_error": 0.0,
+                "ranges_and_uniqueness": true
+              },
+              "max_score_error": 2.288818359375e-05,
+              "masked_scores": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 4821.512227257093,
+                "min": 4810.41893362999,
+                "max": 4832.605520884196,
+                "range_over_median": 0.004601582700294914
+              },
+              "event_us": {
+                "median": 4773.760000864665,
+                "min": 4771.386782328288,
+                "max": 4776.133219401042,
+                "range_over_median": 0.0009942764344864825
+              }
+            },
+            "timeline": {
+              "trace_file": "long32_g25600-score_p16-trace.json.gz",
+              "compressed_bytes": 1827,
+              "task_count": 6,
+              "timestamp_origin_us": "1793322711286142.796",
+              "hardware_pids": [
+                1311052192
+              ],
+              "device_task_duration_sum_us": 14009.7,
+              "device_task_union_us": 14009.699999999997,
+              "device_task_envelope_us": 14023.619999999999,
+              "uncovered_envelope_us": 13.920000000001892,
+              "uncovered_fraction": 0.000992611037663734,
+              "categories": {
+                "cpu_op": 33,
+                "dequeue": 6,
+                "async_task_queue": 12,
+                "enqueue": 6,
+                "": 51,
+                "HostToDevice": 6
+              },
+              "largest_gaps": [
+                {
+                  "start_us": 7010.799999999999,
+                  "end_us": 7013.92,
+                  "duration_us": 3.1200000000008004
+                },
+                {
+                  "start_us": 2328.408,
+                  "end_us": 2331.388,
+                  "duration_us": 2.980000000000018
+                },
+                {
+                  "start_us": 9364.908,
+                  "end_us": 9367.548,
+                  "duration_us": 2.640000000001237
+                },
+                {
+                  "start_us": 4663.794,
+                  "end_us": 4666.414,
+                  "duration_us": 2.619999999999891
+                },
+                {
+                  "start_us": 11698.394,
+                  "end_us": 11700.954,
+                  "duration_us": 2.5599999999994907
+                }
+              ],
+              "kernels": {
+                "MIX_AIC": {
+                  "count": 6,
+                  "sum_us": 14009.7
+                }
+              },
+              "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+            },
+            "device_task_us_per_call": 4669.899999999999,
+            "device_speedup_vs_baseline": 1.987399872945174
+          },
+          "score_p20": {
+            "parameters": {
+              "programs": 20
+            },
+            "status": "passed",
+            "samples": [
+              {
+                "wall_us": 3896.597151954969,
+                "event_us": 3862.2798919677734
+              },
+              {
+                "wall_us": 3915.5930280685425,
+                "event_us": 3878.8731892903647
+              }
+            ],
+            "correctness": {
+              "selection": {
+                "rows": 32,
+                "max_selected_score_error": 0.0,
+                "ranges_and_uniqueness": true
+              },
+              "max_score_error": 2.288818359375e-05,
+              "masked_scores": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 3906.095090011756,
+                "min": 3896.597151954969,
+                "max": 3915.5930280685425,
+                "range_over_median": 0.004863137142295322
+              },
+              "event_us": {
+                "median": 3870.5765406290693,
+                "min": 3862.2798919677734,
+                "max": 3878.8731892903647,
+                "range_over_median": 0.004287035057545834
+              }
+            },
+            "timeline": {
+              "trace_file": "long32_g25600-score_p20-trace.json.gz",
+              "compressed_bytes": 1832,
+              "task_count": 6,
+              "timestamp_origin_us": "1793322715088918.116",
+              "hardware_pids": [
+                1311052192
+              ],
+              "device_task_duration_sum_us": 11404.387999999999,
+              "device_task_union_us": 11404.388,
+              "device_task_envelope_us": 11418.288,
+              "uncovered_envelope_us": 13.899999999999636,
+              "uncovered_fraction": 0.00121734536736152,
+              "categories": {
+                "cpu_op": 33,
+                "dequeue": 6,
+                "async_task_queue": 12,
+                "enqueue": 6,
+                "": 51,
+                "HostToDevice": 6
+              },
+              "largest_gaps": [
+                {
+                  "start_us": 5713.394,
+                  "end_us": 5716.454,
+                  "duration_us": 3.0599999999994907
+                },
+                {
+                  "start_us": 3808.996,
+                  "end_us": 3812.036,
+                  "duration_us": 3.0399999999999636
+                },
+                {
+                  "start_us": 1905.378,
+                  "end_us": 1908.078,
+                  "duration_us": 2.7000000000000455
+                },
+                {
+                  "start_us": 7614.2919999999995,
+                  "end_us": 7616.852,
+                  "duration_us": 2.5600000000004
+                },
+                {
+                  "start_us": 9514.99,
+                  "end_us": 9517.53,
+                  "duration_us": 2.540000000000873
+                }
+              ],
+              "kernels": {
+                "MIX_AIC": {
+                  "count": 6,
+                  "sum_us": 11404.387999999999
+                }
+              },
+              "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+            },
+            "device_task_us_per_call": 3801.462666666667,
+            "device_speedup_vs_baseline": 2.441417812161424
+          }
+        },
+        "production_source_modified": false,
+        "rounds": 2,
+        "histogram_route": "radix",
+        "profiler_iterations": 3
+      },
+      "exit_code": 0
+    }
+  ],
+  "suite": "score-probe",
+  "fresh_cache": true,
+  "scope": "Independent test-only score probe; production frozen",
+  "cann_version_files": {
+    "/usr/local/Ascend/driver/version.info": "Version=25.2.0\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C21SPC008B208\ncompatible_version=[V100R001C17],[V100R001C18],[V100R001C19],[V100R001C20],[V100R001C21]\ncompatible_version_fw=[7.0.0,7.7.99]\npackage_version=25.2.0\n"
+  },
+  "script_sha256": "318377579683176839aaeaea4a26dad25a2d449fde7171831a3c8aac6a575660",
+  "source_hashes": {
+    "tools/benchmark_qsa_prefill_stages_910b.py": "0a3795630f0f8acd86a8259f97a19899d39ad135f83375064ed0d74fb51efe47",
+    "tools/qsa_timeline_910b.py": "e61afd802b9343fdd972698c34913a8f35b62be0fe587076775336384455f7cc",
+    "tools/qsa_independent_probes_910b.py": "da9044e48e41037d8557e045c9c4d0139eca733a74ae4a7a1fdafab25c48fe8c",
+    "tools/qsa_prefill_production_910b.py": "58f87888edaca2c91af7845fecc5439eefc297bb95cea1d0420b4b4230974afd",
+    "tools/qsa_lightning_baseline_910b.py": "db2c7ddd7cf4eaaa40336ff2e49726ac49d0aaa590162cf494aaedde2e59bbcc",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+  }
+}
