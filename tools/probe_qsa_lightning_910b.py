@@ -217,7 +217,10 @@ def worker(args):
         if args.prefill_topk:
             from qsa_prefill_topk_candidate_910b import candidate
 
-            result["topk_candidate"] = overrides.enter_context(candidate())
+            result["topk_candidate_diagnostics"] = {}
+            result["topk_candidate"] = overrides.enter_context(
+                candidate(result["topk_candidate_diagnostics"])
+            )
         if args.combined:
             from qsa_combined_candidate_910b import combined
 
@@ -726,6 +729,11 @@ def main():
         action="store_true",
         help="Test-only replacement with repository Ascend top_k_per_row_prefill",
     )
+    parser.add_argument(
+        "--environment-only",
+        action="store_true",
+        help="Collect environment diagnostics without correctness or timing cases",
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -806,6 +814,8 @@ def main():
         CASES = dict(PIPELINE_CASES)
         if args.suite == "production":
             CASES["zero_budget"] = dict(ADAPTER_CASES["offset_ragged"], budget_mb=0)
+    if args.environment_only:
+        CASES = {}
     if args.worker:
         if not args.output:
             parser.error("Worker mode requires --output")
@@ -819,6 +829,7 @@ def main():
         suite=args.suite,
         combined_candidate=args.combined,
         prefill_topk_candidate=args.prefill_topk,
+        environment_only=args.environment_only,
         fresh_cache=args.fresh_cache or args.suite == "topk-diagnostic",
         scope="native BF16 baseline probe; no performance claim",
     )
@@ -962,6 +973,10 @@ def main():
         summary[
             "scope"
         ] += "; TEST-ONLY prefill TopK replacement; production source frozen"
+    if args.environment_only:
+        summary["scope"] = (
+            "Environment/import diagnostics only; no correctness or timing"
+        )
     for name in ("environment", *CASES):
         output = report / f"{name}.json"
         with (report / f"{name}.txt").open("w") as log:

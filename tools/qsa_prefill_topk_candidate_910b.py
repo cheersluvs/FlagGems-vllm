@@ -16,6 +16,9 @@
 
 import hashlib
 import importlib
+import json
+import sys
+import traceback
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
@@ -30,8 +33,47 @@ def _zero_starts(starts, rows: tl.constexpr, BLOCK: tl.constexpr):
     tl.store(starts + offsets, 0, offsets < rows)
 
 
+def inspect_runtime():
+    result = dict(
+        python=sys.executable,
+        sys_path=list(sys.path),
+        triton=dict(version=triton.__version__, source=triton.__file__),
+        imports={},
+    )
+    tle_root = Path(triton.__file__).resolve().parent / "experimental" / "tle"
+    result["tle_directory"] = str(tle_root)
+    result["tle_python_files"] = [
+        str(path.relative_to(tle_root)) for path in sorted(tle_root.rglob("*.py"))[:100]
+    ]
+    # Retry each original import separately to expose exceptions swallowed upstream.
+    for name in (
+        "triton.experimental.tle",
+        "triton.experimental.tle.language.dsa.ascend.custom_ops",
+    ):
+        try:
+            imported = importlib.import_module(name)
+            result["imports"][name] = dict(
+                status="passed", source=getattr(imported, "__file__", None)
+            )
+        except Exception:
+            result["imports"][name] = dict(
+                status="failed", error=traceback.format_exc()
+            )
+    try:
+        tle = importlib.import_module("triton.experimental.tle")
+        raw = tle.dsa.ascend.raw
+        result["raw_ops"] = {
+            name: hasattr(raw, name)
+            for name in ("sort_1d_pack", "unpack_sort", "gather_mask_custom_pattern")
+        }
+    except Exception:
+        result["raw_ops_error"] = traceback.format_exc()
+    print("TOPK_IMPORT_DIAGNOSTIC", json.dumps(result), flush=True)
+    return result
+
+
 @contextmanager
-def candidate():
+def candidate(diagnostics=None):
     import torch
     from qsa_prefill_production_910b import load_production
 
@@ -50,8 +92,19 @@ def candidate():
         timing="includes row-start allocation/fill and all internal prefill allocations/synchronization",
     )
     print("TOPK_CANDIDATE", identity, flush=True)
+    runtime = inspect_runtime()
+    if diagnostics is not None:
+        diagnostics.update(identity=identity, runtime=runtime)
     if not prefill._TLE_IMPORT_OK:
-        raise NotImplementedError("Ascend prefill TopK TLE custom ops unavailable")
+        failures = {
+            name: item["error"]
+            for name, item in runtime["imports"].items()
+            if item["status"] == "failed"
+        }
+        raise NotImplementedError(
+            "Ascend prefill TopK original import gate is false; import failures: "
+            + json.dumps(failures)
+        )
     original = topk.persistent_topk
 
     def select(
