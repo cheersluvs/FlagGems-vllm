@@ -25,6 +25,7 @@ from unittest.mock import patch
 def load_production():
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root / "src"))
+    import torch
     import triton
 
     import flaggems_vllm
@@ -56,6 +57,11 @@ def load_production():
         },
         import_mode="normal package imports and public backend dispatch",
         triton=dict(version=triton.__version__, source=triton.__file__),
+    )
+    identity["launch_policy"] = dict(
+        programs=module._score_programs(torch.npu.current_device()),
+        topk_block=module._QSA_TOPK_BLOCK,
+        topk_default_block=topk._BLOCK,
     )
     topk.probe_identity = dict(
         source=topk.__file__,

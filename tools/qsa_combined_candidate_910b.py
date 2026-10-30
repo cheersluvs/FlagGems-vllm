@@ -43,8 +43,14 @@ def original(module=None, topk=None):
 
     if module is None:
         _, module, topk, _ = load_production()
-    source = module._qsa_probe_original_score
-    with patch.object(module, "_score", source), patch.multiple(
+    source = getattr(module, "_qsa_probe_original_score", module._score)
+
+    @wraps(source)
+    def legacy_score(*args, **kwargs):
+        kwargs["programs"] = 8
+        return source(*args, **kwargs)
+
+    with patch.object(module, "_score", legacy_score), patch.multiple(
         topk, _G=40, _BLOCK=1024
-    ):
+    ), patch.object(module, "_QSA_TOPK_BLOCK", 1024, create=True):
         yield

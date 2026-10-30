@@ -162,7 +162,8 @@ def run(args, result):
         (first, min(chunk_rows, rows - first)) for first in range(0, rows, chunk_rows)
     ]
 
-    score_settings = dict(programs=8)
+    score_settings = dict(programs=None)
+    topk_settings = dict(block=module._QSA_TOPK_BLOCK)
 
     def score_into(first, count, target):
         return module._score(
@@ -250,6 +251,7 @@ def run(args, result):
                 workspace,
                 k=k,
                 max_seq_len=width,
+                **topk_settings,
             )
 
     def prepared_pipeline():
@@ -262,6 +264,7 @@ def run(args, result):
                 workspace,
                 k=k,
                 max_seq_len=width,
+                **topk_settings,
             )
 
     def public_total():
@@ -282,15 +285,19 @@ def run(args, result):
         native_adapter_total=adapter_total,
         request_mapping=owner_stage,
     )
-    if args.combined:
+    compare_original = args.combined or hasattr(module, "_QSA_TOPK_BLOCK")
+    if compare_original:
         from qsa_combined_candidate_910b import original
 
         functions["public_original_total"] = public_total
         with original(module, topk_module):
             public_total()
             verify(output)
-        result["candidate_overrides"] = dict(
-            programs=20, G=40, BLOCK=256, test_only=True
+        result["launch_policy"] = dict(
+            programs=module._score_programs(args.device),
+            G=40,
+            BLOCK=module._QSA_TOPK_BLOCK,
+            production=not args.combined,
         )
     result["selection_correctness"] = {}
     for name in ("topk", "prepared_pipeline", "public_total", "native_adapter_total"):
@@ -344,7 +351,7 @@ def run(args, result):
         return probe(args, result, locals())
 
     def timing_context(name):
-        if args.combined and name == "public_original_total":
+        if compare_original and name == "public_original_total":
             return original(module, topk_module)
         return nullcontext()
 
@@ -413,12 +420,16 @@ def run(args, result):
             / result["latency"][denominator][field]["median"]
             for field in ("event_us", "wall_us")
         }
-    if args.combined:
+    if compare_original:
         result["speedup"]["public_original_over_combined"] = {
             field: result["latency"]["public_original_total"][field]["median"]
             / result["latency"]["public_total"][field]["median"]
             for field in ("event_us", "wall_us")
         }
+    if compare_original and not args.combined:
+        result["speedup"]["public_original_over_production"] = result["speedup"][
+            "public_original_over_combined"
+        ]
     result["route_states"] = dict(
         segmerge=dict(topk_module._SEGMERGE_STATE),
         persistent=dict(topk_module._PSEGMERGE_STATE),

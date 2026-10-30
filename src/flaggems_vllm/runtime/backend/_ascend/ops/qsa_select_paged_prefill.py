@@ -15,12 +15,29 @@
 """BF16 paged QSA selection for Ascend with FP32 scores and group indices."""
 
 import os
+from functools import lru_cache
 
 import torch
 import triton
 import triton.language as tl
 
 from flaggems_vllm.runtime.backend._ascend.ops.persistent_topk import persistent_topk
+
+_QSA_TOPK_BLOCK = 256
+
+
+@lru_cache(maxsize=None)
+def _score_programs(device_index):
+    """Bound the validated launch by the device Cube count; retain a safe fallback."""
+    try:
+        props = triton.runtime.driver.active.utils.get_device_properties(device_index)
+        for key in ("cube_core_num", "aic_core_num", "num_aicore"):
+            count = props.get(key)
+            if type(count) is int and count > 0:
+                return min(20, count)
+    except (AttributeError, RuntimeError, TypeError):
+        pass
+    return 8
 
 
 @triton.jit
@@ -124,7 +141,7 @@ def _paged_score_910b(
 
 
 def _score(
-    q, cache, table, starts, visible, output, *, offset=0, programs=8, owners=None
+    q, cache, table, starts, visible, output, *, offset=0, programs=None, owners=None
 ):
     """Write unscaled FP32 scores; output rows select a chunk of packed Q."""
     if q.device.type != "npu" or q.dtype != torch.bfloat16 or cache.dtype != q.dtype:
@@ -136,7 +153,11 @@ def _score(
     if output.ndim != 2 or output.dtype != torch.float32:
         raise ValueError("Output must be FP32 [chunk_rows,width]")
     rows, width = output.shape
-    if offset < 0 or offset + rows > q.shape[0] or programs < 1:
+    if (
+        offset < 0
+        or offset + rows > q.shape[0]
+        or (programs is not None and programs < 1)
+    ):
         raise ValueError("Invalid chunk or program count")
     if table.ndim != 2 or starts.shape != (table.shape[0] + 1,):
         raise ValueError("Invalid request metadata shapes")
@@ -160,8 +181,13 @@ def _score(
     if owners is None:
         owners = _build_owners(q, table, starts)
     # Conservative 32x128 key and 128x16 query tiles keep buffers small.
-    # Keep the validated conservative launch policy until profiling is available.
+    # Use at most the validated 20-program launch, bounded by available Cube cores.
     block_n = 32
+    if programs is None:
+        index = q.device.index
+        if index is None:
+            index = torch.npu.current_device()
+        programs = _score_programs(index)
     grid = (min(programs, rows * triton.cdiv(width, block_n)),)
     _paged_score_910b[grid](
         q,
@@ -303,6 +329,7 @@ def qsa_select_paged_prefill(
                 workspace,
                 k=k,
                 max_seq_len=width,
+                block=_QSA_TOPK_BLOCK,
             )
 
 

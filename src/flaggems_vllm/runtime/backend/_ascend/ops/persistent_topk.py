@@ -1435,7 +1435,18 @@ def persistent_topk(
     workspace: torch.Tensor,
     k: int = 512,
     max_seq_len: int | None = None,
+    *,
+    block: int | None = None,
 ) -> None:
+    # The default preserves existing callers; QSA supplies its own tile size.
+    if block is None:
+        block = _BLOCK
+    if (
+        isinstance(block, bool)
+        or not isinstance(block, int)
+        or block not in (256, 512, 1024)
+    ):
+        raise ValueError("persistent_topk block must be 256, 512 or 1024")
     # --- metadata-only host: asserts, views, kernel launches ---
     assert logits.device.type == "npu", "persistent_topk: logits must be NPU tensor"
     assert lengths.device.type == "npu", "persistent_topk: lengths must be NPU tensor"
@@ -1458,7 +1469,7 @@ def persistent_topk(
 
     # trivial rows (effective length <= k): direct write, decided in-kernel
     _radix_hist_trivial_all[(num_rows,)](
-        seq_lens, output, stride, next_n, TOPK=k, BLOCK=_BLOCK
+        seq_lens, output, stride, next_n, TOPK=k, BLOCK=block
     )
 
     # --- route `segmerge`: segment sort + k-way merge, short rows ---
@@ -1568,8 +1579,8 @@ def persistent_topk(
         hist_slots = b * _HIST_SLOTS
 
         # step 1: hist (top-11 bits) -> threshold t1 / cumulative f1
-        _radix_hist_clear[((hist_slots + _BLOCK - 1) // _BLOCK,)](
-            hist_b, hist_slots, BLOCK=_BLOCK
+        _radix_hist_clear[((hist_slots + block - 1) // block,)](
+            hist_b, hist_slots, BLOCK=block
         )
         _radix_hist_hist[(b, G)](
             logits,
@@ -1587,15 +1598,15 @@ def persistent_topk(
             PREF_SHIFT=0,
             PREF_MASK=0,
             G=G,
-            BLOCK=_BLOCK,
+            BLOCK=block,
         )
         _radix_hist_threshold[(b,)](
-            hist_b, t1b, f1b, t1b, STEP=1, NUM_BINS=4096, TOPK=k, BLOCK=_BLOCK
+            hist_b, t1b, f1b, t1b, STEP=1, NUM_BINS=4096, TOPK=k, BLOCK=block
         )
 
         # step 2: hist (top11 == t1, next 11 bits) -> t2 / f2 (base = f1)
-        _radix_hist_clear[((hist_slots + _BLOCK - 1) // _BLOCK,)](
-            hist_b, hist_slots, BLOCK=_BLOCK
+        _radix_hist_clear[((hist_slots + block - 1) // block,)](
+            hist_b, hist_slots, BLOCK=block
         )
         _radix_hist_hist[(b, G)](
             logits,
@@ -1613,15 +1624,15 @@ def persistent_topk(
             PREF_SHIFT=21,
             PREF_MASK=0x7FF,
             G=G,
-            BLOCK=_BLOCK,
+            BLOCK=block,
         )
         _radix_hist_threshold[(b,)](
-            hist_b, t2b, f2b, f1b, STEP=2, NUM_BINS=4096, TOPK=k, BLOCK=_BLOCK
+            hist_b, t2b, f2b, f1b, STEP=2, NUM_BINS=4096, TOPK=k, BLOCK=block
         )
 
         # step 3: hist (top21 == p21, low 10 bits) -> t3 / f3 (base = f2)
-        _radix_hist_clear[((hist_slots + _BLOCK - 1) // _BLOCK,)](
-            hist_b, hist_slots, BLOCK=_BLOCK
+        _radix_hist_clear[((hist_slots + block - 1) // block,)](
+            hist_b, hist_slots, BLOCK=block
         )
         _radix_hist_hist[(b, G)](
             logits,
@@ -1639,17 +1650,17 @@ def persistent_topk(
             PREF_SHIFT=10,
             PREF_MASK=0x3FFFFF,
             G=G,
-            BLOCK=_BLOCK,
+            BLOCK=block,
         )
         _radix_hist_threshold[(b,)](
-            hist_b, t3b, f3b, f2b, STEP=3, NUM_BINS=2048, TOPK=k, BLOCK=_BLOCK
+            hist_b, t3b, f3b, f2b, STEP=3, NUM_BINS=2048, TOPK=k, BLOCK=block
         )
 
         # output: count (guaranteed/final) -> prefix -> two light writes
         _radix_hist_count[(b, G)](
-            logits, seq_lens, cnt_b, t1b, t2b, t3b, stride, next_n, k, BLOCK=_BLOCK, G=G
+            logits, seq_lens, cnt_b, t1b, t2b, t3b, stride, next_n, k, BLOCK=block, G=G
         )
-        _radix_hist_prefix[(b,)](cnt_b, base_b, found_b, G=G, BLOCK=_BLOCK)
+        _radix_hist_prefix[(b,)](cnt_b, base_b, found_b, G=G, BLOCK=block)
         _radix_hist_write_guar[(b, G)](
             logits,
             seq_lens,
@@ -1661,7 +1672,7 @@ def persistent_topk(
             stride,
             next_n,
             k,
-            BLOCK=_BLOCK,
+            BLOCK=block,
             G=G,
         )
         _radix_hist_write_final[(b, G)](
@@ -1676,6 +1687,6 @@ def persistent_topk(
             stride,
             next_n,
             k,
-            BLOCK=_BLOCK,
+            BLOCK=block,
             G=G,
         )

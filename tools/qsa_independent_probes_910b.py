@@ -78,6 +78,7 @@ def run(args, result, context):
         if args.probe_kind == "score":
             settings["programs"] = params["programs"]
             return nullcontext()
+        context["topk_settings"]["block"] = params["BLOCK"]
         return patch.multiple(topk_module, _G=params["G"], _BLOCK=params["BLOCK"])
 
     def check():
@@ -196,7 +197,8 @@ def run(args, result, context):
                 flush=True,
             )
     finally:
-        settings["programs"] = 8
+        settings["programs"] = None
+        context["topk_settings"]["block"] = context["module"]._QSA_TOPK_BLOCK
         if old_route is None:
             os.environ.pop("FLAGGEMS_ASCEND_PTK_PATH", None)
         else:
