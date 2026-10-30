@@ -6,7 +6,7 @@ set -euo pipefail
 qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 export QSA_PYTHON=${QSA_PYTHON:-/flagos/bin/python3}
 export QSA_UPLOAD_REPORT=${QSA_UPLOAD_REPORT:-1}
-export PYTHONPATH="$qsa_repo/src:/opt/flagtree${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$qsa_repo/src:${QSA_FLAGTREE_PYTHONPATH:-/opt/flagtree}${PYTHONPATH:+:$PYTHONPATH}"
 printf 'Candidate: repository Ascend top_k_per_row_prefill; score unchanged\n'
 bash "$qsa_repo/tools/run_qsa_lightning_910b.sh" \
     --suite production --prefill-topk --timeout 600 "$@"

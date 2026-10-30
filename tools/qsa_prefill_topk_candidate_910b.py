@@ -62,10 +62,18 @@ def inspect_runtime():
     try:
         tle = importlib.import_module("triton.experimental.tle")
         raw = tle.dsa.ascend.raw
-        result["raw_ops"] = {
-            name: hasattr(raw, name)
-            for name in ("sort_1d_pack", "unpack_sort", "gather_mask_custom_pattern")
+        result["raw_callable"] = callable(raw)
+        custom = importlib.import_module(
+            "triton.experimental.tle.language.dsa.ascend.custom_ops"
+        )
+        result["custom_op_exports"] = {
+            name: hasattr(custom, name)
+            for name in ("sort_1d_pack", "unpack_sort", "merge_exhaust_sort4")
         }
+        result["raw_registration_note"] = (
+            "raw is called with an op-name string; exports are import checks, "
+            "not proof that every raw op compiles"
+        )
     except Exception:
         result["raw_ops_error"] = traceback.format_exc()
     print("TOPK_IMPORT_DIAGNOSTIC", json.dumps(result), flush=True)
