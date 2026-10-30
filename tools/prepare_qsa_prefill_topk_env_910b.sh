@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 FlagOS Contributors
-# Execute with bash; installs into a new directory and leaves the base environment intact.
+# Execute with bash. CANN uses a separate prefix but updates container install records.
 set -eo pipefail
 qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 qsa_python=${QSA_PYTHON:-/flagos/bin/python3}
-qsa_root=$(mktemp -d /opt/qsa-topk-env.XXXXXXXX)
-exec > >(tee "$qsa_root/prepare.txt") 2>&1
+if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
+    qsa_root=$(realpath -- "$QSA_ENV_ROOT")
+    case "$qsa_root" in
+        /opt/qsa-topk-env.*) ;;
+        *) echo 'QSA_ENV_ROOT must identify an existing /opt/qsa-topk-env.* directory'; exit 1 ;;
+    esac
+    test -d "$qsa_root/downloads"
+else
+    qsa_root=$(mktemp -d /opt/qsa-topk-env.XXXXXXXX)
+fi
+exec > >(tee -a "$qsa_root/prepare.txt") 2>&1
+trap 'printf "Failed line=%s command=%s\n" "$LINENO" "$BASH_COMMAND"' ERR
 trap 'qsa_status=$?; if (( qsa_status )); then printf "Preparation exit=%s; retained directory: %s\n" "$qsa_status" "$qsa_root"; fi' EXIT
 printf 'Independent environment: %s\n' "$qsa_root"
 "$qsa_python" - <<'PY'
@@ -16,14 +26,20 @@ assert sys.version_info[:2] == (3, 11), sys.version
 assert platform.machine() == "aarch64", platform.machine()
 print("Base Python:", sys.executable, sys.version)
 PY
-for qsa_tool in wget sha256sum; do command -v "$qsa_tool"; done
+for qsa_tool in wget sha256sum; do
+    if ! command -v "$qsa_tool"; then
+        printf 'Missing tool: %s; install wget and coreutils before retrying.\n' "$qsa_tool"
+        exit 1
+    fi
+done
 mkdir -p "$qsa_root/downloads" "$qsa_root/cann" "$qsa_root/flagtree"
 qsa_base_url='https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%209.1.0'
 for qsa_package in toolkit 910b-ops; do
     qsa_installer="$qsa_root/downloads/Ascend-cann-${qsa_package}_9.1.0_linux-aarch64.run"
     wget -c --header='Referer: https://www.hiascend.com/' \
         "$qsa_base_url/$(basename "$qsa_installer")" -O "$qsa_installer"
-    bash "$qsa_installer" --install --install-path="$qsa_root/cann"
+    # --quiet skips stdin prompts and accepts the vendor EULA per installer docs.
+    bash "$qsa_installer" --quiet --install --install-path="$qsa_root/cann" </dev/null
     if [[ "$qsa_package" == toolkit ]]; then
         qsa_cann_env=''
         for qsa_path in "$qsa_root/cann/cann/set_env.sh" \
