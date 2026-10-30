@@ -1,0 +1,58 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-torch-stages.PFQfcY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/tmp/flaggems-qsa-torch-stages.PFQfcY/tools/benchmark_qsa_prefill_stages_910b.py:141: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  native_output = torch.empty_like(output)
+shape {"query": [16, 4, 128], "cache": [6, 192, 1, 128], "page_table": [1, 6], "request_query_lengths": [16], "visible_min": 1020, "visible_max": 1024, "logits_width": 1024, "page": 192, "group_topk": 512, "token_topk": 2048, "compress_ratio": 4, "dtype": "bfloat16", "chunks": [[0, 16]]}
+score_correctness {"max_abs_error": 1.1444091796875e-05, "valid_scores": 16348, "masked_scores": 36, "rtol": 0.001, "atol": 0.001}
+correctness {"topk": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "prepared_pipeline": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "public_total": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_adapter_total": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_fused": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}}
+SCORE_BASELINE unavailable {"PrivateUse1": false, "CPU": false}
+STAGE 1 ours_score {"wall_us": 247.5287765264511, "event_us": 201.22667153676352}
+STAGE 1 ours_topk {"wall_us": 1679.0001342693965, "event_us": 1643.3332761128743}
+STAGE 1 torch_topk_raw {"wall_us": 110.60076455275218, "event_us": 73.69333505630493}
+STAGE 1 torch_topk_abi {"wall_us": 215.88864425818124, "event_us": 170.52000761032104}
+STAGE 1 ours_prepared {"wall_us": 1821.1789429187775, "event_us": 1785.099983215332}
+STAGE 2 ours_prepared {"wall_us": 1828.8139253854752, "event_us": 1792.2399838765461}
+STAGE 2 torch_topk_abi {"wall_us": 197.3118633031845, "event_us": 161.02000077565512}
+STAGE 2 torch_topk_raw {"wall_us": 108.86788368225098, "event_us": 65.47333300113678}
+STAGE 2 ours_topk {"wall_us": 1687.7837479114532, "event_us": 1648.8466262817383}
+STAGE 2 ours_score {"wall_us": 222.48861690362295, "event_us": 188.76000245412192}
+[2026-10-30 14:33:57] [WARNING] [2748956] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-30 14:33:57] [WARNING] [2748956] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-30 14:33:57] [WARNING] [2748956] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-30 14:33:58] [INFO] [2764341] profiler.py: Start parsing profiling data in sync mode at: /workspace/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_2748956_20261030143357671_ascend_pt
+|/-[2026-10-30 14:34:00] [INFO] [2764357] profiler.py: CANN profiling data parsed in a total time of 0:00:02.042334
+[2026-10-30 14:34:01] [INFO] [2764341] profiler.py: All profiling data parsed in a total time of 0:00:02.761063
+TIMELINE ours_score: tasks=3 sum=240.904 us union=240.904 us envelope=611.832 us uncovered=370.928 us
+[2026-10-30 14:34:01] [WARNING] [2748956] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-30 14:34:01] [WARNING] [2748956] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-30 14:34:01] [WARNING] [2748956] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-30 14:34:02] [INFO] [2764815] profiler.py: Start parsing profiling data in sync mode at: /workspace/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_2748956_20261030143401400_ascend_pt
+|/-[2026-10-30 14:34:04] [INFO] [2764829] profiler.py: CANN profiling data parsed in a total time of 0:00:02.043397
+[2026-10-30 14:34:04] [INFO] [2764815] profiler.py: All profiling data parsed in a total time of 0:00:02.711489
+TIMELINE ours_topk: tasks=42 sum=4543.770 us union=4543.770 us envelope=4999.238 us uncovered=455.468 us
+[2026-10-30 14:34:05] [WARNING] [2748956] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-30 14:34:05] [WARNING] [2748956] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-30 14:34:05] [WARNING] [2748956] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-30 14:34:05] [INFO] [2765257] profiler.py: Start parsing profiling data in sync mode at: /workspace/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_2748956_20261030143405099_ascend_pt
+|/-[2026-10-30 14:34:07] [INFO] [2765269] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041340
+[2026-10-30 14:34:08] [INFO] [2765257] profiler.py: All profiling data parsed in a total time of 0:00:02.720794
+TIMELINE torch_topk_abi: tasks=12 sum=48.122 us union=48.122 us envelope=612.534 us uncovered=564.412 us
+[2026-10-30 14:34:08] [WARNING] [2748956] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-30 14:34:08] [WARNING] [2748956] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-30 14:34:08] [WARNING] [2748956] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-30 14:34:09] [INFO] [2765734] profiler.py: Start parsing profiling data in sync mode at: /workspace/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_2748956_20261030143408812_ascend_pt
+|/-[2026-10-30 14:34:11] [INFO] [2765755] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041343
+[2026-10-30 14:34:12] [INFO] [2765734] profiler.py: All profiling data parsed in a total time of 0:00:02.731551
+TIMELINE ours_prepared: tasks=45 sum=4811.256 us union=4811.256 us envelope=5574.632 us uncovered=763.376 us
+RATIO topk_abi: {"device": 0.010590764937485835, "event_us": 0.1007053132621416, "wall_us": 0.12272855105083644}
+DEVICE ours_score: 80.301 us/call
+DEVICE ours_topk: 1514.590 us/call
+DEVICE torch_topk_abi: 16.041 us/call
+DEVICE ours_prepared: 1603.752 us/call
+LIMITED: TopK comparison completed; score and composed baseline unavailable, ratios omitted
