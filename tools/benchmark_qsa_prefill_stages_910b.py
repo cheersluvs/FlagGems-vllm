@@ -321,6 +321,16 @@ def run(args, result):
         for _ in range(args.warmup):
             fn()
         torch.npu.synchronize()
+    if getattr(args, "timeline", False):
+        from qsa_timeline_910b import collect
+
+        result["timing_policy"]["capture_only"] = True
+        collect(args, functions, torch, result)
+        public_total()
+        verify(output)
+        result["npu_smi_after"] = device_inventory()
+        result["status"] = "passed"
+        return 0
     for round_index in range(args.rounds):
         order = list(functions)
         if round_index % 2:

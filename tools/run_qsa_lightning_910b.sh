@@ -21,7 +21,7 @@ if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     git -C "$qsa_repo" worktree add -b "$qsa_branch" "$qsa_tree" "$qsa_commit" || exit 1
     qsa_dest="results/qsa_select_paged_prefill/ascend910b/lightning-$qsa_stamp"
     mkdir -p "$qsa_tree/$qsa_dest" || exit 1
-    find "$qsa_report" -maxdepth 1 -type f \( -name '*.json' -o -name '*.txt' \) \
+    find "$qsa_report" -maxdepth 1 -type f \( -name '*.json' -o -name '*.txt' -o -name '*.json.gz' \) \
         -exec cp -- {} "$qsa_tree/$qsa_dest/" \;
     git -C "$qsa_tree" add -- "$qsa_dest" || exit 1
     git -C "$qsa_tree" -c user.name="QSA GPU reports" \

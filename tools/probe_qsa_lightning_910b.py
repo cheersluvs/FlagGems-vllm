@@ -263,7 +263,7 @@ def worker(args):
             else:
                 from qsa_prefill_pipeline_910b_trial import load_topk
             result["existing_topk"] = load_topk().probe_identity
-        if args.suite == "benchmark" and args.worker == "environment":
+        if args.suite in ("benchmark", "timeline") and args.worker == "environment":
             from benchmark_qsa_prefill_stages_910b import profiler_inventory
             from qsa_prefill_production_910b import load_production
 
@@ -284,7 +284,7 @@ def worker(args):
             from diagnose_qsa_topk_import_910b import run
 
             return run(args, result)
-        if args.suite == "benchmark":
+        if args.suite in ("benchmark", "timeline"):
             from benchmark_qsa_prefill_stages_910b import run
 
             return run(args, result)
@@ -706,6 +706,7 @@ def main():
             "production",
             "topk-diagnostic",
             "benchmark",
+            "timeline",
         ),
         default="native",
     )
@@ -728,14 +729,17 @@ def main():
     )
     parser.add_argument("--output")
     args = parser.parse_args()
+    args.timeline = args.suite == "timeline"
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
         parser.error("Timing counts must be positive")
     if args.device < 0 or args.timeout <= 0:
         parser.error("Invalid device or timeout")
-    if args.suite == "benchmark":
+    if args.suite in ("benchmark", "timeline"):
         from benchmark_qsa_prefill_stages_910b import CASES as benchmark_cases
 
         CASES = benchmark_cases
+        if args.timeline:
+            CASES = {k: v for k, v in CASES.items() if not k.startswith("medium")}
     elif args.suite == "topk-diagnostic":
         from diagnose_qsa_topk_import_910b import CASES as diagnostic_cases
 
@@ -851,7 +855,7 @@ def main():
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
             )
         }
-    if args.suite == "benchmark":
+    if args.suite in ("benchmark", "timeline"):
         root = Path(__file__).resolve().parents[1]
         summary["scope"] = (
             "Three BF16 diagnostic shapes: stage timing and public/native comparisons, not kernel-mode acceptance"
@@ -860,12 +864,17 @@ def main():
             name: hashlib.sha256((root / name).read_bytes()).hexdigest()
             for name in (
                 "tools/benchmark_qsa_prefill_stages_910b.py",
+                "tools/qsa_timeline_910b.py",
                 "tools/qsa_prefill_production_910b.py",
                 "tools/qsa_lightning_baseline_910b.py",
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
             )
         }
+    if args.timeline:
+        summary["scope"] = (
+            "Short/long CPU+NPU timeline capture; hardware traces with profiling overhead, not speedup acceptance"
+        )
     for name in ("environment", *CASES):
         output = report / f"{name}.json"
         with (report / f"{name}.txt").open("w") as log:
