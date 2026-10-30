@@ -10,6 +10,16 @@ if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     test -f "$qsa_env_root/activate.sh" || exit 1
     source "$qsa_env_root/activate.sh" || exit 1
     unset BASH_ENV ENV
+    if [[ -n "${QSA_OPP_PATH:-}" ]]; then
+        qsa_opp_path=$(realpath -- "$QSA_OPP_PATH") || exit 1
+        test -d "$qsa_opp_path" || exit 1
+        if [[ "$qsa_opp_path" == *.* ]]; then
+            echo 'QSA_OPP_PATH must resolve to a directory without dots for the CANN workaround'
+            exit 1
+        fi
+        export ASCEND_OPP_PATH="$qsa_opp_path"
+        printf 'Pinned OPP directory: %s\n' "$ASCEND_OPP_PATH"
+    fi
     export PYTHONPATH="$qsa_repo/src:$qsa_env_root/python-deps:$qsa_env_root/flagtree${PYTHONPATH:+:$PYTHONPATH}"
     printf 'Pinned runtime environment: %s\n' "$qsa_env_root"
 fi
