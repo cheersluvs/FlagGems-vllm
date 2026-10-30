@@ -1,0 +1,170 @@
+{
+  "status": "failed",
+  "case": "long32_g25600",
+  "python": "/flagos/bin/python3",
+  "cache_directory": "/tmp/qsa-ascend910b-lightning.sjCCM5vv/.triton-cache/shared",
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "npu_smi_before": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.6        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4069 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 97.9        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3784 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.9        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.8        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.0       38                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.2        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.1        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 93.7        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 1309175       | python3                  | 105                     |\n+===========================+===============+====================================================+\n| 1       0                 | 1280126       | python                   | 396                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  },
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+      "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/flagtree/triton/__init__.py"
+    }
+  },
+  "score_correctness": {
+    "max_abs_error": 2.288818359375e-05,
+    "valid_scores": 819128,
+    "masked_scores": 72,
+    "rtol": 0.001,
+    "atol": 0.001
+  },
+  "selection_correctness": {
+    "topk": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "prepared_pipeline": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "public_total": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_adapter_total": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_fused": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    }
+  },
+  "shape": {
+    "query": [
+      32,
+      4,
+      128
+    ],
+    "cache": [
+      268,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      2,
+      134
+    ],
+    "request_query_lengths": [
+      16,
+      16
+    ],
+    "visible_min": 25596,
+    "visible_max": 25600,
+    "logits_width": 25600,
+    "page": 192,
+    "group_topk": 512,
+    "token_topk": 2048,
+    "compress_ratio": 4,
+    "dtype": "bfloat16",
+    "chunks": [
+      [
+        0,
+        16
+      ],
+      [
+        16,
+        16
+      ]
+    ]
+  },
+  "timing_policy": {
+    "rounds": 2,
+    "warmup": 1,
+    "iterations": 3,
+    "units": "microseconds per invocation",
+    "order": "alternating forward/reverse each round",
+    "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+    "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+    "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+    "public_scope": "unchanged public API, includes request mapping and allocations",
+    "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+    "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+    "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+    "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+  },
+  "samples": {
+    "score": [],
+    "topk": [],
+    "prepared_pipeline": [],
+    "native_fused": [],
+    "public_total": [],
+    "native_adapter_total": [],
+    "request_mapping": []
+  },
+  "probe": {
+    "kind": "topk",
+    "variants": {
+      "topk_g40_b1024": {
+        "parameters": {
+          "G": 40,
+          "BLOCK": 1024
+        },
+        "status": "validated",
+        "samples": [],
+        "correctness": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        }
+      },
+      "topk_g8_b1024": {
+        "parameters": {
+          "G": 8,
+          "BLOCK": 1024
+        },
+        "status": "preflight",
+        "samples": []
+      }
+    },
+    "production_source_modified": false,
+    "rounds": 2,
+    "histogram_route": "radix",
+    "profiler_iterations": 3
+  },
+  "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-910b-probes.67MHNS/tools/probe_qsa_lightning_910b.py\", line 293, in worker\n    return run(args, result)\n           ^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-910b-probes.67MHNS/tools/benchmark_qsa_prefill_stages_910b.py\", line 333, in run\n    return probe(args, result, locals())\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-910b-probes.67MHNS/tools/qsa_independent_probes_910b.py\", line 118, in run\n    entry[\"correctness\"] = check()\n                           ^^^^^^^\n  File \"/tmp/flaggems-qsa-910b-probes.67MHNS/tools/qsa_independent_probes_910b.py\", line 109, in check\n    return context[\"verify\"](context[\"output\"])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-910b-probes.67MHNS/tools/benchmark_qsa_prefill_stages_910b.py\", line 207, in verify\n    assert (\n           ^\nAssertionError\n"
+}

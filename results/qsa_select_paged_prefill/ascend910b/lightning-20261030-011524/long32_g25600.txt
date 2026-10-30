@@ -1,0 +1,31 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-910b-probes.67MHNS/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/tmp/flaggems-qsa-910b-probes.67MHNS/tools/benchmark_qsa_prefill_stages_910b.py:140: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  native_output = torch.empty_like(output)
+shape {"query": [32, 4, 128], "cache": [268, 192, 1, 128], "page_table": [2, 134], "request_query_lengths": [16, 16], "visible_min": 25596, "visible_max": 25600, "logits_width": 25600, "page": 192, "group_topk": 512, "token_topk": 2048, "compress_ratio": 4, "dtype": "bfloat16", "chunks": [[0, 16], [16, 16]]}
+score_correctness {"max_abs_error": 2.288818359375e-05, "valid_scores": 819128, "masked_scores": 72, "rtol": 0.001, "atol": 0.001}
+correctness {"topk": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "prepared_pipeline": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "public_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_adapter_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_fused": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}}
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-910b-probes.67MHNS/tools/probe_qsa_lightning_910b.py", line 293, in worker
+    return run(args, result)
+           ^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-910b-probes.67MHNS/tools/benchmark_qsa_prefill_stages_910b.py", line 333, in run
+    return probe(args, result, locals())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-910b-probes.67MHNS/tools/qsa_independent_probes_910b.py", line 118, in run
+    entry["correctness"] = check()
+                           ^^^^^^^
+  File "/tmp/flaggems-qsa-910b-probes.67MHNS/tools/qsa_independent_probes_910b.py", line 109, in check
+    return context["verify"](context["output"])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-910b-probes.67MHNS/tools/benchmark_qsa_prefill_stages_910b.py", line 207, in verify
+    assert (
+           ^
+AssertionError
+
