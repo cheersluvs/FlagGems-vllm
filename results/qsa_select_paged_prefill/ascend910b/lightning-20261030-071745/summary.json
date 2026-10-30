@@ -1,0 +1,54 @@
+{
+  "status": "environment_unavailable",
+  "packages": {
+    "torch": "2.10.0+cpu",
+    "torch-npu": "2.10.0",
+    "triton": null,
+    "triton-ascend": null,
+    "flagtree": "0.6.1+ascend3.5",
+    "vllm": "0.24.0+flagos",
+    "vllm-ascend": null
+  },
+  "cases": [
+    {
+      "status": "failed",
+      "case": "environment",
+      "python": "/flagos/bin/python3",
+      "cache_directory": null,
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-prefill-topk.jpk7wRpL/tools/probe_qsa_lightning_910b.py\", line 220, in worker\n    result[\"topk_candidate\"] = overrides.enter_context(candidate())\n                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/contextlib.py\", line 517, in enter_context\n    result = _enter(cm)\n             ^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/contextlib.py\", line 137, in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-prefill-topk.jpk7wRpL/tools/qsa_prefill_topk_candidate_910b.py\", line 54, in candidate\n    raise NotImplementedError(\"Ascend prefill TopK TLE custom ops unavailable\")\nNotImplementedError: Ascend prefill TopK TLE custom ops unavailable\n",
+      "exit_code": 2
+    }
+  ],
+  "suite": "production",
+  "combined_candidate": false,
+  "prefill_topk_candidate": true,
+  "fresh_cache": false,
+  "scope": "normal public Ascend entry correctness; no performance claim; TEST-ONLY prefill TopK replacement; production source frozen",
+  "cann_version_files": {
+    "/usr/local/Ascend/driver/version.info": "Version=25.2.0\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C21SPC008B208\ncompatible_version=[V100R001C17],[V100R001C18],[V100R001C19],[V100R001C20],[V100R001C21]\ncompatible_version_fw=[7.0.0,7.7.99]\npackage_version=25.2.0\n"
+  },
+  "script_sha256": "5a26429f0961cdc27c102fd3bad427f4996e281e8d5d567586a8ba5f962526cd",
+  "source_hashes": {
+    "src/flaggems_vllm/__init__.py": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/__init__.py": "b686af1571e377f59478eaccad4c7f9329602f11f5c9be2f7bd76ddabd7ffe75",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "tools/qsa_prefill_production_910b.py": "8fcd24f7c3c2a467b0811e144f5f79b2a3a95787425a3c9072ec90c1dc4e2eee",
+    "tools/qsa_lightning_baseline_910b.py": "db2c7ddd7cf4eaaa40336ff2e49726ac49d0aaa590162cf494aaedde2e59bbcc",
+    "tools/qsa_combined_candidate_910b.py": "e07553877e6dc0c5280ca33300927ab9916e44786bd92fe3134c688fb44328b1"
+  },
+  "topk_candidate_sources": {
+    "tools/qsa_prefill_topk_candidate_910b.py": "691ac263dad8dddcc49c24445dfafc5115c9b00acff9c87075e697ae12fa32ed",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8"
+  }
+}
