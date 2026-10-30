@@ -214,6 +214,10 @@ def worker(args):
         if not torch.npu.is_available():
             raise RuntimeError("torch.npu.is_available() is false")
         torch.npu.set_device(args.device)
+        if args.prefill_topk:
+            from qsa_prefill_topk_candidate_910b import candidate
+
+            result["topk_candidate"] = overrides.enter_context(candidate())
         if args.combined:
             from qsa_combined_candidate_910b import combined
 
@@ -495,7 +499,11 @@ def worker(args):
                         else "score_plus_existing_topk"
                     ),
                     existing_topk=topk_module.probe_identity,
-                    route_mode=os.environ["FLAGGEMS_ASCEND_PTK_PATH"],
+                    route_mode=(
+                        "prefill_topk_candidate"
+                        if args.prefill_topk
+                        else os.environ["FLAGGEMS_ASCEND_PTK_PATH"]
+                    ),
                     segmerge_state=dict(topk_module._SEGMERGE_STATE),
                     persistent_segmerge_state=dict(topk_module._PSEGMERGE_STATE),
                     chunks=trace,
@@ -713,6 +721,11 @@ def main():
         action="store_true",
         help="Test-only score20 and G40/BLOCK256 public-entry candidate",
     )
+    parser.add_argument(
+        "--prefill-topk",
+        action="store_true",
+        help="Test-only replacement with repository Ascend top_k_per_row_prefill",
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -759,6 +772,10 @@ def main():
     args = parser.parse_args()
     if args.combined and args.suite not in ("production", "benchmark"):
         parser.error("--combined is supported only for production and benchmark suites")
+    if args.prefill_topk and (
+        args.combined or args.suite not in ("production", "benchmark")
+    ):
+        parser.error("--prefill-topk requires production/benchmark without --combined")
     args.timeline = args.suite == "timeline"
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
@@ -801,6 +818,7 @@ def main():
         cases=[],
         suite=args.suite,
         combined_candidate=args.combined,
+        prefill_topk_candidate=args.prefill_topk,
         fresh_cache=args.fresh_cache or args.suite == "topk-diagnostic",
         scope="native BF16 baseline probe; no performance claim",
     )
@@ -932,6 +950,18 @@ def main():
         summary["scope"] = (
             "Independent test-only " + args.probe_kind + " probe; production frozen"
         )
+    if args.prefill_topk:
+        root = Path(__file__).resolve().parents[1]
+        summary["topk_candidate_sources"] = {
+            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            for name in (
+                "tools/qsa_prefill_topk_candidate_910b.py",
+                "src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py",
+            )
+        }
+        summary[
+            "scope"
+        ] += "; TEST-ONLY prefill TopK replacement; production source frozen"
     for name in ("environment", *CASES):
         output = report / f"{name}.json"
         with (report / f"{name}.txt").open("w") as log:
@@ -952,6 +982,7 @@ def main():
                         str(output),
                         *(["--fresh-cache"] if args.fresh_cache else []),
                         *(["--combined"] if args.combined else []),
+                        *(["--prefill-topk"] if args.prefill_topk else []),
                         "--rounds",
                         str(args.rounds),
                         "--warmup",

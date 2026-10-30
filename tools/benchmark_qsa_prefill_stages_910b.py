@@ -285,7 +285,26 @@ def run(args, result):
         native_adapter_total=adapter_total,
         request_mapping=owner_stage,
     )
-    compare_original = args.combined or hasattr(module, "_QSA_TOPK_BLOCK")
+    prefill_candidate = getattr(args, "prefill_topk", False)
+    compare_original = not prefill_candidate and (
+        args.combined or hasattr(module, "_QSA_TOPK_BLOCK")
+    )
+    if prefill_candidate:
+        from qsa_prefill_topk_candidate_910b import persistent_control
+
+        functions.update(
+            persistent_topk=topk_stage,
+            persistent_prepared_pipeline=prepared_pipeline,
+            persistent_public_total=public_total,
+        )
+        with persistent_control(module, topk_module):
+            for name in (
+                "persistent_topk",
+                "persistent_prepared_pipeline",
+                "persistent_public_total",
+            ):
+                functions[name]()
+                verify(output)
     if compare_original:
         from qsa_combined_candidate_910b import original
 
@@ -332,7 +351,10 @@ def run(args, result):
         event_scope="stream elapsed including possible host launch gaps; not sum of kernel durations",
         wall_scope="synchronized wall time including event instrumentation, amortized over iterations",
         prepared_scope="prebuilt metadata and reusable workspaces; direct score+TopK timing",
-        public_scope="unchanged public API, includes request mapping and allocations",
+        public_scope=(
+            "public API includes request mapping and allocations; "
+            "prefill candidate enabled only if explicitly recorded"
+        ),
         native_scope="fused kernel with prebuilt row table and weights; no separate score/TopK latency",
         adapter_scope="unchanged native adapter includes metadata construction and output normalization",
         stage_note=(
@@ -355,6 +377,8 @@ def run(args, result):
         return probe(args, result, locals())
 
     def timing_context(name):
+        if prefill_candidate and name.startswith("persistent_"):
+            return persistent_control(module, topk_module)
         if compare_original and name == "public_original_total":
             return original(module, topk_module)
         return nullcontext()
@@ -391,6 +415,9 @@ def run(args, result):
                 "prepared_pipeline",
                 "public_total",
                 "public_original_total",
+                "persistent_topk",
+                "persistent_prepared_pipeline",
+                "persistent_public_total",
             ):
                 verify(output)
             elif name == "native_adapter_total":
@@ -424,6 +451,13 @@ def run(args, result):
             / result["latency"][denominator][field]["median"]
             for field in ("event_us", "wall_us")
         }
+    if prefill_candidate:
+        for stage in ("topk", "prepared_pipeline", "public_total"):
+            result["speedup"]["persistent_over_prefill_" + stage] = {
+                field: result["latency"]["persistent_" + stage][field]["median"]
+                / result["latency"][stage][field]["median"]
+                for field in ("event_us", "wall_us")
+            }
     if compare_original:
         result["speedup"]["public_original_over_combined"] = {
             field: result["latency"]["public_original_total"][field]["median"]

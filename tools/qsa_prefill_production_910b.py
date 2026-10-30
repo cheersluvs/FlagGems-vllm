@@ -63,6 +63,8 @@ def load_production():
         topk_block=module._QSA_TOPK_BLOCK,
         topk_default_block=topk._BLOCK,
     )
+    if hasattr(module, "_qsa_prefill_topk_identity"):
+        identity["topk_candidate"] = module._qsa_prefill_topk_identity
     topk.probe_identity = dict(
         source=topk.__file__,
         sha256=identity["hashes"]["topk"],
