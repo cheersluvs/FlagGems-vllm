@@ -110,16 +110,56 @@ def run(args, result, context):
 
     try:
         # Compile and validate every candidate before any timed round.
+        accepted = []
         for name, params in candidates:
             entry = dict(parameters=params, status="preflight", samples=[])
             variants[name] = entry
-            with configure(params):
-                function()
-                entry["correctness"] = check()
-                for _ in range(args.warmup):
+            try:
+                with configure(params):
+                    if args.probe_kind == "topk":
+                        context["output"].fill_(-123456)
                     function()
-                torch.npu.synchronize()
+                    entry["correctness"] = check()
+                    for _ in range(args.warmup):
+                        function()
+                    torch.npu.synchronize()
+            except AssertionError:
+                if args.probe_kind != "topk" or name == candidates[0][0]:
+                    raise
+                data = context["output"].cpu()
+                lengths = context["visible_cpu"].tolist()
+                entry["status"] = "rejected_correctness"
+                entry["output_diagnostics"] = []
+                for row, length in enumerate(lengths):
+                    values = data[row]
+                    valid = values[(values >= 0) & (values < length)]
+                    entry["output_diagnostics"].append(
+                        dict(
+                            row=row,
+                            visible=length,
+                            valid_count=valid.numel(),
+                            unique_count=valid.unique().numel(),
+                            below_minus_one=int((values < -1).sum()),
+                            sentinel_count=int((values == -123456).sum()),
+                            above_visible=int((values >= length).sum()),
+                            prefix=values[:32].tolist(),
+                        )
+                    )
+                print(
+                    "REJECTED",
+                    name,
+                    json.dumps(entry["output_diagnostics"]),
+                    flush=True,
+                )
+                continue
             entry["status"] = "validated"
+            accepted.append((name, params))
+        result["probe"]["rejected_candidates"] = [
+            name
+            for name, value in variants.items()
+            if value["status"] == "rejected_correctness"
+        ]
+        candidates = accepted
         for round_index in range(args.rounds):
             order = candidates if round_index % 2 == 0 else list(reversed(candidates))
             for name, params in order:
@@ -144,7 +184,8 @@ def run(args, result, context):
             )
             entry["status"] = "passed"
         baseline = variants[candidates[0][0]]
-        for name, entry in variants.items():
+        for name, _ in candidates:
+            entry = variants[name]
             entry["device_speedup_vs_baseline"] = (
                 baseline["device_task_us_per_call"] / entry["device_task_us_per_call"]
             )
