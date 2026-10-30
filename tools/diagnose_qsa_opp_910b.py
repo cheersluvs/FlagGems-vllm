@@ -14,6 +14,7 @@
 
 """Collect OPP package and loaded-library evidence for native QSA failures."""
 
+import hashlib
 import json
 import os
 import traceback
@@ -37,8 +38,14 @@ def inventory(root):
             )
             if path.is_file():
                 item["bytes"] = path.stat().st_size
-                if path.suffix == ".json" and len(result["matches"]) < 30:
-                    item["json_prefix"] = path.read_text(errors="replace")[:6000]
+                exact_op = (
+                    "/lightning_indexer/" in str(path)
+                    or name == "lightning_indexer.json"
+                )
+                if exact_op and path.suffix in (".json", ".o"):
+                    item["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+                if path.suffix == ".json" and (exact_op or len(result["matches"]) < 30):
+                    item["json_prefix"] = path.read_text(errors="replace")[:20000]
             result["matches"].append(item)
             if len(result["matches"]) >= 1000:
                 result["truncated"] = True
@@ -115,3 +122,29 @@ def run(args, result):
     print("LOADED_LIBRARIES", json.dumps(result["loaded_libraries_after"]), flush=True)
     result["status"] = "passed"
     return 0
+
+
+def collect_file_trace(raw, target):
+    """Keep relevant file accesses in the upload; retain the full trace locally."""
+    raw, target = Path(raw), Path(target)
+    count, kept = 0, 0
+    with target.open("w") as output:
+        if not raw.is_file():
+            output.write("strace did not produce a trace file; inspect worker stderr\n")
+            return dict(status="missing", raw=str(raw))
+        with raw.open(errors="replace") as source:
+            for line in source:
+                count += 1
+                text = line.lower()
+                if "lightning" in text or ("opp/" in text and "enoent" in text):
+                    if kept < 3000:
+                        output.write(line)
+                    kept += 1
+    return dict(
+        status="collected",
+        total_lines=count,
+        relevant_lines=kept,
+        uploaded_lines=min(kept, 3000),
+        raw=str(raw),
+        filtered=str(target),
+    )

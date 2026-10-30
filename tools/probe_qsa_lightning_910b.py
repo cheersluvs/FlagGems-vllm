@@ -20,6 +20,7 @@ import importlib.metadata
 import json
 import math
 import os
+import shutil
 import subprocess
 import sys
 import traceback
@@ -1007,31 +1008,56 @@ def main():
         output = report / f"{name}.json"
         with (report / f"{name}.txt").open("w") as log:
             try:
+                command = [
+                    sys.executable,
+                    str(Path(__file__).resolve()),
+                    "--report",
+                    str(report),
+                    "--device",
+                    str(args.device),
+                    "--worker",
+                    name,
+                    "--suite",
+                    args.suite,
+                    "--output",
+                    str(output),
+                    *(["--fresh-cache"] if args.fresh_cache else []),
+                    *(["--combined"] if args.combined else []),
+                    *(["--prefill-topk"] if args.prefill_topk else []),
+                    *(["--environment-only"] if args.environment_only else []),
+                    "--rounds",
+                    str(args.rounds),
+                    "--warmup",
+                    str(args.warmup),
+                    "--iterations",
+                    str(args.iterations),
+                ]
+                trace_raw = None
+                if (
+                    args.suite == "opp-diagnostic"
+                    and name != "environment"
+                    and os.environ.get("QSA_OPP_TRACE") == "1"
+                ):
+                    trace_raw = report / f".{name}-files.raw"
+                    tracer = shutil.which("strace")
+                    if tracer is None:
+                        raise RuntimeError(
+                            "QSA_OPP_TRACE=1 requires strace; install it before retrying"
+                        )
+                    command = [
+                        tracer,
+                        "-f",
+                        "-qq",
+                        "-s",
+                        "1024",
+                        "-e",
+                        "trace=%file",
+                        "-o",
+                        str(trace_raw),
+                        *command,
+                    ]
                 proc = subprocess.run(
-                    [
-                        sys.executable,
-                        str(Path(__file__).resolve()),
-                        "--report",
-                        str(report),
-                        "--device",
-                        str(args.device),
-                        "--worker",
-                        name,
-                        "--suite",
-                        args.suite,
-                        "--output",
-                        str(output),
-                        *(["--fresh-cache"] if args.fresh_cache else []),
-                        *(["--combined"] if args.combined else []),
-                        *(["--prefill-topk"] if args.prefill_topk else []),
-                        *(["--environment-only"] if args.environment_only else []),
-                        "--rounds",
-                        str(args.rounds),
-                        "--warmup",
-                        str(args.warmup),
-                        "--iterations",
-                        str(args.iterations),
-                    ],
+                    command,
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     timeout=args.timeout,
@@ -1039,11 +1065,26 @@ def main():
                 code = proc.returncode
             except subprocess.TimeoutExpired:
                 code = 124
+            except (OSError, RuntimeError) as exc:
+                log.write(f"Launch failed: {exc}\n")
+                code = 127
         try:
             value = json.loads(output.read_text())
         except (OSError, json.JSONDecodeError):
             value = dict(status="failed", error="worker exited without complete JSON")
         value["exit_code"] = code
+        if (
+            args.suite == "opp-diagnostic"
+            and name != "environment"
+            and os.environ.get("QSA_OPP_TRACE") == "1"
+        ):
+            from diagnose_qsa_opp_910b import collect_file_trace
+
+            value["file_trace"] = collect_file_trace(
+                report / f".{name}-files.raw", report / f"{name}-file-access.txt"
+            )
+            write(output, value)
+            print("FILE_TRACE", json.dumps(value["file_trace"]), flush=True)
         summary["cases"].append(value)
         if args.suite == "torch-stages":
             summary["comparison_complete"] = all(
