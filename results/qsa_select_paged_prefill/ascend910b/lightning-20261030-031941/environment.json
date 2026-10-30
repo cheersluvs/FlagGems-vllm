@@ -1,0 +1,59 @@
+{
+  "status": "passed",
+  "case": "environment",
+  "python": "/flagos/bin/python3",
+  "cache_directory": "/tmp/qsa-ascend910b-lightning.sgATXsyj/.triton-cache/shared",
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-910b-production.4wIm1y/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-910b-production.4wIm1y/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-910b-production.4wIm1y/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+      "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/flagtree/triton/__init__.py"
+    },
+    "launch_policy": {
+      "programs": 20,
+      "topk_block": 256,
+      "topk_default_block": 1024
+    }
+  },
+  "contract_rejections": [
+    "ratio_zero",
+    "topk_bool",
+    "topk_not_divisible",
+    "unsupported_k",
+    "negative_max_len",
+    "fp16",
+    "dimension64",
+    "output_int64"
+  ],
+  "existing_topk": {
+    "source": "/tmp/flaggems-qsa-910b-production.4wIm1y/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "has_tle": true,
+    "loader": "normal package import"
+  }
+}
