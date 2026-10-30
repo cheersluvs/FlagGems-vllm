@@ -193,6 +193,18 @@ def score_trial(
 def worker(args):
     overrides = ExitStack()
     result = dict(status="failed", case=args.worker, python=sys.executable)
+    result["launch_environment"] = {
+        key: os.environ.get(key)
+        for key in (
+            "QSA_ENV_ROOT",
+            "QSA_FLAGTREE_PYTHONPATH",
+            "PYTHONPATH",
+            "ASCEND_HOME_PATH",
+            "ASCEND_OPP_PATH",
+            "LD_LIBRARY_PATH",
+            "BASH_ENV",
+        )
+    }
     try:
         os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
         if args.suite == "topk-diagnostic" or args.fresh_cache:
@@ -998,6 +1010,7 @@ def main():
                         *(["--fresh-cache"] if args.fresh_cache else []),
                         *(["--combined"] if args.combined else []),
                         *(["--prefill-topk"] if args.prefill_topk else []),
+                        *(["--environment-only"] if args.environment_only else []),
                         "--rounds",
                         str(args.rounds),
                         "--warmup",

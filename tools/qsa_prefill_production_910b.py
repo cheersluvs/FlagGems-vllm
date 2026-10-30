@@ -17,6 +17,7 @@
 import hashlib
 import importlib
 import inspect
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -28,6 +29,20 @@ def load_production():
     import torch
     import triton
 
+    if os.environ.get("QSA_ENV_ROOT"):
+        expected = Path(os.environ["QSA_ENV_ROOT"]).resolve()
+        assert Path(triton.__file__).resolve().is_relative_to(expected / "flagtree"), (
+            "Wrong Triton imported",
+            triton.__file__,
+            str(expected),
+        )
+        cann = os.environ.get("ASCEND_HOME_PATH")
+        if cann:
+            assert Path(cann).resolve().is_relative_to(expected / "cann"), (
+                "Wrong CANN environment",
+                cann,
+                str(expected),
+            )
     import flaggems_vllm
 
     module = importlib.import_module(

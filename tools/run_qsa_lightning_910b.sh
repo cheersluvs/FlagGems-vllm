@@ -4,6 +4,15 @@
 # Execute this file with bash; never source it into the container login shell.
 set -uo pipefail
 qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
+# Re-activate after shell startup files have run; lock the environment at execution.
+if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
+    qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
+    test -f "$qsa_env_root/activate.sh" || exit 1
+    source "$qsa_env_root/activate.sh" || exit 1
+    unset BASH_ENV ENV
+    export PYTHONPATH="$qsa_repo/src:$qsa_env_root/python-deps:$qsa_env_root/flagtree${PYTHONPATH:+:$PYTHONPATH}"
+    printf 'Pinned runtime environment: %s\n' "$qsa_env_root"
+fi
 qsa_python=${QSA_PYTHON:-python3}
 qsa_report=$(mktemp -d /tmp/qsa-ascend910b-lightning.XXXXXXXX) || exit 1
 qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
