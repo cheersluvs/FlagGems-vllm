@@ -92,11 +92,11 @@ def summarize(events):
     )
 
 
-def collect(args, functions, torch, result):
+def collect(args, functions, torch, result, selected=None):
     import torch_npu
 
     api = torch_npu.profiler
-    selected = ("score", "topk", "public_total", "native_fused")
+    selected = selected or ("score", "topk", "public_total", "native_fused")
     result["timeline"] = dict(
         iterations=3,
         stages={},

@@ -161,9 +161,19 @@ def run(args, result):
         (first, min(chunk_rows, rows - first)) for first in range(0, rows, chunk_rows)
     ]
 
+    score_settings = dict(programs=8)
+
     def score_into(first, count, target):
         return module._score(
-            q, cache, table, starts, visible, target, offset=first, owners=owners
+            q,
+            cache,
+            table,
+            starts,
+            visible,
+            target,
+            offset=first,
+            owners=owners,
+            programs=score_settings["programs"],
         )
 
     for first, count in chunks:
@@ -317,6 +327,10 @@ def run(args, result):
     print("shape", json.dumps(result["shape"]), flush=True)
     print("score_correctness", json.dumps(result["score_correctness"]), flush=True)
     print("correctness", json.dumps(result["selection_correctness"]), flush=True)
+    if getattr(args, "probe_kind", None):
+        from qsa_independent_probes_910b import run as probe
+
+        return probe(args, result, locals())
     for fn in functions.values():
         for _ in range(args.warmup):
             fn()
