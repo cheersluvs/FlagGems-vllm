@@ -15,6 +15,9 @@ if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
 else
     qsa_root=$(mktemp -d /opt/qsa-topk-env.XXXXXXXX)
 fi
+# mktemp creates mode 0700; CANN requires its root-owned ancestor to be 0755.
+# Change only this dedicated environment directory, never parent trees recursively.
+chmod 0755 -- "$qsa_root"
 exec > >(tee -a "$qsa_root/prepare.txt") 2>&1
 trap 'printf "Failed line=%s command=%s\n" "$LINENO" "$BASH_COMMAND"' ERR
 trap 'qsa_status=$?; if (( qsa_status )); then printf "Preparation exit=%s; retained directory: %s\n" "$qsa_status" "$qsa_root"; fi' EXIT
