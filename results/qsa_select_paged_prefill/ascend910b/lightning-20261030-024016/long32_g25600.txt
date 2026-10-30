@@ -1,0 +1,40 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-910b-combined.kfOtQi/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/tmp/flaggems-qsa-910b-combined.kfOtQi/tools/benchmark_qsa_prefill_stages_910b.py:141: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  native_output = torch.empty_like(output)
+shape {"query": [32, 4, 128], "cache": [268, 192, 1, 128], "page_table": [2, 134], "request_query_lengths": [16, 16], "visible_min": 25596, "visible_max": 25600, "logits_width": 25600, "page": 192, "group_topk": 512, "token_topk": 2048, "compress_ratio": 4, "dtype": "bfloat16", "chunks": [[0, 16], [16, 16]]}
+score_correctness {"max_abs_error": 2.288818359375e-05, "valid_scores": 819128, "masked_scores": 72, "rtol": 0.001, "atol": 0.001}
+correctness {"topk": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "prepared_pipeline": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "public_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_adapter_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_fused": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}}
+round=1 score: event=3887.287 us wall=3931.018 us
+round=1 topk: event=8249.267 us wall=8296.848 us
+round=1 prepared_pipeline: event=12002.693 us wall=12053.731 us
+round=1 native_fused: event=196.327 us wall=267.123 us
+round=1 public_total: event=12002.646 us wall=12062.227 us
+round=1 native_adapter_total: event=625.673 us wall=718.430 us
+round=1 request_mapping: event=136.947 us wall=177.839 us
+round=1 public_original_total: event=19466.633 us wall=19536.079 us
+round=2 public_original_total: event=19519.140 us wall=19584.703 us
+round=2 request_mapping: event=148.980 us wall=191.754 us
+round=2 native_adapter_total: event=631.013 us wall=694.597 us
+round=2 public_total: event=11979.693 us wall=12035.942 us
+round=2 native_fused: event=182.653 us wall=217.779 us
+round=2 prepared_pipeline: event=11928.267 us wall=11997.677 us
+round=2 topk: event=8256.333 us wall=8304.692 us
+round=2 score: event=3835.347 us wall=3878.360 us
+SUMMARY stage                       event_us      wall_us      event_range/median
+score                              3861.317     3904.689        1.35%
+topk                               8252.800     8300.770        0.09%
+prepared_pipeline                 11965.480    12025.704        0.62%
+native_fused                        189.490      242.451        7.22%
+public_total                      11991.170    12049.085        0.19%
+native_adapter_total                628.343      706.513        0.85%
+request_mapping                     142.963      184.797        8.42%
+public_original_total             19492.886    19560.391        0.27%
+SPEEDUP {"prepared_native_over_gems": {"event_us": 0.015836389157470328, "wall_us": 0.020161029988895775}, "public_adapter_over_gems": {"event_us": 0.052400503388593686, "wall_us": 0.05863624743763775}, "public_original_over_combined": {"event_us": 1.625603411238919, "wall_us": 1.6233922772626301}}
+ROUTES {"segmerge": {"probed": true, "usable": false}, "persistent": {"usable": true}}
