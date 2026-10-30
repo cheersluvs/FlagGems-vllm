@@ -1,0 +1,477 @@
+{
+  "status": "failed",
+  "packages": {
+    "torch": "2.10.0+cpu",
+    "torch-npu": "2.10.0",
+    "triton": null,
+    "triton-ascend": null,
+    "flagtree": "0.6.1+ascend3.5",
+    "vllm": "0.24.0+flagos",
+    "vllm-ascend": null
+  },
+  "cases": [
+    {
+      "status": "passed",
+      "case": "environment",
+      "python": "/flagos/bin/python3",
+      "cache_directory": "/tmp/qsa-ascend910b-lightning.JfYSKuWQ/.triton-cache/shared",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+          "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py"
+        }
+      },
+      "profiler_inventory": {
+        "msprof": "/usr/local/Ascend/cann-9.0.0/bin/msprof",
+        "collected": false,
+        "help_exit_code": 0,
+        "help": "\nUsage:\n      msprof [--options]\n\nThis is subcommand for operator optimization situation:\n      op                                Use binary msopprof to operator optimization (msprof op ...)\n\nOptions:\n      --output                          <Optional> Specify the directory that is used for storing data results.\n      --application                     <Optional> Specify application path, considering the risk of privilege escalation, please pay attention to\n\t\t\t\t\t\t   the group of the application and confirm whether it is the same as the user currently.\n\t\t\t\t\t\t   [Note] This option will be discarded in later versions.\n\t\t\t\t\t\t   you can try to use: msprof [msprof arguments] <app> [app arguments]\n      --ascendcl                        <Optional> Show acl profiling data, the default value is on.\n      --ge-api                          <Optional> Specify if report GE event, the default value is off. The possible parameters are 'l0', 'l1' or 'off'.\n      --runtime-api                     <Optional> Show runtime api profiling data, the default value is off.\n      --task-time                       <Optional> Show task profiling data, the default value is on. The possible parameters are 'l0', 'l1', 'l2', 'on' or 'off'.\n      --task-memory                     <Optional> Show the memory usage of the operator, the default value is off. The possible parameters are 'on' or 'off'.\n      --ai-core                         <Optional> Turn on / off the ai core profiling, the default value is on when collecting app Profiling.\n      --aic-mode                        <Optional> Set the aic profiling mode to task-based or sample-based.\n\t\t\t\t\t\t   In task-based mode, profiling data will be collected by tasks.\n\t\t\t\t\t\t   In sample-based mode, profiling data will be collected in a specific interval.\n\t\t\t\t\t\t   The default value is task-based in AI task mode, sample-based in system mode.\n      --aic-freq                        <Optional> The aic sampling frequency in hertz, the default value is 100 Hz, the range is 1 to 100 Hz.\n      --environment                     <Optional> User app custom environment variable configuration.\n      --sys-period                      <Optional> Set total sampling period of system profiling in seconds.\n      --sys-devices                     <Optional> Specify the profiling scope by device ID when collect sys profiling.The value is all or ID list (split with ',').\n      --hccl                            <Optional> Show hccl profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --msproftx                        <Optional> Show msproftx and mstx data, the default value is off.\n      --mstx-domain-include             <Optional> Choose to only include mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` filters the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-exclude at the same time.\n      --mstx-domain-exclude             <Optional> Choose to exclude mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` excludes the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-include at the same time.\n      --storage-limit                   <Optional> Specify the output directory volume. range 200MB ~ 4294967295MB.\n      --model-execution                 <Optional> Show ge model execution profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --aic-metrics                     <Optional> The aic metrics groups, include ArithmeticUtilization, PipeUtilization, Memory, MemoryL0, ResourceConflictRatio, MemoryUB, L2Cache, MemoryAccess.\n\t\t\t\t\t\t   the default value is PipeUtilization.\n      --python-path                     <Optional> Specify the python interpreter path that is used for analysis, please ensure the python version is 3.7.5 or later.\n      --parse                           <Optional> Switch for using msprof to parse collecting data, the default value is off.\n      --query                           <Optional> Switch for using msprof to query collecting data, the default value is off.\n      --export                          <Optional> Switch for using msprof to export collecting data, the default value is off.\n      --clear                           <Optional> Switch for using msprof to analyze or export data in clear mode, the default value is off.\n      --analyze                         <Optional> Switch for using msprof to analyze collecting data, the default value is off.\n      --rule                            <Optional> Switch specified rule for using msprof to analyze collecting data, include communication, communication_matrix.\n\t\t\t\t\t\t   the default value is communication,communication_matrix.\n      --iteration-id                    <Optional> The export iteration id, only used when argument export is on, the default value is 1.\n      --model-id                        <Optional> The export model id, only used when argument export is on, msprof will export minium accessible model by default.\n      --summary-format                  <Optional> The export summary file format, only used when argument export is on, include csv, json, the default value is csv.\n      --type                            <Optional> The export type, only used when argument `export` is on \n\t\t\t\t\t\t   or when collecting data, include text, db.\n\t\t\t\t\t\t   the default value is text(which will also export the database).\n      --reports                         <Optional> Specify the path that is used for controlling the export scope of collecting results\n      --aicpu                           <Optional> Show aicpu profiling data, the default value is off.\n      --sys-hardware-mem                <Optional> LLC, DDR, HBM acquisition switch, optional on / off, the default value is off.\n      --sys-hardware-mem-freq           <Optional> LLC, DDR, HBM acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --llc-profiling                   <Optional> The llc profiling groups, include read, write. the default value is read.\n      --sys-cpu-profiling               <Optional> The CPU acquisition switch, optional on / off,the default value is off.\n      --sys-cpu-freq                    <Optional> The cpu sampling frequency in hertz. the default value is 50 Hz, the range is 1 to 50 Hz.\n      --sys-profiling                   <Optional> The System CPU usage and system memory acquisition switch,the default value is off.\n      --sys-sampling-freq               <Optional> The sys sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-pid-profiling               <Optional> The CPU usage of the process and the memory acquisition switch of the process,the default value is off.\n      --sys-pid-sampling-freq           <Optional> The pid sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-io-profiling                <Optional> NIC, ROCE acquisition switch, the default value is off.\n      --sys-io-sampling-freq            <Optional> NIC, ROCE acquisition frequency, range 1 ~ 100, the default value is 100, unit Hz.\n      --instr-profiling                 <Optional> Show instr profiling data, the default value is off.\n      --instr-profiling-freq            <Optional> The instr profiling sampling period in clock-cycle, the default value is 1000 cycle, the range is 300 to 30000 cycle.\n      --sys-interconnection-profiling   <Optional> PCIE, HCCS acquisition switch, the default value is off.\n      --sys-interconnection-freq        <Optional> PCIE, HCCS acquisition frequency, range 1 ~ 50, the default value is 50, unit Hz.\n      --dvpp-profiling                  <Optional> DVPP acquisition switch, the default value is off.\n      --dvpp-freq                       <Optional> DVPP acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --l2                              <Optional> L2 Cache and SMMU acquisition switch. The default value is off.\n      --host-sys                        <Optional> The host-sys data type, include cpu, mem, disk, network, osrt\n      --host-sys-pid                    <Optional> Set the PID of the app process for which you want to collect performance data.\n      --host-sys-usage                  <Optional> The host-sys-usage data type, include cpu, mem.(full-platform)\n      --host-sys-usage-freq             <Optional> The sampling frequency in hertz. the default value is 50 Hz the range is 1 to 50 Hz.\n      --dynamic                         <Optional> Dynamic profiling switch, the default value is off.\n      --pid                             <Optional> Dynamic profiling pids of the target processes\n      --delay                           <Optional> Collect start delay time in seconds, range 1 ~ 4294967295s.\n      --duration                        <Optional> Collection duration in seconds, range 1 ~ 4294967295s.\n      --help                            <Optional> help message.\n"
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "failed",
+      "case": "short16_g1024",
+      "python": "/flagos/bin/python3",
+      "cache_directory": "/tmp/qsa-ascend910b-lightning.JfYSKuWQ/.triton-cache/shared",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "npu_smi_before": {
+        "exit_code": 0,
+        "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.6        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4067 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.9        32                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3441 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.8        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3422 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.8        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.2       37                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.1        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 93.9        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 1074134       | python3                  | 105                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+      },
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+          "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py"
+        }
+      },
+      "score_correctness": {
+        "max_abs_error": 1.1444091796875e-05,
+        "valid_scores": 16348,
+        "masked_scores": 36,
+        "rtol": 0.001,
+        "atol": 0.001
+      },
+      "selection_correctness": {
+        "topk": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "prepared_pipeline": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "public_total": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_adapter_total": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_fused": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        }
+      },
+      "shape": {
+        "query": [
+          16,
+          4,
+          128
+        ],
+        "cache": [
+          6,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          1,
+          6
+        ],
+        "request_query_lengths": [
+          16
+        ],
+        "visible_min": 1020,
+        "visible_max": 1024,
+        "logits_width": 1024,
+        "page": 192,
+        "group_topk": 512,
+        "token_topk": 2048,
+        "compress_ratio": 4,
+        "dtype": "bfloat16",
+        "chunks": [
+          [
+            0,
+            16
+          ]
+        ]
+      },
+      "timing_policy": {
+        "rounds": 2,
+        "warmup": 2,
+        "iterations": 3,
+        "units": "microseconds per invocation",
+        "order": "alternating forward/reverse each round",
+        "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+        "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+        "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+        "public_scope": "unchanged public API, includes request mapping and allocations",
+        "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+        "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+        "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+        "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite",
+        "capture_only": true
+      },
+      "samples": {
+        "score": [],
+        "topk": [],
+        "prepared_pipeline": [],
+        "native_fused": [],
+        "public_total": [],
+        "native_adapter_total": [],
+        "request_mapping": []
+      },
+      "timeline": {
+        "iterations": 3,
+        "stages": {
+          "score": {
+            "trace_file": "short16_g1024-score-trace.json.gz",
+            "compressed_bytes": 1372,
+            "parse_error": "No recognized device tasks; inspect trace categories: {'cpu_op': 18, 'dequeue': 3, 'async_task_queue': 6, 'enqueue': 3, '': 42, 'HostToDevice': 3}",
+            "categories": {
+              "cpu_op": 18,
+              "dequeue": 3,
+              "async_task_queue": 6,
+              "enqueue": 3,
+              "": 42,
+              "HostToDevice": 3
+            }
+          },
+          "topk": {
+            "trace_file": "short16_g1024-topk-trace.json.gz",
+            "compressed_bytes": 8417,
+            "parse_error": "No recognized device tasks; inspect trace categories: {'cpu_op': 225, 'dequeue': 42, 'async_task_queue': 84, 'enqueue': 42, '': 159, 'HostToDevice': 84, 'async_npu': 84}",
+            "categories": {
+              "cpu_op": 225,
+              "dequeue": 42,
+              "async_task_queue": 84,
+              "enqueue": 42,
+              "": 159,
+              "HostToDevice": 84,
+              "async_npu": 84
+            }
+          },
+          "public_total": {
+            "trace_file": "short16_g1024-public_total-trace.json.gz",
+            "compressed_bytes": 9481,
+            "parse_error": "No recognized device tasks; inspect trace categories: {'cpu_op': 255, 'dequeue': 48, 'async_task_queue': 96, 'enqueue': 48, '': 177, 'HostToDevice': 93, 'async_npu': 90}",
+            "categories": {
+              "cpu_op": 255,
+              "dequeue": 48,
+              "async_task_queue": 96,
+              "enqueue": 48,
+              "": 177,
+              "HostToDevice": 93,
+              "async_npu": 90
+            }
+          },
+          "native_fused": {
+            "trace_file": "short16_g1024-native_fused-trace.json.gz",
+            "compressed_bytes": 1446,
+            "parse_error": "No recognized device tasks; inspect trace categories: {'cpu_op': 15, 'dequeue': 3, 'async_task_queue': 6, 'enqueue': 3, '': 42, 'HostToDevice': 6, 'async_npu': 6}",
+            "categories": {
+              "cpu_op": 15,
+              "dequeue": 3,
+              "async_task_queue": 6,
+              "enqueue": 3,
+              "": 42,
+              "HostToDevice": 6,
+              "async_npu": 6
+            }
+          }
+        },
+        "units": "microseconds",
+        "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+      },
+      "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-910b-timeline.vmQZID/tools/probe_qsa_lightning_910b.py\", line 290, in worker\n    return run(args, result)\n           ^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-910b-timeline.vmQZID/tools/benchmark_qsa_prefill_stages_910b.py\", line 328, in run\n    collect(args, functions, torch, result)\n  File \"/tmp/flaggems-qsa-910b-timeline.vmQZID/tools/qsa_timeline_910b.py\", line 138, in collect\n    raise RuntimeError(\nRuntimeError: Traces preserved, but summary parser needs adjustment: score: No recognized device tasks; inspect trace categories: {'cpu_op': 18, 'dequeue': 3, 'async_task_queue': 6, 'enqueue': 3, '': 42, 'HostToDevice': 3}; topk: No recognized device tasks; inspect trace categories: {'cpu_op': 225, 'dequeue': 42, 'async_task_queue': 84, 'enqueue': 42, '': 159, 'HostToDevice': 84, 'async_npu': 84}; public_total: No recognized device tasks; inspect trace categories: {'cpu_op': 255, 'dequeue': 48, 'async_task_queue': 96, 'enqueue': 48, '': 177, 'HostToDevice': 93, 'async_npu': 90}; native_fused: No recognized device tasks; inspect trace categories: {'cpu_op': 15, 'dequeue': 3, 'async_task_queue': 6, 'enqueue': 3, '': 42, 'HostToDevice': 6, 'async_npu': 6}\n",
+      "exit_code": 1
+    },
+    {
+      "status": "failed",
+      "case": "long32_g25600",
+      "python": "/flagos/bin/python3",
+      "cache_directory": "/tmp/qsa-ascend910b-lightning.JfYSKuWQ/.triton-cache/shared",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "npu_smi_before": {
+        "exit_code": 0,
+        "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 99.4        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4300 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 93.0        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3441 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.9        34                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 96.0        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.2       38                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3445 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.2        39                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 93.9        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 1088951       | python3                  | 101                     |\n| 0       0                 | 1086620       | pytest                   | 145                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+      },
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-910b-timeline.vmQZID/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+          "topk": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py"
+        }
+      },
+      "score_correctness": {
+        "max_abs_error": 2.288818359375e-05,
+        "valid_scores": 819128,
+        "masked_scores": 72,
+        "rtol": 0.001,
+        "atol": 0.001
+      },
+      "selection_correctness": {
+        "topk": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "prepared_pipeline": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "public_total": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_adapter_total": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_fused": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        }
+      },
+      "shape": {
+        "query": [
+          32,
+          4,
+          128
+        ],
+        "cache": [
+          268,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          2,
+          134
+        ],
+        "request_query_lengths": [
+          16,
+          16
+        ],
+        "visible_min": 25596,
+        "visible_max": 25600,
+        "logits_width": 25600,
+        "page": 192,
+        "group_topk": 512,
+        "token_topk": 2048,
+        "compress_ratio": 4,
+        "dtype": "bfloat16",
+        "chunks": [
+          [
+            0,
+            16
+          ],
+          [
+            16,
+            16
+          ]
+        ]
+      },
+      "timing_policy": {
+        "rounds": 2,
+        "warmup": 2,
+        "iterations": 3,
+        "units": "microseconds per invocation",
+        "order": "alternating forward/reverse each round",
+        "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+        "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+        "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+        "public_scope": "unchanged public API, includes request mapping and allocations",
+        "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+        "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+        "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+        "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite",
+        "capture_only": true
+      },
+      "samples": {
+        "score": [],
+        "topk": [],
+        "prepared_pipeline": [],
+        "native_fused": [],
+        "public_total": [],
+        "native_adapter_total": [],
+        "request_mapping": []
+      },
+      "timeline": {
+        "iterations": 3,
+        "stages": {
+          "score": {
+            "trace_file": "long32_g25600-score-trace.json.gz",
+            "compressed_bytes": 1817,
+            "parse_error": "No recognized device tasks; inspect trace categories: {'cpu_op': 33, 'dequeue': 6, 'async_task_queue': 12, 'enqueue': 6, '': 51, 'HostToDevice': 6}",
+            "categories": {
+              "cpu_op": 33,
+              "dequeue": 6,
+              "async_task_queue": 12,
+              "enqueue": 6,
+              "": 51,
+              "HostToDevice": 6
+            }
+          },
+          "topk": {
+            "trace_file": "long32_g25600-topk-trace.json.gz",
+            "compressed_bytes": 15955,
+            "parse_error": "No recognized device tasks; inspect trace categories: {'cpu_op': 447, 'dequeue': 84, 'async_task_queue': 168, 'enqueue': 84, '': 285, 'HostToDevice': 168, 'async_npu': 168}",
+            "categories": {
+              "cpu_op": 447,
+              "dequeue": 84,
+              "async_task_queue": 168,
+              "enqueue": 84,
+              "": 285,
+              "HostToDevice": 168,
+              "async_npu": 168
+            }
+          },
+          "public_total": {
+            "trace_file": "long32_g25600-public_total-trace.json.gz",
+            "compressed_bytes": 17606,
+            "parse_error": "No recognized device tasks; inspect trace categories: {'cpu_op': 486, 'dequeue': 93, 'async_task_queue': 186, 'enqueue': 93, '': 312, 'HostToDevice': 180, 'async_npu': 174}",
+            "categories": {
+              "cpu_op": 486,
+              "dequeue": 93,
+              "async_task_queue": 186,
+              "enqueue": 93,
+              "": 312,
+              "HostToDevice": 180,
+              "async_npu": 174
+            }
+          },
+          "native_fused": {
+            "trace_file": "long32_g25600-native_fused-trace.json.gz",
+            "compressed_bytes": 1462,
+            "parse_error": "No recognized device tasks; inspect trace categories: {'cpu_op': 15, 'dequeue': 3, 'async_task_queue': 6, 'enqueue': 3, '': 42, 'HostToDevice': 6, 'async_npu': 6}",
+            "categories": {
+              "cpu_op": 15,
+              "dequeue": 3,
+              "async_task_queue": 6,
+              "enqueue": 3,
+              "": 42,
+              "HostToDevice": 6,
+              "async_npu": 6
+            }
+          }
+        },
+        "units": "microseconds",
+        "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+      },
+      "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-910b-timeline.vmQZID/tools/probe_qsa_lightning_910b.py\", line 290, in worker\n    return run(args, result)\n           ^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-910b-timeline.vmQZID/tools/benchmark_qsa_prefill_stages_910b.py\", line 328, in run\n    collect(args, functions, torch, result)\n  File \"/tmp/flaggems-qsa-910b-timeline.vmQZID/tools/qsa_timeline_910b.py\", line 138, in collect\n    raise RuntimeError(\nRuntimeError: Traces preserved, but summary parser needs adjustment: score: No recognized device tasks; inspect trace categories: {'cpu_op': 33, 'dequeue': 6, 'async_task_queue': 12, 'enqueue': 6, '': 51, 'HostToDevice': 6}; topk: No recognized device tasks; inspect trace categories: {'cpu_op': 447, 'dequeue': 84, 'async_task_queue': 168, 'enqueue': 84, '': 285, 'HostToDevice': 168, 'async_npu': 168}; public_total: No recognized device tasks; inspect trace categories: {'cpu_op': 486, 'dequeue': 93, 'async_task_queue': 186, 'enqueue': 93, '': 312, 'HostToDevice': 180, 'async_npu': 174}; native_fused: No recognized device tasks; inspect trace categories: {'cpu_op': 15, 'dequeue': 3, 'async_task_queue': 6, 'enqueue': 3, '': 42, 'HostToDevice': 6, 'async_npu': 6}\n",
+      "exit_code": 1
+    }
+  ],
+  "suite": "timeline",
+  "fresh_cache": true,
+  "scope": "Short/long CPU+NPU timeline capture; hardware traces with profiling overhead, not speedup acceptance",
+  "cann_version_files": {
+    "/usr/local/Ascend/driver/version.info": "Version=25.2.0\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C21SPC008B208\ncompatible_version=[V100R001C17],[V100R001C18],[V100R001C19],[V100R001C20],[V100R001C21]\ncompatible_version_fw=[7.0.0,7.7.99]\npackage_version=25.2.0\n"
+  },
+  "script_sha256": "3dda0e83e4322f8dd7b0a52e8794083a3cc81b5b397af3911913a2ab75f3bc03",
+  "source_hashes": {
+    "tools/benchmark_qsa_prefill_stages_910b.py": "2f3df342666f0c0e8ad97e8abb40645f3462ecf6bc01d98e85a77611b5b4f26e",
+    "tools/qsa_timeline_910b.py": "0f613a91dbb92af920c84b54d28f319dd9c21d6613ef428532750fc27fb7be8f",
+    "tools/qsa_prefill_production_910b.py": "58f87888edaca2c91af7845fecc5439eefc297bb95cea1d0420b4b4230974afd",
+    "tools/qsa_lightning_baseline_910b.py": "db2c7ddd7cf4eaaa40336ff2e49726ac49d0aaa590162cf494aaedde2e59bbcc",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py": "69cef0f7af787249041fabe06709b28b6b3a205197ae9901e861bed17f299461",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py": "af089631285de0ba968ca85afd0f28c11dde3409ee9008524bc8d907610e95f4"
+  }
+}
