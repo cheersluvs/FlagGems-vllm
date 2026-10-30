@@ -1,0 +1,236 @@
+{
+  "status": "failed",
+  "packages": {
+    "torch": "2.10.0+cpu",
+    "torch-npu": "2.10.0",
+    "triton": null,
+    "triton-ascend": null,
+    "flagtree": "0.6.1+ascend3.5",
+    "vllm": "0.24.0+flagos",
+    "vllm-ascend": null
+  },
+  "cases": [
+    {
+      "status": "passed",
+      "case": "environment",
+      "python": "/flagos/bin/python3",
+      "cache_directory": "/tmp/qsa-ascend910b-lightning.EdessZkQ/.triton-cache/shared",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-torch-stages.EoY6k0/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-torch-stages.EoY6k0/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-torch-stages.EoY6k0/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+          "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py"
+        },
+        "launch_policy": {
+          "programs": 20,
+          "topk_block": 256,
+          "topk_default_block": 1024
+        }
+      },
+      "profiler_inventory": {
+        "msprof": "/usr/local/Ascend/cann-9.0.0/bin/msprof",
+        "collected": false,
+        "help_exit_code": 0,
+        "help": "\nUsage:\n      msprof [--options]\n\nThis is subcommand for operator optimization situation:\n      op                                Use binary msopprof to operator optimization (msprof op ...)\n\nOptions:\n      --output                          <Optional> Specify the directory that is used for storing data results.\n      --application                     <Optional> Specify application path, considering the risk of privilege escalation, please pay attention to\n\t\t\t\t\t\t   the group of the application and confirm whether it is the same as the user currently.\n\t\t\t\t\t\t   [Note] This option will be discarded in later versions.\n\t\t\t\t\t\t   you can try to use: msprof [msprof arguments] <app> [app arguments]\n      --ascendcl                        <Optional> Show acl profiling data, the default value is on.\n      --ge-api                          <Optional> Specify if report GE event, the default value is off. The possible parameters are 'l0', 'l1' or 'off'.\n      --runtime-api                     <Optional> Show runtime api profiling data, the default value is off.\n      --task-time                       <Optional> Show task profiling data, the default value is on. The possible parameters are 'l0', 'l1', 'l2', 'on' or 'off'.\n      --task-memory                     <Optional> Show the memory usage of the operator, the default value is off. The possible parameters are 'on' or 'off'.\n      --ai-core                         <Optional> Turn on / off the ai core profiling, the default value is on when collecting app Profiling.\n      --aic-mode                        <Optional> Set the aic profiling mode to task-based or sample-based.\n\t\t\t\t\t\t   In task-based mode, profiling data will be collected by tasks.\n\t\t\t\t\t\t   In sample-based mode, profiling data will be collected in a specific interval.\n\t\t\t\t\t\t   The default value is task-based in AI task mode, sample-based in system mode.\n      --aic-freq                        <Optional> The aic sampling frequency in hertz, the default value is 100 Hz, the range is 1 to 100 Hz.\n      --environment                     <Optional> User app custom environment variable configuration.\n      --sys-period                      <Optional> Set total sampling period of system profiling in seconds.\n      --sys-devices                     <Optional> Specify the profiling scope by device ID when collect sys profiling.The value is all or ID list (split with ',').\n      --hccl                            <Optional> Show hccl profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --msproftx                        <Optional> Show msproftx and mstx data, the default value is off.\n      --mstx-domain-include             <Optional> Choose to only include mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` filters the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-exclude at the same time.\n      --mstx-domain-exclude             <Optional> Choose to exclude mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` excludes the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-include at the same time.\n      --storage-limit                   <Optional> Specify the output directory volume. range 200MB ~ 4294967295MB.\n      --model-execution                 <Optional> Show ge model execution profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --aic-metrics                     <Optional> The aic metrics groups, include ArithmeticUtilization, PipeUtilization, Memory, MemoryL0, ResourceConflictRatio, MemoryUB, L2Cache, MemoryAccess.\n\t\t\t\t\t\t   the default value is PipeUtilization.\n      --python-path                     <Optional> Specify the python interpreter path that is used for analysis, please ensure the python version is 3.7.5 or later.\n      --parse                           <Optional> Switch for using msprof to parse collecting data, the default value is off.\n      --query                           <Optional> Switch for using msprof to query collecting data, the default value is off.\n      --export                          <Optional> Switch for using msprof to export collecting data, the default value is off.\n      --clear                           <Optional> Switch for using msprof to analyze or export data in clear mode, the default value is off.\n      --analyze                         <Optional> Switch for using msprof to analyze collecting data, the default value is off.\n      --rule                            <Optional> Switch specified rule for using msprof to analyze collecting data, include communication, communication_matrix.\n\t\t\t\t\t\t   the default value is communication,communication_matrix.\n      --iteration-id                    <Optional> The export iteration id, only used when argument export is on, the default value is 1.\n      --model-id                        <Optional> The export model id, only used when argument export is on, msprof will export minium accessible model by default.\n      --summary-format                  <Optional> The export summary file format, only used when argument export is on, include csv, json, the default value is csv.\n      --type                            <Optional> The export type, only used when argument `export` is on \n\t\t\t\t\t\t   or when collecting data, include text, db.\n\t\t\t\t\t\t   the default value is text(which will also export the database).\n      --reports                         <Optional> Specify the path that is used for controlling the export scope of collecting results\n      --aicpu                           <Optional> Show aicpu profiling data, the default value is off.\n      --sys-hardware-mem                <Optional> LLC, DDR, HBM acquisition switch, optional on / off, the default value is off.\n      --sys-hardware-mem-freq           <Optional> LLC, DDR, HBM acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --llc-profiling                   <Optional> The llc profiling groups, include read, write. the default value is read.\n      --sys-cpu-profiling               <Optional> The CPU acquisition switch, optional on / off,the default value is off.\n      --sys-cpu-freq                    <Optional> The cpu sampling frequency in hertz. the default value is 50 Hz, the range is 1 to 50 Hz.\n      --sys-profiling                   <Optional> The System CPU usage and system memory acquisition switch,the default value is off.\n      --sys-sampling-freq               <Optional> The sys sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-pid-profiling               <Optional> The CPU usage of the process and the memory acquisition switch of the process,the default value is off.\n      --sys-pid-sampling-freq           <Optional> The pid sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-io-profiling                <Optional> NIC, ROCE acquisition switch, the default value is off.\n      --sys-io-sampling-freq            <Optional> NIC, ROCE acquisition frequency, range 1 ~ 100, the default value is 100, unit Hz.\n      --instr-profiling                 <Optional> Show instr profiling data, the default value is off.\n      --instr-profiling-freq            <Optional> The instr profiling sampling period in clock-cycle, the default value is 1000 cycle, the range is 300 to 30000 cycle.\n      --sys-interconnection-profiling   <Optional> PCIE, HCCS acquisition switch, the default value is off.\n      --sys-interconnection-freq        <Optional> PCIE, HCCS acquisition frequency, range 1 ~ 50, the default value is 50, unit Hz.\n      --dvpp-profiling                  <Optional> DVPP acquisition switch, the default value is off.\n      --dvpp-freq                       <Optional> DVPP acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --l2                              <Optional> L2 Cache and SMMU acquisition switch. The default value is off.\n      --host-sys                        <Optional> The host-sys data type, include cpu, mem, disk, network, osrt\n      --host-sys-pid                    <Optional> Set the PID of the app process for which you want to collect performance data.\n      --host-sys-usage                  <Optional> The host-sys-usage data type, include cpu, mem.(full-platform)\n      --host-sys-usage-freq             <Optional> The sampling frequency in hertz. the default value is 50 Hz the range is 1 to 50 Hz.\n      --dynamic                         <Optional> Dynamic profiling switch, the default value is off.\n      --pid                             <Optional> Dynamic profiling pids of the target processes\n      --delay                           <Optional> Collect start delay time in seconds, range 1 ~ 4294967295s.\n      --duration                        <Optional> Collection duration in seconds, range 1 ~ 4294967295s.\n      --help                            <Optional> help message.\n"
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "failed",
+      "case": "short16_g1024",
+      "python": "/flagos/bin/python3",
+      "cache_directory": "/tmp/qsa-ascend910b-lightning.EdessZkQ/.triton-cache/shared",
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "npu_smi_before": {
+        "exit_code": 0,
+        "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.5        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4068 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.9        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3439 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.8        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.8        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.1       39                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3445 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.3        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.4        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.3        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 2276404       | python3                  | 105                     |\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+      },
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-torch-stages.EoY6k0/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-torch-stages.EoY6k0/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-torch-stages.EoY6k0/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+          "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/flagtree/triton/__init__.py"
+        },
+        "launch_policy": {
+          "programs": 20,
+          "topk_block": 256,
+          "topk_default_block": 1024
+        }
+      },
+      "score_correctness": {
+        "max_abs_error": 1.1444091796875e-05,
+        "valid_scores": 16348,
+        "masked_scores": 36,
+        "rtol": 0.001,
+        "atol": 0.001
+      },
+      "launch_policy": {
+        "programs": 20,
+        "G": 40,
+        "BLOCK": 256,
+        "production": true
+      },
+      "selection_correctness": {
+        "topk": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "prepared_pipeline": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "public_total": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_adapter_total": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_fused": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        }
+      },
+      "shape": {
+        "query": [
+          16,
+          4,
+          128
+        ],
+        "cache": [
+          6,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          1,
+          6
+        ],
+        "request_query_lengths": [
+          16
+        ],
+        "visible_min": 1020,
+        "visible_max": 1024,
+        "logits_width": 1024,
+        "page": 192,
+        "group_topk": 512,
+        "token_topk": 2048,
+        "compress_ratio": 4,
+        "dtype": "bfloat16",
+        "chunks": [
+          [
+            0,
+            16
+          ]
+        ]
+      },
+      "timing_policy": {
+        "rounds": 2,
+        "warmup": 1,
+        "iterations": 3,
+        "units": "microseconds per invocation",
+        "order": "alternating forward/reverse each round",
+        "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+        "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+        "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+        "public_scope": "unchanged public API, includes request mapping and allocations",
+        "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+        "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+        "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+        "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+      },
+      "samples": {
+        "score": [],
+        "topk": [],
+        "prepared_pipeline": [],
+        "native_fused": [],
+        "public_total": [],
+        "native_adapter_total": [],
+        "request_mapping": [],
+        "public_original_total": []
+      },
+      "torch_score_capability_error": "Could not run 'aten::bmm.dtype' with arguments from the 'CPU' backend. This could be because the operator doesn't exist for this backend, or was omitted during the selective/custom build process (if using custom build). If you are a Facebook employee using PyTorch on mobile, please visit https://fburl.com/ptmfixes for possible resolutions. 'aten::bmm.dtype' is only available for these backends: [PrivateUse1, Meta, SparsePrivateUse1, BackendSelect, Python, FuncTorchDynamicLayerBackMode, Functionalize, Named, Conjugate, Negative, ZeroTensor, ADInplaceOrView, AutogradOther, AutogradCPU, AutogradCUDA, AutogradHIP, AutogradXLA, AutogradMPS, AutogradIPU, AutogradXPU, AutogradHPU, AutogradVE, AutogradLazy, AutogradMTIA, AutogradMAIA, AutogradPrivateUse1, AutogradPrivateUse2, AutogradPrivateUse3, AutogradMeta, AutogradNestedTensor, Tracer, AutocastCPU, AutocastMTIA, AutocastMAIA, AutocastXPU, AutocastMPS, AutocastCUDA, AutocastPrivateUse1, FuncTorchBatched, BatchedNestedTensor, FuncTorchVmapMode, Batched, VmapMode, FuncTorchGradWrapper, PythonTLSSnapshot, FuncTorchDynamicLayerFrontMode, PreDispatch, PythonDispatcher].\n\nPrivateUse1: registered at ../torch_npu/csrc/aten/VariableFallbackKernel.cpp:259 [backend fallback]\nMeta: registered at /flagos/lib/python3.11/site-packages/torch/_meta_registrations.py:51 [kernel]\nSparsePrivateUse1: registered at ../torch_npu/csrc/aten/VariableFallbackKernel.cpp:270 [backend fallback]\nBackendSelect: fallthrough registered at /pytorch/aten/src/ATen/core/BackendSelectFallbackKernel.cpp:3 [backend fallback]\nPython: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:198 [backend fallback]\nFuncTorchDynamicLayerBackMode: registered at /pytorch/aten/src/ATen/functorch/DynamicLayer.cpp:477 [backend fallback]\nFunctionalize: registered at /pytorch/aten/src/ATen/FunctionalizeFallbackKernel.cpp:384 [backend fallback]\nNamed: registered at /pytorch/aten/src/ATen/core/NamedRegistrations.cpp:5 [backend fallback]\nConjugate: registered at /pytorch/aten/src/ATen/ConjugateFallback.cpp:17 [backend fallback]\nNegative: registered at /pytorch/aten/src/ATen/native/NegateFallback.cpp:18 [backend fallback]\nZeroTensor: registered at /pytorch/aten/src/ATen/ZeroTensorFallback.cpp:115 [backend fallback]\nADInplaceOrView: fallthrough registered at /pytorch/aten/src/ATen/core/VariableFallbackKernel.cpp:103 [backend fallback]\nAutogradOther: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradCPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradCUDA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradHIP: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradXLA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradMPS: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradIPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradXPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradHPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradVE: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradLazy: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradMTIA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradMAIA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradPrivateUse1: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradPrivateUse2: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradPrivateUse3: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradMeta: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradNestedTensor: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nTracer: registered at /pytorch/torch/csrc/autograd/generated/TraceType_3.cpp:15141 [kernel]\nAutocastCPU: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:324 [backend fallback]\nAutocastMTIA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:468 [backend fallback]\nAutocastMAIA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:506 [backend fallback]\nAutocastXPU: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:544 [backend fallback]\nAutocastMPS: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:209 [backend fallback]\nAutocastCUDA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:165 [backend fallback]\nAutocastPrivateUse1: fallthrough registered at ../torch_npu/csrc/aten/AutoCastOps.cpp:20 [backend fallback]\nFuncTorchBatched: registered at /pytorch/aten/src/ATen/functorch/LegacyBatchingRegistrations.cpp:727 [backend fallback]\nBatchedNestedTensor: registered at /pytorch/aten/src/ATen/functorch/LegacyBatchingRegistrations.cpp:754 [backend fallback]\nFuncTorchVmapMode: fallthrough registered at /pytorch/aten/src/ATen/functorch/VmapModeRegistrations.cpp:22 [backend fallback]\nBatched: registered at /pytorch/aten/src/ATen/LegacyBatchingRegistrations.cpp:1072 [backend fallback]\nVmapMode: fallthrough registered at /pytorch/aten/src/ATen/VmapModeRegistrations.cpp:32 [backend fallback]\nFuncTorchGradWrapper: registered at /pytorch/aten/src/ATen/functorch/TensorWrapper.cpp:210 [backend fallback]\nPythonTLSSnapshot: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:206 [backend fallback]\nFuncTorchDynamicLayerFrontMode: registered at /pytorch/aten/src/ATen/functorch/DynamicLayer.cpp:473 [backend fallback]\nPreDispatch: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:210 [backend fallback]\nPythonDispatcher: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:202 [backend fallback]\n",
+      "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/qsa_torch_stages_910b.py\", line 62, in run\n    score_one(plans[0], dense[plans[0][2]])\n  File \"/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/qsa_torch_stages_910b.py\", line 51, in score_one\n    product = torch.bmm(\n              ^^^^^^^^^^\nNotImplementedError: Could not run 'aten::bmm.dtype' with arguments from the 'CPU' backend. This could be because the operator doesn't exist for this backend, or was omitted during the selective/custom build process (if using custom build). If you are a Facebook employee using PyTorch on mobile, please visit https://fburl.com/ptmfixes for possible resolutions. 'aten::bmm.dtype' is only available for these backends: [PrivateUse1, Meta, SparsePrivateUse1, BackendSelect, Python, FuncTorchDynamicLayerBackMode, Functionalize, Named, Conjugate, Negative, ZeroTensor, ADInplaceOrView, AutogradOther, AutogradCPU, AutogradCUDA, AutogradHIP, AutogradXLA, AutogradMPS, AutogradIPU, AutogradXPU, AutogradHPU, AutogradVE, AutogradLazy, AutogradMTIA, AutogradMAIA, AutogradPrivateUse1, AutogradPrivateUse2, AutogradPrivateUse3, AutogradMeta, AutogradNestedTensor, Tracer, AutocastCPU, AutocastMTIA, AutocastMAIA, AutocastXPU, AutocastMPS, AutocastCUDA, AutocastPrivateUse1, FuncTorchBatched, BatchedNestedTensor, FuncTorchVmapMode, Batched, VmapMode, FuncTorchGradWrapper, PythonTLSSnapshot, FuncTorchDynamicLayerFrontMode, PreDispatch, PythonDispatcher].\n\nPrivateUse1: registered at ../torch_npu/csrc/aten/VariableFallbackKernel.cpp:259 [backend fallback]\nMeta: registered at /flagos/lib/python3.11/site-packages/torch/_meta_registrations.py:51 [kernel]\nSparsePrivateUse1: registered at ../torch_npu/csrc/aten/VariableFallbackKernel.cpp:270 [backend fallback]\nBackendSelect: fallthrough registered at /pytorch/aten/src/ATen/core/BackendSelectFallbackKernel.cpp:3 [backend fallback]\nPython: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:198 [backend fallback]\nFuncTorchDynamicLayerBackMode: registered at /pytorch/aten/src/ATen/functorch/DynamicLayer.cpp:477 [backend fallback]\nFunctionalize: registered at /pytorch/aten/src/ATen/FunctionalizeFallbackKernel.cpp:384 [backend fallback]\nNamed: registered at /pytorch/aten/src/ATen/core/NamedRegistrations.cpp:5 [backend fallback]\nConjugate: registered at /pytorch/aten/src/ATen/ConjugateFallback.cpp:17 [backend fallback]\nNegative: registered at /pytorch/aten/src/ATen/native/NegateFallback.cpp:18 [backend fallback]\nZeroTensor: registered at /pytorch/aten/src/ATen/ZeroTensorFallback.cpp:115 [backend fallback]\nADInplaceOrView: fallthrough registered at /pytorch/aten/src/ATen/core/VariableFallbackKernel.cpp:103 [backend fallback]\nAutogradOther: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradCPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradCUDA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradHIP: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradXLA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradMPS: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradIPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradXPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradHPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradVE: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradLazy: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradMTIA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradMAIA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradPrivateUse1: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradPrivateUse2: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradPrivateUse3: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradMeta: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nAutogradNestedTensor: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]\nTracer: registered at /pytorch/torch/csrc/autograd/generated/TraceType_3.cpp:15141 [kernel]\nAutocastCPU: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:324 [backend fallback]\nAutocastMTIA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:468 [backend fallback]\nAutocastMAIA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:506 [backend fallback]\nAutocastXPU: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:544 [backend fallback]\nAutocastMPS: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:209 [backend fallback]\nAutocastCUDA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:165 [backend fallback]\nAutocastPrivateUse1: fallthrough registered at ../torch_npu/csrc/aten/AutoCastOps.cpp:20 [backend fallback]\nFuncTorchBatched: registered at /pytorch/aten/src/ATen/functorch/LegacyBatchingRegistrations.cpp:727 [backend fallback]\nBatchedNestedTensor: registered at /pytorch/aten/src/ATen/functorch/LegacyBatchingRegistrations.cpp:754 [backend fallback]\nFuncTorchVmapMode: fallthrough registered at /pytorch/aten/src/ATen/functorch/VmapModeRegistrations.cpp:22 [backend fallback]\nBatched: registered at /pytorch/aten/src/ATen/LegacyBatchingRegistrations.cpp:1072 [backend fallback]\nVmapMode: fallthrough registered at /pytorch/aten/src/ATen/VmapModeRegistrations.cpp:32 [backend fallback]\nFuncTorchGradWrapper: registered at /pytorch/aten/src/ATen/functorch/TensorWrapper.cpp:210 [backend fallback]\nPythonTLSSnapshot: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:206 [backend fallback]\nFuncTorchDynamicLayerFrontMode: registered at /pytorch/aten/src/ATen/functorch/DynamicLayer.cpp:473 [backend fallback]\nPreDispatch: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:210 [backend fallback]\nPythonDispatcher: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:202 [backend fallback]\n\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/probe_qsa_lightning_910b.py\", line 309, in worker\n    return run(args, result)\n           ^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/benchmark_qsa_prefill_stages_910b.py\", line 351, in run\n    return torch_stages(args, result, locals())\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/qsa_torch_stages_910b.py\", line 66, in run\n    raise RuntimeError(\nRuntimeError: Required BF16-input/FP32-output torch.bmm baseline unavailable; no dtype fallback used\n",
+      "exit_code": 1
+    }
+  ],
+  "suite": "torch-stages",
+  "combined_candidate": false,
+  "fresh_cache": true,
+  "scope": "Standalone Torch-NPU BF16/FP32 score and TopK stage comparisons, not fused-native decomposition",
+  "cann_version_files": {
+    "/usr/local/Ascend/driver/version.info": "Version=25.2.0\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C21SPC008B208\ncompatible_version=[V100R001C17],[V100R001C18],[V100R001C19],[V100R001C20],[V100R001C21]\ncompatible_version_fw=[7.0.0,7.7.99]\npackage_version=25.2.0\n"
+  },
+  "script_sha256": "84fbc9584bd8a8cfd996b881baca3b71d8aa28e3ba0fb8f25d324c757ec0fc90",
+  "source_hashes": {
+    "tools/benchmark_qsa_prefill_stages_910b.py": "00a2981df1a429823173f00155b9af69edf38f1c4b7180aa02def9fecd0d9aee",
+    "tools/qsa_timeline_910b.py": "e61afd802b9343fdd972698c34913a8f35b62be0fe587076775336384455f7cc",
+    "tools/qsa_independent_probes_910b.py": "b4c288375992c27ed22671ec2873b3304d084ae5be767a3753d8dcd2b958a99b",
+    "tools/qsa_torch_stages_910b.py": "0222daf650fbe2386aebd4ababbeb1fad978b77c95b85a8ffaf278f7566c5644",
+    "tools/qsa_prefill_production_910b.py": "2dfb6b3f7e504166a69f9c75abdbc596dd83d144d59bd01d12793d5265e71269",
+    "tools/qsa_lightning_baseline_910b.py": "db2c7ddd7cf4eaaa40336ff2e49726ac49d0aaa590162cf494aaedde2e59bbcc",
+    "tools/qsa_combined_candidate_910b.py": "e07553877e6dc0c5280ca33300927ab9916e44786bd92fe3134c688fb44328b1",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+  },
+  "not_run": [
+    "medium32_g8192",
+    "long32_g25600"
+  ]
+}

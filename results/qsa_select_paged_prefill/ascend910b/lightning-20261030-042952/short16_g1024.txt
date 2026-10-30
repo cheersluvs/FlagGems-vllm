@@ -1,0 +1,85 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-torch-stages.EoY6k0/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/benchmark_qsa_prefill_stages_910b.py:141: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  native_output = torch.empty_like(output)
+shape {"query": [16, 4, 128], "cache": [6, 192, 1, 128], "page_table": [1, 6], "request_query_lengths": [16], "visible_min": 1020, "visible_max": 1024, "logits_width": 1024, "page": 192, "group_topk": 512, "token_topk": 2048, "compress_ratio": 4, "dtype": "bfloat16", "chunks": [[0, 16]]}
+score_correctness {"max_abs_error": 1.1444091796875e-05, "valid_scores": 16348, "masked_scores": 36, "rtol": 0.001, "atol": 0.001}
+correctness {"topk": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "prepared_pipeline": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "public_total": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_adapter_total": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_fused": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}}
+[W1030 12:29:46.669831552 VariableFallbackKernel.cpp:250] Warning: CAUTION: The operator 'aten::bmm.dtype' is not currently supported on the NPU backend and will fall back to run on the CPU. This may have performance implications. (function npu_cpu_fallback)
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/qsa_torch_stages_910b.py", line 62, in run
+    score_one(plans[0], dense[plans[0][2]])
+  File "/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/qsa_torch_stages_910b.py", line 51, in score_one
+    product = torch.bmm(
+              ^^^^^^^^^^
+NotImplementedError: Could not run 'aten::bmm.dtype' with arguments from the 'CPU' backend. This could be because the operator doesn't exist for this backend, or was omitted during the selective/custom build process (if using custom build). If you are a Facebook employee using PyTorch on mobile, please visit https://fburl.com/ptmfixes for possible resolutions. 'aten::bmm.dtype' is only available for these backends: [PrivateUse1, Meta, SparsePrivateUse1, BackendSelect, Python, FuncTorchDynamicLayerBackMode, Functionalize, Named, Conjugate, Negative, ZeroTensor, ADInplaceOrView, AutogradOther, AutogradCPU, AutogradCUDA, AutogradHIP, AutogradXLA, AutogradMPS, AutogradIPU, AutogradXPU, AutogradHPU, AutogradVE, AutogradLazy, AutogradMTIA, AutogradMAIA, AutogradPrivateUse1, AutogradPrivateUse2, AutogradPrivateUse3, AutogradMeta, AutogradNestedTensor, Tracer, AutocastCPU, AutocastMTIA, AutocastMAIA, AutocastXPU, AutocastMPS, AutocastCUDA, AutocastPrivateUse1, FuncTorchBatched, BatchedNestedTensor, FuncTorchVmapMode, Batched, VmapMode, FuncTorchGradWrapper, PythonTLSSnapshot, FuncTorchDynamicLayerFrontMode, PreDispatch, PythonDispatcher].
+
+PrivateUse1: registered at ../torch_npu/csrc/aten/VariableFallbackKernel.cpp:259 [backend fallback]
+Meta: registered at /flagos/lib/python3.11/site-packages/torch/_meta_registrations.py:51 [kernel]
+SparsePrivateUse1: registered at ../torch_npu/csrc/aten/VariableFallbackKernel.cpp:270 [backend fallback]
+BackendSelect: fallthrough registered at /pytorch/aten/src/ATen/core/BackendSelectFallbackKernel.cpp:3 [backend fallback]
+Python: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:198 [backend fallback]
+FuncTorchDynamicLayerBackMode: registered at /pytorch/aten/src/ATen/functorch/DynamicLayer.cpp:477 [backend fallback]
+Functionalize: registered at /pytorch/aten/src/ATen/FunctionalizeFallbackKernel.cpp:384 [backend fallback]
+Named: registered at /pytorch/aten/src/ATen/core/NamedRegistrations.cpp:5 [backend fallback]
+Conjugate: registered at /pytorch/aten/src/ATen/ConjugateFallback.cpp:17 [backend fallback]
+Negative: registered at /pytorch/aten/src/ATen/native/NegateFallback.cpp:18 [backend fallback]
+ZeroTensor: registered at /pytorch/aten/src/ATen/ZeroTensorFallback.cpp:115 [backend fallback]
+ADInplaceOrView: fallthrough registered at /pytorch/aten/src/ATen/core/VariableFallbackKernel.cpp:103 [backend fallback]
+AutogradOther: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradCPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradCUDA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradHIP: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradXLA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradMPS: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradIPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradXPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradHPU: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradVE: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradLazy: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradMTIA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradMAIA: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradPrivateUse1: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradPrivateUse2: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradPrivateUse3: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradMeta: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+AutogradNestedTensor: registered at /pytorch/torch/csrc/autograd/generated/VariableType_3.cpp:19895 [autograd kernel]
+Tracer: registered at /pytorch/torch/csrc/autograd/generated/TraceType_3.cpp:15141 [kernel]
+AutocastCPU: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:324 [backend fallback]
+AutocastMTIA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:468 [backend fallback]
+AutocastMAIA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:506 [backend fallback]
+AutocastXPU: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:544 [backend fallback]
+AutocastMPS: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:209 [backend fallback]
+AutocastCUDA: fallthrough registered at /pytorch/aten/src/ATen/autocast_mode.cpp:165 [backend fallback]
+AutocastPrivateUse1: fallthrough registered at ../torch_npu/csrc/aten/AutoCastOps.cpp:20 [backend fallback]
+FuncTorchBatched: registered at /pytorch/aten/src/ATen/functorch/LegacyBatchingRegistrations.cpp:727 [backend fallback]
+BatchedNestedTensor: registered at /pytorch/aten/src/ATen/functorch/LegacyBatchingRegistrations.cpp:754 [backend fallback]
+FuncTorchVmapMode: fallthrough registered at /pytorch/aten/src/ATen/functorch/VmapModeRegistrations.cpp:22 [backend fallback]
+Batched: registered at /pytorch/aten/src/ATen/LegacyBatchingRegistrations.cpp:1072 [backend fallback]
+VmapMode: fallthrough registered at /pytorch/aten/src/ATen/VmapModeRegistrations.cpp:32 [backend fallback]
+FuncTorchGradWrapper: registered at /pytorch/aten/src/ATen/functorch/TensorWrapper.cpp:210 [backend fallback]
+PythonTLSSnapshot: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:206 [backend fallback]
+FuncTorchDynamicLayerFrontMode: registered at /pytorch/aten/src/ATen/functorch/DynamicLayer.cpp:473 [backend fallback]
+PreDispatch: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:210 [backend fallback]
+PythonDispatcher: registered at /pytorch/aten/src/ATen/core/PythonFallbackKernel.cpp:202 [backend fallback]
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/probe_qsa_lightning_910b.py", line 309, in worker
+    return run(args, result)
+           ^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/benchmark_qsa_prefill_stages_910b.py", line 351, in run
+    return torch_stages(args, result, locals())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-torch-stages.EoY6k0/tools/qsa_torch_stages_910b.py", line 66, in run
+    raise RuntimeError(
+RuntimeError: Required BF16-input/FP32-output torch.bmm baseline unavailable; no dtype fallback used
+
