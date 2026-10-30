@@ -1,0 +1,133 @@
+{
+  "status": "environment_unavailable",
+  "packages": {
+    "torch": "2.10.0+cpu",
+    "torch-npu": "2.10.0",
+    "triton": null,
+    "triton-ascend": null,
+    "flagtree": "0.6.1+ascend3.5",
+    "vllm": "0.24.0+flagos",
+    "vllm-ascend": null
+  },
+  "cases": [
+    {
+      "status": "failed",
+      "case": "environment",
+      "python": "/flagos/bin/python3",
+      "cache_directory": null,
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "topk_candidate_diagnostics": {
+        "identity": {
+          "implementation": "Ascend top_k_per_row_prefill",
+          "source": "/tmp/flaggems-qsa-topk-import.uUGStzcF/src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py",
+          "sha256": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8",
+          "upstream_commit": "c9d96bf4a7c3773cdc5a53447c66dcbff8d66698",
+          "tle_import_ok": false,
+          "test_only": true,
+          "adapter": "zero row starts via Triton; visible_blocks as row ends",
+          "timing": "includes row-start allocation/fill and all internal prefill allocations/synchronization"
+        },
+        "runtime": {
+          "python": "/flagos/bin/python3",
+          "sys_path": [
+            "/tmp/flaggems-qsa-topk-import.uUGStzcF/src",
+            "/tmp/flaggems-qsa-topk-import.uUGStzcF/tools",
+            "/opt/flagtree",
+            "/usr/local/Ascend/cann-9.0.0/python/site-packages",
+            "/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe",
+            "/workspace",
+            "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python311.zip",
+            "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11",
+            "/root/.local/share/uv/python/cpython-3.11-linux-aarch64-gnu/lib/python3.11/lib-dynload",
+            "/flagos/lib/python3.11/site-packages",
+            "/usr/local/Ascend/cann-9.0.0/python/site-packages/mspti/lib64",
+            "/flagos/lib/python3.11/site-packages/flag_gems/runtime/backend"
+          ],
+          "triton": {
+            "version": "3.5.1",
+            "source": "/opt/flagtree/triton/__init__.py"
+          },
+          "imports": {
+            "triton.experimental.tle": {
+              "status": "passed",
+              "source": "/opt/flagtree/triton/experimental/tle/__init__.py"
+            },
+            "triton.experimental.tle.language.dsa.ascend.custom_ops": {
+              "status": "failed",
+              "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/qsa_prefill_topk_candidate_910b.py\", line 54, in inspect_runtime\n    imported = importlib.import_module(name)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1204, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1176, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1140, in _find_and_load_unlocked\nModuleNotFoundError: No module named 'triton.experimental.tle.language.dsa.ascend.custom_ops'\n"
+            }
+          },
+          "tle_directory": "/opt/flagtree/triton/experimental/tle",
+          "tle_python_files": [
+            "__init__.py",
+            "distributed.py",
+            "language/__init__.py",
+            "language/builder.py",
+            "language/core.py",
+            "language/dsa/__init__.py",
+            "language/dsa/ascend/__init__.py",
+            "language/dsa/ascend/core.py",
+            "language/dsa/ascend/semantic.py",
+            "language/dsa/core.py",
+            "language/dsa/semantic.py",
+            "language/dsa/types.py",
+            "language/gpu/__init__.py",
+            "language/gpu/core.py",
+            "language/gpu/semantic.py",
+            "language/gpu/types.py",
+            "language/raw/__init__.py",
+            "language/raw/core.py",
+            "raw/__init__.py",
+            "raw/cuda/__init__.py",
+            "raw/cuda/runtime.py",
+            "raw/mlir/__init__.py",
+            "raw/mlir/codegen.py",
+            "raw/mlir/runtime.py",
+            "raw/mlir/utils.py",
+            "raw/runtime.py",
+            "raw/typing.py",
+            "raw/utils/__init__.py",
+            "raw/utils/exception.py"
+          ],
+          "raw_ops_error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/qsa_prefill_topk_candidate_910b.py\", line 64, in inspect_runtime\n    raw = tle.dsa.ascend.raw\n          ^^^^^^^^^^^^^^^^^^\nAttributeError: module 'triton.experimental.tle.language.dsa.ascend' has no attribute 'raw'\n"
+        }
+      },
+      "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/probe_qsa_lightning_910b.py\", line 221, in worker\n    result[\"topk_candidate\"] = overrides.enter_context(\n                               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/contextlib.py\", line 517, in enter_context\n    result = _enter(cm)\n             ^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/contextlib.py\", line 137, in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/qsa_prefill_topk_candidate_910b.py\", line 104, in candidate\n    raise NotImplementedError(\nNotImplementedError: Ascend prefill TopK original import gate is false; import failures: {\"triton.experimental.tle.language.dsa.ascend.custom_ops\": \"Traceback (most recent call last):\\n  File \\\"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/qsa_prefill_topk_candidate_910b.py\\\", line 54, in inspect_runtime\\n    imported = importlib.import_module(name)\\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/importlib/__init__.py\\\", line 126, in import_module\\n    return _bootstrap._gcd_import(name[level:], package, level)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"<frozen importlib._bootstrap>\\\", line 1204, in _gcd_import\\n  File \\\"<frozen importlib._bootstrap>\\\", line 1176, in _find_and_load\\n  File \\\"<frozen importlib._bootstrap>\\\", line 1140, in _find_and_load_unlocked\\nModuleNotFoundError: No module named 'triton.experimental.tle.language.dsa.ascend.custom_ops'\\n\"}\n",
+      "exit_code": 2
+    }
+  ],
+  "suite": "benchmark",
+  "combined_candidate": false,
+  "prefill_topk_candidate": true,
+  "environment_only": true,
+  "fresh_cache": false,
+  "scope": "Environment/import diagnostics only; no correctness or timing",
+  "cann_version_files": {
+    "/usr/local/Ascend/driver/version.info": "Version=25.2.0\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C21SPC008B208\ncompatible_version=[V100R001C17],[V100R001C18],[V100R001C19],[V100R001C20],[V100R001C21]\ncompatible_version_fw=[7.0.0,7.7.99]\npackage_version=25.2.0\n"
+  },
+  "script_sha256": "3e9786c0f49bf12aa661d1b3b6531d01b9ab28666391512f117b6c07e4bce5dd",
+  "source_hashes": {
+    "tools/benchmark_qsa_prefill_stages_910b.py": "077a77e8f77aa6a81425e98add6146e8a5b07052d92e8c88d470f1f420f64a3e",
+    "tools/qsa_timeline_910b.py": "e61afd802b9343fdd972698c34913a8f35b62be0fe587076775336384455f7cc",
+    "tools/qsa_independent_probes_910b.py": "b4c288375992c27ed22671ec2873b3304d084ae5be767a3753d8dcd2b958a99b",
+    "tools/qsa_torch_stages_910b.py": "f042bc4b3316cc45ba30ff9e036b5ca2969e0692c1b66582a22121e7d2f68b1f",
+    "tools/qsa_prefill_production_910b.py": "8fcd24f7c3c2a467b0811e144f5f79b2a3a95787425a3c9072ec90c1dc4e2eee",
+    "tools/qsa_lightning_baseline_910b.py": "db2c7ddd7cf4eaaa40336ff2e49726ac49d0aaa590162cf494aaedde2e59bbcc",
+    "tools/qsa_combined_candidate_910b.py": "e07553877e6dc0c5280ca33300927ab9916e44786bd92fe3134c688fb44328b1",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+  },
+  "topk_candidate_sources": {
+    "tools/qsa_prefill_topk_candidate_910b.py": "10f305d07b9bbfc1eddcc0485c76b15972ef19438333bc9d8f041c00ffb0018c",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8"
+  }
+}

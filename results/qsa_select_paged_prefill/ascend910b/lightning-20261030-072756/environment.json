@@ -1,0 +1,93 @@
+{
+  "status": "failed",
+  "case": "environment",
+  "python": "/flagos/bin/python3",
+  "cache_directory": null,
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "topk_candidate_diagnostics": {
+    "identity": {
+      "implementation": "Ascend top_k_per_row_prefill",
+      "source": "/tmp/flaggems-qsa-topk-import.uUGStzcF/src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py",
+      "sha256": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8",
+      "upstream_commit": "c9d96bf4a7c3773cdc5a53447c66dcbff8d66698",
+      "tle_import_ok": false,
+      "test_only": true,
+      "adapter": "zero row starts via Triton; visible_blocks as row ends",
+      "timing": "includes row-start allocation/fill and all internal prefill allocations/synchronization"
+    },
+    "runtime": {
+      "python": "/flagos/bin/python3",
+      "sys_path": [
+        "/tmp/flaggems-qsa-topk-import.uUGStzcF/src",
+        "/tmp/flaggems-qsa-topk-import.uUGStzcF/tools",
+        "/opt/flagtree",
+        "/usr/local/Ascend/cann-9.0.0/python/site-packages",
+        "/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe",
+        "/workspace",
+        "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python311.zip",
+        "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11",
+        "/root/.local/share/uv/python/cpython-3.11-linux-aarch64-gnu/lib/python3.11/lib-dynload",
+        "/flagos/lib/python3.11/site-packages",
+        "/usr/local/Ascend/cann-9.0.0/python/site-packages/mspti/lib64",
+        "/flagos/lib/python3.11/site-packages/flag_gems/runtime/backend"
+      ],
+      "triton": {
+        "version": "3.5.1",
+        "source": "/opt/flagtree/triton/__init__.py"
+      },
+      "imports": {
+        "triton.experimental.tle": {
+          "status": "passed",
+          "source": "/opt/flagtree/triton/experimental/tle/__init__.py"
+        },
+        "triton.experimental.tle.language.dsa.ascend.custom_ops": {
+          "status": "failed",
+          "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/qsa_prefill_topk_candidate_910b.py\", line 54, in inspect_runtime\n    imported = importlib.import_module(name)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/importlib/__init__.py\", line 126, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1204, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1176, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1140, in _find_and_load_unlocked\nModuleNotFoundError: No module named 'triton.experimental.tle.language.dsa.ascend.custom_ops'\n"
+        }
+      },
+      "tle_directory": "/opt/flagtree/triton/experimental/tle",
+      "tle_python_files": [
+        "__init__.py",
+        "distributed.py",
+        "language/__init__.py",
+        "language/builder.py",
+        "language/core.py",
+        "language/dsa/__init__.py",
+        "language/dsa/ascend/__init__.py",
+        "language/dsa/ascend/core.py",
+        "language/dsa/ascend/semantic.py",
+        "language/dsa/core.py",
+        "language/dsa/semantic.py",
+        "language/dsa/types.py",
+        "language/gpu/__init__.py",
+        "language/gpu/core.py",
+        "language/gpu/semantic.py",
+        "language/gpu/types.py",
+        "language/raw/__init__.py",
+        "language/raw/core.py",
+        "raw/__init__.py",
+        "raw/cuda/__init__.py",
+        "raw/cuda/runtime.py",
+        "raw/mlir/__init__.py",
+        "raw/mlir/codegen.py",
+        "raw/mlir/runtime.py",
+        "raw/mlir/utils.py",
+        "raw/runtime.py",
+        "raw/typing.py",
+        "raw/utils/__init__.py",
+        "raw/utils/exception.py"
+      ],
+      "raw_ops_error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/qsa_prefill_topk_candidate_910b.py\", line 64, in inspect_runtime\n    raw = tle.dsa.ascend.raw\n          ^^^^^^^^^^^^^^^^^^\nAttributeError: module 'triton.experimental.tle.language.dsa.ascend' has no attribute 'raw'\n"
+    }
+  },
+  "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/probe_qsa_lightning_910b.py\", line 221, in worker\n    result[\"topk_candidate\"] = overrides.enter_context(\n                               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/contextlib.py\", line 517, in enter_context\n    result = _enter(cm)\n             ^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/contextlib.py\", line 137, in __enter__\n    return next(self.gen)\n           ^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/qsa_prefill_topk_candidate_910b.py\", line 104, in candidate\n    raise NotImplementedError(\nNotImplementedError: Ascend prefill TopK original import gate is false; import failures: {\"triton.experimental.tle.language.dsa.ascend.custom_ops\": \"Traceback (most recent call last):\\n  File \\\"/tmp/flaggems-qsa-topk-import.uUGStzcF/tools/qsa_prefill_topk_candidate_910b.py\\\", line 54, in inspect_runtime\\n    imported = importlib.import_module(name)\\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/importlib/__init__.py\\\", line 126, in import_module\\n    return _bootstrap._gcd_import(name[level:], package, level)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"<frozen importlib._bootstrap>\\\", line 1204, in _gcd_import\\n  File \\\"<frozen importlib._bootstrap>\\\", line 1176, in _find_and_load\\n  File \\\"<frozen importlib._bootstrap>\\\", line 1140, in _find_and_load_unlocked\\nModuleNotFoundError: No module named 'triton.experimental.tle.language.dsa.ascend.custom_ops'\\n\"}\n"
+}
