@@ -345,6 +345,10 @@ def run(args, result):
     print("shape", json.dumps(result["shape"]), flush=True)
     print("score_correctness", json.dumps(result["score_correctness"]), flush=True)
     print("correctness", json.dumps(result["selection_correctness"]), flush=True)
+    if args.suite == "torch-stages":
+        from qsa_torch_stages_910b import run as torch_stages
+
+        return torch_stages(args, result, locals())
     if getattr(args, "probe_kind", None):
         from qsa_independent_probes_910b import run as probe
 

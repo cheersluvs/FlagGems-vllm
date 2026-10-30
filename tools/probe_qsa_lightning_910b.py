@@ -273,7 +273,8 @@ def worker(args):
                 from qsa_prefill_pipeline_910b_trial import load_topk
             result["existing_topk"] = load_topk().probe_identity
         if (
-            args.suite in ("benchmark", "timeline", "score-probe", "topk-probe")
+            args.suite
+            in ("benchmark", "timeline", "score-probe", "topk-probe", "torch-stages")
             and args.worker == "environment"
         ):
             from benchmark_qsa_prefill_stages_910b import profiler_inventory
@@ -296,7 +297,13 @@ def worker(args):
             from diagnose_qsa_topk_import_910b import run
 
             return run(args, result)
-        if args.suite in ("benchmark", "timeline", "score-probe", "topk-probe"):
+        if args.suite in (
+            "benchmark",
+            "timeline",
+            "score-probe",
+            "topk-probe",
+            "torch-stages",
+        ):
             from benchmark_qsa_prefill_stages_910b import run
 
             return run(args, result)
@@ -727,6 +734,7 @@ def main():
             "timeline",
             "score-probe",
             "topk-probe",
+            "torch-stages",
         ),
         default="native",
     )
@@ -757,7 +765,13 @@ def main():
         parser.error("Timing counts must be positive")
     if args.device < 0 or args.timeout <= 0:
         parser.error("Invalid device or timeout")
-    if args.suite in ("benchmark", "timeline", "score-probe", "topk-probe"):
+    if args.suite in (
+        "benchmark",
+        "timeline",
+        "score-probe",
+        "topk-probe",
+        "torch-stages",
+    ):
         from benchmark_qsa_prefill_stages_910b import CASES as benchmark_cases
 
         CASES = benchmark_cases
@@ -881,7 +895,13 @@ def main():
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
             )
         }
-    if args.suite in ("benchmark", "timeline", "score-probe", "topk-probe"):
+    if args.suite in (
+        "benchmark",
+        "timeline",
+        "score-probe",
+        "topk-probe",
+        "torch-stages",
+    ):
         root = Path(__file__).resolve().parents[1]
         summary["scope"] = (
             "Three BF16 diagnostic shapes: stage timing and public/native comparisons, not kernel-mode acceptance"
@@ -892,6 +912,7 @@ def main():
                 "tools/benchmark_qsa_prefill_stages_910b.py",
                 "tools/qsa_timeline_910b.py",
                 "tools/qsa_independent_probes_910b.py",
+                "tools/qsa_torch_stages_910b.py",
                 "tools/qsa_prefill_production_910b.py",
                 "tools/qsa_lightning_baseline_910b.py",
                 "tools/qsa_combined_candidate_910b.py",
@@ -902,6 +923,10 @@ def main():
     if args.timeline:
         summary["scope"] = (
             "Short/long CPU+NPU timeline capture; hardware traces with profiling overhead, not speedup acceptance"
+        )
+    if args.suite == "torch-stages":
+        summary["scope"] = (
+            "Standalone Torch-NPU BF16/FP32 score and TopK stage comparisons, not fused-native decomposition"
         )
     if args.probe_kind:
         summary["scope"] = (
@@ -951,7 +976,8 @@ def main():
         print((report / f"{name}.txt").read_text()[-8000:], flush=True)
         write(report / "summary.json", summary)
         if (
-            args.suite in ("score", "pipeline", "production", "benchmark")
+            args.suite
+            in ("score", "pipeline", "production", "benchmark", "torch-stages")
             and name != "environment"
             and code
         ):
