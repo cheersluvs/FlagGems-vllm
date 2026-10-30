@@ -23,6 +23,7 @@ import os
 import subprocess
 import sys
 import traceback
+from contextlib import ExitStack
 from pathlib import Path
 
 CASES = {
@@ -190,6 +191,7 @@ def score_trial(
 
 
 def worker(args):
+    overrides = ExitStack()
     result = dict(status="failed", case=args.worker, python=sys.executable)
     try:
         os.environ.setdefault("TORCH_DEVICE_BACKEND_AUTOLOAD", "0")
@@ -212,6 +214,13 @@ def worker(args):
         if not torch.npu.is_available():
             raise RuntimeError("torch.npu.is_available() is false")
         torch.npu.set_device(args.device)
+        if args.combined:
+            from qsa_combined_candidate_910b import combined
+
+            overrides.enter_context(combined())
+            result["candidate_overrides"] = dict(
+                programs=20, G=40, BLOCK=256, test_only=True
+            )
         result["device"] = dict(
             index=args.device, name=torch.npu.get_device_name(args.device)
         )
@@ -676,6 +685,7 @@ def worker(args):
         print(result["error"], flush=True)
         return 2 if args.worker == "environment" else 1
     finally:
+        overrides.close()
         write(args.output, result)
 
 
@@ -691,6 +701,11 @@ def main():
         help="logical index after ASCEND_RT_VISIBLE_DEVICES",
     )
     parser.add_argument("--timeout", type=int, default=180)
+    parser.add_argument(
+        "--combined",
+        action="store_true",
+        help="Test-only score20 and G40/BLOCK256 public-entry candidate",
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -734,6 +749,8 @@ def main():
     )
     parser.add_argument("--output")
     args = parser.parse_args()
+    if args.combined and args.suite not in ("production", "benchmark"):
+        parser.error("--combined is supported only for production and benchmark suites")
     args.timeline = args.suite == "timeline"
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
@@ -769,6 +786,7 @@ def main():
         packages={},
         cases=[],
         suite=args.suite,
+        combined_candidate=args.combined,
         fresh_cache=args.fresh_cache or args.suite == "topk-diagnostic",
         scope="native BF16 baseline probe; no performance claim",
     )
@@ -824,6 +842,7 @@ def main():
                 "tools/qsa_prefill_pipeline_910b_trial.py",
                 "tools/qsa_prefill_score_910b_trial.py",
                 "tools/qsa_lightning_baseline_910b.py",
+                "tools/qsa_combined_candidate_910b.py",
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
                 "src/flaggems_vllm/utils/triton_version_utils.py",
             )
@@ -845,6 +864,7 @@ def main():
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
                 "tools/qsa_prefill_production_910b.py",
                 "tools/qsa_lightning_baseline_910b.py",
+                "tools/qsa_combined_candidate_910b.py",
             )
         }
     if args.suite == "topk-diagnostic":
@@ -874,6 +894,7 @@ def main():
                 "tools/qsa_independent_probes_910b.py",
                 "tools/qsa_prefill_production_910b.py",
                 "tools/qsa_lightning_baseline_910b.py",
+                "tools/qsa_combined_candidate_910b.py",
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
                 "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
             )
@@ -905,6 +926,7 @@ def main():
                         "--output",
                         str(output),
                         *(["--fresh-cache"] if args.fresh_cache else []),
+                        *(["--combined"] if args.combined else []),
                         "--rounds",
                         str(args.rounds),
                         "--warmup",

@@ -21,6 +21,7 @@ import shutil
 import statistics
 import subprocess
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 CASES = {
@@ -281,6 +282,16 @@ def run(args, result):
         native_adapter_total=adapter_total,
         request_mapping=owner_stage,
     )
+    if args.combined:
+        from qsa_combined_candidate_910b import original
+
+        functions["public_original_total"] = public_total
+        with original(module, topk_module):
+            public_total()
+            verify(output)
+        result["candidate_overrides"] = dict(
+            programs=20, G=40, BLOCK=256, test_only=True
+        )
     result["selection_correctness"] = {}
     for name in ("topk", "prepared_pipeline", "public_total", "native_adapter_total"):
         functions[name]()
@@ -331,10 +342,17 @@ def run(args, result):
         from qsa_independent_probes_910b import run as probe
 
         return probe(args, result, locals())
-    for fn in functions.values():
-        for _ in range(args.warmup):
-            fn()
-        torch.npu.synchronize()
+
+    def timing_context(name):
+        if args.combined and name == "public_original_total":
+            return original(module, topk_module)
+        return nullcontext()
+
+    for name, fn in functions.items():
+        with timing_context(name):
+            for _ in range(args.warmup):
+                fn()
+            torch.npu.synchronize()
     if getattr(args, "timeline", False):
         from qsa_timeline_910b import collect
 
@@ -355,8 +373,14 @@ def run(args, result):
                 if name == "native_fused"
                 else None
             )
-            value = sample(functions[name], torch, args.iterations, check_return)
-            if name in ("topk", "prepared_pipeline", "public_total"):
+            with timing_context(name):
+                value = sample(functions[name], torch, args.iterations, check_return)
+            if name in (
+                "topk",
+                "prepared_pipeline",
+                "public_total",
+                "public_original_total",
+            ):
                 verify(output)
             elif name == "native_adapter_total":
                 verify(native_output)
@@ -387,6 +411,12 @@ def run(args, result):
         result["speedup"][label] = {
             field: result["latency"][numerator][field]["median"]
             / result["latency"][denominator][field]["median"]
+            for field in ("event_us", "wall_us")
+        }
+    if args.combined:
+        result["speedup"]["public_original_over_combined"] = {
+            field: result["latency"]["public_original_total"][field]["median"]
+            / result["latency"]["public_total"][field]["median"]
             for field in ("event_us", "wall_us")
         }
     result["route_states"] = dict(
