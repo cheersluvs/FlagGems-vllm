@@ -73,38 +73,5 @@ printf '%s  %s\n' \
     printf 'export PYTHONPATH=%q:"${PYTHONPATH:-}"\n' "$qsa_root/flagtree:$qsa_repo/src"
     printf 'export QSA_UPLOAD_REPORT=1\n'
 } > "$qsa_root/activate.sh"
-source "$qsa_root/activate.sh"
 export QSA_ENV_ROOT="$qsa_root"
-"$qsa_python" - <<'PY'
-import json
-import os
-from pathlib import Path
-import torch
-import torch_npu
-import triton
-import triton.experimental.tle as tle
-import triton.experimental.tle.language.dsa.ascend.custom_ops as custom
-from triton.experimental.tle.language.dsa.ascend.custom_ops.registry import CUSTOM_OPS_BITCODE
-root = Path(os.environ["QSA_ENV_ROOT"])
-assert Path(triton.__file__).resolve().is_relative_to(root / "flagtree"), triton.__file__
-assert callable(tle.dsa.ascend.raw), "TLE raw callable missing"
-for name in ("sort_1d_pack", "unpack_sort", "merge_exhaust_sort4"):
-    assert hasattr(custom, name), name
-bitcode = Path(CUSTOM_OPS_BITCODE)
-assert bitcode.is_file() and bitcode.stat().st_size > 0, str(bitcode)
-result = dict(
-    triton=dict(version=triton.__version__, source=triton.__file__),
-    torch=dict(version=torch.__version__, source=torch.__file__),
-    torch_npu=dict(version=torch_npu.__version__, source=torch_npu.__file__),
-    ascend_home=os.environ.get("ASCEND_HOME_PATH"),
-    custom_ops=custom.__file__, bitcode=str(bitcode), bitcode_bytes=bitcode.stat().st_size,
-    scope="Import/bitcode checks only; kernel compilation and device execution not yet verified",
-)
-(root / "verification.json").write_text(json.dumps(result, indent=2))
-print(json.dumps(result, indent=2), flush=True)
-PY
-printf 'Activation command: source %q\n' "$qsa_root/activate.sh"
-bash "$qsa_repo/tools/run_qsa_lightning_910b.sh" \
-    --suite benchmark --prefill-topk --environment-only --device "${QSA_DEVICE:-0}" --timeout 180
-printf '\nNext: source %q\nbash %q --device %q\n' \
-    "$qsa_root/activate.sh" "$qsa_repo/tools/run_qsa_prefill_topk_910b.sh" "${QSA_DEVICE:-0}"
+bash "$qsa_repo/tools/complete_qsa_prefill_topk_env_910b.sh"
