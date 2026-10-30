@@ -312,6 +312,10 @@ def worker(args):
         if args.worker == "environment":
             result["status"] = "passed"
             return 0
+        if args.suite == "opp-diagnostic":
+            from diagnose_qsa_opp_910b import run
+
+            return run(args, result)
         if args.suite == "topk-diagnostic":
             from diagnose_qsa_topk_import_910b import run
 
@@ -763,6 +767,7 @@ def main():
             "pipeline",
             "production",
             "topk-diagnostic",
+            "opp-diagnostic",
             "benchmark",
             "timeline",
             "score-probe",
@@ -814,6 +819,8 @@ def main():
         CASES = benchmark_cases
         if args.timeline or args.probe_kind:
             CASES = {k: v for k, v in CASES.items() if not k.startswith("medium")}
+    elif args.suite == "opp-diagnostic":
+        CASES = {"topk_control": None}
     elif args.suite == "topk-diagnostic":
         from diagnose_qsa_topk_import_910b import CASES as diagnostic_cases
 
@@ -985,6 +992,13 @@ def main():
         summary[
             "scope"
         ] += "; TEST-ONLY prefill TopK replacement; production source frozen"
+    if args.suite == "opp-diagnostic":
+        summary["scope"] = (
+            "OPP/library diagnostics only; native_probe records execution availability"
+        )
+        summary["diagnostic_source_sha256"] = hashlib.sha256(
+            Path(__file__).with_name("diagnose_qsa_opp_910b.py").read_bytes()
+        ).hexdigest()
     if args.environment_only:
         summary["scope"] = (
             "Environment/import diagnostics only; no correctness or timing"
