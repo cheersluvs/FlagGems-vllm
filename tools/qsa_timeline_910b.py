@@ -154,3 +154,105 @@ def collect(args, functions, torch, result, selected=None):
             "Traces preserved, but summary parser needs adjustment: "
             + "; ".join(errors)
         )
+
+
+def collect_hardware(args, score, torch, result):
+    """Collect a separate PipeUtilization pass without changing the timing trace."""
+    import csv
+    import io
+    import traceback
+
+    import torch_npu
+
+    api = torch_npu.profiler
+    root = Path(args.report) / f"{args.worker}-score-metrics"
+    entry = dict(
+        status="requested",
+        metric="PipeUtilization",
+        iterations=3,
+        scope="Separate hardware-counter pass; profiler overhead is not benchmark latency",
+    )
+    result["score_hardware"] = entry
+    try:
+        config = api._ExperimentalConfig(
+            profiler_level=api.ProfilerLevel.Level1,
+            aic_metrics=api.AiCMetrics.PipeUtilization,
+            export_type=api.ExportType.Text,
+        )
+        torch.npu.synchronize()
+        with api.profile(
+            activities=[api.ProfilerActivity.CPU, api.ProfilerActivity.NPU],
+            experimental_config=config,
+            on_trace_ready=api.tensorboard_trace_handler(str(root)),
+            record_shapes=False,
+            profile_memory=False,
+            with_stack=False,
+        ) as prof:
+            for index in range(3):
+                with torch.profiler.record_function(f"qsa/score-counters/{index}"):
+                    score()
+            torch.npu.synchronize()
+            prof.step()
+        tables = []
+        for path in sorted(root.rglob("*.csv")):
+            content = path.read_text(errors="replace")
+            fields = next(csv.reader(io.StringIO(content)), [])
+            tables.append(
+                dict(
+                    path=str(path.relative_to(root)),
+                    columns=fields,
+                    content=content[:2000000],
+                    truncated=len(content) > 2000000,
+                )
+            )
+        score_rows = []
+        for table in tables:
+            for row in csv.DictReader(io.StringIO(table["content"])):
+                if any("_paged_score_910b" in str(value) for value in row.values()):
+                    score_rows.append(
+                        {
+                            key: value
+                            for key, value in row.items()
+                            if key
+                            and any(
+                                token in key.lower()
+                                for token in (
+                                    "name",
+                                    "duration",
+                                    "aic",
+                                    "aiv",
+                                    "cube",
+                                    "scalar",
+                                    "mte",
+                                    "vector",
+                                    "pipe",
+                                )
+                            )
+                        }
+                    )
+        entry["score_rows_preview"] = score_rows[:8]
+        entry["metric_columns"] = sorted(
+            {
+                key
+                for table in tables
+                for key in table["columns"]
+                if any(
+                    token in key.lower()
+                    for token in ("aic_", "aiv_", "cube", "scalar", "mte")
+                )
+            }
+        )
+        artifact = Path(args.report) / f"{args.worker}-score-hardware-tables.json.gz"
+        with gzip.open(artifact, "wt") as stream:
+            json.dump(dict(tables=tables), stream)
+        entry.update(
+            status="exported" if tables else "no_csv_exported",
+            artifact=artifact.name,
+            tables=[
+                dict(path=t["path"], columns=t["columns"], truncated=t["truncated"])
+                for t in tables
+            ],
+        )
+    except Exception:
+        entry.update(status="failed", error=traceback.format_exc())
+    print("SCORE_HARDWARE", json.dumps(entry), flush=True)

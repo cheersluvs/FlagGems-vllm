@@ -294,7 +294,14 @@ def worker(args):
             result["existing_topk"] = load_topk().probe_identity
         if (
             args.suite
-            in ("benchmark", "timeline", "score-probe", "topk-probe", "torch-stages")
+            in (
+                "benchmark",
+                "timeline",
+                "score-profile",
+                "score-probe",
+                "topk-probe",
+                "torch-stages",
+            )
             and args.worker == "environment"
         ):
             from benchmark_qsa_prefill_stages_910b import profiler_inventory
@@ -324,6 +331,7 @@ def worker(args):
         if args.suite in (
             "benchmark",
             "timeline",
+            "score-profile",
             "score-probe",
             "topk-probe",
             "torch-stages",
@@ -434,12 +442,16 @@ def worker(args):
 
             if args.suite in ("pipeline", "production"):
                 if args.suite == "production":
-                    from qsa_prefill_production_910b import load_topk
+                    from qsa_prefill_production_910b import (
+                        load_topk,
+                    )
                     from qsa_prefill_production_910b import (
                         qsa_select_paged_prefill as pipeline,
                     )
                 else:
-                    from qsa_prefill_pipeline_910b_trial import load_topk
+                    from qsa_prefill_pipeline_910b_trial import (
+                        load_topk,
+                    )
                     from qsa_prefill_pipeline_910b_trial import (
                         qsa_select_paged_prefill as pipeline,
                     )
@@ -771,6 +783,7 @@ def main():
             "opp-diagnostic",
             "benchmark",
             "timeline",
+            "score-profile",
             "score-probe",
             "topk-probe",
             "torch-stages",
@@ -802,7 +815,7 @@ def main():
         args.combined or args.suite not in ("production", "benchmark")
     ):
         parser.error("--prefill-topk requires production/benchmark without --combined")
-    args.timeline = args.suite == "timeline"
+    args.timeline = args.suite in ("timeline", "score-profile")
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
         parser.error("Timing counts must be positive")
@@ -811,6 +824,7 @@ def main():
     if args.suite in (
         "benchmark",
         "timeline",
+        "score-profile",
         "score-probe",
         "topk-probe",
         "torch-stages",
@@ -947,6 +961,7 @@ def main():
     if args.suite in (
         "benchmark",
         "timeline",
+        "score-profile",
         "score-probe",
         "topk-probe",
         "torch-stages",

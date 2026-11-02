@@ -383,6 +383,10 @@ def run(args, result):
             return original(module, topk_module)
         return nullcontext()
 
+    if args.suite == "score-profile":
+        functions = {
+            name: functions[name] for name in ("score", "public_total", "native_fused")
+        }
     for name, fn in functions.items():
         with timing_context(name):
             for _ in range(args.warmup):
@@ -392,7 +396,17 @@ def run(args, result):
         from qsa_timeline_910b import collect
 
         result["timing_policy"]["capture_only"] = True
-        collect(args, functions, torch, result)
+        collect(
+            args,
+            functions,
+            torch,
+            result,
+            selected=tuple(functions) if args.suite == "score-profile" else None,
+        )
+        if args.suite == "score-profile":
+            from qsa_timeline_910b import collect_hardware
+
+            collect_hardware(args, score_stage, torch, result)
         public_total()
         verify(output)
         result["npu_smi_after"] = device_inventory()
