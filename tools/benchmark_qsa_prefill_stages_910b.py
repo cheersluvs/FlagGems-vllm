@@ -112,16 +112,28 @@ def run(args, result):
     result["production_entry"] = identity
     os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = "512"
     os.environ["FLAGGEMS_ASCEND_PTK_PATH"] = "auto"
-    if getattr(args, "chunk32_regression", False):
-        from qsa_chunk32_regression_910b import CASES as regression_cases
-
+    config = {}
+    if getattr(args, "chunk32_regression", False) or getattr(
+        args, "chunk32_production", False
+    ):
+        if getattr(args, "chunk32_production", False):
+            from qsa_chunk32_production_910b import CASES as regression_cases
+        else:
+            from qsa_chunk32_regression_910b import CASES as regression_cases
         config = regression_cases[args.worker]
         lengths, groups = config["lengths"], config["groups"]
         requests, query_rows = len(lengths), max(lengths)
     else:
         requests, query_rows, groups = CASES[args.worker]
         lengths = [query_rows] * requests
-    rows, heads, dim, page, k, ratio = sum(lengths), 4, 128, 192, 512, 4
+    rows, heads, dim, page, k, ratio = (
+        sum(lengths),
+        config.get("heads", 4),
+        128,
+        config.get("page", 192),
+        512,
+        4,
+    )
     columns = triton.cdiv(groups, page)
     capacity = columns * page
     width = min(capacity, triton.cdiv(groups, 64) * 64)
@@ -168,7 +180,12 @@ def run(args, result):
     native_operands = (*operands[:8], native_output, operands[9])
     owners = module._build_owners(q, table, starts)
     assert owners.cpu().tolist() == owners_cpu
-    chunk_rows = min(rows, 16)
+    chunk_cap = (
+        module._prefill_chunk_cap(q, cache, table, starts, width, k)
+        if getattr(args, "chunk32_production", False)
+        else 16
+    )
+    chunk_rows = min(rows, chunk_cap)
     logits = torch.empty((chunk_rows, width), device=device, dtype=torch.float32)
     frozen = torch.empty((rows, width), device=device, dtype=torch.float32)
     workspace = torch.empty((1024 * 1024,), device=device, dtype=torch.uint8)
@@ -300,8 +317,10 @@ def run(args, result):
         request_mapping=owner_stage,
     )
     prefill_candidate = getattr(args, "prefill_topk", False)
-    compare_original = not prefill_candidate and (
-        args.combined or hasattr(module, "_QSA_TOPK_BLOCK")
+    compare_original = (
+        not prefill_candidate
+        and not getattr(args, "chunk32_production", False)
+        and (args.combined or hasattr(module, "_QSA_TOPK_BLOCK"))
     )
     if prefill_candidate:
         from qsa_prefill_topk_candidate_910b import persistent_control
@@ -381,6 +400,10 @@ def run(args, result):
     print("shape", json.dumps(result["shape"]), flush=True)
     print("score_correctness", json.dumps(result["score_correctness"]), flush=True)
     print("correctness", json.dumps(result["selection_correctness"]), flush=True)
+    if getattr(args, "chunk32_production", False):
+        from qsa_chunk32_production_910b import run as production_probe
+
+        return production_probe(args, result, locals())
     if args.suite == "tile-public":
         from qsa_score_tile_public_910b import run as tile_public
 

@@ -40,6 +40,46 @@ def _score_programs(device_index):
     return 8
 
 
+@lru_cache(maxsize=None)
+def _is_910b(device_index):
+    try:
+        return torch.npu.get_device_name(device_index).startswith("Ascend910B")
+    except (AttributeError, RuntimeError, TypeError):
+        return False
+
+
+def _score_block_n(q, cache, table, width):
+    index = q.device.index
+    if index is None:
+        index = torch.npu.current_device()
+    eligible = (
+        q.dtype == torch.bfloat16
+        and q.shape[1:] == (4, 128)
+        and cache.dtype == q.dtype
+        and cache.shape[1:] == (192, 1, 128)
+        and table.dtype == torch.int32
+        and q.is_contiguous()
+        and cache.is_contiguous()
+        and table.is_contiguous()
+        and 4096 <= width <= 25600
+        and _is_910b(index)
+    )
+    return 128 if eligible else 32
+
+
+def _prefill_chunk_cap(q, cache, table, starts, width, k):
+    # Limit batching to the validated short-row TopK domain; keep budget enforcement below.
+    if (
+        k == 512
+        and starts.dtype == torch.int32
+        and starts.is_contiguous()
+        and 4096 <= width <= 16384
+        and _score_block_n(q, cache, table, width) == 128
+    ):
+        return 32
+    return 16
+
+
 @triton.jit
 def _request_owners(
     Starts,
@@ -180,9 +220,8 @@ def _score(
         raise ValueError("Visibility must be contiguous")
     if owners is None:
         owners = _build_owners(q, table, starts)
-    # Conservative 32x128 key and 128x16 query tiles keep buffers small.
-    # Use at most the validated 20-program launch, bounded by available Cube cores.
-    block_n = 32
+    # Other layouts and workloads retain the conservative tile.
+    block_n = _score_block_n(q, cache, table, width)
     if programs is None:
         index = q.device.index
         if index is None:
@@ -304,7 +343,8 @@ def qsa_select_paged_prefill(
         raise ValueError("Invalid logits budget") from exc
     if budget_mb < 0:
         raise ValueError("Logits budget must be nonnegative")
-    chunk_rows = min(rows, 16, max(1, budget_mb * 1024 * 1024 // (width * 4)))
+    chunk_cap = _prefill_chunk_cap(q, k_cache, page_table, query_start_loc, width, k)
+    chunk_rows = min(rows, chunk_cap, max(1, budget_mb * 1024 * 1024 // (width * 4)))
     with torch.npu.device(q.device):
         owners = _build_owners(q, page_table, query_start_loc)
         logits = torch.empty((chunk_rows, width), device=q.device, dtype=torch.float32)

@@ -27,6 +27,7 @@ import traceback
 from contextlib import ExitStack
 from pathlib import Path
 
+from qsa_chunk32_production_910b import CASES as CHUNK_PRODUCTION_CASES
 from qsa_chunk32_regression_910b import CASES as CHUNK_REGRESSION_CASES
 
 CASES = {
@@ -794,6 +795,11 @@ def main():
         action="store_true",
         help="Restricted row/tail/request/budget regression and three width timings",
     )
+    parser.add_argument(
+        "--chunk32-production",
+        action="store_true",
+        help="Registered production policy regression and paired prior-policy benchmarks",
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -835,6 +841,7 @@ def main():
             "short16_g1024",
             "medium32_g8192",
             *CHUNK_REGRESSION_CASES,
+            *CHUNK_PRODUCTION_CASES,
             "long32_g25600",
             *CASES,
             *ADAPTER_CASES,
@@ -863,6 +870,12 @@ def main():
     if args.chunk32_regression and not args.chunk32_paired:
         parser.error(
             "--chunk32-regression requires --chunk32-paired and --chunk32-probe"
+        )
+    if args.chunk32_production and (
+        args.suite != "benchmark" or args.combined or args.prefill_topk
+    ):
+        parser.error(
+            "--chunk32-production requires benchmark without candidate overrides"
         )
     args.timeline = args.suite in ("timeline", "score-profile")
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
@@ -902,6 +915,8 @@ def main():
             CASES["zero_budget"] = dict(ADAPTER_CASES["offset_ragged"], budget_mb=0)
     if args.chunk32_regression:
         CASES = CHUNK_REGRESSION_CASES
+    if args.chunk32_production:
+        CASES = CHUNK_PRODUCTION_CASES
     if args.environment_only:
         CASES = {}
     if args.suite in ("address-probe", "tile-probe"):
@@ -1115,6 +1130,13 @@ def main():
         summary["tile_public_source_sha256"] = hashlib.sha256(
             Path(__file__).with_name("qsa_score_tile_public_910b.py").read_bytes()
         ).hexdigest()
+    if args.chunk32_production:
+        summary["scope"] = (
+            "Registered N128/chunk32 production integration, prior N32/chunk16 paired control"
+        )
+        summary["production_probe_sha256"] = hashlib.sha256(
+            Path(__file__).with_name("qsa_chunk32_production_910b.py").read_bytes()
+        ).hexdigest()
     if args.environment_only:
         summary["scope"] = (
             "Environment/import diagnostics only; no correctness or timing"
@@ -1143,6 +1165,7 @@ def main():
                     *(["--chunk32-probe"] if args.chunk32_probe else []),
                     *(["--chunk32-paired"] if args.chunk32_paired else []),
                     *(["--chunk32-regression"] if args.chunk32_regression else []),
+                    *(["--chunk32-production"] if args.chunk32_production else []),
                     *(["--tile-public-timeline"] if args.tile_public_timeline else []),
                     "--rounds",
                     str(args.rounds),
