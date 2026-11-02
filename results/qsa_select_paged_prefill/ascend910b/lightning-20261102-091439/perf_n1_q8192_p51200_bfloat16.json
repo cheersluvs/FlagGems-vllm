@@ -1,0 +1,324 @@
+{
+  "status": "passed",
+  "case": "perf_n1_q8192_p51200_bfloat16",
+  "python": "/flagos/bin/python3",
+  "launch_environment": {
+    "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+    "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+    "PYTHONPATH": "/tmp/flaggems-qsa-upstream12.zDA75jXK/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+    "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+    "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+    "BASH_ENV": null
+  },
+  "cache_directory": null,
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-upstream12.zDA75jXK/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-upstream12.zDA75jXK/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-upstream12.zDA75jXK/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "71fcbcb2173119f09d7c62f8874409ae85b74c8068fcd3366039ce04f81aa282",
+      "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+    },
+    "launch_policy": {
+      "programs": 20,
+      "topk_block": 256,
+      "topk_default_block": 1024
+    }
+  },
+  "npu_smi_before": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.4        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4075 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.7        32                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3440 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.6        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3422 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.4        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 100.9       38                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3445 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 96.9        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 95.9        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3428 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 93.2        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3434 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 3508102       | python3                  | 106                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  },
+  "upstream12_kernel": {
+    "source": "https://github.com/vllm-project/vllm/pull/54513",
+    "upstream_case": {
+      "name": "perf_n1_q8192_p51200_bfloat16",
+      "kind": "upstream_perf",
+      "requests": 1,
+      "query_length": 8192,
+      "prefix_tokens": 51200,
+      "page_size": 192,
+      "heads": 4,
+      "dim": 128,
+      "ratio": 4,
+      "k": 512,
+      "budget_mb": 512,
+      "dtype": "bfloat16"
+    },
+    "geometry": {
+      "source": "https://github.com/vllm-project/vllm/pull/54513",
+      "provenance": "published query/prefix/page grid; explicit local dtype/H/D choices",
+      "prefix_unit": "original_tokens_before_query",
+      "query_lengths": [
+        8192
+      ],
+      "sequence_lengths": [
+        59392
+      ],
+      "compressed_lengths": [
+        14848
+      ],
+      "pages_per_request": 78,
+      "physical_pages": 78,
+      "q_shape": [
+        8192,
+        4,
+        128
+      ],
+      "cache_shape": [
+        78,
+        192,
+        1,
+        128
+      ],
+      "page_table_shape": [
+        1,
+        78
+      ],
+      "visible_first": 12800,
+      "visible_last": 14848,
+      "logits_width": 14848,
+      "expected_chunk_rows": [
+        8192
+      ],
+      "full_logits_bytes": 486539264,
+      "score_workspace_bytes": 486539264
+    },
+    "scope": "Upstream query/prefix matrix; BF16 H4 D128 K512 ratio4; page196 rebuilt as page192 for Ascend",
+    "production_registered_entry": true,
+    "production_source_modified": false,
+    "dispatch": {
+      "block_n": 128,
+      "chunk_rows": 32,
+      "num_chunks": 256
+    },
+    "validation_scope": "All output rows: range/uniqueness; representative rows only: CPU FP32 scores/TopK",
+    "sampled_score_error": 1.52587890625e-05,
+    "cpu_reference_rows": [
+      0,
+      15,
+      16,
+      31,
+      32,
+      4096,
+      8191
+    ],
+    "benchmark_only_full_score_staging_bytes": 486539264,
+    "correctness": {
+      "score": {
+        "sampled_scores_valid": true,
+        "rows": [
+          0,
+          15,
+          16,
+          31,
+          32,
+          4096,
+          8191
+        ]
+      },
+      "topk": {
+        "all_rows_range_and_uniqueness": true,
+        "rows": 8192,
+        "cpu_topk_rows": [
+          0,
+          15,
+          16,
+          31,
+          32,
+          4096,
+          8191
+        ],
+        "max_selected_score_error": 0.0
+      },
+      "prepared_pipeline": {
+        "all_rows_range_and_uniqueness": true,
+        "rows": 8192,
+        "cpu_topk_rows": [
+          0,
+          15,
+          16,
+          31,
+          32,
+          4096,
+          8191
+        ],
+        "max_selected_score_error": 0.0
+      },
+      "public_total": {
+        "all_rows_range_and_uniqueness": true,
+        "rows": 8192,
+        "cpu_topk_rows": [
+          0,
+          15,
+          16,
+          31,
+          32,
+          4096,
+          8191
+        ],
+        "max_selected_score_error": 0.0
+      },
+      "native_adapter_total": {
+        "all_rows_range_and_uniqueness": true,
+        "rows": 8192,
+        "cpu_topk_rows": [
+          0,
+          15,
+          16,
+          31,
+          32,
+          4096,
+          8191
+        ],
+        "max_selected_score_error": 0.0
+      },
+      "native_fused": {
+        "all_rows_range_and_uniqueness": true,
+        "rows": 8192,
+        "cpu_topk_rows": [
+          0,
+          15,
+          16,
+          31,
+          32,
+          4096,
+          8191
+        ],
+        "max_selected_score_error": 0.0
+      }
+    },
+    "samples": {
+      "score": [
+        {
+          "kernel_us": 218118.662
+        }
+      ],
+      "topk": [
+        {
+          "kernel_us": 9623.343
+        }
+      ],
+      "prepared_pipeline": [
+        {
+          "kernel_us": 227299.519
+        }
+      ],
+      "public_total": [
+        {
+          "kernel_us": 227296.706
+        }
+      ],
+      "native_adapter_total": [
+        {
+          "kernel_us": 17801.176000000003
+        }
+      ],
+      "native_fused": [
+        {
+          "kernel_us": 16813.236
+        }
+      ]
+    },
+    "kernel_timer": {
+      "backend": "triton.backends.ascend.testing.do_bench_npu",
+      "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py",
+      "source_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c",
+      "signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)",
+      "warmup": 1,
+      "active": 3,
+      "unit": "microseconds per invocation, sum of device kernel durations",
+      "host_gaps_included": false,
+      "clear_l2_cache": false,
+      "scope": "Kernel mode; separate stages are not additive; native score/TopK split unavailable",
+      "invocation_sum_check": {
+        "single_us": 800.5493333333334,
+        "triple_us": 2400.4346666666665,
+        "ratio": 2.998484374063143,
+        "status": "passed"
+      }
+    },
+    "latency": {
+      "score": {
+        "kernel_us": {
+          "median": 218118.662,
+          "min": 218118.662,
+          "max": 218118.662,
+          "range_over_median": 0.0
+        }
+      },
+      "topk": {
+        "kernel_us": {
+          "median": 9623.343,
+          "min": 9623.343,
+          "max": 9623.343,
+          "range_over_median": 0.0
+        }
+      },
+      "prepared_pipeline": {
+        "kernel_us": {
+          "median": 227299.519,
+          "min": 227299.519,
+          "max": 227299.519,
+          "range_over_median": 0.0
+        }
+      },
+      "public_total": {
+        "kernel_us": {
+          "median": 227296.706,
+          "min": 227296.706,
+          "max": 227296.706,
+          "range_over_median": 0.0
+        }
+      },
+      "native_adapter_total": {
+        "kernel_us": {
+          "median": 17801.176000000003,
+          "min": 17801.176000000003,
+          "max": 17801.176000000003,
+          "range_over_median": 0.0
+        }
+      },
+      "native_fused": {
+        "kernel_us": {
+          "median": 16813.236,
+          "min": 16813.236,
+          "max": 16813.236,
+          "range_over_median": 0.0
+        }
+      }
+    },
+    "speedup": {
+      "native_adapter_over_public": 0.07831691146461227,
+      "native_fused_over_prepared": 0.07396951860685635
+    }
+  },
+  "npu_smi_after": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 107.1       33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4828 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.7        32                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3513 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.6        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.3        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 100.7       38                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3445 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 96.8        37                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.0        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 93.2        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3434 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 3508102       | python3                  | 722                     |\n+===========================+===============+====================================================+\n| 1       0                 | 3628699       | pytest                   | 131                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  }
+}

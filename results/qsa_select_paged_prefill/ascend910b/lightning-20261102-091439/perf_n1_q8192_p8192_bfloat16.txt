@@ -1,0 +1,29 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-upstream12.zDA75jXK/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/tmp/flaggems-qsa-upstream12.zDA75jXK/tools/qsa_upstream_kernel_910b.py:70: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  native_output = torch.empty_like(output)
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+UPSTREAM_PREPARATION perf_n1_q8192_p8192_bfloat16 rows 8192 width 4096 production_chunks 256 staging_MiB 128.0
+UPSTREAM_SHAPE {"source": "https://github.com/vllm-project/vllm/pull/54513", "provenance": "published query/prefix/page grid; explicit local dtype/H/D choices", "prefix_unit": "original_tokens_before_query", "query_lengths": [8192], "sequence_lengths": [16384], "compressed_lengths": [4096], "pages_per_request": 22, "physical_pages": 22, "q_shape": [8192, 4, 128], "cache_shape": [22, 192, 1, 128], "page_table_shape": [1, 22], "visible_first": 2048, "visible_last": 4096, "logits_width": 4096, "expected_chunk_rows": [8192], "full_logits_bytes": 134217728, "score_workspace_bytes": 134217728}
+UPSTREAM_DISPATCH {"block_n": 128, "chunk_rows": 32, "num_chunks": 256}
+UPSTREAM_VALIDATION {"score": {"sampled_scores_valid": true, "rows": [0, 15, 16, 31, 32, 4096, 8191]}, "topk": {"all_rows_range_and_uniqueness": true, "rows": 8192, "cpu_topk_rows": [0, 15, 16, 31, 32, 4096, 8191], "max_selected_score_error": 0.0}, "prepared_pipeline": {"all_rows_range_and_uniqueness": true, "rows": 8192, "cpu_topk_rows": [0, 15, 16, 31, 32, 4096, 8191], "max_selected_score_error": 0.0}, "public_total": {"all_rows_range_and_uniqueness": true, "rows": 8192, "cpu_topk_rows": [0, 15, 16, 31, 32, 4096, 8191], "max_selected_score_error": 0.0}, "native_adapter_total": {"all_rows_range_and_uniqueness": true, "rows": 8192, "cpu_topk_rows": [0, 15, 16, 31, 32, 4096, 8191], "max_selected_score_error": 0.0}, "native_fused": {"all_rows_range_and_uniqueness": true, "rows": 8192, "cpu_topk_rows": [0, 15, 16, 31, 32, 4096, 8191], "max_selected_score_error": 0.0}}
+KERNEL_TIMER_CHECK {'backend': 'triton.backends.ascend.testing.do_bench_npu', 'source': '/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py', 'source_sha256': 'a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c', 'signature': '(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)', 'warmup': 1, 'active': 3, 'unit': 'microseconds per invocation, sum of device kernel durations', 'host_gaps_included': False, 'clear_l2_cache': False, 'scope': 'Kernel mode; separate stages are not additive; native score/TopK split unavailable', 'invocation_sum_check': {'single_us': 173.41033333333334, 'triple_us': 519.977, 'ratio': 2.998535266064498}}
+UPSTREAM_KERNEL_TIMING 1 score {"kernel_us": 56384.94766666666}
+UPSTREAM_KERNEL_TIMING 1 topk {"kernel_us": 4122.875333333334}
+UPSTREAM_KERNEL_TIMING 1 prepared_pipeline {"kernel_us": 60466.40866666667}
+UPSTREAM_KERNEL_TIMING 1 public_total {"kernel_us": 60446.399}
+UPSTREAM_KERNEL_TIMING 1 native_adapter_total {"kernel_us": 5660.733333333333}
+UPSTREAM_KERNEL_TIMING 1 native_fused {"kernel_us": 5045.100666666667}
+UPSTREAM_KERNEL_SUMMARY score {"kernel_us": {"median": 56384.94766666666, "min": 56384.94766666666, "max": 56384.94766666666, "range_over_median": 0.0}}
+UPSTREAM_KERNEL_SUMMARY topk {"kernel_us": {"median": 4122.875333333334, "min": 4122.875333333334, "max": 4122.875333333334, "range_over_median": 0.0}}
+UPSTREAM_KERNEL_SUMMARY prepared_pipeline {"kernel_us": {"median": 60466.40866666667, "min": 60466.40866666667, "max": 60466.40866666667, "range_over_median": 0.0}}
+UPSTREAM_KERNEL_SUMMARY public_total {"kernel_us": {"median": 60446.399, "min": 60446.399, "max": 60446.399, "range_over_median": 0.0}}
+UPSTREAM_KERNEL_SUMMARY native_adapter_total {"kernel_us": {"median": 5660.733333333333, "min": 5660.733333333333, "max": 5660.733333333333, "range_over_median": 0.0}}
+UPSTREAM_KERNEL_SUMMARY native_fused {"kernel_us": {"median": 5045.100666666667, "min": 5045.100666666667, "max": 5045.100666666667, "range_over_median": 0.0}}
+UPSTREAM_KERNEL_SPEEDUP {"native_adapter_over_public": 0.09364880997019083, "native_fused_over_prepared": 0.08343641995473565}
