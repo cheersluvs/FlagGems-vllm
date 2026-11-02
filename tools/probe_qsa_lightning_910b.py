@@ -772,6 +772,11 @@ def main():
     parser.add_argument(
         "--cases", nargs="+", help="Run only the named cases from the selected suite"
     )
+    parser.add_argument(
+        "--tile-public-timeline",
+        action="store_true",
+        help="With tile-public, capture paired stage/pipeline timelines instead of benchmark rounds",
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -827,6 +832,8 @@ def main():
         args.combined or args.suite not in ("production", "benchmark")
     ):
         parser.error("--prefill-topk requires production/benchmark without --combined")
+    if args.tile_public_timeline and args.suite != "tile-public":
+        parser.error("--tile-public-timeline requires --suite tile-public")
     args.timeline = args.suite in ("timeline", "score-profile")
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
@@ -1065,6 +1072,7 @@ def main():
         summary["scope"] = (
             "Test-only N128 through registered public entry; N32 production and TopK frozen"
         )
+        summary["tile_public_timeline"] = args.tile_public_timeline
         summary["tile_public_source_sha256"] = hashlib.sha256(
             Path(__file__).with_name("qsa_score_tile_public_910b.py").read_bytes()
         ).hexdigest()
@@ -1093,6 +1101,7 @@ def main():
                     *(["--combined"] if args.combined else []),
                     *(["--prefill-topk"] if args.prefill_topk else []),
                     *(["--environment-only"] if args.environment_only else []),
+                    *(["--tile-public-timeline"] if args.tile_public_timeline else []),
                     "--rounds",
                     str(args.rounds),
                     "--warmup",

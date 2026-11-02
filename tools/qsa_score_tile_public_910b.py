@@ -133,6 +133,13 @@ def run(args, result, context):
                 function()
             torch.npu.synchronize()
     assert public_launches, "Candidate did not execute score through public entry"
+    if getattr(args, "tile_public_timeline", False):
+        _capture_pipeline(
+            args, probe, context, module, jobs, configure, check_return, torch
+        )
+        result["npu_smi_after"] = device_inventory()
+        result["status"] = "passed"
+        return 0
     for round_index in range(args.rounds):
         order = list(jobs)
         if round_index % 2:
@@ -197,3 +204,74 @@ def run(args, result, context):
     result["npu_smi_after"] = device_inventory()
     result["status"] = "passed"
     return 0
+
+
+def _capture_pipeline(
+    args, probe, context, module, jobs, configure, check_return, torch
+):
+    from qsa_timeline_910b import collect
+
+    probe["capture_only"] = True
+    probe["profile_scope"] = (
+        "Three consecutive calls per trace; CPU chunk scopes add instrumentation overhead. "
+        "Device task sum/3 is distinct from Event/wall latency; no speedup acceptance here. "
+        "Uncovered envelope intervals alone do not prove host starvation."
+    )
+    profiles = probe["profiles"] = {}
+    raw_score, raw_topk = module._score, module.persistent_topk
+
+    def score(*operands, **kwargs):
+        with torch.profiler.record_function("qsa/score_chunk"):
+            return raw_score(*operands, **kwargs)
+
+    def topk(*operands, **kwargs):
+        with torch.profiler.record_function("qsa/topk_chunk"):
+            return raw_topk(*operands, **kwargs)
+
+    for stage in ("score", "topk", "prepared_pipeline", "public_total"):
+        for prefix in ("n32", "n128"):
+            name = prefix + "_" + stage
+            entry = profiles[name] = {}
+            with configure(name), patch.object(module, "_score", score), patch.object(
+                module, "persistent_topk", topk
+            ):
+                collect(args, {name: jobs[name]}, torch, entry, selected=(name,))
+                # Validate a fresh call after capture, outside the profiler context.
+                probe["correctness"][name] = check_return(name, jobs[name]())
+            timeline = entry["timeline"]
+            measured = timeline["stages"][name]
+            entry["device_us_per_invocation"] = (
+                measured["device_task_duration_sum_us"] / timeline["iterations"]
+            )
+            entry["tasks_per_invocation"] = (
+                measured["task_count"] / timeline["iterations"]
+            )
+            print(
+                "PIPELINE_PROFILE",
+                name,
+                json.dumps(
+                    dict(
+                        device_us_per_invocation=entry["device_us_per_invocation"],
+                        tasks_per_invocation=entry["tasks_per_invocation"],
+                        envelope_us=measured["device_task_envelope_us"],
+                        uncovered_us=measured["uncovered_envelope_us"],
+                        trace_file=measured["trace_file"],
+                    )
+                ),
+                flush=True,
+            )
+    probe["profile_device_ratios_n32_over_n128"] = {
+        stage: profiles["n32_" + stage]["device_us_per_invocation"]
+        / profiles["n128_" + stage]["device_us_per_invocation"]
+        for stage in ("score", "topk", "prepared_pipeline", "public_total")
+    }
+    probe["route_states"] = dict(
+        segmerge=dict(context["topk_module"]._SEGMERGE_STATE),
+        persistent=dict(context["topk_module"]._PSEGMERGE_STATE),
+    )
+    print(
+        "PIPELINE_PROFILE_DEVICE_RATIOS",
+        json.dumps(probe["profile_device_ratios_n32_over_n128"]),
+        flush=True,
+    )
+    print("PIPELINE_PROFILE_ROUTES", json.dumps(probe["route_states"]), flush=True)
