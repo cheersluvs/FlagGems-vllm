@@ -1,0 +1,1404 @@
+{
+  "status": "passed",
+  "packages": {
+    "torch": "2.10.0+cpu",
+    "torch-npu": "2.10.0",
+    "triton": null,
+    "triton-ascend": null,
+    "flagtree": "0.7.1a1+ascend3.5",
+    "vllm": "0.24.0+flagos",
+    "vllm-ascend": null
+  },
+  "cases": [
+    {
+      "status": "passed",
+      "case": "environment",
+      "python": "/flagos/bin/python3",
+      "launch_environment": {
+        "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+        "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+        "PYTHONPATH": "/tmp/flaggems-qsa-pipeline-profile.LB5FEQGV/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+        "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+        "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+        "BASH_ENV": null
+      },
+      "cache_directory": null,
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-pipeline-profile.LB5FEQGV/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-pipeline-profile.LB5FEQGV/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-pipeline-profile.LB5FEQGV/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+          "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+        },
+        "launch_policy": {
+          "programs": 20,
+          "topk_block": 256,
+          "topk_default_block": 1024
+        }
+      },
+      "profiler_inventory": {
+        "msprof": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/msprof",
+        "collected": false,
+        "help_exit_code": 0,
+        "help": "\nUsage:\n      msprof [--options]\n\nThis is subcommand for operator optimization situation:\n      op                                Use binary msopprof to operator optimization (msprof op ...)\n\nOptions:\n      --output                          <Optional> Specify the directory that is used for storing data results.\n      --application                     <Optional> Specify application path, considering the risk of privilege escalation, please pay attention to\n\t\t\t\t\t\t   the group of the application and confirm whether it is the same as the user currently.\n\t\t\t\t\t\t   [Note] This option will be discarded in later versions.\n\t\t\t\t\t\t   you can try to use: msprof [msprof arguments] <app> [app arguments]\n      --ascendcl                        <Optional> Show acl profiling data, the default value is on.\n      --ge-api                          <Optional> Specify if report GE event, the default value is off. The possible parameters are 'l0', 'l1' or 'off'.\n      --runtime-api                     <Optional> Show runtime api profiling data, the default value is off.\n      --task-time                       <Optional> Show task profiling data, the default value is on. The possible parameters are 'l0', 'l1', 'l2', 'l3', 'on' or 'off'.\n      --task-memory                     <Optional> Show the memory usage of the operator, the default value is off. The possible parameters are 'on' or 'off'.\n      --ai-core                         <Optional> Turn on / off the ai core profiling, the default value is on when collecting app Profiling.\n      --aic-mode                        <Optional> Set the aic profiling mode to task-based or sample-based.\n\t\t\t\t\t\t   In task-based mode, profiling data will be collected by tasks.\n\t\t\t\t\t\t   In sample-based mode, profiling data will be collected in a specific interval.\n\t\t\t\t\t\t   The default value is task-based in AI task mode, sample-based in system mode.\n      --aic-freq                        <Optional> The aic sampling frequency in hertz, the default value is 100 Hz, the range is 1 to 100 Hz.\n      --environment                     <Optional> User app custom environment variable configuration.\n      --sys-period                      <Optional> Set total sampling period of system profiling in seconds.\n      --sys-devices                     <Optional> Specify the profiling scope by device ID when collect sys profiling.The value is all or ID list (split with ',').\n      --msproftx                        <Optional> Show msproftx and mstx data, the default value is off.\n      --mstx-domain-include             <Optional> Choose to only include mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` filters the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-exclude at the same time.\n      --mstx-domain-exclude             <Optional> Choose to exclude mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` excludes the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-include at the same time.\n      --storage-limit                   <Optional> Specify the output directory volume. range 200MB ~ 4294967295MB.\n      --hccl                            <Optional> Show hccl profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --model-execution                 <Optional> Show ge model execution profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --aic-metrics                     <Optional> The aic metrics groups, include ArithmeticUtilization, PipeUtilization, Memory, MemoryL0, ResourceConflictRatio, MemoryUB, L2Cache, MemoryAccess.\n\t\t\t\t\t\t   the default value is PipeUtilization.\n      --python-path                     <Optional> Specify the python interpreter path that is used for analysis, please ensure the python version is 3.7.5 or later.\n      --parse                           <Optional> Switch for using msprof to parse collecting data, the default value is off.\n      --query                           <Optional> Switch for using msprof to query collecting data, the default value is off.\n      --export                          <Optional> Switch for using msprof to export collecting data, the default value is off.\n      --clear                           <Optional> Switch for using msprof to analyze or export data in clear mode, the default value is off.\n      --analyze                         <Optional> Switch for using msprof to analyze collecting data, the default value is off.\n      --rule                            <Optional> Switch specified rule for using msprof to analyze collecting data, include communication, communication_matrix.\n\t\t\t\t\t\t   the default value is communication,communication_matrix.\n      --iteration-id                    <Optional> The export iteration id, only used when argument export is on, the default value is 1.\n      --model-id                        <Optional> The export model id, only used when argument export is on, msprof will export minium accessible model by default.\n      --summary-format                  <Optional> The export summary file format, only used when argument export is on, include csv, json, the default value is csv.\n      --type                            <Optional> The export type, only used when argument `export` is on \n\t\t\t\t\t\t   or when collecting data, include text, db.\n\t\t\t\t\t\t   the default value is text(which will also export the database).\n      --reports                         <Optional> Specify the path that is used for controlling the export scope of collecting results\n      --aicpu                           <Optional> Show aicpu profiling data, the default value is off.\n      --sys-hardware-mem                <Optional> LLC, DDR, HBM acquisition switch, optional on / off, the default value is off.\n      --sys-hardware-mem-freq           <Optional> LLC, DDR, HBM acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --llc-profiling                   <Optional> The llc profiling groups, include read, write. the default value is read.\n      --sys-cpu-profiling               <Optional> The CPU acquisition switch, optional on / off,the default value is off.\n      --sys-cpu-freq                    <Optional> The cpu sampling frequency in hertz. the default value is 50 Hz, the range is 1 to 50 Hz.\n      --sys-profiling                   <Optional> The System CPU usage and system memory acquisition switch,the default value is off.\n      --sys-sampling-freq               <Optional> The sys sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-pid-profiling               <Optional> The CPU usage of the process and the memory acquisition switch of the process,the default value is off.\n      --sys-pid-sampling-freq           <Optional> The pid sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-io-profiling                <Optional> NIC, ROCE acquisition switch, the default value is off.\n      --sys-io-sampling-freq            <Optional> NIC, ROCE acquisition frequency, range 1 ~ 100, the default value is 100, unit Hz.\n      --instr-profiling                 <Optional> Show instr profiling data, the default value is off.\n      --instr-profiling-freq            <Optional> The instr profiling sampling period in clock-cycle, the default value is 1000 cycle, the range is 300 to 30000 cycle.\n      --sys-interconnection-profiling   <Optional> PCIE, HCCS acquisition switch, the default value is off.\n      --sys-interconnection-freq        <Optional> PCIE, HCCS acquisition frequency, range 1 ~ 50, the default value is 50, unit Hz.\n      --dvpp-profiling                  <Optional> DVPP acquisition switch, the default value is off.\n      --dvpp-freq                       <Optional> DVPP acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --l2                              <Optional> L2 Cache and SMMU acquisition switch. The default value is off.\n      --host-sys                        <Optional> The host-sys data type, include cpu, mem, disk, network, osrt, numa\n      --host-sys-pid                    <Optional> Set the PID of the app process for which you want to collect performance data.\n      --host-sys-usage                  <Optional> The host-sys-usage data type, include cpu, mem.(full-platform)\n      --host-sys-usage-freq             <Optional> The sampling frequency in hertz. the default value is 50 Hz the range is 1 to 50 Hz.\n      --dynamic                         <Optional> Dynamic profiling switch, the default value is off.\n      --pid                             <Optional> Dynamic profiling pids of the target processes\n      --delay                           <Optional> Collect start delay time in seconds, range 1 ~ 4294967295s.\n      --duration                        <Optional> Collection duration in seconds, range 1 ~ 4294967295s.\n      --help                            <Optional> help message.\n"
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "medium32_g8192",
+      "python": "/flagos/bin/python3",
+      "launch_environment": {
+        "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+        "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+        "PYTHONPATH": "/tmp/flaggems-qsa-pipeline-profile.LB5FEQGV/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+        "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+        "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+        "BASH_ENV": null
+      },
+      "cache_directory": null,
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "npu_smi_before": {
+        "exit_code": 0,
+        "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.7        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4298 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 93.0        32                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          4071 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.8        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3422 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.7        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.1       39                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.0        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 93.8        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 2217168       | python3                  | 106                     |\n| 0       0                 | 2212481       | python                   | 134                     |\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n+===========================+===============+====================================================+\n| 1       0                 | 2213748       | python                   | 683                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+      },
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-pipeline-profile.LB5FEQGV/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-pipeline-profile.LB5FEQGV/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-pipeline-profile.LB5FEQGV/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+          "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+        },
+        "launch_policy": {
+          "programs": 20,
+          "topk_block": 256,
+          "topk_default_block": 1024
+        }
+      },
+      "score_correctness": {
+        "max_abs_error": 1.52587890625e-05,
+        "valid_scores": 262072,
+        "masked_scores": 72,
+        "rtol": 0.001,
+        "atol": 0.001
+      },
+      "launch_policy": {
+        "programs": 20,
+        "G": 40,
+        "BLOCK": 256,
+        "production": true
+      },
+      "selection_correctness": {
+        "topk": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "prepared_pipeline": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "public_total": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_adapter_total": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_fused": {
+          "rows": 32,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        }
+      },
+      "shape": {
+        "query": [
+          32,
+          4,
+          128
+        ],
+        "cache": [
+          86,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          2,
+          43
+        ],
+        "request_query_lengths": [
+          16,
+          16
+        ],
+        "visible_min": 8188,
+        "visible_max": 8192,
+        "logits_width": 8192,
+        "page": 192,
+        "group_topk": 512,
+        "token_topk": 2048,
+        "compress_ratio": 4,
+        "dtype": "bfloat16",
+        "chunks": [
+          [
+            0,
+            16
+          ],
+          [
+            16,
+            16
+          ]
+        ]
+      },
+      "timing_policy": {
+        "rounds": 2,
+        "warmup": 2,
+        "iterations": 3,
+        "units": "microseconds per invocation",
+        "order": "alternating forward/reverse each round",
+        "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+        "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+        "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+        "public_scope": "public API includes request mapping and allocations; prefill candidate enabled only if explicitly recorded",
+        "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+        "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+        "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+        "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+      },
+      "samples": {
+        "score": [],
+        "topk": [],
+        "prepared_pipeline": [],
+        "native_fused": [],
+        "public_total": [],
+        "native_adapter_total": [],
+        "request_mapping": [],
+        "public_original_total": []
+      },
+      "tile_public_probe": {
+        "scope": "BF16 H4 D128 page192 diagnostic cases; only candidate score tile/grid differ",
+        "production_source_modified": false,
+        "production_ast_sha256": "8f4c8d07542fe9ac0e83519f31ed95ca68009a68a4fa0ca40ba55eb903b4bad0",
+        "public_entry": "flaggems_vllm.runtime.backend._ascend.ops.qsa_select_paged_prefill.qsa_select_paged_prefill",
+        "topk_changed": false,
+        "public_launches": [
+          {
+            "rows": 16,
+            "width": 8192,
+            "offset": 0,
+            "block_n": 128,
+            "grid": [
+              20
+            ]
+          },
+          {
+            "rows": 16,
+            "width": 8192,
+            "offset": 16,
+            "block_n": 128,
+            "grid": [
+              20
+            ]
+          }
+        ],
+        "correctness": {
+          "n32_score": {
+            "max_abs_error": 1.52587890625e-05,
+            "masks_valid": true
+          },
+          "n32_topk": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "n32_prepared_pipeline": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "n32_public_total": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "n128_score": {
+            "max_abs_error": 1.52587890625e-05,
+            "masks_valid": true
+          },
+          "n128_topk": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "n128_prepared_pipeline": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "n128_public_total": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "native_fused": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          },
+          "native_adapter_total": {
+            "rows": 32,
+            "max_selected_score_error": 0.0,
+            "ranges_and_uniqueness": true
+          }
+        },
+        "samples": {
+          "n32_score": [],
+          "n32_topk": [],
+          "n32_prepared_pipeline": [],
+          "n32_public_total": [],
+          "n128_score": [],
+          "n128_topk": [],
+          "n128_prepared_pipeline": [],
+          "n128_public_total": [],
+          "native_fused": [],
+          "native_adapter_total": []
+        },
+        "comparison": "Native adapter/public is the whole-operator comparison; native fused/prepared uses prebuilt metadata",
+        "capture_only": true,
+        "profile_scope": "Three consecutive calls per trace; CPU chunk scopes add instrumentation overhead. Device task sum/3 is distinct from Event/wall latency; no speedup acceptance here. Uncovered envelope intervals alone do not prove host starvation.",
+        "profiles": {
+          "n32_score": {
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "n32_score": {
+                  "trace_file": "medium32_g8192-n32_score-trace.json.gz",
+                  "compressed_bytes": 1919,
+                  "task_count": 6,
+                  "timestamp_origin_us": "1793588240822610.762",
+                  "hardware_pids": [
+                    2270380480
+                  ],
+                  "device_task_duration_sum_us": 2991.32,
+                  "device_task_union_us": 2991.32,
+                  "device_task_envelope_us": 3005.6600000000003,
+                  "uncovered_envelope_us": 14.340000000000146,
+                  "uncovered_fraction": 0.004770998715756321,
+                  "categories": {
+                    "cpu_op": 39,
+                    "dequeue": 6,
+                    "async_task_queue": 12,
+                    "enqueue": 6,
+                    "": 56,
+                    "HostToDevice": 6
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 505.532,
+                      "end_us": 508.612,
+                      "duration_us": 3.080000000000041
+                    },
+                    {
+                      "start_us": 1995.78,
+                      "end_us": 1998.84,
+                      "duration_us": 3.0599999999999454
+                    },
+                    {
+                      "start_us": 2501.112,
+                      "end_us": 2504.052,
+                      "duration_us": 2.9400000000000546
+                    },
+                    {
+                      "start_us": 1502.532,
+                      "end_us": 1505.252,
+                      "duration_us": 2.7200000000000273
+                    },
+                    {
+                      "start_us": 1000.58,
+                      "end_us": 1003.12,
+                      "duration_us": 2.5399999999999636
+                    }
+                  ],
+                  "kernels": {
+                    "MIX_AIC": {
+                      "count": 6,
+                      "sum_us": 2991.32
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            },
+            "device_us_per_invocation": 997.1066666666667,
+            "tasks_per_invocation": 2.0
+          },
+          "n128_score": {
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "n128_score": {
+                  "trace_file": "medium32_g8192-n128_score-trace.json.gz",
+                  "compressed_bytes": 1928,
+                  "task_count": 6,
+                  "timestamp_origin_us": "1793588244537393.736",
+                  "hardware_pids": [
+                    2270380480
+                  ],
+                  "device_task_duration_sum_us": 1474.888,
+                  "device_task_union_us": 1474.8879999999997,
+                  "device_task_envelope_us": 1556.57,
+                  "uncovered_envelope_us": 81.68200000000024,
+                  "uncovered_fraction": 0.05247563553197109,
+                  "categories": {
+                    "cpu_op": 39,
+                    "dequeue": 6,
+                    "async_task_queue": 12,
+                    "enqueue": 6,
+                    "": 56,
+                    "HostToDevice": 6
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 1004.46,
+                      "end_us": 1063.402,
+                      "duration_us": 58.94200000000001
+                    },
+                    {
+                      "start_us": 751.034,
+                      "end_us": 760.754,
+                      "duration_us": 9.720000000000027
+                    },
+                    {
+                      "start_us": 499.90999999999997,
+                      "end_us": 507.21,
+                      "duration_us": 7.300000000000011
+                    },
+                    {
+                      "start_us": 1308.426,
+                      "end_us": 1311.366,
+                      "duration_us": 2.9400000000000546
+                    },
+                    {
+                      "start_us": 246.166,
+                      "end_us": 248.946,
+                      "duration_us": 2.780000000000001
+                    }
+                  ],
+                  "kernels": {
+                    "MIX_AIC": {
+                      "count": 6,
+                      "sum_us": 1474.888
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            },
+            "device_us_per_invocation": 491.6293333333333,
+            "tasks_per_invocation": 2.0
+          },
+          "n32_topk": {
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "n32_topk": {
+                  "trace_file": "medium32_g8192-n32_topk-trace.json.gz",
+                  "compressed_bytes": 4032,
+                  "task_count": 18,
+                  "timestamp_origin_us": "1793588248257036.338",
+                  "hardware_pids": [
+                    2270380480
+                  ],
+                  "device_task_duration_sum_us": 105.882,
+                  "device_task_union_us": 105.88199999999938,
+                  "device_task_envelope_us": 2582.5119999999997,
+                  "uncovered_envelope_us": 2476.63,
+                  "uncovered_fraction": 0.9590003841221262,
+                  "categories": {
+                    "cpu_op": 75,
+                    "dequeue": 18,
+                    "async_task_queue": 36,
+                    "enqueue": 18,
+                    "": 92,
+                    "HostToDevice": 36,
+                    "async_npu": 36
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 1655.0339999999999,
+                      "end_us": 1910.44,
+                      "duration_us": 255.40600000000018
+                    },
+                    {
+                      "start_us": 3.12,
+                      "end_us": 242.106,
+                      "duration_us": 238.986
+                    },
+                    {
+                      "start_us": 314.208,
+                      "end_us": 552.552,
+                      "duration_us": 238.344
+                    },
+                    {
+                      "start_us": 775.936,
+                      "end_us": 1013.422,
+                      "duration_us": 237.486
+                    },
+                    {
+                      "start_us": 2138.2239999999997,
+                      "end_us": 2351.168,
+                      "duration_us": 212.94400000000041
+                    },
+                    {
+                      "start_us": 1235.926,
+                      "end_us": 1442.43,
+                      "duration_us": 206.50400000000013
+                    },
+                    {
+                      "start_us": 1911.68,
+                      "end_us": 2054.702,
+                      "duration_us": 143.02200000000016
+                    },
+                    {
+                      "start_us": 1015.182,
+                      "end_us": 1146.424,
+                      "duration_us": 131.24199999999996
+                    },
+                    {
+                      "start_us": 1443.73,
+                      "end_us": 1574.692,
+                      "duration_us": 130.962
+                    },
+                    {
+                      "start_us": 555.4920000000001,
+                      "end_us": 685.036,
+                      "duration_us": 129.54399999999987
+                    },
+                    {
+                      "start_us": 2352.388,
+                      "end_us": 2481.67,
+                      "duration_us": 129.28200000000015
+                    },
+                    {
+                      "start_us": 2490.712,
+                      "end_us": 2578.872,
+                      "duration_us": 88.15999999999985
+                    },
+                    {
+                      "start_us": 1155.484,
+                      "end_us": 1230.946,
+                      "duration_us": 75.46199999999999
+                    },
+                    {
+                      "start_us": 694.6959999999999,
+                      "end_us": 767.716,
+                      "duration_us": 73.0200000000001
+                    },
+                    {
+                      "start_us": 2063.782,
+                      "end_us": 2134.584,
+                      "duration_us": 70.80199999999968
+                    },
+                    {
+                      "start_us": 1583.652,
+                      "end_us": 1651.254,
+                      "duration_us": 67.60199999999986
+                    },
+                    {
+                      "start_us": 259.926,
+                      "end_us": 307.788,
+                      "duration_us": 47.86200000000002
+                    }
+                  ],
+                  "kernels": {
+                    "_radix_hist_trivial_all": {
+                      "count": 6,
+                      "sum_us": 11.580000000000002
+                    },
+                    "_segmerge_seg_sort": {
+                      "count": 6,
+                      "sum_us": 63.622
+                    },
+                    "_segmerge_merge_unpack": {
+                      "count": 6,
+                      "sum_us": 30.680000000000003
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            },
+            "device_us_per_invocation": 35.294000000000004,
+            "tasks_per_invocation": 6.0
+          },
+          "n128_topk": {
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "n128_topk": {
+                  "trace_file": "medium32_g8192-n128_topk-trace.json.gz",
+                  "compressed_bytes": 4017,
+                  "task_count": 18,
+                  "timestamp_origin_us": "1793588251973068.552",
+                  "hardware_pids": [
+                    2270380480
+                  ],
+                  "device_task_duration_sum_us": 88.22600000000001,
+                  "device_task_union_us": 88.22600000000018,
+                  "device_task_envelope_us": 2579.392,
+                  "uncovered_envelope_us": 2491.1659999999997,
+                  "uncovered_fraction": 0.9657958154479815,
+                  "categories": {
+                    "cpu_op": 75,
+                    "dequeue": 18,
+                    "async_task_queue": 36,
+                    "enqueue": 18,
+                    "": 92,
+                    "HostToDevice": 36,
+                    "async_npu": 36
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 1619.434,
+                      "end_us": 1875.218,
+                      "duration_us": 255.7840000000001
+                    },
+                    {
+                      "start_us": 281.82599999999996,
+                      "end_us": 528.29,
+                      "duration_us": 246.464
+                    },
+                    {
+                      "start_us": 746.296,
+                      "end_us": 991.08,
+                      "duration_us": 244.784
+                    },
+                    {
+                      "start_us": 2163.324,
+                      "end_us": 2361.148,
+                      "duration_us": 197.82400000000007
+                    },
+                    {
+                      "start_us": 1212.886,
+                      "end_us": 1406.27,
+                      "duration_us": 193.38400000000001
+                    },
+                    {
+                      "start_us": 1.842,
+                      "end_us": 176.044,
+                      "duration_us": 174.202
+                    },
+                    {
+                      "start_us": 2014.362,
+                      "end_us": 2159.444,
+                      "duration_us": 145.08199999999988
+                    },
+                    {
+                      "start_us": 2362.4880000000003,
+                      "end_us": 2491.55,
+                      "duration_us": 129.0619999999999
+                    },
+                    {
+                      "start_us": 1876.958,
+                      "end_us": 2005.222,
+                      "duration_us": 128.2639999999999
+                    },
+                    {
+                      "start_us": 529.712,
+                      "end_us": 657.854,
+                      "duration_us": 128.14200000000005
+                    },
+                    {
+                      "start_us": 992.82,
+                      "end_us": 1120.402,
+                      "duration_us": 127.582
+                    },
+                    {
+                      "start_us": 1407.55,
+                      "end_us": 1534.312,
+                      "duration_us": 126.76199999999994
+                    },
+                    {
+                      "start_us": 185.104,
+                      "end_us": 277.066,
+                      "duration_us": 91.96199999999996
+                    },
+                    {
+                      "start_us": 1129.464,
+                      "end_us": 1208.606,
+                      "duration_us": 79.14200000000005
+                    },
+                    {
+                      "start_us": 666.894,
+                      "end_us": 742.436,
+                      "duration_us": 75.54200000000003
+                    },
+                    {
+                      "start_us": 2500.8300000000004,
+                      "end_us": 2575.692,
+                      "duration_us": 74.86199999999963
+                    },
+                    {
+                      "start_us": 1543.4119999999998,
+                      "end_us": 1615.734,
+                      "duration_us": 72.32200000000012
+                    }
+                  ],
+                  "kernels": {
+                    "_radix_hist_trivial_all": {
+                      "count": 6,
+                      "sum_us": 9.364
+                    },
+                    "_segmerge_seg_sort": {
+                      "count": 6,
+                      "sum_us": 54.682
+                    },
+                    "_segmerge_merge_unpack": {
+                      "count": 6,
+                      "sum_us": 24.179999999999996
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            },
+            "device_us_per_invocation": 29.408666666666672,
+            "tasks_per_invocation": 6.0
+          },
+          "n32_prepared_pipeline": {
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "n32_prepared_pipeline": {
+                  "trace_file": "medium32_g8192-n32_prepared_pipeline-trace.json.gz",
+                  "compressed_bytes": 5028,
+                  "task_count": 24,
+                  "timestamp_origin_us": "1793588255601587.448",
+                  "hardware_pids": [
+                    2270380480
+                  ],
+                  "device_task_duration_sum_us": 3070.2800000000007,
+                  "device_task_union_us": 3070.2799999999997,
+                  "device_task_envelope_us": 4079.84,
+                  "uncovered_envelope_us": 1009.5600000000004,
+                  "uncovered_fraction": 0.24745088042668348,
+                  "categories": {
+                    "cpu_op": 111,
+                    "dequeue": 24,
+                    "async_task_queue": 48,
+                    "enqueue": 24,
+                    "": 110,
+                    "HostToDevice": 42,
+                    "async_npu": 36
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 2616.292,
+                      "end_us": 2904.278,
+                      "duration_us": 287.9859999999999
+                    },
+                    {
+                      "start_us": 509.85,
+                      "end_us": 675.172,
+                      "duration_us": 165.322
+                    },
+                    {
+                      "start_us": 1193.624,
+                      "end_us": 1348.186,
+                      "duration_us": 154.5619999999999
+                    },
+                    {
+                      "start_us": 3418.288,
+                      "end_us": 3566.09,
+                      "duration_us": 147.80200000000013
+                    },
+                    {
+                      "start_us": 2478.688,
+                      "end_us": 2611.292,
+                      "duration_us": 132.60399999999981
+                    },
+                    {
+                      "start_us": 1859.876,
+                      "end_us": 1974.96,
+                      "duration_us": 115.08400000000006
+                    },
+                    {
+                      "start_us": 1842.2759999999998,
+                      "end_us": 1843.556,
+                      "duration_us": 1.2800000000002
+                    },
+                    {
+                      "start_us": 1176.184,
+                      "end_us": 1177.344,
+                      "duration_us": 1.1600000000000819
+                    },
+                    {
+                      "start_us": 2466.308,
+                      "end_us": 2467.368,
+                      "duration_us": 1.0599999999999454
+                    },
+                    {
+                      "start_us": 4062.1800000000003,
+                      "end_us": 4063.2,
+                      "duration_us": 1.019999999999527
+                    },
+                    {
+                      "start_us": 3401.2479999999996,
+                      "end_us": 3401.948,
+                      "duration_us": 0.7000000000002728
+                    },
+                    {
+                      "start_us": 494.31,
+                      "end_us": 495.01,
+                      "duration_us": 0.6999999999999886
+                    },
+                    {
+                      "start_us": 1179.384,
+                      "end_us": 1179.424,
+                      "duration_us": 0.03999999999996362
+                    },
+                    {
+                      "start_us": 3413.368,
+                      "end_us": 3413.408,
+                      "duration_us": 0.03999999999996362
+                    },
+                    {
+                      "start_us": 1854.8960000000002,
+                      "end_us": 1854.936,
+                      "duration_us": 0.03999999999973625
+                    },
+                    {
+                      "start_us": 2469.548,
+                      "end_us": 2469.568,
+                      "duration_us": 0.020000000000436557
+                    },
+                    {
+                      "start_us": 3404.1079999999997,
+                      "end_us": 3404.128,
+                      "duration_us": 0.020000000000436557
+                    },
+                    {
+                      "start_us": 496.40999999999997,
+                      "end_us": 496.43,
+                      "duration_us": 0.020000000000038654
+                    },
+                    {
+                      "start_us": 505.41,
+                      "end_us": 505.43,
+                      "duration_us": 0.01999999999998181
+                    },
+                    {
+                      "start_us": 1188.704,
+                      "end_us": 1188.724,
+                      "duration_us": 0.01999999999998181
+                    }
+                  ],
+                  "kernels": {
+                    "MIX_AIC": {
+                      "count": 6,
+                      "sum_us": 2973.82
+                    },
+                    "_radix_hist_trivial_all": {
+                      "count": 6,
+                      "sum_us": 12.28
+                    },
+                    "_segmerge_seg_sort": {
+                      "count": 6,
+                      "sum_us": 55.1
+                    },
+                    "_segmerge_merge_unpack": {
+                      "count": 6,
+                      "sum_us": 29.080000000000002
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            },
+            "device_us_per_invocation": 1023.4266666666668,
+            "tasks_per_invocation": 8.0
+          },
+          "n128_prepared_pipeline": {
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "n128_prepared_pipeline": {
+                  "trace_file": "medium32_g8192-n128_prepared_pipeline-trace.json.gz",
+                  "compressed_bytes": 5109,
+                  "task_count": 24,
+                  "timestamp_origin_us": "1793588259317283.084",
+                  "hardware_pids": [
+                    2270380480
+                  ],
+                  "device_task_duration_sum_us": 1571.018,
+                  "device_task_union_us": 1571.018,
+                  "device_task_envelope_us": 4114.722000000001,
+                  "uncovered_envelope_us": 2543.7040000000006,
+                  "uncovered_fraction": 0.6181958343722858,
+                  "categories": {
+                    "cpu_op": 111,
+                    "dequeue": 24,
+                    "async_task_queue": 48,
+                    "enqueue": 24,
+                    "": 110,
+                    "HostToDevice": 42,
+                    "async_npu": 36
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 1237.5459999999998,
+                      "end_us": 1555.152,
+                      "duration_us": 317.6060000000002
+                    },
+                    {
+                      "start_us": 2710.334,
+                      "end_us": 3013.62,
+                      "duration_us": 303.28600000000006
+                    },
+                    {
+                      "start_us": 521.6700000000001,
+                      "end_us": 808.756,
+                      "duration_us": 287.0859999999999
+                    },
+                    {
+                      "start_us": 1982.9,
+                      "end_us": 2256.426,
+                      "duration_us": 273.52599999999984
+                    },
+                    {
+                      "start_us": 3433.71,
+                      "end_us": 3695.014,
+                      "duration_us": 261.3040000000001
+                    },
+                    {
+                      "start_us": 251.806,
+                      "end_us": 403.068,
+                      "duration_us": 151.26199999999997
+                    },
+                    {
+                      "start_us": 2502.81,
+                      "end_us": 2624.252,
+                      "duration_us": 121.44200000000001
+                    },
+                    {
+                      "start_us": 412.84799999999996,
+                      "end_us": 516.33,
+                      "duration_us": 103.48200000000008
+                    },
+                    {
+                      "start_us": 1800.976,
+                      "end_us": 1896.178,
+                      "duration_us": 95.202
+                    },
+                    {
+                      "start_us": 1062.502,
+                      "end_us": 1151.702,
+                      "duration_us": 89.20000000000005
+                    },
+                    {
+                      "start_us": 3259.546,
+                      "end_us": 3346.386,
+                      "duration_us": 86.84000000000015
+                    },
+                    {
+                      "start_us": 3941.318,
+                      "end_us": 4027.12,
+                      "duration_us": 85.80199999999968
+                    },
+                    {
+                      "start_us": 4036.162,
+                      "end_us": 4109.702,
+                      "duration_us": 73.54000000000042
+                    },
+                    {
+                      "start_us": 3355.408,
+                      "end_us": 3428.89,
+                      "duration_us": 73.48199999999997
+                    },
+                    {
+                      "start_us": 1905.278,
+                      "end_us": 1977.76,
+                      "duration_us": 72.48199999999997
+                    },
+                    {
+                      "start_us": 2633.354,
+                      "end_us": 2705.254,
+                      "duration_us": 71.90000000000009
+                    },
+                    {
+                      "start_us": 1161.764,
+                      "end_us": 1232.206,
+                      "duration_us": 70.44200000000001
+                    },
+                    {
+                      "start_us": 1797.536,
+                      "end_us": 1798.816,
+                      "duration_us": 1.2799999999999727
+                    },
+                    {
+                      "start_us": 2499.69,
+                      "end_us": 2500.69,
+                      "duration_us": 1.0
+                    },
+                    {
+                      "start_us": 1059.462,
+                      "end_us": 1060.402,
+                      "duration_us": 0.9400000000000546
+                    }
+                  ],
+                  "kernels": {
+                    "MIX_AIC": {
+                      "count": 6,
+                      "sum_us": 1471.27
+                    },
+                    "_radix_hist_trivial_all": {
+                      "count": 6,
+                      "sum_us": 12.899999999999999
+                    },
+                    "_segmerge_seg_sort": {
+                      "count": 6,
+                      "sum_us": 56.108
+                    },
+                    "_segmerge_merge_unpack": {
+                      "count": 6,
+                      "sum_us": 30.74
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            },
+            "device_us_per_invocation": 523.6726666666667,
+            "tasks_per_invocation": 8.0
+          },
+          "n32_public_total": {
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "n32_public_total": {
+                  "trace_file": "medium32_g8192-n32_public_total-trace.json.gz",
+                  "compressed_bytes": 5496,
+                  "task_count": 27,
+                  "timestamp_origin_us": "1793588262942209.220",
+                  "hardware_pids": [
+                    2270380480
+                  ],
+                  "device_task_duration_sum_us": 3064.9399999999996,
+                  "device_task_union_us": 3064.9399999999987,
+                  "device_task_envelope_us": 4795.6359999999995,
+                  "uncovered_envelope_us": 1730.6960000000008,
+                  "uncovered_fraction": 0.36088977562100233,
+                  "categories": {
+                    "cpu_op": 120,
+                    "dequeue": 27,
+                    "async_task_queue": 54,
+                    "enqueue": 27,
+                    "": 119,
+                    "HostToDevice": 48,
+                    "async_npu": 42
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 1.28,
+                      "end_us": 315.268,
+                      "duration_us": 313.988
+                    },
+                    {
+                      "start_us": 825.216,
+                      "end_us": 1090.722,
+                      "duration_us": 265.506
+                    },
+                    {
+                      "start_us": 1821.116,
+                      "end_us": 2061.962,
+                      "duration_us": 240.846
+                    },
+                    {
+                      "start_us": 3388.628,
+                      "end_us": 3623.672,
+                      "duration_us": 235.04399999999987
+                    },
+                    {
+                      "start_us": 1599.412,
+                      "end_us": 1819.876,
+                      "duration_us": 220.46399999999994
+                    },
+                    {
+                      "start_us": 3225.904,
+                      "end_us": 3387.348,
+                      "duration_us": 161.44399999999996
+                    },
+                    {
+                      "start_us": 4133.304,
+                      "end_us": 4277.286,
+                      "duration_us": 143.98199999999997
+                    },
+                    {
+                      "start_us": 2569.632,
+                      "end_us": 2713.114,
+                      "duration_us": 143.48199999999997
+                    },
+                    {
+                      "start_us": 806.476,
+                      "end_us": 807.636,
+                      "duration_us": 1.1599999999999682
+                    },
+                    {
+                      "start_us": 2552.192,
+                      "end_us": 2553.212,
+                      "duration_us": 1.0199999999999818
+                    },
+                    {
+                      "start_us": 4116.324,
+                      "end_us": 4117.284,
+                      "duration_us": 0.9600000000000364
+                    },
+                    {
+                      "start_us": 4778.416,
+                      "end_us": 4779.356,
+                      "duration_us": 0.9399999999995998
+                    },
+                    {
+                      "start_us": 3208.704,
+                      "end_us": 3209.504,
+                      "duration_us": 0.7999999999997272
+                    },
+                    {
+                      "start_us": 1581.392,
+                      "end_us": 1582.172,
+                      "duration_us": 0.7799999999999727
+                    },
+                    {
+                      "start_us": 3211.7439999999997,
+                      "end_us": 3211.784,
+                      "duration_us": 0.04000000000041837
+                    },
+                    {
+                      "start_us": 819.836,
+                      "end_us": 819.876,
+                      "duration_us": 0.03999999999996362
+                    },
+                    {
+                      "start_us": 2564.4519999999998,
+                      "end_us": 2564.472,
+                      "duration_us": 0.020000000000436557
+                    },
+                    {
+                      "start_us": 4119.324,
+                      "end_us": 4119.344,
+                      "duration_us": 0.020000000000436557
+                    },
+                    {
+                      "start_us": 4128.464,
+                      "end_us": 4128.484,
+                      "duration_us": 0.020000000000436557
+                    },
+                    {
+                      "start_us": 4790.6359999999995,
+                      "end_us": 4790.656,
+                      "duration_us": 0.020000000000436557
+                    }
+                  ],
+                  "kernels": {
+                    "_request_owners": {
+                      "count": 3,
+                      "sum_us": 3.8
+                    },
+                    "MIX_AIC": {
+                      "count": 6,
+                      "sum_us": 2961.48
+                    },
+                    "_radix_hist_trivial_all": {
+                      "count": 6,
+                      "sum_us": 12.82
+                    },
+                    "_segmerge_seg_sort": {
+                      "count": 6,
+                      "sum_us": 56.099999999999994
+                    },
+                    "_segmerge_merge_unpack": {
+                      "count": 6,
+                      "sum_us": 30.740000000000002
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            },
+            "device_us_per_invocation": 1021.6466666666665,
+            "tasks_per_invocation": 9.0
+          },
+          "n128_public_total": {
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "n128_public_total": {
+                  "trace_file": "medium32_g8192-n128_public_total-trace.json.gz",
+                  "compressed_bytes": 5589,
+                  "task_count": 27,
+                  "timestamp_origin_us": "1793588266566231.240",
+                  "hardware_pids": [
+                    2270380480
+                  ],
+                  "device_task_duration_sum_us": 1566.1680000000001,
+                  "device_task_union_us": 1566.168000000002,
+                  "device_task_envelope_us": 4701.276,
+                  "uncovered_envelope_us": 3135.107999999998,
+                  "uncovered_fraction": 0.6668632090521803,
+                  "categories": {
+                    "cpu_op": 120,
+                    "dequeue": 27,
+                    "async_task_queue": 54,
+                    "enqueue": 27,
+                    "": 119,
+                    "HostToDevice": 48,
+                    "async_npu": 42
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 1.22,
+                      "end_us": 331.188,
+                      "duration_us": 329.96799999999996
+                    },
+                    {
+                      "start_us": 1513.392,
+                      "end_us": 1802.276,
+                      "duration_us": 288.884
+                    },
+                    {
+                      "start_us": 3127.424,
+                      "end_us": 3403.708,
+                      "duration_us": 276.2840000000001
+                    },
+                    {
+                      "start_us": 836.198,
+                      "end_us": 1106.484,
+                      "duration_us": 270.28599999999994
+                    },
+                    {
+                      "start_us": 2462.39,
+                      "end_us": 2724.736,
+                      "duration_us": 262.346
+                    },
+                    {
+                      "start_us": 4054.1220000000003,
+                      "end_us": 4310.248,
+                      "duration_us": 256.1259999999993
+                    },
+                    {
+                      "start_us": 1803.536,
+                      "end_us": 2057.822,
+                      "duration_us": 254.28600000000006
+                    },
+                    {
+                      "start_us": 3404.9880000000003,
+                      "end_us": 3657.314,
+                      "duration_us": 252.32599999999957
+                    },
+                    {
+                      "start_us": 577.572,
+                      "end_us": 727.316,
+                      "duration_us": 149.74400000000003
+                    },
+                    {
+                      "start_us": 737.236,
+                      "end_us": 830.698,
+                      "duration_us": 93.46199999999999
+                    },
+                    {
+                      "start_us": 2304.4680000000003,
+                      "end_us": 2381.448,
+                      "duration_us": 76.97999999999956
+                    },
+                    {
+                      "start_us": 2971.54,
+                      "end_us": 3047.582,
+                      "duration_us": 76.04199999999992
+                    },
+                    {
+                      "start_us": 1436.15,
+                      "end_us": 1507.892,
+                      "duration_us": 71.74199999999996
+                    },
+                    {
+                      "start_us": 3979.2599999999998,
+                      "end_us": 4049.302,
+                      "duration_us": 70.04200000000037
+                    },
+                    {
+                      "start_us": 1357.1480000000001,
+                      "end_us": 1426.45,
+                      "duration_us": 69.30199999999991
+                    },
+                    {
+                      "start_us": 3902.72,
+                      "end_us": 3970.22,
+                      "duration_us": 67.5
+                    },
+                    {
+                      "start_us": 2390.488,
+                      "end_us": 2457.41,
+                      "duration_us": 66.92200000000003
+                    },
+                    {
+                      "start_us": 3056.622,
+                      "end_us": 3122.484,
+                      "duration_us": 65.86200000000008
+                    },
+                    {
+                      "start_us": 4630.694,
+                      "end_us": 4696.316,
+                      "duration_us": 65.62199999999939
+                    },
+                    {
+                      "start_us": 4556.492,
+                      "end_us": 4621.434,
+                      "duration_us": 64.94200000000001
+                    }
+                  ],
+                  "kernels": {
+                    "_request_owners": {
+                      "count": 3,
+                      "sum_us": 3.76
+                    },
+                    "MIX_AIC": {
+                      "count": 6,
+                      "sum_us": 1462.568
+                    },
+                    "_radix_hist_trivial_all": {
+                      "count": 6,
+                      "sum_us": 13.14
+                    },
+                    "_segmerge_seg_sort": {
+                      "count": 6,
+                      "sum_us": 55.99999999999999
+                    },
+                    "_segmerge_merge_unpack": {
+                      "count": 6,
+                      "sum_us": 30.700000000000003
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            },
+            "device_us_per_invocation": 522.056,
+            "tasks_per_invocation": 9.0
+          }
+        },
+        "profile_device_ratios_n32_over_n128": {
+          "score": 2.0281675625539024,
+          "topk": 1.200122412894158,
+          "prepared_pipeline": 1.954325157318376,
+          "public_total": 1.9569675794678472
+        },
+        "route_states": {
+          "segmerge": {
+            "probed": true,
+            "usable": true
+          },
+          "persistent": {
+            "usable": true
+          }
+        }
+      },
+      "npu_smi_after": {
+        "exit_code": 0,
+        "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 104.6       33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4522 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.9        32                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3624 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.8        34                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.7        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.0       38                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3445 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.1        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.1        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 93.9        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3434 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 2217168       | python3                  | 238                     |\n| 0       0                 | 2212481       | python                   | 226                     |\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n+===========================+===============+====================================================+\n| 1       0                 | 2213748       | python                   | 237                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+      },
+      "exit_code": 0
+    }
+  ],
+  "suite": "tile-public",
+  "combined_candidate": false,
+  "prefill_topk_candidate": false,
+  "environment_only": false,
+  "fresh_cache": false,
+  "scope": "Test-only N128 through registered public entry; N32 production and TopK frozen",
+  "cann_version_files": {
+    "/usr/local/Ascend/driver/version.info": "Version=25.2.0\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C21SPC008B208\ncompatible_version=[V100R001C17],[V100R001C18],[V100R001C19],[V100R001C20],[V100R001C21]\ncompatible_version_fw=[7.0.0,7.7.99]\npackage_version=25.2.0\n"
+  },
+  "script_sha256": "ed9e213a85d3bb4024fc1b632a96c5af1927ea03204fbc279b4b15a99d6e9978",
+  "source_hashes": {
+    "tools/benchmark_qsa_prefill_stages_910b.py": "1bbb0141aa3ccb3931cef82cb500ff1a56e2327665ada49c2965a7b1d6dcf377",
+    "tools/qsa_timeline_910b.py": "c5d50885f977cf6222f13c66eb296f2d9ee23b4e84e10da679a24c914d03828a",
+    "tools/qsa_independent_probes_910b.py": "b4c288375992c27ed22671ec2873b3304d084ae5be767a3753d8dcd2b958a99b",
+    "tools/qsa_torch_stages_910b.py": "f042bc4b3316cc45ba30ff9e036b5ca2969e0692c1b66582a22121e7d2f68b1f",
+    "tools/qsa_prefill_production_910b.py": "0a228fde5edf54abcb721f14fd3ca440b95f29d28829d4a74e47033bb650ac58",
+    "tools/qsa_lightning_baseline_910b.py": "db2c7ddd7cf4eaaa40336ff2e49726ac49d0aaa590162cf494aaedde2e59bbcc",
+    "tools/qsa_combined_candidate_910b.py": "e07553877e6dc0c5280ca33300927ab9916e44786bd92fe3134c688fb44328b1",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+  },
+  "tile_public_timeline": true,
+  "tile_public_source_sha256": "dbf7ab463e03a3e13dea401bc3251da09471b4227021d0cdbf83ec9e8fa52b10"
+}
