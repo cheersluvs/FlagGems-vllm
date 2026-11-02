@@ -1,0 +1,41 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-chunk32-regression.nOJEr8fa/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/tmp/flaggems-qsa-chunk32-regression.nOJEr8fa/tools/benchmark_qsa_prefill_stages_910b.py:155: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  native_output = torch.empty_like(output)
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+shape {"query": [32, 4, 128], "cache": [86, 192, 1, 128], "page_table": [1, 86], "request_query_lengths": [32], "visible_min": 16376, "visible_max": 16384, "logits_width": 16384, "page": 192, "group_topk": 512, "token_topk": 2048, "compress_ratio": 4, "dtype": "bfloat16", "chunks": [[0, 16], [16, 16]]}
+score_correctness {"max_abs_error": 1.9073486328125e-05, "valid_scores": 524152, "masked_scores": 136, "rtol": 0.001, "atol": 0.001}
+correctness {"topk": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "prepared_pipeline": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "public_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_adapter_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_fused": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}}
+PUBLIC_TILE_TIMING 1 n128_score {"wall_us": 1071.9175140062969, "event_us": 1029.7733147939045}
+PUBLIC_TILE_TIMING 1 n128_c32_score {"wall_us": 1091.8242235978444, "event_us": 1036.293347676595}
+PUBLIC_TILE_TIMING 1 n128_topk {"wall_us": 738.1408164898554, "event_us": 689.8533503214518}
+PUBLIC_TILE_TIMING 1 n128_c32_topk {"wall_us": 448.3368247747421, "event_us": 385.14665762583417}
+PUBLIC_TILE_TIMING 1 n128_prepared_pipeline {"wall_us": 1165.0975793600082, "event_us": 1129.5466423034668}
+PUBLIC_TILE_TIMING 1 n128_c32_prepared_pipeline {"wall_us": 1112.673431634903, "event_us": 1068.606694539388}
+PUBLIC_TILE_TIMING 1 n128_public_total {"wall_us": 1285.8131279548008, "event_us": 1250.0}
+PUBLIC_TILE_TIMING 1 n128_c32_public_total {"wall_us": 1178.9190272490184, "event_us": 1136.2000306447346}
+PUBLIC_TILE_TIMING 2 n128_c32_public_total {"wall_us": 1177.2749324639638, "event_us": 1130.6333541870117}
+PUBLIC_TILE_TIMING 2 n128_public_total {"wall_us": 1289.1354660193126, "event_us": 1243.9733346303303}
+PUBLIC_TILE_TIMING 2 n128_c32_prepared_pipeline {"wall_us": 1114.8974299430847, "event_us": 1070.7600116729736}
+PUBLIC_TILE_TIMING 2 n128_prepared_pipeline {"wall_us": 1136.360689997673, "event_us": 1096.3533719380696}
+PUBLIC_TILE_TIMING 2 n128_c32_topk {"wall_us": 401.3807823260625, "event_us": 350.8400122324626}
+PUBLIC_TILE_TIMING 2 n128_topk {"wall_us": 671.2569544712702, "event_us": 633.4400177001953}
+PUBLIC_TILE_TIMING 2 n128_c32_score {"wall_us": 1346.2069133917491, "event_us": 1036.079963048299}
+PUBLIC_TILE_TIMING 2 n128_score {"wall_us": 1095.5439259608586, "event_us": 1058.5532983144124}
+CHUNK_PAIRED_ROUND_RATIOS {"score": [{"event_us": 0.9937083134835242, "wall_us": 0.9817674776202073}, {"event_us": 1.0216907343714992, "wall_us": 0.8138005495757344}], "topk": [{"event_us": 1.7911445852183323, "wall_us": 1.6463979216088696}, {"event_us": 1.8054953700106622, "wall_us": 1.6723694407620473}], "prepared_pipeline": [{"event_us": 1.0570274808079378, "wall_us": 1.0471154844131365}, {"event_us": 1.0239020508667562, "wall_us": 1.0192513315379013}], "public_total": [{"event_us": 1.1001583931402377, "wall_us": 1.0906712829592864}, {"event_us": 1.1002446814642368, "wall_us": 1.095016491450499}]}
+PUBLIC_TILE_SUMMARY n128_score {"wall_us": {"median": 1083.7307199835777, "min": 1071.9175140062969, "max": 1095.5439259608586, "range_over_median": 0.021800998641913316}, "event_us": {"median": 1044.1633065541585, "min": 1029.7733147939045, "max": 1058.5532983144124, "range_over_median": 0.027562722554850722}}
+PUBLIC_TILE_SUMMARY n128_c32_score {"wall_us": {"median": 1219.0155684947968, "min": 1091.8242235978444, "max": 1346.2069133917491, "range_over_median": 0.2086787866934372}, "event_us": {"median": 1036.186655362447, "min": 1036.079963048299, "max": 1036.293347676595, "range_over_median": 0.00020593261570354694}}
+PUBLIC_TILE_SUMMARY n128_topk {"wall_us": {"median": 704.6988854805628, "min": 671.2569544712702, "max": 738.1408164898554, "range_over_median": 0.09491126408263635}, "event_us": {"median": 661.6466840108235, "min": 633.4400177001953, "max": 689.8533503214518, "range_over_median": 0.08526201972219609}}
+PUBLIC_TILE_SUMMARY n128_c32_topk {"wall_us": {"median": 424.8588035504023, "min": 401.3807823260625, "max": 448.3368247747421, "range_over_median": 0.11052152398934365}, "event_us": {"median": 367.9933349291484, "min": 350.8400122324626, "max": 385.14665762583417, "range_over_median": 0.09322626835069395}}
+PUBLIC_TILE_SUMMARY n128_prepared_pipeline {"wall_us": {"median": 1150.7291346788406, "min": 1136.360689997673, "max": 1165.0975793600082, "range_over_median": 0.024972765958824396}, "event_us": {"median": 1112.950007120768, "min": 1096.3533719380696, "max": 1129.5466423034668, "range_over_median": 0.029824583452107704}}
+PUBLIC_TILE_SUMMARY n128_c32_prepared_pipeline {"wall_us": {"median": 1113.7854307889938, "min": 1112.673431634903, "max": 1114.8974299430847, "range_over_median": 0.0019967924222229283}, "event_us": {"median": 1069.6833531061807, "min": 1068.606694539388, "max": 1070.7600116729736, "range_over_median": 0.0020130416420268827}}
+PUBLIC_TILE_SUMMARY n128_public_total {"wall_us": {"median": 1287.4742969870567, "min": 1285.8131279548008, "max": 1289.1354660193126, "range_over_median": 0.00258050826512552}, "event_us": {"median": 1246.986667315165, "min": 1243.9733346303303, "max": 1250.0, "range_over_median": 0.004832983004257322}}
+PUBLIC_TILE_SUMMARY n128_c32_public_total {"wall_us": {"median": 1178.096979856491, "min": 1177.2749324639638, "max": 1178.9190272490184, "range_over_median": 0.0013955513112808}, "event_us": {"median": 1133.416692415873, "min": 1130.6333541870117, "max": 1136.2000306447346, "range_over_median": 0.004911412100220227}}
+PUBLIC_TILE_SPEEDUP {"chunk16_over_chunk32_score": {"event_us": 1.00769808330423, "wall_us": 0.8890212299107347}, "chunk16_over_chunk32_topk": {"event_us": 1.7979855100859738, "wall_us": 1.6586660782161766}, "chunk16_over_chunk32_prepared_pipeline": {"event_us": 1.0404480951198767, "wall_us": 1.0331694982431905}, "chunk16_over_chunk32_public_total": {"event_us": 1.1002014313528576, "wall_us": 1.0928423712145408}}
+PUBLIC_TILE_LAUNCHES [{"rows": 16, "width": 16384, "offset": 0, "block_n": 128, "grid": [20], "variant": "n128_public_total"}, {"rows": 16, "width": 16384, "offset": 16, "block_n": 128, "grid": [20], "variant": "n128_public_total"}, {"rows": 32, "width": 16384, "offset": 0, "block_n": 128, "grid": [20], "variant": "n128_c32_public_total"}]
