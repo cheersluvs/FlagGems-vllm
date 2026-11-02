@@ -173,6 +173,13 @@ def run(args, result, context):
         probe["scope"] = (
             "Independent paired N128/chunk16 vs N128/chunk32; no N32/native timing"
         )
+    regression = getattr(args, "chunk32_regression", False)
+    timing = True
+    if regression:
+        from qsa_chunk32_regression_910b import CASES as regression_cases
+
+        probe["regression_case"] = regression_cases[args.worker]
+        timing = regression_cases[args.worker]["timing"]
     verify = context["verify"]
 
     def check_score(use_chunk32=False):
@@ -216,10 +223,23 @@ def run(args, result, context):
                     c for _, c in chunk32_chunks
                 ]
             probe["correctness"][name] = check_return(name, returned)
-            for _ in range(args.warmup):
+            for _ in range(args.warmup if timing else 0):
                 function()
             torch.npu.synchronize()
     assert public_launches, "Candidate did not execute score through public entry"
+    if regression:
+        from qsa_chunk32_regression_910b import check_budget
+
+        check_budget(
+            args, context, candidate, candidate_public, configure, verify, probe
+        )
+        if not timing:
+            probe["timing_skipped"] = "Correctness-only case"
+            result["status"] = "passed"
+            print(
+                "CHUNK_REGRESSION_PASSED", args.worker, probe["correctness"], flush=True
+            )
+            return 0
     if getattr(args, "tile_public_timeline", False):
         _capture_pipeline(
             args, probe, context, module, jobs, configure, check_return, torch

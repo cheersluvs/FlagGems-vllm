@@ -112,8 +112,16 @@ def run(args, result):
     result["production_entry"] = identity
     os.environ["VLLM_SPARSE_INDEXER_MAX_LOGITS_MB"] = "512"
     os.environ["FLAGGEMS_ASCEND_PTK_PATH"] = "auto"
-    requests, query_rows, groups = CASES[args.worker]
-    rows, heads, dim, page, k, ratio = requests * query_rows, 4, 128, 192, 512, 4
+    if getattr(args, "chunk32_regression", False):
+        from qsa_chunk32_regression_910b import CASES as regression_cases
+
+        config = regression_cases[args.worker]
+        lengths, groups = config["lengths"], config["groups"]
+        requests, query_rows = len(lengths), max(lengths)
+    else:
+        requests, query_rows, groups = CASES[args.worker]
+        lengths = [query_rows] * requests
+    rows, heads, dim, page, k, ratio = sum(lengths), 4, 128, 192, 512, 4
     columns = triton.cdiv(groups, page)
     capacity = columns * page
     width = min(capacity, triton.cdiv(groups, 64) * 64)
@@ -125,12 +133,18 @@ def run(args, result):
     table_cpu = (
         torch.randperm(requests * columns).to(torch.int32).reshape(requests, columns)
     )
-    starts_cpu = torch.arange(requests + 1, dtype=torch.int32) * query_rows + 137
+    starts_cpu = torch.tensor(
+        [137] + [137 + sum(lengths[: i + 1]) for i in range(requests)],
+        dtype=torch.int32,
+    )
+    owners_cpu = [
+        request for request, length in enumerate(lengths) for _ in range(length)
+    ]
     visible_cpu = torch.tensor(
         [
-            groups - query_rows // ratio + (row + 1) // ratio
-            for _ in range(requests)
-            for row in range(query_rows)
+            groups - length // ratio + (row + 1) // ratio
+            for length in lengths
+            for row in range(length)
         ],
         dtype=torch.int32,
     )
@@ -153,7 +167,7 @@ def run(args, result):
     )
     native_operands = (*operands[:8], native_output, operands[9])
     owners = module._build_owners(q, table, starts)
-    assert owners.cpu().tolist() == [row // query_rows for row in range(rows)]
+    assert owners.cpu().tolist() == owners_cpu
     chunk_rows = min(rows, 16)
     logits = torch.empty((chunk_rows, width), device=device, dtype=torch.float32)
     frozen = torch.empty((rows, width), device=device, dtype=torch.float32)
@@ -184,7 +198,7 @@ def run(args, result):
     for row, n in enumerate(visible_cpu.tolist()):
         positions = torch.arange(n)
         keys = key_cpu[
-            table_cpu[row // query_rows, positions // page].long(), positions % page, 0
+            table_cpu[owners_cpu[row], positions // page].long(), positions % page, 0
         ].float()
         reference[row, :n] = (
             torch.einsum("hd,kd->hk", q_cpu[row].float(), keys).clamp_min(0).sum(0)
@@ -217,7 +231,7 @@ def run(args, result):
             rows=rows, max_selected_score_error=max_error, ranges_and_uniqueness=True
         )
 
-    row_table = table_cpu.repeat_interleave(query_rows, dim=0).to(device)
+    row_table = table_cpu[torch.tensor(owners_cpu, dtype=torch.long)].to(device)
     cu_query = torch.arange(1, rows + 1, device=device, dtype=torch.int32)
     weights = torch.full((rows, heads), dim**-0.5, device=device, dtype=torch.float32)
 
@@ -331,7 +345,7 @@ def run(args, result):
         query=list(q.shape),
         cache=list(cache.shape),
         page_table=list(table.shape),
-        request_query_lengths=[query_rows] * requests,
+        request_query_lengths=lengths,
         visible_min=int(visible_cpu.min()),
         visible_max=int(visible_cpu.max()),
         logits_width=width,
