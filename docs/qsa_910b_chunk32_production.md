@@ -52,3 +52,27 @@ adapter/public and native fused/prepared ratios retain distinct boundaries;
 there is no fabricated score-only native baseline. Use one round first, with
 kernel warmup2 and active10. The CPU reference and index checks remain enabled
 outside the timing call. The NVIDIA-only FP8 pytest benchmark is unchanged.
+
+## Upstream 12-case kernel matrix
+
+Use `--suite benchmark --mode kernel --upstream12`. The four(requests, queries
+per request) layouts are(1,8192),(1,16384),(2,8192),(4,4096), crossed with
+original-token prefixes8192/51200/102400. The common manifest is
+`qsa_prefill_upstream_workloads.py`, citing vLLM PR54513. Page196 is rebuilt as
+page192; BF16,H4,D128,compression4,groupK512 are explicit common-domain choices.
+
+Production dispatch is unchanged: six cases tile128/cap32, one tile128/cap16,
+five tile32/cap16. No forced fast path or smaller-query substitution is used.
+The largest benchmark-only full-score staging is1856MiB, for isolated TopK.
+Production logits remain chunked under the512MiB budget. CPU FP32 score/TopK
+checks cover request and chunk-boundary representative rows; range and
+uniqueness checks cover every output row. This is explicitly sampled numerical
+validation, not exhaustive FP32 comparison of every query row.
+
+Initial preparation may compile256..1024 chunk-offset specializations per case
+because production OFFSET remains constexpr. This cost is outside measured
+kernel time but can dominate a cold-cache run. Use one round, kernel warmup1,
+active3 for the first complete matrix and allow an extended worker timeout.
+Timer-source and 3-call normalization checks remain required. No old-policy
+control is timed in this matrix; production stages and both native boundaries
+are reported, including TopK. There is no standalone native score baseline.

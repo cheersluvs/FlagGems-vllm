@@ -29,6 +29,7 @@ from pathlib import Path
 
 from qsa_chunk32_production_910b import CASES as CHUNK_PRODUCTION_CASES
 from qsa_chunk32_regression_910b import CASES as CHUNK_REGRESSION_CASES
+from qsa_upstream_kernel_910b import CASES as UPSTREAM_KERNEL_CASES
 
 CASES = {
     **{
@@ -345,7 +346,10 @@ def worker(args):
             "topk-probe",
             "torch-stages",
         ):
-            from benchmark_qsa_prefill_stages_910b import run
+            if args.upstream12:
+                from qsa_upstream_kernel_910b import run
+            else:
+                from benchmark_qsa_prefill_stages_910b import run
 
             return run(args, result)
         config = CASES[args.worker]
@@ -808,6 +812,11 @@ def main():
     )
     parser.add_argument("--kernel-warmup", type=int, default=2)
     parser.add_argument("--kernel-active", type=int, default=10)
+    parser.add_argument(
+        "--upstream12",
+        action="store_true",
+        help="Run upstream 12 query/prefix cases rebuilt for Ascend page192",
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -850,6 +859,7 @@ def main():
             "medium32_g8192",
             *CHUNK_REGRESSION_CASES,
             *CHUNK_PRODUCTION_CASES,
+            *UPSTREAM_KERNEL_CASES,
             "long32_g25600",
             *CASES,
             *ADAPTER_CASES,
@@ -885,10 +895,18 @@ def main():
         parser.error(
             "--chunk32-production requires benchmark without candidate overrides"
         )
-    if args.mode == "kernel" and not args.chunk32_production:
-        parser.error("This runner's kernel mode requires --chunk32-production")
+    if args.mode == "kernel" and not (args.chunk32_production or args.upstream12):
+        parser.error(
+            "This runner's kernel mode requires --chunk32-production or --upstream12"
+        )
     if args.kernel_warmup < 1 or args.kernel_active < 1:
         parser.error("Kernel timing counts must be positive")
+    if args.upstream12 and (
+        args.suite != "benchmark" or args.mode != "kernel" or args.chunk32_production
+    ):
+        parser.error(
+            "--upstream12 requires benchmark/kernel without chunk32-production"
+        )
     args.timeline = args.suite in ("timeline", "score-profile")
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
@@ -929,6 +947,8 @@ def main():
         CASES = CHUNK_REGRESSION_CASES
     if args.chunk32_production:
         CASES = CHUNK_PRODUCTION_CASES
+    if args.upstream12:
+        CASES = UPSTREAM_KERNEL_CASES
     if args.environment_only:
         CASES = {}
     if args.suite in ("address-probe", "tile-probe"):
@@ -1154,6 +1174,16 @@ def main():
         summary["production_probe_sha256"] = hashlib.sha256(
             Path(__file__).with_name("qsa_chunk32_production_910b.py").read_bytes()
         ).hexdigest()
+    if args.upstream12:
+        summary["scope"] = (
+            "Upstream 12 query/prefix cases; Ascend BF16/page192; sampled CPU reference"
+        )
+        summary["upstream12_manifest_sha256"] = hashlib.sha256(
+            Path(__file__).with_name("qsa_prefill_upstream_workloads.py").read_bytes()
+        ).hexdigest()
+        summary["upstream12_source_sha256"] = hashlib.sha256(
+            Path(__file__).with_name("qsa_upstream_kernel_910b.py").read_bytes()
+        ).hexdigest()
     if args.environment_only:
         summary["scope"] = (
             "Environment/import diagnostics only; no correctness or timing"
@@ -1184,6 +1214,7 @@ def main():
                     *(["--chunk32-regression"] if args.chunk32_regression else []),
                     *(["--chunk32-production"] if args.chunk32_production else []),
                     *(["--tile-public-timeline"] if args.tile_public_timeline else []),
+                    *(["--upstream12"] if args.upstream12 else []),
                     "--mode",
                     args.mode,
                     "--kernel-warmup",
