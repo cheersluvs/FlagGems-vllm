@@ -1,0 +1,38 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-kernel.nLyHOtFy/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/tmp/flaggems-qsa-kernel.nLyHOtFy/tools/benchmark_qsa_prefill_stages_910b.py:167: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  native_output = torch.empty_like(output)
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+shape {"query": [32, 4, 128], "cache": [268, 192, 1, 128], "page_table": [2, 134], "request_query_lengths": [16, 16], "visible_min": 25596, "visible_max": 25600, "logits_width": 25600, "page": 192, "group_topk": 512, "token_topk": 2048, "compress_ratio": 4, "dtype": "bfloat16", "chunks": [[0, 16], [16, 16]]}
+score_correctness {"max_abs_error": 2.288818359375e-05, "valid_scores": 819128, "masked_scores": 72, "rtol": 0.001, "atol": 0.001}
+correctness {"topk": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "prepared_pipeline": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "public_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_adapter_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_fused": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}}
+PRODUCTION_DISPATCH {"block_n": 128, "chunk_cap": 16} [{"variant": "old_public_total", "rows": 16, "offset": 0, "block_n": 32}, {"variant": "old_public_total", "rows": 16, "offset": 16, "block_n": 32}, {"variant": "production_public_total", "rows": 16, "offset": 0, "block_n": 128}, {"variant": "production_public_total", "rows": 16, "offset": 16, "block_n": 128}]
+PRODUCTION_CORRECTNESS {"old_score": {"max_abs_error": 2.288818359375e-05, "masks_valid": true}, "production_score": {"max_abs_error": 2.288818359375e-05, "masks_valid": true}, "old_topk": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "production_topk": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "old_prepared_pipeline": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "production_prepared_pipeline": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "old_public_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "production_public_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_adapter_total": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_fused": {"rows": 32, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}}
+KERNEL_TIMER_CHECK {'backend': 'triton.backends.ascend.testing.do_bench_npu', 'source': '/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py', 'source_sha256': 'a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c', 'signature': '(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)', 'warmup': 2, 'active': 10, 'unit': 'microseconds per invocation, sum of device kernel durations', 'host_gaps_included': False, 'clear_l2_cache': False, 'scope': 'Kernel mode; separate stages are not additive; native score/TopK split unavailable', 'invocation_sum_check': {'single_us': 754.8271, 'triple_us': 2263.8732999999997, 'ratio': 2.999194517525934}}
+PRODUCTION_TIMING 1 old_score {"kernel_us": 3056.4911}
+PRODUCTION_TIMING 1 production_score {"kernel_us": 1509.3762}
+PRODUCTION_TIMING 1 old_topk {"kernel_us": 102.5317}
+PRODUCTION_TIMING 1 production_topk {"kernel_us": 103.666}
+PRODUCTION_TIMING 1 old_prepared_pipeline {"kernel_us": 3146.7290000000003}
+PRODUCTION_TIMING 1 production_prepared_pipeline {"kernel_us": 1618.1744}
+PRODUCTION_TIMING 1 old_public_total {"kernel_us": 3147.4829}
+PRODUCTION_TIMING 1 production_public_total {"kernel_us": 1619.2844}
+PRODUCTION_TIMING 1 native_adapter_total {"kernel_us": 229.51260000000002}
+PRODUCTION_TIMING 1 native_fused {"kernel_us": 133.96670000000003}
+PRODUCTION_SUMMARY old_score {"kernel_us": {"median": 3056.4911, "min": 3056.4911, "max": 3056.4911, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY production_score {"kernel_us": {"median": 1509.3762, "min": 1509.3762, "max": 1509.3762, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY old_topk {"kernel_us": {"median": 102.5317, "min": 102.5317, "max": 102.5317, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY production_topk {"kernel_us": {"median": 103.666, "min": 103.666, "max": 103.666, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY old_prepared_pipeline {"kernel_us": {"median": 3146.7290000000003, "min": 3146.7290000000003, "max": 3146.7290000000003, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY production_prepared_pipeline {"kernel_us": {"median": 1618.1744, "min": 1618.1744, "max": 1618.1744, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY old_public_total {"kernel_us": {"median": 3147.4829, "min": 3147.4829, "max": 3147.4829, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY production_public_total {"kernel_us": {"median": 1619.2844, "min": 1619.2844, "max": 1619.2844, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY native_adapter_total {"kernel_us": {"median": 229.51260000000002, "min": 229.51260000000002, "max": 229.51260000000002, "range_over_median": 0.0}}
+PRODUCTION_SUMMARY native_fused {"kernel_us": {"median": 133.96670000000003, "min": 133.96670000000003, "max": 133.96670000000003, "range_over_median": 0.0}}
+PRODUCTION_SPEEDUP {"old_over_production_score": {"kernel_us": 2.025002845546392}, "old_over_production_topk": {"kernel_us": 0.9890581289911833}, "old_over_production_prepared_pipeline": {"kernel_us": 1.9446167236362162}, "old_over_production_public_total": {"kernel_us": 1.9437492882658538}, "native_adapter_over_production": {"kernel_us": 0.1417370537257075}, "native_fused_over_production_prepared": {"kernel_us": 0.08278878963849634}}
