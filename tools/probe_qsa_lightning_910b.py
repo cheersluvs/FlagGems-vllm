@@ -782,6 +782,11 @@ def main():
         action="store_true",
         help="Add a test-only chunk32 host clone to tile-public timing",
     )
+    parser.add_argument(
+        "--chunk32-paired",
+        action="store_true",
+        help="With chunk32-probe, time only paired N128/chunk16 and N128/chunk32 stages",
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -845,6 +850,8 @@ def main():
         parser.error(
             "--chunk32-probe requires tile-public without tile-public-timeline"
         )
+    if args.chunk32_paired and not args.chunk32_probe:
+        parser.error("--chunk32-paired requires --chunk32-probe")
     args.timeline = args.suite in ("timeline", "score-profile")
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
@@ -1085,6 +1092,7 @@ def main():
         )
         summary["tile_public_timeline"] = args.tile_public_timeline
         summary["chunk32_probe"] = args.chunk32_probe
+        summary["chunk32_paired"] = args.chunk32_paired
         summary["tile_public_source_sha256"] = hashlib.sha256(
             Path(__file__).with_name("qsa_score_tile_public_910b.py").read_bytes()
         ).hexdigest()
@@ -1114,6 +1122,7 @@ def main():
                     *(["--prefill-topk"] if args.prefill_topk else []),
                     *(["--environment-only"] if args.environment_only else []),
                     *(["--chunk32-probe"] if args.chunk32_probe else []),
+                    *(["--chunk32-paired"] if args.chunk32_paired else []),
                     *(["--tile-public-timeline"] if args.tile_public_timeline else []),
                     "--rounds",
                     str(args.rounds),

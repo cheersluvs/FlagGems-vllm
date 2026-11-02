@@ -135,6 +135,14 @@ def run(args, result, context):
         )
     jobs["native_fused"] = context["native_fused"]
     jobs["native_adapter_total"] = context["adapter_total"]
+    paired = getattr(args, "chunk32_paired", False)
+    if paired:
+        assert chunk32
+        jobs = {
+            prefix + "_" + stage: jobs[prefix + "_" + stage]
+            for stage in ("score", "topk", "prepared_pipeline", "public_total")
+            for prefix in ("n128", "n128_c32")
+        }
     probe = result["tile_public_probe"] = dict(
         scope="BF16 H4 D128 page192 diagnostic cases; only candidate score tile/grid differ",
         production_source_modified=False,
@@ -159,6 +167,11 @@ def run(args, result, context):
             "Test-only AST clone of public host; only chunk cap16 becomes32. "
             "Budget formula, validation and TopK implementation unchanged. "
             "This is not an integrated production public entry. Prepared stages use the fixed 512MiB benchmark budget."
+        )
+    probe["paired_only"] = paired
+    if paired:
+        probe["scope"] = (
+            "Independent paired N128/chunk16 vs N128/chunk32; no N32/native timing"
         )
     verify = context["verify"]
 
@@ -278,11 +291,32 @@ def run(args, result, context):
             ),
         ]
     for label, numerator, denominator in pairs:
+        if numerator not in probe["latency"] or denominator not in probe["latency"]:
+            continue
         ratios[label] = {
             field: probe["latency"][numerator][field]["median"]
             / probe["latency"][denominator][field]["median"]
             for field in ("event_us", "wall_us")
         }
+    if chunk32:
+        probe["paired_round_ratios"] = {
+            stage: [
+                {
+                    field: before[field] / after[field]
+                    for field in ("event_us", "wall_us")
+                }
+                for before, after in zip(
+                    probe["samples"]["n128_" + stage],
+                    probe["samples"]["n128_c32_" + stage],
+                )
+            ]
+            for stage in ("score", "topk", "prepared_pipeline", "public_total")
+        }
+        print(
+            "CHUNK_PAIRED_ROUND_RATIOS",
+            json.dumps(probe["paired_round_ratios"]),
+            flush=True,
+        )
     probe["speedup"] = ratios
     for name, latency in probe["latency"].items():
         print("PUBLIC_TILE_SUMMARY", name, json.dumps(latency), flush=True)
