@@ -16,8 +16,10 @@
 
 import ast
 import hashlib
+import inspect
 import json
 from contextlib import nullcontext
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
@@ -80,6 +82,57 @@ def run(args, result, context):
     for prefix in ("n32", "n128"):
         for stage in ("score", "topk", "prepared_pipeline", "public_total"):
             jobs[f"{prefix}_{stage}"] = context["functions"][stage]
+    chunk32 = getattr(args, "chunk32_probe", False)
+    chunk32_chunks = [
+        (first, min(32, context["rows"] - first))
+        for first in range(0, context["rows"], 32)
+    ]
+    candidate_public, host_identity = None, None
+    if chunk32:
+        candidate_public, host_identity = _public_with_chunk32(
+            context["public"], module
+        )
+        logits32 = torch.empty(
+            (min(32, context["rows"]), context["width"]),
+            device=context["q"].device,
+            dtype=torch.float32,
+        )
+
+        def score32():
+            for first, count in chunk32_chunks:
+                context["score_into"](first, count, logits32[:count])
+
+        def topk32():
+            for first, count in chunk32_chunks:
+                module.persistent_topk(
+                    context["frozen"][first : first + count],
+                    context["visible"][first : first + count],
+                    context["output"][first : first + count],
+                    context["workspace"],
+                    k=context["k"],
+                    max_seq_len=context["width"],
+                    block=module._QSA_TOPK_BLOCK,
+                )
+
+        def prepared32():
+            for first, count in chunk32_chunks:
+                context["score_into"](first, count, logits32[:count])
+                module.persistent_topk(
+                    logits32[:count],
+                    context["visible"][first : first + count],
+                    context["output"][first : first + count],
+                    context["workspace"],
+                    k=context["k"],
+                    max_seq_len=context["width"],
+                    block=module._QSA_TOPK_BLOCK,
+                )
+
+        jobs.update(
+            n128_c32_score=score32,
+            n128_c32_topk=topk32,
+            n128_c32_prepared_pipeline=prepared32,
+            n128_c32_public_total=lambda: candidate_public(*context["operands"]),
+        )
     jobs["native_fused"] = context["native_fused"]
     jobs["native_adapter_total"] = context["adapter_total"]
     probe = result["tile_public_probe"] = dict(
@@ -96,11 +149,23 @@ def run(args, result, context):
             "native fused/prepared uses prebuilt metadata"
         ),
     )
+    probe["chunk32_probe"] = chunk32
+    if chunk32:
+        probe["scope"] = (
+            "BF16 H4 D128 page192; compare N32/chunk16, N128/chunk16, N128/chunk32"
+        )
+        probe["chunk32_host"] = host_identity
+        probe["chunk32_scope"] = (
+            "Test-only AST clone of public host; only chunk cap16 becomes32. "
+            "Budget formula, validation and TopK implementation unchanged. "
+            "This is not an integrated production public entry. Prepared stages use the fixed 512MiB benchmark budget."
+        )
     verify = context["verify"]
 
-    def check_score():
+    def check_score(use_chunk32=False):
         full = torch.empty_like(context["frozen"])
-        for first, count in context["chunks"]:
+        chunks = chunk32_chunks if use_chunk32 else context["chunks"]
+        for first, count in chunks:
             context["score_into"](first, count, full[first : first + count])
         actual = full.cpu()
         expected = context["reference"]
@@ -120,14 +185,23 @@ def run(args, result, context):
         if name == "native_adapter_total":
             return verify(context["native_output"])
         if name.endswith("_score"):
-            return check_score()
+            return check_score(name.startswith("n128_c32_"))
         return verify(context["output"])
 
     for name, function in jobs.items():
         with configure(name):
-            candidate.recording = name == "n128_public_total"
+            candidate.recording = name.startswith("n128_") and name.endswith(
+                "public_total"
+            )
+            first_launch = len(public_launches)
             returned = function()
             candidate.recording = False
+            for launch in public_launches[first_launch:]:
+                launch["variant"] = name
+            if chunk32 and name == "n128_c32_public_total":
+                assert [v["rows"] for v in public_launches[first_launch:]] == [
+                    c for _, c in chunk32_chunks
+                ]
             probe["correctness"][name] = check_return(name, returned)
             for _ in range(args.warmup):
                 function()
@@ -186,6 +260,23 @@ def run(args, result, context):
         )
         for prefix in ("n32", "n128")
     ]
+    if chunk32:
+        for stage in ("score", "topk", "prepared_pipeline", "public_total"):
+            pairs.append(
+                ("chunk16_over_chunk32_" + stage, "n128_" + stage, "n128_c32_" + stage)
+            )
+        pairs += [
+            (
+                "native_adapter_over_n128_c32",
+                "native_adapter_total",
+                "n128_c32_public_total",
+            ),
+            (
+                "n32_over_n128_c32_public_total",
+                "n32_public_total",
+                "n128_c32_public_total",
+            ),
+        ]
     for label, numerator, denominator in pairs:
         ratios[label] = {
             field: probe["latency"][numerator][field]["median"]
@@ -275,3 +366,42 @@ def _capture_pipeline(
         flush=True,
     )
     print("PIPELINE_PROFILE_ROUTES", json.dumps(probe["route_states"]), flush=True)
+
+
+def _public_with_chunk32(public, module):
+    """Clone the production host AST, changing only its literal chunk cap."""
+    source = ast.parse(inspect.getsource(public))
+    original = deepcopy(source)
+    function = source.body[0]
+    assignment = next(
+        n
+        for n in ast.walk(function)
+        if isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "chunk_rows" for t in n.targets)
+    )
+    assert isinstance(assignment.value, ast.Call) and isinstance(
+        assignment.value.func, ast.Name
+    )
+    assert assignment.value.func.id == "min" and len(assignment.value.args) == 3
+    cap = assignment.value.args[1]
+    assert isinstance(cap, ast.Constant) and cap.value == 16
+    cap.value = 32
+    namespace = dict(vars(module))
+    exec(
+        compile(ast.fix_missing_locations(source), "<qsa-test-only-chunk32>", "exec"),
+        namespace,
+    )
+    trial = namespace[public.__name__]
+    # Round-trip the one change to prove that every other AST node stayed intact.
+    cap.value = 16
+    assert ast.dump(source, include_attributes=False) == ast.dump(
+        original, include_attributes=False
+    )
+    return trial, dict(
+        original_ast_sha256=hashlib.sha256(
+            ast.dump(original, include_attributes=False).encode()
+        ).hexdigest(),
+        change="chunk_rows=min(rows,16,budget_rows) becomes min(rows,32,budget_rows)",
+        registered_public_unchanged=True,
+        production_source_modified=False,
+    )
