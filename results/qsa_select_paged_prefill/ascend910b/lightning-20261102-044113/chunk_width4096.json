@@ -1,0 +1,535 @@
+{
+  "status": "passed",
+  "case": "chunk_width4096",
+  "python": "/flagos/bin/python3",
+  "launch_environment": {
+    "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+    "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+    "PYTHONPATH": "/tmp/flaggems-qsa-production.OBdZmCuS/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+    "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+    "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+    "BASH_ENV": null
+  },
+  "cache_directory": null,
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "npu_smi_before": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.9        34                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4075 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 93.1        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3440 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 90.1        34                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 96.1        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.4       39                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3445 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.3        39                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.5        38                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3428 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.4        38                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3434 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 2924651       | python3                  | 106                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  },
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-production.OBdZmCuS/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-production.OBdZmCuS/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-production.OBdZmCuS/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "71fcbcb2173119f09d7c62f8874409ae85b74c8068fcd3366039ce04f81aa282",
+      "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+    },
+    "launch_policy": {
+      "programs": 20,
+      "topk_block": 256,
+      "topk_default_block": 1024
+    }
+  },
+  "score_correctness": {
+    "max_abs_error": 1.9073486328125e-05,
+    "valid_scores": 130936,
+    "masked_scores": 136,
+    "rtol": 0.001,
+    "atol": 0.001
+  },
+  "selection_correctness": {
+    "topk": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "prepared_pipeline": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "public_total": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_adapter_total": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_fused": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    }
+  },
+  "shape": {
+    "query": [
+      32,
+      4,
+      128
+    ],
+    "cache": [
+      22,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      1,
+      22
+    ],
+    "request_query_lengths": [
+      32
+    ],
+    "visible_min": 4088,
+    "visible_max": 4096,
+    "logits_width": 4096,
+    "page": 192,
+    "group_topk": 512,
+    "token_topk": 2048,
+    "compress_ratio": 4,
+    "dtype": "bfloat16",
+    "chunks": [
+      [
+        0,
+        32
+      ]
+    ]
+  },
+  "timing_policy": {
+    "rounds": 2,
+    "warmup": 2,
+    "iterations": 3,
+    "units": "microseconds per invocation",
+    "order": "alternating forward/reverse each round",
+    "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+    "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+    "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+    "public_scope": "public API includes request mapping and allocations; prefill candidate enabled only if explicitly recorded",
+    "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+    "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+    "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+    "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+  },
+  "samples": {
+    "score": [],
+    "topk": [],
+    "prepared_pipeline": [],
+    "native_fused": [],
+    "public_total": [],
+    "native_adapter_total": [],
+    "request_mapping": []
+  },
+  "production_policy_probe": {
+    "scope": "Registered public entry; old control only restores N32/chunk16 routing",
+    "test_only_host_clone": false,
+    "config": {
+      "lengths": [
+        32
+      ],
+      "groups": 4096,
+      "timing": true
+    },
+    "launches": [
+      {
+        "variant": "old_public_total",
+        "rows": 16,
+        "offset": 0,
+        "block_n": 32
+      },
+      {
+        "variant": "old_public_total",
+        "rows": 16,
+        "offset": 16,
+        "block_n": 32
+      },
+      {
+        "variant": "production_public_total",
+        "rows": 32,
+        "offset": 0,
+        "block_n": 128
+      }
+    ],
+    "correctness": {
+      "old_score": {
+        "max_abs_error": 1.9073486328125e-05,
+        "masks_valid": true
+      },
+      "production_score": {
+        "max_abs_error": 1.9073486328125e-05,
+        "masks_valid": true
+      },
+      "old_topk": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "production_topk": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "old_prepared_pipeline": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "production_prepared_pipeline": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "old_public_total": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "production_public_total": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "native_adapter_total": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "native_fused": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      }
+    },
+    "samples": {
+      "old_score": [
+        {
+          "wall_us": 634.7758074601492,
+          "event_us": 593.1400060653687
+        },
+        {
+          "wall_us": 619.9826796849569,
+          "event_us": 584.660013516744
+        }
+      ],
+      "production_score": [
+        {
+          "wall_us": 349.91341332594556,
+          "event_us": 312.7533396085103
+        },
+        {
+          "wall_us": 368.76338223616284,
+          "event_us": 320.07332642873126
+        }
+      ],
+      "old_topk": [
+        {
+          "wall_us": 673.2462594906489,
+          "event_us": 627.9199918111166
+        },
+        {
+          "wall_us": 692.4637903769811,
+          "event_us": 641.6800022125244
+        }
+      ],
+      "production_topk": [
+        {
+          "wall_us": 375.0305622816086,
+          "event_us": 330.9999903043111
+        },
+        {
+          "wall_us": 374.3966420491536,
+          "event_us": 331.1400016148885
+        }
+      ],
+      "old_prepared_pipeline": [
+        {
+          "wall_us": 1003.3392657836279,
+          "event_us": 955.0000031789144
+        },
+        {
+          "wall_us": 994.9163844188055,
+          "event_us": 957.2133223215739
+        }
+      ],
+      "production_prepared_pipeline": [
+        {
+          "wall_us": 543.1342869997025,
+          "event_us": 498.39333693186444
+        },
+        {
+          "wall_us": 544.8019752899805,
+          "event_us": 504.6199957529704
+        }
+      ],
+      "old_public_total": [
+        {
+          "wall_us": 1195.9075927734375,
+          "event_us": 1149.9333381652832
+        },
+        {
+          "wall_us": 1449.1907010475795,
+          "event_us": 1401.6799926757812
+        }
+      ],
+      "production_public_total": [
+        {
+          "wall_us": 745.5572485923767,
+          "event_us": 701.2600104014078
+        },
+        {
+          "wall_us": 764.4171516100565,
+          "event_us": 728.2400131225586
+        }
+      ],
+      "native_adapter_total": [
+        {
+          "wall_us": 659.5055262247721,
+          "event_us": 613.3066813151041
+        },
+        {
+          "wall_us": 663.192942738533,
+          "event_us": 610.7399861017863
+        }
+      ],
+      "native_fused": [
+        {
+          "wall_us": 129.81457014878592,
+          "event_us": 92.59333213170369
+        },
+        {
+          "wall_us": 163.40178747971854,
+          "event_us": 118.36666862169902
+        }
+      ]
+    },
+    "production_entry": {
+      "sources": {
+        "package": "/tmp/flaggems-qsa-production.OBdZmCuS/src/flaggems_vllm/__init__.py",
+        "operator": "/tmp/flaggems-qsa-production.OBdZmCuS/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+        "topk": "/tmp/flaggems-qsa-production.OBdZmCuS/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+      },
+      "hashes": {
+        "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+        "operator": "71fcbcb2173119f09d7c62f8874409ae85b74c8068fcd3366039ce04f81aa282",
+        "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+      },
+      "import_mode": "normal package imports and public backend dispatch",
+      "triton": {
+        "version": "3.5.1",
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+      },
+      "launch_policy": {
+        "programs": 20,
+        "topk_block": 256,
+        "topk_default_block": 1024
+      }
+    },
+    "topk_implementation_changed": false,
+    "dispatch": {
+      "block_n": 128,
+      "chunk_cap": 32
+    },
+    "latency": {
+      "old_score": {
+        "wall_us": {
+          "median": 627.379243572553,
+          "min": 619.9826796849569,
+          "max": 634.7758074601492,
+          "range_over_median": 0.023579243219705778
+        },
+        "event_us": {
+          "median": 588.9000097910564,
+          "min": 584.660013516744,
+          "max": 593.1400060653687,
+          "range_over_median": 0.014399715414563103
+        }
+      },
+      "production_score": {
+        "wall_us": {
+          "median": 359.3383977810542,
+          "min": 349.91341332594556,
+          "max": 368.76338223616284,
+          "range_over_median": 0.05245743017338943
+        },
+        "event_us": {
+          "median": 316.4133330186208,
+          "min": 312.7533396085103,
+          "max": 320.07332642873126,
+          "range_over_median": 0.02313425528054524
+        }
+      },
+      "old_topk": {
+        "wall_us": {
+          "median": 682.855024933815,
+          "min": 673.2462594906489,
+          "max": 692.4637903769811,
+          "range_over_median": 0.02814291494478628
+        },
+        "event_us": {
+          "median": 634.7999970118206,
+          "min": 627.9199918111166,
+          "max": 641.6800022125244,
+          "range_over_median": 0.02167613494987401
+        }
+      },
+      "production_topk": {
+        "wall_us": {
+          "median": 374.7136021653811,
+          "min": 374.3966420491536,
+          "max": 375.0305622816086,
+          "range_over_median": 0.0016917459862457085
+        },
+        "event_us": {
+          "median": 331.0699959595998,
+          "min": 330.9999903043111,
+          "max": 331.1400016148885,
+          "range_over_median": 0.00042290546496541486
+        }
+      },
+      "old_prepared_pipeline": {
+        "wall_us": {
+          "median": 999.1278251012167,
+          "min": 994.9163844188055,
+          "max": 1003.3392657836279,
+          "range_over_median": 0.008430234003310945
+        },
+        "event_us": {
+          "median": 956.1066627502441,
+          "min": 955.0000031789144,
+          "max": 957.2133223215739,
+          "range_over_median": 0.002314929106646751
+        }
+      },
+      "production_prepared_pipeline": {
+        "wall_us": {
+          "median": 543.9681311448414,
+          "min": 543.1342869997025,
+          "max": 544.8019752899805,
+          "range_over_median": 0.0030657830758729254
+        },
+        "event_us": {
+          "median": 501.5066663424174,
+          "min": 498.39333693186444,
+          "max": 504.6199957529704,
+          "range_over_median": 0.01241590439169663
+        }
+      },
+      "old_public_total": {
+        "wall_us": {
+          "median": 1322.5491469105086,
+          "min": 1195.9075927734375,
+          "max": 1449.1907010475795,
+          "range_over_median": 0.1915113013877893
+        },
+        "event_us": {
+          "median": 1275.8066654205322,
+          "min": 1149.9333381652832,
+          "max": 1401.6799926757812,
+          "range_over_median": 0.1973235140823764
+        }
+      },
+      "production_public_total": {
+        "wall_us": {
+          "median": 754.9872001012166,
+          "min": 745.5572485923767,
+          "max": 764.4171516100565,
+          "range_over_median": 0.02498042750281247
+        },
+        "event_us": {
+          "median": 714.7500117619832,
+          "min": 701.2600104014078,
+          "max": 728.2400131225586,
+          "range_over_median": 0.03774746733426468
+        }
+      },
+      "native_adapter_total": {
+        "wall_us": {
+          "median": 661.3492344816525,
+          "min": 659.5055262247721,
+          "max": 663.192942738533,
+          "range_over_median": 0.005575596555503718
+        },
+        "event_us": {
+          "median": 612.0233337084452,
+          "min": 610.7399861017863,
+          "max": 613.3066813151041,
+          "range_over_median": 0.004193786530597524
+        }
+      },
+      "native_fused": {
+        "wall_us": {
+          "median": 146.60817881425223,
+          "min": 129.81457014878592,
+          "max": 163.40178747971854,
+          "range_over_median": 0.22909511326435972
+        },
+        "event_us": {
+          "median": 105.48000037670135,
+          "min": 92.59333213170369,
+          "max": 118.36666862169902,
+          "range_over_median": 0.2443433484826589
+        }
+      }
+    },
+    "speedup": {
+      "old_over_production_score": {
+        "event_us": 1.8611731818406017,
+        "wall_us": 1.745928760874636
+      },
+      "old_over_production_topk": {
+        "event_us": 1.917419291264572,
+        "wall_us": 1.8223385032936026
+      },
+      "old_over_production_prepared_pipeline": {
+        "event_us": 1.9064685016518526,
+        "wall_us": 1.836739632151687
+      },
+      "old_over_production_public_total": {
+        "event_us": 1.784969072299064,
+        "wall_us": 1.7517504227001497
+      },
+      "native_adapter_over_production": {
+        "event_us": 0.8562760736438481,
+        "wall_us": 0.8759741018033014
+      }
+    },
+    "routes": {
+      "segmerge": {
+        "probed": true,
+        "usable": true
+      },
+      "persistent": {
+        "usable": true
+      }
+    }
+  },
+  "npu_smi_after": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 105.3       33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4177 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 93.2        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3441 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 90.1        34                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3422 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.9        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.4       39                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3445 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.4        39                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.5        39                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.5        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 2924651       | python3                  | 208                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  }
+}
