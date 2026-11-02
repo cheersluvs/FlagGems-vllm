@@ -1,0 +1,634 @@
+{
+  "status": "passed",
+  "case": "short16_g1024",
+  "python": "/flagos/bin/python3",
+  "launch_environment": {
+    "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+    "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+    "PYTHONPATH": "/tmp/flaggems-qsa-score-profile.CioAYDcI/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+    "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+    "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+    "BASH_ENV": null
+  },
+  "cache_directory": null,
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "npu_smi_before": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.6        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4076 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.8        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3439 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.9        34                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.6        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.2       38                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.1        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.1        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 1408445       | python3                  | 106                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  },
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-score-profile.CioAYDcI/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-score-profile.CioAYDcI/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-score-profile.CioAYDcI/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+      "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+    },
+    "launch_policy": {
+      "programs": 20,
+      "topk_block": 256,
+      "topk_default_block": 1024
+    }
+  },
+  "score_correctness": {
+    "max_abs_error": 1.1444091796875e-05,
+    "valid_scores": 16348,
+    "masked_scores": 36,
+    "rtol": 0.001,
+    "atol": 0.001
+  },
+  "launch_policy": {
+    "programs": 20,
+    "G": 40,
+    "BLOCK": 256,
+    "production": true
+  },
+  "selection_correctness": {
+    "topk": {
+      "rows": 16,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "prepared_pipeline": {
+      "rows": 16,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "public_total": {
+      "rows": 16,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_adapter_total": {
+      "rows": 16,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_fused": {
+      "rows": 16,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    }
+  },
+  "shape": {
+    "query": [
+      16,
+      4,
+      128
+    ],
+    "cache": [
+      6,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      1,
+      6
+    ],
+    "request_query_lengths": [
+      16
+    ],
+    "visible_min": 1020,
+    "visible_max": 1024,
+    "logits_width": 1024,
+    "page": 192,
+    "group_topk": 512,
+    "token_topk": 2048,
+    "compress_ratio": 4,
+    "dtype": "bfloat16",
+    "chunks": [
+      [
+        0,
+        16
+      ]
+    ]
+  },
+  "timing_policy": {
+    "rounds": 2,
+    "warmup": 2,
+    "iterations": 3,
+    "units": "microseconds per invocation",
+    "order": "alternating forward/reverse each round",
+    "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+    "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+    "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+    "public_scope": "public API includes request mapping and allocations; prefill candidate enabled only if explicitly recorded",
+    "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+    "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+    "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+    "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite",
+    "capture_only": true
+  },
+  "samples": {
+    "score": [],
+    "topk": [],
+    "prepared_pipeline": [],
+    "native_fused": [],
+    "public_total": [],
+    "native_adapter_total": [],
+    "request_mapping": [],
+    "public_original_total": []
+  },
+  "timeline": {
+    "iterations": 3,
+    "stages": {
+      "score": {
+        "trace_file": "short16_g1024-score-trace.json.gz",
+        "compressed_bytes": 1386,
+        "task_count": 3,
+        "timestamp_origin_us": "1793578594338768.188",
+        "hardware_pids": [
+          1442248128
+        ],
+        "device_task_duration_sum_us": 211.404,
+        "device_task_union_us": 211.40399999999994,
+        "device_task_envelope_us": 558.29,
+        "uncovered_envelope_us": 346.886,
+        "uncovered_fraction": 0.6213365813466121,
+        "categories": {
+          "cpu_op": 18,
+          "dequeue": 3,
+          "async_task_queue": 6,
+          "enqueue": 3,
+          "": 47,
+          "HostToDevice": 3
+        },
+        "largest_gaps": [
+          {
+            "start_us": 298.246,
+            "end_us": 489.19,
+            "duration_us": 190.94400000000002
+          },
+          {
+            "start_us": 73.762,
+            "end_us": 229.704,
+            "duration_us": 155.942
+          }
+        ],
+        "kernels": {
+          "MIX_AIC": {
+            "count": 3,
+            "sum_us": 211.404
+          }
+        },
+        "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+      },
+      "public_total": {
+        "trace_file": "short16_g1024-public_total-trace.json.gz",
+        "compressed_bytes": 3615,
+        "task_count": 15,
+        "timestamp_origin_us": "1793578597948741.794",
+        "hardware_pids": [
+          1442248128
+        ],
+        "device_task_duration_sum_us": 271.226,
+        "device_task_union_us": 271.22599999999983,
+        "device_task_envelope_us": 2412.008,
+        "uncovered_envelope_us": 2140.782,
+        "uncovered_fraction": 0.8875517825811524,
+        "categories": {
+          "cpu_op": 66,
+          "dequeue": 15,
+          "async_task_queue": 30,
+          "enqueue": 15,
+          "": 83,
+          "HostToDevice": 27,
+          "async_npu": 24
+        },
+        "largest_gaps": [
+          {
+            "start_us": 662.674,
+            "end_us": 1018.84,
+            "duration_us": 356.16600000000005
+          },
+          {
+            "start_us": 1604.752,
+            "end_us": 1857.216,
+            "duration_us": 252.46399999999994
+          },
+          {
+            "start_us": 2.54,
+            "end_us": 242.244,
+            "duration_us": 239.704
+          },
+          {
+            "start_us": 1019.84,
+            "end_us": 1247.804,
+            "duration_us": 227.96400000000006
+          },
+          {
+            "start_us": 1858.2559999999999,
+            "end_us": 2080.862,
+            "duration_us": 222.60600000000022
+          },
+          {
+            "start_us": 1389.048,
+            "end_us": 1519.15,
+            "duration_us": 130.1020000000001
+          },
+          {
+            "start_us": 2207.864,
+            "end_us": 2330.466,
+            "duration_us": 122.60199999999986
+          },
+          {
+            "start_us": 425.968,
+            "end_us": 544.33,
+            "duration_us": 118.36200000000002
+          },
+          {
+            "start_us": 314.326,
+            "end_us": 422.348,
+            "duration_us": 108.02199999999999
+          },
+          {
+            "start_us": 556.49,
+            "end_us": 656.932,
+            "duration_us": 100.44200000000001
+          },
+          {
+            "start_us": 1528.93,
+            "end_us": 1600.032,
+            "duration_us": 71.10199999999986
+          },
+          {
+            "start_us": 1319.566,
+            "end_us": 1387.188,
+            "duration_us": 67.62200000000007
+          },
+          {
+            "start_us": 2340.306,
+            "end_us": 2407.268,
+            "duration_us": 66.96199999999999
+          },
+          {
+            "start_us": 2149.222,
+            "end_us": 2205.884,
+            "duration_us": 56.66199999999981
+          }
+        ],
+        "kernels": {
+          "_request_owners": {
+            "count": 3,
+            "sum_us": 4.58
+          },
+          "MIX_AIC": {
+            "count": 3,
+            "sum_us": 212.204
+          },
+          "_radix_hist_trivial_all": {
+            "count": 3,
+            "sum_us": 7.460000000000001
+          },
+          "_segmerge_seg_sort": {
+            "count": 3,
+            "sum_us": 31.779999999999998
+          },
+          "_segmerge_merge_unpack": {
+            "count": 3,
+            "sum_us": 15.202
+          }
+        },
+        "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+      },
+      "native_fused": {
+        "trace_file": "short16_g1024-native_fused-trace.json.gz",
+        "compressed_bytes": 1461,
+        "task_count": 3,
+        "timestamp_origin_us": "1793578601665137.714",
+        "hardware_pids": [
+          1442248128
+        ],
+        "device_task_duration_sum_us": 59.402,
+        "device_task_union_us": 59.401999999999994,
+        "device_task_envelope_us": 258.424,
+        "uncovered_envelope_us": 199.022,
+        "uncovered_fraction": 0.7701374485341919,
+        "categories": {
+          "cpu_op": 15,
+          "dequeue": 3,
+          "async_task_queue": 6,
+          "enqueue": 3,
+          "": 47,
+          "HostToDevice": 6,
+          "async_npu": 6
+        },
+        "largest_gaps": [
+          {
+            "start_us": 93.28200000000001,
+            "end_us": 238.444,
+            "duration_us": 145.16199999999998
+          },
+          {
+            "start_us": 22.9,
+            "end_us": 76.76,
+            "duration_us": 53.86000000000001
+          }
+        ],
+        "kernels": {
+          "LightningIndexer": {
+            "count": 3,
+            "sum_us": 59.402
+          }
+        },
+        "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+      }
+    },
+    "units": "microseconds",
+    "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+  },
+  "score_hardware": {
+    "status": "exported",
+    "metric": "PipeUtilization",
+    "iterations": 3,
+    "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+    "score_rows_preview": [
+      {
+        "Name": "_paged_score_910b",
+        "Duration(us)": "81.422",
+        "aicore_time(us)": "70.46",
+        "aic_total_cycles": "2325166",
+        "aic_mac_time(us)": "1.226",
+        "aic_mac_ratio": "0.017",
+        "aic_scalar_time(us)": "38.295",
+        "aic_scalar_ratio": "0.544",
+        "aic_mte1_time(us)": "2.043",
+        "aic_mte1_ratio": "0.029",
+        "aic_mte2_time(us)": "7.835",
+        "aic_mte2_ratio": "0.111",
+        "aic_fixpipe_time(us)": "4.622",
+        "aic_fixpipe_ratio": "0.066",
+        "aic_icache_miss_rate": "0.0",
+        "aiv_time(us)": "70.495",
+        "aiv_total_cycles": "4652694",
+        "aiv_vec_time(us)": "13.137",
+        "aiv_vec_ratio": "0.186",
+        "aiv_scalar_time(us)": "53.606",
+        "aiv_scalar_ratio": "0.76",
+        "aiv_mte2_time(us)": "22.358",
+        "aiv_mte2_ratio": "0.317",
+        "aiv_mte3_time(us)": "4.654",
+        "aiv_mte3_ratio": "0.066",
+        "aiv_icache_miss_rate": "0.004",
+        "cube_utilization(%)": "86.536"
+      },
+      {
+        "Name": "_paged_score_910b",
+        "Duration(us)": "74.142",
+        "aicore_time(us)": "61.65",
+        "aic_total_cycles": "2034443",
+        "aic_mac_time(us)": "1.226",
+        "aic_mac_ratio": "0.02",
+        "aic_scalar_time(us)": "38.091",
+        "aic_scalar_ratio": "0.618",
+        "aic_mte1_time(us)": "2.047",
+        "aic_mte1_ratio": "0.033",
+        "aic_mte2_time(us)": "6.791",
+        "aic_mte2_ratio": "0.11",
+        "aic_fixpipe_time(us)": "4.165",
+        "aic_fixpipe_ratio": "0.068",
+        "aic_icache_miss_rate": "0.0",
+        "aiv_time(us)": "61.613",
+        "aiv_total_cycles": "4066489",
+        "aiv_vec_time(us)": "13.152",
+        "aiv_vec_ratio": "0.213",
+        "aiv_scalar_time(us)": "49.178",
+        "aiv_scalar_ratio": "0.798",
+        "aiv_mte2_time(us)": "19.754",
+        "aiv_mte2_ratio": "0.321",
+        "aiv_mte3_time(us)": "3.666",
+        "aiv_mte3_ratio": "0.06",
+        "aiv_icache_miss_rate": "0.0",
+        "cube_utilization(%)": "83.151"
+      },
+      {
+        "Name": "_paged_score_910b",
+        "Duration(us)": "68.760",
+        "aicore_time(us)": "62.114",
+        "aic_total_cycles": "2049775",
+        "aic_mac_time(us)": "1.226",
+        "aic_mac_ratio": "0.02",
+        "aic_scalar_time(us)": "38.641",
+        "aic_scalar_ratio": "0.622",
+        "aic_mte1_time(us)": "2.042",
+        "aic_mte1_ratio": "0.033",
+        "aic_mte2_time(us)": "6.921",
+        "aic_mte2_ratio": "0.111",
+        "aic_fixpipe_time(us)": "4.166",
+        "aic_fixpipe_ratio": "0.067",
+        "aic_icache_miss_rate": "0.0",
+        "aiv_time(us)": "62.039",
+        "aiv_total_cycles": "4094606",
+        "aiv_vec_time(us)": "13.158",
+        "aiv_vec_ratio": "0.212",
+        "aiv_scalar_time(us)": "49.882",
+        "aiv_scalar_ratio": "0.804",
+        "aiv_mte2_time(us)": "19.94",
+        "aiv_mte2_ratio": "0.321",
+        "aiv_mte3_time(us)": "3.694",
+        "aiv_mte3_ratio": "0.06",
+        "aiv_icache_miss_rate": "0.0",
+        "cube_utilization(%)": "90.335"
+      },
+      {},
+      {
+        "Name": "_paged_score_910b",
+        "Host Self Duration(us)": "35.83",
+        "Host Total Duration(us)": "35.83",
+        "Device Self Duration(us)": "81.422",
+        "Device Total Duration(us)": "81.422",
+        "Device Self Duration With AICore(us)": "0",
+        "Device Total Duration With AICore(us)": "0"
+      },
+      {
+        "Name": "_paged_score_910b",
+        "Host Self Duration(us)": "17.95",
+        "Host Total Duration(us)": "17.95",
+        "Device Self Duration(us)": "74.142",
+        "Device Total Duration(us)": "74.142",
+        "Device Self Duration With AICore(us)": "0",
+        "Device Total Duration With AICore(us)": "0"
+      },
+      {
+        "Name": "_paged_score_910b",
+        "Host Self Duration(us)": "16.62",
+        "Host Total Duration(us)": "16.62",
+        "Device Self Duration(us)": "68.76",
+        "Device Total Duration(us)": "68.76",
+        "Device Self Duration With AICore(us)": "0",
+        "Device Total Duration With AICore(us)": "0"
+      }
+    ],
+    "metric_columns": [
+      "aic_fixpipe_ratio",
+      "aic_fixpipe_time(us)",
+      "aic_icache_miss_rate",
+      "aic_mac_ratio",
+      "aic_mac_time(us)",
+      "aic_mte1_ratio",
+      "aic_mte1_time(us)",
+      "aic_mte2_ratio",
+      "aic_mte2_time(us)",
+      "aic_scalar_ratio",
+      "aic_scalar_time(us)",
+      "aic_total_cycles",
+      "aiv_icache_miss_rate",
+      "aiv_mte2_ratio",
+      "aiv_mte2_time(us)",
+      "aiv_mte3_ratio",
+      "aiv_mte3_time(us)",
+      "aiv_scalar_ratio",
+      "aiv_scalar_time(us)",
+      "aiv_time(us)",
+      "aiv_total_cycles",
+      "aiv_vec_ratio",
+      "aiv_vec_time(us)",
+      "cube_utilization(%)"
+    ],
+    "artifact": "short16_g1024-score-hardware-tables.json.gz",
+    "tables": [
+      {
+        "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_1408445_20261102081645330_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+        "columns": [
+          "Device_id",
+          "Level",
+          "API Name",
+          "Time(us)",
+          "Count",
+          "Avg(us)",
+          "Min(us)",
+          "Max(us)",
+          "Variance"
+        ],
+        "truncated": false
+      },
+      {
+        "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_1408445_20261102081645330_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+        "columns": [
+          "Device_id",
+          "Model ID",
+          "Task ID",
+          "Stream ID",
+          "Name",
+          "Type",
+          "OP State",
+          "Accelerator Core",
+          "Start Time(us)",
+          "Duration(us)",
+          "Wait Time(us)",
+          "Block Num",
+          "Mix Block Num",
+          "HF32 Eligible",
+          "Input Shapes",
+          "Input Data Types",
+          "Input Formats",
+          "Output Shapes",
+          "Output Data Types",
+          "Output Formats",
+          "Context ID",
+          "aicore_time(us)",
+          "aic_total_cycles",
+          "aic_mac_time(us)",
+          "aic_mac_ratio",
+          "aic_scalar_time(us)",
+          "aic_scalar_ratio",
+          "aic_mte1_time(us)",
+          "aic_mte1_ratio",
+          "aic_mte2_time(us)",
+          "aic_mte2_ratio",
+          "aic_fixpipe_time(us)",
+          "aic_fixpipe_ratio",
+          "aic_icache_miss_rate",
+          "aiv_time(us)",
+          "aiv_total_cycles",
+          "aiv_vec_time(us)",
+          "aiv_vec_ratio",
+          "aiv_scalar_time(us)",
+          "aiv_scalar_ratio",
+          "aiv_mte2_time(us)",
+          "aiv_mte2_ratio",
+          "aiv_mte3_time(us)",
+          "aiv_mte3_ratio",
+          "aiv_icache_miss_rate",
+          "cube_utilization(%)"
+        ],
+        "truncated": false
+      },
+      {
+        "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_1408445_20261102081645330_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+        "columns": [
+          "Device_id",
+          "OP Type",
+          "Core Type",
+          "Count",
+          "Total Time(us)",
+          "Min Time(us)",
+          "Avg Time(us)",
+          "Max Time(us)",
+          "Ratio(%)"
+        ],
+        "truncated": false
+      },
+      {
+        "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_1408445_20261102081645330_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+        "columns": [
+          "Name",
+          "Input Shapes",
+          "Call Stack",
+          "Host Self Duration(us)",
+          "Host Total Duration(us)",
+          "Device Self Duration(us)",
+          "Device Total Duration(us)",
+          "Device Self Duration With AICore(us)",
+          "Device Total Duration With AICore(us)"
+        ],
+        "truncated": false
+      },
+      {
+        "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_1408445_20261102081645330_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+        "columns": [
+          "Device_id",
+          "Step",
+          "Computing",
+          "Communication(Not Overlapped)",
+          "Overlapped",
+          "Communication",
+          "Free",
+          "Stage",
+          "Bubble",
+          "Communication(Not Overlapped and Exclude Receive)",
+          "Preparing"
+        ],
+        "truncated": false
+      }
+    ]
+  },
+  "npu_smi_after": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 104.4       33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4188 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 92.8        32                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3439 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.9        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.6        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.1       37                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3445 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.0        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.1        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.0        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 1408445       | python3                  | 218                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 1                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  }
+}
