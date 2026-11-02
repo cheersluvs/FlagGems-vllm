@@ -1,0 +1,87 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{
+  "case": "h4_compressed_boundary",
+  "status": "failed",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU"
+  },
+  "geometry": {
+    "heads": 4,
+    "dim": 128,
+    "page_size": 192,
+    "group_topk": 512,
+    "compress_ratio": 4,
+    "query_lengths": [
+      9,
+      5
+    ],
+    "prefix_tokens": [
+      2044,
+      4093
+    ],
+    "visible_groups": [
+      511,
+      511,
+      511,
+      512,
+      512,
+      512,
+      512,
+      513,
+      513,
+      1023,
+      1023,
+      1024,
+      1024,
+      1024
+    ],
+    "q_shape": [
+      14,
+      4,
+      128
+    ],
+    "cache_shape": [
+      14,
+      192,
+      1,
+      128
+    ],
+    "adaptation": "One native batch per query; sparse_mode=0; exact visible group lengths",
+    "compression_boundary": "floor((prefix_tokens + local_query + 1) / 4)"
+  },
+  "input_ranges": {
+    "q": [
+      -8,
+      8
+    ],
+    "cache": [
+      -8,
+      127
+    ],
+    "weights": [
+      0.25927734375,
+      1.736328125
+    ],
+    "qs": [
+      0.0010957717895507812,
+      0.0298919677734375
+    ],
+    "ks": [
+      0.0010051727294921875,
+      0.029998779296875
+    ]
+  },
+  "traceback": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-int8-score.RiFTFlb1/tools/probe_qsa_int8_score_910b.py\", line 177, in run_case\n    result[\"checks\"] = validate(inputs, output.cpu(), dots.cpu())\n                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-int8-score.RiFTFlb1/tools/probe_qsa_int8_score_910b.py\", line 103, in validate\n    raise AssertionError(f\"row {row}: invisible debug dots must be zero\")\nAssertionError: row 0: invisible debug dots must be zero\n",
+  "sources": {
+    "qsa_int8_score_910b_trial.py": "059b396cd54ef1cac7da9eb8594d5c08be5c11390001c87fd522de30e1eb4eba",
+    "probe_qsa_quant_v1_910b.py": "e542a1465090204625389412ad424cf4567aefca96c62cf686443e5ad0dbed52",
+    "probe_qsa_int8_score_910b.py": "7f23672bf4f1bd9167f7325a0a2805a485b5e4ae3310d2b6e46e43df80ac89f5"
+  }
+}
