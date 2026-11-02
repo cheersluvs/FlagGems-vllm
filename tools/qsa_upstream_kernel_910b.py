@@ -219,6 +219,41 @@ def run(args, result):
         native_adapter_total=native_adapter,
         native_fused=native_fused,
     )
+    image_baseline = getattr(args, "image_triton_baseline", False)
+    image_identity, image_output = None, None
+    if image_baseline:
+        from qsa_image_triton_baseline_910b import build
+
+        positions = torch.tensor(
+            [case["prefix_tokens"] + i for _ in range(n) for i in range(queries)],
+            device=device,
+            dtype=torch.int64,
+        )
+        sequence_lengths = torch.full(
+            (n,), case["prefix_tokens"] + queries, device=device, dtype=torch.int32
+        )
+        image_jobs, image_output, image_identity = build(
+            args,
+            dict(
+                q=q,
+                cache=cache,
+                table=table,
+                owners=owners,
+                positions=positions,
+                sequence_lengths=sequence_lengths,
+                rows=rows,
+                k=k,
+                starts=starts,
+                max_seq_len=case["prefix_tokens"] + queries,
+                visible_cpu=visible_cpu,
+                references=references,
+            ),
+        )
+        jobs = {
+            name: jobs[name]
+            for name in ("score", "topk", "prepared_pipeline", "public_total")
+        }
+        jobs.update(image_jobs)
     probe = result["upstream12_kernel"] = dict(
         source=SOURCE_URL,
         upstream_case=case,
@@ -239,7 +274,23 @@ def run(args, result):
         samples={name: [] for name in jobs},
     )
 
+    probe["baseline"] = (
+        "image_triton_torch_topk" if image_baseline else "CANN_LightningIndexer"
+    )
+    if image_baseline:
+        probe["image_source"] = image_identity
+
     def check(name, value):
+        if name.startswith("image_"):
+            if name == "image_score":
+                actual = value[0][-1].cpu()
+                expected = references[rows - 1] / (dim**0.5)
+                torch.testing.assert_close(
+                    actual[: len(expected)], expected, rtol=1e-3, atol=1e-3
+                )
+                assert torch.isneginf(actual[len(expected) :]).all()
+                return dict(initial_sampled_rows=sample_rows, postcheck_last_row=True)
+            return verify(image_output)
         if name == "native_fused":
             return verify(value[0][:, 0])
         if name == "native_adapter_total":
@@ -287,16 +338,36 @@ def run(args, result):
     probe["latency"] = {
         name: aggregate(samples) for name, samples in probe["samples"].items()
     }
-    probe["speedup"] = dict(
-        native_adapter_over_public=probe["latency"]["native_adapter_total"][
-            "kernel_us"
-        ]["median"]
-        / probe["latency"]["public_total"]["kernel_us"]["median"],
-        native_fused_over_prepared=probe["latency"]["native_fused"]["kernel_us"][
-            "median"
-        ]
-        / probe["latency"]["prepared_pipeline"]["kernel_us"]["median"],
-    )
+    if image_baseline:
+        probe["speedup"] = {
+            label: probe["latency"][a]["kernel_us"]["median"]
+            / probe["latency"][b]["kernel_us"]["median"]
+            for label, a, b in (
+                ("image_score_over_production_score", "image_score", "score"),
+                ("image_topk_over_production_topk", "image_topk", "topk"),
+                (
+                    "image_prepared_over_production_prepared",
+                    "image_groups_prepared",
+                    "prepared_pipeline",
+                ),
+                (
+                    "image_adapter_over_production_public",
+                    "image_groups_adapter",
+                    "public_total",
+                ),
+            )
+        }
+    else:
+        probe["speedup"] = dict(
+            native_adapter_over_public=probe["latency"]["native_adapter_total"][
+                "kernel_us"
+            ]["median"]
+            / probe["latency"]["public_total"]["kernel_us"]["median"],
+            native_fused_over_prepared=probe["latency"]["native_fused"]["kernel_us"][
+                "median"
+            ]
+            / probe["latency"]["prepared_pipeline"]["kernel_us"]["median"],
+        )
     for name, value in probe["latency"].items():
         print("UPSTREAM_KERNEL_SUMMARY", name, json.dumps(value), flush=True)
     print("UPSTREAM_KERNEL_SPEEDUP", json.dumps(probe["speedup"]), flush=True)

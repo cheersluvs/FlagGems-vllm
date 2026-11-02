@@ -817,6 +817,11 @@ def main():
         action="store_true",
         help="Run upstream 12 query/prefix cases rebuilt for Ascend page192",
     )
+    parser.add_argument(
+        "--image-triton-baseline",
+        action="store_true",
+        help="With upstream12, compare the audited image Triton score plus Torch TopK path",
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -907,6 +912,8 @@ def main():
         parser.error(
             "--upstream12 requires benchmark/kernel without chunk32-production"
         )
+    if args.image_triton_baseline and not args.upstream12:
+        parser.error("--image-triton-baseline requires --upstream12")
     args.timeline = args.suite in ("timeline", "score-profile")
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
@@ -1178,6 +1185,21 @@ def main():
         summary["scope"] = (
             "Upstream 12 query/prefix cases; Ascend BF16/page192; sampled CPU reference"
         )
+        summary["baseline"] = (
+            "image_triton_torch_topk"
+            if args.image_triton_baseline
+            else "CANN_LightningIndexer"
+        )
+        if args.image_triton_baseline:
+            summary["image_baseline_sources"] = {
+                name: hashlib.sha256(
+                    Path(__file__).with_name(name).read_bytes()
+                ).hexdigest()
+                for name in (
+                    "qsa_image_triton_baseline_910b.py",
+                    "qsa_image_triton_910b_source.txt",
+                )
+            }
         summary["upstream12_manifest_sha256"] = hashlib.sha256(
             Path(__file__).with_name("qsa_prefill_upstream_workloads.py").read_bytes()
         ).hexdigest()
@@ -1215,6 +1237,11 @@ def main():
                     *(["--chunk32-production"] if args.chunk32_production else []),
                     *(["--tile-public-timeline"] if args.tile_public_timeline else []),
                     *(["--upstream12"] if args.upstream12 else []),
+                    *(
+                        ["--image-triton-baseline"]
+                        if args.image_triton_baseline
+                        else []
+                    ),
                     "--mode",
                     args.mode,
                     "--kernel-warmup",
