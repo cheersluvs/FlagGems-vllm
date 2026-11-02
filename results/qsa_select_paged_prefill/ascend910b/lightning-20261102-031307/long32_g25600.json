@@ -1,0 +1,688 @@
+{
+  "status": "passed",
+  "case": "long32_g25600",
+  "python": "/flagos/bin/python3",
+  "launch_environment": {
+    "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+    "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+    "PYTHONPATH": "/tmp/flaggems-qsa-chunk32.T7OIXLJ0/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+    "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+    "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+    "BASH_ENV": null
+  },
+  "cache_directory": null,
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "npu_smi_before": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.6        32                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4075 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 94.2        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          4362 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.8        34                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3422 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.6        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.1       38                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.2        39                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.0        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 2327727       | python3                  | 106                     |\n+===========================+===============+====================================================+\n| 1       0                 | 2319204       | python                   | 975                     |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  },
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-chunk32.T7OIXLJ0/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-chunk32.T7OIXLJ0/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-chunk32.T7OIXLJ0/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+      "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+    },
+    "launch_policy": {
+      "programs": 20,
+      "topk_block": 256,
+      "topk_default_block": 1024
+    }
+  },
+  "score_correctness": {
+    "max_abs_error": 2.288818359375e-05,
+    "valid_scores": 819128,
+    "masked_scores": 72,
+    "rtol": 0.001,
+    "atol": 0.001
+  },
+  "launch_policy": {
+    "programs": 20,
+    "G": 40,
+    "BLOCK": 256,
+    "production": true
+  },
+  "selection_correctness": {
+    "topk": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "prepared_pipeline": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "public_total": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_adapter_total": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    },
+    "native_fused": {
+      "rows": 32,
+      "max_selected_score_error": 0.0,
+      "ranges_and_uniqueness": true
+    }
+  },
+  "shape": {
+    "query": [
+      32,
+      4,
+      128
+    ],
+    "cache": [
+      268,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      2,
+      134
+    ],
+    "request_query_lengths": [
+      16,
+      16
+    ],
+    "visible_min": 25596,
+    "visible_max": 25600,
+    "logits_width": 25600,
+    "page": 192,
+    "group_topk": 512,
+    "token_topk": 2048,
+    "compress_ratio": 4,
+    "dtype": "bfloat16",
+    "chunks": [
+      [
+        0,
+        16
+      ],
+      [
+        16,
+        16
+      ]
+    ]
+  },
+  "timing_policy": {
+    "rounds": 2,
+    "warmup": 2,
+    "iterations": 3,
+    "units": "microseconds per invocation",
+    "order": "alternating forward/reverse each round",
+    "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+    "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+    "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+    "public_scope": "public API includes request mapping and allocations; prefill candidate enabled only if explicitly recorded",
+    "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+    "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+    "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+    "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+  },
+  "samples": {
+    "score": [],
+    "topk": [],
+    "prepared_pipeline": [],
+    "native_fused": [],
+    "public_total": [],
+    "native_adapter_total": [],
+    "request_mapping": [],
+    "public_original_total": []
+  },
+  "tile_public_probe": {
+    "scope": "BF16 H4 D128 page192; compare N32/chunk16, N128/chunk16, N128/chunk32",
+    "production_source_modified": false,
+    "production_ast_sha256": "8f4c8d07542fe9ac0e83519f31ed95ca68009a68a4fa0ca40ba55eb903b4bad0",
+    "public_entry": "flaggems_vllm.runtime.backend._ascend.ops.qsa_select_paged_prefill.qsa_select_paged_prefill",
+    "topk_changed": false,
+    "public_launches": [
+      {
+        "rows": 16,
+        "width": 25600,
+        "offset": 0,
+        "block_n": 128,
+        "grid": [
+          20
+        ],
+        "variant": "n128_public_total"
+      },
+      {
+        "rows": 16,
+        "width": 25600,
+        "offset": 16,
+        "block_n": 128,
+        "grid": [
+          20
+        ],
+        "variant": "n128_public_total"
+      },
+      {
+        "rows": 32,
+        "width": 25600,
+        "offset": 0,
+        "block_n": 128,
+        "grid": [
+          20
+        ],
+        "variant": "n128_c32_public_total"
+      }
+    ],
+    "correctness": {
+      "n32_score": {
+        "max_abs_error": 2.288818359375e-05,
+        "masks_valid": true
+      },
+      "n32_topk": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "n32_prepared_pipeline": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "n32_public_total": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "n128_score": {
+        "max_abs_error": 2.288818359375e-05,
+        "masks_valid": true
+      },
+      "n128_topk": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "n128_prepared_pipeline": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "n128_public_total": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "n128_c32_score": {
+        "max_abs_error": 2.288818359375e-05,
+        "masks_valid": true
+      },
+      "n128_c32_topk": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "n128_c32_prepared_pipeline": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "n128_c32_public_total": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "native_fused": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      },
+      "native_adapter_total": {
+        "rows": 32,
+        "max_selected_score_error": 0.0,
+        "ranges_and_uniqueness": true
+      }
+    },
+    "samples": {
+      "n32_score": [
+        {
+          "wall_us": 3230.4637134075165,
+          "event_us": 3186.033248901367
+        },
+        {
+          "wall_us": 3169.8662787675858,
+          "event_us": 3126.1266072591147
+        }
+      ],
+      "n32_topk": [
+        {
+          "wall_us": 1180.277516444524,
+          "event_us": 1132.479985555013
+        },
+        {
+          "wall_us": 977.1430244048437,
+          "event_us": 920.7599957784017
+        }
+      ],
+      "n32_prepared_pipeline": [
+        {
+          "wall_us": 3309.6919457117715,
+          "event_us": 3271.693229675293
+        },
+        {
+          "wall_us": 3264.6277298529944,
+          "event_us": 3223.2866287231445
+        }
+      ],
+      "n32_public_total": [
+        {
+          "wall_us": 3349.84560807546,
+          "event_us": 3310.5732599894204
+        },
+        {
+          "wall_us": 3420.668343702952,
+          "event_us": 3377.9331843058267
+        }
+      ],
+      "n128_score": [
+        {
+          "wall_us": 1649.2418944835663,
+          "event_us": 1612.566630045573
+        },
+        {
+          "wall_us": 1762.6229673624039,
+          "event_us": 1722.8867212931316
+        }
+      ],
+      "n128_topk": [
+        {
+          "wall_us": 1010.8724236488342,
+          "event_us": 976.973295211792
+        },
+        {
+          "wall_us": 980.2691638469696,
+          "event_us": 924.246629079183
+        }
+      ],
+      "n128_prepared_pipeline": [
+        {
+          "wall_us": 1763.1202936172485,
+          "event_us": 1725.433349609375
+        },
+        {
+          "wall_us": 1762.4602963527043,
+          "event_us": 1722.313404083252
+        }
+      ],
+      "n128_public_total": [
+        {
+          "wall_us": 1831.9344768921535,
+          "event_us": 1793.326695760091
+        },
+        {
+          "wall_us": 1926.4953831831615,
+          "event_us": 1778.6266009012859
+        }
+      ],
+      "n128_c32_score": [
+        {
+          "wall_us": 1612.8253191709518,
+          "event_us": 1575.5933125813801
+        },
+        {
+          "wall_us": 1818.4172610441844,
+          "event_us": 1761.6999944051106
+        }
+      ],
+      "n128_c32_topk": [
+        {
+          "wall_us": 941.8589373429617,
+          "event_us": 893.0533727010092
+        },
+        {
+          "wall_us": 1154.970998565356,
+          "event_us": 1113.4533087412517
+        }
+      ],
+      "n128_c32_prepared_pipeline": [
+        {
+          "wall_us": 1854.870468378067,
+          "event_us": 1818.0267016092937
+        },
+        {
+          "wall_us": 1740.8635467290878,
+          "event_us": 1705.2666346232097
+        }
+      ],
+      "n128_c32_public_total": [
+        {
+          "wall_us": 1793.6670531829197,
+          "event_us": 1753.4066836039226
+        },
+        {
+          "wall_us": 2171.1569279432297,
+          "event_us": 2134.7333590189614
+        }
+      ],
+      "native_fused": [
+        {
+          "wall_us": 464.30838604768115,
+          "event_us": 429.55998579661053
+        },
+        {
+          "wall_us": 215.1454488436381,
+          "event_us": 177.95334259668985
+        }
+      ],
+      "native_adapter_total": [
+        {
+          "wall_us": 1410.5401933193207,
+          "event_us": 1337.4533653259277
+        },
+        {
+          "wall_us": 673.2332209746043,
+          "event_us": 632.0333480834961
+        }
+      ]
+    },
+    "comparison": "Native adapter/public is the whole-operator comparison; native fused/prepared uses prebuilt metadata",
+    "chunk32_probe": true,
+    "chunk32_host": {
+      "original_ast_sha256": "709191c8d6d455f8c4b0035ed6da99c9deba3b1874c3145eddea9d478b0d6d27",
+      "change": "chunk_rows=min(rows,16,budget_rows) becomes min(rows,32,budget_rows)",
+      "registered_public_unchanged": true,
+      "production_source_modified": false
+    },
+    "chunk32_scope": "Test-only AST clone of public host; only chunk cap16 becomes32. Budget formula, validation and TopK implementation unchanged. This is not an integrated production public entry. Prepared stages use the fixed 512MiB benchmark budget.",
+    "latency": {
+      "n32_score": {
+        "wall_us": {
+          "median": 3200.164996087551,
+          "min": 3169.8662787675858,
+          "max": 3230.4637134075165,
+          "range_over_median": 0.018935721974965593
+        },
+        "event_us": {
+          "median": 3156.079928080241,
+          "min": 3126.1266072591147,
+          "max": 3186.033248901367,
+          "range_over_median": 0.01898134489854066
+        }
+      },
+      "n32_topk": {
+        "wall_us": {
+          "median": 1078.7102704246838,
+          "min": 977.1430244048437,
+          "max": 1180.277516444524,
+          "range_over_median": 0.18831237414631005
+        },
+        "event_us": {
+          "median": 1026.6199906667073,
+          "min": 920.7599957784017,
+          "max": 1132.479985555013,
+          "range_over_median": 0.20623014523525504
+        }
+      },
+      "n32_prepared_pipeline": {
+        "wall_us": {
+          "median": 3287.159837782383,
+          "min": 3264.6277298529944,
+          "max": 3309.6919457117715,
+          "range_over_median": 0.013709164775260439
+        },
+        "event_us": {
+          "median": 3247.4899291992188,
+          "min": 3223.2866287231445,
+          "max": 3271.693229675293,
+          "range_over_median": 0.014905850982603282
+        }
+      },
+      "n32_public_total": {
+        "wall_us": {
+          "median": 3385.256975889206,
+          "min": 3349.84560807546,
+          "max": 3420.668343702952,
+          "range_over_median": 0.020920933368400767
+        },
+        "event_us": {
+          "median": 3344.2532221476235,
+          "min": 3310.5732599894204,
+          "max": 3377.9331843058267,
+          "range_over_median": 0.020141992798364962
+        }
+      },
+      "n128_score": {
+        "wall_us": {
+          "median": 1705.932430922985,
+          "min": 1649.2418944835663,
+          "max": 1762.6229673624039,
+          "range_over_median": 0.0664628157737135
+        },
+        "event_us": {
+          "median": 1667.7266756693523,
+          "min": 1612.566630045573,
+          "max": 1722.8867212931316,
+          "range_over_median": 0.06614998300202936
+        }
+      },
+      "n128_topk": {
+        "wall_us": {
+          "median": 995.5707937479019,
+          "min": 980.2691638469696,
+          "max": 1010.8724236488342,
+          "range_over_median": 0.030739410993221614
+        },
+        "event_us": {
+          "median": 950.6099621454875,
+          "min": 924.246629079183,
+          "max": 976.973295211792,
+          "range_over_median": 0.055466140932930154
+        }
+      },
+      "n128_prepared_pipeline": {
+        "wall_us": {
+          "median": 1762.7902949849763,
+          "min": 1762.4602963527043,
+          "max": 1763.1202936172485,
+          "range_over_median": 0.0003744048662066578
+        },
+        "event_us": {
+          "median": 1723.8733768463135,
+          "min": 1722.313404083252,
+          "max": 1725.433349609375,
+          "range_over_median": 0.0018098461105250864
+        }
+      },
+      "n128_public_total": {
+        "wall_us": {
+          "median": 1879.2149300376575,
+          "min": 1831.9344768921535,
+          "max": 1926.4953831831615,
+          "range_over_median": 0.050319367295103966
+        },
+        "event_us": {
+          "median": 1785.9766483306885,
+          "min": 1778.6266009012859,
+          "max": 1793.326695760091,
+          "range_over_median": 0.008230843820127788
+        }
+      },
+      "n128_c32_score": {
+        "wall_us": {
+          "median": 1715.6212901075683,
+          "min": 1612.8253191709518,
+          "max": 1818.4172610441844,
+          "range_over_median": 0.11983527079006004
+        },
+        "event_us": {
+          "median": 1668.6466534932454,
+          "min": 1575.5933125813801,
+          "max": 1761.6999944051106,
+          "range_over_median": 0.1115315105412662
+        }
+      },
+      "n128_c32_topk": {
+        "wall_us": {
+          "median": 1048.4149679541588,
+          "min": 941.8589373429617,
+          "max": 1154.970998565356,
+          "range_over_median": 0.2032707160202548
+        },
+        "event_us": {
+          "median": 1003.2533407211304,
+          "min": 893.0533727010092,
+          "max": 1113.4533087412517,
+          "range_over_median": 0.21968522515142672
+        }
+      },
+      "n128_c32_prepared_pipeline": {
+        "wall_us": {
+          "median": 1797.8670075535774,
+          "min": 1740.8635467290878,
+          "max": 1854.870468378067,
+          "range_over_median": 0.06341232202937665
+        },
+        "event_us": {
+          "median": 1761.6466681162517,
+          "min": 1705.2666346232097,
+          "max": 1818.0267016092937,
+          "range_over_median": 0.06400833324122798
+        }
+      },
+      "n128_c32_public_total": {
+        "wall_us": {
+          "median": 1982.4119905630746,
+          "min": 1793.6670531829197,
+          "max": 2171.1569279432297,
+          "range_over_median": 0.19041948724951444
+        },
+        "event_us": {
+          "median": 1944.070021311442,
+          "min": 1753.4066836039226,
+          "max": 2134.7333590189614,
+          "range_over_median": 0.1961486321144962
+        }
+      },
+      "native_fused": {
+        "wall_us": {
+          "median": 339.72691744565964,
+          "min": 215.1454488436381,
+          "max": 464.30838604768115,
+          "range_over_median": 0.733421240440559
+        },
+        "event_us": {
+          "median": 303.7566641966502,
+          "min": 177.95334259668985,
+          "max": 429.55998579661053,
+          "range_over_median": 0.8283164547693086
+        }
+      },
+      "native_adapter_total": {
+        "wall_us": {
+          "median": 1041.8867071469624,
+          "min": 673.2332209746043,
+          "max": 1410.5401933193207,
+          "range_over_median": 0.7076652070585601
+        },
+        "event_us": {
+          "median": 984.7433567047119,
+          "min": 632.0333480834961,
+          "max": 1337.4533653259277,
+          "range_over_median": 0.7163490999350413
+        }
+      }
+    },
+    "speedup": {
+      "n32_over_n128_score": {
+        "event_us": 1.8924443520180123,
+        "wall_us": 1.8759037216709222
+      },
+      "n32_over_n128_topk": {
+        "event_us": 1.0799592172899894,
+        "wall_us": 1.083509356842216
+      },
+      "n32_over_n128_prepared_pipeline": {
+        "event_us": 1.8838332169966208,
+        "wall_us": 1.864748091213197
+      },
+      "n32_over_n128_public_total": {
+        "event_us": 1.8725066899801968,
+        "wall_us": 1.8014208602639024
+      },
+      "native_adapter_over_n32": {
+        "event_us": 0.29445837120920115,
+        "wall_us": 0.3077718219229989
+      },
+      "native_adapter_over_n128": {
+        "event_us": 0.5513752700099013,
+        "wall_us": 0.5544265802135172
+      },
+      "native_fused_over_n32_prepared": {
+        "event_us": 0.093535829461849,
+        "wall_us": 0.10334968003102936
+      },
+      "native_fused_over_n128_prepared": {
+        "event_us": 0.1762059025195623,
+        "wall_us": 0.19272111856535665
+      },
+      "chunk16_over_chunk32_score": {
+        "event_us": 0.9994486682833857,
+        "wall_us": 0.994352565312374
+      },
+      "chunk16_over_chunk32_topk": {
+        "event_us": 0.9475273328890157,
+        "wall_us": 0.9495961276579491
+      },
+      "chunk16_over_chunk32_prepared_pipeline": {
+        "event_us": 0.978557964004025,
+        "wall_us": 0.9804898179780654
+      },
+      "chunk16_over_chunk32_public_total": {
+        "event_us": 0.9186791775770988,
+        "wall_us": 0.9479436862687127
+      },
+      "native_adapter_over_n128_c32": {
+        "event_us": 0.506536979589047,
+        "wall_us": 0.5255651762129576
+      },
+      "n32_over_n128_c32_public_total": {
+        "event_us": 1.7202329059586228,
+        "wall_us": 1.7076455307999192
+      }
+    },
+    "route_states": {
+      "segmerge": {
+        "probed": true,
+        "usable": true
+      },
+      "persistent": {
+        "usable": true
+      }
+    }
+  },
+  "npu_smi_after": {
+    "exit_code": 0,
+    "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 105.2       33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4207 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 101.9       33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          4811 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.8        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3421 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 96.1        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 101.1       39                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.4        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.5        38                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 94.0        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3433 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 2327727       | python3                  | 238                     |\n+===========================+===============+====================================================+\n| 1       0                 | 2319204       | python                   | 1423                    |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+  }
+}
