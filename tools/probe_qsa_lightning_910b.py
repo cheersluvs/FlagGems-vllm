@@ -299,6 +299,7 @@ def worker(args):
                 "timeline",
                 "score-profile",
                 "address-probe",
+                "tile-probe",
                 "score-probe",
                 "topk-probe",
                 "torch-stages",
@@ -334,6 +335,7 @@ def worker(args):
             "timeline",
             "score-profile",
             "address-probe",
+            "tile-probe",
             "score-probe",
             "topk-probe",
             "torch-stages",
@@ -790,6 +792,7 @@ def main():
             "timeline",
             "score-profile",
             "address-probe",
+            "tile-probe",
             "score-probe",
             "topk-probe",
             "torch-stages",
@@ -832,6 +835,7 @@ def main():
         "timeline",
         "score-profile",
         "address-probe",
+        "tile-probe",
         "score-probe",
         "topk-probe",
         "torch-stages",
@@ -857,7 +861,7 @@ def main():
             CASES["zero_budget"] = dict(ADAPTER_CASES["offset_ragged"], budget_mb=0)
     if args.environment_only:
         CASES = {}
-    if args.suite == "address-probe":
+    if args.suite in ("address-probe", "tile-probe"):
         CASES = {
             name: case for name, case in CASES.items() if not name.startswith("medium")
         }
@@ -979,6 +983,7 @@ def main():
         "timeline",
         "score-profile",
         "address-probe",
+        "tile-probe",
         "score-probe",
         "topk-probe",
         "torch-stages",
@@ -1044,6 +1049,13 @@ def main():
                 "tools/qsa_score_address_kernels_910b.py",
             )
         }
+    if args.suite == "tile-probe":
+        summary["scope"] = (
+            "Test-only score BLOCK_N32/64/128; production and TopK frozen"
+        )
+        summary["tile_probe_source_sha256"] = hashlib.sha256(
+            Path(__file__).with_name("qsa_score_tile_probe_910b.py").read_bytes()
+        ).hexdigest()
     if args.environment_only:
         summary["scope"] = (
             "Environment/import diagnostics only; no correctness or timing"
