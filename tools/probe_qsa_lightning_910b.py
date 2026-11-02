@@ -300,6 +300,7 @@ def worker(args):
                 "score-profile",
                 "address-probe",
                 "tile-probe",
+                "tile-public",
                 "score-probe",
                 "topk-probe",
                 "torch-stages",
@@ -336,6 +337,7 @@ def worker(args):
             "score-profile",
             "address-probe",
             "tile-probe",
+            "tile-public",
             "score-probe",
             "topk-probe",
             "torch-stages",
@@ -793,6 +795,7 @@ def main():
             "score-profile",
             "address-probe",
             "tile-probe",
+            "tile-public",
             "score-probe",
             "topk-probe",
             "torch-stages",
@@ -836,6 +839,7 @@ def main():
         "score-profile",
         "address-probe",
         "tile-probe",
+        "tile-public",
         "score-probe",
         "topk-probe",
         "torch-stages",
@@ -984,6 +988,7 @@ def main():
         "score-profile",
         "address-probe",
         "tile-probe",
+        "tile-public",
         "score-probe",
         "topk-probe",
         "torch-stages",
@@ -1055,6 +1060,13 @@ def main():
         )
         summary["tile_probe_source_sha256"] = hashlib.sha256(
             Path(__file__).with_name("qsa_score_tile_probe_910b.py").read_bytes()
+        ).hexdigest()
+    if args.suite == "tile-public":
+        summary["scope"] = (
+            "Test-only N128 through registered public entry; N32 production and TopK frozen"
+        )
+        summary["tile_public_source_sha256"] = hashlib.sha256(
+            Path(__file__).with_name("qsa_score_tile_public_910b.py").read_bytes()
         ).hexdigest()
     if args.environment_only:
         summary["scope"] = (

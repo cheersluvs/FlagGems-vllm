@@ -1,0 +1,199 @@
+# Copyright 2026 FlagOS Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Validate a test-only N128 score launch through the registered public entry."""
+
+import ast
+import hashlib
+import json
+from contextlib import nullcontext
+from pathlib import Path
+from unittest.mock import patch
+
+
+def run(args, result, context):
+    import torch
+    import triton
+    from benchmark_qsa_prefill_stages_910b import aggregate, device_inventory, sample
+
+    module = context["module"]
+    kernel = module._paged_score_910b
+    # Compare the full production AST, including decorator, rather than JIT's stripped source.
+    node = next(
+        n
+        for n in ast.parse(Path(module.__file__).read_text()).body
+        if isinstance(n, ast.FunctionDef) and n.name == "_paged_score_910b"
+    )
+    digest = hashlib.sha256(
+        ast.dump(node, include_attributes=False).encode()
+    ).hexdigest()
+    assert digest == "8f4c8d07542fe9ac0e83519f31ed95ca68009a68a4fa0ca40ba55eb903b4bad0"
+    assert context["q"].shape[1:] == (4, 128) and context["cache"].shape[1] == 192
+    programs = module._score_programs(args.device)
+    public_launches = []
+
+    class Candidate:
+        recording = False
+
+        def __getitem__(self, original_grid):
+            def call(*operands, **options):
+                assert options["HEADS"] == 4 and options["PAGE"] == 192
+                options["BLOCK_N"] = 128
+                grid = (
+                    min(programs, options["ROWS"] * triton.cdiv(options["WIDTH"], 128)),
+                )
+                if self.recording:
+                    public_launches.append(
+                        dict(
+                            rows=options["ROWS"],
+                            width=options["WIDTH"],
+                            offset=options["OFFSET"],
+                            block_n=128,
+                            grid=grid,
+                        )
+                    )
+                return kernel[grid](*operands, **options)
+
+            return call
+
+    candidate = Candidate()
+
+    def configure(name):
+        return (
+            patch.object(module, "_paged_score_910b", candidate)
+            if name.startswith("n128_")
+            else nullcontext()
+        )
+
+    jobs = {}
+    for prefix in ("n32", "n128"):
+        for stage in ("score", "topk", "prepared_pipeline", "public_total"):
+            jobs[f"{prefix}_{stage}"] = context["functions"][stage]
+    jobs["native_fused"] = context["native_fused"]
+    jobs["native_adapter_total"] = context["adapter_total"]
+    probe = result["tile_public_probe"] = dict(
+        scope="BF16 H4 D128 page192 diagnostic cases; only candidate score tile/grid differ",
+        production_source_modified=False,
+        production_ast_sha256=digest,
+        public_entry=context["public"].__module__ + "." + context["public"].__name__,
+        topk_changed=False,
+        public_launches=public_launches,
+        correctness={},
+        samples={name: [] for name in jobs},
+        comparison=(
+            "Native adapter/public is the whole-operator comparison; "
+            "native fused/prepared uses prebuilt metadata"
+        ),
+    )
+    verify = context["verify"]
+
+    def check_score():
+        full = torch.empty_like(context["frozen"])
+        for first, count in context["chunks"]:
+            context["score_into"](first, count, full[first : first + count])
+        actual = full.cpu()
+        expected = context["reference"]
+        finite = torch.isfinite(expected)
+        torch.testing.assert_close(
+            actual[finite], expected[finite], rtol=1e-3, atol=1e-3
+        )
+        assert torch.isneginf(actual[~finite]).all()
+        return dict(
+            max_abs_error=float((actual[finite] - expected[finite]).abs().max()),
+            masks_valid=True,
+        )
+
+    def check_return(name, returned):
+        if name == "native_fused":
+            return verify(returned[0][:, 0])
+        if name == "native_adapter_total":
+            return verify(context["native_output"])
+        if name.endswith("_score"):
+            return check_score()
+        return verify(context["output"])
+
+    for name, function in jobs.items():
+        with configure(name):
+            candidate.recording = name == "n128_public_total"
+            returned = function()
+            candidate.recording = False
+            probe["correctness"][name] = check_return(name, returned)
+            for _ in range(args.warmup):
+                function()
+            torch.npu.synchronize()
+    assert public_launches, "Candidate did not execute score through public entry"
+    for round_index in range(args.rounds):
+        order = list(jobs)
+        if round_index % 2:
+            order.reverse()
+        for name in order:
+            with configure(name):
+                returned_check = (
+                    (lambda returned: verify(returned[0][:, 0]))
+                    if name == "native_fused"
+                    else None
+                )
+                measurement = sample(jobs[name], torch, args.iterations, returned_check)
+                if name != "native_fused":
+                    probe["correctness"][name] = check_return(name, None)
+            probe["samples"][name].append(measurement)
+            print(
+                "PUBLIC_TILE_TIMING",
+                round_index + 1,
+                name,
+                json.dumps(measurement),
+                flush=True,
+            )
+    probe["latency"] = {
+        name: aggregate(values) for name, values in probe["samples"].items()
+    }
+    ratios = {}
+    pairs = [
+        ("n32_over_n128_" + stage, "n32_" + stage, "n128_" + stage)
+        for stage in ("score", "topk", "prepared_pipeline", "public_total")
+    ]
+    pairs += [
+        (
+            "native_adapter_over_" + prefix,
+            "native_adapter_total",
+            prefix + "_public_total",
+        )
+        for prefix in ("n32", "n128")
+    ]
+    pairs += [
+        (
+            "native_fused_over_" + prefix + "_prepared",
+            "native_fused",
+            prefix + "_prepared_pipeline",
+        )
+        for prefix in ("n32", "n128")
+    ]
+    for label, numerator, denominator in pairs:
+        ratios[label] = {
+            field: probe["latency"][numerator][field]["median"]
+            / probe["latency"][denominator][field]["median"]
+            for field in ("event_us", "wall_us")
+        }
+    probe["speedup"] = ratios
+    for name, latency in probe["latency"].items():
+        print("PUBLIC_TILE_SUMMARY", name, json.dumps(latency), flush=True)
+    print("PUBLIC_TILE_SPEEDUP", json.dumps(ratios), flush=True)
+    print("PUBLIC_TILE_LAUNCHES", json.dumps(public_launches), flush=True)
+    probe["route_states"] = dict(
+        segmerge=dict(context["topk_module"]._SEGMERGE_STATE),
+        persistent=dict(context["topk_module"]._PSEGMERGE_STATE),
+    )
+    result["npu_smi_after"] = device_inventory()
+    result["status"] = "passed"
+    return 0

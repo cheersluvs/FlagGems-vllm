@@ -367,6 +367,10 @@ def run(args, result):
     print("shape", json.dumps(result["shape"]), flush=True)
     print("score_correctness", json.dumps(result["score_correctness"]), flush=True)
     print("correctness", json.dumps(result["selection_correctness"]), flush=True)
+    if args.suite == "tile-public":
+        from qsa_score_tile_public_910b import run as tile_public
+
+        return tile_public(args, result, locals())
     if args.suite == "tile-probe":
         from qsa_score_tile_probe_910b import run as tile_probe
 
