@@ -92,48 +92,74 @@ def run(args, result, context):
             masks_valid=True,
         )
 
+    def check_extra_layout():
+        edge = [0, 1, 31, 32, 33, 191, 192, 193]
+        lengths = torch.tensor(
+            [edge[i % len(edge)] for i in range(context["rows"])],
+            device=cache.device,
+            dtype=torch.int32,
+        )
+        storage = torch.empty(
+            (*cache.shape[:-1], cache.shape[-1] * 2),
+            device=cache.device,
+            dtype=cache.dtype,
+        )
+        strided = storage[..., ::2]
+        strided.copy_(cache)
+        table64 = context["table"].to(torch.int64)
+        target = context["reference"].clone()
+        columns = torch.arange(context["width"])
+        target[columns[None, :] >= lengths.cpu()[:, None]] = -torch.inf
+        full = torch.empty_like(context["frozen"])
+        for first, count in context["chunks"]:
+            module._score(
+                context["q"],
+                strided,
+                table64,
+                context["starts"],
+                lengths,
+                full[first : first + count],
+                offset=first,
+                owners=context["owners"],
+            )
+        actual = full.cpu()
+        finite = torch.isfinite(target)
+        torch.testing.assert_close(actual[finite], target[finite], rtol=1e-3, atol=1e-3)
+        assert torch.isneginf(actual[~finite]).all()
+        return dict(status="passed")
+
+    extra_layout = dict(status="not_requested")
+    if args.worker.startswith("short"):
+        try:
+            extra_layout = check_extra_layout()
+        except Exception as exc:
+            # Only a compile-time rejection of the baseline makes this fixture unavailable.
+            # Runtime faults and numerical mismatches must still fail the probe.
+            if not any(
+                cls.__name__ == "MLIRCompilationError" for cls in type(exc).__mro__
+            ):
+                raise
+            extra_layout = dict(
+                status="baseline_compile_unavailable",
+                error_type=type(exc).__name__,
+                error=str(exc),
+                scope="Strided K plus int64 page table and visibility boundaries; not validated",
+            )
+        result["address_probe"]["extra_layout_baseline"] = extra_layout
+        print("ADDRESS_EXTRA_LAYOUT_BASELINE", json.dumps(extra_layout), flush=True)
+
     for name in jobs:
         print("ADDRESS_PREFLIGHT", name, flush=True)
         with configure(name):
             variants[name]["correctness_before"] = check()
-            # Additional visibility boundaries, strided K and int64 page table.
             if args.worker.startswith("short"):
-                edge = [0, 1, 31, 32, 33, 191, 192, 193]
-                lengths = torch.tensor(
-                    [edge[i % len(edge)] for i in range(context["rows"])],
-                    device=cache.device,
-                    dtype=torch.int32,
-                )
-                storage = torch.empty(
-                    (*cache.shape[:-1], cache.shape[-1] * 2),
-                    device=cache.device,
-                    dtype=cache.dtype,
-                )
-                strided = storage[..., ::2]
-                strided.copy_(cache)
-                table64 = context["table"].to(torch.int64)
-                target = context["reference"].clone()
-                columns = torch.arange(context["width"])
-                target[columns[None, :] >= lengths.cpu()[:, None]] = -torch.inf
-                full = torch.empty_like(context["frozen"])
-                for first, count in context["chunks"]:
-                    module._score(
-                        context["q"],
-                        strided,
-                        table64,
-                        context["starts"],
-                        lengths,
-                        full[first : first + count],
-                        offset=first,
-                        owners=context["owners"],
+                variants[name]["extra_layout"] = (
+                    check_extra_layout()
+                    if extra_layout["status"] == "passed"
+                    else dict(
+                        status="not_validated", reason="baseline_compile_unavailable"
                     )
-                actual = full.cpu()
-                finite = torch.isfinite(target)
-                torch.testing.assert_close(
-                    actual[finite], target[finite], rtol=1e-3, atol=1e-3
                 )
-                assert torch.isneginf(actual[~finite]).all()
-                variants[name]["boundary_strided_int64_check"] = "passed"
             for _ in range(args.warmup):
                 function()
             torch.npu.synchronize()

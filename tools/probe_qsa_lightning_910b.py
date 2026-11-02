@@ -765,6 +765,9 @@ def main():
         action="store_true",
         help="Collect environment diagnostics without correctness or timing cases",
     )
+    parser.add_argument(
+        "--cases", nargs="+", help="Run only the named cases from the selected suite"
+    )
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -858,6 +861,11 @@ def main():
         CASES = {
             name: case for name, case in CASES.items() if not name.startswith("medium")
         }
+    if args.cases:
+        unknown = set(args.cases) - CASES.keys()
+        if unknown:
+            parser.error(f"Cases unavailable in this suite: {sorted(unknown)}")
+        CASES = {name: CASES[name] for name in dict.fromkeys(args.cases)}
     if args.worker:
         if not args.output:
             parser.error("Worker mode requires --output")
