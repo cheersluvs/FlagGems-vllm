@@ -1,0 +1,75 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-address-probe.46SRC9NW/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/tmp/flaggems-qsa-address-probe.46SRC9NW/tools/benchmark_qsa_prefill_stages_910b.py:141: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  native_output = torch.empty_like(output)
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+shape {"query": [16, 4, 128], "cache": [6, 192, 1, 128], "page_table": [1, 6], "request_query_lengths": [16], "visible_min": 1020, "visible_max": 1024, "logits_width": 1024, "page": 192, "group_topk": 512, "token_topk": 2048, "compress_ratio": 4, "dtype": "bfloat16", "chunks": [[0, 16]]}
+score_correctness {"max_abs_error": 1.1444091796875e-05, "valid_scores": 16348, "masked_scores": 36, "rtol": 0.001, "atol": 0.001}
+correctness {"topk": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "prepared_pipeline": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "public_total": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_adapter_total": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}, "native_fused": {"rows": 16, "max_selected_score_error": 0.0, "ranges_and_uniqueness": true}}
+ADDRESS_PREFLIGHT production
+Traceback (most recent call last):
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 330, in compile
+    next_module = compile_ir(module, metadata)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 1137, in <lambda>
+    stages["npubin"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 651, in _compile_linalg_to_npu_bin
+    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 835, in linalg_to_bin_enable_npu_compile_A2_A3
+    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmpywioy8z6/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=True', '--enable-auto-bind-sub-block=True', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--enable-auto-blockify-loop', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmpywioy8z6/kernel']' returned non-zero exit status 1.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-address-probe.46SRC9NW/tools/probe_qsa_lightning_910b.py", line 343, in worker
+    return run(args, result)
+           ^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-address-probe.46SRC9NW/tools/benchmark_qsa_prefill_stages_910b.py", line 373, in run
+    return address_probe(args, result, locals())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-address-probe.46SRC9NW/tools/qsa_score_address_probe_910b.py", line 120, in run
+    module._score(
+  File "/tmp/flaggems-qsa-address-probe.46SRC9NW/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py", line 192, in _score
+    _paged_score_910b[grid](
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 420, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 736, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 864, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py", line 83, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 351, in compile
+    raise MLIRCompilationError(stage_name, error_detail) from e
+triton.compiler.errors.MLIRCompilationError: 
+///------------------[ERROR][Triton][BEG]------------------
+[ConvertLinalgIRToBinary] encounters error:
+[ERROR] Unknown core type: llvm.func @malloc(i64) -> !llvm.ptr
+loc("/tmp/bishengir-compile-309882/module.hivm.opt.mlir":15:1): error: Failed to compile BiShengLIR for device
+Failed to compile HIVM IR
+[ERROR] Executing: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/hivmc /tmp/bishengir-compile-309882/module.hivm.opt.mlir --enable-debug-info=false --enable-static-bare-ptr=true --enable-bin-relocation=true --enable-hivm-inject-barrier-all-sync=false --enable-sanitizer=false --link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc -o /tmp/tmpywioy8z6/kernel
+loc("/tmp/flaggems-qsa-address-probe.46SRC9NW/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py":76:0): error: External hivmc run fails, returning module before running external compiler
+[ERROR] Failed to run BiShengIR pipeline
+
+
+[INFO]: The compiled kernel cache is in /root/.triton/cache/4MS56BEF5YDCNC4HGZMU54VTKBKGQZR4DBWXKEE35KAVWXXVC7OQ
+
+///------------------[ERROR][Triton][END]------------------
+
+
