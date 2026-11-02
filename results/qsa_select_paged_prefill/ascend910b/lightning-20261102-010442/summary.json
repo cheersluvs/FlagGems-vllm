@@ -1,0 +1,541 @@
+{
+  "status": "passed",
+  "packages": {
+    "torch": "2.10.0+cpu",
+    "torch-npu": "2.10.0",
+    "triton": null,
+    "triton-ascend": null,
+    "flagtree": "0.7.1a1+ascend3.5",
+    "vllm": "0.24.0+flagos",
+    "vllm-ascend": null
+  },
+  "cases": [
+    {
+      "status": "passed",
+      "case": "environment",
+      "python": "/flagos/bin/python3",
+      "launch_environment": {
+        "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+        "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+        "PYTHONPATH": "/tmp/flaggems-qsa-address-replay.MDoetxhW/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+        "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+        "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+        "BASH_ENV": null
+      },
+      "cache_directory": null,
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-address-replay.MDoetxhW/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-address-replay.MDoetxhW/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-address-replay.MDoetxhW/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+          "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+        },
+        "launch_policy": {
+          "programs": 20,
+          "topk_block": 256,
+          "topk_default_block": 1024
+        }
+      },
+      "profiler_inventory": {
+        "msprof": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/msprof",
+        "collected": false,
+        "help_exit_code": 0,
+        "help": "\nUsage:\n      msprof [--options]\n\nThis is subcommand for operator optimization situation:\n      op                                Use binary msopprof to operator optimization (msprof op ...)\n\nOptions:\n      --output                          <Optional> Specify the directory that is used for storing data results.\n      --application                     <Optional> Specify application path, considering the risk of privilege escalation, please pay attention to\n\t\t\t\t\t\t   the group of the application and confirm whether it is the same as the user currently.\n\t\t\t\t\t\t   [Note] This option will be discarded in later versions.\n\t\t\t\t\t\t   you can try to use: msprof [msprof arguments] <app> [app arguments]\n      --ascendcl                        <Optional> Show acl profiling data, the default value is on.\n      --ge-api                          <Optional> Specify if report GE event, the default value is off. The possible parameters are 'l0', 'l1' or 'off'.\n      --runtime-api                     <Optional> Show runtime api profiling data, the default value is off.\n      --task-time                       <Optional> Show task profiling data, the default value is on. The possible parameters are 'l0', 'l1', 'l2', 'l3', 'on' or 'off'.\n      --task-memory                     <Optional> Show the memory usage of the operator, the default value is off. The possible parameters are 'on' or 'off'.\n      --ai-core                         <Optional> Turn on / off the ai core profiling, the default value is on when collecting app Profiling.\n      --aic-mode                        <Optional> Set the aic profiling mode to task-based or sample-based.\n\t\t\t\t\t\t   In task-based mode, profiling data will be collected by tasks.\n\t\t\t\t\t\t   In sample-based mode, profiling data will be collected in a specific interval.\n\t\t\t\t\t\t   The default value is task-based in AI task mode, sample-based in system mode.\n      --aic-freq                        <Optional> The aic sampling frequency in hertz, the default value is 100 Hz, the range is 1 to 100 Hz.\n      --environment                     <Optional> User app custom environment variable configuration.\n      --sys-period                      <Optional> Set total sampling period of system profiling in seconds.\n      --sys-devices                     <Optional> Specify the profiling scope by device ID when collect sys profiling.The value is all or ID list (split with ',').\n      --msproftx                        <Optional> Show msproftx and mstx data, the default value is off.\n      --mstx-domain-include             <Optional> Choose to only include mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` filters the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-exclude at the same time.\n      --mstx-domain-exclude             <Optional> Choose to exclude mstx events from a comma separated list of domains;\n\t\t\t\t\t\t   `default` excludes the mstx default domain;\n\t\t\t\t\t\t   The switch is only applicable when parameter msproftx is set to on;\n\t\t\t\t\t\t   The switch cannot be set with mstx-domain-include at the same time.\n      --storage-limit                   <Optional> Specify the output directory volume. range 200MB ~ 4294967295MB.\n      --hccl                            <Optional> Show hccl profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --model-execution                 <Optional> Show ge model execution profiling data, the default value is off. [Note] This option will be discarded in later versions.\n      --aic-metrics                     <Optional> The aic metrics groups, include ArithmeticUtilization, PipeUtilization, Memory, MemoryL0, ResourceConflictRatio, MemoryUB, L2Cache, MemoryAccess.\n\t\t\t\t\t\t   the default value is PipeUtilization.\n      --python-path                     <Optional> Specify the python interpreter path that is used for analysis, please ensure the python version is 3.7.5 or later.\n      --parse                           <Optional> Switch for using msprof to parse collecting data, the default value is off.\n      --query                           <Optional> Switch for using msprof to query collecting data, the default value is off.\n      --export                          <Optional> Switch for using msprof to export collecting data, the default value is off.\n      --clear                           <Optional> Switch for using msprof to analyze or export data in clear mode, the default value is off.\n      --analyze                         <Optional> Switch for using msprof to analyze collecting data, the default value is off.\n      --rule                            <Optional> Switch specified rule for using msprof to analyze collecting data, include communication, communication_matrix.\n\t\t\t\t\t\t   the default value is communication,communication_matrix.\n      --iteration-id                    <Optional> The export iteration id, only used when argument export is on, the default value is 1.\n      --model-id                        <Optional> The export model id, only used when argument export is on, msprof will export minium accessible model by default.\n      --summary-format                  <Optional> The export summary file format, only used when argument export is on, include csv, json, the default value is csv.\n      --type                            <Optional> The export type, only used when argument `export` is on \n\t\t\t\t\t\t   or when collecting data, include text, db.\n\t\t\t\t\t\t   the default value is text(which will also export the database).\n      --reports                         <Optional> Specify the path that is used for controlling the export scope of collecting results\n      --aicpu                           <Optional> Show aicpu profiling data, the default value is off.\n      --sys-hardware-mem                <Optional> LLC, DDR, HBM acquisition switch, optional on / off, the default value is off.\n      --sys-hardware-mem-freq           <Optional> LLC, DDR, HBM acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --llc-profiling                   <Optional> The llc profiling groups, include read, write. the default value is read.\n      --sys-cpu-profiling               <Optional> The CPU acquisition switch, optional on / off,the default value is off.\n      --sys-cpu-freq                    <Optional> The cpu sampling frequency in hertz. the default value is 50 Hz, the range is 1 to 50 Hz.\n      --sys-profiling                   <Optional> The System CPU usage and system memory acquisition switch,the default value is off.\n      --sys-sampling-freq               <Optional> The sys sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-pid-profiling               <Optional> The CPU usage of the process and the memory acquisition switch of the process,the default value is off.\n      --sys-pid-sampling-freq           <Optional> The pid sampling frequency in hertz. the default value is 10 Hz, the range is 1 to 10 Hz.\n      --sys-io-profiling                <Optional> NIC, ROCE acquisition switch, the default value is off.\n      --sys-io-sampling-freq            <Optional> NIC, ROCE acquisition frequency, range 1 ~ 100, the default value is 100, unit Hz.\n      --instr-profiling                 <Optional> Show instr profiling data, the default value is off.\n      --instr-profiling-freq            <Optional> The instr profiling sampling period in clock-cycle, the default value is 1000 cycle, the range is 300 to 30000 cycle.\n      --sys-interconnection-profiling   <Optional> PCIE, HCCS acquisition switch, the default value is off.\n      --sys-interconnection-freq        <Optional> PCIE, HCCS acquisition frequency, range 1 ~ 50, the default value is 50, unit Hz.\n      --dvpp-profiling                  <Optional> DVPP acquisition switch, the default value is off.\n      --dvpp-freq                       <Optional> DVPP acquisition frequency, range 1 ~ 100, the default value is 50, unit Hz.\n      --l2                              <Optional> L2 Cache and SMMU acquisition switch. The default value is off.\n      --host-sys                        <Optional> The host-sys data type, include cpu, mem, disk, network, osrt, numa\n      --host-sys-pid                    <Optional> Set the PID of the app process for which you want to collect performance data.\n      --host-sys-usage                  <Optional> The host-sys-usage data type, include cpu, mem.(full-platform)\n      --host-sys-usage-freq             <Optional> The sampling frequency in hertz. the default value is 50 Hz the range is 1 to 50 Hz.\n      --dynamic                         <Optional> Dynamic profiling switch, the default value is off.\n      --pid                             <Optional> Dynamic profiling pids of the target processes\n      --delay                           <Optional> Collect start delay time in seconds, range 1 ~ 4294967295s.\n      --duration                        <Optional> Collection duration in seconds, range 1 ~ 4294967295s.\n      --help                            <Optional> help message.\n"
+      },
+      "exit_code": 0
+    },
+    {
+      "status": "passed",
+      "case": "short16_g1024",
+      "python": "/flagos/bin/python3",
+      "launch_environment": {
+        "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+        "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+        "PYTHONPATH": "/tmp/flaggems-qsa-address-replay.MDoetxhW/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+        "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+        "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+        "BASH_ENV": null
+      },
+      "cache_directory": null,
+      "runtime": {
+        "torch": {
+          "version": "2.10.0+cpu",
+          "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+        },
+        "torch_npu": {
+          "version": "2.10.0",
+          "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+        }
+      },
+      "device": {
+        "index": 0,
+        "name": "Ascend910B4-1"
+      },
+      "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+      "npu_smi_before": {
+        "exit_code": 0,
+        "text": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.2.0                   Version: 25.2.0                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B4-1             | OK            | 98.5        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          4075 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B4-1             | OK            | 98.8        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          4811 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B4-1             | OK            | 89.8        33                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3422 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B4-1             | OK            | 95.6        34                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B4-1             | OK            | 100.9       39                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3444 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B4-1             | OK            | 97.0        37                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3425 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B4-1             | OK            | 96.2        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3427 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B4-1             | OK            | 93.8        37                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3432 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 442452        | python                   | 148                     |\n| 0       0                 | 743220        |                          | 231                     |\n| 0       0                 | 1598041       | python3                  | 106                     |\n+===========================+===============+====================================================+\n| 1       0                 | 1595839       | python                   | 1423                    |\n+===========================+===============+====================================================+\n| No running processes found in NPU 2                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 3                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 4                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 5                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 6                                                            |\n+===========================+===============+====================================================+\n| No running processes found in NPU 7                                                            |\n+===========================+===============+====================================================+\n"
+      },
+      "production_entry": {
+        "sources": {
+          "package": "/tmp/flaggems-qsa-address-replay.MDoetxhW/src/flaggems_vllm/__init__.py",
+          "operator": "/tmp/flaggems-qsa-address-replay.MDoetxhW/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+          "topk": "/tmp/flaggems-qsa-address-replay.MDoetxhW/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+        },
+        "hashes": {
+          "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+          "operator": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+          "topk": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+        },
+        "import_mode": "normal package imports and public backend dispatch",
+        "triton": {
+          "version": "3.5.1",
+          "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+        },
+        "launch_policy": {
+          "programs": 20,
+          "topk_block": 256,
+          "topk_default_block": 1024
+        }
+      },
+      "score_correctness": {
+        "max_abs_error": 1.1444091796875e-05,
+        "valid_scores": 16348,
+        "masked_scores": 36,
+        "rtol": 0.001,
+        "atol": 0.001
+      },
+      "launch_policy": {
+        "programs": 20,
+        "G": 40,
+        "BLOCK": 256,
+        "production": true
+      },
+      "selection_correctness": {
+        "topk": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "prepared_pipeline": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "public_total": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_adapter_total": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        },
+        "native_fused": {
+          "rows": 16,
+          "max_selected_score_error": 0.0,
+          "ranges_and_uniqueness": true
+        }
+      },
+      "shape": {
+        "query": [
+          16,
+          4,
+          128
+        ],
+        "cache": [
+          6,
+          192,
+          1,
+          128
+        ],
+        "page_table": [
+          1,
+          6
+        ],
+        "request_query_lengths": [
+          16
+        ],
+        "visible_min": 1020,
+        "visible_max": 1024,
+        "logits_width": 1024,
+        "page": 192,
+        "group_topk": 512,
+        "token_topk": 2048,
+        "compress_ratio": 4,
+        "dtype": "bfloat16",
+        "chunks": [
+          [
+            0,
+            16
+          ]
+        ]
+      },
+      "timing_policy": {
+        "rounds": 2,
+        "warmup": 2,
+        "iterations": 3,
+        "units": "microseconds per invocation",
+        "order": "alternating forward/reverse each round",
+        "event_scope": "stream elapsed including possible host launch gaps; not sum of kernel durations",
+        "wall_scope": "synchronized wall time including event instrumentation, amortized over iterations",
+        "prepared_scope": "prebuilt metadata and reusable workspaces; direct score+TopK timing",
+        "public_scope": "public API includes request mapping and allocations; prefill candidate enabled only if explicitly recorded",
+        "native_scope": "fused kernel with prebuilt row table and weights; no separate score/TopK latency",
+        "adapter_scope": "unchanged native adapter includes metadata construction and output normalization",
+        "stage_note": "isolated TopK reads frozen scores; isolated stages are not additive or a kernel-mode acceptance metric",
+        "workload_scope": "three structural diagnostic cases, not a replacement for the repository benchmark suite"
+      },
+      "samples": {
+        "score": [],
+        "topk": [],
+        "prepared_pipeline": [],
+        "native_fused": [],
+        "public_total": [],
+        "native_adapter_total": [],
+        "request_mapping": [],
+        "public_original_total": []
+      },
+      "address_probe": {
+        "scope": "K-address representation only; scalar variants also deduplicate the page-table load",
+        "block_n": 32,
+        "programs": 20,
+        "variants": {
+          "production": {
+            "samples": [
+              {
+                "wall_us": 237.7325048049291,
+                "event_us": 199.6933420499166
+              },
+              {
+                "wall_us": 219.62511042753854,
+                "event_us": 187.0266596476237
+              }
+            ],
+            "correctness_before": {
+              "max_abs_error": 1.1444091796875e-05,
+              "masks_valid": true
+            },
+            "extra_layout": {
+              "status": "not_validated",
+              "reason": "baseline_compile_unavailable"
+            },
+            "correctness_after": {
+              "max_abs_error": 1.1444091796875e-05,
+              "masks_valid": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 228.67880761623383,
+                "min": 219.62511042753854,
+                "max": 237.7325048049291,
+                "range_over_median": 0.07918265171199504
+              },
+              "event_us": {
+                "median": 193.36000084877014,
+                "min": 187.0266596476237,
+                "max": 199.6933420499166,
+                "range_over_median": 0.06550828685711331
+              }
+            },
+            "speedup_production_over_candidate": {
+              "event_us": 1.0,
+              "wall_us": 1.0
+            },
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "score": {
+                  "trace_file": "short16_g1024-production-score-trace.json.gz",
+                  "compressed_bytes": 1407,
+                  "task_count": 3,
+                  "timestamp_origin_us": "1793581467530822.974",
+                  "hardware_pids": [
+                    1636394432
+                  ],
+                  "device_task_duration_sum_us": 212.12599999999998,
+                  "device_task_union_us": 212.12599999999998,
+                  "device_task_envelope_us": 563.112,
+                  "uncovered_envelope_us": 350.986,
+                  "uncovered_fraction": 0.6232969640142636,
+                  "categories": {
+                    "cpu_op": 18,
+                    "dequeue": 3,
+                    "async_task_queue": 6,
+                    "enqueue": 3,
+                    "": 47,
+                    "HostToDevice": 3
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 317.56600000000003,
+                      "end_us": 493.17,
+                      "duration_us": 175.60399999999998
+                    },
+                    {
+                      "start_us": 73.222,
+                      "end_us": 248.604,
+                      "duration_us": 175.382
+                    }
+                  ],
+                  "kernels": {
+                    "MIX_AIC": {
+                      "count": 3,
+                      "sum_us": 212.12599999999998
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            }
+          },
+          "scalar_2d": {
+            "samples": [
+              {
+                "wall_us": 236.27281188964844,
+                "event_us": 205.0666610399882
+              },
+              {
+                "wall_us": 225.82833965619406,
+                "event_us": 188.7133320172628
+              }
+            ],
+            "correctness_before": {
+              "max_abs_error": 1.1444091796875e-05,
+              "masks_valid": true
+            },
+            "extra_layout": {
+              "status": "not_validated",
+              "reason": "baseline_compile_unavailable"
+            },
+            "correctness_after": {
+              "max_abs_error": 1.1444091796875e-05,
+              "masks_valid": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 231.05057577292126,
+                "min": 225.82833965619406,
+                "max": 236.27281188964844,
+                "range_over_median": 0.04520426836641734
+              },
+              "event_us": {
+                "median": 196.8899965286255,
+                "min": 188.7133320172628,
+                "max": 205.0666610399882,
+                "range_over_median": 0.08305820158998185
+              }
+            },
+            "speedup_production_over_candidate": {
+              "event_us": 0.982071228898914,
+              "wall_us": 0.9897348528617456
+            },
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "score": {
+                  "trace_file": "short16_g1024-scalar_2d-score-trace.json.gz",
+                  "compressed_bytes": 1421,
+                  "task_count": 3,
+                  "timestamp_origin_us": "1793581471270008.548",
+                  "hardware_pids": [
+                    1636394432
+                  ],
+                  "device_task_duration_sum_us": 208.644,
+                  "device_task_union_us": 208.644,
+                  "device_task_envelope_us": 578.812,
+                  "uncovered_envelope_us": 370.168,
+                  "uncovered_fraction": 0.639530624796998,
+                  "categories": {
+                    "cpu_op": 18,
+                    "dequeue": 3,
+                    "async_task_queue": 6,
+                    "enqueue": 3,
+                    "": 47,
+                    "HostToDevice": 3
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 309.846,
+                      "end_us": 509.11,
+                      "duration_us": 199.264
+                    },
+                    {
+                      "start_us": 70.762,
+                      "end_us": 241.666,
+                      "duration_us": 170.904
+                    }
+                  ],
+                  "kernels": {
+                    "MIX_AIC": {
+                      "count": 3,
+                      "sum_us": 208.644
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            }
+          },
+          "scalar_flat": {
+            "samples": [
+              {
+                "wall_us": 1148.8174398740132,
+                "event_us": 1096.5733528137207
+              },
+              {
+                "wall_us": 1163.7980739275615,
+                "event_us": 1134.0933640797932
+              }
+            ],
+            "correctness_before": {
+              "max_abs_error": 1.1444091796875e-05,
+              "masks_valid": true
+            },
+            "extra_layout": {
+              "status": "not_validated",
+              "reason": "baseline_compile_unavailable"
+            },
+            "correctness_after": {
+              "max_abs_error": 1.1444091796875e-05,
+              "masks_valid": true
+            },
+            "latency": {
+              "wall_us": {
+                "median": 1156.3077569007874,
+                "min": 1148.8174398740132,
+                "max": 1163.7980739275615,
+                "range_over_median": 0.012955576890446897
+              },
+              "event_us": {
+                "median": 1115.3333584467568,
+                "min": 1096.5733528137207,
+                "max": 1134.0933640797932,
+                "range_over_median": 0.033640176707638234
+              }
+            },
+            "speedup_production_over_candidate": {
+              "event_us": 0.1733652090510845,
+              "wall_us": 0.19776638723686668
+            },
+            "timeline": {
+              "iterations": 3,
+              "stages": {
+                "score": {
+                  "trace_file": "short16_g1024-scalar_flat-score-trace.json.gz",
+                  "compressed_bytes": 1397,
+                  "task_count": 3,
+                  "timestamp_origin_us": "1793581474977713.606",
+                  "hardware_pids": [
+                    1636394432
+                  ],
+                  "device_task_duration_sum_us": 3103.304,
+                  "device_task_union_us": 3103.3039999999996,
+                  "device_task_envelope_us": 3108.7439999999997,
+                  "uncovered_envelope_us": 5.440000000000055,
+                  "uncovered_fraction": 0.0017499028546577187,
+                  "categories": {
+                    "cpu_op": 18,
+                    "dequeue": 3,
+                    "async_task_queue": 6,
+                    "enqueue": 3,
+                    "": 47,
+                    "HostToDevice": 3
+                  },
+                  "largest_gaps": [
+                    {
+                      "start_us": 2071.682,
+                      "end_us": 2074.522,
+                      "duration_us": 2.8400000000001455
+                    },
+                    {
+                      "start_us": 1034.862,
+                      "end_us": 1037.462,
+                      "duration_us": 2.599999999999909
+                    }
+                  ],
+                  "kernels": {
+                    "MIX_AIC": {
+                      "count": 3,
+                      "sum_us": 3103.304
+                    }
+                  },
+                  "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+                }
+              },
+              "units": "microseconds",
+              "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+            }
+          }
+        },
+        "production_ast_sha256": "8f4c8d07542fe9ac0e83519f31ed95ca68009a68a4fa0ca40ba55eb903b4bad0",
+        "production_source_modified": false,
+        "restriction": "Page divisible by 32; int32 local offsets; BF16 diagnostic workloads",
+        "comparisons": "production->scalar_2d combines scalar base and page-id reuse; scalar_2d->scalar_flat isolates flattening",
+        "extra_layout_baseline": {
+          "status": "baseline_compile_unavailable",
+          "error_type": "MLIRCompilationError",
+          "error": "\n///------------------[ERROR][Triton][BEG]------------------\n[ConvertLinalgIRToBinary] encounters error:\n[ERROR] Unknown core type: llvm.func @malloc(i64) -> !llvm.ptr\nloc(\"/tmp/bishengir-compile-eea71e/module.hivm.opt.mlir\":15:1): error: Failed to compile BiShengLIR for device\nFailed to compile HIVM IR\n[ERROR] Executing: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/hivmc /tmp/bishengir-compile-eea71e/module.hivm.opt.mlir --enable-debug-info=false --enable-static-bare-ptr=true --enable-bin-relocation=true --enable-hivm-inject-barrier-all-sync=false --enable-sanitizer=false --link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc -o /tmp/tmpoftkoc8w/kernel\nloc(\"/tmp/flaggems-qsa-address-replay.MDoetxhW/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py\":76:0): error: External hivmc run fails, returning module before running external compiler\n[ERROR] Failed to run BiShengIR pipeline\n\n\n[INFO]: The compiled kernel cache is in /root/.triton/cache/4MS56BEF5YDCNC4HGZMU54VTKBKGQZR4DBWXKEE35KAVWXXVC7OQ\n\n///------------------[ERROR][Triton][END]------------------\n",
+          "scope": "Strided K plus int64 page table and visibility boundaries; not validated"
+        }
+      },
+      "exit_code": 0
+    }
+  ],
+  "suite": "address-probe",
+  "combined_candidate": false,
+  "prefill_topk_candidate": false,
+  "environment_only": false,
+  "fresh_cache": false,
+  "scope": "Test-only K-address score probes; production and TopK frozen",
+  "cann_version_files": {
+    "/usr/local/Ascend/driver/version.info": "Version=25.2.0\nascendhal_version=7.35.23\naicpu_version=1.0\ntdt_version=1.0\nlog_version=1.0\nprof_version=2.0\ndvppkernels_version=1.1\ntsfw_version=1.0\nInnerversion=V100R001C21SPC008B208\ncompatible_version=[V100R001C17],[V100R001C18],[V100R001C19],[V100R001C20],[V100R001C21]\ncompatible_version_fw=[7.0.0,7.7.99]\npackage_version=25.2.0\n"
+  },
+  "script_sha256": "f48083d334a7cfc2b232a047d7ba44becb2818b61cc3379135e4fc65f279a7a1",
+  "source_hashes": {
+    "tools/benchmark_qsa_prefill_stages_910b.py": "ab249bc4403ffe01365ce992a5b70a0687b950dda7c743384d2d79ef6743dfea",
+    "tools/qsa_timeline_910b.py": "c5d50885f977cf6222f13c66eb296f2d9ee23b4e84e10da679a24c914d03828a",
+    "tools/qsa_independent_probes_910b.py": "b4c288375992c27ed22671ec2873b3304d084ae5be767a3753d8dcd2b958a99b",
+    "tools/qsa_torch_stages_910b.py": "f042bc4b3316cc45ba30ff9e036b5ca2969e0692c1b66582a22121e7d2f68b1f",
+    "tools/qsa_prefill_production_910b.py": "0a228fde5edf54abcb721f14fd3ca440b95f29d28829d4a74e47033bb650ac58",
+    "tools/qsa_lightning_baseline_910b.py": "db2c7ddd7cf4eaaa40336ff2e49726ac49d0aaa590162cf494aaedde2e59bbcc",
+    "tools/qsa_combined_candidate_910b.py": "e07553877e6dc0c5280ca33300927ab9916e44786bd92fe3134c688fb44328b1",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py": "1e4357326b45c8f0b6001d62bf25d07db089b428da4183c2cba828476e210491",
+    "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327"
+  },
+  "address_probe_sources": {
+    "tools/qsa_score_address_probe_910b.py": "a438972c770d3b1fba966654d59550b0d357c9c4e65d21056da98900b888ed7b",
+    "tools/qsa_score_address_kernels_910b.py": "0456b75ee5c42571b90e9c477f774e07561e3626ff447c9e3f0e8330228374f8"
+  }
+}
