@@ -367,6 +367,10 @@ def run(args, result):
     print("shape", json.dumps(result["shape"]), flush=True)
     print("score_correctness", json.dumps(result["score_correctness"]), flush=True)
     print("correctness", json.dumps(result["selection_correctness"]), flush=True)
+    if args.suite == "address-probe":
+        from qsa_score_address_probe_910b import run as address_probe
+
+        return address_probe(args, result, locals())
     if args.suite == "torch-stages":
         from qsa_torch_stages_910b import run as torch_stages
 

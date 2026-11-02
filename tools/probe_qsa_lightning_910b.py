@@ -298,6 +298,7 @@ def worker(args):
                 "benchmark",
                 "timeline",
                 "score-profile",
+                "address-probe",
                 "score-probe",
                 "topk-probe",
                 "torch-stages",
@@ -332,6 +333,7 @@ def worker(args):
             "benchmark",
             "timeline",
             "score-profile",
+            "address-probe",
             "score-probe",
             "topk-probe",
             "torch-stages",
@@ -784,6 +786,7 @@ def main():
             "benchmark",
             "timeline",
             "score-profile",
+            "address-probe",
             "score-probe",
             "topk-probe",
             "torch-stages",
@@ -825,6 +828,7 @@ def main():
         "benchmark",
         "timeline",
         "score-profile",
+        "address-probe",
         "score-probe",
         "topk-probe",
         "torch-stages",
@@ -850,6 +854,10 @@ def main():
             CASES["zero_budget"] = dict(ADAPTER_CASES["offset_ragged"], budget_mb=0)
     if args.environment_only:
         CASES = {}
+    if args.suite == "address-probe":
+        CASES = {
+            name: case for name, case in CASES.items() if not name.startswith("medium")
+        }
     if args.worker:
         if not args.output:
             parser.error("Worker mode requires --output")
@@ -962,6 +970,7 @@ def main():
         "benchmark",
         "timeline",
         "score-profile",
+        "address-probe",
         "score-probe",
         "topk-probe",
         "torch-stages",
@@ -1015,6 +1024,18 @@ def main():
         summary["diagnostic_source_sha256"] = hashlib.sha256(
             Path(__file__).with_name("diagnose_qsa_opp_910b.py").read_bytes()
         ).hexdigest()
+    if args.suite == "address-probe":
+        summary["scope"] = (
+            "Test-only K-address score probes; production and TopK frozen"
+        )
+        root = Path(__file__).resolve().parents[1]
+        summary["address_probe_sources"] = {
+            name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+            for name in (
+                "tools/qsa_score_address_probe_910b.py",
+                "tools/qsa_score_address_kernels_910b.py",
+            )
+        }
     if args.environment_only:
         summary["scope"] = (
             "Environment/import diagnostics only; no correctness or timing"
