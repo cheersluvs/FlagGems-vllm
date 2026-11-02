@@ -1,0 +1,63 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{
+  "case": "h4_compressed_boundary",
+  "status": "passed",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "torch_npu_source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_quant_lightning_indexer(Tensor query, Tensor key, Tensor weights, Tensor query_dequant_scale, Tensor key_dequant_scale, int query_quant_mode, int key_quant_mode, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, int? query_dtype=None, int? key_dtype=None) -> Tensor",
+  "geometry": {
+    "heads": 4,
+    "dim": 128,
+    "page_size": 192,
+    "group_topk": 512,
+    "compress_ratio": 4,
+    "query_lengths": [
+      9,
+      5
+    ],
+    "prefix_tokens": [
+      2044,
+      4093
+    ],
+    "visible_groups": [
+      511,
+      511,
+      511,
+      512,
+      512,
+      512,
+      512,
+      513,
+      513,
+      1023,
+      1023,
+      1024,
+      1024,
+      1024
+    ],
+    "q_shape": [
+      14,
+      4,
+      128
+    ],
+    "cache_shape": [
+      14,
+      192,
+      1,
+      128
+    ],
+    "adaptation": "One native batch per query; sparse_mode=0; exact visible group lengths",
+    "compression_boundary": "floor((prefix_tokens + local_query + 1) / 4)"
+  },
+  "checks": {
+    "rows": 14,
+    "selected_score_max_abs_error": 0.0
+  }
+}
