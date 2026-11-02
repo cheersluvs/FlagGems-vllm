@@ -800,6 +800,14 @@ def main():
         action="store_true",
         help="Registered production policy regression and paired prior-policy benchmarks",
     )
+    parser.add_argument(
+        "--mode",
+        choices=("operator", "kernel"),
+        default="operator",
+        help="Kernel mode uses the repository Ascend do_bench_npu timer",
+    )
+    parser.add_argument("--kernel-warmup", type=int, default=2)
+    parser.add_argument("--kernel-active", type=int, default=10)
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--iterations", type=int, default=3)
@@ -877,6 +885,10 @@ def main():
         parser.error(
             "--chunk32-production requires benchmark without candidate overrides"
         )
+    if args.mode == "kernel" and not args.chunk32_production:
+        parser.error("This runner's kernel mode requires --chunk32-production")
+    if args.kernel_warmup < 1 or args.kernel_active < 1:
+        parser.error("Kernel timing counts must be positive")
     args.timeline = args.suite in ("timeline", "score-profile")
     args.probe_kind = {"score-probe": "score", "topk-probe": "topk"}.get(args.suite)
     if args.rounds < 1 or args.warmup < 1 or args.iterations < 1:
@@ -1134,6 +1146,11 @@ def main():
         summary["scope"] = (
             "Registered N128/chunk32 production integration, prior N32/chunk16 paired control"
         )
+        summary["measurement_mode"] = args.mode
+        if args.mode == "kernel":
+            summary["kernel_timer_helper_sha256"] = hashlib.sha256(
+                Path(__file__).with_name("qsa_kernel_benchmark_910b.py").read_bytes()
+            ).hexdigest()
         summary["production_probe_sha256"] = hashlib.sha256(
             Path(__file__).with_name("qsa_chunk32_production_910b.py").read_bytes()
         ).hexdigest()
@@ -1167,6 +1184,12 @@ def main():
                     *(["--chunk32-regression"] if args.chunk32_regression else []),
                     *(["--chunk32-production"] if args.chunk32_production else []),
                     *(["--tile-public-timeline"] if args.tile_public_timeline else []),
+                    "--mode",
+                    args.mode,
+                    "--kernel-warmup",
+                    str(args.kernel_warmup),
+                    "--kernel-active",
+                    str(args.kernel_active),
                     "--rounds",
                     str(args.rounds),
                     "--warmup",

@@ -31,3 +31,24 @@ This is exploratory paired timing, not NVIDIA kernel-mode acceptance.
 Local checks: original kernel AST fingerprint, 45 actual-host allocation/chunk
 simulations, width/layout/dtype/device policy guards, formatting and syntax.
 These checks do not establish NPU compilation, correctness or performance.
+
+## Kernel-mode first pass
+
+`--suite benchmark --chunk32-production --mode kernel` uses the same
+`triton.backends.ascend.testing.do_bench_npu` API as the repository Ascend
+benchmark base. Each stage is passed as one callable, including multi-kernel
+pipelines. The installed timer source/hash and explicit warmup/active counts
+are saved. A one-call/three-call scoring check must scale approximately3x;
+otherwise results are rejected. The timer's millisecond result is converted to
+microseconds. Values are device kernel duration sums per invocation, excluding
+host gaps, not the previous synchronized wall/Event metrics.
+
+First-pass cases: short16_g1024, chunk_width4096, medium32_g8192,
+chunk_width16384, long32_g25600, chunk_ragged. Shared domain: BF16,H4,D128,
+page192,groupK512,ratio4,contiguous Q/K/table. These are constructed diagnostic
+inputs; they do not establish the deployed model's actual input distribution.
+The ragged case has request lengths[17,0,16], with33 packed rows. Native
+adapter/public and native fused/prepared ratios retain distinct boundaries;
+there is no fabricated score-only native baseline. Use one round first, with
+kernel warmup2 and active10. The CPU reference and index checks remain enabled
+outside the timing call. The NVIDIA-only FP8 pytest benchmark is unchanged.

@@ -36,7 +36,9 @@ def run(args, result, context):
     from benchmark_qsa_prefill_stages_910b import aggregate, device_inventory, sample
 
     module, public = context["module"], context["public"]
-    config = CASES[args.worker]
+    config = dict(CASES[args.worker])
+    if getattr(args, "mode", "operator") == "kernel":
+        config["timing"] = True
     assert public is module.qsa_select_paged_prefill
     raw_score = module._score
     launches = []
@@ -223,6 +225,16 @@ def run(args, result, context):
         probe["timing_skipped"] = True
         result["status"] = "passed"
         return 0
+    kernel_mode = getattr(args, "mode", "operator") == "kernel"
+    fields = ("kernel_us",) if kernel_mode else ("event_us", "wall_us")
+    aggregate_fn = aggregate
+    if kernel_mode:
+        from qsa_kernel_benchmark_910b import aggregate as aggregate_kernel
+        from qsa_kernel_benchmark_910b import setup
+
+        measure_kernel = setup(args, context, torch, probe)
+        aggregate_fn = aggregate_kernel
+        result["timing_policy"] = dict(mode="kernel", **probe["kernel_timer"])
     for round_index in range(args.rounds):
         names = list(jobs)
         if round_index % 2:
@@ -234,8 +246,12 @@ def run(args, result, context):
                     if name == "native_fused"
                     else None
                 )
-                value = sample(jobs[name], torch, args.iterations, verify_return)
-                if name != "native_fused":
+                if kernel_mode:
+                    value = measure_kernel(jobs[name])
+                    probe["correctness"][name] = check(name, jobs[name]())
+                else:
+                    value = sample(jobs[name], torch, args.iterations, verify_return)
+                if name != "native_fused" and not kernel_mode:
                     probe["correctness"][name] = check(name)
             probe["samples"][name].append(value)
             print(
@@ -246,7 +262,7 @@ def run(args, result, context):
                 flush=True,
             )
     probe["latency"] = {
-        name: aggregate(values) for name, values in probe["samples"].items()
+        name: aggregate_fn(values) for name, values in probe["samples"].items()
     }
     pairs = [
         ("old_over_production_" + stage, "old_" + stage, "production_" + stage)
@@ -259,11 +275,19 @@ def run(args, result, context):
             "production_public_total",
         )
     ]
+    pairs.append(
+        (
+            "native_fused_over_production_prepared",
+            "native_fused",
+            "production_prepared_pipeline",
+        )
+    )
+    probe["measurement_mode"] = "kernel" if kernel_mode else "operator"
     probe["speedup"] = {
         label: {
             field: probe["latency"][a][field]["median"]
             / probe["latency"][b][field]["median"]
-            for field in ("event_us", "wall_us")
+            for field in fields
         }
         for label, a, b in pairs
     }
