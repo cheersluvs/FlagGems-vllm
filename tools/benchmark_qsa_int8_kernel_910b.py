@@ -134,7 +134,9 @@ def run_case(args):
             score_calls=len(chunks),
             topk_calls=len(topk_chunks),
             native_full_calls=1,
-            native_chunked_calls=len(chunks),
+            native_chunked_calls=(0 if args.integrated else len(chunks)),
+            score_grid=(20 if args.integrated else 8),
+            score_block_n=(128 if args.integrated else 32),
             debug_store=False,
         )
         print(
@@ -146,7 +148,22 @@ def run_case(args):
             flush=True,
         )
 
+        adapter = None
+        if args.integrated:
+            from qsa_int8_selection_910b_trial import PreparedInt8Selection
+
+            adapter = PreparedInt8Selection(values, output, scratch, workspace, topk)
+            result["integration"] = dict(
+                entry="qsa_int8_selection_910b_trial.PreparedInt8Selection.__call__",
+                score_grid=20,
+                score_block_n=128,
+                topk_call_rows=32,
+                scope="Prepared INT8 trial adapter; BF16 production unchanged",
+            )
+
         def score_into(first, count, target):
+            if adapter is not None:
+                return adapter.score_into(first, count, target)
             return score(
                 values["q"][first : first + count],
                 values["cache"],
@@ -160,10 +177,14 @@ def run_case(args):
             )
 
         def score_stage():
+            if adapter is not None:
+                return adapter.score_all()
             for first, count in chunks:
                 score_into(first, count, scratch[:count])
 
         def topk_stage():
+            if adapter is not None:
+                return adapter.topk_all(frozen)
             for first, count in topk_chunks:
                 topk.persistent_topk(
                     frozen[first : first + count],
@@ -176,6 +197,8 @@ def run_case(args):
                 )
 
         def combined_stage():
+            if adapter is not None:
+                return adapter()
             for first, count in chunks:
                 score_into(first, count, scratch[:count])
                 for local in range(0, count, 32):
@@ -362,15 +385,17 @@ def run_case(args):
         result["stage"] = "native_full_preflight"
         baseline = native_cpu(native_stage(), [(0, rows)])
         result["correctness"]["native_full_preflight"] = check_indices(baseline)
-        result["stage"] = "native_chunked_preflight"
-        chunked_cpu = native_cpu(native_chunked_stage())
-        result["correctness"]["native_chunked_preflight"] = dict(
-            indices=check_indices(chunked_cpu), paired=check_pair(chunked_cpu, baseline)
-        )
-        del chunked_cpu
+        if not args.integrated:
+            result["stage"] = "native_chunked_preflight"
+            chunked_cpu = native_cpu(native_chunked_stage())
+            result["correctness"]["native_chunked_preflight"] = dict(
+                indices=check_indices(chunked_cpu),
+                paired=check_pair(chunked_cpu, baseline),
+            )
+            del chunked_cpu
         result["baseline_policy"] = dict(
             primary="full native V1, one call",
-            auxiliary="chunked native V1",
+            auxiliary=("omitted" if args.integrated else "chunked native V1"),
             no_fallback=True,
         )
         for name, function in (("topk", topk_stage), ("combined", combined_stage)):
@@ -397,7 +422,14 @@ def run_case(args):
             native_chunked=native_chunked_stage,
         )
         result["stage"] = "kernel_timer"
-        measure = setup(
+        if args.integrated:
+            jobs.pop("native_chunked")
+        timer_setup = setup
+        if args.integrated:
+            from qsa_int8_stage_trace_timer_910b import setup_stage_trace
+
+            timer_setup = setup_stage_trace
+        measure = timer_setup(
             args,
             dict(chunks=chunks, score_into=score_into, logits=scratch),
             torch,
@@ -466,7 +498,11 @@ def run_case(args):
         }
         result["speedup"] = dict(
             overall=medians["native_fused"] / medians["combined"],
-            auxiliary_chunked_native=medians["native_chunked"] / medians["combined"],
+            auxiliary_chunked_native=(
+                medians["native_chunked"] / medians["combined"]
+                if "native_chunked" in medians
+                else None
+            ),
             score=None,
             topk=None,
         )
@@ -491,6 +527,9 @@ def run_case(args):
         "qsa_prefill_fp8_workloads.py",
         "qsa_kernel_benchmark_910b.py",
         "probe_qsa_int8_ten_shapes_910b.py",
+        "qsa_int8_selection_910b_trial.py",
+        "qsa_int8_stage_trace_timer_910b.py",
+        "qsa_int8_trace_timer_910b.py",
     ):
         result.setdefault("sources", {})[name] = hashlib.sha256(
             (Path(__file__).parent / name).read_bytes()
@@ -539,6 +578,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--cases", nargs="+", choices=PLANS)
     parser.add_argument("--case", choices=PLANS)
+    parser.add_argument(
+        "--integrated",
+        action="store_true",
+        help="Use grid20/N128 INT8 adapter and explicit stage trace timer",
+    )
     args = parser.parse_args()
     if args.rounds < 1 or args.kernel_active < 1 or args.kernel_warmup < 1:
         parser.error("rounds, warmup and active must be positive")
@@ -570,6 +614,8 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
+        if args.integrated:
+            command.append("--integrated")
         code, timed_out = run_child(
             command, report / f"{name}-console.txt", args.timeout
         )
@@ -601,7 +647,11 @@ def main():
             if complete
             else None
         ),
-        scope="Initial prepared device-kernel baseline; no public production entry or native stage speedup claim",
+        scope=(
+            "Integrated prepared INT8 adapter; exploratory trace device sums; not public production API"
+            if args.integrated
+            else "Initial prepared device-kernel baseline; no public production entry or native stage speedup claim"
+        ),
     )
     (report / "summary.json").write_text(json.dumps(summary, indent=2))
     fields = (
