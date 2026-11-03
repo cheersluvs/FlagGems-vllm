@@ -48,6 +48,43 @@ METRICS = (
 )
 
 
+def validate_score_trace(timeline, report, expected):
+    """Validate this score-only trace, including generic CANN task names."""
+    timeline["expected_score_launches"] = expected
+    with gzip.open(Path(report) / timeline["trace_file"], "rt") as stream:
+        payload = json.load(stream)
+    events = payload.get("traceEvents", []) if isinstance(payload, dict) else payload
+    host_count = sum(
+        event.get("ph") == "X"
+        and event.get("cat") == "cpu_op"
+        and event.get("name") == "_quant_score_trial"
+        for event in events
+    )
+    names = timeline.get("kernels", {})
+    named_count = sum(
+        entry["count"] for name, entry in names.items() if "_quant_score_trial" in name
+    )
+    generic_count = names.get("MIX_AIC", {}).get("count", 0)
+    timeline["matched_score_task_names"] = [
+        name for name in names if "_quant_score_trial" in name
+    ]
+    timeline["host_score_launch_count"] = host_count
+    timeline["identity_basis"] = "unconfirmed"
+    if timeline.get("task_count") == expected and named_count == expected:
+        timeline["identity_basis"] = "named_device_tasks"
+    elif (
+        timeline.get("task_count") == expected
+        and host_count == expected
+        and generic_count == expected
+        and set(names) == {"MIX_AIC"}
+    ):
+        # collect() scopes this trace to score_all only. This is a count-based
+        # validation of that isolated capture, not a per-task name/flow mapping.
+        timeline["identity_basis"] = "isolated_score_only_host_and_MIX_AIC_counts"
+    timeline["usable"] = timeline["identity_basis"] != "unconfirmed"
+    return timeline
+
+
 def number(value):
     try:
         parsed = float(str(value).strip().rstrip("%").replace(",", ""))
@@ -331,11 +368,7 @@ def run_case(args):
                 profile_args, {"score": score_all}, torch, result, selected=("score",)
             )
             timeline = result["timeline"]["stages"]["score"]
-            timeline["expected_score_launches"] = len(chunks) * args.trace_iterations
-            timeline["matched_score_task_names"] = [
-                name for name in timeline["kernels"] if "_quant_score_trial" in name
-            ]
-            timeline["usable"] = bool(timeline["matched_score_task_names"])
+            validate_score_trace(timeline, report, len(chunks) * args.trace_iterations)
         except Exception:
             result["timeline_error"] = traceback.format_exc()
         first, count = chunks[-1]

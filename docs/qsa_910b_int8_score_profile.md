@@ -63,3 +63,44 @@ isolation or stable benchmark performance.
 Metric names follow the official [Ascend profiler documentation](https://github.com/Ascend/msmonitor/blob/master/docs/en/nputrace_instruct.md).
 Run `bash tools/run_qsa_int8_score_profile_910b.sh --trace-iterations 1
 --counter-iterations 3`. No algorithm or production code changes in this round.
+
+## 2026-11-03 capture and offline reanalysis
+
+Report branch: `codex/qsa-ascend910b-results-20261103-042215-769301`,
+commit `8dda14206542006974f4c72394e316d5d4a70782`.
+Both workers finished all correctness checks and all five metric groups.
+The original exit code 1 was a parser false negative: the Chrome trace uses
+`MIX_AIC` rather than the Triton function name for device tasks.
+
+The corrected parser accepts generic tasks only in this isolated score-only
+capture, with exact expected device-task and named host-launch counts. It does
+not claim a per-task flow mapping. Raw reports and original exit codes are
+preserved; offline replay validates 128/128 and 147/147 launches. Count mismatches
+and mixed device task names remain rejected. No device rerun is required.
+
+| Metric | budget_exact | long100k |
+| --- | ---: | ---: |
+| Full score device-task sum, ms (instrumented) | 929.785 | 3831.887 |
+| Uncovered device envelope | 0.0389% | 0.0108% |
+| AIC MAC ratio, median | 0.021 | 0.021 |
+| AIC scalar ratio, median | 0.379 | 0.341 |
+| AIV scalar ratio, median | 0.649 | 0.950 |
+| AIV vector ratio, median | 0.244 | 0.292 |
+| AIV MTE2 ratio, median | 0.431 | 0.469 |
+| AIV vector bank conflict ratio, median | 0.022 | 0.020 |
+
+Ratios are the exported counter fields, with overlapping pipelines and separate
+metric passes. They are not additive stage-time shares. The budget case's AIV
+scalar ratio ranges 0.608–0.662; long100k ranges 0.946–0.951 across three samples.
+The exported `cube_utilization(%)` is about 39–40 while `Block Num` is 8 and the
+reported AICore count is 20; it must not be substituted for `aic_mac_ratio`.
+Neither low/zero exported memory bandwidth nor kernel-level activity alone proves
+chip-wide bandwidth saturation or isolation.
+
+Inference: device execution dominates the score-only envelope; tiny per-row
+32-key tiles, repeated scalar indexing/metadata and per-tile processing are the
+first hypotheses to test. The low MAC ratio does not identify a specific wait
+instruction. First compare grid 8 versus 20 with N32 fixed, then N32 versus N128
+with grid fixed. Keep Q/K data, scales, masks, TopK and timer fixed. Only after a
+correctness-checked measured gain should query-row packing or production changes
+be considered. This round changes no scoring or production implementation.
