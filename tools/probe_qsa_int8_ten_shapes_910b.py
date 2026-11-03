@@ -111,6 +111,11 @@ def run_case(args):
             plan["logits_width"],
             plan["chunk_rows"],
         )
+        result["execution_policy"] = dict(
+            score_chunk_rows=chunk,
+            native_call_rows=chunk,
+            topk_call_rows=args.topk_call_rows,
+        )
         samples = sample_rows(plan)
         result["cpu_reference_rows"] = samples
         topk = load_topk()
@@ -161,15 +166,17 @@ def run_case(args):
                 mask_debug=True,
             )
             result["stage"] = "candidate_topk"
-            topk.persistent_topk(
-                current,
-                visible,
-                output[:count],
-                workspace,
-                k=512,
-                max_seq_len=width,
-                block=256,
-            )
+            for offset in range(0, count, args.topk_call_rows):
+                end = min(count, offset + args.topk_call_rows)
+                topk.persistent_topk(
+                    current[offset:end],
+                    visible[offset:end],
+                    output[offset:end],
+                    workspace,
+                    k=512,
+                    max_seq_len=width,
+                    block=256,
+                )
             result["stage"] = "native_v1"
             native_output = native(
                 q,
@@ -367,6 +374,7 @@ def main():
     parser.add_argument("--report", required=True)
     parser.add_argument("--device", type=int, default=0)
     parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument("--topk-call-rows", type=int, choices=(32, 128), default=32)
     parser.add_argument("--cases", nargs="+", choices=PLANS)
     parser.add_argument("--case", choices=PLANS)
     parser.add_argument("--plan-only", action="store_true")
@@ -377,17 +385,20 @@ def main():
     report.mkdir(parents=True, exist_ok=True)
     names = list(dict.fromkeys(args.cases or PLANS))
     (report / "workload-plan.json").write_text(
-        json.dumps([PLANS[name] for name in names], indent=2)
+        json.dumps(
+            [dict(PLANS[name], topk_call_rows=args.topk_call_rows) for name in names],
+            indent=2,
+        )
     )
     print(
-        "case | Q rows | requests | max context | score width | chunk | CPU samples",
+        "case | Q rows | requests | max context | score width | score chunk | TopK call | CPU samples",
         flush=True,
     )
     for name in names:
         p = PLANS[name]
         print(
             f"{name} | {p['q_shape'][0]} | {len(p['query_lengths'])} | {p['batch_max_seq_len']} | "
-            f"{p['logits_width']} | {p['chunk_rows']} | {len(sample_rows(p))}",
+            f"{p['logits_width']} | {p['chunk_rows']} | {args.topk_call_rows} | {len(sample_rows(p))}",
             flush=True,
         )
     if args.plan_only:
@@ -418,6 +429,8 @@ def main():
             str(report),
             "--device",
             str(args.device),
+            "--topk-call-rows",
+            str(args.topk_call_rows),
         ]
         code, timed_out = run_child(
             command, report / f"{name}-console.txt", args.timeout

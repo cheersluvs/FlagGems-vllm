@@ -59,3 +59,30 @@ The runner streams progress and uploads logs/JSON after all selected cases,
 including failures. `--cases int8_tail112 int8_tail113` selects partial reruns.
 `--plan-only` generates the ten-shape table without Torch/NPU dependencies.
 No production or benchmark shape file is changed in this round.
+
+## TopK caller bound after replay d03c0b64
+
+The first ten-shape run passed nine workloads (125761 rows, 74 independent
+CPU samples). The first 128 budget_exact rows failed candidate uniqueness.
+Focused replay independently checked every score/dot in those 128 rows and
+the native V1 output; both passed. Automatic TopK calls of 128 rows produced
+duplicates on 78 rows with both empty and sentinel output allocations.
+Four 32-row calls on the same logits passed all 128 CPU TopK checks.
+
+The radix128 control left all 67 rows from 61 through 127 at sentinel -2. The
+source calculates Bmax=61 for a 1 MiB workspace and 4264 INT32 slots per row,
+but the `b_start` loop does not offset logits, lengths or output for later
+batches. This explains that separate fallback failure. The precise internal
+cause of the auto128 sort/merge duplicates is not yet established.
+
+The standalone caller now defaults to `--topk-call-rows 32`, independently
+of the score/native chunk. This limits each unchanged TopK invocation and
+also keeps the current radix workspace within a single batch. No TopK source,
+score kernel, output repair or tolerance changes are introduced. A 128-row
+diagnostic override remains available and is recorded explicitly.
+
+First rerun only `--cases int8_budget_exact --topk-call-rows 32`. Passing this
+does not complete ten-shape acceptance of the new uniform caller policy:
+the nine earlier results used 128-row calls and must subsequently be regressed
+under the 32-row policy before timing. The workspace/partial-segment issues
+remain tracked separately from INT8 score correctness.
