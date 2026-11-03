@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Independent INT8 score correctness trial with raw INT32 dot diagnostics."""
+"""Standalone INT8 scores with optional raw INT32 dot diagnostics."""
 
 import torch
 import triton
@@ -37,6 +37,7 @@ def _quant_score_trial(
     WIDTH: tl.constexpr,
     BLOCK_N: tl.constexpr,
     MASK_RAW_DOT: tl.constexpr,
+    WRITE_RAW_DOT: tl.constexpr,
 ):
     tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
     dims = tl.arange(0, 128)
@@ -63,15 +64,16 @@ def _quant_score_trial(
                 other=0,
             )
             dot = tl.dot(keys, query, out_dtype=tl.int32)
-            if MASK_RAW_DOT:
-                debug_dot = tl.where(live[:, None], dot, 0)
-            else:
-                debug_dot = dot
-            tl.store(
-                RawDot + (row * WIDTH + columns[:, None]) * HEADS + heads[None, :],
-                debug_dot,
-                mask=(columns[:, None] < WIDTH) & (heads[None, :] < HEADS),
-            )
+            if WRITE_RAW_DOT:
+                if MASK_RAW_DOT:
+                    debug_dot = tl.where(live[:, None], dot, 0)
+                else:
+                    debug_dot = dot
+                tl.store(
+                    RawDot + (row * WIDTH + columns[:, None]) * HEADS + heads[None, :],
+                    debug_dot,
+                    mask=(columns[:, None] < WIDTH) & (heads[None, :] < HEADS),
+                )
             query_scale = tl.load(
                 QS + row * HEADS + heads, mask=heads < HEADS, other=0
             ).to(tl.float32)
@@ -88,9 +90,19 @@ def _quant_score_trial(
 
 
 def score(
-    q, cache, qs, ks, weights, row_table, visible, output, raw_dot, *, mask_debug=True
+    q,
+    cache,
+    qs,
+    ks,
+    weights,
+    row_table,
+    visible,
+    output,
+    raw_dot=None,
+    *,
+    mask_debug=True,
 ):
-    """Launch debug scoring on contiguous operands without Torch computation."""
+    """Score contiguous operands; raw_dot=None removes the debug store."""
     if q.device.type != "npu" or q.dtype != torch.int8 or cache.dtype != torch.int8:
         raise NotImplementedError("INT8 NPU Q/K required")
     if "910B" not in torch.npu.get_device_name(q.device.index):
@@ -122,9 +134,13 @@ def score(
     width = output.shape[1]
     if not 0 < width <= row_table.shape[1] * page:
         raise ValueError("Score width must fit page table capacity")
-    if raw_dot.shape != (rows, width, heads) or raw_dot.dtype != torch.int32:
+    if raw_dot is not None and (
+        raw_dot.shape != (rows, width, heads) or raw_dot.dtype != torch.int32
+    ):
         raise ValueError("Debug dots must be INT32 [rows,width,heads]")
-    tensors = (q, cache, qs, ks, weights, row_table, visible, output, raw_dot)
+    tensors = (q, cache, qs, ks, weights, row_table, visible, output)
+    if raw_dot is not None:
+        tensors += (raw_dot,)
     if any(not t.is_contiguous() or t.device != q.device for t in tensors):
         raise NotImplementedError("Contiguous operands on one NPU required")
     if rows == 0:
@@ -138,7 +154,7 @@ def score(
         row_table,
         visible,
         output,
-        raw_dot,
+        raw_dot if raw_dot is not None else output,
         HEADS=heads,
         PAGE=page,
         COLUMNS=row_table.shape[1],
@@ -146,5 +162,6 @@ def score(
         WIDTH=width,
         BLOCK_N=32,
         MASK_RAW_DOT=mask_debug,
+        WRITE_RAW_DOT=raw_dot is not None,
         num_warps=4,
     )
