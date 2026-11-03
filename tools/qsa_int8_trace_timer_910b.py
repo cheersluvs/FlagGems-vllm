@@ -12,11 +12,16 @@
 
 """Explicit score-only Chrome trace timer with strict launch-count checks."""
 
+import gc
 import gzip
 import json
 import math
 from decimal import Decimal
 from pathlib import Path
+
+
+class IncompleteScoreTrace(RuntimeError):
+    """The capture does not contain the expected host and device tasks."""
 
 
 def active_mean(events, expected, active):
@@ -43,7 +48,7 @@ def active_mean(events, expected, active):
         and e.get("name") == "_quant_score_trial"
     ]
     if len(tasks) != expected * active or len(host) != expected * active:
-        raise RuntimeError(
+        raise IncompleteScoreTrace(
             f"Incomplete score trace: device={len(tasks)}, host={len(host)}, expected={expected*active}"
         )
     if any(
@@ -81,9 +86,11 @@ def setup_trace(args, context, torch, result):
         scope="Instrumented exploratory kernel timing; rebuild all paired baselines",
         fallback=False,
         raw_traces_preserved=True,
+        max_capture_attempts=3,
+        retry_policy="Only incomplete task counts; retain first valid capture, never resample valid timings",
     )
 
-    def measure(function, expected):
+    def capture_once(function, expected):
         nonlocal sequence
         sequence += 1
         for _ in range(args.kernel_warmup):
@@ -100,6 +107,8 @@ def setup_trace(args, context, torch, result):
                 function()
             torch.npu.synchronize()
         prof.export_chrome_trace(str(path))
+        del prof
+        gc.collect()
         payload = path.read_bytes()
         with gzip.open(path.with_suffix(".json.gz"), "wb") as stream:
             stream.write(payload)
@@ -113,6 +122,23 @@ def setup_trace(args, context, torch, result):
         parsed["artifact"] = path.with_suffix(".json.gz").name
         print("TRACE_TIMER", json.dumps(parsed), flush=True)
         return parsed
+
+    def measure(function, expected):
+        for attempt in range(1, 4):
+            try:
+                return capture_once(function, expected)
+            except IncompleteScoreTrace as exc:
+                failure = dict(
+                    attempt=attempt,
+                    artifact=f"{args.case}-timer-{sequence:02d}.json.gz",
+                    reason=str(exc),
+                )
+                result["kernel_timer"].setdefault("rejected_captures", []).append(
+                    failure
+                )
+                print("TRACE_REJECTED", json.dumps(failure), flush=True)
+                if attempt == 3:
+                    raise
 
     first, count = context["chunks"][0]
 

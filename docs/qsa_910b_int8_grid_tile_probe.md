@@ -147,3 +147,30 @@ records the selected case names so subset runs cannot be mistaken for ten-case
 acceptance. This does not time TopK or native fused V1 and changes no production
 source, scorer source, tensor generator, timer or TopK implementation. Screening
 uses two rounds, warmup 1, active 3; raw traces remain uploaded.
+
+## Incomplete device traces during ten-case screen
+
+Report a6f757e82bc14d419452760930b6800665860730 passed full preflight score
+comparisons for all ten cases and all three variants. Six cases completed timing
+and postchecks (dominant_long, tail112, tail113, two_balanced, two_skewed,
+short_tail). Their combined candidate speedups range from 3.002x to 3.152x.
+first_chunk, budget_exact, compact and long100k failed during timing with zero
+device task events despite complete named host launch counts. Raw failed trace
+inspection confirms absent Ascend Hardware events; this is not a name parser
+mismatch. The underlying profiler/runtime cause remains unresolved.
+
+The timer now releases each profiler after export and permits at most three
+capture attempts for incomplete host/device task counts only. Every rejected
+trace is preserved and recorded as TRACE_REJECTED in JSON/console. Successful
+valid timings are never resampled or selected by speed. Unexpected device task
+names, calibration failure and other exceptions still fail immediately. This
+is bounded recovery from invalid captures, not a fix for the underlying CANN
+collection issue or a guarantee of device isolation.
+
+Rerun only the four failed cases with two rounds. Keep the six completed cases
+as separate source-report evidence; do not report the four-case mean as a
+complete ten-case acceptance. Local real-failure-trace parsing confirms rejection;
+a synthetic profiler test verifies failed-first/valid-next recovery and artifact
+retention. Actual retry behavior must be verified on the card. Score, TopK,
+production, workload definitions, task-count validation and timing arithmetic
+are unchanged.
