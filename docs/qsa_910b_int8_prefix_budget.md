@@ -170,3 +170,48 @@ Local validation covers every generated prefix's syntax, the actual query-scale
 cut and FP32 sink, original-full AST identity, source-drift rejection, lint and
 the two-case scale-only missing-prerequisite path. Compilation and numerical
 checks on NPU remain pending the card run.
+
+## Interleaved single-trace scale-prefix retest
+
+Report d5572a46b7e2ee0809a0614a19db0b4fe4bfa15f passes numerical and lowering
+checks for both cases. Budget_exact stopped in round2 after three empty-device
+captures; its complete round1 is not a completed two-round result. Long100k
+completed, but query_scaled was 21.616 ms versus 5.203 ms in its two rounds;
+individual active values in the slow round were 17.563 and 25.669 ms. Those valid
+slow values must not be dropped or silently labeled collection failures. The
+cause of this duration variation is not established; the scale-side attribution
+is therefore not yet supported.
+
+`--scale-only --single-capture` reduces profiler start/stop cycles by capturing
+all prefix samples in one CPU+NPU trace. Within a round, each active repetition
+cycles through all five arms; round2 reverses the order. Each launch has a CPU
+record-function window and synchronizes before closing it. The existing stage
+parser requires complete, nonoverlapping windows and all device tasks covered;
+the new collector additionally requires exactly one device task and named score
+host launch per window. Both rounds and all raw active durations are retained.
+The existing separate score one/three-call calibration remains in force.
+
+Only incomplete whole captures retry, at most three attempts. The first valid
+capture is accepted regardless of its durations. Rejected traces and the exact
+window-to-arm/round/active mapping are saved. This reduces exposure to repeated
+profiler lifecycle failures; it does not fix or identify the underlying CANN
+collection issue and cannot guarantee performance stability or exclusivity.
+
+Each arm gets its own FP32 output, warmed before recording, so postchecks inspect
+its last timed output directly after the shared capture. This changes output
+buffer addresses relative to the old probe; compare current paired arms only,
+not pooled old/new raw times. No CPU data copies occur inside timed windows.
+All numerical, mode/reduction/load-count gates and full-control timing checks
+remain unchanged. No score kernel, TopK or production changes are introduced.
+
+Recommended run: both representative chunks, two rounds, two warmup passes over
+all arms, three active repetitions per round. This collects six valid timings
+per arm with one main trace per case rather than separate traces per arm/round.
+Inspect every raw sample before interpreting prefix contrasts. Exit0 confirms
+structural/numerical checks, not low variance or performance acceptance.
+
+Local validation includes synthetic missing-device-first/valid-next capture,
+window ownership, interleaving order, output routing, rejection-artifact retention
+and deliberately slow valid sample retention. Syntax/lint and the two-case
+missing-prerequisite report path also pass. Actual new collection needs the
+card run. Hardware isolation remains unverified.

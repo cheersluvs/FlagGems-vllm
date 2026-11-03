@@ -110,9 +110,10 @@ def run_case(args):
         result["stage"] = "prefix_generation"
         kernels = {name: load_prefix(report, args.case, name) for name in prefixes}
 
-        def launch(name):
+        def launch(name, target=None):
+            target = scratch[:count] if target is None else target
             if name == "integrated_full":
-                return adapter.score_into(first, count, scratch[:count])
+                return adapter.score_into(first, count, target)
             return kernels[name][(min(20, count * triton.cdiv(width, 128)),)](
                 values["q"][first : first + count],
                 values["cache"],
@@ -121,8 +122,8 @@ def run_case(args):
                 values["weights"][first : first + count],
                 values["row_table"][first : first + count],
                 values["visible"][first : first + count],
-                scratch[:count],
-                scratch[:count],
+                target,
+                target,
                 HEADS=4,
                 PAGE=192,
                 COLUMNS=values["row_table"].shape[1],
@@ -158,8 +159,8 @@ def run_case(args):
                 integrated_full=full,
             )
 
-        def check(name):
-            actual = scratch[:count].cpu()
+        def check(name, target=None):
+            actual = (scratch[:count] if target is None else target).cpu()
             live = (
                 torch.arange(width)[None, :]
                 < inputs["visible"][first : first + count, None]
@@ -272,20 +273,38 @@ def run_case(args):
         result["samples"] = {name: [] for name in arms}
         result["postchecks"] = {}
         result["measurement_order"] = []
-        for round_index in range(args.rounds):
-            order = arms if round_index % 2 == 0 else list(reversed(arms))
-            result["measurement_order"].append(order)
-            for name in order:
-                sample = measure(lambda: launch(name))
-                result["samples"][name].append(sample)
-                result["postchecks"][name] = check(name)
-                print(
-                    "PREFIX_TIMING",
-                    json.dumps(
-                        dict(case=args.case, arm=name, round=round_index + 1, **sample)
-                    ),
-                    flush=True,
-                )
+        if args.single_capture:
+            from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
+
+            targets = {name: torch.empty_like(scratch[:count]) for name in arms}
+            result["separate_prefix_output_bytes"] = len(arms) * count * width * 4
+            result["samples"], result["measurement_order"] = measure_prefix_plan(
+                args, arms, launch, targets, torch, result
+            )
+            for name in arms:
+                # Each arm owns a separate output: these are the last timed
+                # results, not a fresh post-timing recomputation.
+                result["postchecks"][name] = check(name, targets[name])
+        else:
+            for round_index in range(args.rounds):
+                order = arms if round_index % 2 == 0 else list(reversed(arms))
+                result["measurement_order"].append(order)
+                for name in order:
+                    sample = measure(lambda: launch(name))
+                    result["samples"][name].append(sample)
+                    result["postchecks"][name] = check(name)
+                    print(
+                        "PREFIX_TIMING",
+                        json.dumps(
+                            dict(
+                                case=args.case,
+                                arm=name,
+                                round=round_index + 1,
+                                **sample,
+                            )
+                        ),
+                        flush=True,
+                    )
         result["timings"] = {
             name: aggregate(samples) for name, samples in result["samples"].items()
         }
@@ -327,6 +346,8 @@ def run_case(args):
             "qsa_int8_score_910b_trial.py",
             "qsa_int8_selection_910b_trial.py",
             "qsa_int8_trace_timer_910b.py",
+            "qsa_int8_prefix_plan_timer_910b.py",
+            "qsa_int8_stage_trace_timer_910b.py",
         )
     }
     result["exit_code"] = code
@@ -356,7 +377,14 @@ def main():
         action="store_true",
         help="Compare query-scale and key-scale prefixes with FP32 reduction",
     )
+    parser.add_argument(
+        "--single-capture",
+        action="store_true",
+        help="Interleave scale prefixes within one trace",
+    )
     args = parser.parse_args()
+    if args.single_capture and not args.scale_only:
+        parser.error("single-capture requires scale-only")
     if args.tail_only and args.scale_only:
         parser.error("Choose only one prefix subset")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
@@ -391,6 +419,8 @@ def main():
             command.append("--tail-only")
         if args.scale_only:
             command.append("--scale-only")
+        if args.single_capture:
+            command.append("--single-capture")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())
