@@ -1,0 +1,4804 @@
+{
+  "exit_code": 1,
+  "cases": [
+    {
+      "case": "int8_budget_exact",
+      "status": "partial_capture",
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device_index": 0,
+        "device": "Ascend910B4-1",
+        "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU",
+        "device_isolation": "not_verified"
+      },
+      "device_properties": {
+        "max_shared_mem": 1,
+        "num_aicore": 20,
+        "num_vectorcore": 40
+      },
+      "stage": "completed",
+      "geometry": {
+        "name": "int8_budget_exact",
+        "nv_case": "fp8_budget_exact_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          16384
+        ],
+        "starts": [
+          0,
+          16384
+        ],
+        "batch_max_seq_len": 32768,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          43
+        ],
+        "physical_pages": 43,
+        "table_columns": 43,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          43,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8192,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 20971520,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "representative_chunk": {
+        "first": 8192,
+        "count": 128,
+        "visible_first": 6144,
+        "visible_last": 6176,
+        "grid_programs": 8,
+        "block_n": 32,
+        "dot_shape": [
+          32,
+          128,
+          16
+        ],
+        "real_heads": 4,
+        "padded_heads": 16,
+        "work_tiles": 32768,
+        "work_tiles_per_program": 4096,
+        "score_scratch_bytes": 4194304,
+        "raw_dot_bytes": 0
+      },
+      "checks": {
+        "last_warmup_chunk": {
+          "rows": 128,
+          "all_chunk_score_masks_checked": true,
+          "cpu_reference_rows": [
+            16256,
+            16320,
+            16383
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "workload_cpu_samples": {
+          "rows": [
+            0,
+            127,
+            128,
+            8192,
+            16256,
+            16383
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "representative_pre": {
+          "rows": 128,
+          "all_chunk_score_masks_checked": true,
+          "cpu_reference_rows": [
+            8192,
+            8256,
+            8319
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "last_timeline_chunk": {
+          "rows": 128,
+          "all_chunk_score_masks_checked": true,
+          "cpu_reference_rows": [
+            16256,
+            16320,
+            16383
+          ],
+          "max_abs_error": 7.62939453125e-06
+        }
+      },
+      "compiler": {
+        "asm_keys": [
+          "source",
+          "ttir",
+          "ttadapter",
+          "mlirbc",
+          "bcmlir",
+          "npubin"
+        ],
+        "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='66d31b4185c33ac07ff18d50543138a95abe56a33677195d889328c1d5cd831f', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=24576)",
+        "artifacts": [
+          {
+            "file": "int8_budget_exact-score-ttir.txt",
+            "truncated": false,
+            "static_token_occurrences": {
+              "barrier": 0,
+              "wait_flag": 0,
+              "set_flag": 0,
+              "convert_layout": 0,
+              "transpose": 0,
+              "mmad": 0,
+              "tt.dot": 1
+            }
+          },
+          {
+            "file": "int8_budget_exact-score-ttadapter.txt",
+            "truncated": false,
+            "static_token_occurrences": {
+              "barrier": 0,
+              "wait_flag": 0,
+              "set_flag": 0,
+              "convert_layout": 0,
+              "transpose": 1,
+              "mmad": 0,
+              "tt.dot": 0
+            }
+          },
+          {
+            "file": "int8_budget_exact-score-bcmlir.txt",
+            "truncated": false,
+            "static_token_occurrences": {
+              "barrier": 0,
+              "wait_flag": 0,
+              "set_flag": 0,
+              "convert_layout": 0,
+              "transpose": 3,
+              "mmad": 0,
+              "tt.dot": 0
+            }
+          },
+          {
+            "file": "int8_budget_exact-score-source.txt",
+            "truncated": false,
+            "static_token_occurrences": {
+              "barrier": 0,
+              "wait_flag": 0,
+              "set_flag": 0,
+              "convert_layout": 0,
+              "transpose": 0,
+              "mmad": 0,
+              "tt.dot": 1
+            }
+          }
+        ]
+      },
+      "timeline": {
+        "iterations": 1,
+        "stages": {
+          "score": {
+            "trace_file": "int8_budget_exact-score-trace.json.gz",
+            "compressed_bytes": 29491,
+            "task_count": 128,
+            "timestamp_origin_us": "1793679662282545.812",
+            "hardware_pids": [
+              787923392
+            ],
+            "device_task_duration_sum_us": 929785.3520000002,
+            "device_task_union_us": 929785.3520000003,
+            "device_task_envelope_us": 930146.964,
+            "uncovered_envelope_us": 361.6119999997318,
+            "uncovered_fraction": 0.0003887686720436705,
+            "categories": {
+              "cpu_op": 1921,
+              "dequeue": 128,
+              "async_task_queue": 256,
+              "enqueue": 128,
+              "": 422,
+              "HostToDevice": 128
+            },
+            "largest_gaps": [
+              {
+                "start_us": 285045.114,
+                "end_us": 285048.254,
+                "duration_us": 3.14000000001397
+              },
+              {
+                "start_us": 347930.49,
+                "end_us": 347933.63,
+                "duration_us": 3.14000000001397
+              },
+              {
+                "start_us": 629851.544,
+                "end_us": 629854.684,
+                "duration_us": 3.14000000001397
+              },
+              {
+                "start_us": 99212.86,
+                "end_us": 99216.0,
+                "duration_us": 3.139999999999418
+              },
+              {
+                "start_us": 383441.89999999997,
+                "end_us": 383445.02,
+                "duration_us": 3.120000000053551
+              },
+              {
+                "start_us": 105535.948,
+                "end_us": 105539.068,
+                "duration_us": 3.1199999999953434
+              },
+              {
+                "start_us": 183735.15,
+                "end_us": 183738.27,
+                "duration_us": 3.1199999999953434
+              },
+              {
+                "start_us": 340888.73,
+                "end_us": 340891.85,
+                "duration_us": 3.1199999999953434
+              },
+              {
+                "start_us": 871276.388,
+                "end_us": 871279.508,
+                "duration_us": 3.1199999999953434
+              },
+              {
+                "start_us": 716520.6359999999,
+                "end_us": 716523.736,
+                "duration_us": 3.1000000000931323
+              },
+              {
+                "start_us": 732451.612,
+                "end_us": 732454.712,
+                "duration_us": 3.1000000000931323
+              },
+              {
+                "start_us": 904773.8759999999,
+                "end_us": 904776.976,
+                "duration_us": 3.1000000000931323
+              },
+              {
+                "start_us": 250828.47,
+                "end_us": 250831.57,
+                "duration_us": 3.1000000000058208
+              },
+              {
+                "start_us": 291947.19200000004,
+                "end_us": 291950.292,
+                "duration_us": 3.099999999976717
+              },
+              {
+                "start_us": 515352.396,
+                "end_us": 515355.496,
+                "duration_us": 3.099999999976717
+              },
+              {
+                "start_us": 829900.14,
+                "end_us": 829903.24,
+                "duration_us": 3.099999999976717
+              },
+              {
+                "start_us": 896423.37,
+                "end_us": 896426.47,
+                "duration_us": 3.099999999976717
+              },
+              {
+                "start_us": 668992.8439999999,
+                "end_us": 668995.926,
+                "duration_us": 3.0820000000530854
+              },
+              {
+                "start_us": 805201.746,
+                "end_us": 805204.828,
+                "duration_us": 3.08199999993667
+              },
+              {
+                "start_us": 560630.1799999999,
+                "end_us": 560633.26,
+                "duration_us": 3.080000000074506
+              }
+            ],
+            "kernels": {
+              "MIX_AIC": {
+                "count": 128,
+                "sum_us": 929785.3520000002
+              }
+            },
+            "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace.",
+            "expected_score_launches": 128,
+            "matched_score_task_names": [],
+            "usable": false
+          }
+        },
+        "units": "microseconds",
+        "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+      },
+      "hardware": {
+        "PipeUtilization": {
+          "status": "available",
+          "metric": "PipeUtilization",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "8361.708",
+              "aicore_time(us)": "8181.863",
+              "aic_total_cycles": "108000591",
+              "aic_mac_time(us)": "176.252",
+              "aic_mac_ratio": "0.022",
+              "aic_scalar_time(us)": "3050.032",
+              "aic_scalar_ratio": "0.373",
+              "aic_mte1_time(us)": "194.582",
+              "aic_mte1_ratio": "0.024",
+              "aic_mte2_time(us)": "1283.403",
+              "aic_mte2_ratio": "0.157",
+              "aic_fixpipe_time(us)": "839.879",
+              "aic_fixpipe_ratio": "0.103",
+              "aic_icache_miss_rate": "0.0",
+              "aiv_time(us)": "11096.309",
+              "aiv_total_cycles": "292942569",
+              "aiv_vec_time(us)": "2605.02",
+              "aiv_vec_ratio": "0.235",
+              "aiv_scalar_time(us)": "7340.884",
+              "aiv_scalar_ratio": "0.662",
+              "aiv_mte2_time(us)": "4832.422",
+              "aiv_mte2_ratio": "0.435",
+              "aiv_mte3_time(us)": "3583.161",
+              "aiv_mte3_ratio": "0.323",
+              "aiv_icache_miss_rate": "0.0",
+              "cube_utilization(%)": "39.140"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "8414.508",
+              "aicore_time(us)": "8247.073",
+              "aic_total_cycles": "108861363",
+              "aic_mac_time(us)": "176.252",
+              "aic_mac_ratio": "0.021",
+              "aic_scalar_time(us)": "3126.657",
+              "aic_scalar_ratio": "0.379",
+              "aic_mte1_time(us)": "194.868",
+              "aic_mte1_ratio": "0.024",
+              "aic_mte2_time(us)": "1336.813",
+              "aic_mte2_ratio": "0.162",
+              "aic_fixpipe_time(us)": "813.355",
+              "aic_fixpipe_ratio": "0.099",
+              "aic_icache_miss_rate": "0.0",
+              "aiv_time(us)": "11421.579",
+              "aiv_total_cycles": "301529682",
+              "aiv_vec_time(us)": "2802.459",
+              "aiv_vec_ratio": "0.245",
+              "aiv_scalar_time(us)": "7409.206",
+              "aiv_scalar_ratio": "0.649",
+              "aiv_mte2_time(us)": "4925.799",
+              "aiv_mte2_ratio": "0.431",
+              "aiv_mte3_time(us)": "3828.624",
+              "aiv_mte3_ratio": "0.335",
+              "aiv_icache_miss_rate": "0.0",
+              "cube_utilization(%)": "39.204"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "8527.072",
+              "aicore_time(us)": "8353.452",
+              "aic_total_cycles": "110265563",
+              "aic_mac_time(us)": "176.252",
+              "aic_mac_ratio": "0.021",
+              "aic_scalar_time(us)": "3184.212",
+              "aic_scalar_ratio": "0.381",
+              "aic_mte1_time(us)": "194.259",
+              "aic_mte1_ratio": "0.023",
+              "aic_mte2_time(us)": "1362.196",
+              "aic_mte2_ratio": "0.163",
+              "aic_fixpipe_time(us)": "869.976",
+              "aic_fixpipe_ratio": "0.104",
+              "aic_icache_miss_rate": "0.0",
+              "aiv_time(us)": "12374.224",
+              "aiv_total_cycles": "326679510",
+              "aiv_vec_time(us)": "3013.795",
+              "aiv_vec_ratio": "0.244",
+              "aiv_scalar_time(us)": "7519.719",
+              "aiv_scalar_ratio": "0.608",
+              "aiv_mte2_time(us)": "5011.228",
+              "aiv_mte2_ratio": "0.405",
+              "aiv_mte3_time(us)": "4691.418",
+              "aiv_mte3_ratio": "0.379",
+              "aiv_icache_miss_rate": "0.0",
+              "cube_utilization(%)": "39.186"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "22.46",
+              "Host Total Duration(us)": "22.46",
+              "Device Self Duration(us)": "8361.708",
+              "Device Total Duration(us)": "8361.708",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.47",
+              "Host Total Duration(us)": "16.47",
+              "Device Self Duration(us)": "8414.508",
+              "Device Total Duration(us)": "8414.508",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.38",
+              "Host Total Duration(us)": "16.38",
+              "Device Self Duration(us)": "8527.072",
+              "Device Total Duration(us)": "8527.072",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_fixpipe_ratio",
+            "aic_fixpipe_time(us)",
+            "aic_icache_miss_rate",
+            "aic_mac_ratio",
+            "aic_mac_time(us)",
+            "aic_mte1_ratio",
+            "aic_mte1_time(us)",
+            "aic_mte2_ratio",
+            "aic_mte2_time(us)",
+            "aic_scalar_ratio",
+            "aic_scalar_time(us)",
+            "aic_total_cycles",
+            "aiv_icache_miss_rate",
+            "aiv_mte2_ratio",
+            "aiv_mte2_time(us)",
+            "aiv_mte3_ratio",
+            "aiv_mte3_time(us)",
+            "aiv_scalar_ratio",
+            "aiv_scalar_time(us)",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_vec_ratio",
+            "aiv_vec_time(us)",
+            "cube_utilization(%)"
+          ],
+          "artifact": "int8_budget_exact-PipeUtilization-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122106911_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122106911_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aic_mac_time(us)",
+                "aic_mac_ratio",
+                "aic_scalar_time(us)",
+                "aic_scalar_ratio",
+                "aic_mte1_time(us)",
+                "aic_mte1_ratio",
+                "aic_mte2_time(us)",
+                "aic_mte2_ratio",
+                "aic_fixpipe_time(us)",
+                "aic_fixpipe_ratio",
+                "aic_icache_miss_rate",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_vec_time(us)",
+                "aiv_vec_ratio",
+                "aiv_scalar_time(us)",
+                "aiv_scalar_ratio",
+                "aiv_mte2_time(us)",
+                "aiv_mte2_ratio",
+                "aiv_mte3_time(us)",
+                "aiv_mte3_ratio",
+                "aiv_icache_miss_rate",
+                "cube_utilization(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122106911_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122106911_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122106911_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122106911_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aic_fixpipe_ratio",
+              "aic_fixpipe_time(us)",
+              "aic_mac_ratio",
+              "aic_mac_time(us)",
+              "aic_mte1_ratio",
+              "aic_mte1_time(us)",
+              "aic_mte2_ratio",
+              "aic_mte2_time(us)",
+              "aic_scalar_ratio",
+              "aic_scalar_time(us)",
+              "aiv_mte2_ratio",
+              "aiv_mte2_time(us)",
+              "aiv_mte3_ratio",
+              "aiv_mte3_time(us)",
+              "aiv_scalar_ratio",
+              "aiv_scalar_time(us)",
+              "aiv_vec_ratio",
+              "aiv_vec_time(us)",
+              "cube_utilization(%)"
+            ],
+            "raw_field_statistics": {
+              "aic_fixpipe_ratio": {
+                "median": 0.103,
+                "min": 0.099,
+                "max": 0.104,
+                "count": 3
+              },
+              "aic_fixpipe_time(us)": {
+                "median": 839.879,
+                "min": 813.355,
+                "max": 869.976,
+                "count": 3
+              },
+              "aic_mac_ratio": {
+                "median": 0.021,
+                "min": 0.021,
+                "max": 0.022,
+                "count": 3
+              },
+              "aic_mac_time(us)": {
+                "median": 176.252,
+                "min": 176.252,
+                "max": 176.252,
+                "count": 3
+              },
+              "aic_mte1_ratio": {
+                "median": 0.024,
+                "min": 0.023,
+                "max": 0.024,
+                "count": 3
+              },
+              "aic_mte1_time(us)": {
+                "median": 194.582,
+                "min": 194.259,
+                "max": 194.868,
+                "count": 3
+              },
+              "aic_mte2_ratio": {
+                "median": 0.162,
+                "min": 0.157,
+                "max": 0.163,
+                "count": 3
+              },
+              "aic_mte2_time(us)": {
+                "median": 1336.813,
+                "min": 1283.403,
+                "max": 1362.196,
+                "count": 3
+              },
+              "aic_scalar_ratio": {
+                "median": 0.379,
+                "min": 0.373,
+                "max": 0.381,
+                "count": 3
+              },
+              "aic_scalar_time(us)": {
+                "median": 3126.657,
+                "min": 3050.032,
+                "max": 3184.212,
+                "count": 3
+              },
+              "aiv_mte2_ratio": {
+                "median": 0.431,
+                "min": 0.405,
+                "max": 0.435,
+                "count": 3
+              },
+              "aiv_mte2_time(us)": {
+                "median": 4925.799,
+                "min": 4832.422,
+                "max": 5011.228,
+                "count": 3
+              },
+              "aiv_mte3_ratio": {
+                "median": 0.335,
+                "min": 0.323,
+                "max": 0.379,
+                "count": 3
+              },
+              "aiv_mte3_time(us)": {
+                "median": 3828.624,
+                "min": 3583.161,
+                "max": 4691.418,
+                "count": 3
+              },
+              "aiv_scalar_ratio": {
+                "median": 0.649,
+                "min": 0.608,
+                "max": 0.662,
+                "count": 3
+              },
+              "aiv_scalar_time(us)": {
+                "median": 7409.206,
+                "min": 7340.884,
+                "max": 7519.719,
+                "count": 3
+              },
+              "aiv_vec_ratio": {
+                "median": 0.244,
+                "min": 0.235,
+                "max": 0.245,
+                "count": 3
+              },
+              "aiv_vec_time(us)": {
+                "median": 2802.459,
+                "min": 2605.02,
+                "max": 3013.795,
+                "count": 3
+              },
+              "cube_utilization(%)": {
+                "median": 39.186,
+                "min": 39.14,
+                "max": 39.204,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "262",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679666964410.708\t",
+                "Duration(us)": "8361.708",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "8181.863",
+                "aic_total_cycles": "108000591",
+                "aic_mac_time(us)": "176.252",
+                "aic_mac_ratio": "0.022",
+                "aic_scalar_time(us)": "3050.032",
+                "aic_scalar_ratio": "0.373",
+                "aic_mte1_time(us)": "194.582",
+                "aic_mte1_ratio": "0.024",
+                "aic_mte2_time(us)": "1283.403",
+                "aic_mte2_ratio": "0.157",
+                "aic_fixpipe_time(us)": "839.879",
+                "aic_fixpipe_ratio": "0.103",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "11096.309",
+                "aiv_total_cycles": "292942569",
+                "aiv_vec_time(us)": "2605.02",
+                "aiv_vec_ratio": "0.235",
+                "aiv_scalar_time(us)": "7340.884",
+                "aiv_scalar_ratio": "0.662",
+                "aiv_mte2_time(us)": "4832.422",
+                "aiv_mte2_ratio": "0.435",
+                "aiv_mte3_time(us)": "3583.161",
+                "aiv_mte3_ratio": "0.323",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "39.140"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "263",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679666972775.296\t",
+                "Duration(us)": "8414.508",
+                "Wait Time(us)": "2.792000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "8247.073",
+                "aic_total_cycles": "108861363",
+                "aic_mac_time(us)": "176.252",
+                "aic_mac_ratio": "0.021",
+                "aic_scalar_time(us)": "3126.657",
+                "aic_scalar_ratio": "0.379",
+                "aic_mte1_time(us)": "194.868",
+                "aic_mte1_ratio": "0.024",
+                "aic_mte2_time(us)": "1336.813",
+                "aic_mte2_ratio": "0.162",
+                "aic_fixpipe_time(us)": "813.355",
+                "aic_fixpipe_ratio": "0.099",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "11421.579",
+                "aiv_total_cycles": "301529682",
+                "aiv_vec_time(us)": "2802.459",
+                "aiv_vec_ratio": "0.245",
+                "aiv_scalar_time(us)": "7409.206",
+                "aiv_scalar_ratio": "0.649",
+                "aiv_mte2_time(us)": "4925.799",
+                "aiv_mte2_ratio": "0.431",
+                "aiv_mte3_time(us)": "3828.624",
+                "aiv_mte3_ratio": "0.335",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "39.204"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "264",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679666981192.724\t",
+                "Duration(us)": "8527.072",
+                "Wait Time(us)": "2.992000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "8353.452",
+                "aic_total_cycles": "110265563",
+                "aic_mac_time(us)": "176.252",
+                "aic_mac_ratio": "0.021",
+                "aic_scalar_time(us)": "3184.212",
+                "aic_scalar_ratio": "0.381",
+                "aic_mte1_time(us)": "194.259",
+                "aic_mte1_ratio": "0.023",
+                "aic_mte2_time(us)": "1362.196",
+                "aic_mte2_ratio": "0.163",
+                "aic_fixpipe_time(us)": "869.976",
+                "aic_fixpipe_ratio": "0.104",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "12374.224",
+                "aiv_total_cycles": "326679510",
+                "aiv_vec_time(us)": "3013.795",
+                "aiv_vec_ratio": "0.244",
+                "aiv_scalar_time(us)": "7519.719",
+                "aiv_scalar_ratio": "0.608",
+                "aiv_mte2_time(us)": "5011.228",
+                "aiv_mte2_ratio": "0.405",
+                "aiv_mte3_time(us)": "4691.418",
+                "aiv_mte3_ratio": "0.379",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "39.186"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 128,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8192,
+              8256,
+              8319
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "ArithmeticUtilization": {
+          "status": "available",
+          "metric": "ArithmeticUtilization",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7288.824",
+              "aicore_time(us)": "7185.687",
+              "aic_total_cycles": "94851063",
+              "aic_mac_fp16_ratio": "0.0",
+              "aic_mac_int8_ratio": "0.036",
+              "aic_cube_fops": "56371445760.0",
+              "aiv_time(us)": "7185.799",
+              "aiv_total_cycles": "189705083",
+              "aiv_vec_fp32_ratio": "0.059",
+              "aiv_vec_fp16_ratio": "0.019",
+              "aiv_vec_int32_ratio": "0.0",
+              "aiv_vec_misc_ratio": "0.031",
+              "aiv_vector_fops": "1380146752.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7237.324",
+              "aicore_time(us)": "7146.048",
+              "aic_total_cycles": "94327835",
+              "aic_mac_fp16_ratio": "0.0",
+              "aic_mac_int8_ratio": "0.036",
+              "aic_cube_fops": "56371445760.0",
+              "aiv_time(us)": "7146.182",
+              "aiv_total_cycles": "188659197",
+              "aiv_vec_fp32_ratio": "0.059",
+              "aiv_vec_fp16_ratio": "0.02",
+              "aiv_vec_int32_ratio": "0.0",
+              "aiv_vec_misc_ratio": "0.031",
+              "aiv_vector_fops": "1380146752.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7248.746",
+              "aicore_time(us)": "7180.883",
+              "aic_total_cycles": "94787660",
+              "aic_mac_fp16_ratio": "0.0",
+              "aic_mac_int8_ratio": "0.036",
+              "aic_cube_fops": "56371445760.0",
+              "aiv_time(us)": "7180.998",
+              "aiv_total_cycles": "189578355",
+              "aiv_vec_fp32_ratio": "0.059",
+              "aiv_vec_fp16_ratio": "0.019",
+              "aiv_vec_int32_ratio": "0.0",
+              "aiv_vec_misc_ratio": "0.031",
+              "aiv_vector_fops": "1380146752.0"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "22.94",
+              "Host Total Duration(us)": "22.94",
+              "Device Self Duration(us)": "7288.824",
+              "Device Total Duration(us)": "7288.824",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.53",
+              "Host Total Duration(us)": "16.53",
+              "Device Self Duration(us)": "7237.324",
+              "Device Total Duration(us)": "7237.324",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "15.78",
+              "Host Total Duration(us)": "15.78",
+              "Device Self Duration(us)": "7248.746",
+              "Device Total Duration(us)": "7248.746",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_cube_fops",
+            "aic_mac_fp16_ratio",
+            "aic_mac_int8_ratio",
+            "aic_total_cycles",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_vec_fp16_ratio",
+            "aiv_vec_fp32_ratio",
+            "aiv_vec_int32_ratio",
+            "aiv_vec_misc_ratio",
+            "aiv_vector_fops"
+          ],
+          "artifact": "int8_budget_exact-ArithmeticUtilization-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122111512_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122111512_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aic_mac_fp16_ratio",
+                "aic_mac_int8_ratio",
+                "aic_cube_fops",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_vec_fp32_ratio",
+                "aiv_vec_fp16_ratio",
+                "aiv_vec_int32_ratio",
+                "aiv_vec_misc_ratio",
+                "aiv_vector_fops"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122111512_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122111512_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122111512_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122111512_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aic_cube_fops",
+              "aic_mac_fp16_ratio",
+              "aic_mac_int8_ratio",
+              "aiv_vec_fp16_ratio",
+              "aiv_vec_fp32_ratio",
+              "aiv_vector_fops"
+            ],
+            "raw_field_statistics": {
+              "aic_cube_fops": {
+                "median": 56371445760.0,
+                "min": 56371445760.0,
+                "max": 56371445760.0,
+                "count": 3
+              },
+              "aic_mac_fp16_ratio": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aic_mac_int8_ratio": {
+                "median": 0.036,
+                "min": 0.036,
+                "max": 0.036,
+                "count": 3
+              },
+              "aiv_vec_fp16_ratio": {
+                "median": 0.019,
+                "min": 0.019,
+                "max": 0.02,
+                "count": 3
+              },
+              "aiv_vec_fp32_ratio": {
+                "median": 0.059,
+                "min": 0.059,
+                "max": 0.059,
+                "count": 3
+              },
+              "aiv_vector_fops": {
+                "median": 1380146752.0,
+                "min": 1380146752.0,
+                "max": 1380146752.0,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "266",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679671571228.670\t",
+                "Duration(us)": "7288.824",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7185.687",
+                "aic_total_cycles": "94851063",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.036",
+                "aic_cube_fops": "56371445760.0",
+                "aiv_time(us)": "7185.799",
+                "aiv_total_cycles": "189705083",
+                "aiv_vec_fp32_ratio": "0.059",
+                "aiv_vec_fp16_ratio": "0.019",
+                "aiv_vec_int32_ratio": "0.0",
+                "aiv_vec_misc_ratio": "0.031",
+                "aiv_vector_fops": "1380146752.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "267",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679671578520.454\t",
+                "Duration(us)": "7237.324",
+                "Wait Time(us)": "2.926000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7146.048",
+                "aic_total_cycles": "94327835",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.036",
+                "aic_cube_fops": "56371445760.0",
+                "aiv_time(us)": "7146.182",
+                "aiv_total_cycles": "188659197",
+                "aiv_vec_fp32_ratio": "0.059",
+                "aiv_vec_fp16_ratio": "0.02",
+                "aiv_vec_int32_ratio": "0.0",
+                "aiv_vec_misc_ratio": "0.031",
+                "aiv_vector_fops": "1380146752.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "268",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679671585760.658\t",
+                "Duration(us)": "7248.746",
+                "Wait Time(us)": "2.926000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7180.883",
+                "aic_total_cycles": "94787660",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.036",
+                "aic_cube_fops": "56371445760.0",
+                "aiv_time(us)": "7180.998",
+                "aiv_total_cycles": "189578355",
+                "aiv_vec_fp32_ratio": "0.059",
+                "aiv_vec_fp16_ratio": "0.019",
+                "aiv_vec_int32_ratio": "0.0",
+                "aiv_vec_misc_ratio": "0.031",
+                "aiv_vector_fops": "1380146752.0"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 128,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8192,
+              8256,
+              8319
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "Memory": {
+          "status": "available",
+          "metric": "Memory",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7314.806",
+              "aicore_time(us)": "7192.298",
+              "aic_total_cycles": "94938330",
+              "aic_l1_read_bw(GB/s)": "6.517",
+              "aic_l1_write_bw(GB/s)": "1.901",
+              "aic_main_mem_read_bw(GB/s)": "0.038",
+              "aic_main_mem_write_bw(GB/s)": "0.025",
+              "aic_l2_read_bw(GB/s)": "0.0",
+              "aic_l2_write_bw(GB/s)": "0.0",
+              "aiv_time(us)": "7192.415",
+              "aiv_total_cycles": "189879750",
+              "aiv_ub_read_bw(GB/s)": "26.048",
+              "aiv_ub_write_bw(GB/s)": "24.18",
+              "aiv_main_mem_read_bw(GB/s)": "0.128",
+              "aiv_main_mem_write_bw(GB/s)": "0.028",
+              "aiv_l2_read_bw(GB/s)": "0.0",
+              "aiv_l2_write_bw(GB/s)": "0.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7253.084",
+              "aicore_time(us)": "7162.499",
+              "aic_total_cycles": "94544986",
+              "aic_l1_read_bw(GB/s)": "6.545",
+              "aic_l1_write_bw(GB/s)": "1.909",
+              "aic_main_mem_read_bw(GB/s)": "0.038",
+              "aic_main_mem_write_bw(GB/s)": "0.026",
+              "aic_l2_read_bw(GB/s)": "0.0",
+              "aic_l2_write_bw(GB/s)": "0.0",
+              "aiv_time(us)": "7162.635",
+              "aiv_total_cycles": "189093566",
+              "aiv_ub_read_bw(GB/s)": "26.146",
+              "aiv_ub_write_bw(GB/s)": "24.266",
+              "aiv_main_mem_read_bw(GB/s)": "0.129",
+              "aiv_main_mem_write_bw(GB/s)": "0.028",
+              "aiv_l2_read_bw(GB/s)": "0.0",
+              "aiv_l2_write_bw(GB/s)": "0.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7264.906",
+              "aicore_time(us)": "7187.307",
+              "aic_total_cycles": "94872453",
+              "aic_l1_read_bw(GB/s)": "6.522",
+              "aic_l1_write_bw(GB/s)": "1.902",
+              "aic_main_mem_read_bw(GB/s)": "0.038",
+              "aic_main_mem_write_bw(GB/s)": "0.025",
+              "aic_l2_read_bw(GB/s)": "0.0",
+              "aic_l2_write_bw(GB/s)": "0.0",
+              "aiv_time(us)": "7187.429",
+              "aiv_total_cycles": "189748127",
+              "aiv_ub_read_bw(GB/s)": "26.069",
+              "aiv_ub_write_bw(GB/s)": "24.195",
+              "aiv_main_mem_read_bw(GB/s)": "0.128",
+              "aiv_main_mem_write_bw(GB/s)": "0.028",
+              "aiv_l2_read_bw(GB/s)": "0.0",
+              "aiv_l2_write_bw(GB/s)": "0.0"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "23.04",
+              "Host Total Duration(us)": "23.04",
+              "Device Self Duration(us)": "7314.806",
+              "Device Total Duration(us)": "7314.806",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.48",
+              "Host Total Duration(us)": "16.48",
+              "Device Self Duration(us)": "7253.084",
+              "Device Total Duration(us)": "7253.084",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.37",
+              "Host Total Duration(us)": "16.37",
+              "Device Self Duration(us)": "7264.906",
+              "Device Total Duration(us)": "7264.906",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_l1_read_bw(GB/s)",
+            "aic_l1_write_bw(GB/s)",
+            "aic_l2_read_bw(GB/s)",
+            "aic_l2_write_bw(GB/s)",
+            "aic_main_mem_read_bw(GB/s)",
+            "aic_main_mem_write_bw(GB/s)",
+            "aic_total_cycles",
+            "aiv_l2_read_bw(GB/s)",
+            "aiv_l2_write_bw(GB/s)",
+            "aiv_main_mem_read_bw(GB/s)",
+            "aiv_main_mem_write_bw(GB/s)",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_ub_read_bw(GB/s)",
+            "aiv_ub_write_bw(GB/s)"
+          ],
+          "artifact": "int8_budget_exact-Memory-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122116227_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122116227_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aic_l1_read_bw(GB/s)",
+                "aic_l1_write_bw(GB/s)",
+                "aic_main_mem_read_bw(GB/s)",
+                "aic_main_mem_write_bw(GB/s)",
+                "aic_l2_read_bw(GB/s)",
+                "aic_l2_write_bw(GB/s)",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_ub_read_bw(GB/s)",
+                "aiv_ub_write_bw(GB/s)",
+                "aiv_main_mem_read_bw(GB/s)",
+                "aiv_main_mem_write_bw(GB/s)",
+                "aiv_l2_read_bw(GB/s)",
+                "aiv_l2_write_bw(GB/s)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122116227_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122116227_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122116227_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122116227_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aic_l1_read_bw(GB/s)",
+              "aic_l1_write_bw(GB/s)",
+              "aic_l2_read_bw(GB/s)",
+              "aic_l2_write_bw(GB/s)",
+              "aic_main_mem_read_bw(GB/s)",
+              "aic_main_mem_write_bw(GB/s)",
+              "aiv_l2_read_bw(GB/s)",
+              "aiv_l2_write_bw(GB/s)",
+              "aiv_main_mem_read_bw(GB/s)",
+              "aiv_main_mem_write_bw(GB/s)",
+              "aiv_ub_read_bw(GB/s)",
+              "aiv_ub_write_bw(GB/s)"
+            ],
+            "raw_field_statistics": {
+              "aic_l1_read_bw(GB/s)": {
+                "median": 6.522,
+                "min": 6.517,
+                "max": 6.545,
+                "count": 3
+              },
+              "aic_l1_write_bw(GB/s)": {
+                "median": 1.902,
+                "min": 1.901,
+                "max": 1.909,
+                "count": 3
+              },
+              "aic_l2_read_bw(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aic_l2_write_bw(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aic_main_mem_read_bw(GB/s)": {
+                "median": 0.038,
+                "min": 0.038,
+                "max": 0.038,
+                "count": 3
+              },
+              "aic_main_mem_write_bw(GB/s)": {
+                "median": 0.025,
+                "min": 0.025,
+                "max": 0.026,
+                "count": 3
+              },
+              "aiv_l2_read_bw(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aiv_l2_write_bw(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aiv_main_mem_read_bw(GB/s)": {
+                "median": 0.128,
+                "min": 0.128,
+                "max": 0.129,
+                "count": 3
+              },
+              "aiv_main_mem_write_bw(GB/s)": {
+                "median": 0.028,
+                "min": 0.028,
+                "max": 0.028,
+                "count": 3
+              },
+              "aiv_ub_read_bw(GB/s)": {
+                "median": 26.069,
+                "min": 26.048,
+                "max": 26.146,
+                "count": 3
+              },
+              "aiv_ub_write_bw(GB/s)": {
+                "median": 24.195,
+                "min": 24.18,
+                "max": 24.266,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "270",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679676284549.520\t",
+                "Duration(us)": "7314.806",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7192.298",
+                "aic_total_cycles": "94938330",
+                "aic_l1_read_bw(GB/s)": "6.517",
+                "aic_l1_write_bw(GB/s)": "1.901",
+                "aic_main_mem_read_bw(GB/s)": "0.038",
+                "aic_main_mem_write_bw(GB/s)": "0.025",
+                "aic_l2_read_bw(GB/s)": "0.0",
+                "aic_l2_write_bw(GB/s)": "0.0",
+                "aiv_time(us)": "7192.415",
+                "aiv_total_cycles": "189879750",
+                "aiv_ub_read_bw(GB/s)": "26.048",
+                "aiv_ub_write_bw(GB/s)": "24.18",
+                "aiv_main_mem_read_bw(GB/s)": "0.128",
+                "aiv_main_mem_write_bw(GB/s)": "0.028",
+                "aiv_l2_read_bw(GB/s)": "0.0",
+                "aiv_l2_write_bw(GB/s)": "0.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "271",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679676291867.146\t",
+                "Duration(us)": "7253.084",
+                "Wait Time(us)": "2.944000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7162.499",
+                "aic_total_cycles": "94544986",
+                "aic_l1_read_bw(GB/s)": "6.545",
+                "aic_l1_write_bw(GB/s)": "1.909",
+                "aic_main_mem_read_bw(GB/s)": "0.038",
+                "aic_main_mem_write_bw(GB/s)": "0.026",
+                "aic_l2_read_bw(GB/s)": "0.0",
+                "aic_l2_write_bw(GB/s)": "0.0",
+                "aiv_time(us)": "7162.635",
+                "aiv_total_cycles": "189093566",
+                "aiv_ub_read_bw(GB/s)": "26.146",
+                "aiv_ub_write_bw(GB/s)": "24.266",
+                "aiv_main_mem_read_bw(GB/s)": "0.129",
+                "aiv_main_mem_write_bw(GB/s)": "0.028",
+                "aiv_l2_read_bw(GB/s)": "0.0",
+                "aiv_l2_write_bw(GB/s)": "0.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "272",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679676299123.310\t",
+                "Duration(us)": "7264.906",
+                "Wait Time(us)": "2.916000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7187.307",
+                "aic_total_cycles": "94872453",
+                "aic_l1_read_bw(GB/s)": "6.522",
+                "aic_l1_write_bw(GB/s)": "1.902",
+                "aic_main_mem_read_bw(GB/s)": "0.038",
+                "aic_main_mem_write_bw(GB/s)": "0.025",
+                "aic_l2_read_bw(GB/s)": "0.0",
+                "aic_l2_write_bw(GB/s)": "0.0",
+                "aiv_time(us)": "7187.429",
+                "aiv_total_cycles": "189748127",
+                "aiv_ub_read_bw(GB/s)": "26.069",
+                "aiv_ub_write_bw(GB/s)": "24.195",
+                "aiv_main_mem_read_bw(GB/s)": "0.128",
+                "aiv_main_mem_write_bw(GB/s)": "0.028",
+                "aiv_l2_read_bw(GB/s)": "0.0",
+                "aiv_l2_write_bw(GB/s)": "0.0"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 128,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8192,
+              8256,
+              8319
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "MemoryUB": {
+          "status": "available",
+          "metric": "MemoryUB",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7226.244",
+              "aicore_time(us)": "7155.883",
+              "aic_total_cycles": "94457653",
+              "aic_ub_read_bw_scalar(GB/s)": "0.0",
+              "aic_ub_write_bw_scalar(GB/s)": "0.0",
+              "aiv_time(us)": "7156.028",
+              "aiv_total_cycles": "188919144",
+              "aiv_ub_read_bw_vector(GB/s)": "6.264",
+              "aiv_ub_write_bw_vector(GB/s)": "4.971",
+              "aiv_ub_read_bw_scalar(GB/s)": "0.41",
+              "aiv_ub_write_bw_scalar(GB/s)": "0.428"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7313.246",
+              "aicore_time(us)": "7189.878",
+              "aic_total_cycles": "94906391",
+              "aic_ub_read_bw_scalar(GB/s)": "0.0",
+              "aic_ub_write_bw_scalar(GB/s)": "0.0",
+              "aiv_time(us)": "7189.979",
+              "aiv_total_cycles": "189815448",
+              "aiv_ub_read_bw_vector(GB/s)": "6.236",
+              "aiv_ub_write_bw_vector(GB/s)": "4.947",
+              "aiv_ub_read_bw_scalar(GB/s)": "0.409",
+              "aiv_ub_write_bw_scalar(GB/s)": "0.425"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7252.326",
+              "aicore_time(us)": "7163.235",
+              "aic_total_cycles": "94554706",
+              "aic_ub_read_bw_scalar(GB/s)": "0.0",
+              "aic_ub_write_bw_scalar(GB/s)": "0.0",
+              "aiv_time(us)": "7163.37",
+              "aiv_total_cycles": "189112981",
+              "aiv_ub_read_bw_vector(GB/s)": "6.257",
+              "aiv_ub_write_bw_vector(GB/s)": "4.966",
+              "aiv_ub_read_bw_scalar(GB/s)": "0.41",
+              "aiv_ub_write_bw_scalar(GB/s)": "0.427"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "22.41",
+              "Host Total Duration(us)": "22.41",
+              "Device Self Duration(us)": "7226.244",
+              "Device Total Duration(us)": "7226.244",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "17.32",
+              "Host Total Duration(us)": "17.32",
+              "Device Self Duration(us)": "7313.246",
+              "Device Total Duration(us)": "7313.246",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.0",
+              "Host Total Duration(us)": "16.0",
+              "Device Self Duration(us)": "7252.326",
+              "Device Total Duration(us)": "7252.326",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_total_cycles",
+            "aic_ub_read_bw_scalar(GB/s)",
+            "aic_ub_write_bw_scalar(GB/s)",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_ub_read_bw_scalar(GB/s)",
+            "aiv_ub_read_bw_vector(GB/s)",
+            "aiv_ub_write_bw_scalar(GB/s)",
+            "aiv_ub_write_bw_vector(GB/s)"
+          ],
+          "artifact": "int8_budget_exact-MemoryUB-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122120839_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122120839_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aic_ub_read_bw_scalar(GB/s)",
+                "aic_ub_write_bw_scalar(GB/s)",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_ub_read_bw_vector(GB/s)",
+                "aiv_ub_write_bw_vector(GB/s)",
+                "aiv_ub_read_bw_scalar(GB/s)",
+                "aiv_ub_write_bw_scalar(GB/s)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122120839_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122120839_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122120839_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122120839_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aic_ub_read_bw_scalar(GB/s)",
+              "aic_ub_write_bw_scalar(GB/s)",
+              "aiv_ub_read_bw_scalar(GB/s)",
+              "aiv_ub_read_bw_vector(GB/s)",
+              "aiv_ub_write_bw_scalar(GB/s)",
+              "aiv_ub_write_bw_vector(GB/s)"
+            ],
+            "raw_field_statistics": {
+              "aic_ub_read_bw_scalar(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aic_ub_write_bw_scalar(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aiv_ub_read_bw_scalar(GB/s)": {
+                "median": 0.41,
+                "min": 0.409,
+                "max": 0.41,
+                "count": 3
+              },
+              "aiv_ub_read_bw_vector(GB/s)": {
+                "median": 6.257,
+                "min": 6.236,
+                "max": 6.264,
+                "count": 3
+              },
+              "aiv_ub_write_bw_scalar(GB/s)": {
+                "median": 0.427,
+                "min": 0.425,
+                "max": 0.428,
+                "count": 3
+              },
+              "aiv_ub_write_bw_vector(GB/s)": {
+                "median": 4.966,
+                "min": 4.947,
+                "max": 4.971,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "274",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679680895744.912\t",
+                "Duration(us)": "7226.244",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7155.883",
+                "aic_total_cycles": "94457653",
+                "aic_ub_read_bw_scalar(GB/s)": "0.0",
+                "aic_ub_write_bw_scalar(GB/s)": "0.0",
+                "aiv_time(us)": "7156.028",
+                "aiv_total_cycles": "188919144",
+                "aiv_ub_read_bw_vector(GB/s)": "6.264",
+                "aiv_ub_write_bw_vector(GB/s)": "4.971",
+                "aiv_ub_read_bw_scalar(GB/s)": "0.41",
+                "aiv_ub_write_bw_scalar(GB/s)": "0.428"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "275",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679680902974.056\t",
+                "Duration(us)": "7313.246",
+                "Wait Time(us)": "2.756000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7189.878",
+                "aic_total_cycles": "94906391",
+                "aic_ub_read_bw_scalar(GB/s)": "0.0",
+                "aic_ub_write_bw_scalar(GB/s)": "0.0",
+                "aiv_time(us)": "7189.979",
+                "aiv_total_cycles": "189815448",
+                "aiv_ub_read_bw_vector(GB/s)": "6.236",
+                "aiv_ub_write_bw_vector(GB/s)": "4.947",
+                "aiv_ub_read_bw_scalar(GB/s)": "0.409",
+                "aiv_ub_write_bw_scalar(GB/s)": "0.425"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "276",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679680910290.082\t",
+                "Duration(us)": "7252.326",
+                "Wait Time(us)": "2.754000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7163.235",
+                "aic_total_cycles": "94554706",
+                "aic_ub_read_bw_scalar(GB/s)": "0.0",
+                "aic_ub_write_bw_scalar(GB/s)": "0.0",
+                "aiv_time(us)": "7163.37",
+                "aiv_total_cycles": "189112981",
+                "aiv_ub_read_bw_vector(GB/s)": "6.257",
+                "aiv_ub_write_bw_vector(GB/s)": "4.966",
+                "aiv_ub_read_bw_scalar(GB/s)": "0.41",
+                "aiv_ub_write_bw_scalar(GB/s)": "0.427"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 128,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8192,
+              8256,
+              8319
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "ResourceConflictRatio": {
+          "status": "available",
+          "metric": "ResourceConflictRatio",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7227.724",
+              "aicore_time(us)": "7146.431",
+              "aic_total_cycles": "94332891",
+              "aiv_time(us)": "7146.556",
+              "aiv_total_cycles": "188669082",
+              "aiv_vec_bankgroup_cflt_ratio": "0.007",
+              "aiv_vec_bank_cflt_ratio": "0.022",
+              "aiv_vec_resc_cflt_ratio": "0.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7241.146",
+              "aicore_time(us)": "7158.716",
+              "aic_total_cycles": "94495050",
+              "aiv_time(us)": "7158.84",
+              "aiv_total_cycles": "188993374",
+              "aiv_vec_bankgroup_cflt_ratio": "0.007",
+              "aiv_vec_bank_cflt_ratio": "0.022",
+              "aiv_vec_resc_cflt_ratio": "0.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "7390.668",
+              "aicore_time(us)": "7197.362",
+              "aic_total_cycles": "95005174",
+              "aiv_time(us)": "7197.475",
+              "aiv_total_cycles": "190013340",
+              "aiv_vec_bankgroup_cflt_ratio": "0.007",
+              "aiv_vec_bank_cflt_ratio": "0.022",
+              "aiv_vec_resc_cflt_ratio": "0.0"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "39.91",
+              "Host Total Duration(us)": "39.91",
+              "Device Self Duration(us)": "7227.724",
+              "Device Total Duration(us)": "7227.724",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "21.86",
+              "Host Total Duration(us)": "21.86",
+              "Device Self Duration(us)": "7241.146",
+              "Device Total Duration(us)": "7241.146",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "20.52",
+              "Host Total Duration(us)": "20.52",
+              "Device Self Duration(us)": "7390.668",
+              "Device Total Duration(us)": "7390.668",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_total_cycles",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_vec_bank_cflt_ratio",
+            "aiv_vec_bankgroup_cflt_ratio",
+            "aiv_vec_resc_cflt_ratio"
+          ],
+          "artifact": "int8_budget_exact-ResourceConflictRatio-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122125545_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122125545_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_vec_bankgroup_cflt_ratio",
+                "aiv_vec_bank_cflt_ratio",
+                "aiv_vec_resc_cflt_ratio"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122125545_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122125545_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122125545_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_769456_20261103122125545_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aiv_vec_bank_cflt_ratio",
+              "aiv_vec_bankgroup_cflt_ratio",
+              "aiv_vec_resc_cflt_ratio"
+            ],
+            "raw_field_statistics": {
+              "aiv_vec_bank_cflt_ratio": {
+                "median": 0.022,
+                "min": 0.022,
+                "max": 0.022,
+                "count": 3
+              },
+              "aiv_vec_bankgroup_cflt_ratio": {
+                "median": 0.007,
+                "min": 0.007,
+                "max": 0.007,
+                "count": 3
+              },
+              "aiv_vec_resc_cflt_ratio": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "278",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679685602751.530\t",
+                "Duration(us)": "7227.724",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7146.431",
+                "aic_total_cycles": "94332891",
+                "aiv_time(us)": "7146.556",
+                "aiv_total_cycles": "188669082",
+                "aiv_vec_bankgroup_cflt_ratio": "0.007",
+                "aiv_vec_bank_cflt_ratio": "0.022",
+                "aiv_vec_resc_cflt_ratio": "0.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "279",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679685609982.394\t",
+                "Duration(us)": "7241.146",
+                "Wait Time(us)": "3.276000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7158.716",
+                "aic_total_cycles": "94495050",
+                "aiv_time(us)": "7158.84",
+                "aiv_total_cycles": "188993374",
+                "aiv_vec_bankgroup_cflt_ratio": "0.007",
+                "aiv_vec_bank_cflt_ratio": "0.022",
+                "aiv_vec_resc_cflt_ratio": "0.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "280",
+                "Stream ID": "86",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679685617226.460\t",
+                "Duration(us)": "7390.668",
+                "Wait Time(us)": "2.854000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "7197.362",
+                "aic_total_cycles": "95005174",
+                "aiv_time(us)": "7197.475",
+                "aiv_total_cycles": "190013340",
+                "aiv_vec_bankgroup_cflt_ratio": "0.007",
+                "aiv_vec_bank_cflt_ratio": "0.022",
+                "aiv_vec_resc_cflt_ratio": "0.0"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 128,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8192,
+              8256,
+              8319
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        }
+      },
+      "scope": "Frozen score profiling only; instrumentation changes timing; not benchmark speedup data",
+      "sources": {
+        "profile_qsa_int8_score_910b.py": "b1e8d1c9f5a8fa62b19b16c63145ef2093fb12c65875d2f6e7324f25f7b14289",
+        "qsa_timeline_910b.py": "c54f29cc8626b96342249382b22844f410a02b427bdef943dcf73c0f730251da",
+        "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+        "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40"
+      },
+      "exit_code": 1,
+      "subprocess_exit_code": 1
+    },
+    {
+      "case": "int8_long100k",
+      "status": "partial_capture",
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device_index": 0,
+        "device": "Ascend910B4-1",
+        "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU",
+        "device_isolation": "not_verified"
+      },
+      "device_properties": {
+        "max_shared_mem": 1,
+        "num_aicore": 20,
+        "num_vectorcore": 40
+      },
+      "stage": "completed",
+      "geometry": {
+        "name": "int8_long100k",
+        "nv_case": "fp8_long100k_float8_e4m3fn",
+        "origin": "dtype_variant",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          102400
+        ],
+        "starts": [
+          0,
+          16384
+        ],
+        "batch_max_seq_len": 118784,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          155
+        ],
+        "physical_pages": 155,
+        "table_columns": 155,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          155,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 29696,
+        "chunk_rows": 112,
+        "score_and_dot_scratch_bytes": 66519040,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": null,
+        "nv_original_table_columns": null,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "representative_chunk": {
+        "first": 8176,
+        "count": 112,
+        "visible_first": 27644,
+        "visible_last": 27672,
+        "grid_programs": 8,
+        "block_n": 32,
+        "dot_shape": [
+          32,
+          128,
+          16
+        ],
+        "real_heads": 4,
+        "padded_heads": 16,
+        "work_tiles": 103936,
+        "work_tiles_per_program": 12992,
+        "score_scratch_bytes": 13303808,
+        "raw_dot_bytes": 0
+      },
+      "checks": {
+        "last_warmup_chunk": {
+          "rows": 32,
+          "all_chunk_score_masks_checked": true,
+          "cpu_reference_rows": [
+            16352,
+            16368,
+            16383
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "workload_cpu_samples": {
+          "rows": [
+            0,
+            111,
+            112,
+            8192,
+            16352,
+            16383
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "representative_pre": {
+          "rows": 112,
+          "all_chunk_score_masks_checked": true,
+          "cpu_reference_rows": [
+            8176,
+            8232,
+            8287
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "last_timeline_chunk": {
+          "rows": 32,
+          "all_chunk_score_masks_checked": true,
+          "cpu_reference_rows": [
+            16352,
+            16368,
+            16383
+          ],
+          "max_abs_error": 7.62939453125e-06
+        }
+      },
+      "compiler": {
+        "asm_keys": [
+          "source",
+          "ttir",
+          "ttadapter",
+          "mlirbc",
+          "bcmlir",
+          "npubin"
+        ],
+        "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='b561b2473fd79c848692818019c95408629950a63c7d018724902911d816fa0b', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=24576)",
+        "artifacts": [
+          {
+            "file": "int8_long100k-score-ttir.txt",
+            "truncated": false,
+            "static_token_occurrences": {
+              "barrier": 0,
+              "wait_flag": 0,
+              "set_flag": 0,
+              "convert_layout": 0,
+              "transpose": 0,
+              "mmad": 0,
+              "tt.dot": 1
+            }
+          },
+          {
+            "file": "int8_long100k-score-ttadapter.txt",
+            "truncated": false,
+            "static_token_occurrences": {
+              "barrier": 0,
+              "wait_flag": 0,
+              "set_flag": 0,
+              "convert_layout": 0,
+              "transpose": 1,
+              "mmad": 0,
+              "tt.dot": 0
+            }
+          },
+          {
+            "file": "int8_long100k-score-bcmlir.txt",
+            "truncated": false,
+            "static_token_occurrences": {
+              "barrier": 0,
+              "wait_flag": 0,
+              "set_flag": 0,
+              "convert_layout": 0,
+              "transpose": 3,
+              "mmad": 0,
+              "tt.dot": 0
+            }
+          },
+          {
+            "file": "int8_long100k-score-source.txt",
+            "truncated": false,
+            "static_token_occurrences": {
+              "barrier": 0,
+              "wait_flag": 0,
+              "set_flag": 0,
+              "convert_layout": 0,
+              "transpose": 0,
+              "mmad": 0,
+              "tt.dot": 1
+            }
+          }
+        ]
+      },
+      "timeline": {
+        "iterations": 1,
+        "stages": {
+          "score": {
+            "trace_file": "int8_long100k-score-trace.json.gz",
+            "compressed_bytes": 33085,
+            "task_count": 147,
+            "timestamp_origin_us": "1793679705945392.248",
+            "hardware_pids": [
+              792928704
+            ],
+            "device_task_duration_sum_us": 3831887.3359999997,
+            "device_task_union_us": 3831887.3359999997,
+            "device_task_envelope_us": 3832301.5100000002,
+            "uncovered_envelope_us": 414.17400000058115,
+            "uncovered_fraction": 0.0001080744818537467,
+            "categories": {
+              "cpu_op": 2206,
+              "dequeue": 147,
+              "async_task_queue": 294,
+              "enqueue": 147,
+              "": 479,
+              "HostToDevice": 147
+            },
+            "largest_gaps": [
+              {
+                "start_us": 1375803.0899999999,
+                "end_us": 1375806.23,
+                "duration_us": 3.140000000130385
+              },
+              {
+                "start_us": 3524951.77,
+                "end_us": 3524954.91,
+                "duration_us": 3.140000000130385
+              },
+              {
+                "start_us": 3633593.6599999997,
+                "end_us": 3633596.8,
+                "duration_us": 3.140000000130385
+              },
+              {
+                "start_us": 3742521.196,
+                "end_us": 3742524.336,
+                "duration_us": 3.140000000130385
+              },
+              {
+                "start_us": 25217.964,
+                "end_us": 25221.104,
+                "duration_us": 3.139999999999418
+              },
+              {
+                "start_us": 3470524.762,
+                "end_us": 3470527.902,
+                "duration_us": 3.139999999664724
+              },
+              {
+                "start_us": 3092042.88,
+                "end_us": 3092046.0,
+                "duration_us": 3.1200000001117587
+              },
+              {
+                "start_us": 402965.592,
+                "end_us": 402968.712,
+                "duration_us": 3.1199999999953434
+              },
+              {
+                "start_us": 1740011.746,
+                "end_us": 1740014.866,
+                "duration_us": 3.119999999878928
+              },
+              {
+                "start_us": 989156.3239999999,
+                "end_us": 989159.424,
+                "duration_us": 3.1000000000931323
+              },
+              {
+                "start_us": 2850349.15,
+                "end_us": 2850352.25,
+                "duration_us": 3.1000000000931323
+              },
+              {
+                "start_us": 3119071.78,
+                "end_us": 3119074.88,
+                "duration_us": 3.1000000000931323
+              },
+              {
+                "start_us": 912293.628,
+                "end_us": 912296.728,
+                "duration_us": 3.099999999976717
+              },
+              {
+                "start_us": 3226811.132,
+                "end_us": 3226814.232,
+                "duration_us": 3.099999999627471
+              },
+              {
+                "start_us": 3361979.6920000003,
+                "end_us": 3361982.792,
+                "duration_us": 3.099999999627471
+              },
+              {
+                "start_us": 861054.244,
+                "end_us": 861057.324,
+                "duration_us": 3.080000000074506
+              },
+              {
+                "start_us": 2133319.384,
+                "end_us": 2133322.464,
+                "duration_us": 3.080000000074506
+              },
+              {
+                "start_us": 2796774.48,
+                "end_us": 2796777.56,
+                "duration_us": 3.080000000074506
+              },
+              {
+                "start_us": 835484.034,
+                "end_us": 835487.114,
+                "duration_us": 3.0799999999580905
+              },
+              {
+                "start_us": 2001755.6160000002,
+                "end_us": 2001758.696,
+                "duration_us": 3.079999999841675
+              }
+            ],
+            "kernels": {
+              "MIX_AIC": {
+                "count": 147,
+                "sum_us": 3831887.3359999997
+              }
+            },
+            "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace.",
+            "expected_score_launches": 147,
+            "matched_score_task_names": [],
+            "usable": false
+          }
+        },
+        "units": "microseconds",
+        "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+      },
+      "hardware": {
+        "PipeUtilization": {
+          "status": "available",
+          "metric": "PipeUtilization",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26192.402",
+              "aicore_time(us)": "26043.525",
+              "aic_total_cycles": "343774531",
+              "aic_mac_time(us)": "559.05",
+              "aic_mac_ratio": "0.021",
+              "aic_scalar_time(us)": "8872.758",
+              "aic_scalar_ratio": "0.341",
+              "aic_mte1_time(us)": "621.92",
+              "aic_mte1_ratio": "0.024",
+              "aic_mte2_time(us)": "3154.64",
+              "aic_mte2_ratio": "0.121",
+              "aic_fixpipe_time(us)": "2004.242",
+              "aic_fixpipe_ratio": "0.077",
+              "aic_icache_miss_rate": "0.0",
+              "aiv_time(us)": "26043.632",
+              "aiv_total_cycles": "687551880",
+              "aiv_vec_time(us)": "7597.8",
+              "aiv_vec_ratio": "0.292",
+              "aiv_scalar_time(us)": "24769.858",
+              "aiv_scalar_ratio": "0.951",
+              "aiv_mte2_time(us)": "12213.973",
+              "aiv_mte2_ratio": "0.469",
+              "aiv_mte3_time(us)": "1770.266",
+              "aiv_mte3_ratio": "0.068",
+              "aiv_icache_miss_rate": "0.0",
+              "cube_utilization(%)": "39.773"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26200.224",
+              "aicore_time(us)": "25975.882",
+              "aic_total_cycles": "342881641",
+              "aic_mac_time(us)": "559.05",
+              "aic_mac_ratio": "0.022",
+              "aic_scalar_time(us)": "9056.558",
+              "aic_scalar_ratio": "0.349",
+              "aic_mte1_time(us)": "621.947",
+              "aic_mte1_ratio": "0.024",
+              "aic_mte2_time(us)": "3227.499",
+              "aic_mte2_ratio": "0.124",
+              "aic_fixpipe_time(us)": "2034.085",
+              "aic_fixpipe_ratio": "0.078",
+              "aic_icache_miss_rate": "0.0",
+              "aiv_time(us)": "25976.009",
+              "aiv_total_cycles": "685766639",
+              "aiv_vec_time(us)": "7588.815",
+              "aiv_vec_ratio": "0.292",
+              "aiv_scalar_time(us)": "24566.623",
+              "aiv_scalar_ratio": "0.946",
+              "aiv_mte2_time(us)": "12142.232",
+              "aiv_mte2_ratio": "0.467",
+              "aiv_mte3_time(us)": "1776.056",
+              "aiv_mte3_ratio": "0.068",
+              "aiv_icache_miss_rate": "0.0",
+              "cube_utilization(%)": "39.657"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26322.946",
+              "aicore_time(us)": "26086.812",
+              "aic_total_cycles": "344345914",
+              "aic_mac_time(us)": "559.05",
+              "aic_mac_ratio": "0.021",
+              "aic_scalar_time(us)": "8755.505",
+              "aic_scalar_ratio": "0.336",
+              "aic_mte1_time(us)": "622.014",
+              "aic_mte1_ratio": "0.024",
+              "aic_mte2_time(us)": "3112.178",
+              "aic_mte2_ratio": "0.119",
+              "aic_fixpipe_time(us)": "2023.899",
+              "aic_fixpipe_ratio": "0.078",
+              "aic_icache_miss_rate": "0.0",
+              "aiv_time(us)": "26086.91",
+              "aiv_total_cycles": "688694411",
+              "aiv_vec_time(us)": "7598.361",
+              "aiv_vec_ratio": "0.291",
+              "aiv_scalar_time(us)": "24788.812",
+              "aiv_scalar_ratio": "0.95",
+              "aiv_mte2_time(us)": "12327.917",
+              "aiv_mte2_ratio": "0.473",
+              "aiv_mte3_time(us)": "1786.021",
+              "aiv_mte3_ratio": "0.068",
+              "aiv_icache_miss_rate": "0.0",
+              "cube_utilization(%)": "39.641"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "26.23",
+              "Host Total Duration(us)": "26.23",
+              "Device Self Duration(us)": "26192.402",
+              "Device Total Duration(us)": "26192.402",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.81",
+              "Host Total Duration(us)": "16.81",
+              "Device Self Duration(us)": "26200.224",
+              "Device Total Duration(us)": "26200.224",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.12",
+              "Host Total Duration(us)": "16.12",
+              "Device Self Duration(us)": "26322.946",
+              "Device Total Duration(us)": "26322.946",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_fixpipe_ratio",
+            "aic_fixpipe_time(us)",
+            "aic_icache_miss_rate",
+            "aic_mac_ratio",
+            "aic_mac_time(us)",
+            "aic_mte1_ratio",
+            "aic_mte1_time(us)",
+            "aic_mte2_ratio",
+            "aic_mte2_time(us)",
+            "aic_scalar_ratio",
+            "aic_scalar_time(us)",
+            "aic_total_cycles",
+            "aiv_icache_miss_rate",
+            "aiv_mte2_ratio",
+            "aiv_mte2_time(us)",
+            "aiv_mte3_ratio",
+            "aiv_mte3_time(us)",
+            "aiv_scalar_ratio",
+            "aiv_scalar_time(us)",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_vec_ratio",
+            "aiv_vec_time(us)",
+            "cube_utilization(%)"
+          ],
+          "artifact": "int8_long100k-PipeUtilization-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122153464_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122153464_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aic_mac_time(us)",
+                "aic_mac_ratio",
+                "aic_scalar_time(us)",
+                "aic_scalar_ratio",
+                "aic_mte1_time(us)",
+                "aic_mte1_ratio",
+                "aic_mte2_time(us)",
+                "aic_mte2_ratio",
+                "aic_fixpipe_time(us)",
+                "aic_fixpipe_ratio",
+                "aic_icache_miss_rate",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_vec_time(us)",
+                "aiv_vec_ratio",
+                "aiv_scalar_time(us)",
+                "aiv_scalar_ratio",
+                "aiv_mte2_time(us)",
+                "aiv_mte2_ratio",
+                "aiv_mte3_time(us)",
+                "aiv_mte3_ratio",
+                "aiv_icache_miss_rate",
+                "cube_utilization(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122153464_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122153464_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122153464_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122153464_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aic_fixpipe_ratio",
+              "aic_fixpipe_time(us)",
+              "aic_mac_ratio",
+              "aic_mac_time(us)",
+              "aic_mte1_ratio",
+              "aic_mte1_time(us)",
+              "aic_mte2_ratio",
+              "aic_mte2_time(us)",
+              "aic_scalar_ratio",
+              "aic_scalar_time(us)",
+              "aiv_mte2_ratio",
+              "aiv_mte2_time(us)",
+              "aiv_mte3_ratio",
+              "aiv_mte3_time(us)",
+              "aiv_scalar_ratio",
+              "aiv_scalar_time(us)",
+              "aiv_vec_ratio",
+              "aiv_vec_time(us)",
+              "cube_utilization(%)"
+            ],
+            "raw_field_statistics": {
+              "aic_fixpipe_ratio": {
+                "median": 0.078,
+                "min": 0.077,
+                "max": 0.078,
+                "count": 3
+              },
+              "aic_fixpipe_time(us)": {
+                "median": 2023.899,
+                "min": 2004.242,
+                "max": 2034.085,
+                "count": 3
+              },
+              "aic_mac_ratio": {
+                "median": 0.021,
+                "min": 0.021,
+                "max": 0.022,
+                "count": 3
+              },
+              "aic_mac_time(us)": {
+                "median": 559.05,
+                "min": 559.05,
+                "max": 559.05,
+                "count": 3
+              },
+              "aic_mte1_ratio": {
+                "median": 0.024,
+                "min": 0.024,
+                "max": 0.024,
+                "count": 3
+              },
+              "aic_mte1_time(us)": {
+                "median": 621.947,
+                "min": 621.92,
+                "max": 622.014,
+                "count": 3
+              },
+              "aic_mte2_ratio": {
+                "median": 0.121,
+                "min": 0.119,
+                "max": 0.124,
+                "count": 3
+              },
+              "aic_mte2_time(us)": {
+                "median": 3154.64,
+                "min": 3112.178,
+                "max": 3227.499,
+                "count": 3
+              },
+              "aic_scalar_ratio": {
+                "median": 0.341,
+                "min": 0.336,
+                "max": 0.349,
+                "count": 3
+              },
+              "aic_scalar_time(us)": {
+                "median": 8872.758,
+                "min": 8755.505,
+                "max": 9056.558,
+                "count": 3
+              },
+              "aiv_mte2_ratio": {
+                "median": 0.469,
+                "min": 0.467,
+                "max": 0.473,
+                "count": 3
+              },
+              "aiv_mte2_time(us)": {
+                "median": 12213.973,
+                "min": 12142.232,
+                "max": 12327.917,
+                "count": 3
+              },
+              "aiv_mte3_ratio": {
+                "median": 0.068,
+                "min": 0.068,
+                "max": 0.068,
+                "count": 3
+              },
+              "aiv_mte3_time(us)": {
+                "median": 1776.056,
+                "min": 1770.266,
+                "max": 1786.021,
+                "count": 3
+              },
+              "aiv_scalar_ratio": {
+                "median": 0.95,
+                "min": 0.946,
+                "max": 0.951,
+                "count": 3
+              },
+              "aiv_scalar_time(us)": {
+                "median": 24769.858,
+                "min": 24566.623,
+                "max": 24788.812,
+                "count": 3
+              },
+              "aiv_vec_ratio": {
+                "median": 0.292,
+                "min": 0.291,
+                "max": 0.292,
+                "count": 3
+              },
+              "aiv_vec_time(us)": {
+                "median": 7597.8,
+                "min": 7588.815,
+                "max": 7598.361,
+                "count": 3
+              },
+              "cube_utilization(%)": {
+                "median": 39.657,
+                "min": 39.641,
+                "max": 39.773,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "300",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679713518810.796\t",
+                "Duration(us)": "26192.402",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "26043.525",
+                "aic_total_cycles": "343774531",
+                "aic_mac_time(us)": "559.05",
+                "aic_mac_ratio": "0.021",
+                "aic_scalar_time(us)": "8872.758",
+                "aic_scalar_ratio": "0.341",
+                "aic_mte1_time(us)": "621.92",
+                "aic_mte1_ratio": "0.024",
+                "aic_mte2_time(us)": "3154.64",
+                "aic_mte2_ratio": "0.121",
+                "aic_fixpipe_time(us)": "2004.242",
+                "aic_fixpipe_ratio": "0.077",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "26043.632",
+                "aiv_total_cycles": "687551880",
+                "aiv_vec_time(us)": "7597.8",
+                "aiv_vec_ratio": "0.292",
+                "aiv_scalar_time(us)": "24769.858",
+                "aiv_scalar_ratio": "0.951",
+                "aiv_mte2_time(us)": "12213.973",
+                "aiv_mte2_ratio": "0.469",
+                "aiv_mte3_time(us)": "1770.266",
+                "aiv_mte3_ratio": "0.068",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "39.773"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "301",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679713545005.878\t",
+                "Duration(us)": "26200.224",
+                "Wait Time(us)": "2.848000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "25975.882",
+                "aic_total_cycles": "342881641",
+                "aic_mac_time(us)": "559.05",
+                "aic_mac_ratio": "0.022",
+                "aic_scalar_time(us)": "9056.558",
+                "aic_scalar_ratio": "0.349",
+                "aic_mte1_time(us)": "621.947",
+                "aic_mte1_ratio": "0.024",
+                "aic_mte2_time(us)": "3227.499",
+                "aic_mte2_ratio": "0.124",
+                "aic_fixpipe_time(us)": "2034.085",
+                "aic_fixpipe_ratio": "0.078",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "25976.009",
+                "aiv_total_cycles": "685766639",
+                "aiv_vec_time(us)": "7588.815",
+                "aiv_vec_ratio": "0.292",
+                "aiv_scalar_time(us)": "24566.623",
+                "aiv_scalar_ratio": "0.946",
+                "aiv_mte2_time(us)": "12142.232",
+                "aiv_mte2_ratio": "0.467",
+                "aiv_mte3_time(us)": "1776.056",
+                "aiv_mte3_ratio": "0.068",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "39.657"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "302",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679713571209.082\t",
+                "Duration(us)": "26322.946",
+                "Wait Time(us)": "2.776000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "26086.812",
+                "aic_total_cycles": "344345914",
+                "aic_mac_time(us)": "559.05",
+                "aic_mac_ratio": "0.021",
+                "aic_scalar_time(us)": "8755.505",
+                "aic_scalar_ratio": "0.336",
+                "aic_mte1_time(us)": "622.014",
+                "aic_mte1_ratio": "0.024",
+                "aic_mte2_time(us)": "3112.178",
+                "aic_mte2_ratio": "0.119",
+                "aic_fixpipe_time(us)": "2023.899",
+                "aic_fixpipe_ratio": "0.078",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "26086.91",
+                "aiv_total_cycles": "688694411",
+                "aiv_vec_time(us)": "7598.361",
+                "aiv_vec_ratio": "0.291",
+                "aiv_scalar_time(us)": "24788.812",
+                "aiv_scalar_ratio": "0.95",
+                "aiv_mte2_time(us)": "12327.917",
+                "aiv_mte2_ratio": "0.473",
+                "aiv_mte3_time(us)": "1786.021",
+                "aiv_mte3_ratio": "0.068",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "39.641"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 112,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8176,
+              8232,
+              8287
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "ArithmeticUtilization": {
+          "status": "available",
+          "metric": "ArithmeticUtilization",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26087.242",
+              "aicore_time(us)": "25990.491",
+              "aic_total_cycles": "343074483",
+              "aic_mac_fp16_ratio": "0.0",
+              "aic_mac_int8_ratio": "0.032",
+              "aic_cube_fops": "178803179520.0",
+              "aiv_time(us)": "25990.612",
+              "aiv_total_cycles": "686152162",
+              "aiv_vec_fp32_ratio": "0.052",
+              "aiv_vec_fp16_ratio": "0.019",
+              "aiv_vec_int32_ratio": "0.0",
+              "aiv_vec_misc_ratio": "0.029",
+              "aiv_vector_fops": "4564797184.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26205.264",
+              "aicore_time(us)": "26033.787",
+              "aic_total_cycles": "343645987",
+              "aic_mac_fp16_ratio": "0.0",
+              "aic_mac_int8_ratio": "0.032",
+              "aic_cube_fops": "178803179520.0",
+              "aiv_time(us)": "26033.884",
+              "aiv_total_cycles": "687294542",
+              "aiv_vec_fp32_ratio": "0.052",
+              "aiv_vec_fp16_ratio": "0.019",
+              "aiv_vec_int32_ratio": "0.0",
+              "aiv_vec_misc_ratio": "0.029",
+              "aiv_vector_fops": "4564797184.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26210.144",
+              "aicore_time(us)": "25971.364",
+              "aic_total_cycles": "342822009",
+              "aic_mac_fp16_ratio": "0.0",
+              "aic_mac_int8_ratio": "0.032",
+              "aic_cube_fops": "178803179520.0",
+              "aiv_time(us)": "25971.485",
+              "aiv_total_cycles": "685647196",
+              "aiv_vec_fp32_ratio": "0.052",
+              "aiv_vec_fp16_ratio": "0.019",
+              "aiv_vec_int32_ratio": "0.0",
+              "aiv_vec_misc_ratio": "0.029",
+              "aiv_vector_fops": "4564797184.0"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "26.99",
+              "Host Total Duration(us)": "26.99",
+              "Device Self Duration(us)": "26087.242",
+              "Device Total Duration(us)": "26087.242",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.97",
+              "Host Total Duration(us)": "16.97",
+              "Device Self Duration(us)": "26205.264",
+              "Device Total Duration(us)": "26205.264",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "15.94",
+              "Host Total Duration(us)": "15.94",
+              "Device Self Duration(us)": "26210.144",
+              "Device Total Duration(us)": "26210.144",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_cube_fops",
+            "aic_mac_fp16_ratio",
+            "aic_mac_int8_ratio",
+            "aic_total_cycles",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_vec_fp16_ratio",
+            "aiv_vec_fp32_ratio",
+            "aiv_vec_int32_ratio",
+            "aiv_vec_misc_ratio",
+            "aiv_vector_fops"
+          ],
+          "artifact": "int8_long100k-ArithmeticUtilization-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122157343_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122157343_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aic_mac_fp16_ratio",
+                "aic_mac_int8_ratio",
+                "aic_cube_fops",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_vec_fp32_ratio",
+                "aiv_vec_fp16_ratio",
+                "aiv_vec_int32_ratio",
+                "aiv_vec_misc_ratio",
+                "aiv_vector_fops"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122157343_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122157343_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122157343_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122157343_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aic_cube_fops",
+              "aic_mac_fp16_ratio",
+              "aic_mac_int8_ratio",
+              "aiv_vec_fp16_ratio",
+              "aiv_vec_fp32_ratio",
+              "aiv_vector_fops"
+            ],
+            "raw_field_statistics": {
+              "aic_cube_fops": {
+                "median": 178803179520.0,
+                "min": 178803179520.0,
+                "max": 178803179520.0,
+                "count": 3
+              },
+              "aic_mac_fp16_ratio": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aic_mac_int8_ratio": {
+                "median": 0.032,
+                "min": 0.032,
+                "max": 0.032,
+                "count": 3
+              },
+              "aiv_vec_fp16_ratio": {
+                "median": 0.019,
+                "min": 0.019,
+                "max": 0.019,
+                "count": 3
+              },
+              "aiv_vec_fp32_ratio": {
+                "median": 0.052,
+                "min": 0.052,
+                "max": 0.052,
+                "count": 3
+              },
+              "aiv_vector_fops": {
+                "median": 4564797184.0,
+                "min": 4564797184.0,
+                "max": 4564797184.0,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "304",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679717398110.382\t",
+                "Duration(us)": "26087.242",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "25990.491",
+                "aic_total_cycles": "343074483",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.032",
+                "aic_cube_fops": "178803179520.0",
+                "aiv_time(us)": "25990.612",
+                "aiv_total_cycles": "686152162",
+                "aiv_vec_fp32_ratio": "0.052",
+                "aiv_vec_fp16_ratio": "0.019",
+                "aiv_vec_int32_ratio": "0.0",
+                "aiv_vec_misc_ratio": "0.029",
+                "aiv_vector_fops": "4564797184.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "305",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679717424200.724\t",
+                "Duration(us)": "26205.264",
+                "Wait Time(us)": "3.008000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "26033.787",
+                "aic_total_cycles": "343645987",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.032",
+                "aic_cube_fops": "178803179520.0",
+                "aiv_time(us)": "26033.884",
+                "aiv_total_cycles": "687294542",
+                "aiv_vec_fp32_ratio": "0.052",
+                "aiv_vec_fp16_ratio": "0.019",
+                "aiv_vec_int32_ratio": "0.0",
+                "aiv_vec_misc_ratio": "0.029",
+                "aiv_vector_fops": "4564797184.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "306",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679717450408.988\t",
+                "Duration(us)": "26210.144",
+                "Wait Time(us)": "2.986000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "25971.364",
+                "aic_total_cycles": "342822009",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.032",
+                "aic_cube_fops": "178803179520.0",
+                "aiv_time(us)": "25971.485",
+                "aiv_total_cycles": "685647196",
+                "aiv_vec_fp32_ratio": "0.052",
+                "aiv_vec_fp16_ratio": "0.019",
+                "aiv_vec_int32_ratio": "0.0",
+                "aiv_vec_misc_ratio": "0.029",
+                "aiv_vector_fops": "4564797184.0"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 112,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8176,
+              8232,
+              8287
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "Memory": {
+          "status": "available",
+          "metric": "Memory",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26150.364",
+              "aicore_time(us)": "25961.56",
+              "aic_total_cycles": "342692596",
+              "aic_l1_read_bw(GB/s)": "5.727",
+              "aic_l1_write_bw(GB/s)": "1.67",
+              "aic_main_mem_read_bw(GB/s)": "0.034",
+              "aic_main_mem_write_bw(GB/s)": "0.022",
+              "aic_l2_read_bw(GB/s)": "0.0",
+              "aic_l2_write_bw(GB/s)": "0.0",
+              "aiv_time(us)": "25961.685",
+              "aiv_total_cycles": "685388487",
+              "aiv_ub_read_bw(GB/s)": "23.601",
+              "aiv_ub_write_bw(GB/s)": "22.545",
+              "aiv_main_mem_read_bw(GB/s)": "0.136",
+              "aiv_main_mem_write_bw(GB/s)": "0.024",
+              "aiv_l2_read_bw(GB/s)": "0.0",
+              "aiv_l2_write_bw(GB/s)": "0.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26154.242",
+              "aicore_time(us)": "26001.444",
+              "aic_total_cycles": "343219064",
+              "aic_l1_read_bw(GB/s)": "5.718",
+              "aic_l1_write_bw(GB/s)": "1.668",
+              "aic_main_mem_read_bw(GB/s)": "0.034",
+              "aic_main_mem_write_bw(GB/s)": "0.022",
+              "aic_l2_read_bw(GB/s)": "0.0",
+              "aic_l2_write_bw(GB/s)": "0.0",
+              "aiv_time(us)": "26001.569",
+              "aiv_total_cycles": "686441432",
+              "aiv_ub_read_bw(GB/s)": "23.566",
+              "aiv_ub_write_bw(GB/s)": "22.499",
+              "aiv_main_mem_read_bw(GB/s)": "0.135",
+              "aiv_main_mem_write_bw(GB/s)": "0.024",
+              "aiv_l2_read_bw(GB/s)": "0.0",
+              "aiv_l2_write_bw(GB/s)": "0.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26200.462",
+              "aicore_time(us)": "26033.433",
+              "aic_total_cycles": "343641311",
+              "aic_l1_read_bw(GB/s)": "5.711",
+              "aic_l1_write_bw(GB/s)": "1.666",
+              "aic_main_mem_read_bw(GB/s)": "0.033",
+              "aic_main_mem_write_bw(GB/s)": "0.022",
+              "aic_l2_read_bw(GB/s)": "0.0",
+              "aic_l2_write_bw(GB/s)": "0.0",
+              "aiv_time(us)": "26033.539",
+              "aiv_total_cycles": "687285438",
+              "aiv_ub_read_bw(GB/s)": "23.539",
+              "aiv_ub_write_bw(GB/s)": "22.483",
+              "aiv_main_mem_read_bw(GB/s)": "0.135",
+              "aiv_main_mem_write_bw(GB/s)": "0.024",
+              "aiv_l2_read_bw(GB/s)": "0.0",
+              "aiv_l2_write_bw(GB/s)": "0.0"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "25.7",
+              "Host Total Duration(us)": "25.7",
+              "Device Self Duration(us)": "26150.364",
+              "Device Total Duration(us)": "26150.364",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.04",
+              "Host Total Duration(us)": "16.04",
+              "Device Self Duration(us)": "26154.242",
+              "Device Total Duration(us)": "26154.242",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.72",
+              "Host Total Duration(us)": "16.72",
+              "Device Self Duration(us)": "26200.462",
+              "Device Total Duration(us)": "26200.462",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_l1_read_bw(GB/s)",
+            "aic_l1_write_bw(GB/s)",
+            "aic_l2_read_bw(GB/s)",
+            "aic_l2_write_bw(GB/s)",
+            "aic_main_mem_read_bw(GB/s)",
+            "aic_main_mem_write_bw(GB/s)",
+            "aic_total_cycles",
+            "aiv_l2_read_bw(GB/s)",
+            "aiv_l2_write_bw(GB/s)",
+            "aiv_main_mem_read_bw(GB/s)",
+            "aiv_main_mem_write_bw(GB/s)",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_ub_read_bw(GB/s)",
+            "aiv_ub_write_bw(GB/s)"
+          ],
+          "artifact": "int8_long100k-Memory-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122201227_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122201227_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aic_l1_read_bw(GB/s)",
+                "aic_l1_write_bw(GB/s)",
+                "aic_main_mem_read_bw(GB/s)",
+                "aic_main_mem_write_bw(GB/s)",
+                "aic_l2_read_bw(GB/s)",
+                "aic_l2_write_bw(GB/s)",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_ub_read_bw(GB/s)",
+                "aiv_ub_write_bw(GB/s)",
+                "aiv_main_mem_read_bw(GB/s)",
+                "aiv_main_mem_write_bw(GB/s)",
+                "aiv_l2_read_bw(GB/s)",
+                "aiv_l2_write_bw(GB/s)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122201227_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122201227_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122201227_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122201227_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aic_l1_read_bw(GB/s)",
+              "aic_l1_write_bw(GB/s)",
+              "aic_l2_read_bw(GB/s)",
+              "aic_l2_write_bw(GB/s)",
+              "aic_main_mem_read_bw(GB/s)",
+              "aic_main_mem_write_bw(GB/s)",
+              "aiv_l2_read_bw(GB/s)",
+              "aiv_l2_write_bw(GB/s)",
+              "aiv_main_mem_read_bw(GB/s)",
+              "aiv_main_mem_write_bw(GB/s)",
+              "aiv_ub_read_bw(GB/s)",
+              "aiv_ub_write_bw(GB/s)"
+            ],
+            "raw_field_statistics": {
+              "aic_l1_read_bw(GB/s)": {
+                "median": 5.718,
+                "min": 5.711,
+                "max": 5.727,
+                "count": 3
+              },
+              "aic_l1_write_bw(GB/s)": {
+                "median": 1.668,
+                "min": 1.666,
+                "max": 1.67,
+                "count": 3
+              },
+              "aic_l2_read_bw(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aic_l2_write_bw(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aic_main_mem_read_bw(GB/s)": {
+                "median": 0.034,
+                "min": 0.033,
+                "max": 0.034,
+                "count": 3
+              },
+              "aic_main_mem_write_bw(GB/s)": {
+                "median": 0.022,
+                "min": 0.022,
+                "max": 0.022,
+                "count": 3
+              },
+              "aiv_l2_read_bw(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aiv_l2_write_bw(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aiv_main_mem_read_bw(GB/s)": {
+                "median": 0.135,
+                "min": 0.135,
+                "max": 0.136,
+                "count": 3
+              },
+              "aiv_main_mem_write_bw(GB/s)": {
+                "median": 0.024,
+                "min": 0.024,
+                "max": 0.024,
+                "count": 3
+              },
+              "aiv_ub_read_bw(GB/s)": {
+                "median": 23.566,
+                "min": 23.539,
+                "max": 23.601,
+                "count": 3
+              },
+              "aiv_ub_write_bw(GB/s)": {
+                "median": 22.499,
+                "min": 22.483,
+                "max": 22.545,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "308",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679721282638.004\t",
+                "Duration(us)": "26150.364",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "25961.56",
+                "aic_total_cycles": "342692596",
+                "aic_l1_read_bw(GB/s)": "5.727",
+                "aic_l1_write_bw(GB/s)": "1.67",
+                "aic_main_mem_read_bw(GB/s)": "0.034",
+                "aic_main_mem_write_bw(GB/s)": "0.022",
+                "aic_l2_read_bw(GB/s)": "0.0",
+                "aic_l2_write_bw(GB/s)": "0.0",
+                "aiv_time(us)": "25961.685",
+                "aiv_total_cycles": "685388487",
+                "aiv_ub_read_bw(GB/s)": "23.601",
+                "aiv_ub_write_bw(GB/s)": "22.545",
+                "aiv_main_mem_read_bw(GB/s)": "0.136",
+                "aiv_main_mem_write_bw(GB/s)": "0.024",
+                "aiv_l2_read_bw(GB/s)": "0.0",
+                "aiv_l2_write_bw(GB/s)": "0.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "309",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679721308791.468\t",
+                "Duration(us)": "26154.242",
+                "Wait Time(us)": "3.136000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "26001.444",
+                "aic_total_cycles": "343219064",
+                "aic_l1_read_bw(GB/s)": "5.718",
+                "aic_l1_write_bw(GB/s)": "1.668",
+                "aic_main_mem_read_bw(GB/s)": "0.034",
+                "aic_main_mem_write_bw(GB/s)": "0.022",
+                "aic_l2_read_bw(GB/s)": "0.0",
+                "aic_l2_write_bw(GB/s)": "0.0",
+                "aiv_time(us)": "26001.569",
+                "aiv_total_cycles": "686441432",
+                "aiv_ub_read_bw(GB/s)": "23.566",
+                "aiv_ub_write_bw(GB/s)": "22.499",
+                "aiv_main_mem_read_bw(GB/s)": "0.135",
+                "aiv_main_mem_write_bw(GB/s)": "0.024",
+                "aiv_l2_read_bw(GB/s)": "0.0",
+                "aiv_l2_write_bw(GB/s)": "0.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "310",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679721334948.790\t",
+                "Duration(us)": "26200.462",
+                "Wait Time(us)": "3.008000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "26033.433",
+                "aic_total_cycles": "343641311",
+                "aic_l1_read_bw(GB/s)": "5.711",
+                "aic_l1_write_bw(GB/s)": "1.666",
+                "aic_main_mem_read_bw(GB/s)": "0.033",
+                "aic_main_mem_write_bw(GB/s)": "0.022",
+                "aic_l2_read_bw(GB/s)": "0.0",
+                "aic_l2_write_bw(GB/s)": "0.0",
+                "aiv_time(us)": "26033.539",
+                "aiv_total_cycles": "687285438",
+                "aiv_ub_read_bw(GB/s)": "23.539",
+                "aiv_ub_write_bw(GB/s)": "22.483",
+                "aiv_main_mem_read_bw(GB/s)": "0.135",
+                "aiv_main_mem_write_bw(GB/s)": "0.024",
+                "aiv_l2_read_bw(GB/s)": "0.0",
+                "aiv_l2_write_bw(GB/s)": "0.0"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 112,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8176,
+              8232,
+              8287
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "MemoryUB": {
+          "status": "available",
+          "metric": "MemoryUB",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26333.306",
+              "aicore_time(us)": "26070.356",
+              "aic_total_cycles": "344128702",
+              "aic_ub_read_bw_scalar(GB/s)": "0.0",
+              "aic_ub_write_bw_scalar(GB/s)": "0.0",
+              "aiv_time(us)": "26070.456",
+              "aiv_total_cycles": "688260027",
+              "aiv_ub_read_bw_vector(GB/s)": "5.633",
+              "aiv_ub_write_bw_vector(GB/s)": "4.506",
+              "aiv_ub_read_bw_scalar(GB/s)": "0.443",
+              "aiv_ub_write_bw_scalar(GB/s)": "0.457"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26150.722",
+              "aicore_time(us)": "25962.502",
+              "aic_total_cycles": "342705025",
+              "aic_ub_read_bw_scalar(GB/s)": "0.0",
+              "aic_ub_write_bw_scalar(GB/s)": "0.0",
+              "aiv_time(us)": "25962.629",
+              "aiv_total_cycles": "685413401",
+              "aiv_ub_read_bw_vector(GB/s)": "5.656",
+              "aiv_ub_write_bw_vector(GB/s)": "4.525",
+              "aiv_ub_read_bw_scalar(GB/s)": "0.444",
+              "aiv_ub_write_bw_scalar(GB/s)": "0.459"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26166.864",
+              "aicore_time(us)": "26000.745",
+              "aic_total_cycles": "343209834",
+              "aic_ub_read_bw_scalar(GB/s)": "0.0",
+              "aic_ub_write_bw_scalar(GB/s)": "0.0",
+              "aiv_time(us)": "26000.854",
+              "aiv_total_cycles": "686422551",
+              "aiv_ub_read_bw_vector(GB/s)": "5.648",
+              "aiv_ub_write_bw_vector(GB/s)": "4.518",
+              "aiv_ub_read_bw_scalar(GB/s)": "0.444",
+              "aiv_ub_write_bw_scalar(GB/s)": "0.459"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "26.55",
+              "Host Total Duration(us)": "26.55",
+              "Device Self Duration(us)": "26333.306",
+              "Device Total Duration(us)": "26333.306",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "17.92",
+              "Host Total Duration(us)": "17.92",
+              "Device Self Duration(us)": "26150.722",
+              "Device Total Duration(us)": "26150.722",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "17.66",
+              "Host Total Duration(us)": "17.66",
+              "Device Self Duration(us)": "26166.864",
+              "Device Total Duration(us)": "26166.864",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_total_cycles",
+            "aic_ub_read_bw_scalar(GB/s)",
+            "aic_ub_write_bw_scalar(GB/s)",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_ub_read_bw_scalar(GB/s)",
+            "aiv_ub_read_bw_vector(GB/s)",
+            "aiv_ub_write_bw_scalar(GB/s)",
+            "aiv_ub_write_bw_vector(GB/s)"
+          ],
+          "artifact": "int8_long100k-MemoryUB-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122205017_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122205017_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aic_ub_read_bw_scalar(GB/s)",
+                "aic_ub_write_bw_scalar(GB/s)",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_ub_read_bw_vector(GB/s)",
+                "aiv_ub_write_bw_vector(GB/s)",
+                "aiv_ub_read_bw_scalar(GB/s)",
+                "aiv_ub_write_bw_scalar(GB/s)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122205017_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122205017_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122205017_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122205017_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aic_ub_read_bw_scalar(GB/s)",
+              "aic_ub_write_bw_scalar(GB/s)",
+              "aiv_ub_read_bw_scalar(GB/s)",
+              "aiv_ub_read_bw_vector(GB/s)",
+              "aiv_ub_write_bw_scalar(GB/s)",
+              "aiv_ub_write_bw_vector(GB/s)"
+            ],
+            "raw_field_statistics": {
+              "aic_ub_read_bw_scalar(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aic_ub_write_bw_scalar(GB/s)": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              },
+              "aiv_ub_read_bw_scalar(GB/s)": {
+                "median": 0.444,
+                "min": 0.443,
+                "max": 0.444,
+                "count": 3
+              },
+              "aiv_ub_read_bw_vector(GB/s)": {
+                "median": 5.648,
+                "min": 5.633,
+                "max": 5.656,
+                "count": 3
+              },
+              "aiv_ub_write_bw_scalar(GB/s)": {
+                "median": 0.459,
+                "min": 0.457,
+                "max": 0.459,
+                "count": 3
+              },
+              "aiv_ub_write_bw_vector(GB/s)": {
+                "median": 4.518,
+                "min": 4.506,
+                "max": 4.525,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "312",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679725070497.970\t",
+                "Duration(us)": "26333.306",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "26070.356",
+                "aic_total_cycles": "344128702",
+                "aic_ub_read_bw_scalar(GB/s)": "0.0",
+                "aic_ub_write_bw_scalar(GB/s)": "0.0",
+                "aiv_time(us)": "26070.456",
+                "aiv_total_cycles": "688260027",
+                "aiv_ub_read_bw_vector(GB/s)": "5.633",
+                "aiv_ub_write_bw_vector(GB/s)": "4.506",
+                "aiv_ub_read_bw_scalar(GB/s)": "0.443",
+                "aiv_ub_write_bw_scalar(GB/s)": "0.457"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "313",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679725096834.396\t",
+                "Duration(us)": "26150.722",
+                "Wait Time(us)": "3.194000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "25962.502",
+                "aic_total_cycles": "342705025",
+                "aic_ub_read_bw_scalar(GB/s)": "0.0",
+                "aic_ub_write_bw_scalar(GB/s)": "0.0",
+                "aiv_time(us)": "25962.629",
+                "aiv_total_cycles": "685413401",
+                "aiv_ub_read_bw_vector(GB/s)": "5.656",
+                "aiv_ub_write_bw_vector(GB/s)": "4.525",
+                "aiv_ub_read_bw_scalar(GB/s)": "0.444",
+                "aiv_ub_write_bw_scalar(GB/s)": "0.459"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "314",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679725122987.958\t",
+                "Duration(us)": "26166.864",
+                "Wait Time(us)": "2.778000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "26000.745",
+                "aic_total_cycles": "343209834",
+                "aic_ub_read_bw_scalar(GB/s)": "0.0",
+                "aic_ub_write_bw_scalar(GB/s)": "0.0",
+                "aiv_time(us)": "26000.854",
+                "aiv_total_cycles": "686422551",
+                "aiv_ub_read_bw_vector(GB/s)": "5.648",
+                "aiv_ub_write_bw_vector(GB/s)": "4.518",
+                "aiv_ub_read_bw_scalar(GB/s)": "0.444",
+                "aiv_ub_write_bw_scalar(GB/s)": "0.459"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 112,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8176,
+              8232,
+              8287
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "ResourceConflictRatio": {
+          "status": "available",
+          "metric": "ResourceConflictRatio",
+          "iterations": 3,
+          "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+          "score_rows_preview": [
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26215.104",
+              "aicore_time(us)": "25970.374",
+              "aic_total_cycles": "342808938",
+              "aiv_time(us)": "25970.501",
+              "aiv_total_cycles": "685621230",
+              "aiv_vec_bankgroup_cflt_ratio": "0.007",
+              "aiv_vec_bank_cflt_ratio": "0.02",
+              "aiv_vec_resc_cflt_ratio": "0.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26329.746",
+              "aicore_time(us)": "26085.652",
+              "aic_total_cycles": "344330601",
+              "aiv_time(us)": "26085.768",
+              "aiv_total_cycles": "688664278",
+              "aiv_vec_bankgroup_cflt_ratio": "0.007",
+              "aiv_vec_bank_cflt_ratio": "0.02",
+              "aiv_vec_resc_cflt_ratio": "0.0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Duration(us)": "26151.142",
+              "aicore_time(us)": "25962.261",
+              "aic_total_cycles": "342701840",
+              "aiv_time(us)": "25962.384",
+              "aiv_total_cycles": "685406933",
+              "aiv_vec_bankgroup_cflt_ratio": "0.007",
+              "aiv_vec_bank_cflt_ratio": "0.02",
+              "aiv_vec_resc_cflt_ratio": "0.0"
+            },
+            {},
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "23.93",
+              "Host Total Duration(us)": "23.93",
+              "Device Self Duration(us)": "26215.104",
+              "Device Total Duration(us)": "26215.104",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.52",
+              "Host Total Duration(us)": "16.52",
+              "Device Self Duration(us)": "26329.746",
+              "Device Total Duration(us)": "26329.746",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            },
+            {
+              "Name": "_quant_score_trial",
+              "Host Self Duration(us)": "16.04",
+              "Host Total Duration(us)": "16.04",
+              "Device Self Duration(us)": "26151.142",
+              "Device Total Duration(us)": "26151.142",
+              "Device Self Duration With AICore(us)": "0",
+              "Device Total Duration With AICore(us)": "0"
+            }
+          ],
+          "metric_columns": [
+            "aic_total_cycles",
+            "aiv_time(us)",
+            "aiv_total_cycles",
+            "aiv_vec_bank_cflt_ratio",
+            "aiv_vec_bankgroup_cflt_ratio",
+            "aiv_vec_resc_cflt_ratio"
+          ],
+          "artifact": "int8_long100k-ResourceConflictRatio-score-hardware-tables.json.gz",
+          "tables": [
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122208804_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+              "columns": [
+                "Device_id",
+                "Level",
+                "API Name",
+                "Time(us)",
+                "Count",
+                "Avg(us)",
+                "Min(us)",
+                "Max(us)",
+                "Variance"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122208804_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "columns": [
+                "Device_id",
+                "Model ID",
+                "Task ID",
+                "Stream ID",
+                "Name",
+                "Type",
+                "OP State",
+                "Accelerator Core",
+                "Start Time(us)",
+                "Duration(us)",
+                "Wait Time(us)",
+                "Block Num",
+                "Mix Block Num",
+                "HF32 Eligible",
+                "Input Shapes",
+                "Input Data Types",
+                "Input Formats",
+                "Output Shapes",
+                "Output Data Types",
+                "Output Formats",
+                "Context ID",
+                "aicore_time(us)",
+                "aic_total_cycles",
+                "aiv_time(us)",
+                "aiv_total_cycles",
+                "aiv_vec_bankgroup_cflt_ratio",
+                "aiv_vec_bank_cflt_ratio",
+                "aiv_vec_resc_cflt_ratio"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122208804_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+              "columns": [
+                "Device_id",
+                "OP Type",
+                "Core Type",
+                "Count",
+                "Total Time(us)",
+                "Min Time(us)",
+                "Avg Time(us)",
+                "Max Time(us)",
+                "Ratio(%)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122208804_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+              "columns": [
+                "Name",
+                "Input Shapes",
+                "Call Stack",
+                "Host Self Duration(us)",
+                "Host Total Duration(us)",
+                "Device Self Duration(us)",
+                "Device Total Duration(us)",
+                "Device Self Duration With AICore(us)",
+                "Device Total Duration With AICore(us)"
+              ],
+              "truncated": false
+            },
+            {
+              "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122208804_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+              "columns": [
+                "Device_id",
+                "Step",
+                "Computing",
+                "Communication(Not Overlapped)",
+                "Overlapped",
+                "Communication",
+                "Free",
+                "Stage",
+                "Bubble",
+                "Communication(Not Overlapped and Exclude Receive)",
+                "Preparing"
+              ],
+              "truncated": false
+            }
+          ],
+          "capture_status": "exported",
+          "parsed": {
+            "status": "available",
+            "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_774344_20261103122208804_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "score_row_count": 3,
+            "metric_columns": [
+              "aiv_vec_bank_cflt_ratio",
+              "aiv_vec_bankgroup_cflt_ratio",
+              "aiv_vec_resc_cflt_ratio"
+            ],
+            "raw_field_statistics": {
+              "aiv_vec_bank_cflt_ratio": {
+                "median": 0.02,
+                "min": 0.02,
+                "max": 0.02,
+                "count": 3
+              },
+              "aiv_vec_bankgroup_cflt_ratio": {
+                "median": 0.007,
+                "min": 0.007,
+                "max": 0.007,
+                "count": 3
+              },
+              "aiv_vec_resc_cflt_ratio": {
+                "median": 0.0,
+                "min": 0.0,
+                "max": 0.0,
+                "count": 3
+              }
+            },
+            "rows_preview": [
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "316",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679728858372.358\t",
+                "Duration(us)": "26215.104",
+                "Wait Time(us)": "0",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "25970.374",
+                "aic_total_cycles": "342808938",
+                "aiv_time(us)": "25970.501",
+                "aiv_total_cycles": "685621230",
+                "aiv_vec_bankgroup_cflt_ratio": "0.007",
+                "aiv_vec_bank_cflt_ratio": "0.02",
+                "aiv_vec_resc_cflt_ratio": "0.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "317",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679728884590.562\t",
+                "Duration(us)": "26329.746",
+                "Wait Time(us)": "3.146000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "26085.652",
+                "aic_total_cycles": "344330601",
+                "aiv_time(us)": "26085.768",
+                "aiv_total_cycles": "688664278",
+                "aiv_vec_bankgroup_cflt_ratio": "0.007",
+                "aiv_vec_bank_cflt_ratio": "0.02",
+                "aiv_vec_resc_cflt_ratio": "0.0"
+              },
+              {
+                "Device_id": "0",
+                "Model ID": "4294967295",
+                "Task ID": "318",
+                "Stream ID": "198",
+                "Name": "_quant_score_trial",
+                "Type": "_quant_score_trial",
+                "OP State": "static",
+                "Accelerator Core": "MIX_AIC",
+                "Start Time(us)": "1793679728910923.008\t",
+                "Duration(us)": "26151.142",
+                "Wait Time(us)": "2.754000",
+                "Block Num": "8",
+                "Mix Block Num": "16",
+                "HF32 Eligible": "YES",
+                "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                "Input Formats": "ND;ND;ND;ND;ND",
+                "Output Shapes": "N/A",
+                "Output Data Types": "N/A",
+                "Output Formats": "N/A",
+                "Context ID": "0",
+                "aicore_time(us)": "25962.261",
+                "aic_total_cycles": "342701840",
+                "aiv_time(us)": "25962.384",
+                "aiv_total_cycles": "685406933",
+                "aiv_vec_bankgroup_cflt_ratio": "0.007",
+                "aiv_vec_bank_cflt_ratio": "0.02",
+                "aiv_vec_resc_cflt_ratio": "0.0"
+              }
+            ],
+            "table_truncated": false,
+            "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+          },
+          "postcheck": {
+            "rows": 112,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              8176,
+              8232,
+              8287
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        }
+      },
+      "scope": "Frozen score profiling only; instrumentation changes timing; not benchmark speedup data",
+      "sources": {
+        "profile_qsa_int8_score_910b.py": "b1e8d1c9f5a8fa62b19b16c63145ef2093fb12c65875d2f6e7324f25f7b14289",
+        "qsa_timeline_910b.py": "c54f29cc8626b96342249382b22844f410a02b427bdef943dcf73c0f730251da",
+        "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+        "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40"
+      },
+      "exit_code": 1,
+      "subprocess_exit_code": 1
+    }
+  ],
+  "scope": "Profiling only; raw artifacts preserved; no latency speedup claim"
+}
