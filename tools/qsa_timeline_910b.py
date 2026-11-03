@@ -97,8 +97,9 @@ def collect(args, functions, torch, result, selected=None):
 
     api = torch_npu.profiler
     selected = selected or ("score", "topk", "public_total", "native_fused")
+    iterations = getattr(args, "trace_iterations", 3)
     result["timeline"] = dict(
-        iterations=3,
+        iterations=iterations,
         stages={},
         units="microseconds",
         source="torch_npu.profiler CPU+NPU, Chrome trace",
@@ -114,7 +115,7 @@ def collect(args, functions, torch, result, selected=None):
             with_stack=False,
         ) as prof:
             returned = None
-            for index in range(3):
+            for index in range(iterations):
                 with torch.profiler.record_function(f"qsa/{name}/{index}"):
                     returned = functions[name]()
             torch.npu.synchronize()
@@ -157,7 +158,7 @@ def collect(args, functions, torch, result, selected=None):
 
 
 def collect_hardware(args, score, torch, result):
-    """Collect a separate PipeUtilization pass without changing the timing trace."""
+    """Collect a separate counter pass without changing the timing trace."""
     import csv
     import io
     import traceback
@@ -165,18 +166,21 @@ def collect_hardware(args, score, torch, result):
     import torch_npu
 
     api = torch_npu.profiler
+    metric_name = getattr(args, "aic_metric", "PipeUtilization")
+    iterations = getattr(args, "counter_iterations", 3)
+    kernel_substring = getattr(args, "kernel_substring", "_paged_score_910b")
     root = Path(args.report) / f"{args.worker}-score-metrics"
     entry = dict(
         status="requested",
-        metric="PipeUtilization",
-        iterations=3,
+        metric=metric_name,
+        iterations=iterations,
         scope="Separate hardware-counter pass; profiler overhead is not benchmark latency",
     )
     result["score_hardware"] = entry
     try:
         config = api._ExperimentalConfig(
             profiler_level=api.ProfilerLevel.Level1,
-            aic_metrics=api.AiCMetrics.PipeUtilization,
+            aic_metrics=getattr(api.AiCMetrics, metric_name),
             export_type=api.ExportType.Text,
         )
         torch.npu.synchronize()
@@ -188,7 +192,7 @@ def collect_hardware(args, score, torch, result):
             profile_memory=False,
             with_stack=False,
         ) as prof:
-            for index in range(3):
+            for index in range(iterations):
                 with torch.profiler.record_function(f"qsa/score-counters/{index}"):
                     score()
             torch.npu.synchronize()
@@ -208,7 +212,7 @@ def collect_hardware(args, score, torch, result):
         score_rows = []
         for table in tables:
             for row in csv.DictReader(io.StringIO(table["content"])):
-                if any("_paged_score_910b" in str(value) for value in row.values()):
+                if any(kernel_substring in str(value) for value in row.values()):
                     score_rows.append(
                         {
                             key: value
