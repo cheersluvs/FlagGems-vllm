@@ -188,7 +188,14 @@ def check_chunk(inputs, actual, first, count):
 
 
 def run_case(args):
-    result, code = dict(case=args.case, status="failed"), 1
+    result, code = (
+        dict(
+            case=args.case,
+            status="failed",
+            profile_mode="integrated" if args.integrated else "frozen",
+        ),
+        1,
+    )
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     try:
@@ -254,23 +261,55 @@ def run_case(args):
         scratch = torch.empty(
             (chunk, width), device=values["q"].device, dtype=torch.float32
         )
+        adapter = None
+        grid, block_n = (20, 128) if args.integrated else (8, 32)
+        if args.integrated:
+            from qsa_int8_selection_910b_trial import PreparedInt8Selection
+
+            output = torch.empty(
+                (rows, 512), device=values["q"].device, dtype=torch.int32
+            )
+            workspace = torch.empty(
+                (1024 * 1024,), device=values["q"].device, dtype=torch.uint8
+            )
+            # This capture uses only score_into; no TopK module or kernel is loaded.
+            adapter = PreparedInt8Selection(values, output, scratch, workspace, None)
+            result["profile_entry"] = "PreparedInt8Selection.score_into"
+            result["unused_selection_buffer_bytes"] = (
+                output.numel() * 4 + workspace.numel()
+            )
+        else:
+            result["profile_entry"] = "qsa_int8_score_910b_trial.score"
+        work_tiles = middle_count * triton.cdiv(width, block_n)
+        grid = min(grid, work_tiles)
         result["representative_chunk"] = dict(
             first=middle_first,
             count=middle_count,
             visible_first=int(inputs["visible"][middle_first]),
             visible_last=int(inputs["visible"][middle_first + middle_count - 1]),
-            grid_programs=8,
-            block_n=32,
-            dot_shape=[32, 128, 16],
+            grid_programs=grid,
+            block_n=block_n,
+            dot_shape=[block_n, 128, 16],
             real_heads=4,
             padded_heads=16,
-            work_tiles=middle_count * ((width + 31) // 32),
-            work_tiles_per_program=middle_count * ((width + 31) // 32) // 8,
+            work_tiles=work_tiles,
+            work_tiles_per_program=work_tiles / grid,
+            work_tiles_per_program_min=work_tiles // grid,
+            work_tiles_per_program_max=triton.cdiv(work_tiles, grid),
             score_scratch_bytes=chunk * width * 4,
             raw_dot_bytes=0,
         )
+        print(
+            "PROFILE_DISPATCH",
+            json.dumps(
+                dict(entry=result["profile_entry"], **result["representative_chunk"])
+            ),
+            flush=True,
+        )
 
         def score_into(first, count):
+            if adapter is not None:
+                return adapter.score_into(first, count, scratch[:count])
             return score(
                 values["q"][first : first + count],
                 values["cache"],
@@ -359,18 +398,45 @@ def run_case(args):
             for line in ir.splitlines()
         ):
             raise AssertionError("Expected frozen no-debug INT8 score IR")
-        profile_args = SimpleNamespace(
-            report=str(report), worker=args.case, trace_iterations=args.trace_iterations
-        )
         result["stage"] = "timeline"
-        try:
-            collect(
-                profile_args, {"score": score_all}, torch, result, selected=("score",)
+        result["timeline_attempts"] = []
+        for attempt in range(1, 4):
+            profile_args = SimpleNamespace(
+                report=str(report),
+                worker=f"{args.case}-attempt{attempt}",
+                trace_iterations=args.trace_iterations,
             )
-            timeline = result["timeline"]["stages"]["score"]
-            validate_score_trace(timeline, report, len(chunks) * args.trace_iterations)
-        except Exception:
-            result["timeline_error"] = traceback.format_exc()
+            result.pop("timeline", None)
+            try:
+                collect(
+                    profile_args,
+                    {"score": score_all},
+                    torch,
+                    result,
+                    selected=("score",),
+                )
+                timeline = result["timeline"]["stages"]["score"]
+                validate_score_trace(
+                    timeline, report, len(chunks) * args.trace_iterations
+                )
+                result["timeline_attempts"].append(
+                    dict(attempt=attempt, capture=timeline)
+                )
+                if timeline["usable"]:
+                    break
+                print("PROFILE_TRACE_REJECTED", attempt, flush=True)
+            except Exception:
+                result["timeline_attempts"].append(
+                    dict(
+                        attempt=attempt,
+                        error=traceback.format_exc(),
+                        capture=result.get("timeline", {}),
+                    )
+                )
+                # Only a preserved, unrecognized device trace is retryable.
+                entry = result.get("timeline", {}).get("stages", {}).get("score", {})
+                if not entry.get("parse_error") or not entry.get("trace_file"):
+                    break
         first, count = chunks[-1]
         if (
             result.get("timeline", {})
@@ -387,30 +453,53 @@ def run_case(args):
             if not hasattr(torch_npu.profiler.AiCMetrics, group):
                 result["hardware"][group] = dict(status="unsupported_enum")
                 continue
-            score_middle()
-            torch.npu.synchronize()
-            options = SimpleNamespace(
-                report=str(report),
-                worker=f"{args.case}-{group}",
-                aic_metric=group,
-                counter_iterations=args.counter_iterations,
-                kernel_substring="_quant_score_trial",
-            )
-            capture = {}
-            collect_hardware(options, score_middle, torch, capture)
-            entry = capture["score_hardware"]
-            entry["capture_status"] = entry["status"]
-            artifact = report / entry.get("artifact", "no-artifact")
-            if artifact.is_file():
-                with gzip.open(artifact, "rt") as stream:
-                    tables = json.load(stream)["tables"]
-                entry["parsed"] = summarize_tables(tables, group)
-                entry["status"] = entry["parsed"]["status"]
-            else:
-                entry["status"] = "no_counter_archive"
-            entry["postcheck"] = check_chunk(
-                inputs, scratch[:middle_count].cpu(), middle_first, middle_count
-            )
+            attempts = []
+            for attempt in range(1, 4):
+                score_middle()
+                torch.npu.synchronize()
+                options = SimpleNamespace(
+                    report=str(report),
+                    worker=f"{args.case}-{group}-attempt{attempt}",
+                    aic_metric=group,
+                    counter_iterations=args.counter_iterations,
+                    kernel_substring="_quant_score_trial",
+                )
+                capture = {}
+                collect_hardware(options, score_middle, torch, capture)
+                entry = capture["score_hardware"]
+                entry["capture_status"] = entry["status"]
+                artifact = report / entry.get("artifact", "no-artifact")
+                if artifact.is_file():
+                    with gzip.open(artifact, "rt") as stream:
+                        tables = json.load(stream)["tables"]
+                    entry["parsed"] = summarize_tables(tables, group)
+                    entry["status"] = entry["parsed"]["status"]
+                    if (
+                        entry["status"] == "available"
+                        and entry["parsed"]["score_row_count"]
+                        != args.counter_iterations
+                    ):
+                        entry["status"] = "incomplete_counter_rows"
+                else:
+                    entry["status"] = "no_counter_archive"
+                entry["postcheck"] = check_chunk(
+                    inputs, scratch[:middle_count].cpu(), middle_first, middle_count
+                )
+                attempts.append(entry)
+                if entry["status"] == "available":
+                    break
+                # No archive can mean unsupported collection or a runtime error.
+                # Retry only an exported archive lacking usable numeric metrics.
+                if not artifact.is_file():
+                    break
+                print(
+                    "PROFILE_COUNTER_REJECTED",
+                    group,
+                    attempt,
+                    entry["status"],
+                    flush=True,
+                )
+            result.setdefault("hardware_attempts", {})[group] = attempts
             result["hardware"][group] = entry
             print(
                 "INT8_HARDWARE",
@@ -450,6 +539,7 @@ def run_case(args):
         "qsa_timeline_910b.py",
         "qsa_int8_score_910b_trial.py",
         "qsa_int8_ten_workloads_910b.py",
+        "qsa_int8_selection_910b_trial.py",
     ):
         result.setdefault("sources", {})[name] = hashlib.sha256(
             (Path(__file__).parent / name).read_bytes()
@@ -485,6 +575,11 @@ def main():
     parser.add_argument("--cases", nargs="+", choices=CASES)
     parser.add_argument("--case", choices=CASES)
     parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument(
+        "--integrated",
+        action="store_true",
+        help="Profile integrated grid20/N128 score entry",
+    )
     args = parser.parse_args()
     args.metrics = list(dict.fromkeys(args.metrics))
     if (
@@ -519,6 +614,8 @@ def main():
             "--metrics",
             *args.metrics,
         ]
+        if args.integrated:
+            command.append("--integrated")
         code, timed_out = run_child(
             command, report / f"{name}-console.txt", args.timeout
         )
