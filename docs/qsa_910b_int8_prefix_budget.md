@@ -99,3 +99,39 @@ Local checks: source drift rejection, AST equality of full control, syntax of al
 seven generated prefixes, shared loop/mask invariants, lint and two-case missing-
 prerequisite report flow. NPU compilation and checksum checks are still pending
 the card run. Keep production and TopK untouched throughout.
+
+## Repair checksum reduction control before attributing the mixed path
+
+Report 526a144c4e27b867da5d772cb9d8dde12074a023 passes all prefix checks and
+full-control equivalence (timing ratio about0.99989), but is nonmonotonic:
+INT32 dot-checksum prefix is much slower than the full score. Its metadata shows
+pure AIV for early prefixes versus mixed Cube/Vector for dot and later prefixes.
+The dot sink reduces INT32 before casting, whereas full score casts before FP32
+postprocessing/reduction. These differences prevent direct cost attribution.
+
+`--tail-only` selects integrated_full, dot, dot_fp32, dequant and full on the same
+two middle chunks. The new sink is `tl.sum(dot.to(tl.float32), axis=1)`; it keeps
+the integer dot unchanged and converts before reduction. Its checksum is verified
+against CPU `dot.float().sum(1)` exactly for the bounded H4 fixture, including
+mask/postchecks. The old INT32 sink remains a measured control.
+
+Before timing, every selected specialization must report mix_mode='mix'. Its
+exported bcmlir must contain exactly one INT32 reduction for dot, or one FP32
+reduction for dot_fp32/dequant/full/integrated_full. Fail rather than interpreting
+an unrecognized lowering. Store/dot checks, raw source/IR exports, invocation-sum
+calibration, invalid-capture retries and reversed two-round timing are unchanged.
+The original full function AST and frozen source guard remain unchanged.
+
+Interpret dot_fp32 versus dot as checksum/lowering sensitivity, not an operator
+optimization. Dequant minus dot_fp32 includes scale loads and FP32 multiplies;
+full minus dequant includes weights/ReLU changes. Even with matching high-level
+mode and reduction dtype, layouts, scheduling and synchronization may differ;
+these contrasts do not become exact isolated instruction costs. Leave early
+cross-mode prefixes out of this round. No query packing, TopK or production
+changes are introduced. Use resulting contrasts to select a subsequent probe
+that is tested on the original full integrated score.
+
+Local checks: syntax of all generated prefixes, exact cast/reduction AST ordering,
+full AST identity, extraction of actual previous bcmlir reduction types, lint,
+and two-case tail-only missing-prerequisite reports. New specialization compilation
+and runtime equivalence are pending the card run.

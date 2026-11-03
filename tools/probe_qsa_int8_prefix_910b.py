@@ -38,6 +38,7 @@ from tools.qsa_int8_ten_workloads_910b import make_inputs  # noqa: E402
 
 
 def run_case(args):
+    prefixes = ("dot", "dot_fp32", "dequant", "full") if args.tail_only else PREFIXES
     result, code = dict(case=args.case, status="failed"), 1
     report = Path(args.report)
     try:
@@ -103,7 +104,7 @@ def run_case(args):
             "diagnostic prefix differences are not additive operation costs"
         )
         result["stage"] = "prefix_generation"
-        kernels = {name: load_prefix(report, args.case, name) for name in PREFIXES}
+        kernels = {name: load_prefix(report, args.case, name) for name in prefixes}
 
         def launch(name):
             if name == "integrated_full":
@@ -144,6 +145,7 @@ def run_case(args):
                 k_load=keys.sum(1).float(),
                 q_load=(keys.sum(1) + inputs["q"][row].int().sum()).float(),
                 dot=dot.sum(1).float(),
+                dot_fp32=dot.float().sum(1),
                 dequant=(
                     dot.float() * inputs["qs"][row].float()[None, :] * scales[:, None]
                 ).sum(1),
@@ -165,7 +167,14 @@ def run_case(args):
             for row in selected:
                 expected = references[row][name]
                 observed = actual[row - first, : expected.numel()]
-                exact = name in ("mask_store", "index", "k_load", "q_load", "dot")
+                exact = name in (
+                    "mask_store",
+                    "index",
+                    "k_load",
+                    "q_load",
+                    "dot",
+                    "dot_fp32",
+                )
                 if not (
                     torch.equal(observed, expected)
                     if exact
@@ -176,7 +185,8 @@ def run_case(args):
                     maximum = max(maximum, (observed - expected).abs().max().item())
             return dict(all_chunk_masks=True, cpu_rows=selected, max_abs_error=maximum)
 
-        arms = ["integrated_full", *PREFIXES]
+        arms = ["integrated_full", *prefixes]
+        result["selected_prefixes"] = list(prefixes)
         result["stage"] = "compile_and_validate"
         result["prechecks"], result["compiler"] = {}, {}
         for name in arms:
@@ -201,6 +211,37 @@ def run_case(args):
                 store_count=stores,
                 load_count=len(re.findall(r"\btt\.load\b", ir)),
                 metadata=repr(compiled.metadata),
+            )
+        if args.tail_only:
+            for name in arms:
+                meta = result["compiler"][name]["metadata"]
+                lowered = (report / f"{args.case}-{name}-bcmlir.txt").read_text()
+                reductions = re.findall(
+                    r"linalg\.reduce ins\([^\n]*tensor<[^>]*x(f32|i32)>", lowered
+                )
+                expected_type = "i32" if name == "dot" else "f32"
+                result["compiler"][name]["reduction_element_types"] = reductions
+                result["compiler"][name]["mixed_mode"] = "mix_mode='mix'" in meta
+                if not result["compiler"][name]["mixed_mode"] or reductions != [
+                    expected_type
+                ]:
+                    raise AssertionError(
+                        f"Lowering control mismatch: {name}, reductions={reductions}"
+                    )
+            print(
+                "LOWERING_CONTROL",
+                json.dumps(
+                    {
+                        name: dict(
+                            mixed_mode=True,
+                            reductions=result["compiler"][name][
+                                "reduction_element_types"
+                            ],
+                        )
+                        for name in arms
+                    }
+                ),
+                flush=True,
             )
         result["stage"] = "kernel_timer"
 
@@ -240,8 +281,8 @@ def run_case(args):
         ratio = medians["full"] / medians["integrated_full"]
         result["generated_full_over_integrated"] = ratio
         result["prefix_differences_us"] = {
-            name: medians[name] - medians[PREFIXES[i - 1]]
-            for i, name in enumerate(PREFIXES)
+            name: medians[name] - medians[prefixes[i - 1]]
+            for i, name in enumerate(prefixes)
             if i
         }
         print(
@@ -290,6 +331,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--case", choices=CASES)
     parser.add_argument("--cases", nargs="+", choices=CASES)
+    parser.add_argument(
+        "--tail-only",
+        action="store_true",
+        help="Compare INT32/FP32 dot sinks, dequant and full, with lowering gates",
+    )
     args = parser.parse_args()
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
@@ -319,6 +365,8 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
+        if args.tail_only:
+            command.append("--tail-only")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())

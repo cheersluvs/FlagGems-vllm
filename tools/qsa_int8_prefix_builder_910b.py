@@ -22,7 +22,16 @@ import sys
 from pathlib import Path
 
 FROZEN = "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334"
-PREFIXES = ("mask_store", "index", "k_load", "q_load", "dot", "dequant", "full")
+PREFIXES = (
+    "mask_store",
+    "index",
+    "k_load",
+    "q_load",
+    "dot",
+    "dot_fp32",
+    "dequant",
+    "full",
+)
 
 
 def assignment_index(body, name):
@@ -85,7 +94,12 @@ def build_source(source, prefix):
             if len(groups) != 1:
                 raise RuntimeError("Expected one head-group loop")
             index, group = groups[0]
-            stop = {"q_load": "query", "dot": "dot", "dequant": "dequant"}[prefix]
+            stop = {
+                "q_load": "query",
+                "dot": "dot",
+                "dot_fp32": "dot",
+                "dequant": "dequant",
+            }[prefix]
             group.body = group.body[: assignment_index(group.body, stop) + 1]
             sink = {
                 "q_load": (
@@ -93,6 +107,7 @@ def build_source(source, prefix):
                     "tl.sum(tl.sum(query.to(tl.int32), axis=0), axis=0)).to(tl.float32)"
                 ),
                 "dot": "scores += tl.sum(dot, axis=1).to(tl.float32)",
+                "dot_fp32": "scores += tl.sum(dot.to(tl.float32), axis=1)",
                 "dequant": "scores += tl.sum(dequant, axis=1)",
             }[prefix]
             group.body += ast.parse(sink).body
