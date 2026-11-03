@@ -1,0 +1,480 @@
+{
+  "case": "int8_two_balanced",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_two_balanced",
+    "nv_case": "fp8_two_balanced_float8_e4m3fn",
+    "origin": "recorded_envelope",
+    "query_lengths": [
+      10371,
+      5958
+    ],
+    "prefix_tokens": [
+      22561,
+      26974
+    ],
+    "starts": [
+      0,
+      10371,
+      16329
+    ],
+    "batch_max_seq_len": 32932,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      43,
+      43
+    ],
+    "physical_pages": 86,
+    "table_columns": 43,
+    "q_shape": [
+      16329,
+      4,
+      128
+    ],
+    "cache_shape": [
+      86,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 8256,
+    "chunk_rows": 128,
+    "score_and_dot_scratch_bytes": 21135360,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": 2712,
+    "nv_original_table_columns": 88,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Prepared inputs; sum of device kernel durations, not public production entry",
+  "stage": "completed",
+  "memory": {
+    "benchmark_only_full_logits_bytes": 539248896,
+    "bounded_score_scratch_bytes": 4227072,
+    "raw_dot_allocation_bytes": 0,
+    "free_before_staging": 64417632256,
+    "total": 65452113920
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-int8-integrated.XHXiiNxz/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-int8-integrated.XHXiiNxz/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "dispatch": {
+    "score_chunk_rows": 128,
+    "topk_call_rows": 32,
+    "topk_block": 256,
+    "score_calls": 128,
+    "topk_calls": 511,
+    "native_full_calls": 1,
+    "native_chunked_calls": 0,
+    "score_grid": 20,
+    "score_block_n": 128,
+    "debug_store": false
+  },
+  "integration": {
+    "entry": "qsa_int8_selection_910b_trial.PreparedInt8Selection.__call__",
+    "score_grid": 20,
+    "score_block_n": 128,
+    "topk_call_rows": 32,
+    "scope": "Prepared INT8 trial adapter; BF16 production unchanged"
+  },
+  "cpu_reference_rows": [
+    0,
+    127,
+    128,
+    8164,
+    10370,
+    10371,
+    16256,
+    16328
+  ],
+  "correctness": {
+    "score": {
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8164,
+        10370,
+        10371,
+        16256,
+        16328
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    "native_full_preflight": {
+      "all_rows_structure": true,
+      "rows": 16329,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8164,
+        10370,
+        10371,
+        16256,
+        16328
+      ],
+      "selected_score_max_abs_error": 0.0
+    },
+    "topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16329,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8164,
+          10370,
+          10371,
+          16256,
+          16328
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16329,
+        "max_abs_error": 0.020915985107421875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16329,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8164,
+          10370,
+          10371,
+          16256,
+          16328
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16329,
+        "max_abs_error": 0.020915985107421875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_native_fused": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16329,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8164,
+          10370,
+          10371,
+          16256,
+          16328
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16329,
+        "max_abs_error": 0.020915985107421875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16329,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8164,
+          10370,
+          10371,
+          16256,
+          16328
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16329,
+        "max_abs_error": 0.020915985107421875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16329,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8164,
+          10370,
+          10371,
+          16256,
+          16328
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16329,
+        "max_abs_error": 0.020915985107421875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8164,
+          10370,
+          10371,
+          16256,
+          16328
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "no_debug_ir": {
+    "store_count": 1,
+    "int8_to_int32_dot": true
+  },
+  "baseline_policy": {
+    "primary": "full native V1, one call",
+    "auxiliary": "omitted",
+    "no_fallback": true
+  },
+  "kernel_timer": {
+    "backend": "CPU+NPU Chrome trace with synchronized invocation windows",
+    "warmup": 1,
+    "active": 2,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Exploratory device-task sums; all stage and native baselines rebuilt together; no host gaps",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "invocation_sum_check": {
+      "single": {
+        "kernel_us": 2186.404,
+        "active_invocation_us": [
+          2187.764,
+          2185.044
+        ],
+        "device_task_count": 2,
+        "host_launch_count": 2,
+        "artifact": "int8_two_balanced-timer-01.json.gz"
+      },
+      "triple": {
+        "kernel_us": 6555.401,
+        "active_invocation_us": [
+          6555.371999999999,
+          6555.43
+        ],
+        "device_task_count": 6,
+        "host_launch_count": 6,
+        "artifact": "int8_two_balanced-timer-02.json.gz"
+      },
+      "ratio": 2.9982569552562106
+    }
+  },
+  "samples": {
+    "score": [
+      {
+        "kernel_us": 334961.05199999997,
+        "active_invocation_us": [
+          334960.514,
+          334961.5899999999
+        ],
+        "device_task_count": 256,
+        "tasks_per_invocation": [
+          128,
+          128
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 128
+        },
+        "artifact": "int8_two_balanced-stage-timer-04.json.gz",
+        "stage": "score_stage"
+      }
+    ],
+    "topk": [
+      {
+        "kernel_us": 14999.595999999992,
+        "active_invocation_us": [
+          14999.873999999996,
+          14999.317999999988
+        ],
+        "device_task_count": 3066,
+        "tasks_per_invocation": [
+          1533,
+          1533
+        ],
+        "device_task_names_per_invocation": {
+          "_radix_hist_trivial_all": 511,
+          "_segmerge_seg_sort": 511,
+          "_segmerge_merge_unpack": 511
+        },
+        "artifact": "int8_two_balanced-stage-timer-03.json.gz",
+        "stage": "topk_stage"
+      }
+    ],
+    "combined": [
+      {
+        "kernel_us": 349704.617,
+        "active_invocation_us": [
+          349705.12599999993,
+          349704.1080000001
+        ],
+        "device_task_count": 3322,
+        "tasks_per_invocation": [
+          1661,
+          1661
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 128,
+          "_radix_hist_trivial_all": 511,
+          "_segmerge_seg_sort": 511,
+          "_segmerge_merge_unpack": 511
+        },
+        "artifact": "int8_two_balanced-stage-timer-02.json.gz",
+        "stage": "combined_stage"
+      }
+    ],
+    "native_fused": [
+      {
+        "kernel_us": 15553.45,
+        "active_invocation_us": [
+          15553.45,
+          15553.45
+        ],
+        "device_task_count": 2,
+        "tasks_per_invocation": [
+          1,
+          1
+        ],
+        "device_task_names_per_invocation": {
+          "QuantLightningIndexer": 1
+        },
+        "artifact": "int8_two_balanced-stage-timer-01.json.gz",
+        "stage": "native_stage"
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "native_fused",
+      "combined",
+      "topk",
+      "score"
+    ]
+  ],
+  "latency": {
+    "score": {
+      "kernel_us": {
+        "median": 334961.05199999997,
+        "min": 334961.05199999997,
+        "max": 334961.05199999997,
+        "range_over_median": 0.0
+      }
+    },
+    "topk": {
+      "kernel_us": {
+        "median": 14999.595999999992,
+        "min": 14999.595999999992,
+        "max": 14999.595999999992,
+        "range_over_median": 0.0
+      }
+    },
+    "combined": {
+      "kernel_us": {
+        "median": 349704.617,
+        "min": 349704.617,
+        "max": 349704.617,
+        "range_over_median": 0.0
+      }
+    },
+    "native_fused": {
+      "kernel_us": {
+        "median": 15553.45,
+        "min": 15553.45,
+        "max": 15553.45,
+        "range_over_median": 0.0
+      }
+    }
+  },
+  "speedup": {
+    "overall": 0.04447596412488886,
+    "auxiliary_chunked_native": null,
+    "score": null,
+    "topk": null
+  },
+  "native_split": {
+    "score_us": null,
+    "topk_us": null,
+    "reason": "Fused V1 API has no isolated stage entry"
+  },
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    }
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "3583c9a2b3e7c4a253d4ab180aa5e6f671d66a984b6dcd0a82bed34f362c0850",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+    "qsa_int8_stage_trace_timer_910b.py": "f54671bf2aba6bb583b23ca83804b32ea006be97a3e76698db71ba7341de0daa",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+  },
+  "exit_code": 0
+}

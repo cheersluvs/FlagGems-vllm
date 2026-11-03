@@ -1,0 +1,460 @@
+{
+  "case": "int8_long100k",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_long100k",
+    "nv_case": "fp8_long100k_float8_e4m3fn",
+    "origin": "dtype_variant",
+    "query_lengths": [
+      16384
+    ],
+    "prefix_tokens": [
+      102400
+    ],
+    "starts": [
+      0,
+      16384
+    ],
+    "batch_max_seq_len": 118784,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      155
+    ],
+    "physical_pages": 155,
+    "table_columns": 155,
+    "q_shape": [
+      16384,
+      4,
+      128
+    ],
+    "cache_shape": [
+      155,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 29696,
+    "chunk_rows": 112,
+    "score_and_dot_scratch_bytes": 66519040,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": null,
+    "nv_original_table_columns": null,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Prepared inputs; sum of device kernel durations, not public production entry",
+  "stage": "completed",
+  "memory": {
+    "benchmark_only_full_logits_bytes": 1946157056,
+    "bounded_score_scratch_bytes": 13303808,
+    "raw_dot_allocation_bytes": 0,
+    "free_before_staging": 64397385728,
+    "total": 65452113920
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-int8-integrated.XHXiiNxz/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-int8-integrated.XHXiiNxz/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "dispatch": {
+    "score_chunk_rows": 112,
+    "topk_call_rows": 32,
+    "topk_block": 256,
+    "score_calls": 147,
+    "topk_calls": 585,
+    "native_full_calls": 1,
+    "native_chunked_calls": 0,
+    "score_grid": 20,
+    "score_block_n": 128,
+    "debug_store": false
+  },
+  "integration": {
+    "entry": "qsa_int8_selection_910b_trial.PreparedInt8Selection.__call__",
+    "score_grid": 20,
+    "score_block_n": 128,
+    "topk_call_rows": 32,
+    "scope": "Prepared INT8 trial adapter; BF16 production unchanged"
+  },
+  "cpu_reference_rows": [
+    0,
+    111,
+    112,
+    8192,
+    16352,
+    16383
+  ],
+  "correctness": {
+    "score": {
+      "sampled_rows": [
+        0,
+        111,
+        112,
+        8192,
+        16352,
+        16383
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    "native_full_preflight": {
+      "all_rows_structure": true,
+      "rows": 16384,
+      "sampled_rows": [
+        0,
+        111,
+        112,
+        8192,
+        16352,
+        16383
+      ],
+      "selected_score_max_abs_error": 0.00598907470703125
+    },
+    "topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          111,
+          112,
+          8192,
+          16352,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.030303955078125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          111,
+          112,
+          8192,
+          16352,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.030303955078125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_native_fused": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          111,
+          112,
+          8192,
+          16352,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.00598907470703125
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.030303955078125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          111,
+          112,
+          8192,
+          16352,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.030303955078125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          111,
+          112,
+          8192,
+          16352,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.030303955078125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          111,
+          112,
+          8192,
+          16352,
+          16383
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "no_debug_ir": {
+    "store_count": 1,
+    "int8_to_int32_dot": true
+  },
+  "baseline_policy": {
+    "primary": "full native V1, one call",
+    "auxiliary": "omitted",
+    "no_fallback": true
+  },
+  "kernel_timer": {
+    "backend": "CPU+NPU Chrome trace with synchronized invocation windows",
+    "warmup": 1,
+    "active": 2,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Exploratory device-task sums; all stage and native baselines rebuilt together; no host gaps",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "invocation_sum_check": {
+      "single": {
+        "kernel_us": 8226.825,
+        "active_invocation_us": [
+          8229.066,
+          8224.584
+        ],
+        "device_task_count": 2,
+        "host_launch_count": 2,
+        "artifact": "int8_long100k-timer-01.json.gz"
+      },
+      "triple": {
+        "kernel_us": 24673.002,
+        "active_invocation_us": [
+          24672.752,
+          24673.252
+        ],
+        "device_task_count": 6,
+        "host_launch_count": 6,
+        "artifact": "int8_long100k-timer-02.json.gz"
+      },
+      "ratio": 2.9990916301246227
+    }
+  },
+  "samples": {
+    "score": [
+      {
+        "kernel_us": 1278839.6429999997,
+        "active_invocation_us": [
+          1278829.8900000001,
+          1278849.3959999995
+        ],
+        "device_task_count": 294,
+        "tasks_per_invocation": [
+          147,
+          147
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 147
+        },
+        "artifact": "int8_long100k-stage-timer-04.json.gz",
+        "stage": "score_stage"
+      }
+    ],
+    "topk": [
+      {
+        "kernel_us": 49605.49599999993,
+        "active_invocation_us": [
+          49599.22399999996,
+          49611.767999999895
+        ],
+        "device_task_count": 4680,
+        "tasks_per_invocation": [
+          2340,
+          2340
+        ],
+        "device_task_names_per_invocation": {
+          "_radix_hist_trivial_all": 585,
+          "_psegmerge_seg_sort": 585,
+          "_psegmerge_merge_level": 585,
+          "_psegmerge_merge_final": 585
+        },
+        "artifact": "int8_long100k-stage-timer-03.json.gz",
+        "stage": "topk_stage"
+      }
+    ],
+    "combined": [
+      {
+        "kernel_us": 1328281.5110000018,
+        "active_invocation_us": [
+          1328268.962000001,
+          1328294.0600000026
+        ],
+        "device_task_count": 4974,
+        "tasks_per_invocation": [
+          2487,
+          2487
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 147,
+          "_radix_hist_trivial_all": 585,
+          "_psegmerge_seg_sort": 585,
+          "_psegmerge_merge_level": 585,
+          "_psegmerge_merge_final": 585
+        },
+        "artifact": "int8_long100k-stage-timer-02.json.gz",
+        "stage": "combined_stage"
+      }
+    ],
+    "native_fused": [
+      {
+        "kernel_us": 50237.253,
+        "active_invocation_us": [
+          50222.362,
+          50252.144
+        ],
+        "device_task_count": 2,
+        "tasks_per_invocation": [
+          1,
+          1
+        ],
+        "device_task_names_per_invocation": {
+          "QuantLightningIndexer": 1
+        },
+        "artifact": "int8_long100k-stage-timer-01.json.gz",
+        "stage": "native_stage"
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "native_fused",
+      "combined",
+      "topk",
+      "score"
+    ]
+  ],
+  "latency": {
+    "score": {
+      "kernel_us": {
+        "median": 1278839.6429999997,
+        "min": 1278839.6429999997,
+        "max": 1278839.6429999997,
+        "range_over_median": 0.0
+      }
+    },
+    "topk": {
+      "kernel_us": {
+        "median": 49605.49599999993,
+        "min": 49605.49599999993,
+        "max": 49605.49599999993,
+        "range_over_median": 0.0
+      }
+    },
+    "combined": {
+      "kernel_us": {
+        "median": 1328281.5110000018,
+        "min": 1328281.5110000018,
+        "max": 1328281.5110000018,
+        "range_over_median": 0.0
+      }
+    },
+    "native_fused": {
+      "kernel_us": {
+        "median": 50237.253,
+        "min": 50237.253,
+        "max": 50237.253,
+        "range_over_median": 0.0
+      }
+    }
+  },
+  "speedup": {
+    "overall": 0.0378212393863547,
+    "auxiliary_chunked_native": null,
+    "score": null,
+    "topk": null
+  },
+  "native_split": {
+    "score_us": null,
+    "topk_us": null,
+    "reason": "Fused V1 API has no isolated stage entry"
+  },
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    }
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "3583c9a2b3e7c4a253d4ab180aa5e6f671d66a984b6dcd0a82bed34f362c0850",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+    "qsa_int8_stage_trace_timer_910b.py": "f54671bf2aba6bb583b23ca83804b32ea006be97a3e76698db71ba7341de0daa",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+  },
+  "exit_code": 0
+}
