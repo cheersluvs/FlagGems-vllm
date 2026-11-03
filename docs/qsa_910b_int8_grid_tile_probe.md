@@ -21,7 +21,7 @@
 | Item | Value |
 | --- | --- |
 | Input | Existing synthetic INT8 migration of NV workload geometry |
-| Cases | int8_budget_exact, int8_long100k |
+| Cases | All ten migrated INT8 workloads; see full regression table below |
 | Runtime | Pinned CANN 9.1 / FlagTree ascend3.5 environment |
 | Profiling evidence | 8dda14206542006974f4c72394e316d5d4a70782; corrected isolated trace parser |
 | Hypothesis | Eight programs and 32-key tiles leave parallelism and repeated per-tile work to improve |
@@ -117,3 +117,33 @@ Promotion requires an independent retest and broader shape coverage after this
 screen; successful exit only indicates validity of the probe, not acceptance of
 the candidate. Historical library-timer long100k results are not merged with
 these new trace-timer samples.
+
+
+## Full ten-shape screening
+
+The two-case combined probe in report a11f493e929e54e829d4634d654bd6e3869fc578
+passed all score checks and measured G20/N128 at 3.116x and 2.996x versus G8/N32.
+The next screen keeps the same three variants and explicit trace timer, and
+extends only workload coverage. Default selected cases now include all ten.
+
+| Case | Query rows | Logits width | Score chunk rows |
+| --- | ---: | ---: | ---: |
+| int8_first_chunk | 16384 | 4096 | 128 |
+| int8_budget_exact | 16384 | 8192 | 128 |
+| int8_dominant_long | 16331 | 8512 | 128 |
+| int8_tail112 | 16368 | 8256 | 128 |
+| int8_tail113 | 16369 | 8256 | 128 |
+| int8_two_balanced | 16329 | 8256 | 128 |
+| int8_two_skewed | 16384 | 8256 | 128 |
+| int8_short_tail | 2316 | 8512 | 128 |
+| int8_compact | 8896 | 1088 | 128 |
+| int8_long100k | 16384 | 29696 | 112 |
+
+Keep full-row score comparisons, independent CPU samples, masks, no-debug IR
+checks and postchecks. Print a final per-case table and equal-weight arithmetic
+mean of selected-case score speedups only if every selected case passed.
+Missing/failed cases must not silently disappear into the average. The JSON
+records the selected case names so subset runs cannot be mistaken for ten-case
+acceptance. This does not time TopK or native fused V1 and changes no production
+source, scorer source, tensor generator, timer or TopK implementation. Screening
+uses two rounds, warmup 1, active 3; raw traces remain uploaded.

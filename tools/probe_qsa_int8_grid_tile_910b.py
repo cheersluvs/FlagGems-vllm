@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import statistics
 import sys
 import traceback
 from pathlib import Path
@@ -28,7 +29,6 @@ from benchmark_qsa_int8_kernel_910b import snapshot  # noqa: E402
 from probe_qsa_int8_score_910b import reference  # noqa: E402
 from probe_qsa_int8_ten_shapes_910b import PLANS, run_child  # noqa: E402
 from profile_qsa_int8_score_910b import (  # noqa: E402
-    CASES,
     FROZEN_SCORE_SHA256,
     check_chunk,
 )
@@ -37,6 +37,7 @@ from qsa_kernel_benchmark_910b import aggregate, setup  # noqa: E402
 from tools.qsa_int8_ten_workloads_910b import make_inputs, sample_rows  # noqa: E402
 
 VARIANTS = {"g8_n32": (8, 32), "g20_n32": (20, 32), "g20_n128": (20, 128)}
+CASES = tuple(PLANS)
 
 
 def run_case(args):
@@ -351,14 +352,42 @@ def main():
             entry["status"] = "crashed_after_completion"
         entries.append(entry)
     snapshot(report, "after")
+    print(
+        "case                         variant       score_ms   vs_frozen   vs_grid20_n32",
+        flush=True,
+    )
+    for entry in entries:
+        if entry["status"] != "passed":
+            print(entry["case"], entry["status"], flush=True)
+            continue
+        for name in VARIANTS:
+            print(
+                f"{entry['case']:28} {name:12} "
+                f"{entry['timings'][name]['kernel_us']['median']/1000:10.3f} "
+                f"{entry['speedup_vs_frozen_score'][name]:10.4f} "
+                f"{entry['speedup_vs_grid20_n32'][name]:10.4f}",
+                flush=True,
+            )
     code = (
         0
         if all(e["status"] == "passed" for e in entries)
         else (2 if all(e["status"] == "prerequisites_missing" for e in entries) else 1)
     )
-    (report / "summary.json").write_text(
-        json.dumps(dict(exit_code=code, cases=entries), indent=2)
+    summary = dict(
+        exit_code=code, cases=entries, selected_cases=[e["case"] for e in entries]
     )
+    if code == 0:
+        summary["arithmetic_mean_score_speedup"] = {
+            name: statistics.mean(e["speedup_vs_frozen_score"][name] for e in entries)
+            for name in VARIANTS
+        }
+        summary["aggregation_scope"] = (
+            "Selected cases, equal-weight arithmetic mean; score-only exploratory trace timing"
+        )
+        print(
+            "MEAN_SCORE_SPEEDUP", summary["arithmetic_mean_score_speedup"], flush=True
+        )
+    (report / "summary.json").write_text(json.dumps(summary, indent=2))
     print(f"INT8 grid/tile probe: exit={code}", flush=True)
     return code
 
