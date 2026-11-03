@@ -1,0 +1,375 @@
+case | Q rows | requests | max context | score width | chunk | CPU samples
+int8_first_chunk | 16384 | 1 | 16384 | 4096 | 128 | 9
+int8_budget_exact | 16384 | 1 | 32768 | 8192 | 128 | 6
+int8_dominant_long | 16331 | 1 | 33842 | 8512 | 128 | 6
+int8_tail112 | 16368 | 1 | 32853 | 8256 | 128 | 6
+int8_tail113 | 16369 | 1 | 32851 | 8256 | 128 | 6
+int8_two_balanced | 16329 | 2 | 32932 | 8256 | 128 | 8
+int8_two_skewed | 16384 | 2 | 32822 | 8256 | 128 | 8
+int8_short_tail | 2316 | 1 | 33843 | 8512 | 128 | 6
+int8_compact | 8896 | 54 | 4100 | 1088 | 128 | 19
+int8_long100k | 16384 | 1 | 118784 | 29696 | 112 | 6
+Starting full-shape correctness: int8_first_chunk
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_first_chunk", "processed": 128, "total": 16384, "paired_score_error": 0.0, "cpu_samples_done": 2}
+{"case": "int8_first_chunk", "processed": 4096, "total": 16384, "paired_score_error": 0.007357597351074219, "cpu_samples_done": 6}
+{"case": "int8_first_chunk", "processed": 8192, "total": 16384, "paired_score_error": 0.014135360717773438, "cpu_samples_done": 6}
+{"case": "int8_first_chunk", "processed": 12288, "total": 16384, "paired_score_error": 0.014135360717773438, "cpu_samples_done": 7}
+{"case": "int8_first_chunk", "processed": 16384, "total": 16384, "paired_score_error": 0.01975250244140625, "cpu_samples_done": 9}
+{
+  "case": "int8_first_chunk",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    16256,
+    16384
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 16384,
+    "identical_index_set_rows": 15078,
+    "paired_selected_score_max_abs_error": 0.01975250244140625,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 16384,
+    "index_structure_checked_rows": 16384,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 9
+}
+Starting full-shape correctness: int8_budget_exact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{
+  "case": "int8_budget_exact",
+  "status": "failed",
+  "stage": "all_row_validation",
+  "chunk": [
+    0,
+    128
+  ],
+  "traceback": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-int8-ten.sQ1qAXfr/tools/probe_qsa_int8_ten_shapes_910b.py\", line 199, in run_case\n    a_order = verify_structure(candidate_cpu, lengths)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-int8-ten.sQ1qAXfr/tools/probe_qsa_int8_ten_shapes_910b.py\", line 55, in verify_structure\n    raise AssertionError(\"Duplicate valid indices\")\nAssertionError: Duplicate valid indices\n",
+  "checks": {
+    "processed_rows": 0,
+    "identical_index_set_rows": 0,
+    "paired_selected_score_max_abs_error": 0.0,
+    "sampled_score_max_abs_error": 0.0,
+    "full_score_masks_checked": false,
+    "all_rows_index_structure_checked": false,
+    "score_mask_checked_rows": 0,
+    "index_structure_checked_rows": 0,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 0
+}
+Starting full-shape correctness: int8_dominant_long
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_dominant_long", "processed": 128, "total": 16331, "paired_score_error": 0.01025390625, "cpu_samples_done": 2}
+{"case": "int8_dominant_long", "processed": 4096, "total": 16331, "paired_score_error": 0.02501678466796875, "cpu_samples_done": 3}
+{"case": "int8_dominant_long", "processed": 8192, "total": 16331, "paired_score_error": 0.02501678466796875, "cpu_samples_done": 4}
+{"case": "int8_dominant_long", "processed": 12288, "total": 16331, "paired_score_error": 0.02501678466796875, "cpu_samples_done": 4}
+{"case": "int8_dominant_long", "processed": 16331, "total": 16331, "paired_score_error": 0.02501678466796875, "cpu_samples_done": 6}
+{
+  "case": "int8_dominant_long",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    16256,
+    16331
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 16331,
+    "identical_index_set_rows": 13865,
+    "paired_selected_score_max_abs_error": 0.02501678466796875,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 16331,
+    "index_structure_checked_rows": 16331,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 6
+}
+Starting full-shape correctness: int8_tail112
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_tail112", "processed": 128, "total": 16368, "paired_score_error": 0.0070037841796875, "cpu_samples_done": 2}
+{"case": "int8_tail112", "processed": 4096, "total": 16368, "paired_score_error": 0.025402069091796875, "cpu_samples_done": 3}
+{"case": "int8_tail112", "processed": 8192, "total": 16368, "paired_score_error": 0.025402069091796875, "cpu_samples_done": 4}
+{"case": "int8_tail112", "processed": 12288, "total": 16368, "paired_score_error": 0.025402069091796875, "cpu_samples_done": 4}
+{"case": "int8_tail112", "processed": 16368, "total": 16368, "paired_score_error": 0.025402069091796875, "cpu_samples_done": 6}
+{
+  "case": "int8_tail112",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    16256,
+    16368
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 16368,
+    "identical_index_set_rows": 13904,
+    "paired_selected_score_max_abs_error": 0.025402069091796875,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 16368,
+    "index_structure_checked_rows": 16368,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 6
+}
+Starting full-shape correctness: int8_tail113
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_tail113", "processed": 128, "total": 16369, "paired_score_error": 0.012889862060546875, "cpu_samples_done": 2}
+{"case": "int8_tail113", "processed": 4096, "total": 16369, "paired_score_error": 0.01818084716796875, "cpu_samples_done": 3}
+{"case": "int8_tail113", "processed": 8192, "total": 16369, "paired_score_error": 0.01818084716796875, "cpu_samples_done": 4}
+{"case": "int8_tail113", "processed": 12288, "total": 16369, "paired_score_error": 0.02225494384765625, "cpu_samples_done": 4}
+{"case": "int8_tail113", "processed": 16369, "total": 16369, "paired_score_error": 0.02225494384765625, "cpu_samples_done": 6}
+{
+  "case": "int8_tail113",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    16256,
+    16369
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 16369,
+    "identical_index_set_rows": 13877,
+    "paired_selected_score_max_abs_error": 0.02225494384765625,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 16369,
+    "index_structure_checked_rows": 16369,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 6
+}
+Starting full-shape correctness: int8_two_balanced
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_two_balanced", "processed": 128, "total": 16329, "paired_score_error": 0.010845184326171875, "cpu_samples_done": 2}
+{"case": "int8_two_balanced", "processed": 4096, "total": 16329, "paired_score_error": 0.020915985107421875, "cpu_samples_done": 3}
+{"case": "int8_two_balanced", "processed": 8192, "total": 16329, "paired_score_error": 0.020915985107421875, "cpu_samples_done": 4}
+{"case": "int8_two_balanced", "processed": 12288, "total": 16329, "paired_score_error": 0.020915985107421875, "cpu_samples_done": 6}
+{"case": "int8_two_balanced", "processed": 16329, "total": 16329, "paired_score_error": 0.020915985107421875, "cpu_samples_done": 8}
+{
+  "case": "int8_two_balanced",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    16256,
+    16329
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 16329,
+    "identical_index_set_rows": 13709,
+    "paired_selected_score_max_abs_error": 0.020915985107421875,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 16329,
+    "index_structure_checked_rows": 16329,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 8
+}
+Starting full-shape correctness: int8_two_skewed
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_two_skewed", "processed": 128, "total": 16384, "paired_score_error": 0.008350372314453125, "cpu_samples_done": 2}
+{"case": "int8_two_skewed", "processed": 4096, "total": 16384, "paired_score_error": 0.018672943115234375, "cpu_samples_done": 3}
+{"case": "int8_two_skewed", "processed": 8192, "total": 16384, "paired_score_error": 0.019561767578125, "cpu_samples_done": 3}
+{"case": "int8_two_skewed", "processed": 12288, "total": 16384, "paired_score_error": 0.019561767578125, "cpu_samples_done": 4}
+{"case": "int8_two_skewed", "processed": 16384, "total": 16384, "paired_score_error": 0.0225830078125, "cpu_samples_done": 8}
+{
+  "case": "int8_two_skewed",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    16256,
+    16384
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 16384,
+    "identical_index_set_rows": 13952,
+    "paired_selected_score_max_abs_error": 0.0225830078125,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 16384,
+    "index_structure_checked_rows": 16384,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 8
+}
+Starting full-shape correctness: int8_short_tail
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_short_tail", "processed": 128, "total": 2316, "paired_score_error": 0.0177001953125, "cpu_samples_done": 2}
+{"case": "int8_short_tail", "processed": 2316, "total": 2316, "paired_score_error": 0.0220489501953125, "cpu_samples_done": 6}
+{
+  "case": "int8_short_tail",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    2304,
+    2316
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 2316,
+    "identical_index_set_rows": 1924,
+    "paired_selected_score_max_abs_error": 0.0220489501953125,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 2316,
+    "index_structure_checked_rows": 2316,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 6
+}
+Starting full-shape correctness: int8_compact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_compact", "processed": 128, "total": 8896, "paired_score_error": 0.0, "cpu_samples_done": 2}
+{"case": "int8_compact", "processed": 4096, "total": 8896, "paired_score_error": 0.007618904113769531, "cpu_samples_done": 7}
+{"case": "int8_compact", "processed": 8192, "total": 8896, "paired_score_error": 0.009443283081054688, "cpu_samples_done": 16}
+{"case": "int8_compact", "processed": 8896, "total": 8896, "paired_score_error": 0.009443283081054688, "cpu_samples_done": 19}
+{
+  "case": "int8_compact",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    8832,
+    8896
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 8896,
+    "identical_index_set_rows": 8596,
+    "paired_selected_score_max_abs_error": 0.009443283081054688,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 8896,
+    "index_structure_checked_rows": 8896,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 19
+}
+Starting full-shape correctness: int8_long100k
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_long100k", "processed": 112, "total": 16384, "paired_score_error": 0.010894775390625, "cpu_samples_done": 2}
+{"case": "int8_long100k", "processed": 3584, "total": 16384, "paired_score_error": 0.024852752685546875, "cpu_samples_done": 3}
+{"case": "int8_long100k", "processed": 7168, "total": 16384, "paired_score_error": 0.024852752685546875, "cpu_samples_done": 3}
+{"case": "int8_long100k", "processed": 10752, "total": 16384, "paired_score_error": 0.030223846435546875, "cpu_samples_done": 4}
+{"case": "int8_long100k", "processed": 14336, "total": 16384, "paired_score_error": 0.030303955078125, "cpu_samples_done": 4}
+{"case": "int8_long100k", "processed": 16384, "total": 16384, "paired_score_error": 0.030303955078125, "cpu_samples_done": 6}
+{
+  "case": "int8_long100k",
+  "status": "passed",
+  "stage": "completed",
+  "chunk": [
+    16352,
+    16384
+  ],
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    },
+    "block": 256
+  },
+  "checks": {
+    "processed_rows": 16384,
+    "identical_index_set_rows": 12739,
+    "paired_selected_score_max_abs_error": 0.030303955078125,
+    "sampled_score_max_abs_error": 7.62939453125e-06,
+    "full_score_masks_checked": true,
+    "all_rows_index_structure_checked": true,
+    "score_mask_checked_rows": 16384,
+    "index_structure_checked_rows": 16384,
+    "sampled_dot_max_abs_error": 0
+  },
+  "cpu_samples_done": 6
+}
+INT8 ten shapes: 9/10 passed; exit=1
