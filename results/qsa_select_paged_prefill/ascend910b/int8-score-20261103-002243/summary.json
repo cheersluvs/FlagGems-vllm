@@ -1,0 +1,610 @@
+{
+  "exit_code": 0,
+  "cases": [
+    {
+      "case": "h4_topk512",
+      "status": "passed",
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device": "Ascend910B4-1",
+        "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU"
+      },
+      "geometry": {
+        "heads": 4,
+        "dim": 128,
+        "page_size": 192,
+        "group_topk": 512,
+        "compress_ratio": 4,
+        "query_lengths": [
+          2
+        ],
+        "prefix_tokens": [
+          16384
+        ],
+        "visible_groups": [
+          4096,
+          4096
+        ],
+        "q_shape": [
+          2,
+          4,
+          128
+        ],
+        "cache_shape": [
+          23,
+          192,
+          1,
+          128
+        ],
+        "adaptation": "One native batch per query; sparse_mode=0; exact visible group lengths",
+        "compression_boundary": "floor((prefix_tokens + local_query + 1) / 4)"
+      },
+      "input_ranges": {
+        "q": [
+          -128,
+          127
+        ],
+        "cache": [
+          -128,
+          127
+        ],
+        "weights": [
+          1.0,
+          1.0
+        ],
+        "qs": [
+          0.0078125,
+          0.015625
+        ],
+        "ks": [
+          0.0078125,
+          0.015625
+        ]
+      },
+      "variants": {
+        "original_unmasked": {
+          "compiler_artifacts": [
+            {
+              "file": "h4_topk512-original_unmasked-ttir.txt",
+              "truncated": false
+            }
+          ],
+          "compiler_asm_keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "checks": {
+            "rows": 2,
+            "valid_score_elements": 8192,
+            "checked_all_rows": true,
+            "checks_passed": true,
+            "failures": [],
+            "int32_dots_exact": true,
+            "int32_dot_max_abs_error": 0,
+            "score_max_abs_error": 0.0,
+            "score_max_rel_error_with_1e_minus3_floor": 0.0,
+            "score_rtol": 0.001,
+            "score_atol": 0.001,
+            "invalid_scores_negative_infinity": true,
+            "invalid_score_mask_errors": 0,
+            "invalid_debug_dots_zero": false,
+            "invalid_debug_nonzero_count": 2560,
+            "invalid_debug_unwritten_sentinel_count": 0,
+            "invalid_debug_samples": [
+              {
+                "row": 0,
+                "column": 4096,
+                "head": 0,
+                "value": 1013
+              },
+              {
+                "row": 0,
+                "column": 4096,
+                "head": 1,
+                "value": 1013
+              },
+              {
+                "row": 0,
+                "column": 4096,
+                "head": 2,
+                "value": 1013
+              },
+              {
+                "row": 0,
+                "column": 4096,
+                "head": 3,
+                "value": 1013
+              },
+              {
+                "row": 0,
+                "column": 4097,
+                "head": 0,
+                "value": 1191
+              },
+              {
+                "row": 0,
+                "column": 4097,
+                "head": 1,
+                "value": 1191
+              },
+              {
+                "row": 0,
+                "column": 4097,
+                "head": 2,
+                "value": 1191
+              },
+              {
+                "row": 0,
+                "column": 4097,
+                "head": 3,
+                "value": 1191
+              }
+            ],
+            "debug_padding_required": false
+          }
+        },
+        "explicit_mask": {
+          "compiler_artifacts": [
+            {
+              "file": "h4_topk512-explicit_mask-ttir.txt",
+              "truncated": false
+            }
+          ],
+          "compiler_asm_keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "checks": {
+            "rows": 2,
+            "valid_score_elements": 8192,
+            "checked_all_rows": true,
+            "checks_passed": true,
+            "failures": [],
+            "int32_dots_exact": true,
+            "int32_dot_max_abs_error": 0,
+            "score_max_abs_error": 0.0,
+            "score_max_rel_error_with_1e_minus3_floor": 0.0,
+            "score_rtol": 0.001,
+            "score_atol": 0.001,
+            "invalid_scores_negative_infinity": true,
+            "invalid_score_mask_errors": 0,
+            "invalid_debug_dots_zero": true,
+            "invalid_debug_nonzero_count": 0,
+            "invalid_debug_unwritten_sentinel_count": 0,
+            "invalid_debug_samples": [],
+            "debug_padding_required": true
+          }
+        }
+      },
+      "current_variant": "explicit_mask",
+      "sources": {
+        "qsa_int8_score_910b_trial.py": "8716fd5e577cdce8faaf3b7ec5d57d551fbad9d403867bbc77c350d101707332",
+        "probe_qsa_quant_v1_910b.py": "e542a1465090204625389412ad424cf4567aefca96c62cf686443e5ad0dbed52",
+        "probe_qsa_int8_score_910b.py": "32f2f06a105733e85c5e8bf2cce37da0a3de4ceecad094f4f23dbbfb6b078ff8"
+      },
+      "exit_code": 0
+    },
+    {
+      "case": "h4_compressed_boundary",
+      "status": "passed",
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device": "Ascend910B4-1",
+        "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU"
+      },
+      "geometry": {
+        "heads": 4,
+        "dim": 128,
+        "page_size": 192,
+        "group_topk": 512,
+        "compress_ratio": 4,
+        "query_lengths": [
+          9,
+          5
+        ],
+        "prefix_tokens": [
+          2044,
+          4093
+        ],
+        "visible_groups": [
+          511,
+          511,
+          511,
+          512,
+          512,
+          512,
+          512,
+          513,
+          513,
+          1023,
+          1023,
+          1024,
+          1024,
+          1024
+        ],
+        "q_shape": [
+          14,
+          4,
+          128
+        ],
+        "cache_shape": [
+          14,
+          192,
+          1,
+          128
+        ],
+        "adaptation": "One native batch per query; sparse_mode=0; exact visible group lengths",
+        "compression_boundary": "floor((prefix_tokens + local_query + 1) / 4)"
+      },
+      "input_ranges": {
+        "q": [
+          -8,
+          8
+        ],
+        "cache": [
+          -8,
+          127
+        ],
+        "weights": [
+          0.25927734375,
+          1.736328125
+        ],
+        "qs": [
+          0.0010957717895507812,
+          0.0298919677734375
+        ],
+        "ks": [
+          0.0010051727294921875,
+          0.029998779296875
+        ]
+      },
+      "variants": {
+        "original_unmasked": {
+          "compiler_artifacts": [
+            {
+              "file": "h4_compressed_boundary-original_unmasked-ttir.txt",
+              "truncated": false
+            }
+          ],
+          "compiler_asm_keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "checks": {
+            "rows": 14,
+            "valid_score_elements": 9725,
+            "checked_all_rows": true,
+            "checks_passed": true,
+            "failures": [],
+            "int32_dots_exact": true,
+            "int32_dot_max_abs_error": 0,
+            "score_max_abs_error": 9.5367431640625e-07,
+            "score_max_rel_error_with_1e_minus3_floor": 1.1928679555239796e-07,
+            "score_rtol": 0.001,
+            "score_atol": 0.001,
+            "invalid_scores_negative_infinity": true,
+            "invalid_score_mask_errors": 0,
+            "invalid_debug_dots_zero": false,
+            "invalid_debug_nonzero_count": 36290,
+            "invalid_debug_unwritten_sentinel_count": 0,
+            "invalid_debug_samples": [
+              {
+                "row": 0,
+                "column": 511,
+                "head": 0,
+                "value": -96
+              },
+              {
+                "row": 0,
+                "column": 511,
+                "head": 1,
+                "value": -96
+              },
+              {
+                "row": 0,
+                "column": 511,
+                "head": 2,
+                "value": -96
+              },
+              {
+                "row": 0,
+                "column": 511,
+                "head": 3,
+                "value": -96
+              },
+              {
+                "row": 0,
+                "column": 512,
+                "head": 0,
+                "value": -71
+              },
+              {
+                "row": 0,
+                "column": 512,
+                "head": 1,
+                "value": -71
+              },
+              {
+                "row": 0,
+                "column": 512,
+                "head": 2,
+                "value": -71
+              },
+              {
+                "row": 0,
+                "column": 512,
+                "head": 3,
+                "value": -71
+              }
+            ],
+            "debug_padding_required": false
+          }
+        },
+        "explicit_mask": {
+          "compiler_artifacts": [
+            {
+              "file": "h4_compressed_boundary-explicit_mask-ttir.txt",
+              "truncated": false
+            }
+          ],
+          "compiler_asm_keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "checks": {
+            "rows": 14,
+            "valid_score_elements": 9725,
+            "checked_all_rows": true,
+            "checks_passed": true,
+            "failures": [],
+            "int32_dots_exact": true,
+            "int32_dot_max_abs_error": 0,
+            "score_max_abs_error": 9.5367431640625e-07,
+            "score_max_rel_error_with_1e_minus3_floor": 1.1928679555239796e-07,
+            "score_rtol": 0.001,
+            "score_atol": 0.001,
+            "invalid_scores_negative_infinity": true,
+            "invalid_score_mask_errors": 0,
+            "invalid_debug_dots_zero": true,
+            "invalid_debug_nonzero_count": 0,
+            "invalid_debug_unwritten_sentinel_count": 0,
+            "invalid_debug_samples": [],
+            "debug_padding_required": true
+          }
+        }
+      },
+      "current_variant": "explicit_mask",
+      "sources": {
+        "qsa_int8_score_910b_trial.py": "8716fd5e577cdce8faaf3b7ec5d57d551fbad9d403867bbc77c350d101707332",
+        "probe_qsa_quant_v1_910b.py": "e542a1465090204625389412ad424cf4567aefca96c62cf686443e5ad0dbed52",
+        "probe_qsa_int8_score_910b.py": "32f2f06a105733e85c5e8bf2cce37da0a3de4ceecad094f4f23dbbfb6b078ff8"
+      },
+      "exit_code": 0
+    },
+    {
+      "case": "h4_select_all",
+      "status": "passed",
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device": "Ascend910B4-1",
+        "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU"
+      },
+      "geometry": {
+        "heads": 4,
+        "dim": 128,
+        "page_size": 192,
+        "group_topk": 512,
+        "compress_ratio": 4,
+        "query_lengths": [
+          3
+        ],
+        "prefix_tokens": [
+          28
+        ],
+        "visible_groups": [
+          7,
+          7,
+          7
+        ],
+        "q_shape": [
+          3,
+          4,
+          128
+        ],
+        "cache_shape": [
+          2,
+          192,
+          1,
+          128
+        ],
+        "adaptation": "One native batch per query; sparse_mode=0; exact visible group lengths",
+        "compression_boundary": "floor((prefix_tokens + local_query + 1) / 4)"
+      },
+      "input_ranges": {
+        "q": [
+          -128,
+          8
+        ],
+        "cache": [
+          -128,
+          8
+        ],
+        "weights": [
+          1.0,
+          1.0
+        ],
+        "qs": [
+          0.0078125,
+          0.015625
+        ],
+        "ks": [
+          0.0078125,
+          0.015625
+        ]
+      },
+      "variants": {
+        "original_unmasked": {
+          "compiler_artifacts": [
+            {
+              "file": "h4_select_all-original_unmasked-ttir.txt",
+              "truncated": false
+            }
+          ],
+          "compiler_asm_keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "checks": {
+            "rows": 3,
+            "valid_score_elements": 21,
+            "checked_all_rows": true,
+            "checks_passed": true,
+            "failures": [],
+            "int32_dots_exact": true,
+            "int32_dot_max_abs_error": 0,
+            "score_max_abs_error": 0.0,
+            "score_max_rel_error_with_1e_minus3_floor": 0.0,
+            "score_rtol": 0.001,
+            "score_atol": 0.001,
+            "invalid_scores_negative_infinity": true,
+            "invalid_score_mask_errors": 0,
+            "invalid_debug_dots_zero": false,
+            "invalid_debug_nonzero_count": 136,
+            "invalid_debug_unwritten_sentinel_count": 0,
+            "invalid_debug_samples": [
+              {
+                "row": 0,
+                "column": 256,
+                "head": 0,
+                "value": 2097152
+              },
+              {
+                "row": 0,
+                "column": 256,
+                "head": 1,
+                "value": 2097152
+              },
+              {
+                "row": 0,
+                "column": 256,
+                "head": 2,
+                "value": 2097152
+              },
+              {
+                "row": 0,
+                "column": 256,
+                "head": 3,
+                "value": 2097152
+              },
+              {
+                "row": 0,
+                "column": 257,
+                "head": 0,
+                "value": 9600
+              },
+              {
+                "row": 0,
+                "column": 257,
+                "head": 1,
+                "value": 9600
+              },
+              {
+                "row": 0,
+                "column": 257,
+                "head": 2,
+                "value": 9600
+              },
+              {
+                "row": 0,
+                "column": 257,
+                "head": 3,
+                "value": 9600
+              }
+            ],
+            "debug_padding_required": false
+          }
+        },
+        "explicit_mask": {
+          "compiler_artifacts": [
+            {
+              "file": "h4_select_all-explicit_mask-ttir.txt",
+              "truncated": false
+            }
+          ],
+          "compiler_asm_keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "checks": {
+            "rows": 3,
+            "valid_score_elements": 21,
+            "checked_all_rows": true,
+            "checks_passed": true,
+            "failures": [],
+            "int32_dots_exact": true,
+            "int32_dot_max_abs_error": 0,
+            "score_max_abs_error": 0.0,
+            "score_max_rel_error_with_1e_minus3_floor": 0.0,
+            "score_rtol": 0.001,
+            "score_atol": 0.001,
+            "invalid_scores_negative_infinity": true,
+            "invalid_score_mask_errors": 0,
+            "invalid_debug_dots_zero": true,
+            "invalid_debug_nonzero_count": 0,
+            "invalid_debug_unwritten_sentinel_count": 0,
+            "invalid_debug_samples": [],
+            "debug_padding_required": true
+          }
+        }
+      },
+      "current_variant": "explicit_mask",
+      "sources": {
+        "qsa_int8_score_910b_trial.py": "8716fd5e577cdce8faaf3b7ec5d57d551fbad9d403867bbc77c350d101707332",
+        "probe_qsa_quant_v1_910b.py": "e542a1465090204625389412ad424cf4567aefca96c62cf686443e5ad0dbed52",
+        "probe_qsa_int8_score_910b.py": "32f2f06a105733e85c5e8bf2cce37da0a3de4ceecad094f4f23dbbfb6b078ff8"
+      },
+      "exit_code": 0
+    }
+  ],
+  "scope": "Independent debug INT8 score trial only; no TopK integration or timing",
+  "next_step": "If passed, integrate unchanged persistent TopK and compare native V1 selected scores"
+}
