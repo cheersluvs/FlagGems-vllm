@@ -40,7 +40,21 @@ VARIANTS = {"g8_n32": (8, 32), "g20_n32": (20, 32), "g20_n128": (20, 128)}
 CASES = tuple(PLANS)
 
 
+def grid_ratio(entry, name):
+    value = entry.get("speedup_vs_grid20_n32", {}).get(name)
+    return f"{value:10.4f}" if value is not None else "       n/a"
+
+
+def selected_variants(args):
+    return {
+        name: config
+        for name, config in VARIANTS.items()
+        if not args.paired_only or name != "g20_n32"
+    }
+
+
 def run_case(args):
+    variants = selected_variants(args)
     report = Path(args.report)
     result, code = dict(case=args.case, status="failed"), 1
     try:
@@ -101,7 +115,7 @@ def run_case(args):
             score_scratch_bytes=2 * chunk * width * 4, raw_dot_bytes=0
         )
         result["variants"] = {
-            name: dict(grid=grid, block_n=n) for name, (grid, n) in VARIANTS.items()
+            name: dict(grid=grid, block_n=n) for name, (grid, n) in variants.items()
         }
         result["scope"] = (
             "Score-only prepared inputs; candidate speedup vs frozen INT8 score, not native fused or whole operator"
@@ -156,7 +170,7 @@ def run_case(args):
 
         result["stage"] = "compile_and_ir"
         result["compiler"] = {}
-        for name in VARIANTS:
+        for name in variants:
             kernel = launch(name, *chunks[0], scratch[: chunks[0][1]])
             ir = kernel.asm["ttir"]
             stores = len(re.findall(r"\btt\.store\b", ir))
@@ -174,13 +188,13 @@ def run_case(args):
         result["stage"] = "full_score_preflight"
         result["correctness"] = {
             name: dict(rows_checked=0, cpu_rows=[], cpu_max_abs_error=0.0)
-            for name in VARIANTS
+            for name in variants
         }
         for first, count in chunks:
             launch("g8_n32", first, count, control[:count])
             live = columns < values["visible"][first : first + count, None]
             selected = [row for row in samples if first <= row < first + count]
-            for name in VARIANTS:
+            for name in variants:
                 if name == "g8_n32":
                     current = control[:count]
                 else:
@@ -222,10 +236,10 @@ def run_case(args):
             torch,
             result,
         )
-        result["samples"] = {name: [] for name in VARIANTS}
+        result["samples"] = {name: [] for name in variants}
         result["measurement_order"] = []
         for round_index in range(args.rounds):
-            order = list(VARIANTS)
+            order = list(variants)
             if round_index % 2:
                 order.reverse()
             result["measurement_order"].append(order)
@@ -252,11 +266,12 @@ def run_case(args):
             name: base / data["kernel_us"]["median"]
             for name, data in result["timings"].items()
         }
-        grid_base = result["timings"]["g20_n32"]["kernel_us"]["median"]
-        result["speedup_vs_grid20_n32"] = {
-            name: grid_base / data["kernel_us"]["median"]
-            for name, data in result["timings"].items()
-        }
+        if "g20_n32" in result["timings"]:
+            grid_base = result["timings"]["g20_n32"]["kernel_us"]["median"]
+            result["speedup_vs_grid20_n32"] = {
+                name: grid_base / data["kernel_us"]["median"]
+                for name, data in result["timings"].items()
+            }
         result["paired_round_speedups"] = {
             name: [
                 a["kernel_us"] / b["kernel_us"]
@@ -267,19 +282,19 @@ def run_case(args):
         result["stage"] = "postcheck"
         first, count = chunks[len(chunks) // 2]
         result["postchecks"] = {}
-        for name in VARIANTS:
+        for name in variants:
             launch(name, first, count, scratch[:count])
             result["postchecks"][name] = check_chunk(
                 inputs, scratch[:count].cpu(), first, count
             )
         result["status"], result["stage"], code = "passed", "completed", 0
         print("variant         score_ms   vs_frozen   vs_grid20_n32", flush=True)
-        for name in VARIANTS:
+        for name in variants:
             print(
                 f"{name:16} "
                 f"{result['timings'][name]['kernel_us']['median']/1000:10.3f} "
                 f"{result['speedup_vs_frozen_score'][name]:10.4f} "
-                f"{result['speedup_vs_grid20_n32'][name]:10.4f}",
+                f"{grid_ratio(result, name)}",
                 flush=True,
             )
     except ImportError:
@@ -308,7 +323,13 @@ def main():
     parser.add_argument("--case", choices=CASES)
     parser.add_argument("--cases", nargs="+", choices=CASES)
     parser.add_argument("--timer", choices=("library", "trace"), default="library")
+    parser.add_argument(
+        "--paired-only",
+        action="store_true",
+        help="Compare only frozen G8/N32 and combined G20/N128",
+    )
     args = parser.parse_args()
+    variants = selected_variants(args)
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
     Path(args.report).mkdir(parents=True, exist_ok=True)
@@ -339,6 +360,8 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
+        if args.paired_only:
+            command.append("--paired-only")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())
@@ -360,12 +383,12 @@ def main():
         if entry["status"] != "passed":
             print(entry["case"], entry["status"], flush=True)
             continue
-        for name in VARIANTS:
+        for name in variants:
             print(
                 f"{entry['case']:28} {name:12} "
                 f"{entry['timings'][name]['kernel_us']['median']/1000:10.3f} "
                 f"{entry['speedup_vs_frozen_score'][name]:10.4f} "
-                f"{entry['speedup_vs_grid20_n32'][name]:10.4f}",
+                f"{grid_ratio(entry, name)}",
                 flush=True,
             )
     code = (
@@ -374,12 +397,15 @@ def main():
         else (2 if all(e["status"] == "prerequisites_missing" for e in entries) else 1)
     )
     summary = dict(
-        exit_code=code, cases=entries, selected_cases=[e["case"] for e in entries]
+        exit_code=code,
+        cases=entries,
+        selected_cases=[e["case"] for e in entries],
+        selected_variants=list(variants),
     )
     if code == 0:
         summary["arithmetic_mean_score_speedup"] = {
             name: statistics.mean(e["speedup_vs_frozen_score"][name] for e in entries)
-            for name in VARIANTS
+            for name in variants
         }
         summary["aggregation_scope"] = (
             "Selected cases, equal-weight arithmetic mean; score-only exploratory trace timing"

@@ -174,3 +174,26 @@ a synthetic profiler test verifies failed-first/valid-next recovery and artifact
 retention. Actual retry behavior must be verified on the card. Score, TopK,
 production, workload definitions, task-count validation and timing arithmetic
 are unchanged.
+
+## Independent three-case paired retest
+
+The completed ten-case screen combines reports
+`a6f757e82bc14d419452760930b6800665860730` (six complete cases) and
+`92a597196907aca22257be618b602b97592f7142` (four replacement cases).
+G20/N128 has a 3.088x equal-weight mean score speedup, but its two-round timing
+ranges for first_chunk, compact and long100k are 3.66%, 2.52% and 3.92%.
+
+Use `--paired-only --cases int8_first_chunk int8_compact int8_long100k` in a fresh
+process/repository run. Paired-only selects G8/N32 then G20/N128; round two
+reverses this order. It excludes G20/N32 from compilation, validation and timing.
+The CLI default remains the previous three-variant set. In paired-only reports
+the unavailable G20/N32-relative column is n/a, rather than a fabricated ratio;
+selected variant names are recorded in the summary. Keep two rounds, warmup 1,
+active 3, the same strict trace timer with bounded invalid-capture retries, full
+score comparisons and CPU/postcheck references. Compare the new paired speedups
+with the previous run separately; do not pool their raw durations or treat a
+three-case average as a ten-case acceptance statistic. No production promotion,
+TopK change, scorer change, workload change or timer change occurs this round.
+
+Local checks cover formatting, syntax, paired/default variant selection and the
+three-case missing-prerequisite report path. Device timing remains to be run.
