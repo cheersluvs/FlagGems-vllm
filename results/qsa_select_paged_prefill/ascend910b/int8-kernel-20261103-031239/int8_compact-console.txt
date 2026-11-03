@@ -1,0 +1,73 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+{"case": "int8_compact", "memory": {"benchmark_only_full_logits_bytes": 38715392, "bounded_score_scratch_bytes": 557056, "raw_dot_allocation_bytes": 0, "free_before_staging": 63998631936, "total": 65452113920}, "dispatch": {"score_chunk_rows": 128, "topk_call_rows": 32, "topk_block": 256, "score_calls": 70, "topk_calls": 278, "native_full_calls": 1, "native_chunked_calls": 70, "debug_store": false}}
+{"case": "int8_compact", "cpu_reference_rows_ready": [0, 127, 128, 1146, 1147, 1148, 3199, 4320, 4431, 4448, 5440, 5551, 6672, 6783, 7744, 7839, 8800, 8832, 8895]}
+{"case": "int8_compact", "no_debug_preflight_rows": 128, "total_rows": 8896}
+{"case": "int8_compact", "no_debug_preflight_rows": 4096, "total_rows": 8896}
+{"case": "int8_compact", "no_debug_preflight_rows": 8192, "total_rows": 8896}
+{"case": "int8_compact", "no_debug_preflight_rows": 8896, "total_rows": 8896}
+{"case": "int8_compact", "preflight": "topk", "checks": {"indices": {"all_rows_structure": true, "rows": 8896, "sampled_rows": [0, 127, 128, 1146, 1147, 1148, 3199, 4320, 4431, 4448, 5440, 5551, 6672, 6783, 7744, 7839, 8800, 8832, 8895], "selected_score_max_abs_error": 0.0}, "paired": {"all_rows_paired": true, "rows": 8896, "max_abs_error": 0.009443283081054688, "rtol": 0.001, "atol": 0.001}}}
+{"case": "int8_compact", "preflight": "combined", "checks": {"indices": {"all_rows_structure": true, "rows": 8896, "sampled_rows": [0, 127, 128, 1146, 1147, 1148, 3199, 4320, 4431, 4448, 5440, 5551, 6672, 6783, 7744, 7839, 8800, 8832, 8895], "selected_score_max_abs_error": 0.0}, "paired": {"all_rows_paired": true, "rows": 8896, "max_abs_error": 0.009443283081054688, "rtol": 0.001, "atol": 0.001}}}
+KERNEL_TIMER_CHECK {'backend': 'triton.backends.ascend.testing.do_bench_npu', 'source': '/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py', 'source_sha256': 'a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c', 'signature': '(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)', 'warmup': 1, 'active': 3, 'unit': 'microseconds per invocation, sum of device kernel durations', 'host_gaps_included': False, 'clear_l2_cache': False, 'scope': 'Kernel mode; separate stages are not additive; native score/TopK split unavailable', 'invocation_sum_check': {'single_us': 634.893, 'triple_us': 1897.7713333333334, 'ratio': 2.9891199514458866}}
+{"case": "int8_compact", "round": 1, "measuring": "score"}
+{"case": "int8_compact", "round": 1, "job": "score", "kernel_us": 70738.935}
+{"case": "int8_compact", "round": 1, "measuring": "topk"}
+{"case": "int8_compact", "round": 1, "job": "topk", "kernel_us": 4024.741333333333}
+{"case": "int8_compact", "round": 1, "measuring": "combined"}
+{"case": "int8_compact", "round": 1, "job": "combined", "kernel_us": 74698.571}
+{"case": "int8_compact", "round": 1, "measuring": "native_fused"}
+{"case": "int8_compact", "round": 1, "job": "native_fused", "kernel_us": 3153.4166666666665}
+{"case": "int8_compact", "round": 1, "measuring": "native_chunked"}
+{"case": "int8_compact", "round": 1, "job": "native_chunked", "kernel_us": 5105.019}
+{
+  "case": "int8_compact",
+  "status": "passed",
+  "stage": "completed",
+  "latency": {
+    "score": {
+      "kernel_us": {
+        "median": 70738.935,
+        "min": 70738.935,
+        "max": 70738.935,
+        "range_over_median": 0.0
+      }
+    },
+    "topk": {
+      "kernel_us": {
+        "median": 4024.741333333333,
+        "min": 4024.741333333333,
+        "max": 4024.741333333333,
+        "range_over_median": 0.0
+      }
+    },
+    "combined": {
+      "kernel_us": {
+        "median": 74698.571,
+        "min": 74698.571,
+        "max": 74698.571,
+        "range_over_median": 0.0
+      }
+    },
+    "native_fused": {
+      "kernel_us": {
+        "median": 3153.4166666666665,
+        "min": 3153.4166666666665,
+        "max": 3153.4166666666665,
+        "range_over_median": 0.0
+      }
+    },
+    "native_chunked": {
+      "kernel_us": {
+        "median": 5105.019,
+        "min": 5105.019,
+        "max": 5105.019,
+        "range_over_median": 0.0
+      }
+    }
+  },
+  "speedup": {
+    "overall": 0.04221522077934619,
+    "auxiliary_chunked_native": 0.06834158848902211,
+    "score": null,
+    "topk": null
+  }
+}

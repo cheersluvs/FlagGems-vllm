@@ -1,0 +1,426 @@
+{
+  "case": "int8_dominant_long",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_dominant_long",
+    "nv_case": "fp8_dominant_long_float8_e4m3fn",
+    "origin": "recorded_envelope",
+    "query_lengths": [
+      16331
+    ],
+    "prefix_tokens": [
+      17511
+    ],
+    "starts": [
+      0,
+      16331
+    ],
+    "batch_max_seq_len": 33842,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      45
+    ],
+    "physical_pages": 45,
+    "table_columns": 45,
+    "q_shape": [
+      16331,
+      4,
+      128
+    ],
+    "cache_shape": [
+      45,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 8512,
+    "chunk_rows": 128,
+    "score_and_dot_scratch_bytes": 21790720,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": 2712,
+    "nv_original_table_columns": 88,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Prepared inputs; sum of device kernel durations, not public production entry",
+  "stage": "completed",
+  "memory": {
+    "benchmark_only_full_logits_bytes": 556037888,
+    "bounded_score_scratch_bytes": 4358144,
+    "raw_dot_allocation_bytes": 0,
+    "free_before_staging": 63999188992,
+    "total": 65452113920
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-int8-kernel.lEQ1FqKk/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-int8-kernel.lEQ1FqKk/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "dispatch": {
+    "score_chunk_rows": 128,
+    "topk_call_rows": 32,
+    "topk_block": 256,
+    "score_calls": 128,
+    "topk_calls": 511,
+    "native_full_calls": 1,
+    "native_chunked_calls": 128,
+    "debug_store": false
+  },
+  "cpu_reference_rows": [
+    0,
+    127,
+    128,
+    8165,
+    16256,
+    16330
+  ],
+  "correctness": {
+    "score": {
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8165,
+        16256,
+        16330
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    "native_full_preflight": {
+      "all_rows_structure": true,
+      "rows": 16331,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8165,
+        16256,
+        16330
+      ],
+      "selected_score_max_abs_error": 0.0
+    },
+    "native_chunked_preflight": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16331,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8165,
+          16256,
+          16330
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16331,
+        "max_abs_error": 0.0,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16331,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8165,
+          16256,
+          16330
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16331,
+        "max_abs_error": 0.02501678466796875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16331,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8165,
+          16256,
+          16330
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16331,
+        "max_abs_error": 0.02501678466796875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8165,
+          16256,
+          16330
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "post_topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16331,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8165,
+          16256,
+          16330
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16331,
+        "max_abs_error": 0.02501678466796875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16331,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8165,
+          16256,
+          16330
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16331,
+        "max_abs_error": 0.02501678466796875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_native_fused": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16331,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8165,
+          16256,
+          16330
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16331,
+        "max_abs_error": 0.02501678466796875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_native_chunked": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16331,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8165,
+          16256,
+          16330
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16331,
+        "max_abs_error": 0.02501678466796875,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    }
+  },
+  "no_debug_ir": {
+    "store_count": 1,
+    "int8_to_int32_dot": true
+  },
+  "baseline_policy": {
+    "primary": "full native V1, one call",
+    "auxiliary": "chunked native V1",
+    "no_fallback": true
+  },
+  "kernel_timer": {
+    "backend": "triton.backends.ascend.testing.do_bench_npu",
+    "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py",
+    "source_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c",
+    "signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)",
+    "warmup": 1,
+    "active": 3,
+    "unit": "microseconds per invocation, sum of device kernel durations",
+    "host_gaps_included": false,
+    "clear_l2_cache": false,
+    "scope": "Kernel mode; separate stages are not additive; native score/TopK split unavailable",
+    "invocation_sum_check": {
+      "single_us": 6507.617,
+      "triple_us": 19541.57733333333,
+      "ratio": 3.002877602251843,
+      "status": "passed"
+    }
+  },
+  "samples": {
+    "score": [
+      {
+        "kernel_us": 987328.973
+      }
+    ],
+    "topk": [
+      {
+        "kernel_us": 14938.525666666665
+      }
+    ],
+    "combined": [
+      {
+        "kernel_us": 1001073.1606666666
+      }
+    ],
+    "native_fused": [
+      {
+        "kernel_us": 14736.288
+      }
+    ],
+    "native_chunked": [
+      {
+        "kernel_us": 18796.00933333333
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "score",
+      "topk",
+      "combined",
+      "native_fused",
+      "native_chunked"
+    ]
+  ],
+  "latency": {
+    "score": {
+      "kernel_us": {
+        "median": 987328.973,
+        "min": 987328.973,
+        "max": 987328.973,
+        "range_over_median": 0.0
+      }
+    },
+    "topk": {
+      "kernel_us": {
+        "median": 14938.525666666665,
+        "min": 14938.525666666665,
+        "max": 14938.525666666665,
+        "range_over_median": 0.0
+      }
+    },
+    "combined": {
+      "kernel_us": {
+        "median": 1001073.1606666666,
+        "min": 1001073.1606666666,
+        "max": 1001073.1606666666,
+        "range_over_median": 0.0
+      }
+    },
+    "native_fused": {
+      "kernel_us": {
+        "median": 14736.288,
+        "min": 14736.288,
+        "max": 14736.288,
+        "range_over_median": 0.0
+      }
+    },
+    "native_chunked": {
+      "kernel_us": {
+        "median": 18796.00933333333,
+        "min": 18796.00933333333,
+        "max": 18796.00933333333,
+        "range_over_median": 0.0
+      }
+    }
+  },
+  "speedup": {
+    "overall": 0.01472049054854926,
+    "auxiliary_chunked_native": 0.018775859819092636,
+    "score": null,
+    "topk": null
+  },
+  "native_split": {
+    "score_us": null,
+    "topk_us": null,
+    "reason": "Fused V1 API has no isolated stage entry"
+  },
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    }
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "f61c15b455ca0c8443e5e19ac97b58f731eaf0f0265e8e9fd5d112732d8f52bb",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373"
+  },
+  "exit_code": 0
+}
