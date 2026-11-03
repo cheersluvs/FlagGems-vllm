@@ -12,6 +12,7 @@
 
 """Collect interleaved prefix samples in one synchronized trace."""
 
+import collections
 import gc
 import gzip
 import json
@@ -21,7 +22,9 @@ from qsa_int8_stage_trace_timer_910b import stage_mean
 from qsa_int8_trace_timer_910b import IncompleteScoreTrace
 
 
-def measure_prefix_plan(args, arms, launch, targets, torch, result):
+def measure_prefix_plan(
+    args, arms, launch, targets, torch, result, expected_hosts=None
+):
     """Keep every valid sample; retry only incomplete whole captures."""
     import torch_npu
 
@@ -62,18 +65,42 @@ def measure_prefix_plan(args, arms, launch, targets, torch, result):
         data = json.loads(payload)
         events = data.get("traceEvents", []) if isinstance(data, dict) else data
         try:
-            parsed = stage_mean(events, len(plan))
-            host = sum(
-                e.get("ph") == "X"
-                and e.get("cat") == "cpu_op"
-                and e.get("name") == "_quant_score_trial"
-                for e in events
+            parsed = stage_mean(
+                events, len(plan), require_uniform_tasks=expected_hosts is None
             )
-            if host != len(plan) or any(n != 1 for n in parsed["tasks_per_invocation"]):
-                raise IncompleteScoreTrace(
-                    f"Expected one score per window: host={host}, expected={len(plan)}, "
-                    f"tasks={parsed['tasks_per_invocation']}"
+            expected = collections.Counter()
+            for entry in plan:
+                expected.update(
+                    expected_hosts[entry["arm"]]
+                    if expected_hosts is not None
+                    else {"_quant_score_trial": 1}
                 )
+            host = collections.Counter(
+                e.get("name")
+                for e in events
+                if e.get("ph") == "X"
+                and e.get("cat") == "cpu_op"
+                and e.get("name") in expected
+            )
+            wanted_counts = [
+                (
+                    sum(expected_hosts[entry["arm"]].values())
+                    if expected_hosts is not None
+                    else 1
+                )
+                for entry in plan
+            ]
+            if host != expected or parsed["tasks_per_invocation"] != wanted_counts:
+                raise IncompleteScoreTrace(
+                    f"Unexpected job tasks: host={dict(host)}, expected={dict(expected)}, "
+                    f"device={parsed['tasks_per_invocation']}, wanted={wanted_counts}"
+                )
+            result["single_capture_counts"] = dict(
+                expected_host_counts=dict(expected),
+                observed_host_counts=dict(host),
+                tasks_per_window=parsed["tasks_per_invocation"],
+                expected_tasks_per_window=wanted_counts,
+            )
             break
         except IncompleteScoreTrace as exc:
             failure = dict(attempt=attempt, artifact=archive.name, reason=str(exc))
@@ -96,7 +123,9 @@ def measure_prefix_plan(args, arms, launch, targets, torch, result):
                 active_invocation_us=active_values,
                 artifact=archive.name,
                 window_indices=indices,
-                device_task_count=len(indices),
+                device_task_count=sum(
+                    parsed["tasks_per_invocation"][i] for i in indices
+                ),
             )
             samples[name].append(value)
             print(

@@ -33,7 +33,7 @@ PREFIXES = (
     "dequant",
     "full",
 )
-FULL_SCALE_VARIANTS = ("key_first", "scale_product")
+FULL_SCALE_VARIANTS = ("key_first", "scale_product", "expanded_key", "expanded_product")
 
 
 def assignment_index(body, name):
@@ -68,15 +68,24 @@ def build_source(source, prefix):
     loop = loops[0]
     if prefix not in (*PREFIXES, *FULL_SCALE_VARIANTS):
         raise ValueError(prefix)
-    if prefix in ("key_first", "scale_product"):
+    if prefix in FULL_SCALE_VARIANTS:
         groups = [n for n in loop.body if isinstance(n, ast.For)]
         if len(groups) != 1:
             raise RuntimeError("Expected one original head-group loop")
         group = groups[0]
         target = group.body[assignment_index(group.body, "dequant")]
+        if prefix in ("expanded_key", "expanded_product"):
+            load = loop.body[assignment_index(loop.body, "key_scale")]
+            load.value = ast.parse(
+                "tl.load(KS + token[:, None] * 16 + lanes[None, :], "
+                "mask=live[:, None], other=0).to(tl.float32)",
+                mode="eval",
+            ).body
         expression = {
             "key_first": "dot.to(tl.float32) * key_scale[:, None] * query_scale[None, :]",
             "scale_product": "dot.to(tl.float32) * (query_scale[None, :] * key_scale[:, None])",
+            "expanded_key": "dot.to(tl.float32) * query_scale[None, :] * key_scale",
+            "expanded_product": "dot.to(tl.float32) * (query_scale[None, :] * key_scale)",
         }[prefix]
         target.value = ast.parse(expression, mode="eval").body
     elif prefix != "full":

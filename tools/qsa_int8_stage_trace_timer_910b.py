@@ -22,7 +22,7 @@ from pathlib import Path
 from qsa_int8_trace_timer_910b import IncompleteScoreTrace, setup_trace
 
 
-def stage_mean(events, active):
+def stage_mean(events, active, require_uniform_tasks=True):
     """Sum device durations inside each complete invocation window."""
     pids = {
         e.get("pid")
@@ -74,7 +74,9 @@ def stage_mean(events, active):
         names.append(
             dict(collections.Counter(e.get("name", "unknown") for e in selected))
         )
-    if covered != len(tasks) or any(n != names[0] for n in names):
+    if covered != len(tasks) or (
+        require_uniform_tasks and any(n != names[0] for n in names)
+    ):
         raise IncompleteScoreTrace(
             f"Incomplete stage task coverage: covered={covered}, tasks={len(tasks)}, counts={counts}"
         )
@@ -83,7 +85,7 @@ def stage_mean(events, active):
         active_invocation_us=samples,
         device_task_count=len(tasks),
         tasks_per_invocation=counts,
-        device_task_names_per_invocation=names[0],
+        device_task_names_per_invocation=(names[0] if require_uniform_tasks else names),
     )
 
 
