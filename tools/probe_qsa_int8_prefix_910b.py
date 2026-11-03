@@ -38,7 +38,11 @@ from tools.qsa_int8_ten_workloads_910b import make_inputs  # noqa: E402
 
 
 def run_case(args):
-    prefixes = ("dot", "dot_fp32", "dequant", "full") if args.tail_only else PREFIXES
+    prefixes = (
+        ("dot_fp32", "query_scaled", "dequant", "full")
+        if args.scale_only
+        else (("dot", "dot_fp32", "dequant", "full") if args.tail_only else PREFIXES)
+    )
     result, code = dict(case=args.case, status="failed"), 1
     report = Path(args.report)
     try:
@@ -146,6 +150,7 @@ def run_case(args):
                 q_load=(keys.sum(1) + inputs["q"][row].int().sum()).float(),
                 dot=dot.sum(1).float(),
                 dot_fp32=dot.float().sum(1),
+                query_scaled=(dot.float() * inputs["qs"][row].float()[None, :]).sum(1),
                 dequant=(
                     dot.float() * inputs["qs"][row].float()[None, :] * scales[:, None]
                 ).sum(1),
@@ -212,7 +217,7 @@ def run_case(args):
                 load_count=len(re.findall(r"\btt\.load\b", ir)),
                 metadata=repr(compiled.metadata),
             )
-        if args.tail_only:
+        if args.tail_only or args.scale_only:
             for name in arms:
                 meta = result["compiler"][name]["metadata"]
                 lowered = (report / f"{args.case}-{name}-bcmlir.txt").read_text()
@@ -228,12 +233,22 @@ def run_case(args):
                     raise AssertionError(
                         f"Lowering control mismatch: {name}, reductions={reductions}"
                     )
+            if args.scale_only:
+                expected_loads = dict(
+                    integrated_full=7, dot_fp32=4, query_scaled=5, dequant=6, full=7
+                )
+                for name in arms:
+                    if result["compiler"][name]["load_count"] != expected_loads[name]:
+                        raise AssertionError(
+                            f"Unexpected scale load count: {name}, {result['compiler'][name]['load_count']}"
+                        )
             print(
                 "LOWERING_CONTROL",
                 json.dumps(
                     {
                         name: dict(
                             mixed_mode=True,
+                            loads=result["compiler"][name]["load_count"],
                             reductions=result["compiler"][name][
                                 "reduction_element_types"
                             ],
@@ -336,7 +351,14 @@ def main():
         action="store_true",
         help="Compare INT32/FP32 dot sinks, dequant and full, with lowering gates",
     )
+    parser.add_argument(
+        "--scale-only",
+        action="store_true",
+        help="Compare query-scale and key-scale prefixes with FP32 reduction",
+    )
     args = parser.parse_args()
+    if args.tail_only and args.scale_only:
+        parser.error("Choose only one prefix subset")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
     report = Path(args.report)
@@ -367,6 +389,8 @@ def main():
         ]
         if args.tail_only:
             command.append("--tail-only")
+        if args.scale_only:
+            command.append("--scale-only")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())

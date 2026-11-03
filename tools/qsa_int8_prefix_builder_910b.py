@@ -29,6 +29,7 @@ PREFIXES = (
     "q_load",
     "dot",
     "dot_fp32",
+    "query_scaled",
     "dequant",
     "full",
 )
@@ -98,6 +99,7 @@ def build_source(source, prefix):
                 "q_load": "query",
                 "dot": "dot",
                 "dot_fp32": "dot",
+                "query_scaled": "query_scale",
                 "dequant": "dequant",
             }[prefix]
             group.body = group.body[: assignment_index(group.body, stop) + 1]
@@ -108,6 +110,7 @@ def build_source(source, prefix):
                 ),
                 "dot": "scores += tl.sum(dot, axis=1).to(tl.float32)",
                 "dot_fp32": "scores += tl.sum(dot.to(tl.float32), axis=1)",
+                "query_scaled": "scores += tl.sum(dot.to(tl.float32) * query_scale[None, :], axis=1)",
                 "dequant": "scores += tl.sum(dequant, axis=1)",
             }[prefix]
             group.body += ast.parse(sink).body

@@ -135,3 +135,38 @@ Local checks: syntax of all generated prefixes, exact cast/reduction AST orderin
 full AST identity, extraction of actual previous bcmlir reduction types, lint,
 and two-case tail-only missing-prerequisite reports. New specialization compilation
 and runtime equivalence are pending the card run.
+
+## Query-scale prefix follow-up
+
+Report 265ac396910e63eaa900eb7a6eac93c981b08b17 validated the FP32 sink control:
+dot_fp32 is 1.421/5.019 ms versus dequant 2.136/8.297 ms on the two middle
+chunks. The next question is which part of scale handling changes the cost.
+
+`--scale-only` selects integrated_full, dot_fp32, query_scaled, dequant, full.
+The new prefix cuts the actual group body after query_scale is loaded, retains
+the original FP32 multiplication by query_scale, then reduces FP32 for its sink.
+The CPU reference is `(dot.float() * query_scale.float()).sum(1)`, using the same
+non-unit fixture scales. Key-scale arithmetic and weights/ReLU are not executed
+by this prefix. All inputs remain INT8 Q/K with FP16 scale storage; no FP8 input
+conversion, re-quantization or dtype policy change is introduced.
+
+Require mixed execution and FP32 reductions on all selected specializations.
+Additionally require TTIR load counts 4/5/6/7 for dot_fp32/query_scaled/dequant/full
+(and 7 for integrated_full). This checks that dead key-scale and weight loads
+were removed as intended. An unexpected compiler result fails before timing.
+Keep sampled prefix references, all-chunk masks, postchecks, no-debug IR,
+full-control equivalence and the same strict trace timer. Tail-only and
+scale-only flags are mutually exclusive; earlier subsets remain available.
+
+Inspect query_scaled minus dot_fp32, then dequant minus query_scaled. These
+contrasts include scale accesses, broadcasts, arithmetic and any changed layout
+or synchronization; they are not isolated multiply timings. Use them to select
+an equivalent full-kernel replacement probe before changing the actual adapter.
+The original QK math, adapter, production registration and TopK stay unchanged.
+Two reversed-order rounds with two active invocations on the two representative
+chunks are sufficient for this diagnostic screen, not full-shape acceptance.
+
+Local validation covers every generated prefix's syntax, the actual query-scale
+cut and FP32 sink, original-full AST identity, source-drift rejection, lint and
+the two-case scale-only missing-prerequisite path. Compilation and numerical
+checks on NPU remain pending the card run.
