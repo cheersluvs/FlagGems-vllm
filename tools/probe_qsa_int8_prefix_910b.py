@@ -111,7 +111,8 @@ def run_case(args):
         )
         if args.full_scale_order:
             result["scope"] = (
-                "Complete score kernels on representative chunks; same original output reduction; not full-prefill or native-overall acceptance"
+                "Complete score kernels on representative chunks; same original output reduction; "
+                "not full-prefill or native-overall acceptance"
             )
         result["stage"] = "prefix_generation"
         kernels = {name: load_prefix(report, args.case, name) for name in prefixes}
