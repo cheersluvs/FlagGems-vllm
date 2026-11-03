@@ -45,14 +45,15 @@
 | --- | ---: | ---: | --- |
 | g8_n32 | 8 | 32 | Original score() host entry; frozen source SHA checked |
 | g20_n32 | 20 | 32 | Only program count changes |
-| g8_n128 | 8 | 128 | Only key tile width changes |
+| g20_n128 | 20 | 128 | Tile width changes relative to g20_n32 |
 
 The candidates launch the same unchanged `_quant_score_trial` JIT function with
 explicit parameters. No copied kernel body or compiler modifications are used.
 All three specializations must compile to one score store and INT8-to-INT32 dot.
 Input shapes, chunk sizes (128/112), masks, scales, weights, padding, warp count
-and scratch reuse are held fixed. G20/N128 is deliberately excluded to isolate
-one change at a time. No library autotuner is added: this is a three-point
+and scratch reuse are held fixed. The initial independent probe used G8/N128;
+the current probe replaces it with G20/N128 to test additional benefit over
+G20/N32. No library autotuner is added: this is a three-point
 hypothesis test; production tuning/dispatch is deferred until measured results.
 
 The default is two rounds, warmup=1 and active=3, using the existing
@@ -98,3 +99,21 @@ Local recorded-trace replay reproduced 929785.352 and 3831887.336 microseconds;
 wrong counts and missing named host launches are rejected. Actual new device
 capture remains to be verified on the card. No scorer, TopK, or production
 implementation changes are included.
+
+
+## Combined candidate follow-up
+
+Successful trace-timer report d3212957685d120244c6521b355e5ebb93ac2c58 measured
+budget_exact at 931.081 ms (G8/N32), 491.017 ms (G20/N32), and 759.847 ms
+(G8/N128). All variants passed full score comparisons and postchecks. The two
+individual changes are promising, but their gains must not be multiplied.
+
+The current active set is G8/N32, G20/N32, G20/N128 on both budget_exact and
+long100k, all with `--timer trace`. Keep two reversed-order rounds, warmup 1,
+active 3. Both original-score and G20/N32-relative ratios are printed and saved.
+The latter isolates the incremental benefit of N128 after increasing the grid.
+No timer, kernel body, TopK or production source changes are included this round.
+Promotion requires an independent retest and broader shape coverage after this
+screen; successful exit only indicates validity of the probe, not acceptance of
+the candidate. Historical library-timer long100k results are not merged with
+these new trace-timer samples.

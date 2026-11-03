@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compare independent INT8 score grid and tile probes on Ascend 910B."""
+"""Compare frozen, grid-only and combined INT8 score probes on Ascend 910B."""
 
 import argparse
 import hashlib
@@ -36,7 +36,7 @@ from qsa_kernel_benchmark_910b import aggregate, setup  # noqa: E402
 
 from tools.qsa_int8_ten_workloads_910b import make_inputs, sample_rows  # noqa: E402
 
-VARIANTS = {"g8_n32": (8, 32), "g20_n32": (20, 32), "g8_n128": (8, 128)}
+VARIANTS = {"g8_n32": (8, 32), "g20_n32": (20, 32), "g20_n128": (20, 128)}
 
 
 def run_case(args):
@@ -251,6 +251,11 @@ def run_case(args):
             name: base / data["kernel_us"]["median"]
             for name, data in result["timings"].items()
         }
+        grid_base = result["timings"]["g20_n32"]["kernel_us"]["median"]
+        result["speedup_vs_grid20_n32"] = {
+            name: grid_base / data["kernel_us"]["median"]
+            for name, data in result["timings"].items()
+        }
         result["paired_round_speedups"] = {
             name: [
                 a["kernel_us"] / b["kernel_us"]
@@ -267,12 +272,13 @@ def run_case(args):
                 inputs, scratch[:count].cpu(), first, count
             )
         result["status"], result["stage"], code = "passed", "completed", 0
-        print("variant         score_ms   speedup_vs_frozen_score", flush=True)
+        print("variant         score_ms   vs_frozen   vs_grid20_n32", flush=True)
         for name in VARIANTS:
             print(
                 f"{name:16} "
                 f"{result['timings'][name]['kernel_us']['median']/1000:10.3f} "
-                f"{result['speedup_vs_frozen_score'][name]:10.4f}",
+                f"{result['speedup_vs_frozen_score'][name]:10.4f} "
+                f"{result['speedup_vs_grid20_n32'][name]:10.4f}",
                 flush=True,
             )
     except ImportError:
