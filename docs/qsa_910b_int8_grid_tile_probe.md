@@ -72,3 +72,29 @@ Local checks: black, isort, flake8, py_compile, bash syntax, missing-prerequisit
 report path on Mac (exit 2). Compilation, numeric correctness and timing require
 the card run. The wrapper uploads report JSON, IR text and console output even
 when the worker fails, and prints a retry command if upload fails.
+
+## Explicit trace timer after library fallback failure
+
+Report a229b154f8828e5071a86df4afd86b5c674184ac passed all preflight checks
+but failed before timing samples: the library returned infinity after profiler
+reported missing TASK data. Installing pandas resolved the preceding import
+error, not the underlying collection failure. The library hides the initial
+MSPTI failure reason, so its exact cause is not established.
+
+`--timer trace` explicitly selects the CPU+NPU Chrome capture API already proven
+in the frozen score profiling. It has no silent fallback and preserves each raw
+trace as a top-level gzip artifact. Warmups run outside the capture; active
+iterations run inside. Parsing requires both expected score host launch counts
+and expected score device task counts; only MIX_AIC or named score tasks are
+accepted in the isolated capture. Each result is the mean sum of device task
+durations over active invocations. Calibration still tests one versus three
+score calls. Counter collection is disabled. Default library timing is unchanged.
+
+This changes collection method; rebuild all three paired baselines for the case.
+Do not merge raw timings with the previous library-timer samples or claim formal
+production speedup from this instrumented exploratory result. Start with only
+budget_exact; long100k's existing library-timer paired result remains separate.
+Local recorded-trace replay reproduced 929785.352 and 3831887.336 microseconds;
+wrong counts and missing named host launches are rejected. Actual new device
+capture remains to be verified on the card. No scorer, TopK, or production
+implementation changes are included.

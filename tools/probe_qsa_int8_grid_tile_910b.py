@@ -210,7 +210,12 @@ def run_case(args):
             if first == 0 or first + count == rows or (first // chunk + 1) % 32 == 0:
                 print("SCORE_CHECK", args.case, first + count, "/", rows, flush=True)
         result["stage"] = "kernel_timer"
-        measure = setup(
+        timer_setup = setup
+        if args.timer == "trace":
+            from qsa_int8_trace_timer_910b import setup_trace
+
+            timer_setup = setup_trace
+        measure = timer_setup(
             args,
             dict(chunks=chunks, score_into=score_into, logits=scratch),
             torch,
@@ -295,6 +300,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--case", choices=CASES)
     parser.add_argument("--cases", nargs="+", choices=CASES)
+    parser.add_argument("--timer", choices=("library", "trace"), default="library")
     args = parser.parse_args()
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
@@ -319,6 +325,8 @@ def main():
             str(args.device),
             "--rounds",
             str(args.rounds),
+            "--timer",
+            args.timer,
             "--kernel-warmup",
             str(args.kernel_warmup),
             "--kernel-active",
