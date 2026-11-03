@@ -43,6 +43,8 @@ def run_case(args):
         if args.scale_only
         else (("dot", "dot_fp32", "dequant", "full") if args.tail_only else PREFIXES)
     )
+    if args.full_scale_order:
+        prefixes = ("full", "key_first", "scale_product")
     result, code = dict(case=args.case, status="failed"), 1
     report = Path(args.report)
     try:
@@ -107,6 +109,10 @@ def run_case(args):
             "Representative score chunk, not complete workload; checksum sink overhead included; "
             "diagnostic prefix differences are not additive operation costs"
         )
+        if args.full_scale_order:
+            result["scope"] = (
+                "Complete score kernels on representative chunks; same original output reduction; not full-prefill or native-overall acceptance"
+            )
         result["stage"] = "prefix_generation"
         kernels = {name: load_prefix(report, args.case, name) for name in prefixes}
 
@@ -156,6 +162,8 @@ def run_case(args):
                     dot.float() * inputs["qs"][row].float()[None, :] * scales[:, None]
                 ).sum(1),
                 full=full,
+                key_first=full,
+                scale_product=full,
                 integrated_full=full,
             )
 
@@ -207,6 +215,12 @@ def run_case(args):
                 raise AssertionError(
                     f"Unexpected prefix IR: {name}, dots={dots}, stores={stores}"
                 )
+            binary = compiled.asm.get("npubin")
+            binary_hash = (
+                hashlib.sha256(bytes(binary)).hexdigest()
+                if isinstance(binary, (bytes, bytearray, memoryview))
+                else None
+            )
             for key in ("ttir", "ttadapter", "bcmlir"):
                 if isinstance(compiled.asm.get(key), str):
                     (report / f"{args.case}-{name}-{key}.txt").write_text(
@@ -217,8 +231,9 @@ def run_case(args):
                 store_count=stores,
                 load_count=len(re.findall(r"\btt\.load\b", ir)),
                 metadata=repr(compiled.metadata),
+                npubin_sha256=binary_hash,
             )
-        if args.tail_only or args.scale_only:
+        if args.tail_only or args.scale_only or args.full_scale_order:
             for name in arms:
                 meta = result["compiler"][name]["metadata"]
                 lowered = (report / f"{args.case}-{name}-bcmlir.txt").read_text()
@@ -257,6 +272,17 @@ def run_case(args):
                         for name in arms
                     }
                 ),
+                flush=True,
+            )
+        if args.full_scale_order:
+            from qsa_int8_full_scale_audit_910b import audit_full_scales
+
+            result["artifact_comparison"] = audit_full_scales(
+                report, args.case, arms, result["compiler"]
+            )
+            print(
+                "FULL_SCALE_ARTIFACTS",
+                json.dumps(result["artifact_comparison"]),
                 flush=True,
             )
         result["stage"] = "kernel_timer"
@@ -305,6 +331,23 @@ def run_case(args):
                         ),
                         flush=True,
                     )
+        if args.full_scale_order:
+            baseline = targets["integrated_full"].cpu()
+            finite = torch.isfinite(baseline)
+            result["full_chunk_comparisons"] = {}
+            for name in arms:
+                actual = targets[name].cpu()
+                if not torch.allclose(actual, baseline, rtol=1e-3, atol=1e-3):
+                    raise AssertionError(f"Full score chunk mismatch: {name}")
+                result["full_chunk_comparisons"][name] = dict(
+                    all_scores_checked=True,
+                    rtol=1e-3,
+                    atol=1e-3,
+                    max_abs_error=(actual[finite] - baseline[finite])
+                    .abs()
+                    .max()
+                    .item(),
+                )
         result["timings"] = {
             name: aggregate(samples) for name, samples in result["samples"].items()
         }
@@ -314,10 +357,19 @@ def run_case(args):
         }
         ratio = medians["full"] / medians["integrated_full"]
         result["generated_full_over_integrated"] = ratio
+        result["speedup_vs_integrated"] = {
+            name: medians["integrated_full"] / value for name, value in medians.items()
+        }
+        if args.full_scale_order:
+            print(
+                "FULL_SCALE_SPEEDUPS",
+                json.dumps(result["speedup_vs_integrated"]),
+                flush=True,
+            )
         result["prefix_differences_us"] = {
             name: medians[name] - medians[prefixes[i - 1]]
             for i, name in enumerate(prefixes)
-            if i
+            if i and not args.full_scale_order
         }
         print(
             "arm             chunk_us   ns_per_output_slot   delta_from_prior_prefix_us",
@@ -348,6 +400,7 @@ def run_case(args):
             "qsa_int8_trace_timer_910b.py",
             "qsa_int8_prefix_plan_timer_910b.py",
             "qsa_int8_stage_trace_timer_910b.py",
+            "qsa_int8_full_scale_audit_910b.py",
         )
     }
     result["exit_code"] = code
@@ -382,10 +435,17 @@ def main():
         action="store_true",
         help="Interleave scale prefixes within one trace",
     )
+    parser.add_argument(
+        "--full-scale-order",
+        action="store_true",
+        help="Compile, validate and time full score multiplication orders in one run",
+    )
     args = parser.parse_args()
-    if args.single_capture and not args.scale_only:
-        parser.error("single-capture requires scale-only")
-    if args.tail_only and args.scale_only:
+    if args.single_capture and not (args.scale_only or args.full_scale_order):
+        parser.error("single-capture requires scale-only or full-scale-order")
+    if args.full_scale_order and not args.single_capture:
+        parser.error("full-scale-order requires single-capture")
+    if sum((args.tail_only, args.scale_only, args.full_scale_order)) > 1:
         parser.error("Choose only one prefix subset")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
@@ -421,6 +481,8 @@ def main():
             command.append("--scale-only")
         if args.single_capture:
             command.append("--single-capture")
+        if args.full_scale_order:
+            command.append("--full-scale-order")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())
@@ -428,6 +490,13 @@ def main():
             else dict(case=name, status="crashed")
         )
         entry["subprocess_exit_code"] = code
+        if args.full_scale_order:
+            from qsa_int8_full_scale_audit_910b import collect_profiler_logs
+
+            entry["profiler_diagnostics"] = collect_profiler_logs(report, name)
+            print(
+                "PROFILER_DIAGNOSTICS", name, entry["profiler_diagnostics"], flush=True
+            )
         if timeout:
             entry["status"] = "timeout"
         elif code and entry["status"] == "passed":
