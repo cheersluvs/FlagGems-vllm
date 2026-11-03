@@ -36,6 +36,7 @@ def _quant_score_trial(
     ROWS: tl.constexpr,
     WIDTH: tl.constexpr,
     BLOCK_N: tl.constexpr,
+    MASK_RAW_DOT: tl.constexpr,
 ):
     tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
     dims = tl.arange(0, 128)
@@ -62,9 +63,13 @@ def _quant_score_trial(
                 other=0,
             )
             dot = tl.dot(keys, query, out_dtype=tl.int32)
+            if MASK_RAW_DOT:
+                debug_dot = tl.where(live[:, None], dot, 0)
+            else:
+                debug_dot = dot
             tl.store(
                 RawDot + (row * WIDTH + columns[:, None]) * HEADS + heads[None, :],
-                dot,
+                debug_dot,
                 mask=(columns[:, None] < WIDTH) & (heads[None, :] < HEADS),
             )
             query_scale = tl.load(
@@ -82,7 +87,9 @@ def _quant_score_trial(
         )
 
 
-def score(q, cache, qs, ks, weights, row_table, visible, output, raw_dot):
+def score(
+    q, cache, qs, ks, weights, row_table, visible, output, raw_dot, *, mask_debug=True
+):
     """Launch debug scoring on contiguous operands without Torch computation."""
     if q.device.type != "npu" or q.dtype != torch.int8 or cache.dtype != torch.int8:
         raise NotImplementedError("INT8 NPU Q/K required")
@@ -138,5 +145,6 @@ def score(q, cache, qs, ks, weights, row_table, visible, output, raw_dot):
         ROWS=rows,
         WIDTH=width,
         BLOCK_N=32,
+        MASK_RAW_DOT=mask_debug,
         num_warps=4,
     )

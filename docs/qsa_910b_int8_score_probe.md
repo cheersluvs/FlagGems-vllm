@@ -61,3 +61,25 @@ results as each case finishes and uploads JSON, text logs and available IR.
 Missing prerequisites return 2; failures/timeouts/crashes return 1; all cases
 passed returns 0. Passing this trial is a prerequisite for TopK integration,
 not production or performance acceptance.
+
+## Padding diagnosis after report f6eb46ae
+
+The first run compiled and executed all three cases. Each stopped at row zero
+with nonzero invisible debug dots, after that row's valid integer dots, valid
+scores and negative-infinity mask had passed. It did not check subsequent
+rows. The report alone does not identify the cause of the nonzero debug data.
+
+The follow-up runs two compile-time variants on each case: the original debug
+store and an explicit `where(live, dot, 0)` debug store. Neither changes the
+dot used for dequantization or the final score. The original variant retains
+invisible debug values as diagnostics; the masked variant must return zero.
+Both must pass exact valid-dot, FP32 score and score-mask checks for every row.
+Validation collects all row failures instead of stopping at the first one.
+
+Before each launch, output is filled with NaN and raw dots with 0x13579BDF in
+the probe (not in the candidate). Reports include nonzero padding counts,
+up to eight raw samples and sentinel counts to distinguish potentially
+unwritten cells from nonzero dot results. IR export happens before numerical
+validation and is attempted for both variants. Original padding anomalies
+remain reported even when the explicit-mask variant passes. This experiment
+does not establish a compiler root cause or production acceptance.

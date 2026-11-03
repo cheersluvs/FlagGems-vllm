@@ -74,18 +74,19 @@ def reference(inputs, row):
     return dot, score
 
 
-def validate(inputs, output, dots):
+def validate(inputs, output, dots, *, require_zero_padding=True):
     import torch
 
     largest_abs = largest_rel = 0.0
     valid_elements = 0
+    dot_error = padding_nonzero = sentinel_count = score_mask_errors = 0
+    failures, padding_samples = [], []
     for row, count in enumerate(inputs["visible"].tolist()):
         expected_dot, expected = reference(inputs, row)
         if not torch.equal(dots[row, :count], expected_dot):
             error = (dots[row, :count].long() - expected_dot.long()).abs().max().item()
-            raise AssertionError(
-                f"row {row}: INT32 dot mismatch; max_abs_error={error}"
-            )
+            dot_error = max(dot_error, error)
+            failures.append(f"row {row}: INT32 dot mismatch; max_abs_error={error}")
         actual = output[row, :count]
         if count:
             error = (actual - expected).abs()
@@ -94,25 +95,68 @@ def validate(inputs, output, dots):
                 largest_rel, (error / expected.abs().clamp_min(1e-3)).max().item()
             )
         if not torch.allclose(actual, expected, rtol=1e-3, atol=1e-3):
-            raise AssertionError(
-                f"row {row}: FP32 score mismatch; max_abs_error={largest_abs}"
-            )
-        if not bool(torch.isneginf(output[row, count:]).all()):
-            raise AssertionError(f"row {row}: invisible scores must be -inf")
-        if bool(dots[row, count:].any()):
-            raise AssertionError(f"row {row}: invisible debug dots must be zero")
+            failures.append(f"row {row}: FP32 score mismatch")
+        bad_mask = int((~torch.isneginf(output[row, count:])).sum().item())
+        score_mask_errors += bad_mask
+        if bad_mask:
+            failures.append(f"row {row}: {bad_mask} invisible scores not -inf")
+        padding = dots[row, count:]
+        nonzero = int((padding != 0).sum().item())
+        padding_nonzero += nonzero
+        sentinel_count += int((padding == 0x13579BDF).sum().item())
+        if nonzero:
+            for column, head in (
+                (padding != 0).nonzero()[: 8 - len(padding_samples)].tolist()
+            ):
+                padding_samples.append(
+                    dict(
+                        row=row,
+                        column=count + column,
+                        head=head,
+                        value=int(padding[column, head]),
+                    )
+                )
+            if require_zero_padding:
+                failures.append(f"row {row}: {nonzero} nonzero invisible debug dots")
         valid_elements += count
     return dict(
         rows=output.shape[0],
         valid_score_elements=valid_elements,
-        int32_dots_exact=True,
+        checked_all_rows=True,
+        checks_passed=not failures,
+        failures=failures,
+        int32_dots_exact=dot_error == 0,
+        int32_dot_max_abs_error=dot_error,
         score_max_abs_error=largest_abs,
         score_max_rel_error_with_1e_minus3_floor=largest_rel,
         score_rtol=1e-3,
         score_atol=1e-3,
-        invalid_scores_negative_infinity=True,
-        invalid_debug_dots_zero=True,
+        invalid_scores_negative_infinity=score_mask_errors == 0,
+        invalid_score_mask_errors=score_mask_errors,
+        invalid_debug_dots_zero=padding_nonzero == 0,
+        invalid_debug_nonzero_count=padding_nonzero,
+        invalid_debug_unwritten_sentinel_count=sentinel_count,
+        invalid_debug_samples=padding_samples,
+        debug_padding_required=require_zero_padding,
     )
+
+
+def export_ir(compiled, report, prefix):
+    result = dict(compiler_artifacts=[])
+    try:
+        asm = getattr(compiled, "asm", {})
+        result["compiler_asm_keys"] = list(asm)
+        for key in ("ttir", "ttgir", "llir", "mlir"):
+            if isinstance(asm.get(key), str):
+                text = asm[key]
+                path = report / f"{prefix}-{re.sub('[^a-zA-Z0-9_-]', '_', key)}.txt"
+                path.write_text(text[: 1024 * 1024])
+                result["compiler_artifacts"].append(
+                    dict(file=path.name, truncated=len(text) > 1024 * 1024)
+                )
+    except Exception:
+        result["compiler_export_warning"] = traceback.format_exc()
+    return result
 
 
 def run_case(args):
@@ -162,36 +206,45 @@ def run_case(args):
         dots = torch.empty(
             (rows, width, heads), device=values["q"].device, dtype=torch.int32
         )
-        compiled = score(
-            values["q"],
-            values["cache"],
-            values["qs"],
-            values["ks"],
-            values["weights"],
-            values["row_table"],
-            values["visible"],
-            output,
-            dots,
-        )
-        torch.npu.synchronize()
-        result["checks"] = validate(inputs, output.cpu(), dots.cpu())
-        result["compiler_artifacts"] = []
-        try:
-            asm = getattr(compiled, "asm", {})
-            result["compiler_asm_keys"] = list(asm)
-            for key in ("ttir", "ttgir", "llir", "mlir"):
-                if isinstance(asm.get(key), str):
-                    text = asm[key]
-                    path = (
-                        report / f"{args.case}-{re.sub('[^a-zA-Z0-9_-]', '_', key)}.txt"
-                    )
-                    path.write_text(text[: 1024 * 1024])
-                    result["compiler_artifacts"].append(
-                        dict(file=path.name, truncated=len(text) > 1024 * 1024)
-                    )
-        except Exception:
-            result["compiler_export_warning"] = traceback.format_exc()
-        result["status"], code = "passed", 0
+        result["variants"] = {}
+        for name, mask_debug in (("original_unmasked", False), ("explicit_mask", True)):
+            # Sentinels distinguish missing stores from nonzero values written by dot.
+            output.fill_(float("nan"))
+            dots.fill_(0x13579BDF)
+            result["current_variant"] = name
+            compiled = score(
+                values["q"],
+                values["cache"],
+                values["qs"],
+                values["ks"],
+                values["weights"],
+                values["row_table"],
+                values["visible"],
+                output,
+                dots,
+                mask_debug=mask_debug,
+            )
+            torch.npu.synchronize()
+            variant = export_ir(compiled, report, f"{args.case}-{name}")
+            result["variants"][name] = variant
+            variant["checks"] = validate(
+                inputs,
+                output.cpu(),
+                dots.cpu(),
+                require_zero_padding=mask_debug,
+            )
+            print(
+                json.dumps(
+                    dict(case=args.case, variant=name, **variant["checks"]), indent=2
+                ),
+                flush=True,
+            )
+        if all(v["checks"]["checks_passed"] for v in result["variants"].values()):
+            result["status"], code = "passed", 0
+        else:
+            result["reason"] = (
+                "One or more all-row numerical, mask or required debug-padding checks failed"
+            )
     except ImportError:
         result.update(status="prerequisites_missing", traceback=traceback.format_exc())
         code = 2
