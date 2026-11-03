@@ -1,0 +1,17 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def _quant_score_trial(Q, K, QS, KS, Weights, Table, Visible, Out, RawDot, HEADS: tl.constexpr, PAGE: tl.constexpr, COLUMNS: tl.constexpr, ROWS: tl.constexpr, WIDTH: tl.constexpr, BLOCK_N: tl.constexpr, MASK_RAW_DOT: tl.constexpr, WRITE_RAW_DOT: tl.constexpr):
+    tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
+    dims = tl.arange(0, 128)
+    lanes = tl.arange(0, 16)
+    for work in range(tl.program_id(0), ROWS * tiles, tl.num_programs(0)):
+        row = work // tiles
+        columns = work % tiles * BLOCK_N + tl.arange(0, BLOCK_N)
+        visible = tl.load(Visible + row)
+        live = (columns < WIDTH) & (columns < visible)
+        physical = tl.load(Table + row * COLUMNS + columns // PAGE, mask=live, other=0)
+        token = physical.to(tl.int64) * PAGE + columns % PAGE
+        scores = token.to(tl.float32)
+        tl.store(Out + row * WIDTH + columns, tl.where(live, scores, -float('inf')), mask=columns < WIDTH)
