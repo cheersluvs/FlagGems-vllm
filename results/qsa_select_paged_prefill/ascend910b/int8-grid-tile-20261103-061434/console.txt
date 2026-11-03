@@ -1,0 +1,228 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+/tmp/flaggems-qsa-int8-grid-tile.J71YZqMr/tools/probe_qsa_int8_grid_tile_910b.py:95: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  control = torch.empty_like(scratch)
+SCORE_CHECK int8_budget_exact 128 / 16384
+SCORE_CHECK int8_budget_exact 4096 / 16384
+SCORE_CHECK int8_budget_exact 8192 / 16384
+SCORE_CHECK int8_budget_exact 12288 / 16384
+SCORE_CHECK int8_budget_exact 16384 / 16384
+KERNEL_TIMER_CHECK {'backend': 'triton.backends.ascend.testing.do_bench_npu', 'source': '/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py', 'source_sha256': 'a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c', 'signature': '(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)', 'warmup': 1, 'active': 3, 'unit': 'microseconds per invocation, sum of device kernel durations', 'host_gaps_included': False, 'clear_l2_cache': False, 'scope': 'Kernel mode; separate stages are not additive; native score/TopK split unavailable', 'invocation_sum_check': {'single_us': 6082.995000000001, 'triple_us': 18195.39733333333, 'ratio': 2.9911905785445043}}
+SCORE_TIMING {"case": "int8_budget_exact", "round": 1, "variant": "g8_n32", "score_ms": 933.703314}
+SCORE_TIMING {"case": "int8_budget_exact", "round": 1, "variant": "g20_n32", "score_ms": 501.48489566666666}
+SCORE_TIMING {"case": "int8_budget_exact", "round": 1, "variant": "g8_n128", "score_ms": 759.972313}
+SCORE_TIMING {"case": "int8_budget_exact", "round": 2, "variant": "g8_n128", "score_ms": 760.192577}
+[2026-11-03 14:12:24] [WARNING] [1178979] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-03 14:12:25] [INFO] [1184863] profiler.py: Start parsing profiling data in sync mode at: /root/.triton/profile_results/prof_20261103_061222_MainProcess-1178979/bm-ctyun-wq-zone1-d-910b4-64g-0-13_1178979_20261103141222457_ascend_pt
+|/-[2026-11-03 14:12:27] [INFO] [1184881] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041959
+\[2026-11-03 14:12:28] [INFO] [1184863] profiler.py: All profiling data parsed in a total time of 0:00:03.188361
+{
+  "case": "int8_budget_exact",
+  "status": "prerequisites_missing",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device_index": 0,
+    "device": "Ascend910B4-1",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device_isolation": "not_verified",
+    "scorer_sha256": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334"
+  },
+  "stage": "kernel_timer",
+  "geometry": {
+    "name": "int8_budget_exact",
+    "nv_case": "fp8_budget_exact_float8_e4m3fn",
+    "origin": "recorded_envelope",
+    "query_lengths": [
+      16384
+    ],
+    "prefix_tokens": [
+      16384
+    ],
+    "starts": [
+      0,
+      16384
+    ],
+    "batch_max_seq_len": 32768,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      43
+    ],
+    "physical_pages": 43,
+    "table_columns": 43,
+    "q_shape": [
+      16384,
+      4,
+      128
+    ],
+    "cache_shape": [
+      43,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 8192,
+    "chunk_rows": 128,
+    "score_and_dot_scratch_bytes": 20971520,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": 2712,
+    "nv_original_table_columns": 88,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "memory": {
+    "score_scratch_bytes": 8388608,
+    "raw_dot_bytes": 0
+  },
+  "variants": {
+    "g8_n32": {
+      "grid": 8,
+      "block_n": 32
+    },
+    "g20_n32": {
+      "grid": 20,
+      "block_n": 32
+    },
+    "g8_n128": {
+      "grid": 8,
+      "block_n": 128
+    }
+  },
+  "scope": "Score-only prepared inputs; candidate speedup vs frozen INT8 score, not native fused or whole operator",
+  "compiler": {
+    "g8_n32": {
+      "store_count": 1,
+      "int8_dot": true,
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='66d31b4185c33ac07ff18d50543138a95abe56a33677195d889328c1d5cd831f', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=24576)"
+    },
+    "g20_n32": {
+      "store_count": 1,
+      "int8_dot": true,
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='66d31b4185c33ac07ff18d50543138a95abe56a33677195d889328c1d5cd831f', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=24576)"
+    },
+    "g8_n128": {
+      "store_count": 1,
+      "int8_dot": true,
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='cfc79e84a6ff8956893c4d69aa878a8b3a9a5d62fa86f5ddb169b752624a2ead', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98304)"
+    }
+  },
+  "correctness": {
+    "g8_n32": {
+      "rows_checked": 16384,
+      "cpu_rows": [
+        0,
+        127,
+        128,
+        8192,
+        16256,
+        16383
+      ],
+      "cpu_max_abs_error": 7.62939453125e-06
+    },
+    "g20_n32": {
+      "rows_checked": 16384,
+      "cpu_rows": [
+        0,
+        127,
+        128,
+        8192,
+        16256,
+        16383
+      ],
+      "cpu_max_abs_error": 7.62939453125e-06
+    },
+    "g8_n128": {
+      "rows_checked": 16384,
+      "cpu_rows": [
+        0,
+        127,
+        128,
+        8192,
+        16256,
+        16383
+      ],
+      "cpu_max_abs_error": 7.62939453125e-06
+    }
+  },
+  "kernel_timer": {
+    "backend": "triton.backends.ascend.testing.do_bench_npu",
+    "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py",
+    "source_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c",
+    "signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)",
+    "warmup": 1,
+    "active": 3,
+    "unit": "microseconds per invocation, sum of device kernel durations",
+    "host_gaps_included": false,
+    "clear_l2_cache": false,
+    "scope": "Kernel mode; separate stages are not additive; native score/TopK split unavailable",
+    "invocation_sum_check": {
+      "single_us": 6082.995000000001,
+      "triple_us": 18195.39733333333,
+      "ratio": 2.9911905785445043,
+      "status": "passed"
+    }
+  },
+  "samples": {
+    "g8_n32": [
+      {
+        "kernel_us": 933703.314
+      }
+    ],
+    "g20_n32": [
+      {
+        "kernel_us": 501484.8956666667
+      }
+    ],
+    "g8_n128": [
+      {
+        "kernel_us": 759972.313
+      },
+      {
+        "kernel_us": 760192.577
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "g8_n32",
+      "g20_n32",
+      "g8_n128"
+    ],
+    [
+      "g8_n128",
+      "g20_n32",
+      "g8_n32"
+    ]
+  ],
+  "traceback": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-int8-grid-tile.J71YZqMr/tools/probe_qsa_int8_grid_tile_910b.py\", line 227, in run_case\n    sample = measure(lambda: job(name))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-int8-grid-tile.J71YZqMr/tools/qsa_kernel_benchmark_910b.py\", line 58, in measure\n    milliseconds = float(do_bench_npu(function, **options))\n                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py\", line 397, in do_bench_npu\n    results = do_bench_npu_profiler(funcs, warmup, active, clear_l2_cache, prof_dir, keep_res, target_kernel_name,\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py\", line 108, in do_bench_npu_profiler\n    return _collect_prof_result(\n           ^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py\", line 157, in _collect_prof_result\n    import pandas as pd\nModuleNotFoundError: No module named 'pandas'\n",
+  "probe_source_sha256": "0f14f44da0581403d854fc9a3eaab787f7ce7303f94ac0abd623c9acd75c35ff",
+  "exit_code": 2
+}
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+/tmp/flaggems-qsa-int8-grid-tile.J71YZqMr/tools/probe_qsa_int8_grid_tile_910b.py:95: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  control = torch.empty_like(scratch)
+SCORE_CHECK int8_long100k 112 / 16384
+SCORE_CHECK int8_long100k 3584 / 16384
+SCORE_CHECK int8_long100k 7168 / 16384
+SCORE_CHECK int8_long100k 10752 / 16384
+SCORE_CHECK int8_long100k 14336 / 16384
+SCORE_CHECK int8_long100k 16384 / 16384
+KERNEL_TIMER_CHECK {'backend': 'triton.backends.ascend.testing.do_bench_npu', 'source': '/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py', 'source_sha256': 'a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c', 'signature': '(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)', 'warmup': 1, 'active': 3, 'unit': 'microseconds per invocation, sum of device kernel durations', 'host_gaps_included': False, 'clear_l2_cache': False, 'scope': 'Kernel mode; separate stages are not additive; native score/TopK split unavailable', 'invocation_sum_check': {'single_us': 25186.717, 'triple_us': 75534.95066666667, 'ratio': 2.998999459384352}}
+SCORE_TIMING {"case": "int8_long100k", "round": 1, "variant": "g8_n32", "score_ms": 3853.096288}
+SCORE_TIMING {"case": "int8_long100k", "round": 1, "variant": "g20_n32", "score_ms": 1813.3661073333333}
+SCORE_TIMING {"case": "int8_long100k", "round": 1, "variant": "g8_n128", "score_ms": 3151.6005386666666}
+SCORE_TIMING {"case": "int8_long100k", "round": 2, "variant": "g8_n128", "score_ms": 3151.580691}
+SCORE_TIMING {"case": "int8_long100k", "round": 2, "variant": "g20_n32", "score_ms": 1783.468396}
+SCORE_TIMING {"case": "int8_long100k", "round": 2, "variant": "g8_n32", "score_ms": 3840.490789}
+variant         score_ms   speedup_vs_frozen_score
+g8_n32             3846.794     1.0000
+g20_n32            1798.417     2.1390
+g8_n128            3151.591     1.2206
+INT8 grid/tile probe: exit=1
