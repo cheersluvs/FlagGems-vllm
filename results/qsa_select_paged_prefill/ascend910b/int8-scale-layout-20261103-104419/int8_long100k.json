@@ -1,0 +1,1036 @@
+{
+  "case": "int8_long100k",
+  "status": "passed",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "device_index": 0,
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device_isolation": "not_verified"
+  },
+  "geometry": {
+    "first": 8176,
+    "count": 112,
+    "width": 29696,
+    "grid": 20,
+    "block_n": 128,
+    "plan": {
+      "name": "int8_long100k",
+      "nv_case": "fp8_long100k_float8_e4m3fn",
+      "origin": "dtype_variant",
+      "query_lengths": [
+        16384
+      ],
+      "prefix_tokens": [
+        102400
+      ],
+      "starts": [
+        0,
+        16384
+      ],
+      "batch_max_seq_len": 118784,
+      "heads": 4,
+      "dim": 128,
+      "ratio": 4,
+      "k": 512,
+      "dtype": "int8",
+      "page_size": 192,
+      "pages_per_request": [
+        155
+      ],
+      "physical_pages": 155,
+      "table_columns": 155,
+      "q_shape": [
+        16384,
+        4,
+        128
+      ],
+      "cache_shape": [
+        155,
+        192,
+        1,
+        128
+      ],
+      "logits_width": 29696,
+      "chunk_rows": 112,
+      "score_and_dot_scratch_bytes": 66519040,
+      "nv_original_page_size": 196,
+      "nv_original_physical_pages": null,
+      "nv_original_table_columns": null,
+      "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+      "query_lengths_synthetic": false
+    }
+  },
+  "memory": {
+    "original_scale_bytes": 59520,
+    "expanded_scale_bytes": 952320,
+    "expansion_factor": 16,
+    "fp16_bytes_per_token_row": 32,
+    "score_output_bytes": 79822848
+  },
+  "scope": "Representative complete score kernels; preparation covers all physical-cache scales each combined invocation; exploratory device sums excluding host gaps",
+  "stage": "completed",
+  "pack_precheck": {
+    "all_values_exact": true,
+    "rows": 29760,
+    "columns": 16
+  },
+  "pack_compiler": {
+    "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=10, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='3857d0c4be0c6c1c14de43dd51b139aec6c8398f51951309b92bb1176c105c89', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_pack_key_scale', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='aiv', multibuffer=True, name='_qsa_pack_key_scale', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32)"
+  },
+  "compiler": {
+    "integrated_full": {
+      "dot_count": 1,
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "f32"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='5de877b94d7f5c2e8ac1d2588740f120b04a6e2588150b919534bd25996a2ff0', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98304)",
+      "npubin_sha256": "22ec0148f8ec8aad4aab71a78d9e06e0d0e20e019b7615dee84db402df0a50da"
+    },
+    "scale_product": {
+      "dot_count": 1,
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "f32"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='5b7885a8206e8d3fb4817e6ad0e291933640e7beb36fd56cda0839a176d2fb81', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98304)",
+      "npubin_sha256": "9afe85bf2600da7b2cd391f613eb4b9341ea3f74b1827d0c85289a71058be0cb"
+    },
+    "expanded_key": {
+      "dot_count": 1,
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "f32"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='5471a19732e93c2bb84a08a6a48f65b8a2fd615bde0a4c09d73c70e9e5fb27ba', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98304)",
+      "npubin_sha256": "f76eea0e9c14ebb67b5ffb23e9ba2fd2fae6e4195c650048054dd29a91be4af4"
+    },
+    "expanded_product": {
+      "dot_count": 1,
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "f32"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='1226d2c6f3f8f70c2864d8be1589bcf2faab0bcf01d9fab878a581652f06dea9', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98304)",
+      "npubin_sha256": "22cdd8743999c506715d5a9a97a014ecdbb59660fdcdbcb7ef864687269d6330"
+    }
+  },
+  "prechecks": {
+    "integrated_full": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "scale_product": {
+      "all_scores_checked": true,
+      "max_abs_error": 1.52587890625e-05,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "expanded_key": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "expanded_product": {
+      "all_scores_checked": true,
+      "max_abs_error": 1.52587890625e-05,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack_plus_key": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack_plus_product": {
+      "all_scores_checked": true,
+      "max_abs_error": 1.52587890625e-05,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "artifact_comparison": {
+    "integrated_full": {
+      "location_stripped_ir_sha256": {
+        "ttir": "ceb6082511e2b1adf1d2b10c6cfc2078a7cf0ea422e3992ebda0881b1beb382a",
+        "ttadapter": "d87016ea082f3f3363deda3ddc4e06681419b8b9c834d71317d8bfdef23b0169",
+        "bcmlir": "2b659f695bd2dee0cbfc12c0c53ebe93d4cf83aab1612b7e0abc4fb3abd38040"
+      },
+      "npubin_sha256": "22ec0148f8ec8aad4aab71a78d9e06e0d0e20e019b7615dee84db402df0a50da",
+      "same_ir_as_integrated": {
+        "ttir": true,
+        "ttadapter": true,
+        "bcmlir": true
+      },
+      "same_binary_as_integrated": true
+    },
+    "scale_product": {
+      "location_stripped_ir_sha256": {
+        "ttir": "41c3d06c47c084037e8d57eb34fed713c5fccb4fd093c6b230abf31e4bc9c22f",
+        "ttadapter": "510a4a4659cdc78a37aef48d5b27863ab6188e0d5d6e170d7b462373152d5fe4",
+        "bcmlir": "336c1e4540052aa414cae632f18d624b9fce95a3d02d896bd58e89ee3a211702"
+      },
+      "npubin_sha256": "9afe85bf2600da7b2cd391f613eb4b9341ea3f74b1827d0c85289a71058be0cb",
+      "same_ir_as_integrated": {
+        "ttir": false,
+        "ttadapter": false,
+        "bcmlir": false
+      },
+      "same_binary_as_integrated": false
+    },
+    "expanded_key": {
+      "location_stripped_ir_sha256": {
+        "ttir": "3b961334797cbc76d731254b049429d72c5ae5bc90deb773b9c4e0ecd01146d0",
+        "ttadapter": "c1ca790302ce43de7467586a2f119110448a1dd2abd5f98c7b3107de205d9abd",
+        "bcmlir": "331822526dc374597e871fbe9b24ce7275bcb5b803aacccb4202813febf0b0ed"
+      },
+      "npubin_sha256": "f76eea0e9c14ebb67b5ffb23e9ba2fd2fae6e4195c650048054dd29a91be4af4",
+      "same_ir_as_integrated": {
+        "ttir": false,
+        "ttadapter": false,
+        "bcmlir": false
+      },
+      "same_binary_as_integrated": false
+    },
+    "expanded_product": {
+      "location_stripped_ir_sha256": {
+        "ttir": "6ed3e4aa84574ba8a36ec2c19eaf9f79e4c7d3d186b59656f0c1bee0d80bfec9",
+        "ttadapter": "22ad4409a885f048c0a7526184a83608292f5f9eeb3c5accf75c434960fd3109",
+        "bcmlir": "cbcc566ff8f10dc9c6720f3577f0e2fd081e4682689f39ba6683c082a8740ee9"
+      },
+      "npubin_sha256": "22cdd8743999c506715d5a9a97a014ecdbb59660fdcdbcb7ef864687269d6330",
+      "same_ir_as_integrated": {
+        "ttir": false,
+        "ttadapter": false,
+        "bcmlir": false
+      },
+      "same_binary_as_integrated": false
+    }
+  },
+  "kernel_timer": {
+    "backend": "explicit CPU+NPU Chrome trace",
+    "warmup": 2,
+    "active": 3,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Instrumented exploratory kernel timing; rebuild all paired baselines",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "invocation_sum_check": {
+      "single": {
+        "kernel_us": 8714.127333333332,
+        "active_invocation_us": [
+          8713.794,
+          8714.514,
+          8714.074
+        ],
+        "device_task_count": 3,
+        "host_launch_count": 3,
+        "artifact": "int8_long100k-timer-01.json.gz"
+      },
+      "triple": {
+        "kernel_us": 26146.949333333334,
+        "active_invocation_us": [
+          26146.521999999997,
+          26147.881999999998,
+          26146.444
+        ],
+        "device_task_count": 9,
+        "host_launch_count": 9,
+        "artifact": "int8_long100k-timer-02.json.gz"
+      },
+      "ratio": 3.000524129744566
+    },
+    "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+    "prefix_plan_artifact": "int8_long100k-prefix-plan-01.json.gz"
+  },
+  "single_capture_plan": [
+    {
+      "round": 0,
+      "arm": "integrated_full",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "scale_product",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "expanded_key",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "expanded_product",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "pack_only",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "pack_plus_key",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "pack_plus_product",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "integrated_full",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "scale_product",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "expanded_key",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "expanded_product",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "pack_only",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "pack_plus_key",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "pack_plus_product",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "integrated_full",
+      "active": 2
+    },
+    {
+      "round": 0,
+      "arm": "scale_product",
+      "active": 2
+    },
+    {
+      "round": 0,
+      "arm": "expanded_key",
+      "active": 2
+    },
+    {
+      "round": 0,
+      "arm": "expanded_product",
+      "active": 2
+    },
+    {
+      "round": 0,
+      "arm": "pack_only",
+      "active": 2
+    },
+    {
+      "round": 0,
+      "arm": "pack_plus_key",
+      "active": 2
+    },
+    {
+      "round": 0,
+      "arm": "pack_plus_product",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "pack_plus_product",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "pack_plus_key",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "pack_only",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "expanded_product",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "expanded_key",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "scale_product",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "integrated_full",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "pack_plus_product",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "pack_plus_key",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "pack_only",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "expanded_product",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "expanded_key",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "scale_product",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "integrated_full",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "pack_plus_product",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "pack_plus_key",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "pack_only",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "expanded_product",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "expanded_key",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "scale_product",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "integrated_full",
+      "active": 2
+    }
+  ],
+  "single_capture_counts": {
+    "expected_host_counts": {
+      "_quant_score_trial": 36,
+      "_qsa_pack_key_scale": 18
+    },
+    "observed_host_counts": {
+      "_quant_score_trial": 36,
+      "_qsa_pack_key_scale": 18
+    },
+    "tasks_per_window": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "expected_tasks_per_window": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "samples": {
+    "integrated_full": [
+      {
+        "kernel_us": 8712.094666666666,
+        "active_invocation_us": [
+          8715.896,
+          8703.994,
+          8716.394
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          0,
+          7,
+          14
+        ],
+        "device_task_count": 3
+      },
+      {
+        "kernel_us": 8711.64,
+        "active_invocation_us": [
+          8715.632,
+          8703.674,
+          8715.614
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          27,
+          34,
+          41
+        ],
+        "device_task_count": 3
+      }
+    ],
+    "scale_product": [
+      {
+        "kernel_us": 8436.954666666667,
+        "active_invocation_us": [
+          8440.188,
+          8431.208,
+          8439.468
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          1,
+          8,
+          15
+        ],
+        "device_task_count": 3
+      },
+      {
+        "kernel_us": 8436.928666666667,
+        "active_invocation_us": [
+          8440.43,
+          8431.108,
+          8439.248
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          26,
+          33,
+          40
+        ],
+        "device_task_count": 3
+      }
+    ],
+    "expanded_key": [
+      {
+        "kernel_us": 8906.331333333334,
+        "active_invocation_us": [
+          8897.078,
+          8916.058,
+          8905.858
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          2,
+          9,
+          16
+        ],
+        "device_task_count": 3
+      },
+      {
+        "kernel_us": 8903.245333333332,
+        "active_invocation_us": [
+          8903.938,
+          8903.52,
+          8902.278
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          25,
+          32,
+          39
+        ],
+        "device_task_count": 3
+      }
+    ],
+    "expanded_product": [
+      {
+        "kernel_us": 8761.640666666666,
+        "active_invocation_us": [
+          8767.134,
+          8765.494,
+          8752.294
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          3,
+          10,
+          17
+        ],
+        "device_task_count": 3
+      },
+      {
+        "kernel_us": 8757.635333333334,
+        "active_invocation_us": [
+          8750.616,
+          8760.296,
+          8761.994
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          24,
+          31,
+          38
+        ],
+        "device_task_count": 3
+      }
+    ],
+    "pack_only": [
+      {
+        "kernel_us": 226.09866666666667,
+        "active_invocation_us": [
+          225.964,
+          226.266,
+          226.066
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          4,
+          11,
+          18
+        ],
+        "device_task_count": 3
+      },
+      {
+        "kernel_us": 226.29733333333334,
+        "active_invocation_us": [
+          226.324,
+          226.204,
+          226.364
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          23,
+          30,
+          37
+        ],
+        "device_task_count": 3
+      }
+    ],
+    "pack_plus_key": [
+      {
+        "kernel_us": 9129.635333333334,
+        "active_invocation_us": [
+          9128.942,
+          9128.562,
+          9131.402
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          5,
+          12,
+          19
+        ],
+        "device_task_count": 6
+      },
+      {
+        "kernel_us": 9128.156666666668,
+        "active_invocation_us": [
+          9135.484,
+          9121.004,
+          9127.982
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          22,
+          29,
+          36
+        ],
+        "device_task_count": 6
+      }
+    ],
+    "pack_plus_product": [
+      {
+        "kernel_us": 8994.493333333334,
+        "active_invocation_us": [
+          8994.939999999999,
+          8990.400000000001,
+          8998.14
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          6,
+          13,
+          20
+        ],
+        "device_task_count": 6
+      },
+      {
+        "kernel_us": 8992.853333333333,
+        "active_invocation_us": [
+          8995.06,
+          8988.86,
+          8994.64
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          21,
+          28,
+          35
+        ],
+        "device_task_count": 6
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "integrated_full",
+      "scale_product",
+      "expanded_key",
+      "expanded_product",
+      "pack_only",
+      "pack_plus_key",
+      "pack_plus_product"
+    ],
+    [
+      "pack_plus_product",
+      "pack_plus_key",
+      "pack_only",
+      "expanded_product",
+      "expanded_key",
+      "scale_product",
+      "integrated_full"
+    ]
+  ],
+  "postchecks": {
+    "integrated_full": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "scale_product": {
+      "all_scores_checked": true,
+      "max_abs_error": 1.52587890625e-05,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "expanded_key": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "expanded_product": {
+      "all_scores_checked": true,
+      "max_abs_error": 1.52587890625e-05,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack_plus_key": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack_plus_product": {
+      "all_scores_checked": true,
+      "max_abs_error": 1.52587890625e-05,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "pack_postcheck": {
+    "all_values_exact": true,
+    "rows": 29760,
+    "columns": 16
+  },
+  "latency": {
+    "integrated_full": {
+      "kernel_us": {
+        "median": 8711.867333333332,
+        "min": 8711.64,
+        "max": 8712.094666666666,
+        "range_over_median": 5.2189346929891964e-05
+      }
+    },
+    "scale_product": {
+      "kernel_us": {
+        "median": 8436.941666666666,
+        "min": 8436.928666666667,
+        "max": 8436.954666666667,
+        "range_over_median": 3.081685405336246e-06
+      }
+    },
+    "expanded_key": {
+      "kernel_us": {
+        "median": 8904.788333333334,
+        "min": 8903.245333333332,
+        "max": 8906.331333333334,
+        "range_over_median": 0.0003465551211868015
+      }
+    },
+    "expanded_product": {
+      "kernel_us": {
+        "median": 8759.637999999999,
+        "min": 8757.635333333334,
+        "max": 8761.640666666666,
+        "range_over_median": 0.0004572487280105184
+      }
+    },
+    "pack_only": {
+      "kernel_us": {
+        "median": 226.198,
+        "min": 226.09866666666667,
+        "max": 226.29733333333334,
+        "range_over_median": 0.0008782865748886722
+      }
+    },
+    "pack_plus_key": {
+      "kernel_us": {
+        "median": 9128.896,
+        "min": 9128.156666666668,
+        "max": 9129.635333333334,
+        "range_over_median": 0.00016197650478940262
+      }
+    },
+    "pack_plus_product": {
+      "kernel_us": {
+        "median": 8993.673333333332,
+        "min": 8992.853333333333,
+        "max": 8994.493333333334,
+        "range_over_median": 0.00018235040780532801
+      }
+    }
+  },
+  "speedup_vs_integrated": {
+    "integrated_full": 1.0,
+    "scale_product": 1.0325859390201622,
+    "expanded_key": 0.9783351391657632,
+    "expanded_product": 0.994546502188028,
+    "pack_plus_key": 0.9543177327612595,
+    "pack_plus_product": 0.9686661957183235
+  },
+  "layout_only_speedup_vs_matched_formula": {
+    "expanded_key": 0.9783351391657632,
+    "expanded_product": 0.9631609966835007
+  },
+  "sources": {
+    "probe_qsa_int8_key_scale_layout_910b.py": "ddb33c455f5005b21a507403f564d781b82f37222d1bc386b60f908d01e2ad55",
+    "qsa_int8_pack_key_scale_910b.py": "e438025fb20395c0e18f5a85197377e7ad6dba9bca66f7e252bf5eb99267fafd",
+    "qsa_int8_prefix_builder_910b.py": "262a6f6cfed5da1461a465e6793f038e1d630895047b1d0cf5194b5420efd228",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "qsa_int8_stage_trace_timer_910b.py": "8d18f3ed0d7ce33bf7cac8701c45d9e2a80a3ce4c103acc27c5d5e1494c6f858"
+  },
+  "exit_code": 0
+}
