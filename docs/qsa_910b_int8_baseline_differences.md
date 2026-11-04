@@ -571,3 +571,12 @@ score speedup and native_fused/combined overall speedup; include them in CSV.
 Native stage times remain unavailable. Combined duration is measured directly,
 not synthesized by adding isolated score and TopK measurements. This remains
 an unregistered prepared-input trial with exploratory profiler device sums.
+
+The first integrated run (9f9d0dee7ce2860969061bb789a6af2212de537f) completed
+full-input score preflight for all ten cases but failed in the stage timer's
+function-name lookup: dispatch_score_stage was missing from the minimum-task
+map. Add it to both the map and the score-only exact task-count gate. Keep
+all timing and correctness gates unchanged. Captures exported before the
+exception are diagnostic only: the dispatch stage's postcheck never ran.
+Repeat the paired full-input run with cached kernels; do not promote the
+partial run to passed or calculate a ten-case acceptance average from it.
