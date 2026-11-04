@@ -339,3 +339,19 @@ seven-load and FP32 reduction gates. One command compiles, checks, captures two
 rounds interleaved, prints BUFFERING_SPEEDUP_VS_GROUP4 and uploads logs.
 No production/TopK changes or full-entry/native speedup claims. A failed option
 is reported, not silently replaced or subjected to a weaker accuracy/timing gate.
+
+### Complete buffering pair without unsupported preload
+
+Report ee7d5897ec7b65bb11424fd812a01e7bc89eece6 failed while compiling
+preload=True on both workloads: scope.scope op Failed to collect vector loop
+tiling info. The compiler command included --enable-preload=True. Default
+and multibuffer=False arms compiled and passed sampled main-score checks;
+workspace changed98336 to24608 bytes, and binary hashes differed. No timing
+or tail checks ran, so no performance conclusion is available.
+
+Use --buffering --buffer-no-preload to explicitly omit that failed arm and
+finish default/off comparison. Record excluded_options with the original report
+commit; this is a changed requested set, not a silent fallback or a claim that
+preload passed. Main full comparisons, artifact audits, both-options tail checks,
+two-round timing and upload still run together. No scorer/compiler changes;
+default invocation without the exclusion flag retains all three original arms.

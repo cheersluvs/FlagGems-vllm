@@ -120,8 +120,15 @@ def run_case(args):
         "pack4_qk_g4_no_mb": {"multibuffer": False},
         "pack4_qk_g4_preload": {"enable_preload": True},
     }
+    if args.buffer_no_preload:
+        arms = tuple(name for name in arms if name != "pack4_qk_g4_preload")
+        buffer_options.pop("pack4_qk_g4_preload")
     expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
+    if args.buffer_no_preload:
+        result["excluded_options"] = dict(
+            preload="Explicitly excluded; prior compilation failed, report ee7d5897ec7b65bb11424fd812a01e7bc89eece6"
+        )
     try:
         import torch
         import torch_npu
@@ -1088,7 +1095,14 @@ def main():
     )
     parser.add_argument("--case", choices=PLANS)
     parser.add_argument("--cases", nargs="+", choices=PLANS)
+    parser.add_argument(
+        "--buffer-no-preload",
+        action="store_true",
+        help="Explicitly exclude preload arm; retain default/off buffering pair",
+    )
     args = parser.parse_args()
+    if args.buffer_no_preload and not args.buffering:
+        parser.error("--buffer-no-preload requires --buffering")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
     if args.ten_shapes and not (args.qk_direction or args.key_groups):
@@ -1137,6 +1151,8 @@ def main():
             command.append("--key-groups")
         if args.buffering:
             command.append("--buffering")
+        if args.buffer_no_preload:
+            command.append("--buffer-no-preload")
         if args.ten_shapes:
             command.append("--ten-shapes")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
