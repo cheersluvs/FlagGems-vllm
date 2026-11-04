@@ -73,6 +73,7 @@ def _qsa_query_pack4_score(
     STORE_MODE: tl.constexpr = 0,
     FLAT_QUERY: tl.constexpr = False,
     QUERY_LEFT: tl.constexpr = False,
+    LATE_KEY_SCALE: tl.constexpr = False,
 ):
     tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
     groups: tl.constexpr = triton.cdiv(ROWS, 4)
@@ -121,7 +122,10 @@ def _qsa_query_pack4_score(
             Weights + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
         ).to(tl.float32)
         if QUERY_LEFT:
-            if SCALE_PRODUCT:
+            if LATE_KEY_SCALE:
+                # Caller proves finite nonnegative key scales before this probe.
+                dequant = dot.to(tl.float32) * query_scale[:, None]
+            elif SCALE_PRODUCT:
                 dequant = dot.to(tl.float32) * (
                     query_scale[:, None] * key_scale[None, :]
                 )
@@ -129,6 +133,8 @@ def _qsa_query_pack4_score(
                 dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
             weighted = tl.maximum(dequant, 0.0) * weights[:, None]
             scores = tl.sum(tl.reshape(weighted, (4, 4, BLOCK_N)), axis=1)
+            if LATE_KEY_SCALE:
+                scores = scores * key_scale[None, :]
             live = (columns[None, :] < WIDTH) & (columns[None, :] < visible[:, None])
             tl.store(
                 Out + rows[:, None] * WIDTH + columns[None, :],

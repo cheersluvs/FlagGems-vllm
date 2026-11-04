@@ -47,15 +47,19 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        ("integrated_full", "pack4_flat_q", "pack4_qk")
-        if args.qk_direction
+        ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
+        if args.late_key_scale
         else (
-            ("integrated_full", "pack4_transpose", "pack4_flat_q")
-            if args.flat_query
+            ("integrated_full", "pack4_flat_q", "pack4_qk")
+            if args.qk_direction
             else (
-                ("integrated_full", "pack4", "pack4_transpose", "pack4_rows")
-                if args.postprocess
-                else ARMS
+                ("integrated_full", "pack4_transpose", "pack4_flat_q")
+                if args.flat_query
+                else (
+                    ("integrated_full", "pack4", "pack4_transpose", "pack4_rows")
+                    if args.postprocess
+                    else ARMS
+                )
             )
         )
     )
@@ -64,6 +68,7 @@ def run_case(args):
         "pack4_rows": 2,
         "pack4_flat_q": 1,
         "pack4_qk": 1,
+        "pack4_qk_late_ks": 1,
     }
     expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
@@ -102,6 +107,16 @@ def run_case(args):
         )
         plan = PLANS[args.case]
         inputs = make_inputs(plan)
+        if args.late_key_scale:
+            if not bool(torch.isfinite(inputs["ks"]).all()) or not bool(
+                (inputs["ks"] >= 0).all()
+            ):
+                raise NotImplementedError(
+                    "Late key scale requires finite nonnegative key scales"
+                )
+            result["key_scale_guard"] = dict(
+                finite=True, nonnegative=True, outside_timing=True
+            )
         values = {
             name: value.to(f"npu:{args.device}") for name, value in inputs.items()
         }
@@ -185,8 +200,9 @@ def run_case(args):
                 BLOCK_N=128,
                 SCALE_PRODUCT=name == "pack4_product",
                 STORE_MODE=store_modes.get(name, 0),
-                FLAT_QUERY=name in ("pack4_flat_q", "pack4_qk"),
-                QUERY_LEFT=name == "pack4_qk",
+                FLAT_QUERY=name == "pack4_flat_q" or name.startswith("pack4_qk"),
+                QUERY_LEFT=name.startswith("pack4_qk"),
+                LATE_KEY_SCALE=name == "pack4_qk_late_ks",
                 num_warps=4,
             )
 
@@ -237,12 +253,15 @@ def run_case(args):
                 store_mode=(
                     store_modes.get(name, 0) if name.startswith("pack4") else None
                 ),
-                flat_query=name in ("pack4_flat_q", "pack4_qk"),
-                query_left=name == "pack4_qk",
+                flat_query=name == "pack4_flat_q" or name.startswith("pack4_qk"),
+                query_left=name.startswith("pack4_qk"),
+                late_key_scale=name == "pack4_qk_late_ks",
                 lowering_lines=[
                     line.strip()
                     for line in kernel.asm["bcmlir"].splitlines()
-                    if "linalg.reduce " in line or "linalg.transpose " in line
+                    if "linalg.reduce " in line
+                    or "linalg.transpose " in line
+                    or (args.late_key_scale and "arith.mulf " in line)
                 ],
                 metadata=repr(kernel.metadata),
                 npubin_sha256=(
@@ -298,10 +317,17 @@ def run_case(args):
             small["visible"] = torch.tensor(visible_values, dtype=torch.int32)
             small["weights"] = torch.linspace(-0.5, 1.5, n * 4).reshape(n, 4).half()
             proof = validate_shared_groups(small["row_table"].tolist(), [0, n], 0)
+            if args.late_key_scale:
+                small["ks"] = small["ks"].clone()
+                small["ks"].view(-1)[::192] = 0
+                small["qs"] = small["qs"].clone()
+                small["qs"][:, ::2] *= -1
             device_small = {
                 key: small[key].to(scratch.device)
                 for key in ("q", "qs", "weights", "row_table", "visible")
             }
+            if args.late_key_scale:
+                device_small["ks"] = small["ks"].to(scratch.device)
             refs = {row: reference(small, row)[1] for row in range(n)}
             tail_variants = (
                 [(False, 1, True, False), (False, 1, True, True)]
@@ -316,7 +342,16 @@ def run_case(args):
                     )
                 )
             )
-            for product, store_mode, flat_query, query_left in tail_variants:
+            tail_variants = [(*variant, False) for variant in tail_variants]
+            if args.late_key_scale:
+                tail_variants = [(False, 1, True, True, late) for late in (False, True)]
+            for (
+                product,
+                store_mode,
+                flat_query,
+                query_left,
+                late_key_scale,
+            ) in tail_variants:
                 guarded = torch.full(
                     (n + 4, 256), 12345.0, device=scratch.device, dtype=torch.float32
                 )
@@ -324,7 +359,7 @@ def run_case(args):
                     device_small["q"],
                     values["cache"],
                     device_small["qs"],
-                    values["ks"],
+                    device_small.get("ks", values["ks"]),
                     device_small["weights"],
                     device_small["row_table"],
                     device_small["visible"],
@@ -338,6 +373,7 @@ def run_case(args):
                     STORE_MODE=store_mode,
                     FLAT_QUERY=flat_query,
                     QUERY_LEFT=query_left,
+                    LATE_KEY_SCALE=late_key_scale,
                     num_warps=4,
                 )
                 cpu = guarded.cpu()
@@ -367,6 +403,8 @@ def run_case(args):
                         store_mode=store_mode,
                         flat_query=flat_query,
                         query_left=query_left,
+                        late_key_scale=late_key_scale,
+                        zero_key_scales=args.late_key_scale,
                         all_rows_cpu_checked=True,
                         guard_rows_intact=True,
                         max_abs_error=maximum,
@@ -501,6 +539,15 @@ def run_case(args):
             for name in arms
             if name.startswith("pack4")
         }
+        if args.late_key_scale:
+            result["late_key_scale_speedup_vs_qk"] = (
+                medians["pack4_qk"] / medians["pack4_qk_late_ks"]
+            )
+            print(
+                "LATE_KEY_SCALE_SPEEDUP_VS_QK",
+                result["late_key_scale_speedup_vs_qk"],
+                flush=True,
+            )
         if args.qk_direction:
             result["qk_speedup_vs_flat_query"] = (
                 medians["pack4_flat_q"] / medians["pack4_qk"]
@@ -576,6 +623,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=1200)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument(
+        "--late-key-scale",
+        action="store_true",
+        help="Compare key scale after head reduction; nonnegative scales required",
+    )
+    modes.add_argument(
         "--qk-direction",
         action="store_true",
         help="Compare QK-transpose orientation with flattened packed control",
@@ -634,6 +686,8 @@ def main():
             command.append("--flat-query")
         if args.qk_direction:
             command.append("--qk-direction")
+        if args.late_key_scale:
+            command.append("--late-key-scale")
         if args.ten_shapes:
             command.append("--ten-shapes")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
