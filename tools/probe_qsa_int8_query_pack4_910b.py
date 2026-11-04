@@ -47,11 +47,15 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        ("integrated_full", "pack4", "pack4_transpose", "pack4_rows")
-        if args.postprocess
-        else ARMS
+        ("integrated_full", "pack4_transpose", "pack4_flat_q")
+        if args.flat_query
+        else (
+            ("integrated_full", "pack4", "pack4_transpose", "pack4_rows")
+            if args.postprocess
+            else ARMS
+        )
     )
-    store_modes = {"pack4_transpose": 1, "pack4_rows": 2}
+    store_modes = {"pack4_transpose": 1, "pack4_rows": 2, "pack4_flat_q": 1}
     expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
     try:
@@ -172,6 +176,7 @@ def run_case(args):
                 BLOCK_N=128,
                 SCALE_PRODUCT=name == "pack4_product",
                 STORE_MODE=store_modes.get(name, 0),
+                FLAT_QUERY=name == "pack4_flat_q",
                 num_warps=4,
             )
 
@@ -222,6 +227,7 @@ def run_case(args):
                 store_mode=(
                     store_modes.get(name, 0) if name.startswith("pack4") else None
                 ),
+                flat_query=name == "pack4_flat_q",
                 lowering_lines=[
                     line.strip()
                     for line in kernel.asm["bcmlir"].splitlines()
@@ -287,11 +293,15 @@ def run_case(args):
             }
             refs = {row: reference(small, row)[1] for row in range(n)}
             tail_variants = (
-                [(False, mode) for mode in (0, 1, 2)]
-                if args.postprocess
-                else [(False, 0), (True, 0)]
+                [(False, 1, False), (False, 1, True)]
+                if args.flat_query
+                else (
+                    [(False, mode, False) for mode in (0, 1, 2)]
+                    if args.postprocess
+                    else [(False, 0, False), (True, 0, False)]
+                )
             )
-            for product, store_mode in tail_variants:
+            for product, store_mode, flat_query in tail_variants:
                 guarded = torch.full(
                     (n + 4, 256), 12345.0, device=scratch.device, dtype=torch.float32
                 )
@@ -311,6 +321,7 @@ def run_case(args):
                     BLOCK_N=128,
                     SCALE_PRODUCT=product,
                     STORE_MODE=store_mode,
+                    FLAT_QUERY=flat_query,
                     num_warps=4,
                 )
                 cpu = guarded.cpu()
@@ -338,6 +349,7 @@ def run_case(args):
                         different_maps_across_groups=True,
                         scale_product=product,
                         store_mode=store_mode,
+                        flat_query=flat_query,
                         all_rows_cpu_checked=True,
                         guard_rows_intact=True,
                         max_abs_error=maximum,
@@ -387,6 +399,15 @@ def run_case(args):
             for name in arms
             if name.startswith("pack4")
         }
+        if args.flat_query:
+            result["flat_query_speedup_vs_transpose"] = (
+                medians["pack4_transpose"] / medians["pack4_flat_q"]
+            )
+            print(
+                "FLAT_QUERY_SPEEDUP_VS_TRANSPOSE",
+                result["flat_query_speedup_vs_transpose"],
+                flush=True,
+            )
         if args.postprocess:
             result["speedup_vs_pack4"] = {
                 name: medians["pack4"] / medians[name]
@@ -442,7 +463,13 @@ def main():
     parser.add_argument("--kernel-warmup", type=int, default=2)
     parser.add_argument("--kernel-active", type=int, default=3)
     parser.add_argument("--timeout", type=int, default=1200)
-    parser.add_argument(
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument(
+        "--flat-query",
+        action="store_true",
+        help="Compare flattened Q address and mask with packed transpose control",
+    )
+    modes.add_argument(
         "--postprocess",
         action="store_true",
         help="Compare packed reduction/store layouts only",
@@ -480,6 +507,8 @@ def main():
         ]
         if args.postprocess:
             command.append("--postprocess")
+        if args.flat_query:
+            command.append("--flat-query")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())

@@ -143,3 +143,36 @@ Two cases, two rounds, two warmups and three active samples are the default.
 Print both integrated-relative speedups and packed-control-relative speedups.
 No production entry, TopK implementation or compiler is changed. Reject any
 candidate that fails compilation, numerical comparisons or guarded tail stores.
+
+## Follow-up: flattened Q address and mask
+
+Report 68fd99876af020d4682793f040e210291685f3e0 passed all comparisons.
+Explicit transpose improved packed timing by 1.208x/1.205x, but remained
+5.72x/4.83x slower than integrated scoring. Four separate row reductions
+were slower still. All packed variants retained a pre-dot Q transpose
+[4,4,128] to [128,4,4], followed by reshape to [128,16]. Its cost is not
+isolated by that report.
+
+Use `--flat-query` for three arms: integrated_full, pack4_transpose, and
+pack4_flat_q. The packed control and candidate both use STORE_MODE=1,
+the original scale association, and identical K/scale/weight operations.
+Only Q's pointer/mask expressions change:
+
+- Control: `(base + lane // 4) * 4 + lane % 4`, mask `base + lane // 4 < ROWS`.
+- Candidate: `base * 4 + lane`, mask `base * 4 + lane < ROWS * 4`.
+
+For nonnegative group bases and lane0..15 these are equivalent. Masked tail
+lanes still load zero. This aims to expose a direct 2D Q load/transpose;
+exported lowering lines determine whether it actually changes compilation.
+Unchanged or still-3D lowering is recorded and timed, not treated as evidence
+of an optimization. No external packing or new preparation kernel is used.
+
+Require the same one dot, one store, seven loads and mixed-mode FP32 head
+reduction for all arms. Both packed versions run n5/6/7 and empty-group checks,
+including nonmonotonic visibility, page boundaries, signed weights and guard
+rows. Main-chunk complete comparisons and independent CPU references remain.
+Print the candidate's speedup versus the packed transpose control as well as
+all three integrated-relative speedups. The single command retains artifact
+export, correctness, two-round interleaved timing and automatic report upload.
+Production and TopK remain untouched. Fixed G20/N128/warps4 answers this
+source-expression question; the diagnostic does not add an autotuner.

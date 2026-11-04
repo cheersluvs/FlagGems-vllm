@@ -71,6 +71,7 @@ def _qsa_query_pack4_score(
     BLOCK_N: tl.constexpr,
     SCALE_PRODUCT: tl.constexpr,
     STORE_MODE: tl.constexpr = 0,
+    FLAT_QUERY: tl.constexpr = False,
 ):
     tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
     groups: tl.constexpr = triton.cdiv(ROWS, 4)
@@ -94,11 +95,20 @@ def _qsa_query_pack4_score(
         key_scale = tl.load(KS + token, mask=key_live, other=0).to(tl.float32)
         query_rows = base + lanes // 4
         heads = lanes % 4
-        query = tl.load(
-            Q + (query_rows[None, :] * 4 + heads[None, :]) * 128 + dims[:, None],
-            mask=query_rows[None, :] < ROWS,
-            other=0,
-        )
+        if FLAT_QUERY:
+            # Index consecutive query/head rows without division in Q's mask.
+            flat_heads = base * 4 + lanes
+            query = tl.load(
+                Q + flat_heads[None, :] * 128 + dims[:, None],
+                mask=flat_heads[None, :] < ROWS * 4,
+                other=0,
+            )
+        else:
+            query = tl.load(
+                Q + (query_rows[None, :] * 4 + heads[None, :]) * 128 + dims[:, None],
+                mask=query_rows[None, :] < ROWS,
+                other=0,
+            )
         dot = tl.dot(keys, query, out_dtype=tl.int32)
         query_scale = tl.load(
             QS + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
