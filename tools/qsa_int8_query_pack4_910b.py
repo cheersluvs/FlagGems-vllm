@@ -117,12 +117,21 @@ def _qsa_query_pack4_score(
             dot = tl.dot(tl.trans(query), tl.trans(keys), out_dtype=tl.int32)
         else:
             dot = tl.dot(keys, query, out_dtype=tl.int32)
-        query_scale = tl.load(
-            QS + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
-        ).to(tl.float32)
-        weights = tl.load(
-            Weights + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
-        ).to(tl.float32)
+        if CUBE_REDUCE:
+            flat_heads = base * 4 + lanes
+            query_scale = tl.load(
+                QS + flat_heads, mask=flat_heads < ROWS * 4, other=0
+            ).to(tl.float32)
+            weights = tl.load(
+                Weights + flat_heads, mask=flat_heads < ROWS * 4, other=0
+            ).to(tl.float32)
+        else:
+            query_scale = tl.load(
+                QS + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
+            ).to(tl.float32)
+            weights = tl.load(
+                Weights + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
+            ).to(tl.float32)
         if QUERY_LEFT:
             if CUBE_REDUCE:
                 # Match the native raw-dot scaling; restore score units at output.
@@ -133,7 +142,8 @@ def _qsa_query_pack4_score(
                 output_queries = tl.arange(0, 16)
                 coefficient_matrix = tl.where(
                     (output_queries[:, None] < 4)
-                    & (output_queries[:, None] == lanes[None, :] // 4),
+                    & (lanes[None, :] >= output_queries[:, None] * 4)
+                    & (lanes[None, :] < output_queries[:, None] * 4 + 4),
                     coefficient[None, :],
                     0.0,
                 ).to(tl.float16)

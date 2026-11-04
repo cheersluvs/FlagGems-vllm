@@ -205,3 +205,27 @@ correctness, timing and automatic upload remain one command. This is one
 native-method experiment with inherent precision changes, not a claim that
 only instruction selection differs. Do not compose earlier arithmetic/reuse
 candidates; no TopK/compiler or integration entry changes.
+
+### Cube compile repair: flatten coefficients and reduce N
+
+Report 2e03f0f7984a2b1b0457676279ff4cd997590e37 failed before candidate
+execution/precision/timing. BiShengIR required2238464bits of UB (273.25KiB)
+against1572864bits available (192KiB). It also reported alignment failures on
+coefficient_matrix, whose head-index expressions expanded to [16,4,4].
+Compiler automatic code-motion/multibuffer retries did not resolve it.
+
+The operator-only repair uses flat query/head pointer and mask expressions
+for QS/W in the Cube arm, and range comparisons for block-diagonal coefficient
+membership instead of lane//4. This aims to preserve [16] and [16,16] compiler
+shapes; device compilation must verify it. Reduce key tile toN64 to lower
+intermediate lifetimes/UB demand, retaining grid20/warps4 and all score math.
+Neither compiler code nor precision tolerance is changed.
+
+Compare four arms in one run: integrated_full(N128), pack4_qk(N128),
+pack4_qk_n64(FP32 reduction N64), pack4_qk_cube(second Cube N64).
+CUBE_REDUCE_SPEEDUP_VS_QK compares matched N64 arms; additionally print
+CUBE_REDUCE_SPEEDUP_VS_QK_N128 against the existing candidate configuration.
+Compiler records per-arm block_n. Tail checks use N64 for both mathematical
+controls. Reducing N changes tiling, so matched and original-config ratios
+must not be conflated. Compile/correctness/timing/upload remain in one command;
+precision rejection still stops timing and production remains unchanged.

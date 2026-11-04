@@ -47,7 +47,7 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        ("integrated_full", "pack4_qk", "pack4_qk_cube")
+        ("integrated_full", "pack4_qk", "pack4_qk_n64", "pack4_qk_cube")
         if args.cube_reduce
         else (
             ("integrated_full", "pack4_qk", "pack4_qk_reuse")
@@ -89,6 +89,7 @@ def run_case(args):
         "pack4_qk_query_weight": 1,
         "pack4_qk_reuse": 1,
         "pack4_qk_cube": 1,
+        "pack4_qk_n64": 1,
     }
     expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
@@ -264,7 +265,7 @@ def run_case(args):
                 COLUMNS=values["row_table"].shape[1],
                 WIDTH=width,
                 PAGE=192,
-                BLOCK_N=128,
+                BLOCK_N=64 if name in ("pack4_qk_n64", "pack4_qk_cube") else 128,
                 SCALE_PRODUCT=name == "pack4_product",
                 STORE_MODE=store_modes.get(name, 0),
                 FLAT_QUERY=name == "pack4_flat_q" or name.startswith("pack4_qk"),
@@ -346,6 +347,7 @@ def run_case(args):
                 ),
                 query_group_reuse=name == "pack4_qk_reuse",
                 cube_reduce=name == "pack4_qk_cube",
+                block_n=64 if name in ("pack4_qk_n64", "pack4_qk_cube") else 128,
                 lowering_lines=[
                     line.strip()
                     for line in kernel.asm["bcmlir"].splitlines()
@@ -530,7 +532,7 @@ def run_case(args):
                         COLUMNS=2,
                         WIDTH=256,
                         PAGE=192,
-                        BLOCK_N=128,
+                        BLOCK_N=64 if args.cube_reduce else 128,
                         SCALE_PRODUCT=product,
                         STORE_MODE=store_mode,
                         FLAT_QUERY=flat_query,
@@ -713,8 +715,16 @@ def run_case(args):
             if name.startswith("pack4")
         }
         if args.cube_reduce:
-            result["cube_reduce_speedup_vs_qk"] = (
+            result["cube_reduce_speedup_vs_qk_n128"] = (
                 medians["pack4_qk"] / medians["pack4_qk_cube"]
+            )
+            print(
+                "CUBE_REDUCE_SPEEDUP_VS_QK_N128",
+                result["cube_reduce_speedup_vs_qk_n128"],
+                flush=True,
+            )
+            result["cube_reduce_speedup_vs_qk"] = (
+                medians["pack4_qk_n64"] / medians["pack4_qk_cube"]
             )
             print(
                 "CUBE_REDUCE_SPEEDUP_VS_QK",
