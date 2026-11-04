@@ -355,3 +355,43 @@ commit; this is a changed requested set, not a silent fallback or a claim that
 preload passed. Main full comparisons, artifact audits, both-options tail checks,
 two-round timing and upload still run together. No scorer/compiler changes;
 default invocation without the exclusion flag retains all three original arms.
+
+## Seventh probe: explicit next-key preload in operator source
+
+Report 01bc22e4bb1bd099f52b669647b2f3ee07e14454 passed the default/off
+comparison: disabling automatic buffering slowed both cases (0.897x/0.979x).
+Keep default multibuffer=True. Backend enable_preload=True failed compilation
+in the earlier report and is not requested here.
+
+| Item | Explicit preload experiment |
+| --- | --- |
+| CLI | --explicit-prefetch |
+| Arms | integrated_full, pack4_qk_g4, pack4_qk_g4_prefetch |
+| Constants | N128, KEY_TILES4, grid cap20, warps4, unchanged FP32 formula |
+| Initial load | First table/K/KS tile outside the four-tile loop |
+| Loop | Load next table/K/KS before current dot, then carry tensors to next iteration |
+| End | Last prefetch has all reads masked off; carried dummy tensors unused |
+
+All K reads retain token-major contiguous D128 row loading, then transpose
+for QK. No direct column gather, new arithmetic candidate or preparation kernel
+is introduced. Work units, masks, query-group guards and output ownership match
+the validated group4 control, including padding at the key block end. Candidate
+TTIR has ten static loads (four group inputs, three initial tile, three next
+tile) versus seven in control; runtime useful tile loads still cover the same
+four tiles. The final masked prefetch is included in timing, not filtered out.
+No runtime conditional changes loop-carried tensors.
+
+Compiler gates retain one dot/store, FP32 head sum and visibility max. Require
+expected per-arm load counts explicitly without weakening other audits. Export
+all IR/source/metadata/hash and loop/load lines. Source order does not prove
+DMA/Cube overlap; the compiler may reschedule or add spill/synchronization and
+live current/next tiles can increase resource pressure. No compiler source or
+pipeline launch option changes. The existing default buffering remains enabled.
+
+Main outputs/masks compare fully against FP32 scores, with CPU samples.
+Both options run n5/6/7, empty groups, shuffled/different group maps, signed
+QS/weights, nonmonotonic visibility and guarded query tails. Width256 tests
+include a partial four-tile work unit and masked next reads beyond width.
+One command compiles, validates, captures two rounds and uploads; precision or
+compile failure stops timing. Print PREFETCH_SPEEDUP_VS_GROUP4. No production,
+TopK or full-entry claim; the same fixed-config diagnostic exemption applies.
