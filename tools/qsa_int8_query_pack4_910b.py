@@ -72,6 +72,7 @@ def _qsa_query_pack4_score(
     SCALE_PRODUCT: tl.constexpr,
     STORE_MODE: tl.constexpr = 0,
     FLAT_QUERY: tl.constexpr = False,
+    QUERY_LEFT: tl.constexpr = False,
 ):
     tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
     groups: tl.constexpr = triton.cdiv(ROWS, 4)
@@ -109,50 +110,71 @@ def _qsa_query_pack4_score(
                 mask=query_rows[None, :] < ROWS,
                 other=0,
             )
-        dot = tl.dot(keys, query, out_dtype=tl.int32)
+        if QUERY_LEFT:
+            dot = tl.dot(tl.trans(query), tl.trans(keys), out_dtype=tl.int32)
+        else:
+            dot = tl.dot(keys, query, out_dtype=tl.int32)
         query_scale = tl.load(
             QS + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
         ).to(tl.float32)
         weights = tl.load(
             Weights + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
         ).to(tl.float32)
-        if SCALE_PRODUCT:
-            dequant = dot.to(tl.float32) * (query_scale[None, :] * key_scale[:, None])
-        else:
-            dequant = dot.to(tl.float32) * query_scale[None, :] * key_scale[:, None]
-        weighted = tl.maximum(dequant, 0.0) * weights[None, :]
-        if STORE_MODE == 2:
-            # Keep four independent FP32 reductions and contiguous output rows.
-            for local in tl.static_range(4):
-                scores = tl.sum(
-                    tl.where(lanes[None, :] // 4 == local, weighted, 0.0), axis=1
-                )
-                row = base + local
-                row_visible = tl.load(Visible + row, mask=row < ROWS, other=0)
-                live = (columns < WIDTH) & (columns < row_visible)
-                tl.store(
-                    Out + row * WIDTH + columns,
-                    tl.where(live, scores, -float("inf")),
-                    mask=(columns < WIDTH) & (row < ROWS),
-                )
-        else:
-            scores = tl.sum(tl.reshape(weighted, (BLOCK_N, 4, 4)), axis=2)
-            if STORE_MODE == 1:
-                scores = tl.trans(scores)
-                live = (columns[None, :] < WIDTH) & (
-                    columns[None, :] < visible[:, None]
-                )
-                tl.store(
-                    Out + rows[:, None] * WIDTH + columns[None, :],
-                    tl.where(live, scores, -float("inf")),
-                    mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
+        if QUERY_LEFT:
+            if SCALE_PRODUCT:
+                dequant = dot.to(tl.float32) * (
+                    query_scale[:, None] * key_scale[None, :]
                 )
             else:
-                live = (columns[:, None] < WIDTH) & (
-                    columns[:, None] < visible[None, :]
+                dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+            weighted = tl.maximum(dequant, 0.0) * weights[:, None]
+            scores = tl.sum(tl.reshape(weighted, (4, 4, BLOCK_N)), axis=1)
+            live = (columns[None, :] < WIDTH) & (columns[None, :] < visible[:, None])
+            tl.store(
+                Out + rows[:, None] * WIDTH + columns[None, :],
+                tl.where(live, scores, -float("inf")),
+                mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
+            )
+        else:
+            if SCALE_PRODUCT:
+                dequant = dot.to(tl.float32) * (
+                    query_scale[None, :] * key_scale[:, None]
                 )
-                tl.store(
-                    Out + rows[None, :] * WIDTH + columns[:, None],
-                    tl.where(live, scores, -float("inf")),
-                    mask=(columns[:, None] < WIDTH) & (rows[None, :] < ROWS),
-                )
+            else:
+                dequant = dot.to(tl.float32) * query_scale[None, :] * key_scale[:, None]
+            weighted = tl.maximum(dequant, 0.0) * weights[None, :]
+            if STORE_MODE == 2:
+                # Keep four independent FP32 reductions and contiguous output rows.
+                for local in tl.static_range(4):
+                    scores = tl.sum(
+                        tl.where(lanes[None, :] // 4 == local, weighted, 0.0), axis=1
+                    )
+                    row = base + local
+                    row_visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+                    live = (columns < WIDTH) & (columns < row_visible)
+                    tl.store(
+                        Out + row * WIDTH + columns,
+                        tl.where(live, scores, -float("inf")),
+                        mask=(columns < WIDTH) & (row < ROWS),
+                    )
+            else:
+                scores = tl.sum(tl.reshape(weighted, (BLOCK_N, 4, 4)), axis=2)
+                if STORE_MODE == 1:
+                    scores = tl.trans(scores)
+                    live = (columns[None, :] < WIDTH) & (
+                        columns[None, :] < visible[:, None]
+                    )
+                    tl.store(
+                        Out + rows[:, None] * WIDTH + columns[None, :],
+                        tl.where(live, scores, -float("inf")),
+                        mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
+                    )
+                else:
+                    live = (columns[:, None] < WIDTH) & (
+                        columns[:, None] < visible[None, :]
+                    )
+                    tl.store(
+                        Out + rows[None, :] * WIDTH + columns[:, None],
+                        tl.where(live, scores, -float("inf")),
+                        mask=(columns[:, None] < WIDTH) & (rows[None, :] < ROWS),
+                    )

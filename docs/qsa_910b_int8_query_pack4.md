@@ -176,3 +176,35 @@ all three integrated-relative speedups. The single command retains artifact
 export, correctness, two-round interleaved timing and automatic report upload.
 Production and TopK remain untouched. Fixed G20/N128/warps4 answers this
 source-expression question; the diagnostic does not add an autotuner.
+
+## Follow-up: Q times transposed K orientation
+
+Report 27c91051c4e83f1224342659c1177c0424f8cf0a validated flattened Q.
+The matched packed speedups were 1.352x and 1.358x, but remained 3.99x
+and 3.33x slower than integrated scoring. This does not justify promotion.
+
+`--qk-direction` compares integrated_full, pack4_flat_q, and pack4_qk.
+All packed inputs, shared-map guards, G20/N128/warps4, loads and original
+scale association are unchanged. The candidate transposes the operands
+inside the kernel and computes [16,128] Q times [128,128] transposed K.
+INT32 output [16,128] is dequantized in FP32, weighted and reshaped to
+[4 queries,4 heads,128 keys]. Head reduction along axis1 produces [4,128]
+and stores directly in query/key order. No output transpose is expressed.
+Q/K original storage is retained; there is no preparation kernel.
+
+This borrows matrix orientation from the upstream CANN arch22 implementation,
+not its FP16/Fixpipe/second-Cube weighted reduction or explicit memory pipeline.
+The installed native binary is not proven source-identical to upstream master.
+Precision and compiler-generated layouts must be checked, not assumed.
+
+Require one compiled INT8 dot, one store, seven loads, mixed mode and FP32
+head reduction. Source contains constexpr alternatives; only one dot is live
+per specialization. Preserve all IR and print transposes/reductions/metadata,
+including a surviving compiler-inserted output transpose if present. Compare
+full representative chunk scores and sampled CPU references before timing,
+then recheck after timing. Both packed directions run n5/6/7 and empty-group
+checks, signed weights, nonmonotonic visibility and guard rows. Print matched
+QK-versus-flat-Q speedup and integrated-relative speedups in the same run.
+Two cases/two rounds/two warmups/three active samples remain fixed diagnostic
+settings, exempt from autotuning for this direction comparison. No production
+or TopK changes, and no predicted speedup or exact per-stage cost claim.
