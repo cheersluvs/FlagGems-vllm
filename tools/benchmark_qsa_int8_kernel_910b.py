@@ -153,8 +153,38 @@ def run_case(args):
             from qsa_int8_selection_910b_trial import PreparedInt8Selection
 
             adapter = PreparedInt8Selection(values, output, scratch, workspace, topk)
+            legacy_adapter = adapter
+            if args.shared_map_qk:
+                from qsa_int8_shared_map_selection_910b_trial import (
+                    PreparedSharedMapInt8Selection,
+                )
+
+                adapter = PreparedSharedMapInt8Selection(
+                    values, output, scratch, workspace, topk, plan["starts"]
+                )
+                result["shared_map_dispatch"] = dict(
+                    preparation_ms=adapter.preparation_ms,
+                    preparation_in_kernel_timing=False,
+                    immutable_inputs_required=True,
+                    qk_chunks=sum(adapter.shared_routes.values()),
+                    fallback_chunks=sum(
+                        not value for value in adapter.shared_routes.values()
+                    ),
+                    routes=adapter.route_checks,
+                    calibration="Unchanged single-query scorer; candidate stages timed separately",
+                )
+                print(
+                    "SHARED_MAP_DISPATCH",
+                    json.dumps(result["shared_map_dispatch"]),
+                    flush=True,
+                )
+
             result["integration"] = dict(
-                entry="qsa_int8_selection_910b_trial.PreparedInt8Selection.__call__",
+                entry=(
+                    "qsa_int8_shared_map_selection_910b_trial.PreparedSharedMapInt8Selection.__call__"
+                    if args.shared_map_qk
+                    else "qsa_int8_selection_910b_trial.PreparedInt8Selection.__call__"
+                ),
                 score_grid=20,
                 score_block_n=128,
                 topk_call_rows=32,
@@ -350,9 +380,36 @@ def run_case(args):
 
         result["stage"] = "no_debug_preflight"
         compiled = None
+        route_artifacts = set()
+        full_score_error = 0.0
         for first, count in chunks:
             current = frozen[first : first + count]
             kernel = score_into(first, count, current)
+            if args.shared_map_qk:
+                reference_target = scratch[:count]
+                legacy_adapter.score_into(first, count, reference_target)
+                if not torch.allclose(current, reference_target, rtol=1e-3, atol=1e-3):
+                    raise AssertionError(f"Full score mismatch at chunk {first}")
+                finite = torch.isfinite(reference_target)
+                if bool(finite.any().item()):
+                    full_score_error = max(
+                        full_score_error,
+                        (current[finite] - reference_target[finite]).abs().max().item(),
+                    )
+                route = "qk" if adapter.shared_routes[first, count] else "fallback"
+                if route not in route_artifacts:
+                    route_artifacts.add(route)
+                    for key in ("ttir", "ttadapter", "bcmlir"):
+                        if isinstance(kernel.asm.get(key), str):
+                            (report / f"{args.case}-{route}-{key}.txt").write_text(
+                                kernel.asm[key]
+                            )
+                    candidate_ir = kernel.asm["ttir"]
+                    if len(re.findall(r"\btt\.store\b", candidate_ir)) != 1 or not any(
+                        "tt.dot" in line and "xi8>" in line and "xi32>" in line
+                        for line in candidate_ir.splitlines()
+                    ):
+                        raise AssertionError(f"Bad {route} compiled score contract")
             if compiled is None:
                 compiled = kernel
             live = columns[None, :] < values["visible"][first : first + count, None]
@@ -382,6 +439,12 @@ def run_case(args):
         if stores != 1 or not integer_dot:
             raise AssertionError("No-debug INT8 score IR contract failed")
         result["correctness"]["score"] = check_scores()
+        if args.shared_map_qk:
+            result["correctness"]["all_chunk_scores_vs_legacy"] = dict(
+                chunks=len(chunks),
+                all_values_compared=True,
+                max_abs_error=full_score_error,
+            )
         result["stage"] = "native_full_preflight"
         baseline = native_cpu(native_stage(), [(0, rows)])
         result["correctness"]["native_full_preflight"] = check_indices(baseline)
@@ -421,6 +484,12 @@ def run_case(args):
             native_fused=native_stage,
             native_chunked=native_chunked_stage,
         )
+        if args.shared_map_qk:
+
+            def legacy_score_stage():
+                legacy_adapter.score_all()
+
+            jobs["legacy_score"] = legacy_score_stage
         result["stage"] = "kernel_timer"
         if args.integrated:
             jobs.pop("native_chunked")
@@ -431,7 +500,13 @@ def run_case(args):
             timer_setup = setup_stage_trace
         measure = timer_setup(
             args,
-            dict(chunks=chunks, score_into=score_into, logits=scratch),
+            dict(
+                chunks=chunks,
+                score_into=(
+                    legacy_adapter.score_into if args.shared_map_qk else score_into
+                ),
+                logits=scratch,
+            ),
             torch,
             result,
         )
@@ -453,7 +528,7 @@ def run_case(args):
                 timing = measure(jobs[name])
                 result["samples"][name].append(timing)
                 result["stage"] = f"postcheck_{name}"
-                if name == "score":
+                if name in ("score", "legacy_score"):
                     first, count = chunks[-1]
                     if not torch.allclose(
                         scratch[:count].cpu(),
@@ -464,7 +539,7 @@ def run_case(args):
                         raise AssertionError(
                             "Last timed score chunk differs from preflight"
                         )
-                    result["correctness"]["post_score"] = dict(
+                    result["correctness"][f"post_{name}"] = dict(
                         last_timed_chunk_checked=True, sampled=check_scores()
                     )
                 elif name in ("native_fused", "native_chunked"):
@@ -506,6 +581,19 @@ def run_case(args):
             score=None,
             topk=None,
         )
+        if args.shared_map_qk:
+            result["score_speedup_vs_legacy"] = (
+                medians["legacy_score"] / medians["score"]
+            )
+            print(
+                "FULL_INPUT_KERNEL_MS",
+                json.dumps({name: value / 1000 for name, value in medians.items()}),
+                flush=True,
+            )
+            print(
+                "SCORE_SPEEDUP_VS_LEGACY", result["score_speedup_vs_legacy"], flush=True
+            )
+            print("OVERALL_SPEEDUP_VS_CANN", result["speedup"]["overall"], flush=True)
         result["native_split"] = dict(
             score_us=None,
             topk_us=None,
@@ -528,6 +616,8 @@ def run_case(args):
         "qsa_kernel_benchmark_910b.py",
         "probe_qsa_int8_ten_shapes_910b.py",
         "qsa_int8_selection_910b_trial.py",
+        "qsa_int8_shared_map_selection_910b_trial.py",
+        "qsa_int8_query_pack4_910b.py",
         "qsa_int8_stage_trace_timer_910b.py",
         "qsa_int8_trace_timer_910b.py",
     ):
@@ -583,7 +673,14 @@ def main():
         action="store_true",
         help="Use grid20/N128 INT8 adapter and explicit stage trace timer",
     )
+    parser.add_argument(
+        "--shared-map-qk",
+        action="store_true",
+        help="Use guarded QK score adapter; requires --integrated",
+    )
     args = parser.parse_args()
+    if args.shared_map_qk and not args.integrated:
+        parser.error("--shared-map-qk requires --integrated")
     if args.rounds < 1 or args.kernel_active < 1 or args.kernel_warmup < 1:
         parser.error("rounds, warmup and active must be positive")
     if args.case:
@@ -616,6 +713,8 @@ def main():
         ]
         if args.integrated:
             command.append("--integrated")
+        if args.shared_map_qk:
+            command.append("--shared-map-qk")
         code, timed_out = run_child(
             command, report / f"{name}-console.txt", args.timeout
         )
