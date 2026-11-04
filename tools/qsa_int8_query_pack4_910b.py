@@ -522,14 +522,21 @@ def _qsa_qk_page_segment_score(
             lanes_n = tl.arange(0, BLOCK_N)
             first_count = tl.minimum(BLOCK_N, PAGE - offset)
             first_live = key_live & (lanes_n < first_count)
-            second_live = key_live & (lanes_n >= first_count)
+            second_count = tl.maximum(
+                0,
+                tl.minimum(
+                    BLOCK_N - first_count,
+                    tl.minimum(WIDTH, max_visible) - start - first_count,
+                ),
+            )
+            second_live = lanes_n < second_count
             physical0 = tl.load(
-                Table + base * COLUMNS + page,
+                Table + base * COLUMNS + tl.minimum(page, COLUMNS - 1),
                 mask=(start < WIDTH) & (start < max_visible) & (page < COLUMNS),
                 other=0,
             )
             physical1 = tl.load(
-                Table + base * COLUMNS + page + 1,
+                Table + base * COLUMNS + tl.minimum(page + 1, COLUMNS - 1),
                 mask=(first_count < BLOCK_N)
                 & (start + first_count < WIDTH)
                 & (start + first_count < max_visible)
@@ -537,7 +544,7 @@ def _qsa_qk_page_segment_score(
                 other=0,
             )
             token0 = physical0.to(tl.int64) * PAGE + offset + lanes_n
-            token1 = physical1.to(tl.int64) * PAGE + offset + lanes_n - PAGE
+            token1 = physical1.to(tl.int64) * PAGE + lanes_n
             keys0 = tl.load(
                 K + token0[:, None] * 128 + dims[None, :],
                 mask=first_live[:, None],
@@ -550,8 +557,15 @@ def _qsa_qk_page_segment_score(
             )
             scale0 = tl.load(KS + token0, mask=first_live, other=0)
             scale1 = tl.load(KS + token1, mask=second_live, other=0)
-            keys = tl.where(lanes_n[:, None] < first_count, keys0, keys1)
-            key_scale = tl.where(lanes_n < first_count, scale0, scale1).to(tl.float32)
+            source_rows = tl.maximum(lanes_n - first_count, 0)
+            aligned_keys1 = tl.gather(
+                keys1, tl.broadcast_to(source_rows[:, None], (BLOCK_N, 128)), axis=0
+            )
+            aligned_scale1 = tl.gather(scale1, source_rows, axis=0)
+            keys = tl.where(lanes_n[:, None] < first_count, keys0, aligned_keys1)
+            key_scale = tl.where(lanes_n < first_count, scale0, aligned_scale1).to(
+                tl.float32
+            )
             dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)
             dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
             weighted = tl.maximum(dequant, 0.0) * weights[:, None]

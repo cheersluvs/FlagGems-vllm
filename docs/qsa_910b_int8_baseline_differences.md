@@ -438,3 +438,33 @@ crossings; padded tiles exercise masked out-of-range page IDs. Print
 PAGE_SEGMENT_SPEEDUP_VS_GROUP4 and upload in the same command. No arithmetic,
 preload flag, TopK, production entry or compiler changes. The fixed-config
 probe exemption applies; this remains an operator-level diagnostic.
+
+### Prefix-only fragment load repair
+
+Report 73db8a59c7830db0d1858a1795c27b5af1df6a36 compiled both candidates
+but page-fragment execution failed before numerical checks: ACL507015,
+MTE on-chip destination out of bounds. Saved bcmlir contains a definite invalid
+second-fragment subview: extent=min(valid_count,128)-first_count, without a
+zero clamp. For an invisible tile valid_count0 and first_count64/128 produce
+negative extents. This is a concrete lowering defect consistent with the MTE
+failure; the exact faulting device PC has not been mapped to that copy.
+The same IR also speculatively reads masked scalar page pointers before select,
+so masking alone does not guarantee suppression of invalid table addresses.
+
+The operator-only repair computes second_count=max(0,min(128-first_count,
+min(width,max_visible)-start-first_count)). Load page1 K/KS from its beginning
+with prefix mask lane<second_count. Align the loaded prefix to the output
+suffix with in-range gather(max(lane-first_count,0)), then select fragment0/1.
+This avoids empty lower-bound/upper-bound intersections in tl.load masks.
+Both scalar table addresses clamp to COLUMNS-1 while retaining their original
+validity masks. Thus speculative page ID reads stay in bounds even if the
+backend does not suppress them; extra invalid logical-page traffic may remain.
+All valid lanes and FP32 arithmetic are unchanged. Negative pointer bases for
+page1 are removed; all load extents should be nonnegative by construction.
+
+Gather/alignment adds possible overhead, so performance is not predicted.
+Keep N128/group4/default buffering, ten static loads, one dot/store and all
+original precision/edge tests. Same --page-segments command exports compiled
+artifacts and runs correctness/timing/upload together. No compiler, production
+or TopK changes. If another runtime failure occurs, retain its evidence rather
+than claiming the first diagnosed defect was the only cause.
