@@ -243,12 +243,12 @@ def _qsa_qk_group_reuse_score(
             )
             token = physical.to(tl.int64) * PAGE + columns % PAGE
             keys = tl.load(
-                K + token[None, :] * 128 + dims[:, None],
-                mask=key_live[None, :],
+                K + token[:, None] * 128 + dims[None, :],
+                mask=key_live[:, None],
                 other=0,
             )
             key_scale = tl.load(KS + token, mask=key_live, other=0).to(tl.float32)
-            dot = tl.dot(query, keys, out_dtype=tl.int32)
+            dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)
             dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
             weighted = tl.maximum(dequant, 0.0) * weights[:, None]
             scores = tl.sum(tl.reshape(weighted, (4, 4, BLOCK_N)), axis=1)

@@ -136,3 +136,21 @@ loop rewrite can still change lowering and synchronization; timing compares the
 entire equivalent score kernel rather than claiming a separately measured load
 cost. Print QUERY_REUSE_SPEEDUP_VS_QK. No arithmetic candidate, production adapter,
 TopK, external preparation kernel, compiler patch or autotuner is introduced.
+
+### Repair the reuse candidate's K-load confound
+
+Report daab0c18ebdc26b943c2edc4d253809b46511cbf passed correctness, but
+reuse measured33.551ms/150.486ms vs0.670ms/2.333ms. TTIR confirmed Q-related
+loads outside the inner tile loop. However, direct [D,N] K loading introduced
+an additional change: bcmlir contains nested D/key loops and scalar one-byte
+memref.load/tensor.insert. The control loads each token's128-byte row with
+memref.copy, followed by linalg.transpose. Therefore those timings cannot
+attribute the regression to Q reuse alone.
+
+The repaired reuse candidate restores token-major K load followed by explicit
+transpose for dot, matching the control's addressing/mask and matrix orientation.
+All loop ownership, outer-group loads, numerical gates, launch configuration
+and timing remain the same. Re-run compile/correctness/timing together using
+--query-reuse. Inspect whether the continuous row-copy lowering is restored
+before interpreting matched timings. The previous valid slow samples remain
+in the earlier report; no timing filters or resampling policy changes are made.
