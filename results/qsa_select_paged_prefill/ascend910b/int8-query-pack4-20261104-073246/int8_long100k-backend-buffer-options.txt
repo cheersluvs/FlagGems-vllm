@@ -1,0 +1,78 @@
+411:         _compile_option_list = get_common_bishengir_compile_options(metadata)
+412: 
+413:         multibuffer = metadata.get("multibuffer")
+414:         num_stages = metadata.get("num_stages")
+415: 
+416:         if multibuffer is not None or num_stages is not None:
+417:             multi_buffer_value = True
+418:             if multibuffer is not None and not multibuffer:
+419:                 multi_buffer_value = False
+420:             elif num_stages is not None and num_stages == 1:
+421:                 multi_buffer_value = False
+422:             _compile_option_list += [
+423:                 f"--enable-auto-multi-buffer={multi_buffer_value}",
+424:             ]
+425: 
+426:         disable_tightly_coupled_buffer_reuse = metadata["disable_tightly_coupled_buffer_reuse"]
+472:                 [f"--limit-auto-multi-buffer-only-for-local-buffer={limit_auto_multi_buffer_only_for_local_buffer}"]
+473: 
+474:         set_workspace_multibuffer = metadata["set_workspace_multibuffer"]
+475:         if set_workspace_multibuffer is not None:
+476:             _compile_option_list += \
+477:                 [f"--set-workspace-multibuffer={set_workspace_multibuffer}"]
+478: 
+479:         auto_multi_buffer = metadata["limit_auto_multi_buffer_of_local_buffer"]
+480:         if auto_multi_buffer is not None:
+636:     if _USE_CUSTOM_COMPILE_OPT is not None:
+637:         metadata["num_stages"] = 1
+638:         metadata["multibuffer"] = False
+639:         metadata["enable_tuning_mode"] = True
+640:         metadata["enable_ubuf_saving"] = None
+641:         metadata["unit_flag"] = False
+673:         ]
+674: 
+675:         multibuffer = metadata.get("multibuffer")
+676:         num_stages = metadata.get("num_stages")
+677: 
+678:         if multibuffer is not None or num_stages is not None:
+679:             multi_buffer_value = True
+680:             if multibuffer is not None and not multibuffer:
+681:                 multi_buffer_value = False
+682:             elif num_stages is not None and num_stages == 1:
+683:                 multi_buffer_value = False
+684:             _compile_option_list.append(f"--enable-auto-multi-buffer={multi_buffer_value}")
+685: 
+686:         enable_ubuf_saving = metadata["enable_ubuf_saving"]
+687:         if enable_ubuf_saving is not None:
+690:             ]
+691: 
+692:         enable_preload = metadata["enable_preload"]
+693:         if enable_preload is not None:
+694:             _compile_option_list += [
+695:                 f"--enable-preload={enable_preload}",
+696:             ]
+697: 
+698:         _compile_option_list += [
+761:                 [f"--limit-auto-multi-buffer-only-for-local-buffer={limit_auto_multi_buffer_only_for_local_buffer}"]
+762: 
+763:         set_workspace_multibuffer = metadata["set_workspace_multibuffer"]
+764:         if set_workspace_multibuffer is not None:
+765:             _compile_option_list += \
+766:                 [f"--set-workspace-multibuffer={set_workspace_multibuffer}"]
+767: 
+768:         tile_mix_vector_loop = metadata["tile_mix_vector_loop"]
+769:         if tile_mix_vector_loop is not None:
+922:     bisheng_options: str = "-cce-link-aicore-ll-module " + get_libdevice()
+923: 
+924:     multibuffer: bool = not is_compile_on_910_95
+925:     enable_ubuf_saving: bool = None
+926:     enable_preload: bool = None
+927:     enable_auto_bind_sub_block: bool = None
+928:     disable_tightly_coupled_buffer_reuse: bool = False
+929:     disable_auto_cv_work_space_manage: bool = None
+945:     limit_auto_multi_buffer_only_for_local_buffer: bool = None
+946:     limit_auto_multi_buffer_of_local_buffer: str = None
+947:     set_workspace_multibuffer: int = None
+948:     tile_mix_vector_loop: int = None
+949:     tile_mix_cube_loop: int = None
+950:     disable_auto_inject_block_sync: bool = None
