@@ -229,3 +229,47 @@ Compiler records per-arm block_n. Tail checks use N64 for both mathematical
 controls. Reducing N changes tiling, so matched and original-config ratios
 must not be conflated. Compile/correctness/timing/upload remain in one command;
 precision rejection still stops timing and production remains unchanged.
+
+## Fifth probe: bounded key blocks with unchanged N128 scoring
+
+Report c9860c5608c7ffed3417d29fc8240257e46aafc6 compiled the second Cube
+candidate and passed the mixed tolerance, but was41.6--41.8x slower than its
+matched N64 FP32 control. FP16 score errors increased. Do not compose it here.
+
+| Item | Key block experiment |
+| --- | --- |
+| CLI | --key-groups |
+| Arms | integrated_full, pack4_qk, pack4_qk_g2/g4/g16 |
+| Dot block | N128 for all current QK controls and candidates |
+| Scheduled work | Query group x key block, grid cap20/warps4 |
+| Block sizes | 2/4/16 consecutive key tiles =256/512/2048 keys |
+| Math | Original FP32 scales/ReLU/weighted head reduction; one INT8 dot |
+| Loading | Original token-major K row load followed by transpose |
+
+Inspected CANN arch22 code has S2_BASE_SIZE2048 outside and
+S2_BASIC_BLOCK_L0=128 inside. This is not a2048-wide matmul. The probe borrows
+this two-level work organization. Each work unit loads its group's Q/QS/W and
+visibility once, then scans only its bounded block. Different blocks belonging
+to one query group can run on different programs. This trades bounded reuse
+and locality against task granularity and load balance, unlike the prior
+whole-key-range group ownership. This does not reproduce native explicit
+memory buffers, events or pipelines and adds no prefetch/multibuffer directive.
+
+At the end of a key range, the final block is padded to KEY_TILES iterations.
+Extra tiles perform masked K/table/scale reads and no output writes. They are
+not silently excluded from timing: compiler records padded_key_tiles per group.
+For long100k,232 key tiles round to240 for g16, adding8 masked tiles per group.
+Widths and numerical results remain unchanged. All tile coverage/uniqueness
+and tail masks must be validated; this experiment does not skip invisible work.
+
+Require seven static loads, one dot, one store, FP32 head sum, mixed mode.
+Export loop/load IR and full lowered artifacts to inspect actual reuse and K
+row loading. Check every main output vs original scores, CPU sample references,
+all masks, n5/6/7 query tails, signed QS/weights, nonmonotonic visibility,
+shuffled maps, different maps between groups, empty groups and guard rows.
+Tail checks run all three block sizes, including key-block padding cases.
+One run compiles, validates, times two rounds and uploads. Print all three
+KEY_GROUP_SPEEDUP_VS_QK values; no production/TopK/compiler change. These are
+three bounded diagnostic configurations, not hardcoded production dispatch
+or a claim of native-equivalent scheduling. The same fixed-config diagnostic
+autotuning exemption applies. Pipeline changes are reserved for a later probe.

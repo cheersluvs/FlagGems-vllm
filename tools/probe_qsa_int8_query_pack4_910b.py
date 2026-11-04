@@ -47,32 +47,36 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        ("integrated_full", "pack4_qk", "pack4_qk_n64", "pack4_qk_cube")
-        if args.cube_reduce
+        ("integrated_full", "pack4_qk", "pack4_qk_g2", "pack4_qk_g4", "pack4_qk_g16")
+        if args.key_groups
         else (
-            ("integrated_full", "pack4_qk", "pack4_qk_reuse")
-            if args.query_reuse
+            ("integrated_full", "pack4_qk", "pack4_qk_n64", "pack4_qk_cube")
+            if args.cube_reduce
             else (
-                ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
-                if args.combine_query_weight
+                ("integrated_full", "pack4_qk", "pack4_qk_reuse")
+                if args.query_reuse
                 else (
-                    ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
-                    if args.late_key_scale
+                    ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
+                    if args.combine_query_weight
                     else (
-                        ("integrated_full", "pack4_flat_q", "pack4_qk")
-                        if args.qk_direction
+                        ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
+                        if args.late_key_scale
                         else (
-                            ("integrated_full", "pack4_transpose", "pack4_flat_q")
-                            if args.flat_query
+                            ("integrated_full", "pack4_flat_q", "pack4_qk")
+                            if args.qk_direction
                             else (
-                                (
-                                    "integrated_full",
-                                    "pack4",
-                                    "pack4_transpose",
-                                    "pack4_rows",
+                                ("integrated_full", "pack4_transpose", "pack4_flat_q")
+                                if args.flat_query
+                                else (
+                                    (
+                                        "integrated_full",
+                                        "pack4",
+                                        "pack4_transpose",
+                                        "pack4_rows",
+                                    )
+                                    if args.postprocess
+                                    else ARMS
                                 )
-                                if args.postprocess
-                                else ARMS
                             )
                         )
                     )
@@ -91,6 +95,7 @@ def run_case(args):
         "pack4_qk_cube": 1,
         "pack4_qk_n64": 1,
     }
+    key_groups = {"pack4_qk_g2": 2, "pack4_qk_g4": 4, "pack4_qk_g16": 16}
     expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
     try:
@@ -111,6 +116,7 @@ def run_case(args):
         torch.set_num_threads(min(4, os.cpu_count() or 1))
         from qsa_int8_query_pack4_910b import (
             _qsa_qk_group_reuse_score,
+            _qsa_qk_key_group_score,
             _qsa_query_pack4_score,
             validate_shared_groups,
         )
@@ -233,6 +239,28 @@ def run_case(args):
                     WRITE_RAW_DOT=False,
                     num_warps=4,
                 )
+            if name in key_groups:
+                group_tiles = key_groups[name]
+                blocks = triton.cdiv(triton.cdiv(width, 128), group_tiles)
+                return _qsa_qk_key_group_score[
+                    (min(20, triton.cdiv(count, 4) * blocks),)
+                ](
+                    values["q"][first : first + count],
+                    values["cache"],
+                    values["qs"][first : first + count],
+                    values["ks"],
+                    values["weights"][first : first + count],
+                    values["row_table"][first : first + count],
+                    values["visible"][first : first + count],
+                    target,
+                    ROWS=count,
+                    COLUMNS=values["row_table"].shape[1],
+                    WIDTH=width,
+                    PAGE=192,
+                    BLOCK_N=128,
+                    KEY_TILES=group_tiles,
+                    num_warps=4,
+                )
             if name == "pack4_qk_reuse":
                 return _qsa_qk_group_reuse_score[(min(20, triton.cdiv(count, 4)),)](
                     values["q"][first : first + count],
@@ -342,10 +370,20 @@ def run_case(args):
                         for line in ir.splitlines()
                         if "scf.for " in line or "tt.load " in line
                     ]
-                    if args.query_reuse
+                    if args.query_reuse or args.key_groups
                     else []
                 ),
                 query_group_reuse=name == "pack4_qk_reuse",
+                key_tiles_per_unit=key_groups.get(name),
+                padded_key_tiles=(
+                    (
+                        triton.cdiv(triton.cdiv(width, 128), key_groups[name])
+                        * key_groups[name]
+                        - triton.cdiv(width, 128)
+                    )
+                    if name in key_groups
+                    else 0
+                ),
                 cube_reduce=name == "pack4_qk_cube",
                 block_n=64 if name in ("pack4_qk_n64", "pack4_qk_cube") else 128,
                 lowering_lines=[
@@ -439,7 +477,7 @@ def run_case(args):
                 small["qs"][:, ::2] = 0
                 small["ks"] = small["ks"].clone()
                 small["ks"].view(-1)[::192] = 0
-            if args.query_reuse:
+            if args.query_reuse or args.key_groups:
                 small["qs"] = small["qs"].clone()
                 small["qs"][:, ::2] *= -1
             if args.combine_query_weight:
@@ -488,6 +526,12 @@ def run_case(args):
                     (False, 1, True, True, False, False, False, cube)
                     for cube in (False, True)
                 ]
+            tail_variants = [(*variant, 0) for variant in tail_variants]
+            if args.key_groups:
+                tail_variants = [
+                    (False, 1, True, True, False, False, False, False, g)
+                    for g in (0, 2, 4, 16)
+                ]
             for (
                 product,
                 store_mode,
@@ -497,11 +541,31 @@ def run_case(args):
                 combine_query_weight,
                 query_reuse,
                 cube_reduce,
+                group_tiles,
             ) in tail_variants:
                 guarded = torch.full(
                     (n + 4, 256), 12345.0, device=scratch.device, dtype=torch.float32
                 )
-                if query_reuse:
+                if group_tiles:
+                    blocks = triton.cdiv(2, group_tiles)
+                    _qsa_qk_key_group_score[(min(20, triton.cdiv(n, 4) * blocks),)](
+                        device_small["q"],
+                        values["cache"],
+                        device_small["qs"],
+                        values["ks"],
+                        device_small["weights"],
+                        device_small["row_table"],
+                        device_small["visible"],
+                        guarded[:n],
+                        ROWS=n,
+                        COLUMNS=2,
+                        WIDTH=256,
+                        PAGE=192,
+                        BLOCK_N=128,
+                        KEY_TILES=group_tiles,
+                        num_warps=4,
+                    )
+                elif query_reuse:
                     _qsa_qk_group_reuse_score[(min(20, triton.cdiv(n, 4)),)](
                         device_small["q"],
                         values["cache"],
@@ -572,6 +636,7 @@ def run_case(args):
                         late_key_scale=late_key_scale,
                         combine_query_weight=combine_query_weight,
                         query_reuse=query_reuse,
+                        key_tiles_per_unit=group_tiles,
                         cube_reduce=cube_reduce,
                         zero_query_scales=args.combine_query_weight or args.cube_reduce,
                         signed_key_scales=args.combine_query_weight,
@@ -681,12 +746,16 @@ def run_case(args):
         expected_hosts = {
             name: {
                 (
-                    "_qsa_qk_group_reuse_score"
-                    if name == "pack4_qk_reuse"
+                    "_qsa_qk_key_group_score"
+                    if name in key_groups
                     else (
-                        "_qsa_query_pack4_score"
-                        if name.startswith("pack4")
-                        else "_quant_score_trial"
+                        "_qsa_qk_group_reuse_score"
+                        if name == "pack4_qk_reuse"
+                        else (
+                            "_qsa_query_pack4_score"
+                            if name.startswith("pack4")
+                            else "_quant_score_trial"
+                        )
                     )
                 ): 1
             }
@@ -714,6 +783,15 @@ def run_case(args):
             for name in arms
             if name.startswith("pack4")
         }
+        if args.key_groups:
+            result["key_group_speedup_vs_qk"] = {
+                name: medians["pack4_qk"] / medians[name] for name in key_groups
+            }
+            print(
+                "KEY_GROUP_SPEEDUP_VS_QK",
+                json.dumps(result["key_group_speedup_vs_qk"]),
+                flush=True,
+            )
         if args.cube_reduce:
             result["cube_reduce_speedup_vs_qk_n128"] = (
                 medians["pack4_qk"] / medians["pack4_qk_cube"]
@@ -833,6 +911,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=1200)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument(
+        "--key-groups",
+        action="store_true",
+        help="Group 2/4/16 N128 key tiles per scheduled unit with local Q reuse",
+    )
+    modes.add_argument(
         "--cube-reduce",
         action="store_true",
         help="Native-style scaled FP16 intermediate and second Cube head aggregation",
@@ -919,6 +1002,8 @@ def main():
             command.append("--query-reuse")
         if args.cube_reduce:
             command.append("--cube-reduce")
+        if args.key_groups:
+            command.append("--key-groups")
         if args.ten_shapes:
             command.append("--ten-shapes")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
