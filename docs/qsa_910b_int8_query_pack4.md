@@ -208,3 +208,28 @@ QK-versus-flat-Q speedup and integrated-relative speedups in the same run.
 Two cases/two rounds/two warmups/three active samples remain fixed diagnostic
 settings, exempt from autotuning for this direction comparison. No production
 or TopK changes, and no predicted speedup or exact per-stage cost claim.
+
+## Ten-workload restricted regression
+
+Report f7f3464dc53d7d6c62508336357c4127c804d966 passed two-case QK checks;
+matched score speedups over integrated_full were 3.393x and 3.702x.
+Use `--qk-direction --ten-shapes` for all ten migrated workloads. It retains
+three timed arms and original two-round protocol, compiler/precision gates,
+and synthetic guarded tail checks. No scorer kernel is modified this round.
+
+For each workload additionally compare first/last chunks against the integrated
+scorer, including real final chunks of 12/32/64/73/75/112/113 queries as applicable.
+Check a four-row window starting one row before the first real request boundary
+when present. The CPU mapping/owner guard must run before the candidate; on
+rejection the probe calls the integrated scorer and records integrated_fallback.
+Also require rejection of a synthetic unequal mapping inside a same-owner group.
+Boundary checks are outside timing and include full output comparisons, mask
+checks and sampled CPU references. This demonstrates a probe-level fallback,
+not a production dispatch integration or a measurement of dispatch costs.
+
+Main timing still uses each workload's middle chunk with its mapping proof;
+it is not a full-prefill/TopK benchmark or native-CANN comparison. The terminal
+prints all per-case score times/ratios and the arithmetic mean only when every
+requested case passes. Promotion needs independent evidence and an eventual
+full-entry regression, including guard/fallback costs. TopK and production are
+unchanged. Ten cases use separate workers and per-case timeout1200 seconds.

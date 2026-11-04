@@ -373,6 +373,91 @@ def run_case(args):
                         shared_maps=proof,
                     )
                 )
+        if args.ten_shapes:
+            result["stage"] = "workload_boundary_regression"
+            checks = []
+            windows = [
+                ("first", 0, min(chunk, rows)),
+                (
+                    "last",
+                    (rows - 1) // chunk * chunk,
+                    rows - (rows - 1) // chunk * chunk,
+                ),
+            ]
+            windows += [
+                ("request_boundary", boundary - 1, min(4, rows - boundary + 1))
+                for boundary in plan["starts"][1:-1]
+                if 0 < boundary < rows
+            ]
+            # One real request boundary is enough; first/last retain workload tails.
+            windows = windows[:3]
+            for label, start, n in windows:
+                target = torch.empty(
+                    (n, width), device=scratch.device, dtype=torch.float32
+                )
+                expected = torch.empty_like(target)
+                adapter.score_into(start, n, expected)
+                try:
+                    proof = validate_shared_groups(
+                        inputs["row_table"][start : start + n].tolist(),
+                        plan["starts"],
+                        start,
+                    )
+                except NotImplementedError as error:
+                    route, proof = "integrated_fallback", {"reason": str(error)}
+                    adapter.score_into(start, n, target)
+                else:
+                    route = "qk_shared_map"
+                    _qsa_query_pack4_score[
+                        (min(20, triton.cdiv(n, 4) * triton.cdiv(width, 128)),)
+                    ](
+                        values["q"][start : start + n],
+                        values["cache"],
+                        values["qs"][start : start + n],
+                        values["ks"],
+                        values["weights"][start : start + n],
+                        values["row_table"][start : start + n],
+                        values["visible"][start : start + n],
+                        target,
+                        ROWS=n,
+                        COLUMNS=values["row_table"].shape[1],
+                        WIDTH=width,
+                        PAGE=192,
+                        BLOCK_N=128,
+                        SCALE_PRODUCT=False,
+                        STORE_MODE=1,
+                        FLAT_QUERY=True,
+                        QUERY_LEFT=True,
+                        num_warps=4,
+                    )
+                actual, reference_scores = target.cpu(), expected.cpu()
+                if not torch.allclose(actual, reference_scores, rtol=1e-3, atol=1e-3):
+                    raise AssertionError(
+                        f"Workload boundary mismatch: {label}, {start}, {n}"
+                    )
+                checks.append(
+                    dict(
+                        label=label,
+                        first=start,
+                        count=n,
+                        route=route,
+                        guard=proof,
+                        all_scores_checked=True,
+                        cpu=check_chunk(inputs, actual, start, n),
+                    )
+                )
+            # Reject unequal tables within a group even when request owner agrees.
+            unequal = inputs["row_table"][first : first + 4].tolist()
+            unequal[1] = list(unequal[1])
+            unequal[1][0] = (unequal[1][0] + 1) % values["cache"].shape[0]
+            try:
+                validate_shared_groups(unequal, [0, 4], 0)
+            except NotImplementedError:
+                result["unequal_mapping_guard_rejected"] = True
+            else:
+                raise AssertionError("Unequal page mapping guard accepted")
+            result["workload_boundary_checks"] = checks
+            print("WORKLOAD_BOUNDARY_CHECKS", json.dumps(checks), flush=True)
         result["stage"] = "kernel_timer"
 
         def score_into(start, n, target):
@@ -505,18 +590,25 @@ def main():
         action="store_true",
         help="Compare packed reduction/store layouts only",
     )
-    parser.add_argument("--case", choices=CASES)
-    parser.add_argument("--cases", nargs="+", choices=CASES)
+    parser.add_argument(
+        "--ten-shapes",
+        action="store_true",
+        help="QK candidate regression on all ten migrated INT8 workloads",
+    )
+    parser.add_argument("--case", choices=PLANS)
+    parser.add_argument("--cases", nargs="+", choices=PLANS)
     args = parser.parse_args()
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
+    if args.ten_shapes and not args.qk_direction:
+        parser.error("--ten-shapes requires --qk-direction")
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     if args.case:
         return run_case(args)
     snapshot(report, "before")
     entries = []
-    for name in dict.fromkeys(args.cases or CASES):
+    for name in dict.fromkeys(args.cases or (PLANS if args.ten_shapes else CASES)):
         path = report / f"{name}.json"
         path.unlink(missing_ok=True)
         command = [
@@ -542,6 +634,8 @@ def main():
             command.append("--flat-query")
         if args.qk_direction:
             command.append("--qk-direction")
+        if args.ten_shapes:
+            command.append("--ten-shapes")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())
@@ -571,6 +665,28 @@ def main():
             indent=2,
         )
     )
+    if args.ten_shapes:
+        print(
+            "case                           integrated_us       qk_us   score_speedup",
+            flush=True,
+        )
+        ratios = []
+        for entry in entries:
+            if entry["status"] == "passed":
+                latency = entry["latency"]
+                ratio = entry["speedup_vs_integrated"]["pack4_qk"]
+                ratios.append(ratio)
+                print(
+                    f"{entry['case']:30} {latency['integrated_full']['kernel_us']['median']:12.3f} "
+                    f"{latency['pack4_qk']['kernel_us']['median']:12.3f} {ratio:12.4f}",
+                    flush=True,
+                )
+            else:
+                print(entry["case"], entry["status"], entry.get("stage"), flush=True)
+        if len(ratios) == len(entries):
+            print(
+                "ARITHMETIC_MEAN_SCORE_SPEEDUP", sum(ratios) / len(ratios), flush=True
+            )
     print(f"INT8 query-pack4 exit={code}", flush=True)
     return code
 
