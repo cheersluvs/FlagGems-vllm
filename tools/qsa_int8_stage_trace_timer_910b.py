@@ -138,6 +138,7 @@ def setup_stage_trace(args, context, torch, result):
         minimum = {
             "score_stage": dispatch["score_calls"],
             "legacy_score_stage": dispatch["score_calls"],
+            "qk_score_stage": dispatch["score_calls"],
             "topk_stage": dispatch["topk_calls"],
             "combined_stage": dispatch["score_calls"] + dispatch["topk_calls"],
             "native_stage": 1,
@@ -146,9 +147,11 @@ def setup_stage_trace(args, context, torch, result):
             raise IncompleteScoreTrace(
                 f"Too few device tasks for {function.__name__}: {value['tasks_per_invocation']}"
             )
-        if function.__name__ in ("score_stage", "legacy_score_stage") and any(
-            count != minimum for count in value["tasks_per_invocation"]
-        ):
+        if function.__name__ in (
+            "score_stage",
+            "legacy_score_stage",
+            "qk_score_stage",
+        ) and any(count != minimum for count in value["tasks_per_invocation"]):
             raise IncompleteScoreTrace("Unexpected score-only task count")
         value["artifact"] = archive.name
         value["stage"] = function.__name__

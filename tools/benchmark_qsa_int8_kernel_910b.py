@@ -160,10 +160,24 @@ def run_case(args):
                 )
 
                 adapter = PreparedSharedMapInt8Selection(
-                    values, output, scratch, workspace, topk, plan["starts"]
+                    values,
+                    output,
+                    scratch,
+                    workspace,
+                    topk,
+                    plan["starts"],
+                    key_group4=args.key_group4_dispatch,
                 )
                 result["shared_map_dispatch"] = dict(
                     preparation_ms=adapter.preparation_ms,
+                    group4_enabled=args.key_group4_dispatch,
+                    group4_min_key_tiles=16,
+                    group4_chunks=sum(
+                        r["route"] == "group4" for r in adapter.route_checks
+                    ),
+                    plain_qk_chunks=sum(
+                        r["route"] == "qk" for r in adapter.route_checks
+                    ),
                     preparation_in_kernel_timing=False,
                     immutable_inputs_required=True,
                     qk_chunks=sum(adapter.shared_routes.values()),
@@ -179,6 +193,10 @@ def run_case(args):
                     flush=True,
                 )
 
+            if args.key_group4_dispatch:
+                qk_adapter = PreparedSharedMapInt8Selection(
+                    values, output, scratch, workspace, topk, plan["starts"]
+                )
             result["integration"] = dict(
                 entry=(
                     "qsa_int8_shared_map_selection_910b_trial.PreparedSharedMapInt8Selection.__call__"
@@ -378,6 +396,68 @@ def run_case(args):
                 atol=1e-3,
             )
 
+        if args.key_group4_dispatch and args.case == "int8_budget_exact":
+            result["stage"] = "group4_threshold_checks"
+            from profile_qsa_int8_score_910b import check_chunk
+
+            tests = [
+                (1920, "shared"),
+                (1921, "shared"),
+                (2049, "shared"),
+                (1921, "cross_request"),
+                (1921, "unequal_map"),
+            ]
+            result["group4_threshold_checks"] = []
+            for test_width, kind in tests:
+                n = 7
+                cpu = dict(inputs)
+                for key in ("q", "qs", "weights", "row_table", "visible"):
+                    cpu[key] = inputs[key][:n].clone()
+                cpu["visible"].clamp_(max=test_width)
+                if kind == "unequal_map":
+                    cpu["row_table"][1, 0] = (int(cpu["row_table"][1, 0]) + 1) % cpu[
+                        "cache"
+                    ].shape[0]
+                device_values = dict(values)
+                for key in ("q", "qs", "weights", "row_table", "visible"):
+                    device_values[key] = cpu[key].to(device)
+                temp_scores = torch.empty(
+                    (n, test_width), device=device, dtype=torch.float32
+                )
+                temp_out = torch.empty((n, 512), device=device, dtype=torch.int32)
+                trial = PreparedSharedMapInt8Selection(
+                    device_values,
+                    temp_out,
+                    temp_scores,
+                    workspace,
+                    None,
+                    [0, 3, n] if kind == "cross_request" else [0, n],
+                    key_group4=True,
+                )
+                wanted = (
+                    "legacy"
+                    if kind != "shared"
+                    else "qk" if test_width == 1920 else "group4"
+                )
+                if trial.route_checks[0]["route"] != wanted:
+                    raise AssertionError("Threshold/mapping route mismatch")
+                expected = torch.empty_like(temp_scores)
+                reference_adapter = PreparedInt8Selection(
+                    device_values, temp_out, temp_scores, workspace, None
+                )
+                reference_adapter.score_into(0, n, expected)
+                trial.score_into(0, n, temp_scores)
+                if not torch.allclose(temp_scores, expected, rtol=1e-3, atol=1e-3):
+                    raise AssertionError("Threshold score mismatch")
+                check = check_chunk(cpu, temp_scores.cpu(), 0, n)
+                result["group4_threshold_checks"].append(
+                    dict(width=test_width, kind=kind, route=wanted, cpu=check)
+                )
+            print(
+                "GROUP4_THRESHOLD_CHECKS",
+                json.dumps(result["group4_threshold_checks"]),
+                flush=True,
+            )
         result["stage"] = "no_debug_preflight"
         compiled = None
         route_artifacts = set()
@@ -396,7 +476,11 @@ def run_case(args):
                         full_score_error,
                         (current[finite] - reference_target[finite]).abs().max().item(),
                     )
-                route = "qk" if adapter.shared_routes[first, count] else "fallback"
+                route = (
+                    ("group4" if adapter.key_group4 else "qk")
+                    if adapter.shared_routes[first, count]
+                    else "fallback"
+                )
                 if route not in route_artifacts:
                     route_artifacts.add(route)
                     for key in ("ttir", "ttadapter", "bcmlir"):
@@ -490,6 +574,12 @@ def run_case(args):
                 legacy_adapter.score_all()
 
             jobs["legacy_score"] = legacy_score_stage
+        if args.key_group4_dispatch:
+
+            def qk_score_stage():
+                qk_adapter.score_all()
+
+            jobs["qk_score"] = qk_score_stage
         result["stage"] = "kernel_timer"
         if args.integrated:
             jobs.pop("native_chunked")
@@ -528,7 +618,7 @@ def run_case(args):
                 timing = measure(jobs[name])
                 result["samples"][name].append(timing)
                 result["stage"] = f"postcheck_{name}"
-                if name in ("score", "legacy_score"):
+                if name in ("score", "legacy_score", "qk_score"):
                     first, count = chunks[-1]
                     if not torch.allclose(
                         scratch[:count].cpu(),
@@ -594,6 +684,13 @@ def run_case(args):
                 "SCORE_SPEEDUP_VS_LEGACY", result["score_speedup_vs_legacy"], flush=True
             )
             print("OVERALL_SPEEDUP_VS_CANN", result["speedup"]["overall"], flush=True)
+        if args.key_group4_dispatch:
+            result["score_speedup_vs_qk"] = medians["qk_score"] / medians["score"]
+            print(
+                "DISPATCH_SCORE_SPEEDUP_VS_QK",
+                result["score_speedup_vs_qk"],
+                flush=True,
+            )
         result["native_split"] = dict(
             score_us=None,
             topk_us=None,
@@ -683,7 +780,14 @@ def main():
         action="store_true",
         help="Regenerate summary/CSV from saved entries; no NPU execution",
     )
+    parser.add_argument(
+        "--key-group4-dispatch",
+        action="store_true",
+        help="Use group4 for shared-map chunks with at least16 N128 key tiles",
+    )
     args = parser.parse_args()
+    if args.key_group4_dispatch and not args.shared_map_qk:
+        parser.error("--key-group4-dispatch requires --shared-map-qk")
     if args.shared_map_qk and not args.integrated:
         parser.error("--shared-map-qk requires --integrated")
     if args.rounds < 1 or args.kernel_active < 1 or args.kernel_warmup < 1:
@@ -731,6 +835,8 @@ def main():
             command.append("--integrated")
         if args.shared_map_qk:
             command.append("--shared-map-qk")
+        if args.key_group4_dispatch:
+            command.append("--key-group4-dispatch")
         code, timed_out = run_child(
             command, report / f"{name}-console.txt", args.timeout
         )
@@ -778,12 +884,14 @@ def summarize(report, entries, names, args):
         "status",
         "score_us",
         "legacy_score_us",
+        "qk_score_us",
         "topk_us",
         "combined_us",
         "native_fused_us",
         "native_chunked_us",
         "overall_speedup",
         "score_speedup_vs_legacy",
+        "score_speedup_vs_qk",
         "preparation_ms",
     )
     with (report / "kernel-results.csv").open("w", newline="") as file:
@@ -801,6 +909,7 @@ def summarize(report, entries, names, args):
                 )
                 row["overall_speedup"] = entry["speedup"]["overall"]
                 row["score_speedup_vs_legacy"] = entry.get("score_speedup_vs_legacy")
+                row["score_speedup_vs_qk"] = entry.get("score_speedup_vs_qk")
                 row["preparation_ms"] = entry.get("shared_map_dispatch", {}).get(
                     "preparation_ms"
                 )

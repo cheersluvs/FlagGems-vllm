@@ -18,7 +18,11 @@ import time
 
 import torch
 import triton
-from qsa_int8_query_pack4_910b import _qsa_query_pack4_score, validate_shared_groups
+from qsa_int8_query_pack4_910b import (
+    _qsa_qk_key_group_score,
+    _qsa_query_pack4_score,
+    validate_shared_groups,
+)
 from qsa_int8_selection_910b_trial import PreparedInt8Selection
 
 
@@ -29,9 +33,12 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
     is separate from kernel timing. Rebuild the adapter after input mutation.
     """
 
-    def __init__(self, values, output, scratch, workspace, topk, request_starts):
+    def __init__(
+        self, values, output, scratch, workspace, topk, request_starts, key_group4=False
+    ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)
+        self.key_group4 = bool(key_group4) and triton.cdiv(self.width, 128) >= 16
         starts = list(request_starts)
         if (
             len(starts) < 2
@@ -54,7 +61,17 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                 shared = True
             self.shared_routes[first, count] = shared
             self.route_checks.append(
-                dict(first=first, count=count, shared=shared, proof=proof)
+                dict(
+                    first=first,
+                    count=count,
+                    shared=shared,
+                    proof=proof,
+                    route=(
+                        "legacy"
+                        if not shared
+                        else "group4" if self.key_group4 else "qk"
+                    ),
+                )
             )
         self.preparation_ms = (time.perf_counter() - started) * 1000
 
@@ -69,6 +86,25 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         ):
             raise ValueError("Contiguous FP32 score target required")
         v = self.values
+        if self.key_group4:
+            blocks = triton.cdiv(triton.cdiv(self.width, 128), 4)
+            return _qsa_qk_key_group_score[(min(20, triton.cdiv(count, 4) * blocks),)](
+                v["q"][first : first + count],
+                v["cache"],
+                v["qs"][first : first + count],
+                v["ks"],
+                v["weights"][first : first + count],
+                v["row_table"][first : first + count],
+                v["visible"][first : first + count],
+                target,
+                ROWS=count,
+                COLUMNS=v["row_table"].shape[1],
+                WIDTH=self.width,
+                PAGE=192,
+                BLOCK_N=128,
+                KEY_TILES=4,
+                num_warps=4,
+            )
         return _qsa_query_pack4_score[
             (min(20, triton.cdiv(count, 4) * triton.cdiv(self.width, 128)),)
         ](

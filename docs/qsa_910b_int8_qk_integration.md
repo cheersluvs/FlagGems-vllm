@@ -73,3 +73,41 @@ or profiler capture is required. Original console/code commit/failed exit code
 are retained; summary-console and summary-code-commit identify this recovery.
 Preparation and device timing remain separate; a single round's zero range
 is not evidence of stability. Native score/TopK remain inseparable.
+
+## Optional four-tile dispatch integration
+
+Representative ten-case report a2e7a1fa261c5a7f1a7ecd218d50d43bd0e80c90 passed
+all checks, with group4 mean1.077x vs QK and one compact regression0.895x.
+Use --shared-map-qk --key-group4-dispatch for the next full-input trial.
+
+| Condition | Prepared chunk route |
+| --- | --- |
+| Unequal page mappings or mixed request owner inside a four-row group | Legacy single-query scorer |
+| Shared mapping, fewer than16 N128 key tiles | Existing QK scorer |
+| Shared mapping, at least16 N128 key tiles | Four-tile QK block scorer |
+
+The16-tile threshold is an explicit candidate policy between the observed
+9-tile compact and >=32-tile larger workloads, not an empirically optimized
+universal cutoff. It uses ceil(width/128), not case names or request counts.
+Map checks continue to use actual device table snapshots during preparation;
+inputs remain immutable for the adapter lifetime. Default callers do not enable
+this policy. Guard costs remain separately recorded, excluded from kernel sums.
+Unknown slices retain legacy fallback.
+
+Before full validation, budget_exact additionally exercises widths1920/1921/2049
+(15/16/17 tiles) using seven query rows, clamped visibility and original pages.
+Compare every score against legacy plus CPU samples/masks. Two further1921
+checks cross a request boundary or change one query's physical page mapping;
+both must select legacy and match the corresponding modified reference data.
+These checks are outside timing and do not change the main workload fixtures.
+
+Run all ten full logical workloads, including TopK. Add qk_score to the existing
+legacy_score/score/topk/combined/native jobs so policy benefit is paired on the
+same card. CSV explicitly includes qk_score_us and score_speedup_vs_qk. The
+legacy scorer still supplies timer single/triple calibration; stage counts
+remain one score kernel per chunk. Upload route counts, full score comparisons,
+index/selected-score checks against CANN, traces and each stage time.
+Initial validation uses one round, one warmup and two active samples. It does
+not establish timing stability or native stage speedups. No earlier arithmetic,
+Cube reduction, compiler or TopK changes are composed. The wrapper's optional
+summary flag also avoids an empty-array nounset issue with macOS Bash3.

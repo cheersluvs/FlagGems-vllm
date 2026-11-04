@@ -36,12 +36,12 @@ if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     printf 'Pinned runtime environment: %s\n' "$qsa_env_root"
 fi
 qsa_python=${QSA_PYTHON:-python3}
-qsa_extra_args=()
+qsa_summary_flag=
 qsa_console=console.txt
 if [[ -n "${QSA_SUMMARIZE_REPORT:-}" ]]; then
     qsa_report=$(realpath -- "$QSA_SUMMARIZE_REPORT") || exit 1
     test -f "$qsa_report/summary.json" || exit 1
-    qsa_extra_args+=(--summarize-only)
+    qsa_summary_flag=--summarize-only
     qsa_console=summary-console.txt
     qsa_commit_file=summary-code-commit.txt
     if [[ -f "$qsa_report/exit-code.txt" && ! -f "$qsa_report/original-exit-code.txt" ]]; then
@@ -55,7 +55,7 @@ qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
 printf 'Code commit: %s\nReport: %s\n' "$qsa_commit" "$qsa_report"
 printf '%s\n' "$qsa_commit" > "$qsa_report/$qsa_commit_file"
 "$qsa_python" -u "$qsa_repo/tools/benchmark_qsa_int8_kernel_910b.py" \
-    --report "$qsa_report" --integrated "${qsa_extra_args[@]}" "$@" 2>&1 | tee "$qsa_report/$qsa_console"
+    --report "$qsa_report" --integrated ${qsa_summary_flag:+"$qsa_summary_flag"} "$@" 2>&1 | tee "$qsa_report/$qsa_console"
 qsa_status=${PIPESTATUS[0]}
 printf '%s\n' "$qsa_status" > "$qsa_report/exit-code.txt"
 if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
