@@ -678,6 +678,11 @@ def main():
         action="store_true",
         help="Use guarded QK score adapter; requires --integrated",
     )
+    parser.add_argument(
+        "--summarize-only",
+        action="store_true",
+        help="Regenerate summary/CSV from saved entries; no NPU execution",
+    )
     args = parser.parse_args()
     if args.shared_map_qk and not args.integrated:
         parser.error("--shared-map-qk requires --integrated")
@@ -687,6 +692,17 @@ def main():
         return run_case(args)
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
+    if args.summarize_only:
+        saved = json.loads((report / "summary.json").read_text())
+        entries = saved["cases"]
+        if not entries or any(
+            e.get("subprocess_exit_code") != 0 or e.get("status") != "passed"
+            for e in entries
+        ):
+            parser.error(
+                "Summary replay requires saved passed workers with zero subprocess exit codes"
+            )
+        return summarize(report, entries, [e["case"] for e in entries], args)
     names = list(dict.fromkeys(args.cases or PLANS))
     snapshot(report, "before")
     entries = []
@@ -730,6 +746,10 @@ def main():
         entry["subprocess_exit_code"] = code
         entries.append(entry)
     snapshot(report, "after")
+    return summarize(report, entries, names, args)
+
+
+def summarize(report, entries, names, args):
     passed = [entry for entry in entries if entry["status"] == "passed"]
     status = (
         0
@@ -757,11 +777,14 @@ def main():
         "case",
         "status",
         "score_us",
+        "legacy_score_us",
         "topk_us",
         "combined_us",
         "native_fused_us",
         "native_chunked_us",
         "overall_speedup",
+        "score_speedup_vs_legacy",
+        "preparation_ms",
     )
     with (report / "kernel-results.csv").open("w", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fields)
@@ -777,6 +800,10 @@ def main():
                     }
                 )
                 row["overall_speedup"] = entry["speedup"]["overall"]
+                row["score_speedup_vs_legacy"] = entry.get("score_speedup_vs_legacy")
+                row["preparation_ms"] = entry.get("shared_map_dispatch", {}).get(
+                    "preparation_ms"
+                )
             writer.writerow(row)
             print(" | ".join(str(row.get(field, "")) for field in fields), flush=True)
     print(

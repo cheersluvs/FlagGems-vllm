@@ -58,3 +58,18 @@ not filtered. Terminal prints every stage in milliseconds, score speedup versus
 legacy and combined speedup versus native. CANN stage speedups remain absent
 because its public baseline is fused. Baseline/output mutation, TopK changes,
 and production registration are outside this change.
+
+## Summary-only recovery
+
+Report cbb40d92e4fa5c6860fdbdfab9bc2a44854ad8df saved ten passed workers,
+all correctness checks and complete stage timings. The parent then raised
+ValueError writing CSV because legacy_score_us was missing from fieldnames.
+The schema now includes legacy_score_us, score_speedup_vs_legacy and preparation_ms.
+
+Set QSA_SUMMARIZE_REPORT to the retained report directory and run the integrated
+wrapper. It invokes --summarize-only, validates saved workers passed with zero
+subprocess codes, regenerates summary/CSV, and uploads. No NPU import/execution
+or profiler capture is required. Original console/code commit/failed exit code
+are retained; summary-console and summary-code-commit identify this recovery.
+Preparation and device timing remain separate; a single round's zero range
+is not evidence of stability. Native score/TopK remain inseparable.
