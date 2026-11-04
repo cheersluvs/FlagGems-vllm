@@ -1,0 +1,1839 @@
+{
+  "case": "int8_budget_exact",
+  "status": "failed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_budget_exact",
+    "nv_case": "fp8_budget_exact_float8_e4m3fn",
+    "origin": "recorded_envelope",
+    "query_lengths": [
+      16384
+    ],
+    "prefix_tokens": [
+      16384
+    ],
+    "starts": [
+      0,
+      16384
+    ],
+    "batch_max_seq_len": 32768,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      43
+    ],
+    "physical_pages": 43,
+    "table_columns": 43,
+    "q_shape": [
+      16384,
+      4,
+      128
+    ],
+    "cache_shape": [
+      43,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 8192,
+    "chunk_rows": 128,
+    "score_and_dot_scratch_bytes": 20971520,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": 2712,
+    "nv_original_table_columns": 88,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Prepared inputs; sum of device kernel durations, not public production entry",
+  "stage": "timing_dispatch_score",
+  "memory": {
+    "benchmark_only_full_logits_bytes": 536870912,
+    "bounded_score_scratch_bytes": 4194304,
+    "raw_dot_allocation_bytes": 0,
+    "free_before_staging": 65028272128,
+    "total": 65452113920
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-page64-integrated.B1KYJE12/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-page64-integrated.B1KYJE12/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "dispatch": {
+    "score_chunk_rows": 128,
+    "topk_call_rows": 32,
+    "topk_block": 256,
+    "score_calls": 128,
+    "topk_calls": 512,
+    "native_full_calls": 1,
+    "native_chunked_calls": 0,
+    "score_grid": 20,
+    "score_block_n": 64,
+    "debug_store": false,
+    "score_block_ns": [
+      64
+    ]
+  },
+  "shared_map_dispatch": {
+    "preparation_ms": 31.266633421182632,
+    "group4_enabled": true,
+    "single_page64_enabled": true,
+    "single_page64_min_width": 8192,
+    "single_page64_chunks": 128,
+    "group4_min_key_tiles": 16,
+    "group4_chunks": 0,
+    "plain_qk_chunks": 0,
+    "preparation_in_kernel_timing": false,
+    "immutable_inputs_required": true,
+    "qk_chunks": 128,
+    "fallback_chunks": 0,
+    "routes": [
+      {
+        "first": 0,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 128,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 256,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 384,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 512,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 640,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 768,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 896,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 1024,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 1152,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 1280,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 1408,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 1536,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 1664,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 1792,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 1920,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 2048,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 2176,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 2304,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 2432,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 2560,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 2688,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 2816,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 2944,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 3072,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 3200,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 3328,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 3456,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 3584,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 3712,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 3840,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 3968,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 4096,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 4224,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 4352,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 4480,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 4608,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 4736,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 4864,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 4992,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 5120,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 5248,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 5376,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 5504,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 5632,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 5760,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 5888,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 6016,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 6144,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 6272,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 6400,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 6528,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 6656,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 6784,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 6912,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 7040,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 7168,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 7296,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 7424,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 7552,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 7680,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 7808,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 7936,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 8064,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 8192,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 8320,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 8448,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 8576,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 8704,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 8832,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 8960,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 9088,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 9216,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 9344,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 9472,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 9600,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 9728,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 9856,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 9984,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 10112,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 10240,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 10368,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 10496,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 10624,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 10752,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 10880,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 11008,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 11136,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 11264,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 11392,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 11520,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 11648,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 11776,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 11904,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 12032,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 12160,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 12288,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 12416,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 12544,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 12672,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 12800,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 12928,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 13056,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 13184,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 13312,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 13440,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 13568,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 13696,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 13824,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 13952,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 14080,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 14208,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 14336,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 14464,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 14592,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 14720,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 14848,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 14976,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 15104,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 15232,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 15360,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 15488,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 15616,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 15744,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 15872,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 16000,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 16128,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      },
+      {
+        "first": 16256,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64"
+      }
+    ],
+    "calibration": "Unchanged single-query scorer; candidate stages timed separately"
+  },
+  "integration": {
+    "entry": "qsa_int8_shared_map_selection_910b_trial.PreparedSharedMapInt8Selection.__call__",
+    "score_grid": 20,
+    "score_block_n": 64,
+    "topk_call_rows": 32,
+    "scope": "Prepared INT8 trial adapter; BF16 production unchanged"
+  },
+  "cpu_reference_rows": [
+    0,
+    127,
+    128,
+    8192,
+    16256,
+    16383
+  ],
+  "correctness": {
+    "score": {
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8192,
+        16256,
+        16383
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    "all_chunk_scores_vs_legacy": {
+      "chunks": 128,
+      "all_values_compared": true,
+      "max_abs_error": 1.52587890625e-05
+    },
+    "native_full_preflight": {
+      "all_rows_structure": true,
+      "rows": 16384,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8192,
+        16256,
+        16383
+      ],
+      "selected_score_max_abs_error": 0.003814697265625
+    },
+    "topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8192,
+          16256,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.0219268798828125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          8192,
+          16256,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.0219268798828125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    }
+  },
+  "group4_threshold_checks": [
+    {
+      "width": 1920,
+      "kind": "shared",
+      "route": "qk",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 1921,
+      "kind": "shared",
+      "route": "group4",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 2049,
+      "kind": "shared",
+      "route": "group4",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 1921,
+      "kind": "cross_request",
+      "route": "legacy",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 1921,
+      "kind": "unequal_map",
+      "route": "legacy",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 8191,
+      "kind": "shared",
+      "route": "group4",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 8192,
+      "kind": "shared",
+      "route": "single_page64",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 8193,
+      "kind": "shared",
+      "route": "single_page64",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 8192,
+      "kind": "cross_request",
+      "route": "legacy",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    {
+      "width": 8192,
+      "kind": "unequal_map",
+      "route": "legacy",
+      "cpu": {
+        "rows": 7,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          0,
+          3,
+          6
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  ],
+  "no_debug_ir": {
+    "store_count": 1,
+    "int8_to_int32_dot": true
+  },
+  "baseline_policy": {
+    "primary": "full native V1, one call",
+    "auxiliary": "omitted",
+    "no_fallback": true
+  },
+  "kernel_timer": {
+    "backend": "CPU+NPU Chrome trace with synchronized invocation windows",
+    "warmup": 1,
+    "active": 2,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Exploratory device-task sums; all stage and native baselines rebuilt together; no host gaps",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "invocation_sum_check": {
+      "single": {
+        "kernel_us": 1769.02,
+        "active_invocation_us": [
+          1769.2,
+          1768.84
+        ],
+        "device_task_count": 2,
+        "host_launch_count": 2,
+        "artifact": "int8_budget_exact-timer-01.json.gz"
+      },
+      "triple": {
+        "kernel_us": 5310.51,
+        "active_invocation_us": [
+          5309.62,
+          5311.4
+        ],
+        "device_task_count": 6,
+        "host_launch_count": 6,
+        "artifact": "int8_budget_exact-timer-02.json.gz"
+      },
+      "ratio": 3.001950232332026
+    }
+  },
+  "samples": {
+    "score": [],
+    "topk": [],
+    "combined": [],
+    "native_fused": [],
+    "legacy_score": [],
+    "dispatch_score": []
+  },
+  "measurement_order": [
+    [
+      "dispatch_score",
+      "legacy_score",
+      "native_fused",
+      "combined",
+      "topk",
+      "score"
+    ]
+  ],
+  "traceback": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-page64-integrated.B1KYJE12/tools/benchmark_qsa_int8_kernel_910b.py\", line 674, in run_case\n    timing = measure(jobs[name])\n             ^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-page64-integrated.B1KYJE12/tools/qsa_int8_stage_trace_timer_910b.py\", line 163, in measure\n    return capture(function)\n           ^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-page64-integrated.B1KYJE12/tools/qsa_int8_stage_trace_timer_910b.py\", line 138, in capture\n    minimum = {\n              ^\nKeyError: 'dispatch_score_stage'\n",
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "fcf3831d2b38cb34f5b251b9b69fcd72badaaa078c5edd47f25587e9bb16a200",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+    "qsa_int8_shared_map_selection_910b_trial.py": "974180195c420c0641f0024cfd07e670311811c613d7373738c893fa7ca28ad4",
+    "qsa_int8_query_pack4_910b.py": "2541f709802d63c4c129aef6bb39bac863bcbe32b94f2a968454fab786b34178",
+    "qsa_int8_stage_trace_timer_910b.py": "e5eb0014537e1ea4f20cbed9e9ae14b8558bc6778305a055e3c3925fea6bec83",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+  },
+  "exit_code": 1
+}
