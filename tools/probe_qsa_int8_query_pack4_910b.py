@@ -166,6 +166,17 @@ def run_case(args):
         "pack4_qk_g4_no_mb": {"multibuffer": False},
         "pack4_qk_g4_preload": {"enable_preload": True},
     }
+    dispatch_control = (
+        (
+            "pack4_qk"
+            if (PLANS[args.case]["logits_width"] + 127) // 128 < 16
+            else "pack4_qk_g4"
+        )
+        if args.single_page64 and args.ten_shapes
+        else None
+    )
+    if dispatch_control:
+        arms = ("integrated_full", dispatch_control, "pack4_qk_g8_page64")
     if args.buffer_no_preload:
         arms = tuple(name for name in arms if name != "pack4_qk_g4_preload")
         buffer_options.pop("pack4_qk_g4_preload")
@@ -179,6 +190,9 @@ def run_case(args):
         result["excluded_options"] = dict(
             preload="Explicitly excluded; prior compilation failed, report ee7d5897ec7b65bb11424fd812a01e7bc89eece6"
         )
+    if dispatch_control:
+        result["current_dispatch_control"] = dispatch_control
+        result["dispatch_group4_min_tiles"] = 16
     try:
         import torch
         import torch_npu
@@ -945,10 +959,21 @@ def run_case(args):
                     route, proof = "integrated_fallback", {"reason": str(error)}
                     adapter.score_into(start, n, target)
                 else:
-                    if args.key_groups:
-                        route = "qk_group4_shared_map"
-                        blocks = triton.cdiv(triton.cdiv(width, 128), 4)
-                        _qsa_qk_key_group_score[(min(20, triton.cdiv(n, 4) * blocks),)](
+                    if args.key_groups or args.single_page64:
+                        route = (
+                            "single_page64_shared_map"
+                            if args.single_page64
+                            else "qk_group4_shared_map"
+                        )
+                        block_n = 64 if args.single_page64 else 128
+                        group_tiles = 8 if args.single_page64 else 4
+                        boundary_kernel = (
+                            _qsa_qk_single_page_score
+                            if args.single_page64
+                            else _qsa_qk_key_group_score
+                        )
+                        blocks = triton.cdiv(triton.cdiv(width, block_n), group_tiles)
+                        boundary_kernel[(min(20, triton.cdiv(n, 4) * blocks),)](
                             values["q"][start : start + n],
                             values["cache"],
                             values["qs"][start : start + n],
@@ -961,8 +986,8 @@ def run_case(args):
                             COLUMNS=values["row_table"].shape[1],
                             WIDTH=width,
                             PAGE=192,
-                            BLOCK_N=128,
-                            KEY_TILES=4,
+                            BLOCK_N=block_n,
+                            KEY_TILES=group_tiles,
                             num_warps=4,
                         )
                     else:
@@ -1081,22 +1106,33 @@ def run_case(args):
             if name.startswith("pack4")
         }
         if args.single_page64:
-            result["single_page_speedup_vs_n64"] = (
-                medians["pack4_qk_g8"] / medians["pack4_qk_g8_page64"]
-            )
-            result["single_page_speedup_vs_group4"] = (
-                medians["pack4_qk_g4"] / medians["pack4_qk_g8_page64"]
-            )
-            print(
-                "SINGLE_PAGE_SPEEDUP_VS_N64",
-                result["single_page_speedup_vs_n64"],
-                flush=True,
-            )
-            print(
-                "SINGLE_PAGE_SPEEDUP_VS_GROUP4_N128",
-                result["single_page_speedup_vs_group4"],
-                flush=True,
-            )
+            if dispatch_control:
+                result["single_page_speedup_vs_current_dispatch"] = (
+                    medians[dispatch_control] / medians["pack4_qk_g8_page64"]
+                )
+                print(
+                    "SINGLE_PAGE_SPEEDUP_VS_CURRENT_DISPATCH",
+                    dispatch_control,
+                    result["single_page_speedup_vs_current_dispatch"],
+                    flush=True,
+                )
+            else:
+                result["single_page_speedup_vs_n64"] = (
+                    medians["pack4_qk_g8"] / medians["pack4_qk_g8_page64"]
+                )
+                result["single_page_speedup_vs_group4"] = (
+                    medians["pack4_qk_g4"] / medians["pack4_qk_g8_page64"]
+                )
+                print(
+                    "SINGLE_PAGE_SPEEDUP_VS_N64",
+                    result["single_page_speedup_vs_n64"],
+                    flush=True,
+                )
+                print(
+                    "SINGLE_PAGE_SPEEDUP_VS_GROUP4_N128",
+                    result["single_page_speedup_vs_group4"],
+                    flush=True,
+                )
         if args.page_segments:
             result["page_segment_speedup_vs_group4"] = (
                 medians["pack4_qk_g4"] / medians["pack4_qk_g4_pages"]
@@ -1330,8 +1366,12 @@ def main():
         parser.error("--buffer-no-preload requires --buffering")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
-    if args.ten_shapes and not (args.qk_direction or args.key_groups):
-        parser.error("--ten-shapes requires --qk-direction or --key-groups")
+    if args.ten_shapes and not (
+        args.qk_direction or args.key_groups or args.single_page64
+    ):
+        parser.error(
+            "--ten-shapes requires --qk-direction, --key-groups or --single-page64"
+        )
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     if args.case:
@@ -1417,7 +1457,13 @@ def main():
     )
     if args.ten_shapes:
         control = "pack4_qk" if args.key_groups else "integrated_full"
-        candidate = "pack4_qk_g4" if args.key_groups else "pack4_qk"
+        candidate = (
+            "pack4_qk_g8_page64"
+            if args.single_page64
+            else "pack4_qk_g4" if args.key_groups else "pack4_qk"
+        )
+        if args.single_page64:
+            control = "current_dispatch"
         print(
             f"case                           {control}_us   {candidate}_us   score_speedup",
             flush=True,
@@ -1426,12 +1472,15 @@ def main():
         for entry in entries:
             if entry["status"] == "passed":
                 latency = entry["latency"]
-                base_us = latency[control]["kernel_us"]["median"]
+                baseline = (
+                    entry["current_dispatch_control"] if args.single_page64 else control
+                )
+                base_us = latency[baseline]["kernel_us"]["median"]
                 candidate_us = latency[candidate]["kernel_us"]["median"]
                 ratio = base_us / candidate_us
                 ratios.append(ratio)
                 print(
-                    f"{entry['case']:30} {base_us:12.3f} {candidate_us:12.3f} {ratio:12.4f}",
+                    f"{entry['case']:30} {base_us:12.3f} {candidate_us:12.3f} {ratio:12.4f} {baseline}",
                     flush=True,
                 )
             else:

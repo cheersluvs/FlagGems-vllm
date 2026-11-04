@@ -507,3 +507,32 @@ and padded8-tile work units at width256. One command compiles, validates,
 times two rounds and uploads. Print SINGLE_PAGE_SPEEDUP_VS_N64 and
 SINGLE_PAGE_SPEEDUP_VS_GROUP4_N128. No production/TopK/compiler changes and
 no accuracy/timer relaxation. This is a fixed-config diagnostic, not deployment.
+
+### Single-page N64: ten-workload restricted regression
+
+Report 2835f3afda9d51e64aee132a795c5b4d53d96db1 passed both representative
+workloads. Scalar-page N64/group8 took 540.583us (budget_exact) and 1695.540us
+(long100k), versus N128/group4 591.377us/2232.137us: 1.094x/1.316x.
+Matched per-token N64 controls took 685.923us/2450.750us: 1.269x/1.445x.
+The maximum score difference was 7.63e-6; guarded tails passed. Candidate
+workspace was 20576 bytes versus 49184 bytes for matched N64. The exported
+bcmlir reduced five scf.for loops to two, retaining contiguous K/KS copies.
+
+Extend with --single-page64 --ten-shapes. Each workload times three arms:
+legacy integrated_full as correctness reference, the current shared-map
+selection path as performance control, and pack4_qk_g8_page64. Mirror the
+existing integrated dispatcher: ceil(logits_width/128)<16 selects plain QK
+(compact only); all other migrated workloads select N128/group4. Report the
+selected control explicitly and calculate candidate speedup against it, never
+against the slower legacy reference. Omit the extra matched-N64 timing arm
+because the two-workload experiment already isolated the addressing change.
+
+Retain compile-artifact export, all-score pre/post checks at rtol/atol1e-3,
+CPU reference checks, signed-scale/weight n5/6/7 and empty-group padded tails.
+Real first/last chunk checks launch the actual N64/group8 single-page scorer
+when shared-map/owner guards hold; a crossing request group falls back to the
+legacy scorer. Explicit unequal-map rejection remains. Time representative
+middle chunks for two interleaved rounds, warmup2/active3, print each control
+and candidate latency plus their arithmetic mean speedup. These measurements
+exclude TopK and do not represent full-prefill or combined-operator speedup.
+No production, integrated dispatch, TopK or compiler changes in this step.
