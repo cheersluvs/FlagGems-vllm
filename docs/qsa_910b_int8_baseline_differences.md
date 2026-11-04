@@ -395,3 +395,46 @@ include a partial four-tile work unit and masked next reads beyond width.
 One command compiles, validates, captures two rounds and uploads; precision or
 compile failure stops timing. Print PREFETCH_SPEEDUP_VS_GROUP4. No production,
 TopK or full-entry claim; the same fixed-config diagnostic exemption applies.
+
+## Eighth probe: scalar-page contiguous K/KS fragments
+
+Report 5092a965741cd15dcf3e656045306947f5236a64 passed explicit preload checks
+but showed no gain (0.994x/0.997x). Do not compose it. Keep the default group4
+kernel, N128, auto-buffering and original FP32 arithmetic.
+
+| Item | Page fragment experiment |
+| --- | --- |
+| CLI | --page-segments |
+| Arms | integrated_full, pack4_qk_g4, pack4_qk_g4_pages |
+| Geometry | N128/page192, at most two page fragments per key tile |
+| Table loads | Two masked scalar page IDs instead of128 per-token addresses |
+| Data loads | Two affine token-major K/KS loads, disjoint row masks, then select original order |
+| Arithmetic | Identical INT32 QK/FP32 dequant/ReLU/head sum |
+
+For tile start s, page=s//192, offset=s%192, first_count=min(128,192-offset).
+First fragment uses physical0*192+offset+lane for lane<first_count. Second uses
+physical1*192+offset+lane-192 for lane>=first_count. Both intersect width and
+maximum query visibility. The second page ID is read only when the tile crosses
+a page and its second fragment is visible/in bounds. Fully invisible/padded
+tiles do not read either page. Pointer arithmetic on masked-off lanes may lie
+outside storage; no such lane is read, as required by the load mask contract.
+
+This borrows contiguous within-page transfer from native KeyNd2NzForPA and
+GetKeyScale, not native direct ND2NZ/DMA instructions. The compiler determines
+whether affine masked loads lower to block copies. It may retain scalar loops
+or add costly fragment merges; two K temporaries may increase UB pressure.
+Do not infer hardware DMA granularity from source alone. All complete IR and
+loop/load lines are exported for interpretation, and all timings are retained.
+
+Ten static loads are expected:4 group inputs +2 scalar page IDs +2 K +2 KS.
+Useful K/KS traffic equals the original, not twice the tile: fragment masks
+are disjoint and partition every live key lane. One dot/store and FP32 head sum
+remain required. Shared-map/owner proof, grouping and KEY_TILES4 stay fixed.
+
+Compile, main full-score checks/CPU samples/masks, guarded n5/6/7 and empty-group
+checks, signed QS/weights, shuffled/different group maps and visibility checks
+precede two-round timing. Width256 and visibility193/255 exercise page192
+crossings; padded tiles exercise masked out-of-range page IDs. Print
+PAGE_SEGMENT_SPEEDUP_VS_GROUP4 and upload in the same command. No arithmetic,
+preload flag, TopK, production entry or compiler changes. The fixed-config
+probe exemption applies; this remains an operator-level diagnostic.

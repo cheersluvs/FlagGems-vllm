@@ -466,3 +466,99 @@ def _qsa_qk_key_prefetch_score(
             )
             keys = next_keys
             key_scale = next_key_scale
+
+
+@triton.jit
+def _qsa_qk_page_segment_score(
+    Q,
+    K,
+    QS,
+    KS,
+    Weights,
+    Table,
+    Visible,
+    Out,
+    ROWS: tl.constexpr,
+    COLUMNS: tl.constexpr,
+    WIDTH: tl.constexpr,
+    PAGE: tl.constexpr,
+    BLOCK_N: tl.constexpr,
+    KEY_TILES: tl.constexpr,
+):
+    tl.static_assert(BLOCK_N == 128 and PAGE == 192)
+    groups: tl.constexpr = triton.cdiv(ROWS, 4)
+    tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
+    dims = tl.arange(0, 128)
+    lanes = tl.arange(0, 16)
+    queries = tl.arange(0, 4)
+    blocks: tl.constexpr = triton.cdiv(tiles, KEY_TILES)
+    for unit in range(tl.program_id(0), groups * blocks, tl.num_programs(0)):
+        group = unit // blocks
+        first_tile = (unit % blocks) * KEY_TILES
+        base = group * 4
+        rows = base + queries
+        flat_heads = base * 4 + lanes
+        query = tl.load(
+            Q + flat_heads[:, None] * 128 + dims[None, :],
+            mask=flat_heads[:, None] < ROWS * 4,
+            other=0,
+        )
+        query_scale = tl.load(QS + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(
+            tl.float32
+        )
+        weights = tl.load(Weights + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(
+            tl.float32
+        )
+        visible = tl.load(Visible + rows, mask=rows < ROWS, other=0)
+        max_visible = tl.max(visible, axis=0)
+        for local_tile in range(KEY_TILES):
+            tile = first_tile + local_tile
+            columns = tile * BLOCK_N + tl.arange(0, BLOCK_N)
+            key_live = (columns < WIDTH) & (columns < max_visible)
+            # N128/page192 means at most two contiguous page fragments.
+            start = tile * BLOCK_N
+            page = start // PAGE
+            offset = start % PAGE
+            lanes_n = tl.arange(0, BLOCK_N)
+            first_count = tl.minimum(BLOCK_N, PAGE - offset)
+            first_live = key_live & (lanes_n < first_count)
+            second_live = key_live & (lanes_n >= first_count)
+            physical0 = tl.load(
+                Table + base * COLUMNS + page,
+                mask=(start < WIDTH) & (start < max_visible) & (page < COLUMNS),
+                other=0,
+            )
+            physical1 = tl.load(
+                Table + base * COLUMNS + page + 1,
+                mask=(first_count < BLOCK_N)
+                & (start + first_count < WIDTH)
+                & (start + first_count < max_visible)
+                & (page + 1 < COLUMNS),
+                other=0,
+            )
+            token0 = physical0.to(tl.int64) * PAGE + offset + lanes_n
+            token1 = physical1.to(tl.int64) * PAGE + offset + lanes_n - PAGE
+            keys0 = tl.load(
+                K + token0[:, None] * 128 + dims[None, :],
+                mask=first_live[:, None],
+                other=0,
+            )
+            keys1 = tl.load(
+                K + token1[:, None] * 128 + dims[None, :],
+                mask=second_live[:, None],
+                other=0,
+            )
+            scale0 = tl.load(KS + token0, mask=first_live, other=0)
+            scale1 = tl.load(KS + token1, mask=second_live, other=0)
+            keys = tl.where(lanes_n[:, None] < first_count, keys0, keys1)
+            key_scale = tl.where(lanes_n < first_count, scale0, scale1).to(tl.float32)
+            dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)
+            dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+            weighted = tl.maximum(dequant, 0.0) * weights[:, None]
+            scores = tl.sum(tl.reshape(weighted, (4, 4, BLOCK_N)), axis=1)
+            live = (columns[None, :] < WIDTH) & (columns[None, :] < visible[:, None])
+            tl.store(
+                Out + rows[:, None] * WIDTH + columns[None, :],
+                tl.where(live, scores, -float("inf")),
+                mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
+            )
