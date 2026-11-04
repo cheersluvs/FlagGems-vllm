@@ -47,63 +47,84 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        ("integrated_full", "pack4_qk_g4", "pack4_qk_g4_pages")
-        if args.page_segments
+        ("integrated_full", "pack4_qk_g4", "pack4_qk_g8", "pack4_qk_g8_page64")
+        if args.single_page64
         else (
-            ("integrated_full", "pack4_qk_g4", "pack4_qk_g4_prefetch")
-            if args.explicit_prefetch
+            ("integrated_full", "pack4_qk_g4", "pack4_qk_g4_pages")
+            if args.page_segments
             else (
-                (
-                    "integrated_full",
-                    "pack4_qk_g4",
-                    "pack4_qk_g4_no_mb",
-                    "pack4_qk_g4_preload",
-                )
-                if args.buffering
+                ("integrated_full", "pack4_qk_g4", "pack4_qk_g4_prefetch")
+                if args.explicit_prefetch
                 else (
                     (
-                        ("integrated_full", "pack4_qk", "pack4_qk_g4")
-                        if args.ten_shapes
-                        else (
-                            "integrated_full",
-                            "pack4_qk",
-                            "pack4_qk_g2",
-                            "pack4_qk_g4",
-                            "pack4_qk_g16",
-                        )
+                        "integrated_full",
+                        "pack4_qk_g4",
+                        "pack4_qk_g4_no_mb",
+                        "pack4_qk_g4_preload",
                     )
-                    if args.key_groups
+                    if args.buffering
                     else (
-                        ("integrated_full", "pack4_qk", "pack4_qk_n64", "pack4_qk_cube")
-                        if args.cube_reduce
-                        else (
-                            ("integrated_full", "pack4_qk", "pack4_qk_reuse")
-                            if args.query_reuse
+                        (
+                            ("integrated_full", "pack4_qk", "pack4_qk_g4")
+                            if args.ten_shapes
                             else (
-                                ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
-                                if args.combine_query_weight
+                                "integrated_full",
+                                "pack4_qk",
+                                "pack4_qk_g2",
+                                "pack4_qk_g4",
+                                "pack4_qk_g16",
+                            )
+                        )
+                        if args.key_groups
+                        else (
+                            (
+                                "integrated_full",
+                                "pack4_qk",
+                                "pack4_qk_n64",
+                                "pack4_qk_cube",
+                            )
+                            if args.cube_reduce
+                            else (
+                                ("integrated_full", "pack4_qk", "pack4_qk_reuse")
+                                if args.query_reuse
                                 else (
-                                    ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
-                                    if args.late_key_scale
+                                    (
+                                        "integrated_full",
+                                        "pack4_qk",
+                                        "pack4_qk_query_weight",
+                                    )
+                                    if args.combine_query_weight
                                     else (
-                                        ("integrated_full", "pack4_flat_q", "pack4_qk")
-                                        if args.qk_direction
+                                        (
+                                            "integrated_full",
+                                            "pack4_qk",
+                                            "pack4_qk_late_ks",
+                                        )
+                                        if args.late_key_scale
                                         else (
                                             (
                                                 "integrated_full",
-                                                "pack4_transpose",
                                                 "pack4_flat_q",
+                                                "pack4_qk",
                                             )
-                                            if args.flat_query
+                                            if args.qk_direction
                                             else (
                                                 (
                                                     "integrated_full",
-                                                    "pack4",
                                                     "pack4_transpose",
-                                                    "pack4_rows",
+                                                    "pack4_flat_q",
                                                 )
-                                                if args.postprocess
-                                                else ARMS
+                                                if args.flat_query
+                                                else (
+                                                    (
+                                                        "integrated_full",
+                                                        "pack4",
+                                                        "pack4_transpose",
+                                                        "pack4_rows",
+                                                    )
+                                                    if args.postprocess
+                                                    else ARMS
+                                                )
                                             )
                                         )
                                     )
@@ -133,6 +154,13 @@ def run_case(args):
         pack4_qk_g4_prefetch=4,
         pack4_qk_g4_pages=4,
     )
+    key_groups.update(pack4_qk_g8=8, pack4_qk_g8_page64=8)
+    block_sizes = {
+        "pack4_qk_n64": 64,
+        "pack4_qk_cube": 64,
+        "pack4_qk_g8": 64,
+        "pack4_qk_g8_page64": 64,
+    }
     buffer_options = {
         "pack4_qk_g4": {},
         "pack4_qk_g4_no_mb": {"multibuffer": False},
@@ -172,6 +200,7 @@ def run_case(args):
             _qsa_qk_key_group_score,
             _qsa_qk_key_prefetch_score,
             _qsa_qk_page_segment_score,
+            _qsa_qk_single_page_score,
             _qsa_query_pack4_score,
             validate_shared_groups,
         )
@@ -324,14 +353,19 @@ def run_case(args):
                 )
             if name in key_groups:
                 group_tiles = key_groups[name]
-                blocks = triton.cdiv(triton.cdiv(width, 128), group_tiles)
+                group_block_n = block_sizes.get(name, 128)
+                blocks = triton.cdiv(triton.cdiv(width, group_block_n), group_tiles)
                 group_kernel = (
-                    _qsa_qk_page_segment_score
-                    if name == "pack4_qk_g4_pages"
+                    _qsa_qk_single_page_score
+                    if name == "pack4_qk_g8_page64"
                     else (
-                        _qsa_qk_key_prefetch_score
-                        if name == "pack4_qk_g4_prefetch"
-                        else _qsa_qk_key_group_score
+                        _qsa_qk_page_segment_score
+                        if name == "pack4_qk_g4_pages"
+                        else (
+                            _qsa_qk_key_prefetch_score
+                            if name == "pack4_qk_g4_prefetch"
+                            else _qsa_qk_key_group_score
+                        )
                     )
                 )
                 return group_kernel[(min(20, triton.cdiv(count, 4) * blocks),)](
@@ -347,7 +381,7 @@ def run_case(args):
                     COLUMNS=values["row_table"].shape[1],
                     WIDTH=width,
                     PAGE=192,
-                    BLOCK_N=128,
+                    BLOCK_N=group_block_n,
                     KEY_TILES=group_tiles,
                     num_warps=4,
                     **buffer_options.get(name, {}),
@@ -384,7 +418,7 @@ def run_case(args):
                 COLUMNS=values["row_table"].shape[1],
                 WIDTH=width,
                 PAGE=192,
-                BLOCK_N=64 if name in ("pack4_qk_n64", "pack4_qk_cube") else 128,
+                BLOCK_N=block_sizes.get(name, 128),
                 SCALE_PRODUCT=name == "pack4_product",
                 STORE_MODE=store_modes.get(name, 0),
                 FLAT_QUERY=name == "pack4_flat_q" or name.startswith("pack4_qk"),
@@ -479,6 +513,7 @@ def run_case(args):
                     or args.buffering
                     or args.explicit_prefetch
                     or args.page_segments
+                    or args.single_page64
                     else []
                 ),
                 query_group_reuse=name == "pack4_qk_reuse",
@@ -486,17 +521,24 @@ def run_case(args):
                 requested_buffer_options=buffer_options.get(name, {}),
                 explicit_key_prefetch=name == "pack4_qk_g4_prefetch",
                 page_segment_loads=name == "pack4_qk_g4_pages",
+                single_page_load=name == "pack4_qk_g8_page64",
+                lowered_gather_calls=kernel.asm["bcmlir"].count(
+                    "func.call @triton_gather"
+                ),
                 padded_key_tiles=(
                     (
-                        triton.cdiv(triton.cdiv(width, 128), key_groups[name])
+                        triton.cdiv(
+                            triton.cdiv(width, block_sizes.get(name, 128)),
+                            key_groups[name],
+                        )
                         * key_groups[name]
-                        - triton.cdiv(width, 128)
+                        - triton.cdiv(width, block_sizes.get(name, 128))
                     )
                     if name in key_groups
                     else 0
                 ),
                 cube_reduce=name == "pack4_qk_cube",
-                block_n=64 if name in ("pack4_qk_n64", "pack4_qk_cube") else 128,
+                block_n=block_sizes.get(name, 128),
                 lowering_lines=[
                     line.strip()
                     for line in kernel.asm["bcmlir"].splitlines()
@@ -612,6 +654,7 @@ def run_case(args):
                 or args.buffering
                 or args.explicit_prefetch
                 or args.page_segments
+                or args.single_page64
             ):
                 small["qs"] = small["qs"].clone()
                 small["qs"][:, ::2] *= -1
@@ -710,6 +753,26 @@ def run_case(args):
                     )
                     for page in (False, True)
                 ]
+            tail_variants = [(*variant, False) for variant in tail_variants]
+            if args.single_page64:
+                tail_variants = [
+                    (
+                        False,
+                        1,
+                        True,
+                        True,
+                        False,
+                        False,
+                        False,
+                        False,
+                        8,
+                        "pack4_qk_g4",
+                        False,
+                        False,
+                        single,
+                    )
+                    for single in (False, True)
+                ]
             for (
                 product,
                 store_mode,
@@ -723,19 +786,25 @@ def run_case(args):
                 buffer_mode,
                 explicit_prefetch,
                 page_segments,
+                single_page64,
             ) in tail_variants:
                 guarded = torch.full(
                     (n + 4, 256), 12345.0, device=scratch.device, dtype=torch.float32
                 )
                 if group_tiles:
-                    blocks = triton.cdiv(2, group_tiles)
+                    tail_block_n = 64 if args.single_page64 else 128
+                    blocks = triton.cdiv(triton.cdiv(256, tail_block_n), group_tiles)
                     group_kernel = (
-                        _qsa_qk_page_segment_score
-                        if page_segments
+                        _qsa_qk_single_page_score
+                        if single_page64
                         else (
-                            _qsa_qk_key_prefetch_score
-                            if explicit_prefetch
-                            else _qsa_qk_key_group_score
+                            _qsa_qk_page_segment_score
+                            if page_segments
+                            else (
+                                _qsa_qk_key_prefetch_score
+                                if explicit_prefetch
+                                else _qsa_qk_key_group_score
+                            )
                         )
                     )
                     group_kernel[(min(20, triton.cdiv(n, 4) * blocks),)](
@@ -751,7 +820,7 @@ def run_case(args):
                         COLUMNS=2,
                         WIDTH=256,
                         PAGE=192,
-                        BLOCK_N=128,
+                        BLOCK_N=tail_block_n,
                         KEY_TILES=group_tiles,
                         num_warps=4,
                         **buffer_options[buffer_mode],
@@ -831,6 +900,7 @@ def run_case(args):
                         requested_buffer_options=buffer_options[buffer_mode],
                         explicit_prefetch=explicit_prefetch,
                         page_segments=page_segments,
+                        single_page64=single_page64,
                         cube_reduce=cube_reduce,
                         zero_query_scales=args.combine_query_weight or args.cube_reduce,
                         signed_key_scales=args.combine_query_weight,
@@ -961,21 +1031,25 @@ def run_case(args):
         expected_hosts = {
             name: {
                 (
-                    "_qsa_qk_page_segment_score"
-                    if name == "pack4_qk_g4_pages"
+                    "_qsa_qk_single_page_score"
+                    if name == "pack4_qk_g8_page64"
                     else (
-                        "_qsa_qk_key_prefetch_score"
-                        if name == "pack4_qk_g4_prefetch"
+                        "_qsa_qk_page_segment_score"
+                        if name == "pack4_qk_g4_pages"
                         else (
-                            "_qsa_qk_key_group_score"
-                            if name in key_groups
+                            "_qsa_qk_key_prefetch_score"
+                            if name == "pack4_qk_g4_prefetch"
                             else (
-                                "_qsa_qk_group_reuse_score"
-                                if name == "pack4_qk_reuse"
+                                "_qsa_qk_key_group_score"
+                                if name in key_groups
                                 else (
-                                    "_qsa_query_pack4_score"
-                                    if name.startswith("pack4")
-                                    else "_quant_score_trial"
+                                    "_qsa_qk_group_reuse_score"
+                                    if name == "pack4_qk_reuse"
+                                    else (
+                                        "_qsa_query_pack4_score"
+                                        if name.startswith("pack4")
+                                        else "_quant_score_trial"
+                                    )
                                 )
                             )
                         )
@@ -1006,6 +1080,23 @@ def run_case(args):
             for name in arms
             if name.startswith("pack4")
         }
+        if args.single_page64:
+            result["single_page_speedup_vs_n64"] = (
+                medians["pack4_qk_g8"] / medians["pack4_qk_g8_page64"]
+            )
+            result["single_page_speedup_vs_group4"] = (
+                medians["pack4_qk_g4"] / medians["pack4_qk_g8_page64"]
+            )
+            print(
+                "SINGLE_PAGE_SPEEDUP_VS_N64",
+                result["single_page_speedup_vs_n64"],
+                flush=True,
+            )
+            print(
+                "SINGLE_PAGE_SPEEDUP_VS_GROUP4_N128",
+                result["single_page_speedup_vs_group4"],
+                flush=True,
+            )
         if args.page_segments:
             result["page_segment_speedup_vs_group4"] = (
                 medians["pack4_qk_g4"] / medians["pack4_qk_g4_pages"]
@@ -1163,6 +1254,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=1200)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument(
+        "--single-page64",
+        action="store_true",
+        help="N64/8-tiles scalar-page contiguous loads without fragment gather",
+    )
+    modes.add_argument(
         "--page-segments",
         action="store_true",
         help="Load K/KS from scalar-page contiguous fragments within group4",
@@ -1284,6 +1380,8 @@ def main():
             command.append("--explicit-prefetch")
         if args.page_segments:
             command.append("--page-segments")
+        if args.single_page64:
+            command.append("--single-page64")
         if args.buffer_no_preload:
             command.append("--buffer-no-preload")
         if args.ten_shapes:

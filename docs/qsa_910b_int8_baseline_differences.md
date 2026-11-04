@@ -468,3 +468,42 @@ original precision/edge tests. Same --page-segments command exports compiled
 artifacts and runs correctness/timing/upload together. No compiler, production
 or TopK changes. If another runtime failure occurs, retain its evidence rather
 than claiming the first diagnosed defect was the only cause.
+
+## Ninth probe: page-aligned N64 tiles without fragment merges
+
+Report 75d92ffec98eea92a02becd16fe3bbcce4d384d5 passed the prefix repair's
+preflight and tail checks. Strict timer window validation failed; raw traces
+contained18 tasks/18 windows but some task ends exceeded CPU windows. Raw
+candidate tasks were roughly2.23s/7.03s, not accepted benchmark measurements.
+The lowered program added triton_gather calls. Do not repeat it for a precise
+speedup or treat that implementation as a useful candidate.
+
+| Arm | Block N | Tiles per work unit | Page addressing |
+| --- | --- | --- | --- |
+| pack4_qk_g4 | 128 | 4 | Existing per-token table indexing |
+| pack4_qk_g8 | 64 | 8 | Matched N64 control, original table indexing |
+| pack4_qk_g8_page64 | 64 | 8 | One bounded scalar page ID, contiguous K/KS prefix loads |
+
+Use --single-page64; integrated_full remains a separate reference. All work
+units cover512 key positions, with identical ceil(width/512) unit counts and
+grid cap20/warps4. N64 divides page192 and tile starts are multiples of64,
+so every tile stays within one page: offsets0/64/128, never offset+lane>=192.
+The scalar page pointer clamps to COLUMNS-1 before masking, avoiding invalid
+speculative table reads. The returned page ID is masked tozero when invisible;
+K and KS use prefix visibility masks and safe within-page offsets. There is
+no second page, negative copy extent, merge, TL gather or prefetch.
+
+The arithmetic following loads is AST-identical to the group4 scorer except
+for the N64 specialization. Keep INT32 dot and FP32 dequant/ReLU/head reduction,
+seven static loads, one dot/store, default buffering. Export all IR and record
+any backend-generated triton_gather call count rather than assuming a particular
+DMA implementation. Match N64 controls to isolate addressing; compare against
+N128/group4 separately to assess whether the smaller dot tile's overhead offsets
+benefits. Do not use the old failing N128 fragment loader as the comparator.
+
+Main full-score/CPU/mask gates and guarded n5/6/7/empty-group checks remain.
+Both N64 options test shuffled pages, signed QS/weights, nonmonotonic visibility
+and padded8-tile work units at width256. One command compiles, validates,
+times two rounds and uploads. Print SINGLE_PAGE_SPEEDUP_VS_N64 and
+SINGLE_PAGE_SPEEDUP_VS_GROUP4_N128. No production/TopK/compiler changes and
+no accuracy/timer relaxation. This is a fixed-config diagnostic, not deployment.
