@@ -47,29 +47,33 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        ("integrated_full", "pack4_qk", "pack4_qk_reuse")
-        if args.query_reuse
+        ("integrated_full", "pack4_qk", "pack4_qk_cube")
+        if args.cube_reduce
         else (
-            ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
-            if args.combine_query_weight
+            ("integrated_full", "pack4_qk", "pack4_qk_reuse")
+            if args.query_reuse
             else (
-                ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
-                if args.late_key_scale
+                ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
+                if args.combine_query_weight
                 else (
-                    ("integrated_full", "pack4_flat_q", "pack4_qk")
-                    if args.qk_direction
+                    ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
+                    if args.late_key_scale
                     else (
-                        ("integrated_full", "pack4_transpose", "pack4_flat_q")
-                        if args.flat_query
+                        ("integrated_full", "pack4_flat_q", "pack4_qk")
+                        if args.qk_direction
                         else (
-                            (
-                                "integrated_full",
-                                "pack4",
-                                "pack4_transpose",
-                                "pack4_rows",
+                            ("integrated_full", "pack4_transpose", "pack4_flat_q")
+                            if args.flat_query
+                            else (
+                                (
+                                    "integrated_full",
+                                    "pack4",
+                                    "pack4_transpose",
+                                    "pack4_rows",
+                                )
+                                if args.postprocess
+                                else ARMS
                             )
-                            if args.postprocess
-                            else ARMS
                         )
                     )
                 )
@@ -84,6 +88,7 @@ def run_case(args):
         "pack4_qk_late_ks": 1,
         "pack4_qk_query_weight": 1,
         "pack4_qk_reuse": 1,
+        "pack4_qk_cube": 1,
     }
     expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
@@ -123,6 +128,25 @@ def run_case(args):
         )
         plan = PLANS[args.case]
         inputs = make_inputs(plan)
+        if args.cube_reduce:
+            for scale in ("qs", "ks"):
+                if not bool(torch.isfinite(inputs[scale]).all()) or not bool(
+                    (inputs[scale] >= 0).all()
+                ):
+                    raise NotImplementedError(
+                        "Native-style Cube reduction requires finite nonnegative scales"
+                    )
+            product = inputs["qs"].float() * inputs["weights"].float()
+            if not bool(torch.isfinite(product).all()) or not bool(
+                (product.abs() <= 65504).all()
+            ):
+                raise NotImplementedError("FP16 coefficient overflow")
+            result["cube_precision_contract"] = dict(
+                raw_dot_scale=1 / 1024,
+                output_restore=1024,
+                intermediate="FP16 activation/coefficient; FP32 second-dot accumulation",
+                scales_nonnegative=True,
+            )
         if args.combine_query_weight:
             if not bool(torch.isfinite(inputs["qs"]).all()) or not bool(
                 (inputs["qs"] >= 0).all()
@@ -247,23 +271,24 @@ def run_case(args):
                 QUERY_LEFT=name.startswith("pack4_qk"),
                 LATE_KEY_SCALE=name == "pack4_qk_late_ks",
                 COMBINE_QUERY_WEIGHT=name == "pack4_qk_query_weight",
+                CUBE_REDUCE=name == "pack4_qk_cube",
                 num_warps=4,
             )
 
+        (report / f"{args.case}-query-pack4-source.txt").write_text(
+            Path(__file__).with_name("qsa_int8_query_pack4_910b.py").read_text()
+        )
         result["stage"] = "compile_and_validate"
         result["compiler"] = {}
         result["prechecks"] = {}
         for name in arms:
             kernel = launch(name, targets[name])
-            result["prechecks"][name] = check_chunk(
-                inputs, targets[name].cpu(), first, count
-            )
             ir = kernel.asm["ttir"]
             dots = len(re.findall(r"\btt\.dot\b", ir))
             stores = len(re.findall(r"\btt\.store\b", ir))
             loads = len(re.findall(r"\btt\.load\b", ir))
             if (dots, stores, loads) != (
-                1,
+                2 if name == "pack4_qk_cube" else 1,
                 4 if name == "pack4_rows" else 1,
                 expected_loads.get(name, 7),
             ):
@@ -275,14 +300,20 @@ def run_case(args):
                     (report / f"{args.case}-{name}-{key}.txt").write_text(
                         kernel.asm[key]
                     )
+            if name == "pack4_qk_cube" and not any(
+                "tt.dot" in line and "xf16>" in line and "xf32>" in line
+                for line in ir.splitlines()
+            ):
+                raise AssertionError("Missing FP16-input/FP32-accumulator second dot")
             reductions = re.findall(
                 r"linalg\.reduce ins\([^\n]*tensor<[^>]*x(f32|i32)>",
                 kernel.asm["bcmlir"],
             )
             # A packed group also reduces four INT32 visibility values by max.
             if (
-                reductions.count("f32") != (4 if name == "pack4_rows" else 1)
-                or reductions.count("i32") > 1
+                reductions.count("f32")
+                != (0 if name == "pack4_qk_cube" else 4 if name == "pack4_rows" else 1)
+                or reductions.count("i32") > (2 if name == "pack4_qk_cube" else 1)
                 or "mix_mode='mix'" not in repr(kernel.metadata)
             ):
                 raise AssertionError(
@@ -291,6 +322,9 @@ def run_case(args):
             binary = kernel.asm.get("npubin")
             result["compiler"][name] = dict(
                 dot_count=dots,
+                dot_lines=[
+                    line.strip() for line in ir.splitlines() if "tt.dot" in line
+                ],
                 store_count=stores,
                 load_count=loads,
                 reduction_element_types=reductions,
@@ -311,6 +345,7 @@ def run_case(args):
                     else []
                 ),
                 query_group_reuse=name == "pack4_qk_reuse",
+                cube_reduce=name == "pack4_qk_cube",
                 lowering_lines=[
                     line.strip()
                     for line in kernel.asm["bcmlir"].splitlines()
@@ -328,6 +363,23 @@ def run_case(args):
                     else None
                 ),
             )
+            try:
+                result["prechecks"][name] = check_chunk(
+                    inputs, targets[name].cpu(), first, count
+                )
+            except AssertionError:
+                if args.cube_reduce and name == "pack4_qk_cube":
+                    actual, control = targets[name].cpu(), targets["pack4_qk"].cpu()
+                    finite = torch.isfinite(control)
+                    result["precision_rejection"] = dict(
+                        arm=name,
+                        max_abs_error_vs_qk=(actual[finite] - control[finite])
+                        .abs()
+                        .max()
+                        .item(),
+                        scope="Precision gate rejected before timing; original tolerances retained",
+                    )
+                raise
         print("QUERY_PACK4_LOWERING", json.dumps(result["compiler"]), flush=True)
         baseline = targets["integrated_full"].cpu()
 
@@ -380,6 +432,11 @@ def run_case(args):
                 small["ks"].view(-1)[::192] = 0
                 small["qs"] = small["qs"].clone()
                 small["qs"][:, ::2] *= -1
+            if args.cube_reduce:
+                small["qs"] = small["qs"].clone()
+                small["qs"][:, ::2] = 0
+                small["ks"] = small["ks"].clone()
+                small["ks"].view(-1)[::192] = 0
             if args.query_reuse:
                 small["qs"] = small["qs"].clone()
                 small["qs"][:, ::2] *= -1
@@ -392,7 +449,7 @@ def run_case(args):
                 key: small[key].to(scratch.device)
                 for key in ("q", "qs", "weights", "row_table", "visible")
             }
-            if args.late_key_scale or args.combine_query_weight:
+            if args.late_key_scale or args.combine_query_weight or args.cube_reduce:
                 device_small["ks"] = small["ks"].to(scratch.device)
             refs = {row: reference(small, row)[1] for row in range(n)}
             tail_variants = (
@@ -423,6 +480,12 @@ def run_case(args):
                     (False, 1, True, True, False, False, reuse)
                     for reuse in (False, True)
                 ]
+            tail_variants = [(*variant, False) for variant in tail_variants]
+            if args.cube_reduce:
+                tail_variants = [
+                    (False, 1, True, True, False, False, False, cube)
+                    for cube in (False, True)
+                ]
             for (
                 product,
                 store_mode,
@@ -431,6 +494,7 @@ def run_case(args):
                 late_key_scale,
                 combine_query_weight,
                 query_reuse,
+                cube_reduce,
             ) in tail_variants:
                 guarded = torch.full(
                     (n + 4, 256), 12345.0, device=scratch.device, dtype=torch.float32
@@ -473,6 +537,7 @@ def run_case(args):
                         QUERY_LEFT=query_left,
                         LATE_KEY_SCALE=late_key_scale,
                         COMBINE_QUERY_WEIGHT=combine_query_weight,
+                        CUBE_REDUCE=cube_reduce,
                         num_warps=4,
                     )
                 cpu = guarded.cpu()
@@ -505,9 +570,10 @@ def run_case(args):
                         late_key_scale=late_key_scale,
                         combine_query_weight=combine_query_weight,
                         query_reuse=query_reuse,
-                        zero_query_scales=args.combine_query_weight,
+                        cube_reduce=cube_reduce,
+                        zero_query_scales=args.combine_query_weight or args.cube_reduce,
                         signed_key_scales=args.combine_query_weight,
-                        zero_key_scales=args.late_key_scale,
+                        zero_key_scales=args.late_key_scale or args.cube_reduce,
                         all_rows_cpu_checked=True,
                         guard_rows_intact=True,
                         max_abs_error=maximum,
@@ -646,6 +712,15 @@ def run_case(args):
             for name in arms
             if name.startswith("pack4")
         }
+        if args.cube_reduce:
+            result["cube_reduce_speedup_vs_qk"] = (
+                medians["pack4_qk"] / medians["pack4_qk_cube"]
+            )
+            print(
+                "CUBE_REDUCE_SPEEDUP_VS_QK",
+                result["cube_reduce_speedup_vs_qk"],
+                flush=True,
+            )
         if args.query_reuse:
             result["query_reuse_speedup_vs_qk"] = (
                 medians["pack4_qk"] / medians["pack4_qk_reuse"]
@@ -748,6 +823,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=1200)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument(
+        "--cube-reduce",
+        action="store_true",
+        help="Native-style scaled FP16 intermediate and second Cube head aggregation",
+    )
+    modes.add_argument(
         "--query-reuse",
         action="store_true",
         help="Load each Q group once and scan its key tiles",
@@ -827,6 +907,8 @@ def main():
             command.append("--combine-query-weight")
         if args.query_reuse:
             command.append("--query-reuse")
+        if args.cube_reduce:
+            command.append("--cube-reduce")
         if args.ten_shapes:
             command.append("--ten-shapes")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)

@@ -154,3 +154,54 @@ and timing remain the same. Re-run compile/correctness/timing together using
 --query-reuse. Inspect whether the continuous row-copy lowering is restored
 before interpreting matched timings. The previous valid slow samples remain
 in the earlier report; no timing filters or resampling policy changes are made.
+
+## Fourth probe: second Cube head aggregation
+
+Report d6a9bd1686b30fbb069787c54372bf6f17531daf restored token-major K
+loading and passed correctness, but group-loop reuse was slower (0.921x/0.770x).
+Keep the existing flattened QK schedule for the next independent experiment.
+
+| Item | Native-inspired Cube reduction probe |
+| --- | --- |
+| CLI | --cube-reduce |
+| Arms | integrated_full, pack4_qk, pack4_qk_cube |
+| Dot1 | Same INT8 QK to INT32 with original K row loading/transpose |
+| Intermediate | ReLU(raw INT32 dot /1024), cast FP16 |
+| Coefficient | QS*W in FP32 then cast FP16, matching FP16 product storage |
+| Dot2 | FP16 block-diagonal head weights times FP16 activation, FP32 accumulation |
+| Output | Multiply KS then1024 in FP32, restoring original score units |
+| Preconditions | QS/KS finite nonnegative; coefficient finite and representable as FP16 |
+
+The inspected native arch22 source FixpSToL1 uses DEQF16, reluPre=1 and
+SetFixpipePreQuantFlag(0x3a800000), whose FP32 value is1/1024. ProcessVec0
+forms FP16 QS*weight; ComputeWs uses half inputs and float accumulation;
+ProcessVec1 applies KS after weighted aggregation. Source correspondence to
+the installed CANN binary remains unproven. This experiment borrows those
+arithmetic choices; it is not a byte-for-byte native implementation or proof
+of native instruction scheduling. Restoring1024 compensates the common scale
+for full-score comparison rather than relying solely on TopK invariance.
+
+The second dot uses [16,16] weights, with four block-diagonal active rows and
+zeros elsewhere, multiplying [16,N] activation. Each active row selects exactly
+its query's four head lanes. This keeps minimum Cube-compatible dimensions and
+computes all four query sums in one padded matmul. Native code instead invokes
+its own per-query weighted matmul/format conversion; performance is not promised
+equivalent. Output masks exclude the twelve padded query rows and invalid tails.
+The visibility expansion adds one INT32 reduction, not an FP32 head sum.
+
+Compiler gates require two live dots, seven loads, one store, zero FP32 reductions
+and mixed mode. Both first-dot INT32 and second-dot FP32 accumulators are explicit
+in source; full IR is exported before numerical checks, so precision rejection
+still preserves compilation evidence. All main outputs compare to original
+FP32 scores at unchanged rtol/atol1e-3. Failure stops timing and records main
+sample rejection/error where available. FP16 rounding, cancellation/underflow
+or altered scaling must not be excused by loosening tolerance. No production
+fallback/replacement is installed.
+
+Small n5/6/7, empty-group and guarded-tail tests use zero alternate QS heads,
+zero KS at page boundaries, signed weights and varied scales. Page mappings,
+visibility and all score masks are checked. Two cases/two rounds, compile,
+correctness, timing and automatic upload remain one command. This is one
+native-method experiment with inherent precision changes, not a claim that
+only instruction selection differs. Do not compose earlier arithmetic/reuse
+candidates; no TopK/compiler or integration entry changes.

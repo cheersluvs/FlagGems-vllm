@@ -75,6 +75,7 @@ def _qsa_query_pack4_score(
     QUERY_LEFT: tl.constexpr = False,
     LATE_KEY_SCALE: tl.constexpr = False,
     COMBINE_QUERY_WEIGHT: tl.constexpr = False,
+    CUBE_REDUCE: tl.constexpr = False,
 ):
     tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
     groups: tl.constexpr = triton.cdiv(ROWS, 4)
@@ -123,35 +124,73 @@ def _qsa_query_pack4_score(
             Weights + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
         ).to(tl.float32)
         if QUERY_LEFT:
-            if COMBINE_QUERY_WEIGHT:
-                # Caller proves finite nonnegative query scales for reassociation.
-                coefficient = query_scale * weights
-                weighted = (
-                    tl.maximum(dot.to(tl.float32) * key_scale[None, :], 0.0)
-                    * coefficient[:, None]
+            if CUBE_REDUCE:
+                # Match the native raw-dot scaling; restore score units at output.
+                activated = tl.maximum(dot.to(tl.float32) * (1.0 / 1024.0), 0.0).to(
+                    tl.float16
+                )
+                coefficient = (query_scale * weights).to(tl.float16)
+                output_queries = tl.arange(0, 16)
+                coefficient_matrix = tl.where(
+                    (output_queries[:, None] < 4)
+                    & (output_queries[:, None] == lanes[None, :] // 4),
+                    coefficient[None, :],
+                    0.0,
+                ).to(tl.float16)
+                summed = tl.dot(coefficient_matrix, activated, out_dtype=tl.float32)
+                scores = (summed * key_scale[None, :]) * 1024.0
+                output_rows = base + output_queries
+                output_visible = tl.sum(
+                    tl.where(
+                        output_queries[:, None] == queries[None, :], visible[None, :], 0
+                    ),
+                    axis=1,
+                )
+                live = (columns[None, :] < WIDTH) & (
+                    columns[None, :] < output_visible[:, None]
+                )
+                tl.store(
+                    Out + output_rows[:, None] * WIDTH + columns[None, :],
+                    tl.where(live, scores, -float("inf")),
+                    mask=(output_queries[:, None] < 4)
+                    & (output_rows[:, None] < ROWS)
+                    & (columns[None, :] < WIDTH),
                 )
             else:
-                if LATE_KEY_SCALE:
-                    # Caller proves finite nonnegative key scales before this probe.
-                    dequant = dot.to(tl.float32) * query_scale[:, None]
-                elif SCALE_PRODUCT:
-                    dequant = dot.to(tl.float32) * (
-                        query_scale[:, None] * key_scale[None, :]
+                if COMBINE_QUERY_WEIGHT:
+                    # Caller proves finite nonnegative query scales for reassociation.
+                    coefficient = query_scale * weights
+                    weighted = (
+                        tl.maximum(dot.to(tl.float32) * key_scale[None, :], 0.0)
+                        * coefficient[:, None]
                     )
                 else:
-                    dequant = (
-                        dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
-                    )
-                weighted = tl.maximum(dequant, 0.0) * weights[:, None]
-            scores = tl.sum(tl.reshape(weighted, (4, 4, BLOCK_N)), axis=1)
-            if LATE_KEY_SCALE:
-                scores = scores * key_scale[None, :]
-            live = (columns[None, :] < WIDTH) & (columns[None, :] < visible[:, None])
-            tl.store(
-                Out + rows[:, None] * WIDTH + columns[None, :],
-                tl.where(live, scores, -float("inf")),
-                mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
-            )
+                    if LATE_KEY_SCALE:
+                        # Caller proves finite nonnegative key scales before this probe.
+                        dequant = dot.to(tl.float32) * query_scale[:, None]
+                    elif SCALE_PRODUCT:
+                        dequant = dot.to(tl.float32) * (
+                            query_scale[:, None] * key_scale[None, :]
+                        )
+                    else:
+                        dequant = (
+                            dot.to(tl.float32)
+                            * query_scale[:, None]
+                            * key_scale[None, :]
+                        )
+                    weighted = tl.maximum(dequant, 0.0) * weights[:, None]
+                scores = tl.sum(tl.reshape(weighted, (4, 4, BLOCK_N)), axis=1)
+                if LATE_KEY_SCALE:
+                    scores = scores * key_scale[None, :]
+                live = (columns[None, :] < WIDTH) & (
+                    columns[None, :] < visible[:, None]
+                )
+                tl.store(
+                    Out + rows[:, None] * WIDTH + columns[None, :],
+                    tl.where(live, scores, -float("inf")),
+                    mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
+                )
+
         else:
             if SCALE_PRODUCT:
                 dequant = dot.to(tl.float32) * (
