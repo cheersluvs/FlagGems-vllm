@@ -47,21 +47,30 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
-        if args.combine_query_weight
+        ("integrated_full", "pack4_qk", "pack4_qk_reuse")
+        if args.query_reuse
         else (
-            ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
-            if args.late_key_scale
+            ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
+            if args.combine_query_weight
             else (
-                ("integrated_full", "pack4_flat_q", "pack4_qk")
-                if args.qk_direction
+                ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
+                if args.late_key_scale
                 else (
-                    ("integrated_full", "pack4_transpose", "pack4_flat_q")
-                    if args.flat_query
+                    ("integrated_full", "pack4_flat_q", "pack4_qk")
+                    if args.qk_direction
                     else (
-                        ("integrated_full", "pack4", "pack4_transpose", "pack4_rows")
-                        if args.postprocess
-                        else ARMS
+                        ("integrated_full", "pack4_transpose", "pack4_flat_q")
+                        if args.flat_query
+                        else (
+                            (
+                                "integrated_full",
+                                "pack4",
+                                "pack4_transpose",
+                                "pack4_rows",
+                            )
+                            if args.postprocess
+                            else ARMS
+                        )
                     )
                 )
             )
@@ -74,6 +83,7 @@ def run_case(args):
         "pack4_qk": 1,
         "pack4_qk_late_ks": 1,
         "pack4_qk_query_weight": 1,
+        "pack4_qk_reuse": 1,
     }
     expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
@@ -94,6 +104,7 @@ def run_case(args):
         torch.npu.set_device(args.device)
         torch.set_num_threads(min(4, os.cpu_count() or 1))
         from qsa_int8_query_pack4_910b import (
+            _qsa_qk_group_reuse_score,
             _qsa_query_pack4_score,
             validate_shared_groups,
         )
@@ -197,6 +208,23 @@ def run_case(args):
                     WRITE_RAW_DOT=False,
                     num_warps=4,
                 )
+            if name == "pack4_qk_reuse":
+                return _qsa_qk_group_reuse_score[(min(20, triton.cdiv(count, 4)),)](
+                    values["q"][first : first + count],
+                    values["cache"],
+                    values["qs"][first : first + count],
+                    values["ks"],
+                    values["weights"][first : first + count],
+                    values["row_table"][first : first + count],
+                    values["visible"][first : first + count],
+                    target,
+                    ROWS=count,
+                    COLUMNS=values["row_table"].shape[1],
+                    WIDTH=width,
+                    PAGE=192,
+                    BLOCK_N=128,
+                    num_warps=4,
+                )
             return _qsa_query_pack4_score[
                 (min(20, triton.cdiv(count, 4) * triton.cdiv(width, 128)),)
             ](
@@ -273,6 +301,16 @@ def run_case(args):
                 query_left=name.startswith("pack4_qk"),
                 late_key_scale=name == "pack4_qk_late_ks",
                 combine_query_weight=name == "pack4_qk_query_weight",
+                loop_and_load_lines=(
+                    [
+                        line
+                        for line in ir.splitlines()
+                        if "scf.for " in line or "tt.load " in line
+                    ]
+                    if args.query_reuse
+                    else []
+                ),
+                query_group_reuse=name == "pack4_qk_reuse",
                 lowering_lines=[
                     line.strip()
                     for line in kernel.asm["bcmlir"].splitlines()
@@ -342,6 +380,9 @@ def run_case(args):
                 small["ks"].view(-1)[::192] = 0
                 small["qs"] = small["qs"].clone()
                 small["qs"][:, ::2] *= -1
+            if args.query_reuse:
+                small["qs"] = small["qs"].clone()
+                small["qs"][:, ::2] *= -1
             if args.combine_query_weight:
                 small["qs"] = small["qs"].clone()
                 small["qs"][:, ::2] = 0
@@ -376,6 +417,12 @@ def run_case(args):
                     (False, 1, True, True, False, combined)
                     for combined in (False, True)
                 ]
+            tail_variants = [(*variant, False) for variant in tail_variants]
+            if args.query_reuse:
+                tail_variants = [
+                    (False, 1, True, True, False, False, reuse)
+                    for reuse in (False, True)
+                ]
             for (
                 product,
                 store_mode,
@@ -383,32 +430,51 @@ def run_case(args):
                 query_left,
                 late_key_scale,
                 combine_query_weight,
+                query_reuse,
             ) in tail_variants:
                 guarded = torch.full(
                     (n + 4, 256), 12345.0, device=scratch.device, dtype=torch.float32
                 )
-                _qsa_query_pack4_score[(min(20, triton.cdiv(n, 4) * 2),)](
-                    device_small["q"],
-                    values["cache"],
-                    device_small["qs"],
-                    device_small.get("ks", values["ks"]),
-                    device_small["weights"],
-                    device_small["row_table"],
-                    device_small["visible"],
-                    guarded[:n],
-                    ROWS=n,
-                    COLUMNS=2,
-                    WIDTH=256,
-                    PAGE=192,
-                    BLOCK_N=128,
-                    SCALE_PRODUCT=product,
-                    STORE_MODE=store_mode,
-                    FLAT_QUERY=flat_query,
-                    QUERY_LEFT=query_left,
-                    LATE_KEY_SCALE=late_key_scale,
-                    COMBINE_QUERY_WEIGHT=combine_query_weight,
-                    num_warps=4,
-                )
+                if query_reuse:
+                    _qsa_qk_group_reuse_score[(min(20, triton.cdiv(n, 4)),)](
+                        device_small["q"],
+                        values["cache"],
+                        device_small["qs"],
+                        values["ks"],
+                        device_small["weights"],
+                        device_small["row_table"],
+                        device_small["visible"],
+                        guarded[:n],
+                        ROWS=n,
+                        COLUMNS=2,
+                        WIDTH=256,
+                        PAGE=192,
+                        BLOCK_N=128,
+                        num_warps=4,
+                    )
+                else:
+                    _qsa_query_pack4_score[(min(20, triton.cdiv(n, 4) * 2),)](
+                        device_small["q"],
+                        values["cache"],
+                        device_small["qs"],
+                        device_small.get("ks", values["ks"]),
+                        device_small["weights"],
+                        device_small["row_table"],
+                        device_small["visible"],
+                        guarded[:n],
+                        ROWS=n,
+                        COLUMNS=2,
+                        WIDTH=256,
+                        PAGE=192,
+                        BLOCK_N=128,
+                        SCALE_PRODUCT=product,
+                        STORE_MODE=store_mode,
+                        FLAT_QUERY=flat_query,
+                        QUERY_LEFT=query_left,
+                        LATE_KEY_SCALE=late_key_scale,
+                        COMBINE_QUERY_WEIGHT=combine_query_weight,
+                        num_warps=4,
+                    )
                 cpu = guarded.cpu()
                 if not bool((cpu[n:] == 12345.0).all()):
                     raise AssertionError("Packed tail writes past valid query rows")
@@ -438,6 +504,7 @@ def run_case(args):
                         query_left=query_left,
                         late_key_scale=late_key_scale,
                         combine_query_weight=combine_query_weight,
+                        query_reuse=query_reuse,
                         zero_query_scales=args.combine_query_weight,
                         signed_key_scales=args.combine_query_weight,
                         zero_key_scales=args.late_key_scale,
@@ -546,9 +613,13 @@ def run_case(args):
         expected_hosts = {
             name: {
                 (
-                    "_qsa_query_pack4_score"
-                    if name.startswith("pack4")
-                    else "_quant_score_trial"
+                    "_qsa_qk_group_reuse_score"
+                    if name == "pack4_qk_reuse"
+                    else (
+                        "_qsa_query_pack4_score"
+                        if name.startswith("pack4")
+                        else "_quant_score_trial"
+                    )
                 ): 1
             }
             for name in arms
@@ -575,6 +646,15 @@ def run_case(args):
             for name in arms
             if name.startswith("pack4")
         }
+        if args.query_reuse:
+            result["query_reuse_speedup_vs_qk"] = (
+                medians["pack4_qk"] / medians["pack4_qk_reuse"]
+            )
+            print(
+                "QUERY_REUSE_SPEEDUP_VS_QK",
+                result["query_reuse_speedup_vs_qk"],
+                flush=True,
+            )
         if args.combine_query_weight:
             result["query_weight_speedup_vs_qk"] = (
                 medians["pack4_qk"] / medians["pack4_qk_query_weight"]
@@ -668,6 +748,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=1200)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument(
+        "--query-reuse",
+        action="store_true",
+        help="Load each Q group once and scan its key tiles",
+    )
+    modes.add_argument(
         "--combine-query-weight",
         action="store_true",
         help="Combine FP32 QS and weights; nonnegative QS required",
@@ -740,6 +825,8 @@ def main():
             command.append("--late-key-scale")
         if args.combine_query_weight:
             command.append("--combine-query-weight")
+        if args.query_reuse:
+            command.append("--query-reuse")
         if args.ten_shapes:
             command.append("--ten-shapes")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)

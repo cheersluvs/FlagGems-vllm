@@ -195,3 +195,66 @@ def _qsa_query_pack4_score(
                         tl.where(live, scores, -float("inf")),
                         mask=(columns[:, None] < WIDTH) & (rows[None, :] < ROWS),
                     )
+
+
+@triton.jit
+def _qsa_qk_group_reuse_score(
+    Q,
+    K,
+    QS,
+    KS,
+    Weights,
+    Table,
+    Visible,
+    Out,
+    ROWS: tl.constexpr,
+    COLUMNS: tl.constexpr,
+    WIDTH: tl.constexpr,
+    PAGE: tl.constexpr,
+    BLOCK_N: tl.constexpr,
+):
+    groups: tl.constexpr = triton.cdiv(ROWS, 4)
+    tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
+    dims = tl.arange(0, 128)
+    lanes = tl.arange(0, 16)
+    queries = tl.arange(0, 4)
+    for group in range(tl.program_id(0), groups, tl.num_programs(0)):
+        base = group * 4
+        rows = base + queries
+        flat_heads = base * 4 + lanes
+        query = tl.load(
+            Q + flat_heads[:, None] * 128 + dims[None, :],
+            mask=flat_heads[:, None] < ROWS * 4,
+            other=0,
+        )
+        query_scale = tl.load(QS + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(
+            tl.float32
+        )
+        weights = tl.load(Weights + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(
+            tl.float32
+        )
+        visible = tl.load(Visible + rows, mask=rows < ROWS, other=0)
+        max_visible = tl.max(visible, axis=0)
+        for tile in range(tiles):
+            columns = tile * BLOCK_N + tl.arange(0, BLOCK_N)
+            key_live = (columns < WIDTH) & (columns < max_visible)
+            physical = tl.load(
+                Table + base * COLUMNS + columns // PAGE, mask=key_live, other=0
+            )
+            token = physical.to(tl.int64) * PAGE + columns % PAGE
+            keys = tl.load(
+                K + token[None, :] * 128 + dims[:, None],
+                mask=key_live[None, :],
+                other=0,
+            )
+            key_scale = tl.load(KS + token, mask=key_live, other=0).to(tl.float32)
+            dot = tl.dot(query, keys, out_dtype=tl.int32)
+            dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+            weighted = tl.maximum(dequant, 0.0) * weights[:, None]
+            scores = tl.sum(tl.reshape(weighted, (4, 4, BLOCK_N)), axis=1)
+            live = (columns[None, :] < WIDTH) & (columns[None, :] < visible[:, None])
+            tl.store(
+                Out + rows[:, None] * WIDTH + columns[None, :],
+                tl.where(live, scores, -float("inf")),
+                mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
+            )

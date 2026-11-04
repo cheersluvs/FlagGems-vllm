@@ -101,3 +101,38 @@ Print multiply/reduce/transpose lines to confirm vector coefficient formation.
 Compile, numerical gates, two-round paired timing and upload stay in one run.
 Report QUERY_WEIGHT_SPEEDUP_VS_QK separately from the legacy integrated ratio.
 No TopK, compiler or prepared selection adapter changes.
+
+## Third probe: reuse Q group across key tiles
+
+Report 66a59bad936f4413dfd5bd14d35698d70e9550e1 passed coefficient checks,
+with speedups1.0135x/1.0221x; no candidate is composed or promoted here.
+
+| Item | Q reuse experiment |
+| --- | --- |
+| CLI | --query-reuse |
+| Arms | integrated_full, pack4_qk, pack4_qk_reuse |
+| Formula | Original FP32 QS then KS before ReLU, original weighted FP32 head sum |
+| Control schedule | Strided flattened query-group/key-tile work across programs |
+| Candidate schedule | Strided query groups across programs, sequential key tiles within each group |
+| Load reuse | Q/QS/weight/visibility once per outer group, table/K/KS per key tile |
+| Resources | Grid cap20, N128, warps4; no manually specified L1/L0 allocation |
+
+The candidate expresses Q[16,128] and K[128,N] directly, algebraically identical
+to the flattened control's transposed operand views. It changes loop ownership
+and lifetime of input tensors, not the score formula or input layout. Compiler
+lowering still decides whether reuse remains effective in device memory; source
+placement alone does not prove L1 residency or final instruction reduction.
+Exported TTIR loop/load lines and full ttadapter/bcmlir are retained. For both
+main chunks the launch remains20 programs, but 28/32 query groups may distribute
+unevenly; loss of balanced key-tile scheduling is an explicit tradeoff. All width
+tiles, including invisible ones, are still processed and written, so no work is
+silently skipped. Tail tests use min20/groups programs; tail timing is excluded.
+
+The static contract remains seven loads, one dot, one score store, FP32 head
+sum and visibility INT32 max. Compile, full output/CPU/mask checks, nonmonotonic
+visibility, shuffled mapping, signed weights and signed QS, empty groups, query
+tails1/2/3, guard rows, two-round timing and upload run together. A scope-preserving
+loop rewrite can still change lowering and synchronization; timing compares the
+entire equivalent score kernel rather than claiming a separately measured load
+cost. Print QUERY_REUSE_SPEEDUP_VS_QK. No arithmetic candidate, production adapter,
+TopK, external preparation kernel, compiler patch or autotuner is introduced.
