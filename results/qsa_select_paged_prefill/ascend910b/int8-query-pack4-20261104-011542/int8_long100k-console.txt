@@ -1,0 +1,429 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+/tmp/flaggems-qsa-int8-flat-query.rvsBLZ1p/tools/probe_qsa_int8_query_pack4_910b.py:118: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  targets = {name: torch.empty_like(scratch) for name in arms}
+QUERY_PACK4_LOWERING {"integrated_full": {"dot_count": 1, "store_count": 1, "load_count": 7, "reduction_element_types": ["f32"], "store_mode": null, "flat_query": false, "lowering_lines": ["%transposed = linalg.transpose ins(%38 : tensor<16x128xi8>) outs(%39 : tensor<128x16xi8>) permutation = [1, 0]  loc(#loc48)", "%reduced = linalg.reduce ins(%49 : tensor<128x16xf32>) outs(%3 : tensor<128xf32>) dimensions = [1]"], "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='5de877b94d7f5c2e8ac1d2588740f120b04a6e2588150b919534bd25996a2ff0', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98304)", "npubin_sha256": "22ec0148f8ec8aad4aab71a78d9e06e0d0e20e019b7615dee84db402df0a50da"}, "pack4_transpose": {"dot_count": 1, "store_count": 1, "load_count": 7, "reduction_element_types": ["i32", "f32"], "store_mode": 1, "flat_query": false, "lowering_lines": ["%reduced = linalg.reduce ins(%29 : tensor<4xi32>) outs(%31 : tensor<i32>) dimensions = [0]", "%transposed = linalg.transpose ins(%51 : tensor<4x4x128xi8>) outs(%52 : tensor<128x4x4xi8>) permutation = [2, 0, 1]  loc(#loc58)", "%reduced_27 = linalg.reduce ins(%reshape_26 : tensor<128x4x4xf32>) outs(%64 : tensor<128x4xf32>) dimensions = [2]", "%transposed_28 = linalg.transpose ins(%reduced_27 : tensor<128x4xf32>) outs(%8 : tensor<4x128xf32>) permutation = [1, 0]  loc(#loc72)"], "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='1b4e9e67d611fee6aa3bc4c51a5d89a9b836fee0aa0c452e54453caf5a584155', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_query_pack4_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_query_pack4_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=133184)", "npubin_sha256": "dde5cce05a1fe1ccb9160f54f9652db9d16e939760068b159aa76a826567bc4f"}, "pack4_flat_q": {"dot_count": 1, "store_count": 1, "load_count": 7, "reduction_element_types": ["i32", "f32"], "store_mode": 1, "flat_query": true, "lowering_lines": ["%reduced = linalg.reduce ins(%29 : tensor<4xi32>) outs(%31 : tensor<i32>) dimensions = [0]", "%transposed = linalg.transpose ins(%57 : tensor<16x128xi8>) outs(%58 : tensor<128x16xi8>) permutation = [1, 0]  loc(#loc56)", "%reduced_25 = linalg.reduce ins(%reshape_24 : tensor<128x4x4xf32>) outs(%71 : tensor<128x4xf32>) dimensions = [2]", "%transposed_26 = linalg.transpose ins(%reduced_25 : tensor<128x4xf32>) outs(%8 : tensor<4x128xf32>) permutation = [1, 0]  loc(#loc74)"], "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='8a839309d4977729161fb5d678dbe5f8f2597afd72ecd8c113d910004086ba41', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_query_pack4_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_query_pack4_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=122944)", "npubin_sha256": "77f22782162faf8e8b97a24905ff905fbdff0831d93d2bae7f82378817cee839"}}
+QUERY_PACK4_GEOMETRY {"first": 8176, "count": 112, "width": 29696, "plan": {"name": "int8_long100k", "nv_case": "fp8_long100k_float8_e4m3fn", "origin": "dtype_variant", "query_lengths": [16384], "prefix_tokens": [102400], "starts": [0, 16384], "batch_max_seq_len": 118784, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [155], "physical_pages": 155, "table_columns": 155, "q_shape": [16384, 4, 128], "cache_shape": [155, 192, 1, 128], "logits_width": 29696, "chunk_rows": 112, "score_and_dot_scratch_bytes": 66519040, "nv_original_page_size": 196, "nv_original_physical_pages": null, "nv_original_table_columns": null, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "grid_cap": 20, "block_n": 128, "group_queries": 4, "heads_per_query": 4, "dot_columns": 16, "baseline_work_tiles": 25984, "packed_work_tiles": 6496}
+QUERY_PACK4_ARTIFACTS {"integrated_full": {"location_stripped_ir_sha256": {"ttir": "ceb6082511e2b1adf1d2b10c6cfc2078a7cf0ea422e3992ebda0881b1beb382a", "ttadapter": "d87016ea082f3f3363deda3ddc4e06681419b8b9c834d71317d8bfdef23b0169", "bcmlir": "2b659f695bd2dee0cbfc12c0c53ebe93d4cf83aab1612b7e0abc4fb3abd38040"}, "npubin_sha256": "22ec0148f8ec8aad4aab71a78d9e06e0d0e20e019b7615dee84db402df0a50da", "same_ir_as_integrated": {"ttir": true, "ttadapter": true, "bcmlir": true}, "same_binary_as_integrated": true}, "pack4_transpose": {"location_stripped_ir_sha256": {"ttir": "9e81cf699540ee9c62fa72841653429f2be9e3629ee3a1e8b25adb44e8ea16df", "ttadapter": "5455eb7ee18b28aa0ed4862c043c146d0a64104561a43fcc15bccfc4a11a92a7", "bcmlir": "830833ff008262af11f245ee77cb0ea5a4a4b5743f63d842c1f50c7df9efebcc"}, "npubin_sha256": "dde5cce05a1fe1ccb9160f54f9652db9d16e939760068b159aa76a826567bc4f", "same_ir_as_integrated": {"ttir": false, "ttadapter": false, "bcmlir": false}, "same_binary_as_integrated": false}, "pack4_flat_q": {"location_stripped_ir_sha256": {"ttir": "a60f9aeead49162299e92f61f0fee058d2a49f0d79c4c2fa66805adc8c7aaf52", "ttadapter": "e4a39244e33605f690cb7eebb20655c411f4978dca014585b6445958e9e107ee", "bcmlir": "ef9bb878e3ed67af86c6544c8afa5189aa1f7a1fc6fe928967055c282c96865b"}, "npubin_sha256": "77f22782162faf8e8b97a24905ff905fbdff0831d93d2bae7f82378817cee839", "same_ir_as_integrated": {"ttir": false, "ttadapter": false, "bcmlir": false}, "same_binary_as_integrated": false}}
+[2026-11-04 09:15:07] [WARNING] [1522085] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-04 09:15:07] [WARNING] [1522085] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-04 09:15:12] [WARNING] [1522085] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-04 09:15:13] [INFO] [1526690] profiler.py: Start parsing profiling data in sync mode at: /workspace/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_1522085_20261104091507783_ascend_pt
+|/-[2026-11-04 09:15:15] [INFO] [1526702] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041848
+[2026-11-04 09:15:15] [INFO] [1526690] profiler.py: All profiling data parsed in a total time of 0:00:02.644606
+TRACE_REJECTED {"attempt": 1, "artifact": "int8_long100k-timer-01.json.gz", "reason": "Incomplete score trace: device=0, host=3, expected=3"}
+[2026-11-04 09:15:18] [WARNING] [1522085] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-04 09:15:18] [WARNING] [1522085] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-04 09:15:23] [WARNING] [1522085] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-04 09:15:23] [INFO] [1527979] profiler.py: Start parsing profiling data in sync mode at: /workspace/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_1522085_20261104091518218_ascend_pt
+|/-[2026-11-04 09:15:25] [INFO] [1527999] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041973
+[2026-11-04 09:15:26] [INFO] [1527979] profiler.py: All profiling data parsed in a total time of 0:00:02.642534
+TRACE_REJECTED {"attempt": 2, "artifact": "int8_long100k-timer-02.json.gz", "reason": "Incomplete score trace: device=0, host=3, expected=3"}
+[2026-11-04 09:15:28] [WARNING] [1522085] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-04 09:15:28] [WARNING] [1522085] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-04 09:15:33] [WARNING] [1522085] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-04 09:15:34] [INFO] [1529033] profiler.py: Start parsing profiling data in sync mode at: /workspace/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_1522085_20261104091528654_ascend_pt
+|/-[2026-11-04 09:15:36] [INFO] [1529059] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041963
+[2026-11-04 09:15:36] [INFO] [1529033] profiler.py: All profiling data parsed in a total time of 0:00:02.651358
+TRACE_REJECTED {"attempt": 3, "artifact": "int8_long100k-timer-03.json.gz", "reason": "Incomplete score trace: device=0, host=3, expected=3"}
+{
+  "case": "int8_long100k",
+  "status": "failed",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "device_index": 0,
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device_isolation": "not_verified"
+  },
+  "shared_map_guard": {
+    "groups": 28,
+    "all_group_maps_equal": true,
+    "same_request_per_group": true
+  },
+  "geometry": {
+    "first": 8176,
+    "count": 112,
+    "width": 29696,
+    "plan": {
+      "name": "int8_long100k",
+      "nv_case": "fp8_long100k_float8_e4m3fn",
+      "origin": "dtype_variant",
+      "query_lengths": [
+        16384
+      ],
+      "prefix_tokens": [
+        102400
+      ],
+      "starts": [
+        0,
+        16384
+      ],
+      "batch_max_seq_len": 118784,
+      "heads": 4,
+      "dim": 128,
+      "ratio": 4,
+      "k": 512,
+      "dtype": "int8",
+      "page_size": 192,
+      "pages_per_request": [
+        155
+      ],
+      "physical_pages": 155,
+      "table_columns": 155,
+      "q_shape": [
+        16384,
+        4,
+        128
+      ],
+      "cache_shape": [
+        155,
+        192,
+        1,
+        128
+      ],
+      "logits_width": 29696,
+      "chunk_rows": 112,
+      "score_and_dot_scratch_bytes": 66519040,
+      "nv_original_page_size": 196,
+      "nv_original_physical_pages": null,
+      "nv_original_table_columns": null,
+      "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+      "query_lengths_synthetic": false
+    },
+    "grid_cap": 20,
+    "block_n": 128,
+    "group_queries": 4,
+    "heads_per_query": 4,
+    "dot_columns": 16,
+    "baseline_work_tiles": 25984,
+    "packed_work_tiles": 6496
+  },
+  "scope": "Shared-map representative chunks; full scores; query grouping occurs inside the kernel, with no extra Q/K tensor preparation; not public production API",
+  "stage": "kernel_timer",
+  "compiler": {
+    "integrated_full": {
+      "dot_count": 1,
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "f32"
+      ],
+      "store_mode": null,
+      "flat_query": false,
+      "lowering_lines": [
+        "%transposed = linalg.transpose ins(%38 : tensor<16x128xi8>) outs(%39 : tensor<128x16xi8>) permutation = [1, 0]  loc(#loc48)",
+        "%reduced = linalg.reduce ins(%49 : tensor<128x16xf32>) outs(%3 : tensor<128xf32>) dimensions = [1]"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='5de877b94d7f5c2e8ac1d2588740f120b04a6e2588150b919534bd25996a2ff0', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98304)",
+      "npubin_sha256": "22ec0148f8ec8aad4aab71a78d9e06e0d0e20e019b7615dee84db402df0a50da"
+    },
+    "pack4_transpose": {
+      "dot_count": 1,
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "i32",
+        "f32"
+      ],
+      "store_mode": 1,
+      "flat_query": false,
+      "lowering_lines": [
+        "%reduced = linalg.reduce ins(%29 : tensor<4xi32>) outs(%31 : tensor<i32>) dimensions = [0]",
+        "%transposed = linalg.transpose ins(%51 : tensor<4x4x128xi8>) outs(%52 : tensor<128x4x4xi8>) permutation = [2, 0, 1]  loc(#loc58)",
+        "%reduced_27 = linalg.reduce ins(%reshape_26 : tensor<128x4x4xf32>) outs(%64 : tensor<128x4xf32>) dimensions = [2]",
+        "%transposed_28 = linalg.transpose ins(%reduced_27 : tensor<128x4xf32>) outs(%8 : tensor<4x128xf32>) permutation = [1, 0]  loc(#loc72)"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='1b4e9e67d611fee6aa3bc4c51a5d89a9b836fee0aa0c452e54453caf5a584155', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_query_pack4_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_query_pack4_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=133184)",
+      "npubin_sha256": "dde5cce05a1fe1ccb9160f54f9652db9d16e939760068b159aa76a826567bc4f"
+    },
+    "pack4_flat_q": {
+      "dot_count": 1,
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "i32",
+        "f32"
+      ],
+      "store_mode": 1,
+      "flat_query": true,
+      "lowering_lines": [
+        "%reduced = linalg.reduce ins(%29 : tensor<4xi32>) outs(%31 : tensor<i32>) dimensions = [0]",
+        "%transposed = linalg.transpose ins(%57 : tensor<16x128xi8>) outs(%58 : tensor<128x16xi8>) permutation = [1, 0]  loc(#loc56)",
+        "%reduced_25 = linalg.reduce ins(%reshape_24 : tensor<128x4x4xf32>) outs(%71 : tensor<128x4xf32>) dimensions = [2]",
+        "%transposed_26 = linalg.transpose ins(%reduced_25 : tensor<128x4xf32>) outs(%8 : tensor<4x128xf32>) permutation = [1, 0]  loc(#loc74)"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='8a839309d4977729161fb5d678dbe5f8f2597afd72ecd8c113d910004086ba41', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_query_pack4_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_query_pack4_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=122944)",
+      "npubin_sha256": "77f22782162faf8e8b97a24905ff905fbdff0831d93d2bae7f82378817cee839"
+    }
+  },
+  "prechecks": {
+    "integrated_full": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack4_transpose": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack4_flat_q": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "artifact_comparison": {
+    "integrated_full": {
+      "location_stripped_ir_sha256": {
+        "ttir": "ceb6082511e2b1adf1d2b10c6cfc2078a7cf0ea422e3992ebda0881b1beb382a",
+        "ttadapter": "d87016ea082f3f3363deda3ddc4e06681419b8b9c834d71317d8bfdef23b0169",
+        "bcmlir": "2b659f695bd2dee0cbfc12c0c53ebe93d4cf83aab1612b7e0abc4fb3abd38040"
+      },
+      "npubin_sha256": "22ec0148f8ec8aad4aab71a78d9e06e0d0e20e019b7615dee84db402df0a50da",
+      "same_ir_as_integrated": {
+        "ttir": true,
+        "ttadapter": true,
+        "bcmlir": true
+      },
+      "same_binary_as_integrated": true
+    },
+    "pack4_transpose": {
+      "location_stripped_ir_sha256": {
+        "ttir": "9e81cf699540ee9c62fa72841653429f2be9e3629ee3a1e8b25adb44e8ea16df",
+        "ttadapter": "5455eb7ee18b28aa0ed4862c043c146d0a64104561a43fcc15bccfc4a11a92a7",
+        "bcmlir": "830833ff008262af11f245ee77cb0ea5a4a4b5743f63d842c1f50c7df9efebcc"
+      },
+      "npubin_sha256": "dde5cce05a1fe1ccb9160f54f9652db9d16e939760068b159aa76a826567bc4f",
+      "same_ir_as_integrated": {
+        "ttir": false,
+        "ttadapter": false,
+        "bcmlir": false
+      },
+      "same_binary_as_integrated": false
+    },
+    "pack4_flat_q": {
+      "location_stripped_ir_sha256": {
+        "ttir": "a60f9aeead49162299e92f61f0fee058d2a49f0d79c4c2fa66805adc8c7aaf52",
+        "ttadapter": "e4a39244e33605f690cb7eebb20655c411f4978dca014585b6445958e9e107ee",
+        "bcmlir": "ef9bb878e3ed67af86c6544c8afa5189aa1f7a1fc6fe928967055c282c96865b"
+      },
+      "npubin_sha256": "77f22782162faf8e8b97a24905ff905fbdff0831d93d2bae7f82378817cee839",
+      "same_ir_as_integrated": {
+        "ttir": false,
+        "ttadapter": false,
+        "bcmlir": false
+      },
+      "same_binary_as_integrated": false
+    }
+  },
+  "tail_checks": [
+    {
+      "rows": 5,
+      "remaining_queries": 1,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 3.814697265625e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 5,
+      "remaining_queries": 1,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 3.814697265625e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 6,
+      "remaining_queries": 2,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 6,
+      "remaining_queries": 2,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 7,
+      "remaining_queries": 3,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 3.814697265625e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 7,
+      "remaining_queries": 3,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 3.814697265625e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 5,
+      "remaining_queries": 1,
+      "visibility_case": "empty_group",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 5,
+      "remaining_queries": 1,
+      "visibility_case": "empty_group",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    }
+  ],
+  "kernel_timer": {
+    "backend": "explicit CPU+NPU Chrome trace",
+    "warmup": 2,
+    "active": 3,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Instrumented exploratory kernel timing; rebuild all paired baselines",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "rejected_captures": [
+      {
+        "attempt": 1,
+        "artifact": "int8_long100k-timer-01.json.gz",
+        "reason": "Incomplete score trace: device=0, host=3, expected=3"
+      },
+      {
+        "attempt": 2,
+        "artifact": "int8_long100k-timer-02.json.gz",
+        "reason": "Incomplete score trace: device=0, host=3, expected=3"
+      },
+      {
+        "attempt": 3,
+        "artifact": "int8_long100k-timer-03.json.gz",
+        "reason": "Incomplete score trace: device=0, host=3, expected=3"
+      }
+    ]
+  },
+  "traceback": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-int8-flat-query.rvsBLZ1p/tools/probe_qsa_int8_query_pack4_910b.py\", line 364, in run_case\n    setup_trace(\n  File \"/tmp/flaggems-qsa-int8-flat-query.rvsBLZ1p/tools/qsa_int8_trace_timer_910b.py\", line 152, in setup_trace\n    single = measure(one, 1)\n             ^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-int8-flat-query.rvsBLZ1p/tools/qsa_int8_trace_timer_910b.py\", line 129, in measure\n    return capture_once(function, expected)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-int8-flat-query.rvsBLZ1p/tools/qsa_int8_trace_timer_910b.py\", line 117, in capture_once\n    parsed = active_mean(\n             ^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-int8-flat-query.rvsBLZ1p/tools/qsa_int8_trace_timer_910b.py\", line 51, in active_mean\n    raise IncompleteScoreTrace(\nqsa_int8_trace_timer_910b.IncompleteScoreTrace: Incomplete score trace: device=0, host=3, expected=3\n",
+  "sources": {
+    "probe_qsa_int8_query_pack4_910b.py": "573d10407b55068f03d1eeb923e2ead2832047d32500cad9f2bf7a728edae1da",
+    "qsa_int8_query_pack4_910b.py": "d5e5a85fbbbeba34e51c737cfb2ff2496da735929ff20864a34b309705f1e395",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_prefix_builder_910b.py": "262a6f6cfed5da1461a465e6793f038e1d630895047b1d0cf5194b5420efd228",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "qsa_int8_stage_trace_timer_910b.py": "8d18f3ed0d7ce33bf7cac8701c45d9e2a80a3ce4c103acc27c5d5e1494c6f858",
+    "qsa_int8_full_scale_audit_910b.py": "eff050aaa454a0a5b00873a9723826c6398e73403235291c108d5c8d01b4b386"
+  },
+  "exit_code": 1
+}
