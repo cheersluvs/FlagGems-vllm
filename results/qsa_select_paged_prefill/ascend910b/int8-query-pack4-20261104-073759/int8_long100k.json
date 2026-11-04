@@ -1,0 +1,922 @@
+{
+  "case": "int8_long100k",
+  "status": "passed",
+  "excluded_options": {
+    "preload": "Explicitly excluded; prior compilation failed, report ee7d5897ec7b65bb11424fd812a01e7bc89eece6"
+  },
+  "buffering_backend_audit": {
+    "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py",
+    "sha256": "d11660971dc400be7cb26cc47eb308609464d8fb69ecee1c9191fe32a366e0e3",
+    "excerpt": "int8_long100k-backend-buffer-options.txt"
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "device_index": 1,
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device_isolation": "not_verified"
+  },
+  "shared_map_guard": {
+    "groups": 28,
+    "all_group_maps_equal": true,
+    "same_request_per_group": true
+  },
+  "geometry": {
+    "first": 8176,
+    "count": 112,
+    "width": 29696,
+    "plan": {
+      "name": "int8_long100k",
+      "nv_case": "fp8_long100k_float8_e4m3fn",
+      "origin": "dtype_variant",
+      "query_lengths": [
+        16384
+      ],
+      "prefix_tokens": [
+        102400
+      ],
+      "starts": [
+        0,
+        16384
+      ],
+      "batch_max_seq_len": 118784,
+      "heads": 4,
+      "dim": 128,
+      "ratio": 4,
+      "k": 512,
+      "dtype": "int8",
+      "page_size": 192,
+      "pages_per_request": [
+        155
+      ],
+      "physical_pages": 155,
+      "table_columns": 155,
+      "q_shape": [
+        16384,
+        4,
+        128
+      ],
+      "cache_shape": [
+        155,
+        192,
+        1,
+        128
+      ],
+      "logits_width": 29696,
+      "chunk_rows": 112,
+      "score_and_dot_scratch_bytes": 66519040,
+      "nv_original_page_size": 196,
+      "nv_original_physical_pages": null,
+      "nv_original_table_columns": null,
+      "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+      "query_lengths_synthetic": false
+    },
+    "grid_cap": 20,
+    "block_n": 128,
+    "group_queries": 4,
+    "heads_per_query": 4,
+    "dot_columns": 16,
+    "baseline_work_tiles": 25984,
+    "packed_work_tiles": 6496
+  },
+  "scope": "Shared-map representative chunks; full scores; query grouping occurs inside the kernel, with no extra Q/K tensor preparation; not public production API",
+  "stage": "completed",
+  "compiler": {
+    "integrated_full": {
+      "dot_count": 1,
+      "dot_lines": [
+        "%dot = tt.dot %keys_40, %query_56, %cst_6 : tensor<128x128xi8> * tensor<128x16xi8> -> tensor<128x16xi32> loc(#loc120)"
+      ],
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "f32"
+      ],
+      "store_mode": null,
+      "flat_query": false,
+      "query_left": false,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "loop_and_load_lines": [
+        "    scf.for %work = %0 to %c25984_i32 step %1  : i32 {",
+        "      %visible_18 = tt.load %visible : !tt.ptr<i32> loc(#loc88)",
+        "      %physical_26 = tt.load %physical_25, %live_21, %cst_12 : tensor<128x!tt.ptr<i32>> loc(#loc96)",
+        "      %keys_40 = tt.load %keys_38, %keys_39, %cst_2 : tensor<128x128x!tt.ptr<i8>> loc(#loc107)",
+        "      %key_scale_42 = tt.load %key_scale_41, %live_21, %cst_1 : tensor<128x!tt.ptr<f16>> loc(#loc109)",
+        "      %query_56 = tt.load %query_54, %query_55, %cst_0 : tensor<128x16x!tt.ptr<i8>> loc(#loc119)",
+        "      %query_scale_60 = tt.load %query_scale_59, %query_scale, %cst : tensor<16x!tt.ptr<f16>> loc(#loc124)",
+        "      %weights_64 = tt.load %weights_63, %query_scale, %cst : tensor<16x!tt.ptr<f16>> loc(#loc128)"
+      ],
+      "query_group_reuse": false,
+      "key_tiles_per_unit": null,
+      "requested_buffer_options": {},
+      "padded_key_tiles": 0,
+      "cube_reduce": false,
+      "block_n": 128,
+      "lowering_lines": [
+        "%transposed = linalg.transpose ins(%38 : tensor<16x128xi8>) outs(%39 : tensor<128x16xi8>) permutation = [1, 0]  loc(#loc48)",
+        "%reduced = linalg.reduce ins(%49 : tensor<128x16xf32>) outs(%3 : tensor<128xf32>) dimensions = [1]"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='5de877b94d7f5c2e8ac1d2588740f120b04a6e2588150b919534bd25996a2ff0', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_quant_score_trial', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_quant_score_trial', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98304)",
+      "npubin_sha256": "22ec0148f8ec8aad4aab71a78d9e06e0d0e20e019b7615dee84db402df0a50da"
+    },
+    "pack4_qk_g4": {
+      "dot_count": 1,
+      "dot_lines": [
+        "%dot_69 = tt.dot %query_32, %dot, %cst_16 : tensor<16x128xi8> * tensor<128x128xi8> -> tensor<16x128xi32> loc(#loc149)"
+      ],
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "i32",
+        "f32"
+      ],
+      "store_mode": 0,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "loop_and_load_lines": [
+        "    scf.for %unit = %0 to %c1624_i32 step %1  : i32 {",
+        "      %query_32 = tt.load %query_30, %query_31, %cst_2 : tensor<16x128x!tt.ptr<i8>> loc(#loc112)",
+        "      %query_scale_35 = tt.load %query_scale_34, %query_scale, %cst_1 : tensor<16x!tt.ptr<f16>> loc(#loc115)",
+        "      %weights_38 = tt.load %weights_37, %query_scale, %cst_1 : tensor<16x!tt.ptr<f16>> loc(#loc118)",
+        "      %visible_42 = tt.load %visible_41, %visible, %cst_13 : tensor<4x!tt.ptr<i32>> loc(#loc122)",
+        "      scf.for %local_tile = %c0_i32 to %c4_i32 step %c1_i32  : i32 {",
+        "        %physical_52 = tt.load %physical_51, %key_live_47, %cst_10 : tensor<128x!tt.ptr<i32>> loc(#loc134)",
+        "        %keys_65 = tt.load %keys_63, %keys_64, %cst_0 : tensor<128x128x!tt.ptr<i8>> loc(#loc144)",
+        "        %key_scale_67 = tt.load %key_scale_66, %key_live_47, %cst : tensor<128x!tt.ptr<f16>> loc(#loc146)"
+      ],
+      "query_group_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {},
+      "padded_key_tiles": 0,
+      "cube_reduce": false,
+      "block_n": 128,
+      "lowering_lines": [
+        "%reduced = linalg.reduce ins(%38 : tensor<4xi32>) outs(%40 : tensor<i32>) dimensions = [0]",
+        "%transposed = linalg.transpose ins(%inserted_slice_18 : tensor<128x128xi8>) outs(%10 : tensor<128x128xi8>) permutation = [1, 0]  loc(#loc91)",
+        "%reduced_23 = linalg.reduce ins(%reshape : tensor<4x4x128xf32>) outs(%68 : tensor<4x128xf32>) dimensions = [1]"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='6a4ca7777dcbd2ee3799a05b7ccb8e0d76199bc52893b65d8dc2e6cb8df1afd9', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_qk_key_group_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_qk_key_group_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=98336)",
+      "npubin_sha256": "153c7bf5d2e1cb2ab0ecf2df36c14480e8b3e7c61927706e5db1211c71bffb4f"
+    },
+    "pack4_qk_g4_no_mb": {
+      "dot_count": 1,
+      "dot_lines": [
+        "%dot_69 = tt.dot %query_32, %dot, %cst_16 : tensor<16x128xi8> * tensor<128x128xi8> -> tensor<16x128xi32> loc(#loc149)"
+      ],
+      "store_count": 1,
+      "load_count": 7,
+      "reduction_element_types": [
+        "i32",
+        "f32"
+      ],
+      "store_mode": 0,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "loop_and_load_lines": [
+        "    scf.for %unit = %0 to %c1624_i32 step %1  : i32 {",
+        "      %query_32 = tt.load %query_30, %query_31, %cst_2 : tensor<16x128x!tt.ptr<i8>> loc(#loc112)",
+        "      %query_scale_35 = tt.load %query_scale_34, %query_scale, %cst_1 : tensor<16x!tt.ptr<f16>> loc(#loc115)",
+        "      %weights_38 = tt.load %weights_37, %query_scale, %cst_1 : tensor<16x!tt.ptr<f16>> loc(#loc118)",
+        "      %visible_42 = tt.load %visible_41, %visible, %cst_13 : tensor<4x!tt.ptr<i32>> loc(#loc122)",
+        "      scf.for %local_tile = %c0_i32 to %c4_i32 step %c1_i32  : i32 {",
+        "        %physical_52 = tt.load %physical_51, %key_live_47, %cst_10 : tensor<128x!tt.ptr<i32>> loc(#loc134)",
+        "        %keys_65 = tt.load %keys_63, %keys_64, %cst_0 : tensor<128x128x!tt.ptr<i8>> loc(#loc144)",
+        "        %key_scale_67 = tt.load %key_scale_66, %key_live_47, %cst : tensor<128x!tt.ptr<f16>> loc(#loc146)"
+      ],
+      "query_group_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {
+        "multibuffer": false
+      },
+      "padded_key_tiles": 0,
+      "cube_reduce": false,
+      "block_n": 128,
+      "lowering_lines": [
+        "%reduced = linalg.reduce ins(%38 : tensor<4xi32>) outs(%40 : tensor<i32>) dimensions = [0]",
+        "%transposed = linalg.transpose ins(%inserted_slice_18 : tensor<128x128xi8>) outs(%10 : tensor<128x128xi8>) permutation = [1, 0]  loc(#loc91)",
+        "%reduced_23 = linalg.reduce ins(%reshape : tensor<4x4x128xf32>) outs(%68 : tensor<4x128xf32>) dimensions = [1]"
+      ],
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='19231183c8034069f389fdc6a192f7040be867962bebcafe7e78192d963beff3', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_qk_key_group_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=False, name='_qsa_qk_key_group_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=24608)",
+      "npubin_sha256": "82042b4b41889e563d03ff717617a81b3eb9924b455880ecda6f92f3e0e0a750"
+    }
+  },
+  "prechecks": {
+    "integrated_full": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack4_qk_g4": {
+      "all_scores_checked": true,
+      "max_abs_error": 7.62939453125e-06,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack4_qk_g4_no_mb": {
+      "all_scores_checked": true,
+      "max_abs_error": 7.62939453125e-06,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "artifact_comparison": {
+    "integrated_full": {
+      "location_stripped_ir_sha256": {
+        "ttir": "ceb6082511e2b1adf1d2b10c6cfc2078a7cf0ea422e3992ebda0881b1beb382a",
+        "ttadapter": "d87016ea082f3f3363deda3ddc4e06681419b8b9c834d71317d8bfdef23b0169",
+        "bcmlir": "2b659f695bd2dee0cbfc12c0c53ebe93d4cf83aab1612b7e0abc4fb3abd38040"
+      },
+      "npubin_sha256": "22ec0148f8ec8aad4aab71a78d9e06e0d0e20e019b7615dee84db402df0a50da",
+      "same_ir_as_integrated": {
+        "ttir": true,
+        "ttadapter": true,
+        "bcmlir": true
+      },
+      "same_binary_as_integrated": true
+    },
+    "pack4_qk_g4": {
+      "location_stripped_ir_sha256": {
+        "ttir": "103da43975c9010bfd9f93d37a6bb28a62d1f05d4921f96d85bf25ae95a5e15a",
+        "ttadapter": "a3dad50bffdf55637e74f00bd474e77833a111ac7f56caf9b35b670a9132b20d",
+        "bcmlir": "1c5ca068a9e045bcd7a51f58cec28828f95658cb018bd2249367ebd5f3b94053"
+      },
+      "npubin_sha256": "153c7bf5d2e1cb2ab0ecf2df36c14480e8b3e7c61927706e5db1211c71bffb4f",
+      "same_ir_as_integrated": {
+        "ttir": false,
+        "ttadapter": false,
+        "bcmlir": false
+      },
+      "same_binary_as_integrated": false,
+      "same_ir_as_group4": {
+        "ttir": true,
+        "ttadapter": true,
+        "bcmlir": true
+      },
+      "same_binary_as_group4": true
+    },
+    "pack4_qk_g4_no_mb": {
+      "location_stripped_ir_sha256": {
+        "ttir": "103da43975c9010bfd9f93d37a6bb28a62d1f05d4921f96d85bf25ae95a5e15a",
+        "ttadapter": "a3dad50bffdf55637e74f00bd474e77833a111ac7f56caf9b35b670a9132b20d",
+        "bcmlir": "1c5ca068a9e045bcd7a51f58cec28828f95658cb018bd2249367ebd5f3b94053"
+      },
+      "npubin_sha256": "82042b4b41889e563d03ff717617a81b3eb9924b455880ecda6f92f3e0e0a750",
+      "same_ir_as_integrated": {
+        "ttir": false,
+        "ttadapter": false,
+        "bcmlir": false
+      },
+      "same_binary_as_integrated": false,
+      "same_ir_as_group4": {
+        "ttir": true,
+        "ttadapter": true,
+        "bcmlir": true
+      },
+      "same_binary_as_group4": false
+    }
+  },
+  "tail_checks": [
+    {
+      "rows": 5,
+      "remaining_queries": 1,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "query_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {},
+      "cube_reduce": false,
+      "zero_query_scales": false,
+      "signed_key_scales": false,
+      "zero_key_scales": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 5,
+      "remaining_queries": 1,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "query_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {
+        "multibuffer": false
+      },
+      "cube_reduce": false,
+      "zero_query_scales": false,
+      "signed_key_scales": false,
+      "zero_key_scales": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 6,
+      "remaining_queries": 2,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "query_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {},
+      "cube_reduce": false,
+      "zero_query_scales": false,
+      "signed_key_scales": false,
+      "zero_key_scales": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 6,
+      "remaining_queries": 2,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "query_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {
+        "multibuffer": false
+      },
+      "cube_reduce": false,
+      "zero_query_scales": false,
+      "signed_key_scales": false,
+      "zero_key_scales": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 7,
+      "remaining_queries": 3,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "query_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {},
+      "cube_reduce": false,
+      "zero_query_scales": false,
+      "signed_key_scales": false,
+      "zero_key_scales": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 3.814697265625e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 7,
+      "remaining_queries": 3,
+      "visibility_case": "mixed",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "query_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {
+        "multibuffer": false
+      },
+      "cube_reduce": false,
+      "zero_query_scales": false,
+      "signed_key_scales": false,
+      "zero_key_scales": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 3.814697265625e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 5,
+      "remaining_queries": 1,
+      "visibility_case": "empty_group",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "query_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {},
+      "cube_reduce": false,
+      "zero_query_scales": false,
+      "signed_key_scales": false,
+      "zero_key_scales": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    },
+    {
+      "rows": 5,
+      "remaining_queries": 1,
+      "visibility_case": "empty_group",
+      "different_maps_across_groups": true,
+      "scale_product": false,
+      "store_mode": 1,
+      "flat_query": true,
+      "query_left": true,
+      "late_key_scale": false,
+      "combine_query_weight": false,
+      "query_reuse": false,
+      "key_tiles_per_unit": 4,
+      "requested_buffer_options": {
+        "multibuffer": false
+      },
+      "cube_reduce": false,
+      "zero_query_scales": false,
+      "signed_key_scales": false,
+      "zero_key_scales": false,
+      "all_rows_cpu_checked": true,
+      "guard_rows_intact": true,
+      "max_abs_error": 7.62939453125e-06,
+      "shared_maps": {
+        "groups": 2,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      }
+    }
+  ],
+  "kernel_timer": {
+    "backend": "explicit CPU+NPU Chrome trace",
+    "warmup": 2,
+    "active": 3,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Instrumented exploratory kernel timing; rebuild all paired baselines",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "invocation_sum_check": {
+      "single": {
+        "kernel_us": 8711.880000000001,
+        "active_invocation_us": [
+          8710.12,
+          8714.5,
+          8711.02
+        ],
+        "device_task_count": 3,
+        "host_launch_count": 3,
+        "artifact": "int8_long100k-timer-01.json.gz"
+      },
+      "triple": {
+        "kernel_us": 26130.61333333333,
+        "active_invocation_us": [
+          26130.86,
+          26130.18,
+          26130.799999999996
+        ],
+        "device_task_count": 9,
+        "host_launch_count": 9,
+        "artifact": "int8_long100k-timer-02.json.gz"
+      },
+      "ratio": 2.9994230101118617
+    },
+    "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+    "prefix_plan_artifact": "int8_long100k-prefix-plan-01.json.gz"
+  },
+  "single_capture_plan": [
+    {
+      "round": 0,
+      "arm": "integrated_full",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "pack4_qk_g4",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "pack4_qk_g4_no_mb",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "integrated_full",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "pack4_qk_g4",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "pack4_qk_g4_no_mb",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "integrated_full",
+      "active": 2
+    },
+    {
+      "round": 0,
+      "arm": "pack4_qk_g4",
+      "active": 2
+    },
+    {
+      "round": 0,
+      "arm": "pack4_qk_g4_no_mb",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "pack4_qk_g4_no_mb",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "pack4_qk_g4",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "integrated_full",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "pack4_qk_g4_no_mb",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "pack4_qk_g4",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "integrated_full",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "pack4_qk_g4_no_mb",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "pack4_qk_g4",
+      "active": 2
+    },
+    {
+      "round": 1,
+      "arm": "integrated_full",
+      "active": 2
+    }
+  ],
+  "single_capture_counts": {
+    "expected_host_counts": {
+      "_quant_score_trial": 6,
+      "_qsa_qk_key_group_score": 12
+    },
+    "observed_host_counts": {
+      "_quant_score_trial": 6,
+      "_qsa_qk_key_group_score": 12
+    },
+    "tasks_per_window": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "expected_tasks_per_window": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "samples": {
+    "integrated_full": [
+      {
+        "kernel_us": 8709.960000000001,
+        "active_invocation_us": [
+          8710.22,
+          8709.36,
+          8710.3
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          0,
+          3,
+          6
+        ],
+        "device_task_count": 3
+      },
+      {
+        "kernel_us": 8710.58,
+        "active_invocation_us": [
+          8711.38,
+          8709.68,
+          8710.68
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          11,
+          14,
+          17
+        ],
+        "device_task_count": 3
+      }
+    ],
+    "pack4_qk_g4": [
+      {
+        "kernel_us": 2233.1066666666666,
+        "active_invocation_us": [
+          2233.1,
+          2232.62,
+          2233.6
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          1,
+          4,
+          7
+        ],
+        "device_task_count": 3
+      },
+      {
+        "kernel_us": 2231.2400000000002,
+        "active_invocation_us": [
+          2230.18,
+          2230.26,
+          2233.28
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          10,
+          13,
+          16
+        ],
+        "device_task_count": 3
+      }
+    ],
+    "pack4_qk_g4_no_mb": [
+      {
+        "kernel_us": 2281.7,
+        "active_invocation_us": [
+          2281.4,
+          2281.66,
+          2282.04
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          2,
+          5,
+          8
+        ],
+        "device_task_count": 3
+      },
+      {
+        "kernel_us": 2280.4066666666663,
+        "active_invocation_us": [
+          2279.84,
+          2280.66,
+          2280.72
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          9,
+          12,
+          15
+        ],
+        "device_task_count": 3
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "integrated_full",
+      "pack4_qk_g4",
+      "pack4_qk_g4_no_mb"
+    ],
+    [
+      "pack4_qk_g4_no_mb",
+      "pack4_qk_g4",
+      "integrated_full"
+    ]
+  ],
+  "postchecks": {
+    "integrated_full": {
+      "all_scores_checked": true,
+      "max_abs_error": 0.0,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack4_qk_g4": {
+      "all_scores_checked": true,
+      "max_abs_error": 7.62939453125e-06,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "pack4_qk_g4_no_mb": {
+      "all_scores_checked": true,
+      "max_abs_error": 7.62939453125e-06,
+      "cpu": {
+        "rows": 112,
+        "all_chunk_score_masks_checked": true,
+        "cpu_reference_rows": [
+          8176,
+          8232,
+          8287
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "latency": {
+    "integrated_full": {
+      "kernel_us": {
+        "median": 8710.27,
+        "min": 8709.960000000001,
+        "max": 8710.58,
+        "range_over_median": 7.118034228548384e-05
+      }
+    },
+    "pack4_qk_g4": {
+      "kernel_us": {
+        "median": 2232.173333333333,
+        "min": 2231.2400000000002,
+        "max": 2233.1066666666666,
+        "range_over_median": 0.000836255248994851
+      }
+    },
+    "pack4_qk_g4_no_mb": {
+      "kernel_us": {
+        "median": 2281.0533333333333,
+        "min": 2280.4066666666663,
+        "max": 2281.7,
+        "range_over_median": 0.0005669895194618515
+      }
+    }
+  },
+  "speedup_vs_integrated": {
+    "integrated_full": 1.0,
+    "pack4_qk_g4": 3.902147682676973,
+    "pack4_qk_g4_no_mb": 3.818529743568761
+  },
+  "packing_speedup_matched_formula": {
+    "pack4_qk_g4": 3.902147682676973,
+    "pack4_qk_g4_no_mb": 3.818529743568761
+  },
+  "buffering_speedup_vs_group4": {
+    "pack4_qk_g4": 1.0,
+    "pack4_qk_g4_no_mb": 0.9785713033160118
+  },
+  "sources": {
+    "probe_qsa_int8_query_pack4_910b.py": "bddcfc8dadcb1bf30ad6b28c8b1ace74fcd5c6c7bc2227fc4d08258e81770f22",
+    "qsa_int8_query_pack4_910b.py": "f1db8b7ea94683a277322cef2d830d8055a55abc909d2e3cc67ae8f7c1f9f39f",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_prefix_builder_910b.py": "262a6f6cfed5da1461a465e6793f038e1d630895047b1d0cf5194b5420efd228",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "qsa_int8_stage_trace_timer_910b.py": "e5eb0014537e1ea4f20cbed9e9ae14b8558bc6778305a055e3c3925fea6bec83",
+    "qsa_int8_full_scale_audit_910b.py": "eff050aaa454a0a5b00873a9723826c6398e73403235291c108d5c8d01b4b386"
+  },
+  "exit_code": 0
+}
