@@ -296,3 +296,46 @@ arithmetic mean only if all requested cases pass. It is not the older legacy
 integrated ratio, full-prefill or TopK/native benchmark. Two rounds, warmup2,
 active3 per arm; compile/check/time/upload are still one command. Candidate
 promotion and full-entry measurements require subsequent validation.
+
+## Sixth probe: existing buffering/preload options on group4
+
+Full-input dispatch report db4b904b1fd2aa809d892eaaf851ea49b4991d42 passed;
+paired full-score speedup vs QK mean1.061x, compact remains the original QK.
+Keep the validated group4 kernel body and FP32 formula unchanged for this probe.
+
+| Arm | Existing kernel launch options |
+| --- | --- |
+| pack4_qk_g4 | Unchanged defaults; recorded multibuffer=True |
+| pack4_qk_g4_no_mb | multibuffer=False only |
+| pack4_qk_g4_preload | enable_preload=True only |
+
+Use --buffering. integrated_full is retained only as a reference/calibration
+context; the primary ratios compare these three identical group4 algorithms.
+The current backend already requests automatic buffering, so enabling it again
+is not a new optimization. Do not claim num_stages changes add a new pipeline.
+No manually allocated double-buffer or compiler implementation patch is added.
+This first diagnostic asks whether existing buffering and preload materially
+change generated code/resources/performance before a manual source rewrite.
+
+Official FlagTree source inspected via GitHub API on branch
+0.7.0-rc2-triton3.5, third_party/ascend/backend/compiler.py, maps multibuffer=False
+to --enable-auto-multi-buffer=False and enable_preload to --enable-preload.
+That branch is not assumed source-identical to the installed wheel. The run
+therefore records the installed compiler module path/hash and relevant source
+excerpts, and requires each requested option to appear in kernel metadata.
+All input shapes, map guards, grid20/N128/warps4, KEY_TILES4, math, output stores
+and work ordering remain fixed. No QS/W or KS reassociation is composed.
+
+Export source/IR/metadata/binary hashes, and normalized IR/binary comparison
+against group4 rather than interpreting a changed flag alone as overlap.
+Metadata is a requested compiler configuration, not proof of a particular
+buffer allocation or actual DMA/Cube concurrency. Backend internal fallbacks
+may affect realization; timing and artifacts must be interpreted together.
+
+All main outputs and masks compare to existing FP32 scores and CPU samples;
+all three options also execute n5/6/7 and empty-group guarded checks with signed
+QS/weights, shuffled maps and nonmonotonic visibility. Same exact one-dot/store,
+seven-load and FP32 reduction gates. One command compiles, checks, captures two
+rounds interleaved, prints BUFFERING_SPEEDUP_VS_GROUP4 and uploads logs.
+No production/TopK changes or full-entry/native speedup claims. A failed option
+is reported, not silently replaced or subjected to a weaker accuracy/timing gate.

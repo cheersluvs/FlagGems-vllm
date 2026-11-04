@@ -47,45 +47,53 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        (
-            ("integrated_full", "pack4_qk", "pack4_qk_g4")
-            if args.ten_shapes
-            else (
-                "integrated_full",
-                "pack4_qk",
-                "pack4_qk_g2",
-                "pack4_qk_g4",
-                "pack4_qk_g16",
-            )
-        )
-        if args.key_groups
+        ("integrated_full", "pack4_qk_g4", "pack4_qk_g4_no_mb", "pack4_qk_g4_preload")
+        if args.buffering
         else (
-            ("integrated_full", "pack4_qk", "pack4_qk_n64", "pack4_qk_cube")
-            if args.cube_reduce
-            else (
-                ("integrated_full", "pack4_qk", "pack4_qk_reuse")
-                if args.query_reuse
+            (
+                ("integrated_full", "pack4_qk", "pack4_qk_g4")
+                if args.ten_shapes
                 else (
-                    ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
-                    if args.combine_query_weight
+                    "integrated_full",
+                    "pack4_qk",
+                    "pack4_qk_g2",
+                    "pack4_qk_g4",
+                    "pack4_qk_g16",
+                )
+            )
+            if args.key_groups
+            else (
+                ("integrated_full", "pack4_qk", "pack4_qk_n64", "pack4_qk_cube")
+                if args.cube_reduce
+                else (
+                    ("integrated_full", "pack4_qk", "pack4_qk_reuse")
+                    if args.query_reuse
                     else (
-                        ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
-                        if args.late_key_scale
+                        ("integrated_full", "pack4_qk", "pack4_qk_query_weight")
+                        if args.combine_query_weight
                         else (
-                            ("integrated_full", "pack4_flat_q", "pack4_qk")
-                            if args.qk_direction
+                            ("integrated_full", "pack4_qk", "pack4_qk_late_ks")
+                            if args.late_key_scale
                             else (
-                                ("integrated_full", "pack4_transpose", "pack4_flat_q")
-                                if args.flat_query
+                                ("integrated_full", "pack4_flat_q", "pack4_qk")
+                                if args.qk_direction
                                 else (
                                     (
                                         "integrated_full",
-                                        "pack4",
                                         "pack4_transpose",
-                                        "pack4_rows",
+                                        "pack4_flat_q",
                                     )
-                                    if args.postprocess
-                                    else ARMS
+                                    if args.flat_query
+                                    else (
+                                        (
+                                            "integrated_full",
+                                            "pack4",
+                                            "pack4_transpose",
+                                            "pack4_rows",
+                                        )
+                                        if args.postprocess
+                                        else ARMS
+                                    )
                                 )
                             )
                         )
@@ -106,6 +114,12 @@ def run_case(args):
         "pack4_qk_n64": 1,
     }
     key_groups = {"pack4_qk_g2": 2, "pack4_qk_g4": 4, "pack4_qk_g16": 16}
+    key_groups.update(pack4_qk_g4_no_mb=4, pack4_qk_g4_preload=4)
+    buffer_options = {
+        "pack4_qk_g4": {},
+        "pack4_qk_g4_no_mb": {"multibuffer": False},
+        "pack4_qk_g4_preload": {"enable_preload": True},
+    }
     expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
     try:
@@ -132,6 +146,34 @@ def run_case(args):
         )
         from qsa_int8_selection_910b_trial import PreparedInt8Selection
 
+        if args.buffering:
+            import importlib
+
+            backend = importlib.import_module("triton.backends.ascend.compiler")
+            backend_path = Path(backend.__file__)
+            backend_source = backend_path.read_text()
+            lines = backend_source.splitlines()
+            selected = set()
+            for index, line in enumerate(lines):
+                if any(
+                    key in line
+                    for key in (
+                        "multibuffer",
+                        "enable_preload",
+                        "enable-auto-multi-buffer",
+                        "enable-preload",
+                    )
+                ):
+                    selected.update(
+                        range(max(0, index - 2), min(len(lines), index + 4))
+                    )
+            excerpt = "\n".join(f"{i+1}: {lines[i]}" for i in sorted(selected))
+            (report / f"{args.case}-backend-buffer-options.txt").write_text(excerpt)
+            result["buffering_backend_audit"] = dict(
+                source=str(backend_path),
+                sha256=hashlib.sha256(backend_source.encode()).hexdigest(),
+                excerpt=f"{args.case}-backend-buffer-options.txt",
+            )
         result["environment"] = dict(
             python=sys.executable,
             torch=torch.__version__,
@@ -270,6 +312,7 @@ def run_case(args):
                     BLOCK_N=128,
                     KEY_TILES=group_tiles,
                     num_warps=4,
+                    **buffer_options.get(name, {}),
                 )
             if name == "pack4_qk_reuse":
                 return _qsa_qk_group_reuse_score[(min(20, triton.cdiv(count, 4)),)](
@@ -322,6 +365,19 @@ def run_case(args):
         result["prechecks"] = {}
         for name in arms:
             kernel = launch(name, targets[name])
+            if args.buffering and name in buffer_options:
+                for option, wanted in buffer_options[name].items():
+                    if getattr(kernel.metadata, option, None) != wanted:
+                        raise AssertionError(
+                            f"Compiler option not reflected in metadata: {name}, {option}"
+                        )
+                if (
+                    name == "pack4_qk_g4"
+                    and getattr(kernel.metadata, "multibuffer", None) is not True
+                ):
+                    raise AssertionError(
+                        "Default group4 did not retain auto-multibuffer"
+                    )
             ir = kernel.asm["ttir"]
             dots = len(re.findall(r"\btt\.dot\b", ir))
             stores = len(re.findall(r"\btt\.store\b", ir))
@@ -380,11 +436,12 @@ def run_case(args):
                         for line in ir.splitlines()
                         if "scf.for " in line or "tt.load " in line
                     ]
-                    if args.query_reuse or args.key_groups
+                    if args.query_reuse or args.key_groups or args.buffering
                     else []
                 ),
                 query_group_reuse=name == "pack4_qk_reuse",
                 key_tiles_per_unit=key_groups.get(name),
+                requested_buffer_options=buffer_options.get(name, {}),
                 padded_key_tiles=(
                     (
                         triton.cdiv(triton.cdiv(width, 128), key_groups[name])
@@ -449,6 +506,24 @@ def run_case(args):
         result["artifact_comparison"] = audit_full_scales(
             report, args.case, arms, result["compiler"], expected_loads=expected_loads
         )
+        if args.buffering:
+            control_hashes = result["artifact_comparison"]["pack4_qk_g4"][
+                "location_stripped_ir_sha256"
+            ]
+            for name in buffer_options:
+                record = result["artifact_comparison"][name]
+                record["same_ir_as_group4"] = {
+                    key: value == control_hashes.get(key)
+                    for key, value in record["location_stripped_ir_sha256"].items()
+                }
+                record["same_binary_as_group4"] = (
+                    (
+                        record["npubin_sha256"]
+                        == result["artifact_comparison"]["pack4_qk_g4"]["npubin_sha256"]
+                    )
+                    if record["npubin_sha256"]
+                    else None
+                )
         (report / f"{args.case}-query-pack4-source.txt").write_text(
             Path(__file__).with_name("qsa_int8_query_pack4_910b.py").read_text()
         )
@@ -487,7 +562,7 @@ def run_case(args):
                 small["qs"][:, ::2] = 0
                 small["ks"] = small["ks"].clone()
                 small["ks"].view(-1)[::192] = 0
-            if args.query_reuse or args.key_groups:
+            if args.query_reuse or args.key_groups or args.buffering:
                 small["qs"] = small["qs"].clone()
                 small["qs"][:, ::2] *= -1
             if args.combine_query_weight:
@@ -542,6 +617,12 @@ def run_case(args):
                     (False, 1, True, True, False, False, False, False, g)
                     for g in ((0, 4) if args.ten_shapes else (0, 2, 4, 16))
                 ]
+            tail_variants = [(*variant, "pack4_qk_g4") for variant in tail_variants]
+            if args.buffering:
+                tail_variants = [
+                    (False, 1, True, True, False, False, False, False, 4, mode)
+                    for mode in buffer_options
+                ]
             for (
                 product,
                 store_mode,
@@ -552,6 +633,7 @@ def run_case(args):
                 query_reuse,
                 cube_reduce,
                 group_tiles,
+                buffer_mode,
             ) in tail_variants:
                 guarded = torch.full(
                     (n + 4, 256), 12345.0, device=scratch.device, dtype=torch.float32
@@ -574,6 +656,7 @@ def run_case(args):
                         BLOCK_N=128,
                         KEY_TILES=group_tiles,
                         num_warps=4,
+                        **buffer_options[buffer_mode],
                     )
                 elif query_reuse:
                     _qsa_qk_group_reuse_score[(min(20, triton.cdiv(n, 4)),)](
@@ -647,6 +730,7 @@ def run_case(args):
                         combine_query_weight=combine_query_weight,
                         query_reuse=query_reuse,
                         key_tiles_per_unit=group_tiles,
+                        requested_buffer_options=buffer_options[buffer_mode],
                         cube_reduce=cube_reduce,
                         zero_query_scales=args.combine_query_weight or args.cube_reduce,
                         signed_key_scales=args.combine_query_weight,
@@ -814,6 +898,15 @@ def run_case(args):
             for name in arms
             if name.startswith("pack4")
         }
+        if args.buffering:
+            result["buffering_speedup_vs_group4"] = {
+                name: medians["pack4_qk_g4"] / medians[name] for name in buffer_options
+            }
+            print(
+                "BUFFERING_SPEEDUP_VS_GROUP4",
+                json.dumps(result["buffering_speedup_vs_group4"]),
+                flush=True,
+            )
         if args.key_groups:
             result["key_group_speedup_vs_qk"] = {
                 name: medians["pack4_qk"] / medians[name]
@@ -944,6 +1037,11 @@ def main():
     parser.add_argument("--timeout", type=int, default=1200)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument(
+        "--buffering",
+        action="store_true",
+        help="Group4 default vs auto-multibuffer off vs preload on",
+    )
+    modes.add_argument(
         "--key-groups",
         action="store_true",
         help="Group 2/4/16 N128 key tiles per scheduled unit with local Q reuse",
@@ -1037,6 +1135,8 @@ def main():
             command.append("--cube-reduce")
         if args.key_groups:
             command.append("--key-groups")
+        if args.buffering:
+            command.append("--buffering")
         if args.ten_shapes:
             command.append("--ten-shapes")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
