@@ -273,3 +273,26 @@ KEY_GROUP_SPEEDUP_VS_QK values; no production/TopK/compiler change. These are
 three bounded diagnostic configurations, not hardcoded production dispatch
 or a claim of native-equivalent scheduling. The same fixed-config diagnostic
 autotuning exemption applies. Pipeline changes are reserved for a later probe.
+
+### Four-tile ten-workload regression
+
+Report 07c49cf054a74c8edae9117645a652d5595232aa passed all two-case checks.
+The g4 candidate measured1.1746x/1.0498x vs current QK, outperforming g2/g16
+on both cases. Extend with --key-groups --ten-shapes: only integrated_full,
+pack4_qk and pack4_qk_g4 remain timed, limiting cold compilation and duration.
+The scorer kernel is unchanged from the measured candidate.
+
+All ten migrated INT8 workloads retain their own widths, mappings and chunk
+sizes. Main timing remains representative middle chunks. Synthetic guarded
+tail tests compare control with g4 only. Real first/last chunks execute g4,
+not an accidental plain QK substitute. At the first real request boundary,
+a failing map/owner guard routes to the original scorer, recorded explicitly.
+The unequal-map rejection check remains. This is probe-level fallback testing,
+not production dispatch. Signed scales/weights and masked key-block padding
+remain supported by the FP32 formula. Original strict score/IR gates remain.
+
+The terminal table compares g4 directly with current pack4_qk and prints the
+arithmetic mean only if all requested cases pass. It is not the older legacy
+integrated ratio, full-prefill or TopK/native benchmark. Two rounds, warmup2,
+active3 per arm; compile/check/time/upload are still one command. Candidate
+promotion and full-entry measurements require subsequent validation.

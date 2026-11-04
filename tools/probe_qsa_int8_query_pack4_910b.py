@@ -47,7 +47,17 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 def run_case(args):
     report = Path(args.report)
     arms = (
-        ("integrated_full", "pack4_qk", "pack4_qk_g2", "pack4_qk_g4", "pack4_qk_g16")
+        (
+            ("integrated_full", "pack4_qk", "pack4_qk_g4")
+            if args.ten_shapes
+            else (
+                "integrated_full",
+                "pack4_qk",
+                "pack4_qk_g2",
+                "pack4_qk_g4",
+                "pack4_qk_g16",
+            )
+        )
         if args.key_groups
         else (
             ("integrated_full", "pack4_qk", "pack4_qk_n64", "pack4_qk_cube")
@@ -530,7 +540,7 @@ def run_case(args):
             if args.key_groups:
                 tail_variants = [
                     (False, 1, True, True, False, False, False, False, g)
-                    for g in (0, 2, 4, 16)
+                    for g in ((0, 4) if args.ten_shapes else (0, 2, 4, 16))
                 ]
             for (
                 product,
@@ -681,29 +691,50 @@ def run_case(args):
                     route, proof = "integrated_fallback", {"reason": str(error)}
                     adapter.score_into(start, n, target)
                 else:
-                    route = "qk_shared_map"
-                    _qsa_query_pack4_score[
-                        (min(20, triton.cdiv(n, 4) * triton.cdiv(width, 128)),)
-                    ](
-                        values["q"][start : start + n],
-                        values["cache"],
-                        values["qs"][start : start + n],
-                        values["ks"],
-                        values["weights"][start : start + n],
-                        values["row_table"][start : start + n],
-                        values["visible"][start : start + n],
-                        target,
-                        ROWS=n,
-                        COLUMNS=values["row_table"].shape[1],
-                        WIDTH=width,
-                        PAGE=192,
-                        BLOCK_N=128,
-                        SCALE_PRODUCT=False,
-                        STORE_MODE=1,
-                        FLAT_QUERY=True,
-                        QUERY_LEFT=True,
-                        num_warps=4,
-                    )
+                    if args.key_groups:
+                        route = "qk_group4_shared_map"
+                        blocks = triton.cdiv(triton.cdiv(width, 128), 4)
+                        _qsa_qk_key_group_score[(min(20, triton.cdiv(n, 4) * blocks),)](
+                            values["q"][start : start + n],
+                            values["cache"],
+                            values["qs"][start : start + n],
+                            values["ks"],
+                            values["weights"][start : start + n],
+                            values["row_table"][start : start + n],
+                            values["visible"][start : start + n],
+                            target,
+                            ROWS=n,
+                            COLUMNS=values["row_table"].shape[1],
+                            WIDTH=width,
+                            PAGE=192,
+                            BLOCK_N=128,
+                            KEY_TILES=4,
+                            num_warps=4,
+                        )
+                    else:
+                        route = "qk_shared_map"
+                        _qsa_query_pack4_score[
+                            (min(20, triton.cdiv(n, 4) * triton.cdiv(width, 128)),)
+                        ](
+                            values["q"][start : start + n],
+                            values["cache"],
+                            values["qs"][start : start + n],
+                            values["ks"],
+                            values["weights"][start : start + n],
+                            values["row_table"][start : start + n],
+                            values["visible"][start : start + n],
+                            target,
+                            ROWS=n,
+                            COLUMNS=values["row_table"].shape[1],
+                            WIDTH=width,
+                            PAGE=192,
+                            BLOCK_N=128,
+                            SCALE_PRODUCT=False,
+                            STORE_MODE=1,
+                            FLAT_QUERY=True,
+                            QUERY_LEFT=True,
+                            num_warps=4,
+                        )
                 actual, reference_scores = target.cpu(), expected.cpu()
                 if not torch.allclose(actual, reference_scores, rtol=1e-3, atol=1e-3):
                     raise AssertionError(
@@ -785,7 +816,9 @@ def run_case(args):
         }
         if args.key_groups:
             result["key_group_speedup_vs_qk"] = {
-                name: medians["pack4_qk"] / medians[name] for name in key_groups
+                name: medians["pack4_qk"] / medians[name]
+                for name in key_groups
+                if name in medians
             }
             print(
                 "KEY_GROUP_SPEEDUP_VS_QK",
@@ -960,8 +993,8 @@ def main():
     args = parser.parse_args()
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations and timeout required")
-    if args.ten_shapes and not args.qk_direction:
-        parser.error("--ten-shapes requires --qk-direction")
+    if args.ten_shapes and not (args.qk_direction or args.key_groups):
+        parser.error("--ten-shapes requires --qk-direction or --key-groups")
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     if args.case:
@@ -1036,19 +1069,22 @@ def main():
         )
     )
     if args.ten_shapes:
+        control = "pack4_qk" if args.key_groups else "integrated_full"
+        candidate = "pack4_qk_g4" if args.key_groups else "pack4_qk"
         print(
-            "case                           integrated_us       qk_us   score_speedup",
+            f"case                           {control}_us   {candidate}_us   score_speedup",
             flush=True,
         )
         ratios = []
         for entry in entries:
             if entry["status"] == "passed":
                 latency = entry["latency"]
-                ratio = entry["speedup_vs_integrated"]["pack4_qk"]
+                base_us = latency[control]["kernel_us"]["median"]
+                candidate_us = latency[candidate]["kernel_us"]["median"]
+                ratio = base_us / candidate_us
                 ratios.append(ratio)
                 print(
-                    f"{entry['case']:30} {latency['integrated_full']['kernel_us']['median']:12.3f} "
-                    f"{latency['pack4_qk']['kernel_us']['median']:12.3f} {ratio:12.4f}",
+                    f"{entry['case']:30} {base_us:12.3f} {candidate_us:12.3f} {ratio:12.4f}",
                     flush=True,
                 )
             else:
