@@ -74,6 +74,7 @@ def _qsa_query_pack4_score(
     FLAT_QUERY: tl.constexpr = False,
     QUERY_LEFT: tl.constexpr = False,
     LATE_KEY_SCALE: tl.constexpr = False,
+    COMBINE_QUERY_WEIGHT: tl.constexpr = False,
 ):
     tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
     groups: tl.constexpr = triton.cdiv(ROWS, 4)
@@ -122,16 +123,26 @@ def _qsa_query_pack4_score(
             Weights + query_rows * 4 + heads, mask=query_rows < ROWS, other=0
         ).to(tl.float32)
         if QUERY_LEFT:
-            if LATE_KEY_SCALE:
-                # Caller proves finite nonnegative key scales before this probe.
-                dequant = dot.to(tl.float32) * query_scale[:, None]
-            elif SCALE_PRODUCT:
-                dequant = dot.to(tl.float32) * (
-                    query_scale[:, None] * key_scale[None, :]
+            if COMBINE_QUERY_WEIGHT:
+                # Caller proves finite nonnegative query scales for reassociation.
+                coefficient = query_scale * weights
+                weighted = (
+                    tl.maximum(dot.to(tl.float32) * key_scale[None, :], 0.0)
+                    * coefficient[:, None]
                 )
             else:
-                dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
-            weighted = tl.maximum(dequant, 0.0) * weights[:, None]
+                if LATE_KEY_SCALE:
+                    # Caller proves finite nonnegative key scales before this probe.
+                    dequant = dot.to(tl.float32) * query_scale[:, None]
+                elif SCALE_PRODUCT:
+                    dequant = dot.to(tl.float32) * (
+                        query_scale[:, None] * key_scale[None, :]
+                    )
+                else:
+                    dequant = (
+                        dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+                    )
+                weighted = tl.maximum(dequant, 0.0) * weights[:, None]
             scores = tl.sum(tl.reshape(weighted, (4, 4, BLOCK_N)), axis=1)
             if LATE_KEY_SCALE:
                 scores = scores * key_scale[None, :]
