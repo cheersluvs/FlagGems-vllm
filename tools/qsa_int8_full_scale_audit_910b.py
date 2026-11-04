@@ -60,10 +60,10 @@ def strip_locations(text):
     return " ".join("".join(output).split())
 
 
-def audit_full_scales(report, case, arms, compiler):
+def audit_full_scales(report, case, arms, compiler, expected_loads=None):
     result = {}
     for name in arms:
-        if compiler[name]["load_count"] != 7:
+        if compiler[name]["load_count"] != (expected_loads or {}).get(name, 7):
             raise AssertionError(f"Full score load count changed: {name}")
         hashes = {}
         for key in ("ttir", "ttadapter", "bcmlir"):

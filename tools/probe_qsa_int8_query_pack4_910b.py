@@ -46,6 +46,13 @@ ARMS = ("integrated_full", "scale_product", "pack4", "pack4_product")
 
 def run_case(args):
     report = Path(args.report)
+    arms = (
+        ("integrated_full", "pack4", "pack4_transpose", "pack4_rows")
+        if args.postprocess
+        else ARMS
+    )
+    store_modes = {"pack4_transpose": 1, "pack4_rows": 2}
+    expected_loads = {"pack4_rows": 11}
     result, code = dict(case=args.case, status="failed"), 1
     try:
         import torch
@@ -104,7 +111,7 @@ def run_case(args):
         )
         adapter = PreparedInt8Selection(values, output, scratch, workspace, None)
         product_kernel = load_prefix(report, args.case, "scale_product")
-        targets = {name: torch.empty_like(scratch) for name in ARMS}
+        targets = {name: torch.empty_like(scratch) for name in arms}
         result["geometry"] = dict(
             first=first,
             count=count,
@@ -164,13 +171,14 @@ def run_case(args):
                 PAGE=192,
                 BLOCK_N=128,
                 SCALE_PRODUCT=name == "pack4_product",
+                STORE_MODE=store_modes.get(name, 0),
                 num_warps=4,
             )
 
         result["stage"] = "compile_and_validate"
         result["compiler"] = {}
         result["prechecks"] = {}
-        for name in ARMS:
+        for name in arms:
             kernel = launch(name, targets[name])
             result["prechecks"][name] = check_chunk(
                 inputs, targets[name].cpu(), first, count
@@ -179,7 +187,11 @@ def run_case(args):
             dots = len(re.findall(r"\btt\.dot\b", ir))
             stores = len(re.findall(r"\btt\.store\b", ir))
             loads = len(re.findall(r"\btt\.load\b", ir))
-            if (dots, stores, loads) != (1, 1, 7):
+            if (dots, stores, loads) != (
+                1,
+                4 if name == "pack4_rows" else 1,
+                expected_loads.get(name, 7),
+            ):
                 raise AssertionError(
                     f"Unexpected packed-score IR: {name}, {dots,stores,loads}"
                 )
@@ -194,7 +206,7 @@ def run_case(args):
             )
             # A packed group also reduces four INT32 visibility values by max.
             if (
-                reductions.count("f32") != 1
+                reductions.count("f32") != (4 if name == "pack4_rows" else 1)
                 or reductions.count("i32") > 1
                 or "mix_mode='mix'" not in repr(kernel.metadata)
             ):
@@ -207,6 +219,14 @@ def run_case(args):
                 store_count=stores,
                 load_count=loads,
                 reduction_element_types=reductions,
+                store_mode=(
+                    store_modes.get(name, 0) if name.startswith("pack4") else None
+                ),
+                lowering_lines=[
+                    line.strip()
+                    for line in kernel.asm["bcmlir"].splitlines()
+                    if "linalg.reduce " in line or "linalg.transpose " in line
+                ],
                 metadata=repr(kernel.metadata),
                 npubin_sha256=(
                     hashlib.sha256(bytes(binary)).hexdigest()
@@ -214,6 +234,7 @@ def run_case(args):
                     else None
                 ),
             )
+        print("QUERY_PACK4_LOWERING", json.dumps(result["compiler"]), flush=True)
         baseline = targets["integrated_full"].cpu()
 
         def check_score(name):
@@ -227,10 +248,10 @@ def run_case(args):
                 cpu=check_chunk(inputs, actual, first, count),
             )
 
-        for name in ARMS:
+        for name in arms:
             result["prechecks"][name] = check_score(name)
         result["artifact_comparison"] = audit_full_scales(
-            report, args.case, ARMS, result["compiler"]
+            report, args.case, arms, result["compiler"], expected_loads=expected_loads
         )
         (report / f"{args.case}-query-pack4-source.txt").write_text(
             Path(__file__).with_name("qsa_int8_query_pack4_910b.py").read_text()
@@ -265,7 +286,12 @@ def run_case(args):
                 for key in ("q", "qs", "weights", "row_table", "visible")
             }
             refs = {row: reference(small, row)[1] for row in range(n)}
-            for product in (False, True):
+            tail_variants = (
+                [(False, mode) for mode in (0, 1, 2)]
+                if args.postprocess
+                else [(False, 0), (True, 0)]
+            )
+            for product, store_mode in tail_variants:
                 guarded = torch.full(
                     (n + 4, 256), 12345.0, device=scratch.device, dtype=torch.float32
                 )
@@ -284,6 +310,7 @@ def run_case(args):
                     PAGE=192,
                     BLOCK_N=128,
                     SCALE_PRODUCT=product,
+                    STORE_MODE=store_mode,
                     num_warps=4,
                 )
                 cpu = guarded.cpu()
@@ -310,6 +337,7 @@ def run_case(args):
                         visibility_case=visibility_case,
                         different_maps_across_groups=True,
                         scale_product=product,
+                        store_mode=store_mode,
                         all_rows_cpu_checked=True,
                         guard_rows_intact=True,
                         max_abs_error=maximum,
@@ -335,12 +363,12 @@ def run_case(args):
                     else "_quant_score_trial"
                 ): 1
             }
-            for name in ARMS
+            for name in arms
         }
         result["samples"], result["measurement_order"] = measure_prefix_plan(
-            args, ARMS, launch, targets, torch, result, expected_hosts=expected_hosts
+            args, arms, launch, targets, torch, result, expected_hosts=expected_hosts
         )
-        result["postchecks"] = {name: check_score(name) for name in ARMS}
+        result["postchecks"] = {name: check_score(name) for name in arms}
         result["latency"] = {
             name: aggregate(samples) for name, samples in result["samples"].items()
         }
@@ -351,12 +379,27 @@ def run_case(args):
         result["speedup_vs_integrated"] = {
             name: medians["integrated_full"] / value for name, value in medians.items()
         }
-        result["packing_speedup_matched_formula"] = dict(
-            pack4=medians["integrated_full"] / medians["pack4"],
-            pack4_product=medians["scale_product"] / medians["pack4_product"],
-        )
+        result["packing_speedup_matched_formula"] = {
+            name: medians[
+                "scale_product" if name == "pack4_product" else "integrated_full"
+            ]
+            / medians[name]
+            for name in arms
+            if name.startswith("pack4")
+        }
+        if args.postprocess:
+            result["speedup_vs_pack4"] = {
+                name: medians["pack4"] / medians[name]
+                for name in arms
+                if name.startswith("pack4")
+            }
+            print(
+                "POSTPROCESS_SPEEDUP_VS_PACK4",
+                json.dumps(result["speedup_vs_pack4"]),
+                flush=True,
+            )
         print("arm                      chunk_us   speedup_vs_integrated", flush=True)
-        for name in ARMS:
+        for name in arms:
             print(
                 f"{name:24} {medians[name]:12.3f} {result['speedup_vs_integrated'][name]:10.4f}",
                 flush=True,
@@ -381,6 +424,7 @@ def run_case(args):
             "qsa_int8_prefix_builder_910b.py",
             "qsa_int8_prefix_plan_timer_910b.py",
             "qsa_int8_stage_trace_timer_910b.py",
+            "qsa_int8_full_scale_audit_910b.py",
         )
     }
     result["exit_code"] = code
@@ -398,6 +442,11 @@ def main():
     parser.add_argument("--kernel-warmup", type=int, default=2)
     parser.add_argument("--kernel-active", type=int, default=3)
     parser.add_argument("--timeout", type=int, default=1200)
+    parser.add_argument(
+        "--postprocess",
+        action="store_true",
+        help="Compare packed reduction/store layouts only",
+    )
     parser.add_argument("--case", choices=CASES)
     parser.add_argument("--cases", nargs="+", choices=CASES)
     args = parser.parse_args()
@@ -429,6 +478,8 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
+        if args.postprocess:
+            command.append("--postprocess")
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())

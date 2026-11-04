@@ -70,6 +70,7 @@ def _qsa_query_pack4_score(
     PAGE: tl.constexpr,
     BLOCK_N: tl.constexpr,
     SCALE_PRODUCT: tl.constexpr,
+    STORE_MODE: tl.constexpr = 0,
 ):
     tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
     groups: tl.constexpr = triton.cdiv(ROWS, 4)
@@ -110,10 +111,38 @@ def _qsa_query_pack4_score(
         else:
             dequant = dot.to(tl.float32) * query_scale[None, :] * key_scale[:, None]
         weighted = tl.maximum(dequant, 0.0) * weights[None, :]
-        scores = tl.sum(tl.reshape(weighted, (BLOCK_N, 4, 4)), axis=2)
-        live = (columns[:, None] < WIDTH) & (columns[:, None] < visible[None, :])
-        tl.store(
-            Out + rows[None, :] * WIDTH + columns[:, None],
-            tl.where(live, scores, -float("inf")),
-            mask=(columns[:, None] < WIDTH) & (rows[None, :] < ROWS),
-        )
+        if STORE_MODE == 2:
+            # Keep four independent FP32 reductions and contiguous output rows.
+            for local in tl.static_range(4):
+                scores = tl.sum(
+                    tl.where(lanes[None, :] // 4 == local, weighted, 0.0), axis=1
+                )
+                row = base + local
+                row_visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+                live = (columns < WIDTH) & (columns < row_visible)
+                tl.store(
+                    Out + row * WIDTH + columns,
+                    tl.where(live, scores, -float("inf")),
+                    mask=(columns < WIDTH) & (row < ROWS),
+                )
+        else:
+            scores = tl.sum(tl.reshape(weighted, (BLOCK_N, 4, 4)), axis=2)
+            if STORE_MODE == 1:
+                scores = tl.trans(scores)
+                live = (columns[None, :] < WIDTH) & (
+                    columns[None, :] < visible[:, None]
+                )
+                tl.store(
+                    Out + rows[:, None] * WIDTH + columns[None, :],
+                    tl.where(live, scores, -float("inf")),
+                    mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
+                )
+            else:
+                live = (columns[:, None] < WIDTH) & (
+                    columns[:, None] < visible[None, :]
+                )
+                tl.store(
+                    Out + rows[None, :] * WIDTH + columns[:, None],
+                    tl.where(live, scores, -float("inf")),
+                    mask=(columns[:, None] < WIDTH) & (rows[None, :] < ROWS),
+                )

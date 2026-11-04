@@ -103,3 +103,43 @@ nonmonotonic visibility, signed weights and both associations; lint/syntax and
 the two-case missing-dependency report path. These prove host/algebra checks,
 not NPU compilation or lowering. Device compilation, numerical references,
 guard rows and timings must pass the card run before considering the candidate.
+
+## Follow-up: isolate packed postprocessing
+
+Report a109a6921f3e7bc8b7cf0d40648ab0bf8987b9ed passed correctness but
+rejected the packed implementation: budget_exact was 15.177ms versus 2.301ms
+for the integrated chunk, and long100k was 48.004ms versus 8.709ms.
+Its lowering added a [128,4,4] FP32 reduction and [128,4] to [4,128]
+transpose, with workspace increasing from 98304 to 133184 bytes. These are
+candidate-specific observations; they do not prove a particular instruction
+is responsible for the integrated score's bottleneck.
+
+Use `--postprocess` to replace the scale-order comparison with these four arms:
+
+| Arm | Postprocessing | Expected TTIR dot/store/load counts |
+| --- | --- | --- |
+| integrated_full | Current single-query integrated control | 1/1/7 |
+| pack4 | Original 3D reduction, mask then strided store | 1/1/7 |
+| pack4_transpose | Same 3D reduction, explicit transpose before mask, contiguous key dimension | 1/1/7 |
+| pack4_rows | Four masked 1D FP32 reductions over 16 lanes, four contiguous row stores | 1/4/11 |
+
+All packed arms preserve the same K sharing, INT8 dot, launch geometry and
+original `(dot_fp32 * QS) * KS` association. The row variant loads each
+query's visibility separately in addition to the group max load. Its four
+reductions include zeroed lanes from the other queries; this is a complete
+equivalent alternative, not a measurement of one isolated stage. Explicit
+transpose can lower identically to the original; normalized IR comparison
+and measured times determine whether it changes anything.
+
+The same run exports source/IR/binary hashes, prints lowering lines and
+metadata, checks all main-chunk outputs, then times all four arms in the
+same interleaved trace. Tail/mapping/empty-group/signed-weight checks run
+for all three store modes with the original scale order only. FP32 reduction
+count must be four for pack4_rows and one otherwise; visibility max may add
+one INT32 reduction. Artifact auditing retains the seven-load gate by default
+for existing probes, with an explicit eleven-load expectation for pack4_rows.
+
+Two cases, two rounds, two warmups and three active samples are the default.
+Print both integrated-relative speedups and packed-control-relative speedups.
+No production entry, TopK implementation or compiler is changed. Reject any
+candidate that fails compilation, numerical comparisons or guarded tail stores.
