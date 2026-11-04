@@ -536,3 +536,38 @@ middle chunks for two interleaved rounds, warmup2/active3, print each control
 and candidate latency plus their arithmetic mean speedup. These measurements
 exclude TopK and do not represent full-prefill or combined-operator speedup.
 No production, integrated dispatch, TopK or compiler changes in this step.
+
+### Restricted single-page dispatch integration
+
+Independent report 117fe89a78dcbf43f87eb38a64eed55f972d1fee confirmed scoring
+ratios versus current dispatch: first_chunk0.877x, budget_exact1.078x,
+compact1.015x, long100k1.326x. All accuracy/tail/guard gates passed;
+maximum score error7.63e-6. Keep the smaller-width paths unchanged.
+
+Add opt-in --single-page64-dispatch to the full-input kernel benchmark;
+it requires --integrated --shared-map-qk --key-group4-dispatch. The prepared
+trial adapter selects N64/group8 scalar-page loads for width>=8192 only after
+its existing immutable device-page-table and request-owner proof. Below8192
+retain group4 at >=16 N128 tiles or plain QK below that threshold. Unproved
+chunks and unknown slices fall back to the single-query scorer. This selects
+eight migrated workloads; first_chunk and compact retain previous routes.
+The width threshold is a conservative trial policy, not a proven crossover
+for arbitrary workload widths or visibility distributions. Default flags
+preserve existing behavior; no registered production or compiler changes.
+
+The same run checks compilation artifacts, every chunk's scores against the
+legacy scorer, all-row selection pairing and sampled CPU references. Extend
+the existing budget_exact threshold gate with widths8191/8192/8193 and actual
+N64 execution, plus cross-request and unequal-map fallbacks at8192. Existing
+QK/group4 threshold checks remain. Record route counts and preparation cost
+outside kernel timing. No input-name lookup or extra timed tensor preparation.
+
+Measure all query chunks, not a representative middle chunk. Retain score,
+TopK on frozen logits, directly executed score+TopK combined, legacy_score,
+and one full native_fused V1 invocation. Add dispatch_score for the previous
+QK/group4 policy with identical chunk guards; in this mode omit the redundant
+plain-QK comparator to limit runtime. Print all device sums, current-dispatch
+score speedup and native_fused/combined overall speedup; include them in CSV.
+Native stage times remain unavailable. Combined duration is measured directly,
+not synthesized by adding isolated score and TopK measurements. This remains
+an unregistered prepared-input trial with exploratory profiler device sums.

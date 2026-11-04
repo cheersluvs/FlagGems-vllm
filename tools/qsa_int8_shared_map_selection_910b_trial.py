@@ -20,6 +20,7 @@ import torch
 import triton
 from qsa_int8_query_pack4_910b import (
     _qsa_qk_key_group_score,
+    _qsa_qk_single_page_score,
     _qsa_query_pack4_score,
     validate_shared_groups,
 )
@@ -34,11 +35,20 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
     """
 
     def __init__(
-        self, values, output, scratch, workspace, topk, request_starts, key_group4=False
+        self,
+        values,
+        output,
+        scratch,
+        workspace,
+        topk,
+        request_starts,
+        key_group4=False,
+        single_page64=False,
     ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)
         self.key_group4 = bool(key_group4) and triton.cdiv(self.width, 128) >= 16
+        self.single_page64 = bool(single_page64) and self.width >= 8192
         starts = list(request_starts)
         if (
             len(starts) < 2
@@ -69,7 +79,11 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                     route=(
                         "legacy"
                         if not shared
-                        else "group4" if self.key_group4 else "qk"
+                        else (
+                            "single_page64"
+                            if self.single_page64
+                            else "group4" if self.key_group4 else "qk"
+                        )
                     ),
                 )
             )
@@ -86,9 +100,16 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         ):
             raise ValueError("Contiguous FP32 score target required")
         v = self.values
-        if self.key_group4:
-            blocks = triton.cdiv(triton.cdiv(self.width, 128), 4)
-            return _qsa_qk_key_group_score[(min(20, triton.cdiv(count, 4) * blocks),)](
+        if self.single_page64 or self.key_group4:
+            block_n = 64 if self.single_page64 else 128
+            key_tiles = 8 if self.single_page64 else 4
+            kernel = (
+                _qsa_qk_single_page_score
+                if self.single_page64
+                else _qsa_qk_key_group_score
+            )
+            blocks = triton.cdiv(triton.cdiv(self.width, block_n), key_tiles)
+            return kernel[(min(20, triton.cdiv(count, 4) * blocks),)](
                 v["q"][first : first + count],
                 v["cache"],
                 v["qs"][first : first + count],
@@ -101,8 +122,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                 COLUMNS=v["row_table"].shape[1],
                 WIDTH=self.width,
                 PAGE=192,
-                BLOCK_N=128,
-                KEY_TILES=4,
+                BLOCK_N=block_n,
+                KEY_TILES=key_tiles,
                 num_warps=4,
             )
         return _qsa_query_pack4_score[

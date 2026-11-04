@@ -167,10 +167,16 @@ def run_case(args):
                     topk,
                     plan["starts"],
                     key_group4=args.key_group4_dispatch,
+                    single_page64=args.single_page64_dispatch,
                 )
                 result["shared_map_dispatch"] = dict(
                     preparation_ms=adapter.preparation_ms,
                     group4_enabled=args.key_group4_dispatch,
+                    single_page64_enabled=args.single_page64_dispatch,
+                    single_page64_min_width=8192,
+                    single_page64_chunks=sum(
+                        r["route"] == "single_page64" for r in adapter.route_checks
+                    ),
                     group4_min_key_tiles=16,
                     group4_chunks=sum(
                         r["route"] == "group4" for r in adapter.route_checks
@@ -187,13 +193,38 @@ def run_case(args):
                     routes=adapter.route_checks,
                     calibration="Unchanged single-query scorer; candidate stages timed separately",
                 )
+                result["dispatch"]["score_block_n"] = (
+                    64
+                    if adapter.single_page64 and all(adapter.shared_routes.values())
+                    else (
+                        None
+                        if adapter.single_page64 and any(adapter.shared_routes.values())
+                        else 128
+                    )
+                )
+                result["dispatch"]["score_block_ns"] = sorted(
+                    {
+                        64 if r["route"] == "single_page64" else 128
+                        for r in adapter.route_checks
+                    }
+                )
                 print(
                     "SHARED_MAP_DISPATCH",
                     json.dumps(result["shared_map_dispatch"]),
                     flush=True,
                 )
 
-            if args.key_group4_dispatch:
+            if args.single_page64_dispatch:
+                dispatch_adapter = PreparedSharedMapInt8Selection(
+                    values,
+                    output,
+                    scratch,
+                    workspace,
+                    topk,
+                    plan["starts"],
+                    key_group4=True,
+                )
+            if args.key_group4_dispatch and not args.single_page64_dispatch:
                 qk_adapter = PreparedSharedMapInt8Selection(
                     values, output, scratch, workspace, topk, plan["starts"]
                 )
@@ -204,7 +235,9 @@ def run_case(args):
                     else "qsa_int8_selection_910b_trial.PreparedInt8Selection.__call__"
                 ),
                 score_grid=20,
-                score_block_n=128,
+                score_block_n=(
+                    64 if args.single_page64_dispatch and adapter.single_page64 else 128
+                ),
                 topk_call_rows=32,
                 scope="Prepared INT8 trial adapter; BF16 production unchanged",
             )
@@ -407,6 +440,14 @@ def run_case(args):
                 (1921, "cross_request"),
                 (1921, "unequal_map"),
             ]
+            if args.single_page64_dispatch:
+                tests += [
+                    (8191, "shared"),
+                    (8192, "shared"),
+                    (8193, "shared"),
+                    (8192, "cross_request"),
+                    (8192, "unequal_map"),
+                ]
             result["group4_threshold_checks"] = []
             for test_width, kind in tests:
                 n = 7
@@ -433,11 +474,16 @@ def run_case(args):
                     None,
                     [0, 3, n] if kind == "cross_request" else [0, n],
                     key_group4=True,
+                    single_page64=args.single_page64_dispatch,
                 )
                 wanted = (
                     "legacy"
                     if kind != "shared"
-                    else "qk" if test_width == 1920 else "group4"
+                    else (
+                        "single_page64"
+                        if args.single_page64_dispatch and test_width >= 8192
+                        else "qk" if test_width == 1920 else "group4"
+                    )
                 )
                 if trial.route_checks[0]["route"] != wanted:
                     raise AssertionError("Threshold/mapping route mismatch")
@@ -477,7 +523,11 @@ def run_case(args):
                         (current[finite] - reference_target[finite]).abs().max().item(),
                     )
                 route = (
-                    ("group4" if adapter.key_group4 else "qk")
+                    (
+                        "single_page64"
+                        if adapter.single_page64
+                        else "group4" if adapter.key_group4 else "qk"
+                    )
                     if adapter.shared_routes[first, count]
                     else "fallback"
                 )
@@ -574,7 +624,13 @@ def run_case(args):
                 legacy_adapter.score_all()
 
             jobs["legacy_score"] = legacy_score_stage
-        if args.key_group4_dispatch:
+        if args.single_page64_dispatch:
+
+            def dispatch_score_stage():
+                dispatch_adapter.score_all()
+
+            jobs["dispatch_score"] = dispatch_score_stage
+        if args.key_group4_dispatch and not args.single_page64_dispatch:
 
             def qk_score_stage():
                 qk_adapter.score_all()
@@ -618,7 +674,7 @@ def run_case(args):
                 timing = measure(jobs[name])
                 result["samples"][name].append(timing)
                 result["stage"] = f"postcheck_{name}"
-                if name in ("score", "legacy_score", "qk_score"):
+                if name in ("score", "legacy_score", "qk_score", "dispatch_score"):
                     first, count = chunks[-1]
                     if not torch.allclose(
                         scratch[:count].cpu(),
@@ -684,7 +740,16 @@ def run_case(args):
                 "SCORE_SPEEDUP_VS_LEGACY", result["score_speedup_vs_legacy"], flush=True
             )
             print("OVERALL_SPEEDUP_VS_CANN", result["speedup"]["overall"], flush=True)
-        if args.key_group4_dispatch:
+        if args.single_page64_dispatch:
+            result["score_speedup_vs_current_dispatch"] = (
+                medians["dispatch_score"] / medians["score"]
+            )
+            print(
+                "SCORE_SPEEDUP_VS_CURRENT_DISPATCH",
+                result["score_speedup_vs_current_dispatch"],
+                flush=True,
+            )
+        if args.key_group4_dispatch and not args.single_page64_dispatch:
             result["score_speedup_vs_qk"] = medians["qk_score"] / medians["score"]
             print(
                 "DISPATCH_SCORE_SPEEDUP_VS_QK",
@@ -785,7 +850,14 @@ def main():
         action="store_true",
         help="Use group4 for shared-map chunks with at least16 N128 key tiles",
     )
+    parser.add_argument(
+        "--single-page64-dispatch",
+        action="store_true",
+        help="Trial N64/group8 for shared-map widths>=8192; retain current dispatch below",
+    )
     args = parser.parse_args()
+    if args.single_page64_dispatch and not args.key_group4_dispatch:
+        parser.error("--single-page64-dispatch requires --key-group4-dispatch")
     if args.key_group4_dispatch and not args.shared_map_qk:
         parser.error("--key-group4-dispatch requires --shared-map-qk")
     if args.shared_map_qk and not args.integrated:
@@ -837,6 +909,8 @@ def main():
             command.append("--shared-map-qk")
         if args.key_group4_dispatch:
             command.append("--key-group4-dispatch")
+        if args.single_page64_dispatch:
+            command.append("--single-page64-dispatch")
         code, timed_out = run_child(
             command, report / f"{name}-console.txt", args.timeout
         )
@@ -885,6 +959,7 @@ def summarize(report, entries, names, args):
         "score_us",
         "legacy_score_us",
         "qk_score_us",
+        "dispatch_score_us",
         "topk_us",
         "combined_us",
         "native_fused_us",
@@ -892,6 +967,7 @@ def summarize(report, entries, names, args):
         "overall_speedup",
         "score_speedup_vs_legacy",
         "score_speedup_vs_qk",
+        "score_speedup_vs_current_dispatch",
         "preparation_ms",
     )
     with (report / "kernel-results.csv").open("w", newline="") as file:
@@ -910,6 +986,9 @@ def summarize(report, entries, names, args):
                 row["overall_speedup"] = entry["speedup"]["overall"]
                 row["score_speedup_vs_legacy"] = entry.get("score_speedup_vs_legacy")
                 row["score_speedup_vs_qk"] = entry.get("score_speedup_vs_qk")
+                row["score_speedup_vs_current_dispatch"] = entry.get(
+                    "score_speedup_vs_current_dispatch"
+                )
                 row["preparation_ms"] = entry.get("shared_map_dispatch", {}).get(
                     "preparation_ms"
                 )
