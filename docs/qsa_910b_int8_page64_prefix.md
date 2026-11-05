@@ -66,3 +66,53 @@ identity. This is a fixed diagnostic configuration, not an autotuned deployment.
 Local checks: AST-preserved loop/address/mask prefixes, exact full clone,
 source freeze, unchanged scorer, syntax/lint, shell syntax, and two missing-NPU
 worker reports. These do not establish device compilation or performance.
+
+## Cube boundary and packed-K diagnostic
+
+Prefix report d9dd91093dfca91bf3df1f54cfd3916f1a75a31a passed both cases.
+Budget_exact/current539.307us versus dot559.810us; long100k/current1712.570us
+versus dot1756.373us. Full-prefix/current differed0.40%/0.06%. Adding scale,
+ReLU and weights did not increase time. The load-checksum arm was AIV-only;
+dot and full arms were mixed Cube/Vector with20576-byte workspace. Thus
+subtracting loads from dot does not isolate Cube arithmetic or synchronization.
+
+Use --cube-boundary to retain default two-case/two-round execution and replace
+the six arms with dot, raw_i32, raw_fp32, packed_full, full and current.
+No changes to the actual scorer, prepared trial adapter, TopK or compiler.
+
+- dot: original K layout, dot followed by FP32 head-sum checksum.
+- raw_i32: preserve original loop, page addressing and QK dot; write all four
+  head results as INT32. Invalid positions use INT32_MIN, outside the possible
+  INT8/D128 dot range. Mask every padded head and column.
+- raw_fp32: same raw-head output but convert INT32 to FP32; invalid positions
+  use -inf. Both raw arms write4x output bytes versus dot/full, so their timing
+  difference versus dot is not a pure reduction or conversion cost.
+- packed_full: explicitly transpose the entire immutable K cache from
+  [pages,192,1,128] to contiguous [pages,128,192] before score timing. Load
+  [128,64] directly using the same bounded scalar page ID and page-local
+  offsets, eliminating the source tl.trans. Keep all score math unchanged.
+  Record transpose+allocation synchronized wall time and extra cache bytes;
+  verify the cache roundtrip exactly. No layout change is applied to current.
+- full/current: retain generated and actual unchanged full-score controls.
+
+Export compiler mode/workspace, copies/loops, transpose/matmul/reduction lines,
+TTIR/ttadapter/bcmlir and binary hashes. Do not assume removing tl.trans removes
+all hardware conversions. Packed addressing can lower poorly; valid slow
+measurements remain results, not timing failures. Every arm has one live dot,
+one output store; raw/dot have four static input loads, full arms seven. Raw
+visibility reuses the original four-element vector, adding no input load.
+
+CPU reference checks require exact INT32 and FP32 raw dot values for sampled
+queries. All visible raw-head sums also compare exactly to the dot checksum
+for every query after timing. Packed/full/current compare every main score
+against legacy before timing, and packed/full compare all last timed values
+against current. Retain rtol/atol1e-3 full-score checks, all masks and guarded
+7-row tails/empty groups for all arms. Record actual output bytes. Preparation
+wall time and representative device-kernel time have different scopes; do not
+sum them to manufacture full-workload or model-inference speedup. No CANN split
+or overall acceptance claim. One command compiles, checks, times and uploads.
+
+Local checks cover generated AST loops/math/guards, original prefix backward
+compatibility, exact full clone, all page-local packed addresses, raw-head
+ownership/tails, static checks and two missing-NPU child workers. Device
+compilation and execution remain to be tested on910B.
