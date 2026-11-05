@@ -743,7 +743,68 @@ def run_case(args):
             torch,
             result,
         )
-        result["samples"] = {name: [] for name in jobs}
+        paired_samples = {}
+        if args.interleave_score:
+            from collections import Counter
+
+            from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
+
+            result["stage"] = "paired_score_precheck"
+            hosts, signatures = {}, {}
+            for name, prepared in (
+                ("score", adapter),
+                ("dispatch_score", dispatch_adapter),
+            ):
+                counts, fingerprints = Counter(), []
+                for first, count in chunks:
+                    kernel = prepared.score_into(first, count, scratch[:count])
+                    counts[kernel.metadata.name] += 1
+                    fingerprints.append(
+                        hashlib.sha256(bytes(kernel.asm["npubin"])).hexdigest()
+                    )
+                    if not torch.allclose(
+                        scratch[:count].cpu(),
+                        frozen[first : first + count].cpu(),
+                        rtol=1e-3,
+                        atol=1e-3,
+                    ):
+                        raise AssertionError(
+                            f"Paired precheck mismatch: {name}, {first}"
+                        )
+                hosts[name], signatures[name] = dict(counts), fingerprints
+            same = signatures["score"] == signatures["dispatch_score"]
+            result["paired_score_identity"] = dict(
+                same_chunk_binary_sequence=same, host_counts=hosts
+            )
+            if not any(adapter.skip_invisible_routes.values()) and not same:
+                raise AssertionError(
+                    "No selected skip chunks but score binaries differ"
+                )
+            paired_samples, orders = measure_prefix_plan(
+                args,
+                ("score", "dispatch_score"),
+                lambda name, unused: jobs[name](),
+                {"score": None, "dispatch_score": None},
+                torch,
+                result,
+                expected_hosts=hosts,
+            )
+            result["paired_score_order"] = orders
+            if not torch.allclose(
+                scratch[: chunks[-1][1]].cpu(),
+                frozen[chunks[-1][0] :].cpu(),
+                rtol=1e-3,
+                atol=1e-3,
+            ):
+                raise AssertionError(
+                    "Last interleaved score differs from frozen scores"
+                )
+            result["correctness"]["post_interleaved_score"] = dict(
+                last_chunk_checked=True, sampled=check_scores()
+            )
+            for name in ("score", "dispatch_score", "legacy_score"):
+                jobs.pop(name, None)
+        result["samples"] = {**paired_samples, **{name: [] for name in jobs}}
         result["measurement_order"] = []
         for round_index in range(args.rounds):
             order = list(jobs)
@@ -814,7 +875,7 @@ def run_case(args):
             score=None,
             topk=None,
         )
-        if args.shared_map_qk:
+        if args.shared_map_qk and "legacy_score" in medians:
             result["score_speedup_vs_legacy"] = (
                 medians["legacy_score"] / medians["score"]
             )
@@ -959,7 +1020,14 @@ def main():
         default="all",
         help="Conservative trial requires >=512 issued tiles and >=1/8 skippable tiles per chunk",
     )
+    parser.add_argument(
+        "--interleave-score",
+        action="store_true",
+        help="One alternating full-input score trace, reverse order next round; omit legacy timing",
+    )
     args = parser.parse_args()
+    if args.interleave_score and not args.skip_invisible_dispatch:
+        parser.error("--interleave-score requires --skip-invisible-dispatch")
     if args.visibility_policy != "all" and not args.skip_invisible_dispatch:
         parser.error("--visibility-policy requires --skip-invisible-dispatch")
     if args.skip_invisible_dispatch and not args.single_page64_dispatch:
@@ -1021,6 +1089,8 @@ def main():
             command.append("--shared-map-qk")
         if args.key_group4_dispatch:
             command.append("--key-group4-dispatch")
+        if args.interleave_score:
+            command.append("--interleave-score")
         if args.skip_invisible_dispatch:
             command.extend(
                 [

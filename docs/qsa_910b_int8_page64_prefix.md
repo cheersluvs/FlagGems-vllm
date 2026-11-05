@@ -339,3 +339,30 @@ Local independent tile enumeration, exact threshold boundaries, partial
 rows, oversized visibility, adapter selection/fallback, metadata copy
 accounting, unchanged tested kernel AST, lint and compilation passed.
 Full-input device correctness and performance of this policy remain pending.
+
+## Interleaved full-input score replay
+
+Report `45e1cb85e1fe70acc9253cfd17d3bf4fc4d92ac2` passed all ten inputs
+and selected exactly the predicted chunks. However, short_tail still measured
+0.9718x despite selecting no skip chunks, so a timing self-control is needed
+before attributing that difference to the candidate.
+
+`--interleave-score` reuses the existing single-capture prefix-plan timer for
+complete-input score calls. Candidate/current alternate within each round;
+the next round reverses their order. Each synchronized window must contain
+the expected per-kernel host invocation counts and one device task per chunk.
+All raw durations and round means remain in the report. There is no speed
+filter or selective retry of slow samples; only incomplete captures retry.
+
+Preflight recompiles both routes, checks every chunk against frozen correct
+scores, and records whether their per-chunk binary SHA256 sequences match.
+If no chunks select skip, different binaries fail the self-control check.
+After the capture, the final chunk and sampled scores are checked again.
+TopK, combined and native fused timings still run through the existing stage
+timer, with their usual correctness checks. The expensive legacy score timing
+is omitted in this mode; legacy full-score correctness remains mandatory.
+
+Initial replay covers short_tail, tail112, two_balanced and long100k, using
+two rounds and two active samples per arm per round. The conservative policy
+thresholds stay fixed. Local lint, compilation, CLI and no-NPU smoke checks
+passed (expected prerequisite exit 2); device trace validation remains pending.
