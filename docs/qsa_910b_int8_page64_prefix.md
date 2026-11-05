@@ -398,3 +398,17 @@ for all three start phases and 0..8 active tiles, physical-page/offset equality,
 unchanged scoring suffix, lint and Python compilation. Both no-NPU smoke runs
 correctly returned prerequisite exit 2. Device compilation and performance
 remain pending the next round trip.
+
+### Page-reuse baseline store-contract correction
+
+Report `28576f232d3fcc4662cbd561a831853235ee440d` stopped in all three
+cases because the probe incorrectly expected one store in `current`, although
+page-reuse mode uses the visibility-bounded baseline with two store sites.
+The candidate compiled and its initial CPU sample/mask checks passed (maximum
+absolute error 7.6294e-6). Legacy full-chunk comparisons, tail checks and timing
+had not yet run; no speedup conclusion can be drawn.
+
+The fix requires exactly two baseline stores only in page-reuse mode. Other
+mode expectations are unchanged. No kernel, arithmetic or policy changes.
+Local checks evaluated the actual assertion across all existing arm names and
+both modes, and repeated the page partition/scoring preservation checks.

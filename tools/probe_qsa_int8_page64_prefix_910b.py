@@ -570,7 +570,12 @@ def run_case(args):
                 != (
                     8
                     if name == "unrolled_full"
-                    else 2 if name in ("skip_invisible", "page_reuse") else 1
+                    else (
+                        2
+                        if name in ("skip_invisible", "page_reuse")
+                        or (name == "current" and args.page_reuse)
+                        else 1
+                    )
                 )
                 or (
                     not 20 <= loads <= 28
