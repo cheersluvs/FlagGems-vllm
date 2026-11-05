@@ -271,6 +271,7 @@ def run_case(args):
                     query16=args.skip_invisible_dispatch,
                     skip_invisible=args.page_reuse_dispatch,
                     visibility_policy=args.visibility_policy,
+                    page_reuse=False,
                 )
                 if (
                     args.page_reuse_dispatch
@@ -1076,7 +1077,24 @@ def main():
         action="store_true",
         help="Extend page reuse to eligible N64/query16 chunks outside the skip policy",
     )
+    parser.add_argument(
+        "--no-page-reuse-dispatch",
+        action="store_true",
+        help="Disable default page reuse for N64/query16 chunks",
+    )
     args = parser.parse_args()
+    if args.no_page_reuse_dispatch and (
+        args.page_reuse_dispatch or args.page_reuse_full_dispatch
+    ):
+        parser.error("--no-page-reuse-dispatch conflicts with page reuse flags")
+    if (
+        args.single_page64_dispatch
+        and not args.no_page_reuse_dispatch
+        and not args.page_reuse_dispatch
+        and not args.page_reuse_full_dispatch
+    ):
+        args.page_reuse_dispatch = True
+        args.page_reuse_full_dispatch = True
     if args.page_reuse_full_dispatch and not args.page_reuse_dispatch:
         parser.error("--page-reuse-full-dispatch requires --page-reuse-dispatch")
     if args.page_reuse_dispatch and not args.single_page64_dispatch:
@@ -1143,6 +1161,8 @@ def main():
             command.append("--shared-map-qk")
         if args.key_group4_dispatch:
             command.append("--key-group4-dispatch")
+        if args.no_page_reuse_dispatch:
+            command.append("--no-page-reuse-dispatch")
         if args.page_reuse_dispatch:
             command.append("--page-reuse-dispatch")
         if args.page_reuse_full_dispatch:
