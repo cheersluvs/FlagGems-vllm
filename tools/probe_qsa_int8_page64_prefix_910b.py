@@ -45,6 +45,54 @@ CASES = ("int8_budget_exact", "int8_long100k")
 FROZEN = "0d0b371e406168d706705c904eb382ffc12d4f382d3237fb969c23c9e9424ee6"
 
 
+CURRENT_PREFIX_LOADS = dict(
+    loads=7, dot=4, query_scaled=5, dequant=6, relu=6, current=7
+)
+CURRENT_PREFIX_ARMS = tuple(CURRENT_PREFIX_LOADS)
+
+
+def build_current_prefix(kernel, arm):
+    """Cut the production tile body while keeping its page loops and score sink."""
+    module = ast.parse(
+        Path(__file__).with_name("qsa_int8_query_pack4_910b.py").read_text()
+    )
+    fn = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.FunctionDef) and node.name == kernel
+    )
+    fn.name = f"_qsa_page64_prefix_{arm}"
+    unit = next(node for node in fn.body if isinstance(node, ast.For))
+    page = next(node for node in unit.body if isinstance(node, ast.For))
+    (tile,) = (node for node in page.body if isinstance(node, ast.For))
+    assignments = {
+        node.targets[0].id: i
+        for i, node in enumerate(tile.body)
+        if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+    }
+    cutoff, value = {
+        "loads": (
+            "key_scale",
+            "(tl.sum(tl.reshape(tl.sum(query.to(tl.float32), axis=1)"
+            " + query_scale + weights, (16, 4)), axis=1))[:, None]"
+            " + (tl.sum(keys.to(tl.float32), axis=1) + key_scale)[None, :]",
+        ),
+        "dot": ("dot", "dot.to(tl.float32)"),
+        "query_scaled": ("dot", "dot.to(tl.float32) * query_scale[:, None]"),
+        "dequant": ("dequant", "dequant"),
+        "relu": ("dequant", "tl.maximum(dequant, 0.0)"),
+    }[arm]
+    if arm != "loads":
+        value = f"tl.sum(tl.reshape({value}, (16, 4, BLOCK_N)), axis=1)"
+    tile.body = (
+        tile.body[: assignments[cutoff] + 1]
+        + ast.parse(f"scores = {value}").body
+        + tile.body[assignments["live"] :]
+    )
+    ast.fix_missing_locations(fn)
+    return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+
+
 PREFETCH_ARMS = ("page_prefetch", "page_prefetch_control")
 
 
@@ -329,12 +377,16 @@ def prefetch_schedule(ttir):
     )
 
 
-def load_kernels(report, case):
+def load_kernels(report, case, current=None):
     result = {}
     directory = report / "generated-prefixes"
     directory.mkdir(exist_ok=True)
     for arm in ARMS[:-1]:
-        source = build_source(arm)
+        source = (
+            build_current_prefix(current.fn.__name__, arm)
+            if current
+            else build_source(arm)
+        )
         path = directory / f"{case}_{arm}.py"
         path.write_text(source)
         (report / f"{case}-{arm}-generated-source.txt").write_text(source)
@@ -346,7 +398,7 @@ def load_kernels(report, case):
         result[arm] = getattr(module, f"_qsa_page64_prefix_{arm}")
     from qsa_int8_query_pack4_910b import _qsa_qk_single_page_score
 
-    result["current"] = _qsa_qk_single_page_score
+    result["current"] = current or _qsa_qk_single_page_score
     return result
 
 
@@ -431,7 +483,7 @@ def run_case(args):
             grid_cap=20,
             plan=plan,
         )
-        if args.query_pack_sweep or args.skip_invisible:
+        if args.query_pack_sweep or args.skip_invisible or args.current_page_prefix:
             table = inputs["row_table"][first : first + count].tolist()
             for group in (8, 16):
                 for base in range(0, count, group):
@@ -493,7 +545,46 @@ def run_case(args):
                 packed_cache.transpose(1, 2).contiguous(), values["cache"].squeeze(2)
             ):
                 raise AssertionError("Packed cache roundtrip mismatch")
-        kernels = load_kernels(report, args.case)
+        current_adapter = current = None
+        if args.current_page_prefix:
+            from qsa_int8_query_pack4_910b import (
+                _qsa_page64_page_reuse_full_score,
+                _qsa_page64_page_reuse_score,
+            )
+            from qsa_int8_shared_map_selection_910b_trial import (
+                PreparedSharedMapInt8Selection,
+            )
+
+            current_adapter = PreparedSharedMapInt8Selection(
+                values,
+                output,
+                scratch,
+                workspace,
+                None,
+                plan["starts"],
+                key_group4=True,
+                single_page64=True,
+            )
+            route = next(
+                r
+                for r in current_adapter.route_checks
+                if (r["first"], r["count"]) == (first, count)
+            )
+            bounded = args.case == "int8_budget_exact"
+            if not route["page_reuse"] or route["skip_invisible"] != bounded:
+                raise AssertionError(f"Unexpected current score route: {route}")
+            current = (
+                _qsa_page64_page_reuse_score
+                if bounded
+                else _qsa_page64_page_reuse_full_score
+            )
+            result["current_route"] = route
+            result["scope"] = (
+                "Current page-reuse chunk prefixes with observable FP32 sinks. "
+                "Diagnostic differences include compiler rescheduling and are not additive operation costs."
+            )
+            print("CURRENT_PAGE_ROUTE", json.dumps(route), flush=True)
+        kernels = load_kernels(report, args.case, current)
         if args.skip_invisible:
             from qsa_int8_query_pack4_910b import _qsa_page64_query16_score
 
@@ -552,7 +643,7 @@ def run_case(args):
         def launch_at(name, target, start, n, w, visible=None):
             group = (
                 16
-                if args.skip_invisible
+                if args.skip_invisible or args.current_page_prefix
                 else int(name.removeprefix("query")) if name.startswith("query") else 4
             )
             return kernels[name][
@@ -576,6 +667,8 @@ def run_case(args):
             )
 
         def launch(name, target):
+            if current_adapter is not None and name == "current":
+                return current_adapter.score_into(first, count, target)
             return launch_at(name, target, first, count, width)
 
         def check(name, target, start, n, w, visible=None):
@@ -621,6 +714,8 @@ def run_case(args):
                     expected = (dot * qs[:, None]).sum(0)
                 elif name == "dequant":
                     expected = (dot * qs[:, None] * ks[None, :]).sum(0)
+                elif name == "relu":
+                    expected = torch.relu(dot * qs[:, None] * ks[None, :]).sum(0)
                 else:
                     expected = (
                         torch.relu(dot * qs[:, None] * ks[None, :]) * weights[:, None]
@@ -728,7 +823,25 @@ def run_case(args):
                 "raw_i32": 4,
                 "raw_fp32": 4,
             }
-            if (
+            if current is not None:
+                if (
+                    loads != CURRENT_PREFIX_LOADS[name]
+                    or dots != int(name != "loads")
+                    or stores != (2 if bounded else 1)
+                    or ttir.count("scf.for ") < (4 if bounded else 3)
+                    or (
+                        dots
+                        and not any(
+                            "tt.dot" in line and "xi8>" in line and "xi32>" in line
+                            for line in ttir.splitlines()
+                        )
+                    )
+                ):
+                    raise AssertionError(
+                        f"Current page prefix IR mismatch: {name}, "
+                        f"loads={loads}, dots={dots}, stores={stores}"
+                    )
+            elif (
                 dots
                 != (
                     8
@@ -791,7 +904,11 @@ def run_case(args):
                 else (
                     ("unrolled_full", "current")
                     if args.unroll_loop
-                    else ("current",) if args.hardware_boundary else ("full", "current")
+                    else (
+                        ("current",)
+                        if args.hardware_boundary or args.current_page_prefix
+                        else ("full", "current")
+                    )
                 )
             )
         ):
@@ -805,7 +922,7 @@ def run_case(args):
             vis = torch.tensor([193, 0, 255, 1, 128, 256, 191], dtype=torch.int32)
             if empty:
                 vis[:4] = 0
-            if args.query_pack_sweep or args.skip_invisible:
+            if args.query_pack_sweep or args.skip_invisible or args.current_page_prefix:
                 n = 19
                 vis = vis.repeat(3)[:n].clone()
                 if empty:
@@ -852,6 +969,8 @@ def run_case(args):
             }
             for name in ARMS
         }
+        if current is not None:
+            hosts["current"] = {current.fn.__name__: 1}
         if args.page_prefetch:
             hosts["current"] = {"_qsa_page64_page_reuse_full_score": 1}
         if args.page_prefetch and any(
@@ -943,7 +1062,11 @@ def run_case(args):
                 or args.unroll_loop
                 or args.query_pack_sweep
                 or args.skip_invisible
-                else zip(ARMS[:4], ARMS[1:5])
+                else (
+                    zip(ARMS, ARMS[1:])
+                    if args.current_page_prefix
+                    else zip(ARMS[:4], ARMS[1:5])
+                )
             )
         }
         print("arm | kernel_us | relative_to_current", flush=True)
@@ -1063,6 +1186,7 @@ def run_case(args):
         for name in (
             Path(__file__).name,
             "qsa_int8_query_pack4_910b.py",
+            "qsa_int8_shared_map_selection_910b_trial.py",
             "qsa_int8_prefix_plan_timer_910b.py",
             "qsa_int8_trace_timer_910b.py",
         )
@@ -1138,7 +1262,17 @@ def main():
         action="store_true",
         help="Compare full-dot page reuse with one-tile-ahead K loads within each page",
     )
+    parser.add_argument(
+        "--current-page-prefix",
+        action="store_true",
+        help="Cut the current bounded/full page-reuse scorers on the profiled chunks",
+    )
     args = parser.parse_args()
+    if args.current_page_prefix and any(
+        case not in CASES
+        for case in ([args.case] if args.case else args.cases or CASES)
+    ):
+        parser.error("--current-page-prefix supports budget_exact and long100k")
     if args.page_prefetch and not args.page_reuse_full:
         parser.error("--page-prefetch requires --page-reuse-full")
     if (
@@ -1151,6 +1285,7 @@ def main():
                 args.skip_invisible,
                 args.page_reuse,
                 args.page_reuse_full,
+                args.current_page_prefix,
             )
         )
         > 1
@@ -1182,6 +1317,8 @@ def main():
         )
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
+    if args.current_page_prefix:
+        ARMS = CURRENT_PREFIX_ARMS
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations required")
     report = Path(args.report)
@@ -1210,6 +1347,8 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
+        if args.current_page_prefix:
+            command.append("--current-page-prefix")
         if args.page_prefetch:
             command.append("--page-prefetch")
         if args.page_reuse_full:
