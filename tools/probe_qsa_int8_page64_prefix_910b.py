@@ -89,7 +89,9 @@ if next_tile < tile_end:
         score_text = ast.unparse(ast.Module(body=first[dot_index:], type_ignores=[]))
         score_text = re.sub(
             r"\b(columns|keys|key_scale|dot|dequant|weighted|scores|live)\b",
-            lambda match: f"next_{match[0]}",
+            lambda match: (
+                "next_score_live" if match[0] == "live" else f"next_{match[0]}"
+            ),
             score_text,
         )
         # Rename local values, leaving the tl.dot intrinsic intact.
