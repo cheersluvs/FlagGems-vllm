@@ -47,17 +47,23 @@ FROZEN = "0d0b371e406168d706705c904eb382ffc12d4f382d3237fb969c23c9e9424ee6"
 
 def build_source(arm):
     """Retain original addressing/loop prefixes and an explicit FP32 output sink."""
-    if arm == "page_reuse":
-        module = ast.parse(build_source("skip_invisible"))
+    if arm in ("page_reuse", "page_reuse_full"):
+        module = ast.parse(
+            build_source("query16" if arm == "page_reuse_full" else "skip_invisible")
+        )
         fn = next(n for n in module.body if isinstance(n, ast.FunctionDef))
-        fn.name = "_qsa_page64_prefix_page_reuse"
+        fn.name = f"_qsa_page64_prefix_{arm}"
         outer = next(n for n in fn.body if isinstance(n, ast.For))
         inner = next(n for n in outer.body if isinstance(n, ast.For))
         text = ast.unparse(inner)
         # Preserve eight-tile work ownership, but load one physical page per
         # page segment and reuse it for up to three consecutive N64 tiles.
         text = text.replace(
-            "for local_tile in range(active_tiles):",
+            (
+                "for local_tile in range(KEY_TILES):"
+                if arm == "page_reuse_full"
+                else "for local_tile in range(active_tiles):"
+            ),
             "for tile in range(tile_begin, tile_end):",
         )
         text = text.replace("    tile = first_tile + local_tile\n", "")
@@ -87,6 +93,15 @@ for page in range(first_page, first_page + page_count):
                        mask=(page<COLUMNS)&(tile_begin<tile_end),other=0)
 """
         ).body
+        if arm == "page_reuse_full":
+            page_source = ast.unparse(
+                ast.Module(body=page_loop, type_ignores=[])
+            ).replace("active_tiles", "KEY_TILES")
+            page_source = page_source.replace(
+                "(page < COLUMNS) & (tile_begin < tile_end)",
+                "(page < COLUMNS) & (tile_begin < tile_end) & (tile_begin * BLOCK_N < WIDTH) & (tile_begin * BLOCK_N < max_visible)",
+            )
+            page_loop = ast.parse(page_source).body
         page_loop[-1].body.append(active)
         index = outer.body.index(inner)
         outer.body[index : index + 1] = page_loop
@@ -280,6 +295,27 @@ def run_case(args):
         )
         first = rows // 2 // chunk * chunk
         count = min(chunk, rows - first)
+        if args.page_reuse_full:
+            from qsa_int8_shared_map_selection_910b_trial import visibility_tile_policy
+
+            visible_cpu = inputs["visible"].tolist()
+            rejected = []
+            for begin in range(0, rows, chunk):
+                size = min(chunk, rows - begin)
+                stats = visibility_tile_policy(
+                    visible_cpu[begin : begin + size], width, "conservative"
+                )
+                if not stats["selected"] and size >= 19:
+                    rejected.append((begin, size, stats))
+            if not rejected:
+                raise ValueError("No non-skip chunk with >=19 rows for this diagnostic")
+            first, count, stats = rejected[len(rejected) // 2]
+            result["non_skip_selection"] = dict(
+                first=first, count=count, policy=stats, eligible_chunks=len(rejected)
+            )
+            print(
+                "NON_SKIP_CHUNK", json.dumps(result["non_skip_selection"]), flush=True
+            )
         result["shared_map_guard"] = validate_shared_groups(
             inputs["row_table"][first : first + count].tolist(), plan["starts"], first
         )
@@ -394,6 +430,11 @@ def run_case(args):
         if args.page_reuse:
             result["scope"] = (
                 "Representative query16 N64 page-segment reuse vs visibility-bounded scorer; same eight-tile ownership and dense fill; not full-input/TopK/native timing"
+            )
+
+        if args.page_reuse_full:
+            result["scope"] = (
+                "Unbounded N64/query16 page reuse vs current unbounded scorer on a chunk rejected by conservative skip policy; every eight-tile unit executes all dots; no native/TopK/full-input speedup claim"
             )
 
         def launch_at(name, target, start, n, w, visible=None):
@@ -535,7 +576,11 @@ def run_case(args):
                 if isinstance(kernel.asm.get(ir), str):
                     (report / f"{args.case}-{name}-{ir}.txt").write_text(kernel.asm[ir])
             ttir = kernel.asm["ttir"]
-            if args.skip_invisible and name in ("skip_invisible", "page_reuse"):
+            if args.skip_invisible and name in (
+                "skip_invisible",
+                "page_reuse",
+                "page_reuse_full",
+            ):
                 loop_lines = [
                     line.strip() for line in ttir.splitlines() if "scf.for " in line
                 ]
@@ -559,6 +604,7 @@ def run_case(args):
                 "query16": 7,
                 "skip_invisible": 7,
                 "page_reuse": 7,
+                "page_reuse_full": 7,
                 "packed_full": 7,
                 "unrolled_full": 28,
                 "raw_i32": 4,
@@ -952,6 +998,11 @@ def main():
         action="store_true",
         help="Reuse scalar page-table reads across three N64 tiles; compare visibility-bounded query16",
     )
+    parser.add_argument(
+        "--page-reuse-full",
+        action="store_true",
+        help="Page reuse without skipping dots, on a non-skip chunk; compare unbounded query16",
+    )
     args = parser.parse_args()
     if (
         sum(
@@ -962,6 +1013,7 @@ def main():
                 args.query_pack_sweep,
                 args.skip_invisible,
                 args.page_reuse,
+                args.page_reuse_full,
             )
         )
         > 1
@@ -977,7 +1029,7 @@ def main():
         )
     if args.query_pack_sweep:
         ARMS = ("query8", "query16", "current")
-    if args.page_reuse:
+    if args.page_reuse or args.page_reuse_full:
         args.skip_invisible = True
     if args.skip_invisible:
         ARMS = (
@@ -985,6 +1037,8 @@ def main():
             if args.page_reuse
             else ("skip_invisible", "current")
         )
+    if args.page_reuse_full:
+        ARMS = ("page_reuse_full", "current")
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
@@ -1015,7 +1069,9 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
-        if args.page_reuse:
+        if args.page_reuse_full:
+            command.append("--page-reuse-full")
+        elif args.page_reuse:
             command.append("--page-reuse")
         elif args.skip_invisible:
             command.append("--skip-invisible")

@@ -433,3 +433,31 @@ The page reuse switch stays opt-in pending full-input evidence.
 Local checks passed page partition/offset equivalence, the tested kernel AST
 (apart from an unused local assignment), same-policy routing, default
 fallback, formatting, lint and Python compilation. Device results pending.
+
+## Page reuse independently of visibility skipping
+
+The ten-shape page-reuse trial (`d488bc389bac4bbcb4a9ab5204d6a4feb07a6c52`)
+passed correctness and retained 1.182x-1.320x score gains on the six main
+benefiting full inputs. It did not test page reuse on chunks rejected by the
+visibility policy; that restriction is experimental, not intrinsic.
+
+`--page-reuse-full` now generates page reuse from the unbounded query16 kernel.
+All eight tiles execute their dot and score operations, including invisible
+ones; there is one masked final score store and no store-only fill loop.
+The page lookup is shared per segment and is masked when the segment begins
+outside width/visibility. Valid key addresses and output masks are preserved.
+The comparator is `_qsa_page64_query16_score`, not the skip scorer.
+
+For each input, the script evaluates the actual CPU visibility with the current
+conservative policy, collects rejected chunks with at least nineteen rows,
+and chooses the middle such chunk. Its row range, policy counters and number
+of choices are printed as NON_SKIP_CHUNK. Shared mapping and request-owner
+checks then apply to that chosen chunk. Initial cases are short_tail,
+long100k and budget_exact. Same-run IR export, full-chunk correctness, sampled
+CPU checks, nineteen-row/empty-group guards and two interleaved rounds remain.
+This measures representative chunk scoring, not full-input/native speedup.
+
+Local validation passed all-eight-tile coverage for all page start phases,
+valid token/page-offset equivalence, unchanged dot-to-store arithmetic, single
+store contract, Python compilation, lint and no-NPU CLI smoke (expected exit 2).
+Device compilation and performance remain pending.
