@@ -258,3 +258,30 @@ Local checks establish kernel AST equivalence to the device-tested candidate,
 shared-map/owner guards, partial groups, explicit opt-out, unknown-chunk
 fallback and one CPU metadata copy. NPU validation of the integrated entry
 is pending this run.
+
+## Visibility-bounded dot-loop probe
+
+`--skip-invisible` compares the integrated sixteen-query N64 scorer with a
+candidate whose dot loop ends at the group's maximum visible column. Each
+work unit still owns eight key tiles. The remaining tiles run a store-only
+loop writing -inf, including output masks; this fill is inside the timed
+kernel. There is no conditional assignment in the inner loop and active
+arithmetic, FP32 reduction, page addressing and layout stay unchanged.
+
+The report prints issued/useful/skippable tile counts for the representative
+chunk and full-input query16 geometry. These are theoretical counts, including
+padded key tiles, rather than measured instructions or production-route counts.
+The same invocation exports IR/metadata, requires the dynamic loops in TTIR,
+checks complete chunk scores against legacy, samples the CPU reference and
+checks nineteen-row tails with empty groups and output guards. Timings use two
+oppositely ordered rounds. No separate hardware counter passes are required.
+
+Initial cases: first_chunk, budget_exact, long100k. first_chunk currently takes
+N128 in the integrated entry: its N64/query16 timings here are diagnostic only,
+not an integrated-route performance claim. All cases require shared page maps
+and request owners within the representative query groups.
+
+Local validation passed AST equivalence for active scoring, dot-free fill,
+empty/partial/oversized visibility coverage, lint and compilation. The Mac
+smoke run correctly returns prerequisites_missing (no Torch/NPU); device
+compilation, actual skip effectiveness and numerical checks remain pending.

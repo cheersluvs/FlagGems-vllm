@@ -47,6 +47,30 @@ FROZEN = "0d0b371e406168d706705c904eb382ffc12d4f382d3237fb969c23c9e9424ee6"
 
 def build_source(arm):
     """Retain original addressing/loop prefixes and an explicit FP32 output sink."""
+    if arm == "skip_invisible":
+        module = ast.parse(build_source("query16"))
+        fn = next(n for n in module.body if isinstance(n, ast.FunctionDef))
+        fn.name = "_qsa_page64_prefix_skip_invisible"
+        outer = next(n for n in fn.body if isinstance(n, ast.For))
+        inner = next(n for n in outer.body if isinstance(n, ast.For))
+        # Bound the dot loop by group visibility. A separate store-only loop
+        # fills the remaining tiles, keeping dense logits semantics and cost.
+        bound = ast.parse(
+            "active_tiles = tl.minimum(KEY_TILES, tl.maximum(0, tl.cdiv(tl.minimum(WIDTH, max_visible), BLOCK_N) - first_tile))"
+        ).body[0]
+        inner.iter = ast.parse("range(active_tiles)", mode="eval").body
+        fill = ast.parse(
+            """
+for empty_tile in range(active_tiles, KEY_TILES):
+    columns = (first_tile + empty_tile) * BLOCK_N + tl.arange(0, BLOCK_N)
+    tl.store(Out + rows[:,None]*WIDTH + columns[None,:], -float('inf'),
+             mask=(rows[:,None]<ROWS)&(columns[None,:]<WIDTH))
+"""
+        ).body[0]
+        index = outer.body.index(inner)
+        outer.body[index : index + 1] = [bound, inner, fill]
+        ast.fix_missing_locations(module)
+        return ast.unparse(module) + "\n"
     source = Path(__file__).with_name("qsa_int8_query_pack4_910b.py").read_text()
     module = ast.parse(source)
     fn = next(
@@ -223,7 +247,7 @@ def run_case(args):
             grid_cap=20,
             plan=plan,
         )
-        if args.query_pack_sweep:
+        if args.query_pack_sweep or args.skip_invisible:
             table = inputs["row_table"][first : first + count].tolist()
             for group in (8, 16):
                 for base in range(0, count, group):
@@ -286,9 +310,44 @@ def run_case(args):
             ):
                 raise AssertionError("Packed cache roundtrip mismatch")
         kernels = load_kernels(report, args.case)
+        if args.skip_invisible:
+            from qsa_int8_query_pack4_910b import _qsa_page64_query16_score
+
+            kernels["current"] = _qsa_page64_query16_score
+            result["scope"] = (
+                "Representative query16 N64 visibility-bounded dot loop plus timed dense -inf fill; diagnostic even where production chooses N128; no native/TopK claim"
+            )
+
+            def tile_counts(begin, size):
+                visible = inputs["visible"][begin : begin + size].tolist()
+                total = ((width + 63) // 64 + 7) // 8 * 8
+                active = sum(
+                    min(total, (min(width, max(visible[b : b + 16])) + 63) // 64)
+                    for b in range(0, size, 16)
+                )
+                issued = ((size + 15) // 16) * total
+                return dict(
+                    issued=issued,
+                    useful=active,
+                    skipped=issued - active,
+                    skipped_fraction=(issued - active) / issued,
+                )
+
+            result["visibility_tiles"] = dict(
+                representative=tile_counts(first, count),
+                full_input=tile_counts(0, rows),
+                scope="Query16 geometry, includes padded key tiles; theoretical skip count, not measured runtime instructions",
+            )
+            print(
+                "VISIBILITY_TILES", json.dumps(result["visibility_tiles"]), flush=True
+            )
 
         def launch_at(name, target, start, n, w, visible=None):
-            group = int(name.removeprefix("query")) if name.startswith("query") else 4
+            group = (
+                16
+                if args.skip_invisible
+                else int(name.removeprefix("query")) if name.startswith("query") else 4
+            )
             return kernels[name][
                 (min(20, triton.cdiv(n, group) * triton.cdiv(triton.cdiv(w, 64), 8)),)
             ](
@@ -422,6 +481,16 @@ def run_case(args):
                 if isinstance(kernel.asm.get(ir), str):
                     (report / f"{args.case}-{name}-{ir}.txt").write_text(kernel.asm[ir])
             ttir = kernel.asm["ttir"]
+            if args.skip_invisible and name == "skip_invisible":
+                loop_lines = [
+                    line.strip() for line in ttir.splitlines() if "scf.for " in line
+                ]
+                result["visibility_loop_ir"] = dict(
+                    loop_headers=loop_lines,
+                    scope="Dynamic dot-loop and store-only fill-loop source exported; runtime skip efficacy judged with timing, not static dot count",
+                )
+                if len(loop_lines) < 3:
+                    raise AssertionError("Visibility/fill loops not retained in TTIR")
             dots = len(re.findall(r"\btt\.dot\b", ttir))
             loads = len(re.findall(r"\btt\.load\b", ttir))
             stores = len(re.findall(r"\btt\.store\b", ttir))
@@ -434,6 +503,7 @@ def run_case(args):
                 "current": 7,
                 "query8": 7,
                 "query16": 7,
+                "skip_invisible": 7,
                 "packed_full": 7,
                 "unrolled_full": 28,
                 "raw_i32": 4,
@@ -441,7 +511,12 @@ def run_case(args):
             }
             if (
                 dots != (8 if name == "unrolled_full" else 0 if name == "loads" else 1)
-                or stores != (8 if name == "unrolled_full" else 1)
+                or stores
+                != (
+                    8
+                    if name == "unrolled_full"
+                    else 2 if name == "skip_invisible" else 1
+                )
                 or (
                     not 20 <= loads <= 28
                     if name == "unrolled_full"
@@ -480,7 +555,7 @@ def run_case(args):
         adapter.score_into(first, count, reference)
         for name in (
             ARMS
-            if args.query_pack_sweep
+            if args.query_pack_sweep or args.skip_invisible
             else (
                 ("packed_full", "full", "current")
                 if args.cube_boundary
@@ -501,7 +576,7 @@ def run_case(args):
             vis = torch.tensor([193, 0, 255, 1, 128, 256, 191], dtype=torch.int32)
             if empty:
                 vis[:4] = 0
-            if args.query_pack_sweep:
+            if args.query_pack_sweep or args.skip_invisible:
                 n = 19
                 vis = vis.repeat(3)[:n].clone()
                 if empty:
@@ -533,7 +608,11 @@ def run_case(args):
         hosts = {
             name: {
                 (
-                    "_qsa_qk_single_page_score"
+                    (
+                        "_qsa_page64_query16_score"
+                        if args.skip_invisible
+                        else "_qsa_qk_single_page_score"
+                    )
                     if name == "current"
                     else f"_qsa_page64_prefix_{name}"
                 ): 1
@@ -570,7 +649,7 @@ def run_case(args):
         times = {
             name: v["kernel_us"]["median"] for name, v in result["latency"].items()
         }
-        if args.query_pack_sweep:
+        if args.query_pack_sweep or args.skip_invisible:
             result["query_pack_speedup_vs_current"] = {}
             for name in ARMS[:-1]:
                 if not torch.allclose(
@@ -623,6 +702,7 @@ def run_case(args):
                 or args.hardware_boundary
                 or args.unroll_loop
                 or args.query_pack_sweep
+                or args.skip_invisible
                 else zip(ARMS[:4], ARMS[1:5])
             )
         }
@@ -646,7 +726,11 @@ def run_case(args):
             for name in ARMS:
                 result["hardware"][name] = {}
                 kernel_name = (
-                    "_qsa_qk_single_page_score"
+                    (
+                        "_qsa_page64_query16_score"
+                        if args.skip_invisible
+                        else "_qsa_qk_single_page_score"
+                    )
                     if name == "current"
                     else f"_qsa_page64_prefix_{name}"
                 )
@@ -790,6 +874,11 @@ def main():
         action="store_true",
         help="Full-score query groups 4/8/16: compile, correctness and paired timing",
     )
+    parser.add_argument(
+        "--skip-invisible",
+        action="store_true",
+        help="Query16 bounded dot loop with timed dense -inf fill",
+    )
     args = parser.parse_args()
     if (
         sum(
@@ -798,6 +887,7 @@ def main():
                 args.cube_boundary,
                 args.unroll_loop,
                 args.query_pack_sweep,
+                args.skip_invisible,
             )
         )
         > 1
@@ -813,6 +903,8 @@ def main():
         )
     if args.query_pack_sweep:
         ARMS = ("query8", "query16", "current")
+    if args.skip_invisible:
+        ARMS = ("skip_invisible", "current")
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
@@ -843,6 +935,8 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
+        if args.skip_invisible:
+            command.append("--skip-invisible")
         if args.query_pack_sweep:
             command.append("--query-pack-sweep")
         if args.cube_boundary:
