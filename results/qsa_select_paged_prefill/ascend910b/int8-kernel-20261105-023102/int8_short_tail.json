@@ -1,0 +1,821 @@
+{
+  "case": "int8_short_tail",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_short_tail",
+    "nv_case": "fp8_short_tail_float8_e4m3fn",
+    "origin": "recorded_envelope",
+    "query_lengths": [
+      2316
+    ],
+    "prefix_tokens": [
+      31527
+    ],
+    "starts": [
+      0,
+      2316
+    ],
+    "batch_max_seq_len": 33843,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      45
+    ],
+    "physical_pages": 45,
+    "table_columns": 45,
+    "q_shape": [
+      2316,
+      4,
+      128
+    ],
+    "cache_shape": [
+      45,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 8512,
+    "chunk_rows": 128,
+    "score_and_dot_scratch_bytes": 21790720,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": 2712,
+    "nv_original_table_columns": 88,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Prepared inputs; sum of device kernel durations, not public production entry",
+  "stage": "completed",
+  "memory": {
+    "benchmark_only_full_logits_bytes": 78855168,
+    "bounded_score_scratch_bytes": 4358144,
+    "raw_dot_allocation_bytes": 0,
+    "free_before_staging": 65027997696,
+    "total": 65452113920
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-query16-integrated.T7Uwabnn/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-query16-integrated.T7Uwabnn/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "dispatch": {
+    "score_chunk_rows": 128,
+    "topk_call_rows": 32,
+    "topk_block": 256,
+    "score_calls": 19,
+    "topk_calls": 73,
+    "native_full_calls": 1,
+    "native_chunked_calls": 0,
+    "score_grid": 20,
+    "score_block_n": 64,
+    "debug_store": false,
+    "score_block_ns": [
+      64
+    ]
+  },
+  "shared_map_dispatch": {
+    "preparation_ms": 5.254339426755905,
+    "query16_enabled": true,
+    "query16_chunks": 19,
+    "group4_enabled": true,
+    "single_page64_enabled": true,
+    "single_page64_min_width": 8192,
+    "single_page64_chunks": 19,
+    "group4_min_key_tiles": 16,
+    "group4_chunks": 0,
+    "plain_qk_chunks": 0,
+    "preparation_in_kernel_timing": false,
+    "immutable_inputs_required": true,
+    "qk_chunks": 19,
+    "fallback_chunks": 0,
+    "routes": [
+      {
+        "first": 0,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 128,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 256,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 384,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 512,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 640,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 768,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 896,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 1024,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 1152,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 1280,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 1408,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 1536,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 1664,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 1792,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 1920,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 2048,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 2176,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      {
+        "first": 2304,
+        "count": 12,
+        "shared": true,
+        "proof": {
+          "groups": 3,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      }
+    ],
+    "calibration": "Unchanged single-query scorer; candidate stages timed separately"
+  },
+  "integration": {
+    "entry": "qsa_int8_shared_map_selection_910b_trial.PreparedSharedMapInt8Selection.__call__",
+    "score_grid": 20,
+    "score_block_n": 64,
+    "topk_call_rows": 32,
+    "scope": "Prepared INT8 trial adapter; BF16 production unchanged"
+  },
+  "cpu_reference_rows": [
+    0,
+    127,
+    128,
+    1158,
+    2304,
+    2315
+  ],
+  "correctness": {
+    "score": {
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        1158,
+        2304,
+        2315
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    "all_chunk_scores_vs_legacy": {
+      "chunks": 19,
+      "all_values_compared": true,
+      "max_abs_error": 7.62939453125e-06
+    },
+    "native_full_preflight": {
+      "all_rows_structure": true,
+      "rows": 2316,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        1158,
+        2304,
+        2315
+      ],
+      "selected_score_max_abs_error": 0.009777069091796875
+    },
+    "topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 2316,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          1158,
+          2304,
+          2315
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 2316,
+        "max_abs_error": 0.0220489501953125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 2316,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          1158,
+          2304,
+          2315
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 2316,
+        "max_abs_error": 0.0220489501953125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_dispatch_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          1158,
+          2304,
+          2315
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "post_legacy_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          1158,
+          2304,
+          2315
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "post_native_fused": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 2316,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          1158,
+          2304,
+          2315
+        ],
+        "selected_score_max_abs_error": 0.009777069091796875
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 2316,
+        "max_abs_error": 0.0220489501953125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 2316,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          1158,
+          2304,
+          2315
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 2316,
+        "max_abs_error": 0.0220489501953125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 2316,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          1158,
+          2304,
+          2315
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 2316,
+        "max_abs_error": 0.0220489501953125,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          1158,
+          2304,
+          2315
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "no_debug_ir": {
+    "store_count": 1,
+    "int8_to_int32_dot": true
+  },
+  "baseline_policy": {
+    "primary": "full native V1, one call",
+    "auxiliary": "omitted",
+    "no_fallback": true
+  },
+  "kernel_timer": {
+    "backend": "CPU+NPU Chrome trace with synchronized invocation windows",
+    "warmup": 1,
+    "active": 2,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Exploratory device-task sums; all stage and native baselines rebuilt together; no host gaps",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "invocation_sum_check": {
+      "single": {
+        "kernel_us": 2852.17,
+        "active_invocation_us": [
+          2851.46,
+          2852.88
+        ],
+        "device_task_count": 2,
+        "host_launch_count": 2,
+        "artifact": "int8_short_tail-timer-01.json.gz"
+      },
+      "triple": {
+        "kernel_us": 8557.83,
+        "active_invocation_us": [
+          8558.3,
+          8557.36
+        ],
+        "device_task_count": 6,
+        "host_launch_count": 6,
+        "artifact": "int8_short_tail-timer-02.json.gz"
+      },
+      "ratio": 3.000462805512995
+    }
+  },
+  "samples": {
+    "score": [
+      {
+        "kernel_us": 3155.7699999999995,
+        "active_invocation_us": [
+          3197.8999999999996,
+          3113.64
+        ],
+        "device_task_count": 38,
+        "tasks_per_invocation": [
+          19,
+          19
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 19
+        },
+        "artifact": "int8_short_tail-stage-timer-06.json.gz",
+        "stage": "score_stage"
+      }
+    ],
+    "topk": [
+      {
+        "kernel_us": 2114.550000000002,
+        "active_invocation_us": [
+          2113.240000000002,
+          2115.8600000000015
+        ],
+        "device_task_count": 438,
+        "tasks_per_invocation": [
+          219,
+          219
+        ],
+        "device_task_names_per_invocation": {
+          "_radix_hist_trivial_all": 73,
+          "_segmerge_seg_sort": 73,
+          "_segmerge_merge_unpack": 73
+        },
+        "artifact": "int8_short_tail-stage-timer-05.json.gz",
+        "stage": "topk_stage"
+      }
+    ],
+    "combined": [
+      {
+        "kernel_us": 5350.469999999999,
+        "active_invocation_us": [
+          5338.959999999996,
+          5361.980000000001
+        ],
+        "device_task_count": 476,
+        "tasks_per_invocation": [
+          238,
+          238
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 19,
+          "_radix_hist_trivial_all": 73,
+          "_segmerge_seg_sort": 73,
+          "_segmerge_merge_unpack": 73
+        },
+        "artifact": "int8_short_tail-stage-timer-04.json.gz",
+        "stage": "combined_stage"
+      }
+    ],
+    "native_fused": [
+      {
+        "kernel_us": 2522.66,
+        "active_invocation_us": [
+          2521.3,
+          2524.02
+        ],
+        "device_task_count": 2,
+        "tasks_per_invocation": [
+          1,
+          1
+        ],
+        "device_task_names_per_invocation": {
+          "QuantLightningIndexer": 1
+        },
+        "artifact": "int8_short_tail-stage-timer-03.json.gz",
+        "stage": "native_stage"
+      }
+    ],
+    "legacy_score": [
+      {
+        "kernel_us": 53107.42,
+        "active_invocation_us": [
+          53108.03999999999,
+          53106.799999999996
+        ],
+        "device_task_count": 38,
+        "tasks_per_invocation": [
+          19,
+          19
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 19
+        },
+        "artifact": "int8_short_tail-stage-timer-02.json.gz",
+        "stage": "legacy_score_stage"
+      }
+    ],
+    "dispatch_score": [
+      {
+        "kernel_us": 10286.8,
+        "active_invocation_us": [
+          10284.479999999998,
+          10289.119999999999
+        ],
+        "device_task_count": 38,
+        "tasks_per_invocation": [
+          19,
+          19
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 19
+        },
+        "artifact": "int8_short_tail-stage-timer-01.json.gz",
+        "stage": "dispatch_score_stage"
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "dispatch_score",
+      "legacy_score",
+      "native_fused",
+      "combined",
+      "topk",
+      "score"
+    ]
+  ],
+  "latency": {
+    "score": {
+      "kernel_us": {
+        "median": 3155.7699999999995,
+        "min": 3155.7699999999995,
+        "max": 3155.7699999999995,
+        "range_over_median": 0.0
+      }
+    },
+    "topk": {
+      "kernel_us": {
+        "median": 2114.550000000002,
+        "min": 2114.550000000002,
+        "max": 2114.550000000002,
+        "range_over_median": 0.0
+      }
+    },
+    "combined": {
+      "kernel_us": {
+        "median": 5350.469999999999,
+        "min": 5350.469999999999,
+        "max": 5350.469999999999,
+        "range_over_median": 0.0
+      }
+    },
+    "native_fused": {
+      "kernel_us": {
+        "median": 2522.66,
+        "min": 2522.66,
+        "max": 2522.66,
+        "range_over_median": 0.0
+      }
+    },
+    "legacy_score": {
+      "kernel_us": {
+        "median": 53107.42,
+        "min": 53107.42,
+        "max": 53107.42,
+        "range_over_median": 0.0
+      }
+    },
+    "dispatch_score": {
+      "kernel_us": {
+        "median": 10286.8,
+        "min": 10286.8,
+        "max": 10286.8,
+        "range_over_median": 0.0
+      }
+    }
+  },
+  "speedup": {
+    "overall": 0.47148381357151803,
+    "auxiliary_chunked_native": null,
+    "score": null,
+    "topk": null
+  },
+  "score_speedup_vs_legacy": 16.82867255851979,
+  "score_speedup_vs_current_dispatch": 3.2596798879512767,
+  "native_split": {
+    "score_us": null,
+    "topk_us": null,
+    "reason": "Fused V1 API has no isolated stage entry"
+  },
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    }
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "1bb021dc673f417aa0a5ef4bcb4415149a6caeef250d434c6c4165154ed79bd4",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+    "qsa_int8_shared_map_selection_910b_trial.py": "bcea1eab5a4a6b4350497b8ce5aa189a263a9db8b7a52f6e51d32021ad1c2462",
+    "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+    "qsa_int8_query_pack4_910b.py": "ad2bf1a13a22990104ee1fbe2ee892ea1c8e3efc86bb147ed05ef6a4f680c3f0",
+    "qsa_int8_stage_trace_timer_910b.py": "3047bd02b8dda4d6c6604ef8e4ced29e5d96a2c3d69e09d511b48e887ff92cea",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+  },
+  "exit_code": 0
+}
