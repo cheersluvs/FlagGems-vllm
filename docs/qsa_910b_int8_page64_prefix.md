@@ -189,3 +189,25 @@ passes use the existing two-iteration collector, exact-kernel filtering and
 PipeUtilization availability gate. Use PipeUtilization/ArithmeticUtilization
 first to limit runtime, with optional memory groups supported. Counter-pass
 durations are not benchmark times. No TopK or full-input/native-overall claim.
+
+## Query grouping probe (2026-11-05)
+
+Run `--query-pack-sweep` to compare the current four-query M16 kernel with
+M32/eight-query and M64/sixteen-query kernels. N64, K128, eight key tiles per
+work unit, grid cap 20, FP32 reduction, addressing and output semantics stay
+fixed. The work grid uses each arm's query group count. CPU fixture guards
+verify identical page mappings and request owners within every larger group.
+These checks are outside timing; this is a representative-chunk experiment,
+not a production dispatch or full-input/native comparison.
+
+The same invocation exports compiler IR/metadata, checks all scores against
+the legacy scorer, samples CPU reference rows at rtol/atol 1e-3, exercises
+19-row tails including empty groups and output sentinels, then times two
+rounds in opposite order. Post-timing scores must match current scores.
+Console output includes kernel microseconds and current/candidate speedups.
+Hardware counter passes are omitted in this screening round to reduce runtime.
+
+Local validation: grouping-only AST transformations and partial-row ownership
+passed for both arms; formatting/lint and Python compilation passed. On Mac,
+both child processes report prerequisites_missing (no Torch/NPU), exit 2;
+compilation, numerical correctness and performance require the card run.

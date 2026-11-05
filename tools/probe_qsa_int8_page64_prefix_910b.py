@@ -16,6 +16,7 @@
 
 import argparse
 import ast
+import bisect
 import gzip
 import hashlib
 import importlib.util
@@ -61,6 +62,22 @@ def build_source(arm):
     fn.name = f"_qsa_page64_prefix_{arm}"
     outer = next(n for n in fn.body if isinstance(n, ast.For))
     inner = next(n for n in outer.body if isinstance(n, ast.For))
+    if arm in ("query8", "query16"):
+        group = int(arm.removeprefix("query"))
+        # Only query grouping changes; four heads/query and K addressing stay fixed.
+        text = ast.unparse(fn)
+        replacements = {
+            "triton.cdiv(ROWS, 4)": f"triton.cdiv(ROWS, {group})",
+            "tl.arange(0, 16)": f"tl.arange(0, {group * 4})",
+            "tl.arange(0, 4)": f"tl.arange(0, {group})",
+            "base = group * 4": f"base = group * {group}",
+            "(4, 4, BLOCK_N)": f"({group}, 4, BLOCK_N)",
+        }
+        for old, new in replacements.items():
+            if text.count(old) != 1:
+                raise RuntimeError(f"Query sweep source drift: {old}")
+            text = text.replace(old, new)
+        return "import triton\nimport triton.language as tl\n\n" + text + "\n"
     if arm == "unrolled_full":
         inner.iter = ast.parse("tl.static_range(KEY_TILES)", mode="eval").body
     elif arm == "packed_full":
@@ -206,6 +223,23 @@ def run_case(args):
             grid_cap=20,
             plan=plan,
         )
+        if args.query_pack_sweep:
+            table = inputs["row_table"][first : first + count].tolist()
+            for group in (8, 16):
+                for base in range(0, count, group):
+                    owner = bisect.bisect_right(plan["starts"], first + base) - 1
+                    for row in range(base, min(base + group, count)):
+                        if (
+                            table[row] != table[base]
+                            or bisect.bisect_right(plan["starts"], first + row) - 1
+                            != owner
+                        ):
+                            raise NotImplementedError(
+                                f"Unsafe query{group} shared-map group"
+                            )
+            result["query_group_guard"] = dict(
+                groups=[4, 8, 16], shared_maps_and_request_owners=True
+            )
         result["cube_boundary"] = args.cube_boundary
         result["unroll_loop"] = args.unroll_loop
         result["scope"] = (
@@ -221,6 +255,10 @@ def run_case(args):
             result["scope"] = (
                 "Representative N64/group8 full-score static inner-loop unroll versus current; "
                 "same arithmetic/addressing/outputs; separate counter passes; no full-input/native claim"
+            )
+        if args.query_pack_sweep:
+            result["scope"] = (
+                "Representative full-score query grouping 4/8/16; N64/K128/key_tiles8 unchanged; no full-input or native speedup claim"
             )
         scratch = torch.empty(
             (count, width), device=values["q"].device, dtype=torch.float32
@@ -250,8 +288,9 @@ def run_case(args):
         kernels = load_kernels(report, args.case)
 
         def launch_at(name, target, start, n, w, visible=None):
+            group = int(name.removeprefix("query")) if name.startswith("query") else 4
             return kernels[name][
-                (min(20, triton.cdiv(n, 4) * triton.cdiv(triton.cdiv(w, 64), 8)),)
+                (min(20, triton.cdiv(n, group) * triton.cdiv(triton.cdiv(w, 64), 8)),)
             ](
                 values["q"][start : start + n],
                 packed_cache if name == "packed_full" else values["cache"],
@@ -393,6 +432,8 @@ def run_case(args):
                 "dequant": 6,
                 "full": 7,
                 "current": 7,
+                "query8": 7,
+                "query16": 7,
                 "packed_full": 7,
                 "unrolled_full": 28,
                 "raw_i32": 4,
@@ -438,12 +479,16 @@ def run_case(args):
         reference = torch.empty_like(scratch)
         adapter.score_into(first, count, reference)
         for name in (
-            ("packed_full", "full", "current")
-            if args.cube_boundary
+            ARMS
+            if args.query_pack_sweep
             else (
-                ("unrolled_full", "current")
-                if args.unroll_loop
-                else ("current",) if args.hardware_boundary else ("full", "current")
+                ("packed_full", "full", "current")
+                if args.cube_boundary
+                else (
+                    ("unrolled_full", "current")
+                    if args.unroll_loop
+                    else ("current",) if args.hardware_boundary else ("full", "current")
+                )
             )
         ):
             if not torch.allclose(targets[name], reference, rtol=1e-3, atol=1e-3):
@@ -456,6 +501,11 @@ def run_case(args):
             vis = torch.tensor([193, 0, 255, 1, 128, 256, 191], dtype=torch.int32)
             if empty:
                 vis[:4] = 0
+            if args.query_pack_sweep:
+                n = 19
+                vis = vis.repeat(3)[:n].clone()
+                if empty:
+                    vis[:16] = 0
             device_vis = vis.to(scratch.device)
             for name in ARMS:
                 guarded = make_target(name, n, w, guards=4)
@@ -520,6 +570,21 @@ def run_case(args):
         times = {
             name: v["kernel_us"]["median"] for name, v in result["latency"].items()
         }
+        if args.query_pack_sweep:
+            result["query_pack_speedup_vs_current"] = {}
+            for name in ARMS[:-1]:
+                if not torch.allclose(
+                    targets[name], targets["current"], rtol=1e-3, atol=1e-3
+                ):
+                    raise AssertionError(f"Last timed scores differ: {name}")
+                result["query_pack_speedup_vs_current"][name] = (
+                    times["current"] / times[name]
+                )
+            print(
+                "QUERY_PACK_SPEEDUP_VS_CURRENT",
+                json.dumps(result["query_pack_speedup_vs_current"]),
+                flush=True,
+            )
         if args.unroll_loop:
             if not torch.allclose(
                 targets["unrolled_full"], targets["current"], rtol=1e-3, atol=1e-3
@@ -554,7 +619,10 @@ def run_case(args):
             f"{b}_minus_{a}": times[b] - times[a]
             for a, b in (
                 []
-                if args.cube_boundary or args.hardware_boundary or args.unroll_loop
+                if args.cube_boundary
+                or args.hardware_boundary
+                or args.unroll_loop
+                or args.query_pack_sweep
                 else zip(ARMS[:4], ARMS[1:5])
             )
         }
@@ -717,8 +785,23 @@ def main():
         action="store_true",
         help="Static-unroll eight N64 tiles; full scores, timing and counter comparison",
     )
+    parser.add_argument(
+        "--query-pack-sweep",
+        action="store_true",
+        help="Full-score query groups 4/8/16: compile, correctness and paired timing",
+    )
     args = parser.parse_args()
-    if sum((args.hardware_boundary, args.cube_boundary, args.unroll_loop)) > 1:
+    if (
+        sum(
+            (
+                args.hardware_boundary,
+                args.cube_boundary,
+                args.unroll_loop,
+                args.query_pack_sweep,
+            )
+        )
+        > 1
+    ):
         parser.error("Choose one boundary/unroll mode")
     if args.counter_iterations < 1:
         parser.error("Positive counter iterations required")
@@ -728,6 +811,8 @@ def main():
         ARMS = (
             ("unrolled_full", "current") if args.unroll_loop else ("raw_i32", "current")
         )
+    if args.query_pack_sweep:
+        ARMS = ("query8", "query16", "current")
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
@@ -758,6 +843,8 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
+        if args.query_pack_sweep:
+            command.append("--query-pack-sweep")
         if args.cube_boundary:
             command.append("--cube-boundary")
         if args.hardware_boundary or args.unroll_loop:
