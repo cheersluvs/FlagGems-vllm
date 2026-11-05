@@ -72,8 +72,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         key_group4=False,
         single_page64=False,
         query16=True,
-        skip_invisible=False,
-        visibility_policy="all",
+        skip_invisible=True,
+        visibility_policy="conservative",
     ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)

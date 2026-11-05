@@ -366,3 +366,35 @@ Initial replay covers short_tail, tail112, two_balanced and long100k, using
 two rounds and two active samples per arm per round. The conservative policy
 thresholds stay fixed. Local lint, compilation, CLI and no-NPU smoke checks
 passed (expected prerequisite exit 2); device trace validation remains pending.
+
+## Integrated skip policy and page-segment reuse probe
+
+Interleaved report `0a2467cefde7193ff73667a89317196a9848815f` validated
+identical short_tail binaries with 1.0087x self-control timing, tail112 at
+1.1701x, two_balanced at 1.0650x and long100k at 1.0033x. All invocation
+counts and correctness checks passed. The conservative visibility policy
+is now the prepared INT8 N64 entry default (skip_invisible=True,
+visibility_policy="conservative"). Explicit skip_invisible=False preserves
+the comparator. This remains an unregistered prepared entry; metadata
+preparation cost stays separate from device-only measurements.
+
+`--page-reuse` compares page-segment reuse against the tested visibility-bounded
+query16 kernel. Each work unit still owns eight N64 tiles. The candidate
+partitions only its active interval into page segments, loads the physical
+page once per segment, and scores up to three tiles using page-relative offsets.
+The last store-only -inf fill loop is unchanged. No whole-loop static unroll,
+new layout, compiler modification, TopK change or expanded work unit is used.
+The extra nested loop may offset saved scalar loads; performance is unproven.
+
+The initial representative chunks are budget_exact, dominant_long and tail112;
+they satisfy the integrated conservative skip threshold. They cover widths
+8192, 8512 and 8256, including partial final tiles/pages. The same run checks
+compiled loop structure, all chunk scores, sampled CPU rows, nineteen-row
+tails, empty query groups and output guards, and measures two paired rounds.
+These timings are scorer probes, not full-input or native stage speedups.
+
+Local checks passed integrated defaults/opt-out, exact page partition coverage
+for all three start phases and 0..8 active tiles, physical-page/offset equality,
+unchanged scoring suffix, lint and Python compilation. Both no-NPU smoke runs
+correctly returned prerequisite exit 2. Device compilation and performance
+remain pending the next round trip.

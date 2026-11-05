@@ -258,6 +258,7 @@ def run_case(args):
                     key_group4=True,
                     single_page64=True,
                     query16=args.skip_invisible_dispatch,
+                    skip_invisible=False,
                 )
             if args.key_group4_dispatch and not args.single_page64_dispatch:
                 qk_adapter = PreparedSharedMapInt8Selection(
@@ -1017,7 +1018,7 @@ def main():
     parser.add_argument(
         "--visibility-policy",
         choices=("all", "conservative"),
-        default="all",
+        default="conservative",
         help="Conservative trial requires >=512 issued tiles and >=1/8 skippable tiles per chunk",
     )
     parser.add_argument(
@@ -1026,10 +1027,9 @@ def main():
         help="One alternating full-input score trace, reverse order next round; omit legacy timing",
     )
     args = parser.parse_args()
+    args.skip_invisible_dispatch = args.single_page64_dispatch
     if args.interleave_score and not args.skip_invisible_dispatch:
         parser.error("--interleave-score requires --skip-invisible-dispatch")
-    if args.visibility_policy != "all" and not args.skip_invisible_dispatch:
-        parser.error("--visibility-policy requires --skip-invisible-dispatch")
     if args.skip_invisible_dispatch and not args.single_page64_dispatch:
         parser.error("--skip-invisible-dispatch requires --single-page64-dispatch")
     if args.query16_dispatch and not args.single_page64_dispatch:

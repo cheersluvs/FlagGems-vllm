@@ -47,6 +47,51 @@ FROZEN = "0d0b371e406168d706705c904eb382ffc12d4f382d3237fb969c23c9e9424ee6"
 
 def build_source(arm):
     """Retain original addressing/loop prefixes and an explicit FP32 output sink."""
+    if arm == "page_reuse":
+        module = ast.parse(build_source("skip_invisible"))
+        fn = next(n for n in module.body if isinstance(n, ast.FunctionDef))
+        fn.name = "_qsa_page64_prefix_page_reuse"
+        outer = next(n for n in fn.body if isinstance(n, ast.For))
+        inner = next(n for n in outer.body if isinstance(n, ast.For))
+        text = ast.unparse(inner)
+        # Preserve eight-tile work ownership, but load one physical page per
+        # page segment and reuse it for up to three consecutive N64 tiles.
+        text = text.replace(
+            "for local_tile in range(active_tiles):",
+            "for tile in range(tile_begin, tile_end):",
+        )
+        text = text.replace("    tile = first_tile + local_tile\n", "")
+        text = text.replace("    page = start // PAGE\n", "")
+        text = text.replace(
+            "offset = start % PAGE", "offset = (tile - page * 3) * BLOCK_N"
+        )
+        active = ast.parse(text).body[0]
+        active.body = [
+            n
+            for n in active.body
+            if not (
+                isinstance(n, ast.Assign)
+                and any(
+                    isinstance(t, ast.Name) and t.id == "physical" for t in n.targets
+                )
+            )
+        ]
+        page_loop = ast.parse(
+            """
+first_page = first_tile // 3
+page_count = tl.where(active_tiles > 0, tl.cdiv(first_tile % 3 + active_tiles, 3), 0)
+for page in range(first_page, first_page + page_count):
+    tile_begin = tl.maximum(first_tile, page * 3)
+    tile_end = tl.minimum(first_tile + active_tiles, page * 3 + 3)
+    physical = tl.load(Table + base*COLUMNS + tl.minimum(page,COLUMNS-1),
+                       mask=(page<COLUMNS)&(tile_begin<tile_end),other=0)
+"""
+        ).body
+        page_loop[-1].body.append(active)
+        index = outer.body.index(inner)
+        outer.body[index : index + 1] = page_loop
+        ast.fix_missing_locations(module)
+        return ast.unparse(module) + "\n"
     if arm == "skip_invisible":
         module = ast.parse(build_source("query16"))
         fn = next(n for n in module.body if isinstance(n, ast.FunctionDef))
@@ -314,6 +359,10 @@ def run_case(args):
             from qsa_int8_query_pack4_910b import _qsa_page64_query16_score
 
             kernels["current"] = _qsa_page64_query16_score
+            if args.page_reuse:
+                from qsa_int8_query_pack4_910b import _qsa_page64_skip_invisible_score
+
+                kernels["current"] = _qsa_page64_skip_invisible_score
             result["scope"] = (
                 "Representative query16 N64 visibility-bounded dot loop plus timed dense -inf fill; diagnostic even where production chooses N128; no native/TopK claim"
             )
@@ -340,6 +389,11 @@ def run_case(args):
             )
             print(
                 "VISIBILITY_TILES", json.dumps(result["visibility_tiles"]), flush=True
+            )
+
+        if args.page_reuse:
+            result["scope"] = (
+                "Representative query16 N64 page-segment reuse vs visibility-bounded scorer; same eight-tile ownership and dense fill; not full-input/TopK/native timing"
             )
 
         def launch_at(name, target, start, n, w, visible=None):
@@ -481,7 +535,7 @@ def run_case(args):
                 if isinstance(kernel.asm.get(ir), str):
                     (report / f"{args.case}-{name}-{ir}.txt").write_text(kernel.asm[ir])
             ttir = kernel.asm["ttir"]
-            if args.skip_invisible and name == "skip_invisible":
+            if args.skip_invisible and name in ("skip_invisible", "page_reuse"):
                 loop_lines = [
                     line.strip() for line in ttir.splitlines() if "scf.for " in line
                 ]
@@ -489,7 +543,7 @@ def run_case(args):
                     loop_headers=loop_lines,
                     scope="Dynamic dot-loop and store-only fill-loop source exported; runtime skip efficacy judged with timing, not static dot count",
                 )
-                if len(loop_lines) < 3:
+                if len(loop_lines) < (4 if name == "page_reuse" else 3):
                     raise AssertionError("Visibility/fill loops not retained in TTIR")
             dots = len(re.findall(r"\btt\.dot\b", ttir))
             loads = len(re.findall(r"\btt\.load\b", ttir))
@@ -504,6 +558,7 @@ def run_case(args):
                 "query8": 7,
                 "query16": 7,
                 "skip_invisible": 7,
+                "page_reuse": 7,
                 "packed_full": 7,
                 "unrolled_full": 28,
                 "raw_i32": 4,
@@ -515,7 +570,7 @@ def run_case(args):
                 != (
                     8
                     if name == "unrolled_full"
-                    else 2 if name == "skip_invisible" else 1
+                    else 2 if name in ("skip_invisible", "page_reuse") else 1
                 )
                 or (
                     not 20 <= loads <= 28
@@ -609,7 +664,11 @@ def run_case(args):
             name: {
                 (
                     (
-                        "_qsa_page64_query16_score"
+                        (
+                            "_qsa_page64_skip_invisible_score"
+                            if args.page_reuse
+                            else "_qsa_page64_query16_score"
+                        )
                         if args.skip_invisible
                         else "_qsa_qk_single_page_score"
                     )
@@ -727,7 +786,11 @@ def run_case(args):
                 result["hardware"][name] = {}
                 kernel_name = (
                     (
-                        "_qsa_page64_query16_score"
+                        (
+                            "_qsa_page64_skip_invisible_score"
+                            if args.page_reuse
+                            else "_qsa_page64_query16_score"
+                        )
                         if args.skip_invisible
                         else "_qsa_qk_single_page_score"
                     )
@@ -879,6 +942,11 @@ def main():
         action="store_true",
         help="Query16 bounded dot loop with timed dense -inf fill",
     )
+    parser.add_argument(
+        "--page-reuse",
+        action="store_true",
+        help="Reuse scalar page-table reads across three N64 tiles; compare visibility-bounded query16",
+    )
     args = parser.parse_args()
     if (
         sum(
@@ -888,6 +956,7 @@ def main():
                 args.unroll_loop,
                 args.query_pack_sweep,
                 args.skip_invisible,
+                args.page_reuse,
             )
         )
         > 1
@@ -903,8 +972,14 @@ def main():
         )
     if args.query_pack_sweep:
         ARMS = ("query8", "query16", "current")
+    if args.page_reuse:
+        args.skip_invisible = True
     if args.skip_invisible:
-        ARMS = ("skip_invisible", "current")
+        ARMS = (
+            ("page_reuse", "current")
+            if args.page_reuse
+            else ("skip_invisible", "current")
+        )
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
@@ -935,7 +1010,9 @@ def main():
             "--kernel-active",
             str(args.kernel_active),
         ]
-        if args.skip_invisible:
+        if args.page_reuse:
+            command.append("--page-reuse")
+        elif args.skip_invisible:
             command.append("--skip-invisible")
         if args.query_pack_sweep:
             command.append("--query-pack-sweep")
