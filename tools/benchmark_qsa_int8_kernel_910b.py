@@ -789,14 +789,14 @@ def run_case(args):
 
             result["stage"] = "bound_combined_timing"
             orders = list(permutations(functions))
-            samples = {name: [] for name in functions}
+            bound_samples = {name: [] for name in functions}
             measurement_order = []
             for index in range(args.bound_combined_samples):
                 order = orders[index % len(orders)]
                 measurement_order.append(order)
                 for name in order:
                     output.fill_(-2)
-                    samples[name].append(
+                    bound_samples[name].append(
                         sample_wall(
                             functions[name],
                             torch,
@@ -813,7 +813,8 @@ def run_case(args):
                 "event_record_us",
             )
             timing = {
-                name: aggregate_wall(values, fields) for name, values in samples.items()
+                name: aggregate_wall(values, fields)
+                for name, values in bound_samples.items()
             }
             result["bound_combined"] = dict(
                 scope="Warm kernels and prepared request metadata. Bind-and-run includes a fresh score binding; reuse retains one binding for the same tensors. TopK runs after every score chunk.",
@@ -823,7 +824,7 @@ def run_case(args):
                 exact_indices_each_run=True,
                 measurement_order=measurement_order,
                 timing=timing,
-                samples=samples,
+                samples=bound_samples,
                 wall_speedup_vs_dynamic={
                     name: timing["dynamic"]["wall_us"]["median"]
                     / timing[name]["wall_us"]["median"]
