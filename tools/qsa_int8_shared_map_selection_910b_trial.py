@@ -20,6 +20,7 @@ import time
 import torch
 import triton
 from qsa_int8_query_pack4_910b import (
+    _qsa_page64_page_reuse_full_score,
     _qsa_page64_page_reuse_score,
     _qsa_page64_query16_score,
     _qsa_page64_skip_invisible_score,
@@ -76,6 +77,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         skip_invisible=True,
         visibility_policy="conservative",
         page_reuse=False,
+        page_reuse_full=False,
     ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)
@@ -83,6 +85,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             raise ValueError("Unknown visibility policy")
         self.skip_invisible = bool(skip_invisible)
         self.page_reuse = bool(page_reuse)
+        self.page_reuse_full = self.page_reuse and bool(page_reuse_full)
         self.visibility_kernel = (
             _qsa_page64_page_reuse_score
             if self.page_reuse
@@ -158,7 +161,9 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                 selected = stats["selected"]
             self.skip_invisible_routes[first, count] = selected
             entry["skip_invisible"] = selected
-            entry["page_reuse"] = selected and self.page_reuse
+            entry["page_reuse"] = self.page_reuse and (
+                selected or (eligible and self.page_reuse_full)
+            )
             entry["query_group"] = 16 if eligible else 4
             entry["query16_reason"] = (
                 "Shared mapping and request owner proven" if eligible else reason
@@ -238,11 +243,12 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             raise ValueError("Contiguous FP32 score target required")
         v = self.values
         blocks = triton.cdiv(triton.cdiv(self.width, 64), 8)
-        kernel = (
-            self.visibility_kernel
-            if self.skip_invisible_routes.get((first, count), False)
-            else _qsa_page64_query16_score
-        )
+        if self.skip_invisible_routes.get((first, count), False):
+            kernel = self.visibility_kernel
+        elif self.page_reuse_full:
+            kernel = _qsa_page64_page_reuse_full_score
+        else:
+            kernel = _qsa_page64_query16_score
         return kernel[min(20, triton.cdiv(count, 16) * blocks),](
             v["q"][first : first + count],
             v["cache"],

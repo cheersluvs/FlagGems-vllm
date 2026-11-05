@@ -168,12 +168,14 @@ def run_case(args):
                     skip_invisible=args.skip_invisible_dispatch,
                     visibility_policy=args.visibility_policy,
                     page_reuse=args.page_reuse_dispatch,
+                    page_reuse_full=args.page_reuse_full_dispatch,
                 )
                 result["shared_map_dispatch"] = dict(
                     preparation_ms=adapter.preparation_ms,
                     query16_enabled=args.query16_dispatch,
                     skip_invisible_enabled=args.skip_invisible_dispatch,
                     page_reuse_enabled=args.page_reuse_dispatch,
+                    page_reuse_full_enabled=args.page_reuse_full_dispatch,
                     page_reuse_chunks=sum(
                         r.get("page_reuse", False) for r in adapter.route_checks
                     ),
@@ -543,6 +545,7 @@ def run_case(args):
                     skip_invisible=args.skip_invisible_dispatch,
                     visibility_policy=args.visibility_policy,
                     page_reuse=args.page_reuse_dispatch,
+                    page_reuse_full=args.page_reuse_full_dispatch,
                 )
                 wanted = (
                     "legacy"
@@ -613,7 +616,11 @@ def run_case(args):
                             else "single_page64_skip_invisible"
                         )
                         if adapter.skip_invisible_routes.get((first, count), False)
-                        else "single_page64_query16"
+                        else (
+                            "single_page64_page_reuse_full"
+                            if args.page_reuse_full_dispatch
+                            else "single_page64_query16"
+                        )
                     )
                     if "tensor<64x128xi8>" not in kernel.asm["bcmlir"]:
                         raise AssertionError("Query16 M64 compiler contract missing")
@@ -628,6 +635,7 @@ def run_case(args):
                     if route in (
                         "single_page64_skip_invisible",
                         "single_page64_page_reuse",
+                        "single_page64_page_reuse_full",
                     ):
                         headers = [
                             line.strip()
@@ -637,7 +645,7 @@ def run_case(args):
                         if len(headers) < (
                             4 if route == "single_page64_page_reuse" else 3
                         ):
-                            raise AssertionError("Visibility and fill loops missing")
+                            raise AssertionError(f"Score loops missing for {route}")
                         result.setdefault("visibility_compiler", {})[route] = dict(
                             loop_headers=headers, metadata=repr(kernel.metadata)
                         )
@@ -806,7 +814,10 @@ def run_case(args):
             result["paired_score_identity"] = dict(
                 same_chunk_binary_sequence=same, host_counts=hosts
             )
-            if not any(adapter.skip_invisible_routes.values()) and not same:
+            changed_route = any(adapter.skip_invisible_routes.values()) or any(
+                r.get("page_reuse", False) for r in adapter.route_checks
+            )
+            if not changed_route and not same:
                 raise AssertionError(
                     "No selected skip chunks but score binaries differ"
                 )
@@ -1060,7 +1071,14 @@ def main():
         action="store_true",
         help="Use page-segment reuse only on selected visibility chunks; compare same policy without page reuse",
     )
+    parser.add_argument(
+        "--page-reuse-full-dispatch",
+        action="store_true",
+        help="Extend page reuse to eligible N64/query16 chunks outside the skip policy",
+    )
     args = parser.parse_args()
+    if args.page_reuse_full_dispatch and not args.page_reuse_dispatch:
+        parser.error("--page-reuse-full-dispatch requires --page-reuse-dispatch")
     if args.page_reuse_dispatch and not args.single_page64_dispatch:
         parser.error("--page-reuse-dispatch requires --single-page64-dispatch")
     args.skip_invisible_dispatch = args.single_page64_dispatch
@@ -1127,6 +1145,8 @@ def main():
             command.append("--key-group4-dispatch")
         if args.page_reuse_dispatch:
             command.append("--page-reuse-dispatch")
+        if args.page_reuse_full_dispatch:
+            command.append("--page-reuse-full-dispatch")
         if args.interleave_score:
             command.append("--interleave-score")
         if args.skip_invisible_dispatch:
