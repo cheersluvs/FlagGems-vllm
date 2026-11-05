@@ -107,14 +107,14 @@ def metric_key(name, group):
     return any(token in key for token in tokens)
 
 
-def summarize_tables(tables, group):
+def summarize_tables(tables, group, kernel_substring="_quant_score_trial"):
     """Select one detailed table and keep raw field units; never mix summaries."""
     candidates = []
     for table in tables:
         rows = [
             row
             for row in csv.DictReader(io.StringIO(table["content"]))
-            if any("_quant_score_trial" in str(value) for value in row.values())
+            if any(kernel_substring in str(value) for value in row.values())
         ]
         columns = sorted(
             {

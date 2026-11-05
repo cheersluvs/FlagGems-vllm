@@ -116,3 +116,40 @@ Local checks cover generated AST loops/math/guards, original prefix backward
 compatibility, exact full clone, all page-local packed addresses, raw-head
 ownership/tails, static checks and two missing-NPU child workers. Device
 compilation and execution remain to be tested on910B.
+
+## Current/raw INT32 hardware boundary capture
+
+Report f621cbb3b4ea12861586a10ccc2036c80abd14da passed both cases. Packed-full
+was0.949x/0.932x versus current despite removing the BCMLIR transpose, excluding
+preparation. Raw INT32/FP32/dot-sum timings were similar; all remained mix mode
+with20576-byte workspace. These controls do not isolate Cube/Vector transfer
+or synchronization cost. Single cold packing wall times are not steady-state
+layout-conversion measurements.
+
+--hardware-boundary selects only raw_i32 and current, mutually exclusive with
+--cube-boundary. Keep original middle chunks, N64/group8 and score formula;
+compile/check/time both, then collect separate hardware passes. Default metrics
+are PipeUtilization, ArithmeticUtilization and Memory, two counter iterations
+per arm/group. Additional MemoryUB/ResourceConflictRatio can be requested.
+PipeUtilization is required. Record unsupported/missing optional groups without
+inventing values; require usable numeric PipeUtilization and exact invocation
+row count for both arms to return0. Failed primary collection is partial_capture.
+Retain up to two attempts only when exported tables lack complete usable
+metrics; never retry valid timings. Per-pass CPU/mask checks remain mandatory.
+
+Reuse qsa_timeline_910b.collect_hardware. Generalize summarize_tables with an
+optional kernel_substring argument, retaining the old scorer as default. Match
+the exact requested kernel substring, choose one detailed table, preserve raw
+column units, report medians/ranges/counts and retain compressed original CSVs.
+Do not mix raw/current rows or summary and detail tables. Counter-profiler
+latencies are separate from the ordinary interleaved timing measurement.
+
+Export every available textual asm entry up to4MiB with truncation flags,
+including lower IR/assembly when the wheel exposes it; retain asm-key inventory,
+metadata and binary hashes. Static barrier/flag/fixpipe/mmad counts are compiler
+artifact evidence, not measured wait times. If only TTIR/adapter/BCMLIR exists,
+state that lower instruction-level evidence is unavailable. No disassembly or
+hardware attribution is fabricated. Terminal prints each metric's collection
+status and numeric statistics, plus the actual textual artifact inventory.
+Production, TopK, compiler and kernel source remain unchanged. The original
+prefix and Cube-boundary modes retain their previous defaults.

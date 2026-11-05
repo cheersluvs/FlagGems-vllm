@@ -16,6 +16,7 @@
 
 import argparse
 import ast
+import gzip
 import hashlib
 import importlib.util
 import json
@@ -25,6 +26,7 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -207,7 +209,7 @@ def run_case(args):
             "Representative N64/group8 scoring prefixes; observable FP32 sinks and compiler rescheduling included; "
             "differences are not additive operation costs; no TopK/native stage timing"
         )
-        if args.cube_boundary:
+        if args.cube_boundary or args.hardware_boundary:
             result["scope"] = (
                 "Representative N64 Cube boundary diagnostic; packed K excludes separately recorded preparation; "
                 "raw INT32/FP32 outputs write 4x bytes; no pure dot/layout/synchronization cost claim"
@@ -339,6 +341,36 @@ def run_case(args):
         result["compiler"], result["prechecks"] = {}, {}
         for name in ARMS:
             kernel = launch(name, targets[name])
+            result.setdefault("asm_inventory", {})[name] = dict(
+                keys=list(kernel.asm), text_artifacts=[]
+            )
+            for key, value in kernel.asm.items():
+                if isinstance(value, str) and key not in (
+                    "ttir",
+                    "ttadapter",
+                    "bcmlir",
+                ):
+                    safe = re.sub(r"[^a-zA-Z0-9_-]", "_", key)
+                    path = report / f"{args.case}-{name}-lower-{safe}.txt"
+                    path.write_text(value[: 4 * 1024**2])
+                    result["asm_inventory"][name]["text_artifacts"].append(
+                        dict(
+                            key=key,
+                            file=path.name,
+                            truncated=len(value) > 4 * 1024**2,
+                            static_occurrences={
+                                token: len(re.findall(re.escape(token), value, re.I))
+                                for token in (
+                                    "barrier",
+                                    "wait_flag",
+                                    "set_flag",
+                                    "fixpipe",
+                                    "mmad",
+                                    "transpose",
+                                )
+                            },
+                        )
+                    )
             for ir in ("ttir", "ttadapter", "bcmlir"):
                 if isinstance(kernel.asm.get(ir), str):
                     (report / f"{args.case}-{name}-{ir}.txt").write_text(kernel.asm[ir])
@@ -395,7 +427,7 @@ def run_case(args):
         for name in (
             ("packed_full", "full", "current")
             if args.cube_boundary
-            else ("full", "current")
+            else ("current",) if args.hardware_boundary else ("full", "current")
         ):
             if not torch.allclose(targets[name], reference, rtol=1e-3, atol=1e-3):
                 raise AssertionError(f"Full-chunk legacy mismatch: {name}")
@@ -448,7 +480,7 @@ def run_case(args):
         result["postchecks"] = {
             name: check(name, targets[name], first, count, width) for name in ARMS
         }
-        if not torch.allclose(
+        if "full" in targets and not torch.allclose(
             targets["full"], targets["current"], rtol=1e-3, atol=1e-3
         ):
             raise AssertionError("Last timed full prefix differs from current kernel")
@@ -490,7 +522,11 @@ def run_case(args):
             print("PACKED_K_PREPARATION", json.dumps(result["packed_k"]), flush=True)
         result["diagnostic_adjacent_deltas_us"] = {
             f"{b}_minus_{a}": times[b] - times[a]
-            for a, b in ([] if args.cube_boundary else zip(ARMS[:4], ARMS[1:5]))
+            for a, b in (
+                []
+                if args.cube_boundary or args.hardware_boundary
+                else zip(ARMS[:4], ARMS[1:5])
+            )
         }
         print("arm | kernel_us | relative_to_current", flush=True)
         for name in ARMS:
@@ -504,10 +540,97 @@ def run_case(args):
             flush=True,
         )
         result["status"], code = "passed", 0
+        if args.hardware_boundary:
+            from profile_qsa_int8_score_910b import summarize_tables
+            from qsa_timeline_910b import collect_hardware
+
+            result["hardware"] = {}
+            for name in ARMS:
+                result["hardware"][name] = {}
+                kernel_name = (
+                    "_qsa_qk_single_page_score"
+                    if name == "current"
+                    else f"_qsa_page64_prefix_{name}"
+                )
+                for metric in args.metrics:
+                    result["stage"] = f"hardware_{name}_{metric}"
+                    if not hasattr(torch_npu.profiler.AiCMetrics, metric):
+                        result["hardware"][name][metric] = dict(
+                            status="unsupported_enum"
+                        )
+                        continue
+                    attempts = []
+                    for attempt in range(1, 3):
+                        launch(name, targets[name])
+                        torch.npu.synchronize()
+                        options = SimpleNamespace(
+                            report=str(report),
+                            worker=f"{args.case}-{name}-{metric}-attempt{attempt}",
+                            aic_metric=metric,
+                            counter_iterations=args.counter_iterations,
+                            kernel_substring=kernel_name,
+                        )
+                        capture = {}
+                        collect_hardware(
+                            options, lambda: launch(name, targets[name]), torch, capture
+                        )
+                        entry = capture["score_hardware"]
+                        entry["capture_status"] = entry["status"]
+                        artifact = report / entry.get("artifact", "no-artifact")
+                        if artifact.is_file():
+                            with gzip.open(artifact, "rt") as stream:
+                                tables = json.load(stream)["tables"]
+                            parsed = summarize_tables(
+                                tables, metric, kernel_substring=kernel_name
+                            )
+                            entry["parsed"], entry["status"] = parsed, parsed["status"]
+                            if (
+                                entry["status"] == "available"
+                                and parsed["score_row_count"] != args.counter_iterations
+                            ):
+                                entry["status"] = "incomplete_counter_rows"
+                        else:
+                            entry["status"] = "no_counter_archive"
+                        entry["postcheck"] = check(
+                            name, targets[name], first, count, width
+                        )
+                        attempts.append(entry)
+                        if entry["status"] == "available" or not artifact.is_file():
+                            break
+                    entry["attempts"] = attempts[:-1]
+                    result["hardware"][name][metric] = entry
+                    print(
+                        "BOUNDARY_HARDWARE",
+                        json.dumps(
+                            dict(
+                                arm=name,
+                                metric=metric,
+                                status=entry["status"],
+                                primary_table=entry.get("parsed", {}).get(
+                                    "primary_table"
+                                ),
+                                statistics=entry.get("parsed", {}).get(
+                                    "raw_field_statistics", {}
+                                ),
+                            )
+                        ),
+                        flush=True,
+                    )
+            if not all(
+                result["hardware"][name].get("PipeUtilization", {}).get("status")
+                == "available"
+                for name in ARMS
+            ):
+                result["status"], code = "partial_capture", 1
+            result["stage"] = "completed"
+            print(
+                "LOWER_ASM_INVENTORY", json.dumps(result["asm_inventory"]), flush=True
+            )
     except (ImportError, ModuleNotFoundError):
         result.update(status="prerequisites_missing", traceback=traceback.format_exc())
         code = 2
     except Exception:
+        result["status"], code = "failed", 1
         result["traceback"] = traceback.format_exc()
     result["sources"] = {
         name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
@@ -541,7 +664,33 @@ def main():
         action="store_true",
         help="Packed K layout and raw INT32/FP32 dot sinks; diagnostic only",
     )
+    parser.add_argument(
+        "--hardware-boundary",
+        action="store_true",
+        help="Current full score and raw INT32 output: timing, counters and all available text asm",
+    )
+    parser.add_argument(
+        "--metrics",
+        nargs="+",
+        choices=(
+            "PipeUtilization",
+            "ArithmeticUtilization",
+            "Memory",
+            "MemoryUB",
+            "ResourceConflictRatio",
+        ),
+        default=["PipeUtilization", "ArithmeticUtilization", "Memory"],
+    )
+    parser.add_argument("--counter-iterations", type=int, default=2)
     args = parser.parse_args()
+    if args.hardware_boundary and args.cube_boundary:
+        parser.error("--hardware-boundary and --cube-boundary are separate modes")
+    if args.counter_iterations < 1:
+        parser.error("Positive counter iterations required")
+    if args.hardware_boundary:
+        if "PipeUtilization" not in args.metrics:
+            parser.error("Hardware mode requires PipeUtilization")
+        ARMS = ("raw_i32", "current")
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
@@ -574,6 +723,16 @@ def main():
         ]
         if args.cube_boundary:
             command.append("--cube-boundary")
+        if args.hardware_boundary:
+            command.extend(
+                [
+                    "--hardware-boundary",
+                    "--counter-iterations",
+                    str(args.counter_iterations),
+                    "--metrics",
+                    *args.metrics,
+                ]
+            )
         code, timeout = run_child(command, report / f"{name}-console.txt", args.timeout)
         entry = (
             json.loads(path.read_text())
