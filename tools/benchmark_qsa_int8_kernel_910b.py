@@ -749,19 +749,21 @@ def run_case(args):
             def bind_plan():
                 launches = []
                 for first, count in chunks:
-                    target = scratch[:count]
-                    launches.append(
-                        (
-                            first,
-                            target,
-                            adapter.bind_query16_score(first, count, target),
-                        )
-                    )
+                    if adapter.query16_routes.get((first, count), False):
+                        target = scratch[:count]
+                        launch = adapter.bind_query16_score(first, count, target)
+                    else:
+                        target, launch = None, None
+                    launches.append((first, count, target, launch))
                 return launches
 
             def replay(launches):
-                for first, target, launch in launches:
-                    launch()
+                for first, count, target, launch in launches:
+                    if launch is None:
+                        target = scratch[:count]
+                        adapter.score_into(first, count, target)
+                    else:
+                        launch()
                     adapter.select_chunk(first, target)
                 return output
 
@@ -816,9 +818,12 @@ def run_case(args):
                 name: aggregate_wall(values, fields)
                 for name, values in bound_samples.items()
             }
+            bound_count = sum(launch is not None for _, _, _, launch in bound_plan)
             result["bound_combined"] = dict(
                 scope="Warm kernels and prepared request metadata. Bind-and-run includes a fresh score binding; reuse retains one binding for the same tensors. TopK runs after every score chunk.",
                 score_launches=len(bound_plan),
+                bound_score_launches=bound_count,
+                fallback_score_launches=len(bound_plan) - bound_count,
                 topk_launches=len(topk_chunks),
                 binding_ms=binding_ms,
                 exact_indices_each_run=True,
