@@ -234,6 +234,31 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             num_warps=4,
         )
 
+    def prepare_bound_execution(self):
+        """Prepare a callable for sequential reuse with this adapter's tensors."""
+        if not any(self.query16_routes.values()):
+            return self
+        launches = []
+        for first, count in self.chunks:
+            if self.query16_routes.get((first, count), False):
+                target = self.scratch[:count]
+                launch = self.bind_query16_score(first, count, target)
+            else:
+                target, launch = None, None
+            launches.append((first, count, target, launch))
+
+        def execute():
+            for first, count, target, launch in launches:
+                if launch is None:
+                    target = self.scratch[:count]
+                    self.score_into(first, count, target)
+                else:
+                    launch()
+                self.select_chunk(first, target)
+            return self.output
+
+        return execute
+
     def bind_query16_score(self, first, count, target):
         """Bind one eligible chunk's launch for the host-dispatch comparison."""
         if not self.query16_routes.get((first, count), False):

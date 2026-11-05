@@ -158,20 +158,24 @@ def run_case(args):
                 )
 
                 CandidateSelection = PreparedSharedMapInt8Selection
-                adapter = CandidateSelection(
-                    values,
-                    output,
-                    scratch,
-                    workspace,
-                    topk,
-                    plan["starts"],
-                    key_group4=args.key_group4_dispatch,
-                    single_page64=args.single_page64_dispatch,
-                    skip_invisible=args.skip_invisible_dispatch,
-                    visibility_policy=args.visibility_policy,
-                    page_reuse=args.page_reuse_dispatch,
-                    page_reuse_full=args.page_reuse_full_dispatch,
-                )
+
+                def prepare_shared_adapter():
+                    return CandidateSelection(
+                        values,
+                        output,
+                        scratch,
+                        workspace,
+                        topk,
+                        plan["starts"],
+                        key_group4=args.key_group4_dispatch,
+                        single_page64=args.single_page64_dispatch,
+                        skip_invisible=args.skip_invisible_dispatch,
+                        visibility_policy=args.visibility_policy,
+                        page_reuse=args.page_reuse_dispatch,
+                        page_reuse_full=args.page_reuse_full_dispatch,
+                    )
+
+                adapter = prepare_shared_adapter()
                 result["shared_map_dispatch"] = dict(
                     preparation_ms=adapter.preparation_ms,
                     query16_enabled=args.query16_dispatch,
@@ -746,27 +750,6 @@ def run_case(args):
             result["stage"] = "bound_combined_precheck"
             expected_indices = current
 
-            def bind_plan():
-                launches = []
-                for first, count in chunks:
-                    if adapter.query16_routes.get((first, count), False):
-                        target = scratch[:count]
-                        launch = adapter.bind_query16_score(first, count, target)
-                    else:
-                        target, launch = None, None
-                    launches.append((first, count, target, launch))
-                return launches
-
-            def replay(launches):
-                for first, count, target, launch in launches:
-                    if launch is None:
-                        target = scratch[:count]
-                        adapter.score_into(first, count, target)
-                    else:
-                        launch()
-                    adapter.select_chunk(first, target)
-                return output
-
             def verify_indices(returned):
                 if not torch.equal(returned.cpu(), expected_indices):
                     raise AssertionError(
@@ -774,39 +757,12 @@ def run_case(args):
                     )
 
             started = time.perf_counter()
-            bound_plan = bind_plan()
+            bound_execution = adapter.prepare_bound_execution()
             binding_ms = (time.perf_counter() - started) * 1000
 
             def bind_and_run():
-                return replay(bind_plan())
+                return adapter.prepare_bound_execution()()
 
-            functions = dict(
-                dynamic=combined_stage,
-                bind_and_run=bind_and_run,
-                reuse=lambda: replay(bound_plan),
-            )
-            for function in functions.values():
-                output.fill_(-2)
-                verify_indices(function())
-
-            result["stage"] = "bound_combined_timing"
-            orders = list(permutations(functions))
-            bound_samples = {name: [] for name in functions}
-            measurement_order = []
-            for index in range(args.bound_combined_samples):
-                order = orders[index % len(orders)]
-                measurement_order.append(order)
-                for name in order:
-                    output.fill_(-2)
-                    bound_samples[name].append(
-                        sample_wall(
-                            functions[name],
-                            torch,
-                            1,
-                            verify_indices,
-                            split_submission=True,
-                        )
-                    )
             fields = (
                 "wall_us",
                 "event_us",
@@ -814,22 +770,57 @@ def run_case(args):
                 "sync_wait_us",
                 "event_record_us",
             )
-            timing = {
-                name: aggregate_wall(values, fields)
-                for name, values in bound_samples.items()
-            }
-            bound_count = sum(launch is not None for _, _, _, launch in bound_plan)
+
+            def measure_combined(functions):
+                for function in functions.values():
+                    output.fill_(-2)
+                    verify_indices(function())
+                orders = list(permutations(functions))
+                bound_samples = {name: [] for name in functions}
+                measurement_order = []
+                for index in range(args.bound_combined_samples):
+                    order = orders[index % len(orders)]
+                    measurement_order.append(order)
+                    for name in order:
+                        output.fill_(-2)
+                        bound_samples[name].append(
+                            sample_wall(
+                                functions[name],
+                                torch,
+                                1,
+                                verify_indices,
+                                split_submission=True,
+                            )
+                        )
+                timing = {
+                    name: aggregate_wall(values, fields)
+                    for name, values in bound_samples.items()
+                }
+                return dict(
+                    measurement_order=measurement_order,
+                    timing=timing,
+                    samples=bound_samples,
+                )
+
+            result["stage"] = "bound_combined_timing"
+            measured = measure_combined(
+                dict(
+                    dynamic=combined_stage,
+                    bind_and_run=bind_and_run,
+                    reuse=bound_execution,
+                )
+            )
+            timing = measured["timing"]
+            bound_count = sum(adapter.query16_routes.values())
             result["bound_combined"] = dict(
                 scope="Warm kernels and prepared request metadata. Bind-and-run includes a fresh score binding; reuse retains one binding for the same tensors. TopK runs after every score chunk.",
-                score_launches=len(bound_plan),
+                score_launches=len(chunks),
                 bound_score_launches=bound_count,
-                fallback_score_launches=len(bound_plan) - bound_count,
+                fallback_score_launches=len(chunks) - bound_count,
                 topk_launches=len(topk_chunks),
                 binding_ms=binding_ms,
                 exact_indices_each_run=True,
-                measurement_order=measurement_order,
-                timing=timing,
-                samples=bound_samples,
+                **measured,
                 wall_speedup_vs_dynamic={
                     name: timing["dynamic"]["wall_us"]["median"]
                     / timing[name]["wall_us"]["median"]
@@ -837,6 +828,29 @@ def run_case(args):
                 },
             )
             print("BOUND_COMBINED", json.dumps(result["bound_combined"]), flush=True)
+            if args.include_request_preparation:
+                result["stage"] = "bound_request_timing"
+
+                def fresh_dynamic():
+                    return prepare_shared_adapter()()
+
+                def fresh_bound():
+                    prepared = prepare_shared_adapter()
+                    return prepared.prepare_bound_execution()()
+
+                request = measure_combined(
+                    dict(dynamic=fresh_dynamic, bound=fresh_bound)
+                )
+                request["scope"] = (
+                    "New adapter per run, including request metadata preparation and execution. "
+                    "Inputs and workspace are preallocated; kernels are warm."
+                )
+                request["wall_speedup_vs_dynamic"] = (
+                    request["timing"]["dynamic"]["wall_us"]["median"]
+                    / request["timing"]["bound"]["wall_us"]["median"]
+                )
+                result["bound_request"] = request
+                print("BOUND_REQUEST", json.dumps(request), flush=True)
         jobs = dict(
             score=score_stage,
             topk=topk_stage,
@@ -1189,7 +1203,14 @@ def main():
         default=0,
         help="Compare dynamic, bind-and-run, and reused score launch plans with TopK",
     )
+    parser.add_argument(
+        "--include-request-preparation",
+        action="store_true",
+        help="Also compare fresh dynamic and bound adapters including metadata preparation",
+    )
     args = parser.parse_args()
+    if args.include_request_preparation and not args.bound_combined_samples:
+        parser.error("--include-request-preparation requires --bound-combined-samples")
     if args.bound_combined_samples < 0 or (
         args.bound_combined_samples and not args.single_page64_dispatch
     ):
@@ -1270,6 +1291,8 @@ def main():
             "--bound-combined-samples",
             str(args.bound_combined_samples),
         ]
+        if args.include_request_preparation:
+            command.append("--include-request-preparation")
         if args.integrated:
             command.append("--integrated")
         if args.shared_map_qk:
