@@ -1,0 +1,4238 @@
+{
+  "exit_code": 0,
+  "cases": [
+    {
+      "case": "int8_budget_exact",
+      "status": "passed",
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device": "Ascend910B4-1",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU",
+        "device_isolation": "not_verified"
+      },
+      "shared_map_guard": {
+        "groups": 32,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      },
+      "geometry": {
+        "first": 8192,
+        "count": 128,
+        "width": 8192,
+        "block_n": 64,
+        "key_tiles": 8,
+        "grid_cap": 20,
+        "plan": {
+          "name": "int8_budget_exact",
+          "nv_case": "fp8_budget_exact_float8_e4m3fn",
+          "origin": "recorded_envelope",
+          "query_lengths": [
+            16384
+          ],
+          "prefix_tokens": [
+            16384
+          ],
+          "starts": [
+            0,
+            16384
+          ],
+          "batch_max_seq_len": 32768,
+          "heads": 4,
+          "dim": 128,
+          "ratio": 4,
+          "k": 512,
+          "dtype": "int8",
+          "page_size": 192,
+          "pages_per_request": [
+            43
+          ],
+          "physical_pages": 43,
+          "table_columns": 43,
+          "q_shape": [
+            16384,
+            4,
+            128
+          ],
+          "cache_shape": [
+            43,
+            192,
+            1,
+            128
+          ],
+          "logits_width": 8192,
+          "chunk_rows": 128,
+          "score_and_dot_scratch_bytes": 20971520,
+          "nv_original_page_size": 196,
+          "nv_original_physical_pages": 2712,
+          "nv_original_table_columns": 88,
+          "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+          "query_lengths_synthetic": false
+        }
+      },
+      "cube_boundary": false,
+      "unroll_loop": true,
+      "scope": "Representative N64/group8 full-score static inner-loop unroll versus current; same arithmetic/addressing/outputs; separate counter passes; no full-input/native claim",
+      "stage": "completed",
+      "output_bytes": {
+        "unrolled_full": 4194304,
+        "current": 4194304
+      },
+      "compiler": {
+        "unrolled_full": {
+          "loads": 28,
+          "dots": 8,
+          "stores": 8,
+          "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='c9cf46186b17e7a890fa287a4042e653155e8e39393669311f3d7558aabe44c2', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_unrolled_full', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_unrolled_full', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=164416)",
+          "npubin_sha256": "a49bf573389ce057fe5aa6a4346e6f8c513e82d89ad6e8b577127aabcaf4931e",
+          "loops": 1,
+          "copies": 20,
+          "transpose_lines": [
+            "%transposed = linalg.transpose ins(%73 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_47 = linalg.transpose ins(%126 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_70 = linalg.transpose ins(%173 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_93 = linalg.transpose ins(%220 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_116 = linalg.transpose ins(%267 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_139 = linalg.transpose ins(%314 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_162 = linalg.transpose ins(%361 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_185 = linalg.transpose ins(%408 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)"
+          ],
+          "matmul_lines": [
+            "%77 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc89)",
+            "%129 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_47 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc89)",
+            "%176 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_70 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc89)",
+            "%223 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_93 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc89)",
+            "%270 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_116 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc89)",
+            "%317 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_139 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc89)",
+            "%364 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_162 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc89)",
+            "%411 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_185 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc89)"
+          ],
+          "reduction_lines": [
+            "%reduced = linalg.reduce ins(%31 : tensor<4xi32>) outs(%33 : tensor<i32>) dimensions = [0]",
+            "%reduced_29 = linalg.reduce ins(%reshape : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_50 = linalg.reduce ins(%reshape_49 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_73 = linalg.reduce ins(%reshape_72 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_96 = linalg.reduce ins(%reshape_95 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_119 = linalg.reduce ins(%reshape_118 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_142 = linalg.reduce ins(%reshape_141 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_165 = linalg.reduce ins(%reshape_164 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_188 = linalg.reduce ins(%reshape_187 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]"
+          ]
+        },
+        "current": {
+          "loads": 7,
+          "dots": 1,
+          "stores": 1,
+          "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='4ab3a4b50c4478aa2b68a418ee23aeb871581def7b26f25a118a94585a7e57ab', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_qk_single_page_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_qk_single_page_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=20576)",
+          "npubin_sha256": "52085bf30a0f8395408ca16ce64b977a2126ac5024c74f6cbb4f9d00d5f04cb8",
+          "loops": 2,
+          "copies": 6,
+          "transpose_lines": [
+            "%transposed = linalg.transpose ins(%74 : tensor<64x128xi8>) outs(%77 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc119)"
+          ],
+          "matmul_lines": [
+            "%78 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc90)"
+          ],
+          "reduction_lines": [
+            "%reduced = linalg.reduce ins(%31 : tensor<4xi32>) outs(%33 : tensor<i32>) dimensions = [0]",
+            "%reduced_29 = linalg.reduce ins(%reshape : tensor<4x4x64xf32>) outs(%84 : tensor<4x64xf32>) dimensions = [1]"
+          ]
+        }
+      },
+      "prechecks": {
+        "unrolled_full": {
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            64,
+            127
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "current": {
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            64,
+            127
+          ],
+          "max_abs_error": 7.62939453125e-06
+        }
+      },
+      "asm_inventory": {
+        "unrolled_full": {
+          "keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "text_artifacts": [
+            {
+              "key": "source",
+              "file": "int8_budget_exact-unrolled_full-lower-source.txt",
+              "truncated": false,
+              "static_occurrences": {
+                "barrier": 0,
+                "wait_flag": 0,
+                "set_flag": 0,
+                "fixpipe": 0,
+                "mmad": 0,
+                "transpose": 0
+              }
+            }
+          ]
+        },
+        "current": {
+          "keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "text_artifacts": [
+            {
+              "key": "source",
+              "file": "int8_budget_exact-current-lower-source.txt",
+              "truncated": false,
+              "static_occurrences": {
+                "barrier": 0,
+                "wait_flag": 0,
+                "set_flag": 0,
+                "fixpipe": 0,
+                "mmad": 0,
+                "transpose": 0
+              }
+            }
+          ]
+        }
+      },
+      "full_chunk_vs_legacy": true,
+      "tail_checks": [
+        {
+          "arm": "unrolled_full",
+          "empty_group": false,
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            3,
+            6
+          ],
+          "max_abs_error": 3.814697265625e-06
+        },
+        {
+          "arm": "current",
+          "empty_group": false,
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            3,
+            6
+          ],
+          "max_abs_error": 3.814697265625e-06
+        },
+        {
+          "arm": "unrolled_full",
+          "empty_group": true,
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            3,
+            6
+          ],
+          "max_abs_error": 3.814697265625e-06
+        },
+        {
+          "arm": "current",
+          "empty_group": true,
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            3,
+            6
+          ],
+          "max_abs_error": 3.814697265625e-06
+        }
+      ],
+      "kernel_timer": {
+        "backend": "explicit CPU+NPU Chrome trace",
+        "warmup": 2,
+        "active": 3,
+        "unit": "microseconds; sum of score device tasks per invocation",
+        "host_gaps_included": false,
+        "scope": "Instrumented exploratory kernel timing; rebuild all paired baselines",
+        "fallback": false,
+        "raw_traces_preserved": true,
+        "max_capture_attempts": 3,
+        "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+        "invocation_sum_check": {
+          "single": {
+            "kernel_us": 2300.9,
+            "active_invocation_us": [
+              2302.74,
+              2299.38,
+              2300.58
+            ],
+            "device_task_count": 3,
+            "host_launch_count": 3,
+            "artifact": "int8_budget_exact-timer-01.json.gz"
+          },
+          "triple": {
+            "kernel_us": 6898.426666666666,
+            "active_invocation_us": [
+              6899.12,
+              6898.299999999999,
+              6897.860000000001
+            ],
+            "device_task_count": 9,
+            "host_launch_count": 9,
+            "artifact": "int8_budget_exact-timer-02.json.gz"
+          },
+          "ratio": 2.9981427557332636
+        },
+        "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+        "prefix_plan_artifact": "int8_budget_exact-prefix-plan-01.json.gz"
+      },
+      "single_capture_plan": [
+        {
+          "round": 0,
+          "arm": "unrolled_full",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "unrolled_full",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "unrolled_full",
+          "active": 2
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "unrolled_full",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "unrolled_full",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "unrolled_full",
+          "active": 2
+        }
+      ],
+      "single_capture_counts": {
+        "expected_host_counts": {
+          "_qsa_page64_prefix_unrolled_full": 6,
+          "_qsa_qk_single_page_score": 6
+        },
+        "observed_host_counts": {
+          "_qsa_page64_prefix_unrolled_full": 6,
+          "_qsa_qk_single_page_score": 6
+        },
+        "tasks_per_window": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "expected_tasks_per_window": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "samples": {
+        "unrolled_full": [
+          {
+            "kernel_us": 533.2133333333333,
+            "active_invocation_us": [
+              536.34,
+              532.16,
+              531.14
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              0,
+              2,
+              4
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 531.9133333333333,
+            "active_invocation_us": [
+              531.76,
+              535.34,
+              528.64
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              7,
+              9,
+              11
+            ],
+            "device_task_count": 3
+          }
+        ],
+        "current": [
+          {
+            "kernel_us": 545.2199999999999,
+            "active_invocation_us": [
+              544.3,
+              544.54,
+              546.82
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              1,
+              3,
+              5
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 547.6266666666667,
+            "active_invocation_us": [
+              549.04,
+              549.36,
+              544.48
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              6,
+              8,
+              10
+            ],
+            "device_task_count": 3
+          }
+        ]
+      },
+      "measurement_order": [
+        [
+          "unrolled_full",
+          "current"
+        ],
+        [
+          "current",
+          "unrolled_full"
+        ]
+      ],
+      "postchecks": {
+        "unrolled_full": {
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            64,
+            127
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "current": {
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            64,
+            127
+          ],
+          "max_abs_error": 7.62939453125e-06
+        }
+      },
+      "latency": {
+        "unrolled_full": {
+          "kernel_us": {
+            "median": 532.5633333333333,
+            "min": 531.9133333333333,
+            "max": 533.2133333333333,
+            "range_over_median": 0.002441024228730144
+          }
+        },
+        "current": {
+          "kernel_us": {
+            "median": 546.4233333333333,
+            "min": 545.2199999999999,
+            "max": 547.6266666666667,
+            "range_over_median": 0.00440439951929838
+          }
+        }
+      },
+      "unroll_speedup_vs_current": 1.0260250737001546,
+      "diagnostic_adjacent_deltas_us": {},
+      "hardware": {
+        "unrolled_full": {
+          "PipeUtilization": {
+            "status": "available",
+            "metric": "PipeUtilization",
+            "iterations": 2,
+            "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+            "score_rows_preview": [
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Duration(us)": "528.940",
+                "aicore_time(us)": "509.707",
+                "aic_total_cycles": "16820316",
+                "aic_mac_time(us)": "7.423",
+                "aic_mac_ratio": "0.015",
+                "aic_scalar_time(us)": "151.764",
+                "aic_scalar_ratio": "0.298",
+                "aic_mte1_time(us)": "10.993",
+                "aic_mte1_ratio": "0.022",
+                "aic_mte2_time(us)": "26.447",
+                "aic_mte2_ratio": "0.052",
+                "aic_fixpipe_time(us)": "44.166",
+                "aic_fixpipe_ratio": "0.087",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "510.828",
+                "aiv_total_cycles": "33714643",
+                "aiv_vec_time(us)": "117.567",
+                "aiv_vec_ratio": "0.23",
+                "aiv_scalar_time(us)": "125.699",
+                "aiv_scalar_ratio": "0.246",
+                "aiv_mte2_time(us)": "67.667",
+                "aiv_mte2_ratio": "0.132",
+                "aiv_mte3_time(us)": "27.858",
+                "aiv_mte3_ratio": "0.055",
+                "aiv_icache_miss_rate": "0.135",
+                "cube_utilization(%)": "96.364"
+              },
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Duration(us)": "534.060",
+                "aicore_time(us)": "511.949",
+                "aic_total_cycles": "16894319",
+                "aic_mac_time(us)": "7.423",
+                "aic_mac_ratio": "0.014",
+                "aic_scalar_time(us)": "151.715",
+                "aic_scalar_ratio": "0.296",
+                "aic_mte1_time(us)": "10.992",
+                "aic_mte1_ratio": "0.021",
+                "aic_mte2_time(us)": "26.756",
+                "aic_mte2_ratio": "0.052",
+                "aic_fixpipe_time(us)": "44.538",
+                "aic_fixpipe_ratio": "0.087",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "513.061",
+                "aiv_total_cycles": "33862008",
+                "aiv_vec_time(us)": "117.59",
+                "aiv_vec_ratio": "0.229",
+                "aiv_scalar_time(us)": "126.133",
+                "aiv_scalar_ratio": "0.246",
+                "aiv_mte2_time(us)": "68.135",
+                "aiv_mte2_ratio": "0.133",
+                "aiv_mte3_time(us)": "27.935",
+                "aiv_mte3_ratio": "0.054",
+                "aiv_icache_miss_rate": "0.135",
+                "cube_utilization(%)": "95.860"
+              },
+              {},
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Host Self Duration(us)": "31.44",
+                "Host Total Duration(us)": "31.44",
+                "Device Self Duration(us)": "528.94",
+                "Device Total Duration(us)": "528.94",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              },
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Host Self Duration(us)": "18.34",
+                "Host Total Duration(us)": "18.34",
+                "Device Self Duration(us)": "534.06",
+                "Device Total Duration(us)": "534.06",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              }
+            ],
+            "metric_columns": [
+              "aic_fixpipe_ratio",
+              "aic_fixpipe_time(us)",
+              "aic_icache_miss_rate",
+              "aic_mac_ratio",
+              "aic_mac_time(us)",
+              "aic_mte1_ratio",
+              "aic_mte1_time(us)",
+              "aic_mte2_ratio",
+              "aic_mte2_time(us)",
+              "aic_scalar_ratio",
+              "aic_scalar_time(us)",
+              "aic_total_cycles",
+              "aiv_icache_miss_rate",
+              "aiv_mte2_ratio",
+              "aiv_mte2_time(us)",
+              "aiv_mte3_ratio",
+              "aiv_mte3_time(us)",
+              "aiv_scalar_ratio",
+              "aiv_scalar_time(us)",
+              "aiv_time(us)",
+              "aiv_total_cycles",
+              "aiv_vec_ratio",
+              "aiv_vec_time(us)",
+              "cube_utilization(%)"
+            ],
+            "artifact": "int8_budget_exact-unrolled_full-PipeUtilization-attempt1-score-hardware-tables.json.gz",
+            "tables": [
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084418621_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "Level",
+                  "API Name",
+                  "Time(us)",
+                  "Count",
+                  "Avg(us)",
+                  "Min(us)",
+                  "Max(us)",
+                  "Variance"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084418621_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+                "columns": [
+                  "Device_id",
+                  "Model ID",
+                  "Task ID",
+                  "Stream ID",
+                  "Name",
+                  "Type",
+                  "OP State",
+                  "Accelerator Core",
+                  "Start Time(us)",
+                  "Duration(us)",
+                  "Wait Time(us)",
+                  "Block Num",
+                  "Mix Block Num",
+                  "HF32 Eligible",
+                  "Input Shapes",
+                  "Input Data Types",
+                  "Input Formats",
+                  "Output Shapes",
+                  "Output Data Types",
+                  "Output Formats",
+                  "Context ID",
+                  "aicore_time(us)",
+                  "aic_total_cycles",
+                  "aic_mac_time(us)",
+                  "aic_mac_ratio",
+                  "aic_scalar_time(us)",
+                  "aic_scalar_ratio",
+                  "aic_mte1_time(us)",
+                  "aic_mte1_ratio",
+                  "aic_mte2_time(us)",
+                  "aic_mte2_ratio",
+                  "aic_fixpipe_time(us)",
+                  "aic_fixpipe_ratio",
+                  "aic_icache_miss_rate",
+                  "aiv_time(us)",
+                  "aiv_total_cycles",
+                  "aiv_vec_time(us)",
+                  "aiv_vec_ratio",
+                  "aiv_scalar_time(us)",
+                  "aiv_scalar_ratio",
+                  "aiv_mte2_time(us)",
+                  "aiv_mte2_ratio",
+                  "aiv_mte3_time(us)",
+                  "aiv_mte3_ratio",
+                  "aiv_icache_miss_rate",
+                  "cube_utilization(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084418621_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "OP Type",
+                  "Core Type",
+                  "Count",
+                  "Total Time(us)",
+                  "Min Time(us)",
+                  "Avg Time(us)",
+                  "Max Time(us)",
+                  "Ratio(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084418621_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+                "columns": [
+                  "Name",
+                  "Input Shapes",
+                  "Call Stack",
+                  "Host Self Duration(us)",
+                  "Host Total Duration(us)",
+                  "Device Self Duration(us)",
+                  "Device Total Duration(us)",
+                  "Device Self Duration With AICore(us)",
+                  "Device Total Duration With AICore(us)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084418621_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+                "columns": [
+                  "Device_id",
+                  "Step",
+                  "Computing",
+                  "Communication(Not Overlapped)",
+                  "Overlapped",
+                  "Communication",
+                  "Free",
+                  "Stage",
+                  "Bubble",
+                  "Communication(Not Overlapped and Exclude Receive)",
+                  "Preparing"
+                ],
+                "truncated": false
+              }
+            ],
+            "capture_status": "exported",
+            "parsed": {
+              "status": "available",
+              "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084418621_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "score_row_count": 2,
+              "metric_columns": [
+                "aic_fixpipe_ratio",
+                "aic_fixpipe_time(us)",
+                "aic_mac_ratio",
+                "aic_mac_time(us)",
+                "aic_mte1_ratio",
+                "aic_mte1_time(us)",
+                "aic_mte2_ratio",
+                "aic_mte2_time(us)",
+                "aic_scalar_ratio",
+                "aic_scalar_time(us)",
+                "aiv_mte2_ratio",
+                "aiv_mte2_time(us)",
+                "aiv_mte3_ratio",
+                "aiv_mte3_time(us)",
+                "aiv_scalar_ratio",
+                "aiv_scalar_time(us)",
+                "aiv_vec_ratio",
+                "aiv_vec_time(us)",
+                "cube_utilization(%)"
+              ],
+              "raw_field_statistics": {
+                "aic_fixpipe_ratio": {
+                  "median": 0.087,
+                  "min": 0.087,
+                  "max": 0.087,
+                  "count": 2
+                },
+                "aic_fixpipe_time(us)": {
+                  "median": 44.352,
+                  "min": 44.166,
+                  "max": 44.538,
+                  "count": 2
+                },
+                "aic_mac_ratio": {
+                  "median": 0.014499999999999999,
+                  "min": 0.014,
+                  "max": 0.015,
+                  "count": 2
+                },
+                "aic_mac_time(us)": {
+                  "median": 7.423,
+                  "min": 7.423,
+                  "max": 7.423,
+                  "count": 2
+                },
+                "aic_mte1_ratio": {
+                  "median": 0.0215,
+                  "min": 0.021,
+                  "max": 0.022,
+                  "count": 2
+                },
+                "aic_mte1_time(us)": {
+                  "median": 10.9925,
+                  "min": 10.992,
+                  "max": 10.993,
+                  "count": 2
+                },
+                "aic_mte2_ratio": {
+                  "median": 0.052,
+                  "min": 0.052,
+                  "max": 0.052,
+                  "count": 2
+                },
+                "aic_mte2_time(us)": {
+                  "median": 26.6015,
+                  "min": 26.447,
+                  "max": 26.756,
+                  "count": 2
+                },
+                "aic_scalar_ratio": {
+                  "median": 0.297,
+                  "min": 0.296,
+                  "max": 0.298,
+                  "count": 2
+                },
+                "aic_scalar_time(us)": {
+                  "median": 151.73950000000002,
+                  "min": 151.715,
+                  "max": 151.764,
+                  "count": 2
+                },
+                "aiv_mte2_ratio": {
+                  "median": 0.1325,
+                  "min": 0.132,
+                  "max": 0.133,
+                  "count": 2
+                },
+                "aiv_mte2_time(us)": {
+                  "median": 67.90100000000001,
+                  "min": 67.667,
+                  "max": 68.135,
+                  "count": 2
+                },
+                "aiv_mte3_ratio": {
+                  "median": 0.0545,
+                  "min": 0.054,
+                  "max": 0.055,
+                  "count": 2
+                },
+                "aiv_mte3_time(us)": {
+                  "median": 27.8965,
+                  "min": 27.858,
+                  "max": 27.935,
+                  "count": 2
+                },
+                "aiv_scalar_ratio": {
+                  "median": 0.246,
+                  "min": 0.246,
+                  "max": 0.246,
+                  "count": 2
+                },
+                "aiv_scalar_time(us)": {
+                  "median": 125.916,
+                  "min": 125.699,
+                  "max": 126.133,
+                  "count": 2
+                },
+                "aiv_vec_ratio": {
+                  "median": 0.2295,
+                  "min": 0.229,
+                  "max": 0.23,
+                  "count": 2
+                },
+                "aiv_vec_time(us)": {
+                  "median": 117.57849999999999,
+                  "min": 117.567,
+                  "max": 117.59,
+                  "count": 2
+                },
+                "cube_utilization(%)": {
+                  "median": 96.112,
+                  "min": 95.86,
+                  "max": 96.364,
+                  "count": 2
+                }
+              },
+              "rows_preview": [
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "64",
+                  "Stream ID": "2",
+                  "Name": "_qsa_page64_prefix_unrolled_full",
+                  "Type": "_qsa_page64_prefix_unrolled_full",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839458674414.034\t",
+                  "Duration(us)": "528.940",
+                  "Wait Time(us)": "0",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "509.707",
+                  "aic_total_cycles": "16820316",
+                  "aic_mac_time(us)": "7.423",
+                  "aic_mac_ratio": "0.015",
+                  "aic_scalar_time(us)": "151.764",
+                  "aic_scalar_ratio": "0.298",
+                  "aic_mte1_time(us)": "10.993",
+                  "aic_mte1_ratio": "0.022",
+                  "aic_mte2_time(us)": "26.447",
+                  "aic_mte2_ratio": "0.052",
+                  "aic_fixpipe_time(us)": "44.166",
+                  "aic_fixpipe_ratio": "0.087",
+                  "aic_icache_miss_rate": "0.0",
+                  "aiv_time(us)": "510.828",
+                  "aiv_total_cycles": "33714643",
+                  "aiv_vec_time(us)": "117.567",
+                  "aiv_vec_ratio": "0.23",
+                  "aiv_scalar_time(us)": "125.699",
+                  "aiv_scalar_ratio": "0.246",
+                  "aiv_mte2_time(us)": "67.667",
+                  "aiv_mte2_ratio": "0.132",
+                  "aiv_mte3_time(us)": "27.858",
+                  "aiv_mte3_ratio": "0.055",
+                  "aiv_icache_miss_rate": "0.135",
+                  "cube_utilization(%)": "96.364"
+                },
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "65",
+                  "Stream ID": "2",
+                  "Name": "_qsa_page64_prefix_unrolled_full",
+                  "Type": "_qsa_page64_prefix_unrolled_full",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839458674945.974\t",
+                  "Duration(us)": "534.060",
+                  "Wait Time(us)": "3.060000",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "511.949",
+                  "aic_total_cycles": "16894319",
+                  "aic_mac_time(us)": "7.423",
+                  "aic_mac_ratio": "0.014",
+                  "aic_scalar_time(us)": "151.715",
+                  "aic_scalar_ratio": "0.296",
+                  "aic_mte1_time(us)": "10.992",
+                  "aic_mte1_ratio": "0.021",
+                  "aic_mte2_time(us)": "26.756",
+                  "aic_mte2_ratio": "0.052",
+                  "aic_fixpipe_time(us)": "44.538",
+                  "aic_fixpipe_ratio": "0.087",
+                  "aic_icache_miss_rate": "0.0",
+                  "aiv_time(us)": "513.061",
+                  "aiv_total_cycles": "33862008",
+                  "aiv_vec_time(us)": "117.59",
+                  "aiv_vec_ratio": "0.229",
+                  "aiv_scalar_time(us)": "126.133",
+                  "aiv_scalar_ratio": "0.246",
+                  "aiv_mte2_time(us)": "68.135",
+                  "aiv_mte2_ratio": "0.133",
+                  "aiv_mte3_time(us)": "27.935",
+                  "aiv_mte3_ratio": "0.054",
+                  "aiv_icache_miss_rate": "0.135",
+                  "cube_utilization(%)": "95.860"
+                }
+              ],
+              "table_truncated": false,
+              "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+            },
+            "postcheck": {
+              "all_masks_checked": true,
+              "cpu_local_rows": [
+                0,
+                64,
+                127
+              ],
+              "max_abs_error": 7.62939453125e-06
+            },
+            "attempts": []
+          },
+          "ArithmeticUtilization": {
+            "status": "available",
+            "metric": "ArithmeticUtilization",
+            "iterations": 2,
+            "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+            "score_rows_preview": [
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Duration(us)": "528.680",
+                "aicore_time(us)": "510.322",
+                "aic_total_cycles": "16840616",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.019",
+                "aic_cube_fops": "5338824704.0",
+                "aiv_time(us)": "511.458",
+                "aiv_total_cycles": "33756211",
+                "aiv_vec_fp32_ratio": "0.036",
+                "aiv_vec_fp16_ratio": "0.001",
+                "aiv_vec_int32_ratio": "0.003",
+                "aiv_vec_misc_ratio": "0.019",
+                "aiv_vector_fops": "107954176.0"
+              },
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Duration(us)": "534.200",
+                "aicore_time(us)": "512.123",
+                "aic_total_cycles": "16900059",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.019",
+                "aic_cube_fops": "5338824704.0",
+                "aiv_time(us)": "513.267",
+                "aiv_total_cycles": "33875643",
+                "aiv_vec_fp32_ratio": "0.036",
+                "aiv_vec_fp16_ratio": "0.001",
+                "aiv_vec_int32_ratio": "0.003",
+                "aiv_vec_misc_ratio": "0.019",
+                "aiv_vector_fops": "107954176.0"
+              },
+              {},
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Host Self Duration(us)": "23.57",
+                "Host Total Duration(us)": "23.57",
+                "Device Self Duration(us)": "528.68",
+                "Device Total Duration(us)": "528.68",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              },
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Host Self Duration(us)": "17.3",
+                "Host Total Duration(us)": "17.3",
+                "Device Self Duration(us)": "534.2",
+                "Device Total Duration(us)": "534.2",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              }
+            ],
+            "metric_columns": [
+              "aic_cube_fops",
+              "aic_mac_fp16_ratio",
+              "aic_mac_int8_ratio",
+              "aic_total_cycles",
+              "aiv_time(us)",
+              "aiv_total_cycles",
+              "aiv_vec_fp16_ratio",
+              "aiv_vec_fp32_ratio",
+              "aiv_vec_int32_ratio",
+              "aiv_vec_misc_ratio",
+              "aiv_vector_fops"
+            ],
+            "artifact": "int8_budget_exact-unrolled_full-ArithmeticUtilization-attempt1-score-hardware-tables.json.gz",
+            "tables": [
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084423414_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "Level",
+                  "API Name",
+                  "Time(us)",
+                  "Count",
+                  "Avg(us)",
+                  "Min(us)",
+                  "Max(us)",
+                  "Variance"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084423414_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+                "columns": [
+                  "Device_id",
+                  "Model ID",
+                  "Task ID",
+                  "Stream ID",
+                  "Name",
+                  "Type",
+                  "OP State",
+                  "Accelerator Core",
+                  "Start Time(us)",
+                  "Duration(us)",
+                  "Wait Time(us)",
+                  "Block Num",
+                  "Mix Block Num",
+                  "HF32 Eligible",
+                  "Input Shapes",
+                  "Input Data Types",
+                  "Input Formats",
+                  "Output Shapes",
+                  "Output Data Types",
+                  "Output Formats",
+                  "Context ID",
+                  "aicore_time(us)",
+                  "aic_total_cycles",
+                  "aic_mac_fp16_ratio",
+                  "aic_mac_int8_ratio",
+                  "aic_cube_fops",
+                  "aiv_time(us)",
+                  "aiv_total_cycles",
+                  "aiv_vec_fp32_ratio",
+                  "aiv_vec_fp16_ratio",
+                  "aiv_vec_int32_ratio",
+                  "aiv_vec_misc_ratio",
+                  "aiv_vector_fops"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084423414_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "OP Type",
+                  "Core Type",
+                  "Count",
+                  "Total Time(us)",
+                  "Min Time(us)",
+                  "Avg Time(us)",
+                  "Max Time(us)",
+                  "Ratio(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084423414_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+                "columns": [
+                  "Name",
+                  "Input Shapes",
+                  "Call Stack",
+                  "Host Self Duration(us)",
+                  "Host Total Duration(us)",
+                  "Device Self Duration(us)",
+                  "Device Total Duration(us)",
+                  "Device Self Duration With AICore(us)",
+                  "Device Total Duration With AICore(us)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084423414_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+                "columns": [
+                  "Device_id",
+                  "Step",
+                  "Computing",
+                  "Communication(Not Overlapped)",
+                  "Overlapped",
+                  "Communication",
+                  "Free",
+                  "Stage",
+                  "Bubble",
+                  "Communication(Not Overlapped and Exclude Receive)",
+                  "Preparing"
+                ],
+                "truncated": false
+              }
+            ],
+            "capture_status": "exported",
+            "parsed": {
+              "status": "available",
+              "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084423414_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "score_row_count": 2,
+              "metric_columns": [
+                "aic_cube_fops",
+                "aic_mac_fp16_ratio",
+                "aic_mac_int8_ratio",
+                "aiv_vec_fp16_ratio",
+                "aiv_vec_fp32_ratio",
+                "aiv_vector_fops"
+              ],
+              "raw_field_statistics": {
+                "aic_cube_fops": {
+                  "median": 5338824704.0,
+                  "min": 5338824704.0,
+                  "max": 5338824704.0,
+                  "count": 2
+                },
+                "aic_mac_fp16_ratio": {
+                  "median": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 2
+                },
+                "aic_mac_int8_ratio": {
+                  "median": 0.019,
+                  "min": 0.019,
+                  "max": 0.019,
+                  "count": 2
+                },
+                "aiv_vec_fp16_ratio": {
+                  "median": 0.001,
+                  "min": 0.001,
+                  "max": 0.001,
+                  "count": 2
+                },
+                "aiv_vec_fp32_ratio": {
+                  "median": 0.036,
+                  "min": 0.036,
+                  "max": 0.036,
+                  "count": 2
+                },
+                "aiv_vector_fops": {
+                  "median": 107954176.0,
+                  "min": 107954176.0,
+                  "max": 107954176.0,
+                  "count": 2
+                }
+              },
+              "rows_preview": [
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "67",
+                  "Stream ID": "2",
+                  "Name": "_qsa_page64_prefix_unrolled_full",
+                  "Type": "_qsa_page64_prefix_unrolled_full",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839463467235.350\t",
+                  "Duration(us)": "528.680",
+                  "Wait Time(us)": "0",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "510.322",
+                  "aic_total_cycles": "16840616",
+                  "aic_mac_fp16_ratio": "0.0",
+                  "aic_mac_int8_ratio": "0.019",
+                  "aic_cube_fops": "5338824704.0",
+                  "aiv_time(us)": "511.458",
+                  "aiv_total_cycles": "33756211",
+                  "aiv_vec_fp32_ratio": "0.036",
+                  "aiv_vec_fp16_ratio": "0.001",
+                  "aiv_vec_int32_ratio": "0.003",
+                  "aiv_vec_misc_ratio": "0.019",
+                  "aiv_vector_fops": "107954176.0"
+                },
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "68",
+                  "Stream ID": "2",
+                  "Name": "_qsa_page64_prefix_unrolled_full",
+                  "Type": "_qsa_page64_prefix_unrolled_full",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839463467766.690\t",
+                  "Duration(us)": "534.200",
+                  "Wait Time(us)": "2.820000",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "512.123",
+                  "aic_total_cycles": "16900059",
+                  "aic_mac_fp16_ratio": "0.0",
+                  "aic_mac_int8_ratio": "0.019",
+                  "aic_cube_fops": "5338824704.0",
+                  "aiv_time(us)": "513.267",
+                  "aiv_total_cycles": "33875643",
+                  "aiv_vec_fp32_ratio": "0.036",
+                  "aiv_vec_fp16_ratio": "0.001",
+                  "aiv_vec_int32_ratio": "0.003",
+                  "aiv_vec_misc_ratio": "0.019",
+                  "aiv_vector_fops": "107954176.0"
+                }
+              ],
+              "table_truncated": false,
+              "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+            },
+            "postcheck": {
+              "all_masks_checked": true,
+              "cpu_local_rows": [
+                0,
+                64,
+                127
+              ],
+              "max_abs_error": 7.62939453125e-06
+            },
+            "attempts": []
+          }
+        },
+        "current": {
+          "PipeUtilization": {
+            "status": "available",
+            "metric": "PipeUtilization",
+            "iterations": 2,
+            "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+            "score_rows_preview": [
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Duration(us)": "546.020",
+                "aicore_time(us)": "503.874",
+                "aic_total_cycles": "16627846",
+                "aic_mac_time(us)": "7.423",
+                "aic_mac_ratio": "0.015",
+                "aic_scalar_time(us)": "180.799",
+                "aic_scalar_ratio": "0.359",
+                "aic_mte1_time(us)": "10.977",
+                "aic_mte1_ratio": "0.022",
+                "aic_mte2_time(us)": "25.653",
+                "aic_mte2_ratio": "0.051",
+                "aic_fixpipe_time(us)": "42.302",
+                "aic_fixpipe_ratio": "0.084",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "504.037",
+                "aiv_total_cycles": "33266421",
+                "aiv_vec_time(us)": "114.168",
+                "aiv_vec_ratio": "0.227",
+                "aiv_scalar_time(us)": "229.236",
+                "aiv_scalar_ratio": "0.455",
+                "aiv_mte2_time(us)": "66.782",
+                "aiv_mte2_ratio": "0.132",
+                "aiv_mte3_time(us)": "22.899",
+                "aiv_mte3_ratio": "0.045",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "92.281"
+              },
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Duration(us)": "547.800",
+                "aicore_time(us)": "506.194",
+                "aic_total_cycles": "16704397",
+                "aic_mac_time(us)": "7.423",
+                "aic_mac_ratio": "0.015",
+                "aic_scalar_time(us)": "180.286",
+                "aic_scalar_ratio": "0.356",
+                "aic_mte1_time(us)": "10.975",
+                "aic_mte1_ratio": "0.022",
+                "aic_mte2_time(us)": "25.655",
+                "aic_mte2_ratio": "0.051",
+                "aic_fixpipe_time(us)": "42.299",
+                "aic_fixpipe_ratio": "0.084",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "506.361",
+                "aiv_total_cycles": "33419819",
+                "aiv_vec_time(us)": "114.168",
+                "aiv_vec_ratio": "0.225",
+                "aiv_scalar_time(us)": "231.066",
+                "aiv_scalar_ratio": "0.456",
+                "aiv_mte2_time(us)": "67.395",
+                "aiv_mte2_ratio": "0.133",
+                "aiv_mte3_time(us)": "22.914",
+                "aiv_mte3_ratio": "0.045",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "92.405"
+              },
+              {},
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Host Self Duration(us)": "26.98",
+                "Host Total Duration(us)": "26.98",
+                "Device Self Duration(us)": "546.02",
+                "Device Total Duration(us)": "546.02",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              },
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Host Self Duration(us)": "16.76",
+                "Host Total Duration(us)": "16.76",
+                "Device Self Duration(us)": "547.8",
+                "Device Total Duration(us)": "547.8",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              }
+            ],
+            "metric_columns": [
+              "aic_fixpipe_ratio",
+              "aic_fixpipe_time(us)",
+              "aic_icache_miss_rate",
+              "aic_mac_ratio",
+              "aic_mac_time(us)",
+              "aic_mte1_ratio",
+              "aic_mte1_time(us)",
+              "aic_mte2_ratio",
+              "aic_mte2_time(us)",
+              "aic_scalar_ratio",
+              "aic_scalar_time(us)",
+              "aic_total_cycles",
+              "aiv_icache_miss_rate",
+              "aiv_mte2_ratio",
+              "aiv_mte2_time(us)",
+              "aiv_mte3_ratio",
+              "aiv_mte3_time(us)",
+              "aiv_scalar_ratio",
+              "aiv_scalar_time(us)",
+              "aiv_time(us)",
+              "aiv_total_cycles",
+              "aiv_vec_ratio",
+              "aiv_vec_time(us)",
+              "cube_utilization(%)"
+            ],
+            "artifact": "int8_budget_exact-current-PipeUtilization-attempt1-score-hardware-tables.json.gz",
+            "tables": [
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084428083_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "Level",
+                  "API Name",
+                  "Time(us)",
+                  "Count",
+                  "Avg(us)",
+                  "Min(us)",
+                  "Max(us)",
+                  "Variance"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084428083_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+                "columns": [
+                  "Device_id",
+                  "Model ID",
+                  "Task ID",
+                  "Stream ID",
+                  "Name",
+                  "Type",
+                  "OP State",
+                  "Accelerator Core",
+                  "Start Time(us)",
+                  "Duration(us)",
+                  "Wait Time(us)",
+                  "Block Num",
+                  "Mix Block Num",
+                  "HF32 Eligible",
+                  "Input Shapes",
+                  "Input Data Types",
+                  "Input Formats",
+                  "Output Shapes",
+                  "Output Data Types",
+                  "Output Formats",
+                  "Context ID",
+                  "aicore_time(us)",
+                  "aic_total_cycles",
+                  "aic_mac_time(us)",
+                  "aic_mac_ratio",
+                  "aic_scalar_time(us)",
+                  "aic_scalar_ratio",
+                  "aic_mte1_time(us)",
+                  "aic_mte1_ratio",
+                  "aic_mte2_time(us)",
+                  "aic_mte2_ratio",
+                  "aic_fixpipe_time(us)",
+                  "aic_fixpipe_ratio",
+                  "aic_icache_miss_rate",
+                  "aiv_time(us)",
+                  "aiv_total_cycles",
+                  "aiv_vec_time(us)",
+                  "aiv_vec_ratio",
+                  "aiv_scalar_time(us)",
+                  "aiv_scalar_ratio",
+                  "aiv_mte2_time(us)",
+                  "aiv_mte2_ratio",
+                  "aiv_mte3_time(us)",
+                  "aiv_mte3_ratio",
+                  "aiv_icache_miss_rate",
+                  "cube_utilization(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084428083_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "OP Type",
+                  "Core Type",
+                  "Count",
+                  "Total Time(us)",
+                  "Min Time(us)",
+                  "Avg Time(us)",
+                  "Max Time(us)",
+                  "Ratio(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084428083_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+                "columns": [
+                  "Name",
+                  "Input Shapes",
+                  "Call Stack",
+                  "Host Self Duration(us)",
+                  "Host Total Duration(us)",
+                  "Device Self Duration(us)",
+                  "Device Total Duration(us)",
+                  "Device Self Duration With AICore(us)",
+                  "Device Total Duration With AICore(us)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084428083_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+                "columns": [
+                  "Device_id",
+                  "Step",
+                  "Computing",
+                  "Communication(Not Overlapped)",
+                  "Overlapped",
+                  "Communication",
+                  "Free",
+                  "Stage",
+                  "Bubble",
+                  "Communication(Not Overlapped and Exclude Receive)",
+                  "Preparing"
+                ],
+                "truncated": false
+              }
+            ],
+            "capture_status": "exported",
+            "parsed": {
+              "status": "available",
+              "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084428083_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "score_row_count": 2,
+              "metric_columns": [
+                "aic_fixpipe_ratio",
+                "aic_fixpipe_time(us)",
+                "aic_mac_ratio",
+                "aic_mac_time(us)",
+                "aic_mte1_ratio",
+                "aic_mte1_time(us)",
+                "aic_mte2_ratio",
+                "aic_mte2_time(us)",
+                "aic_scalar_ratio",
+                "aic_scalar_time(us)",
+                "aiv_mte2_ratio",
+                "aiv_mte2_time(us)",
+                "aiv_mte3_ratio",
+                "aiv_mte3_time(us)",
+                "aiv_scalar_ratio",
+                "aiv_scalar_time(us)",
+                "aiv_vec_ratio",
+                "aiv_vec_time(us)",
+                "cube_utilization(%)"
+              ],
+              "raw_field_statistics": {
+                "aic_fixpipe_ratio": {
+                  "median": 0.084,
+                  "min": 0.084,
+                  "max": 0.084,
+                  "count": 2
+                },
+                "aic_fixpipe_time(us)": {
+                  "median": 42.3005,
+                  "min": 42.299,
+                  "max": 42.302,
+                  "count": 2
+                },
+                "aic_mac_ratio": {
+                  "median": 0.015,
+                  "min": 0.015,
+                  "max": 0.015,
+                  "count": 2
+                },
+                "aic_mac_time(us)": {
+                  "median": 7.423,
+                  "min": 7.423,
+                  "max": 7.423,
+                  "count": 2
+                },
+                "aic_mte1_ratio": {
+                  "median": 0.022,
+                  "min": 0.022,
+                  "max": 0.022,
+                  "count": 2
+                },
+                "aic_mte1_time(us)": {
+                  "median": 10.975999999999999,
+                  "min": 10.975,
+                  "max": 10.977,
+                  "count": 2
+                },
+                "aic_mte2_ratio": {
+                  "median": 0.051,
+                  "min": 0.051,
+                  "max": 0.051,
+                  "count": 2
+                },
+                "aic_mte2_time(us)": {
+                  "median": 25.654,
+                  "min": 25.653,
+                  "max": 25.655,
+                  "count": 2
+                },
+                "aic_scalar_ratio": {
+                  "median": 0.3575,
+                  "min": 0.356,
+                  "max": 0.359,
+                  "count": 2
+                },
+                "aic_scalar_time(us)": {
+                  "median": 180.54250000000002,
+                  "min": 180.286,
+                  "max": 180.799,
+                  "count": 2
+                },
+                "aiv_mte2_ratio": {
+                  "median": 0.1325,
+                  "min": 0.132,
+                  "max": 0.133,
+                  "count": 2
+                },
+                "aiv_mte2_time(us)": {
+                  "median": 67.0885,
+                  "min": 66.782,
+                  "max": 67.395,
+                  "count": 2
+                },
+                "aiv_mte3_ratio": {
+                  "median": 0.045,
+                  "min": 0.045,
+                  "max": 0.045,
+                  "count": 2
+                },
+                "aiv_mte3_time(us)": {
+                  "median": 22.9065,
+                  "min": 22.899,
+                  "max": 22.914,
+                  "count": 2
+                },
+                "aiv_scalar_ratio": {
+                  "median": 0.4555,
+                  "min": 0.455,
+                  "max": 0.456,
+                  "count": 2
+                },
+                "aiv_scalar_time(us)": {
+                  "median": 230.151,
+                  "min": 229.236,
+                  "max": 231.066,
+                  "count": 2
+                },
+                "aiv_vec_ratio": {
+                  "median": 0.226,
+                  "min": 0.225,
+                  "max": 0.227,
+                  "count": 2
+                },
+                "aiv_vec_time(us)": {
+                  "median": 114.168,
+                  "min": 114.168,
+                  "max": 114.168,
+                  "count": 2
+                },
+                "cube_utilization(%)": {
+                  "median": 92.343,
+                  "min": 92.281,
+                  "max": 92.405,
+                  "count": 2
+                }
+              },
+              "rows_preview": [
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "70",
+                  "Stream ID": "2",
+                  "Name": "_qsa_qk_single_page_score",
+                  "Type": "_qsa_qk_single_page_score",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839468138421.444\t",
+                  "Duration(us)": "546.020",
+                  "Wait Time(us)": "0",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "503.874",
+                  "aic_total_cycles": "16627846",
+                  "aic_mac_time(us)": "7.423",
+                  "aic_mac_ratio": "0.015",
+                  "aic_scalar_time(us)": "180.799",
+                  "aic_scalar_ratio": "0.359",
+                  "aic_mte1_time(us)": "10.977",
+                  "aic_mte1_ratio": "0.022",
+                  "aic_mte2_time(us)": "25.653",
+                  "aic_mte2_ratio": "0.051",
+                  "aic_fixpipe_time(us)": "42.302",
+                  "aic_fixpipe_ratio": "0.084",
+                  "aic_icache_miss_rate": "0.0",
+                  "aiv_time(us)": "504.037",
+                  "aiv_total_cycles": "33266421",
+                  "aiv_vec_time(us)": "114.168",
+                  "aiv_vec_ratio": "0.227",
+                  "aiv_scalar_time(us)": "229.236",
+                  "aiv_scalar_ratio": "0.455",
+                  "aiv_mte2_time(us)": "66.782",
+                  "aiv_mte2_ratio": "0.132",
+                  "aiv_mte3_time(us)": "22.899",
+                  "aiv_mte3_ratio": "0.045",
+                  "aiv_icache_miss_rate": "0.0",
+                  "cube_utilization(%)": "92.281"
+                },
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "71",
+                  "Stream ID": "2",
+                  "Name": "_qsa_qk_single_page_score",
+                  "Type": "_qsa_qk_single_page_score",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839468138970.524\t",
+                  "Duration(us)": "547.800",
+                  "Wait Time(us)": "2.980000",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "506.194",
+                  "aic_total_cycles": "16704397",
+                  "aic_mac_time(us)": "7.423",
+                  "aic_mac_ratio": "0.015",
+                  "aic_scalar_time(us)": "180.286",
+                  "aic_scalar_ratio": "0.356",
+                  "aic_mte1_time(us)": "10.975",
+                  "aic_mte1_ratio": "0.022",
+                  "aic_mte2_time(us)": "25.655",
+                  "aic_mte2_ratio": "0.051",
+                  "aic_fixpipe_time(us)": "42.299",
+                  "aic_fixpipe_ratio": "0.084",
+                  "aic_icache_miss_rate": "0.0",
+                  "aiv_time(us)": "506.361",
+                  "aiv_total_cycles": "33419819",
+                  "aiv_vec_time(us)": "114.168",
+                  "aiv_vec_ratio": "0.225",
+                  "aiv_scalar_time(us)": "231.066",
+                  "aiv_scalar_ratio": "0.456",
+                  "aiv_mte2_time(us)": "67.395",
+                  "aiv_mte2_ratio": "0.133",
+                  "aiv_mte3_time(us)": "22.914",
+                  "aiv_mte3_ratio": "0.045",
+                  "aiv_icache_miss_rate": "0.0",
+                  "cube_utilization(%)": "92.405"
+                }
+              ],
+              "table_truncated": false,
+              "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+            },
+            "postcheck": {
+              "all_masks_checked": true,
+              "cpu_local_rows": [
+                0,
+                64,
+                127
+              ],
+              "max_abs_error": 7.62939453125e-06
+            },
+            "attempts": []
+          },
+          "ArithmeticUtilization": {
+            "status": "available",
+            "metric": "ArithmeticUtilization",
+            "iterations": 2,
+            "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+            "score_rows_preview": [
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Duration(us)": "542.820",
+                "aicore_time(us)": "503.219",
+                "aic_total_cycles": "16606239",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.02",
+                "aic_cube_fops": "5338824704.0",
+                "aiv_time(us)": "503.377",
+                "aiv_total_cycles": "33222898",
+                "aiv_vec_fp32_ratio": "0.037",
+                "aiv_vec_fp16_ratio": "0.001",
+                "aiv_vec_int32_ratio": "0.003",
+                "aiv_vec_misc_ratio": "0.019",
+                "aiv_vector_fops": "107954176.0"
+              },
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Duration(us)": "543.140",
+                "aicore_time(us)": "506.439",
+                "aic_total_cycles": "16712489",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.019",
+                "aic_cube_fops": "5338824704.0",
+                "aiv_time(us)": "506.618",
+                "aiv_total_cycles": "33436806",
+                "aiv_vec_fp32_ratio": "0.037",
+                "aiv_vec_fp16_ratio": "0.001",
+                "aiv_vec_int32_ratio": "0.003",
+                "aiv_vec_misc_ratio": "0.019",
+                "aiv_vector_fops": "107954176.0"
+              },
+              {},
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Host Self Duration(us)": "30.53",
+                "Host Total Duration(us)": "30.53",
+                "Device Self Duration(us)": "542.82",
+                "Device Total Duration(us)": "542.82",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              },
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Host Self Duration(us)": "18.62",
+                "Host Total Duration(us)": "18.62",
+                "Device Self Duration(us)": "543.14",
+                "Device Total Duration(us)": "543.14",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              }
+            ],
+            "metric_columns": [
+              "aic_cube_fops",
+              "aic_mac_fp16_ratio",
+              "aic_mac_int8_ratio",
+              "aic_total_cycles",
+              "aiv_time(us)",
+              "aiv_total_cycles",
+              "aiv_vec_fp16_ratio",
+              "aiv_vec_fp32_ratio",
+              "aiv_vec_int32_ratio",
+              "aiv_vec_misc_ratio",
+              "aiv_vector_fops"
+            ],
+            "artifact": "int8_budget_exact-current-ArithmeticUtilization-attempt1-score-hardware-tables.json.gz",
+            "tables": [
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084432773_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "Level",
+                  "API Name",
+                  "Time(us)",
+                  "Count",
+                  "Avg(us)",
+                  "Min(us)",
+                  "Max(us)",
+                  "Variance"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084432773_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+                "columns": [
+                  "Device_id",
+                  "Model ID",
+                  "Task ID",
+                  "Stream ID",
+                  "Name",
+                  "Type",
+                  "OP State",
+                  "Accelerator Core",
+                  "Start Time(us)",
+                  "Duration(us)",
+                  "Wait Time(us)",
+                  "Block Num",
+                  "Mix Block Num",
+                  "HF32 Eligible",
+                  "Input Shapes",
+                  "Input Data Types",
+                  "Input Formats",
+                  "Output Shapes",
+                  "Output Data Types",
+                  "Output Formats",
+                  "Context ID",
+                  "aicore_time(us)",
+                  "aic_total_cycles",
+                  "aic_mac_fp16_ratio",
+                  "aic_mac_int8_ratio",
+                  "aic_cube_fops",
+                  "aiv_time(us)",
+                  "aiv_total_cycles",
+                  "aiv_vec_fp32_ratio",
+                  "aiv_vec_fp16_ratio",
+                  "aiv_vec_int32_ratio",
+                  "aiv_vec_misc_ratio",
+                  "aiv_vector_fops"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084432773_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "OP Type",
+                  "Core Type",
+                  "Count",
+                  "Total Time(us)",
+                  "Min Time(us)",
+                  "Avg Time(us)",
+                  "Max Time(us)",
+                  "Ratio(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084432773_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+                "columns": [
+                  "Name",
+                  "Input Shapes",
+                  "Call Stack",
+                  "Host Self Duration(us)",
+                  "Host Total Duration(us)",
+                  "Device Self Duration(us)",
+                  "Device Total Duration(us)",
+                  "Device Self Duration With AICore(us)",
+                  "Device Total Duration With AICore(us)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084432773_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+                "columns": [
+                  "Device_id",
+                  "Step",
+                  "Computing",
+                  "Communication(Not Overlapped)",
+                  "Overlapped",
+                  "Communication",
+                  "Free",
+                  "Stage",
+                  "Bubble",
+                  "Communication(Not Overlapped and Exclude Receive)",
+                  "Preparing"
+                ],
+                "truncated": false
+              }
+            ],
+            "capture_status": "exported",
+            "parsed": {
+              "status": "available",
+              "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2842954_20261105084432773_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "score_row_count": 2,
+              "metric_columns": [
+                "aic_cube_fops",
+                "aic_mac_fp16_ratio",
+                "aic_mac_int8_ratio",
+                "aiv_vec_fp16_ratio",
+                "aiv_vec_fp32_ratio",
+                "aiv_vector_fops"
+              ],
+              "raw_field_statistics": {
+                "aic_cube_fops": {
+                  "median": 5338824704.0,
+                  "min": 5338824704.0,
+                  "max": 5338824704.0,
+                  "count": 2
+                },
+                "aic_mac_fp16_ratio": {
+                  "median": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 2
+                },
+                "aic_mac_int8_ratio": {
+                  "median": 0.0195,
+                  "min": 0.019,
+                  "max": 0.02,
+                  "count": 2
+                },
+                "aiv_vec_fp16_ratio": {
+                  "median": 0.001,
+                  "min": 0.001,
+                  "max": 0.001,
+                  "count": 2
+                },
+                "aiv_vec_fp32_ratio": {
+                  "median": 0.037,
+                  "min": 0.037,
+                  "max": 0.037,
+                  "count": 2
+                },
+                "aiv_vector_fops": {
+                  "median": 107954176.0,
+                  "min": 107954176.0,
+                  "max": 107954176.0,
+                  "count": 2
+                }
+              },
+              "rows_preview": [
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "73",
+                  "Stream ID": "2",
+                  "Name": "_qsa_qk_single_page_score",
+                  "Type": "_qsa_qk_single_page_score",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839472827520.420\t",
+                  "Duration(us)": "542.820",
+                  "Wait Time(us)": "0",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "503.219",
+                  "aic_total_cycles": "16606239",
+                  "aic_mac_fp16_ratio": "0.0",
+                  "aic_mac_int8_ratio": "0.02",
+                  "aic_cube_fops": "5338824704.0",
+                  "aiv_time(us)": "503.377",
+                  "aiv_total_cycles": "33222898",
+                  "aiv_vec_fp32_ratio": "0.037",
+                  "aiv_vec_fp16_ratio": "0.001",
+                  "aiv_vec_int32_ratio": "0.003",
+                  "aiv_vec_misc_ratio": "0.019",
+                  "aiv_vector_fops": "107954176.0"
+                },
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "74",
+                  "Stream ID": "2",
+                  "Name": "_qsa_qk_single_page_score",
+                  "Type": "_qsa_qk_single_page_score",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839472828066.360\t",
+                  "Duration(us)": "543.140",
+                  "Wait Time(us)": "2.930000",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"128,4,128;43,192,1,128;128,4;43,192,1;128,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "506.439",
+                  "aic_total_cycles": "16712489",
+                  "aic_mac_fp16_ratio": "0.0",
+                  "aic_mac_int8_ratio": "0.019",
+                  "aic_cube_fops": "5338824704.0",
+                  "aiv_time(us)": "506.618",
+                  "aiv_total_cycles": "33436806",
+                  "aiv_vec_fp32_ratio": "0.037",
+                  "aiv_vec_fp16_ratio": "0.001",
+                  "aiv_vec_int32_ratio": "0.003",
+                  "aiv_vec_misc_ratio": "0.019",
+                  "aiv_vector_fops": "107954176.0"
+                }
+              ],
+              "table_truncated": false,
+              "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+            },
+            "postcheck": {
+              "all_masks_checked": true,
+              "cpu_local_rows": [
+                0,
+                64,
+                127
+              ],
+              "max_abs_error": 7.62939453125e-06
+            },
+            "attempts": []
+          }
+        }
+      },
+      "sources": {
+        "probe_qsa_int8_page64_prefix_910b.py": "9fb87249f525adf08701c804f1d5a024d34cb0c276c18727edb2ba9259f4e22c",
+        "qsa_int8_query_pack4_910b.py": "2541f709802d63c4c129aef6bb39bac863bcbe32b94f2a968454fab786b34178",
+        "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+        "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+      },
+      "exit_code": 0,
+      "subprocess_exit_code": 0
+    },
+    {
+      "case": "int8_long100k",
+      "status": "passed",
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device": "Ascend910B4-1",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU",
+        "device_isolation": "not_verified"
+      },
+      "shared_map_guard": {
+        "groups": 28,
+        "all_group_maps_equal": true,
+        "same_request_per_group": true
+      },
+      "geometry": {
+        "first": 8176,
+        "count": 112,
+        "width": 29696,
+        "block_n": 64,
+        "key_tiles": 8,
+        "grid_cap": 20,
+        "plan": {
+          "name": "int8_long100k",
+          "nv_case": "fp8_long100k_float8_e4m3fn",
+          "origin": "dtype_variant",
+          "query_lengths": [
+            16384
+          ],
+          "prefix_tokens": [
+            102400
+          ],
+          "starts": [
+            0,
+            16384
+          ],
+          "batch_max_seq_len": 118784,
+          "heads": 4,
+          "dim": 128,
+          "ratio": 4,
+          "k": 512,
+          "dtype": "int8",
+          "page_size": 192,
+          "pages_per_request": [
+            155
+          ],
+          "physical_pages": 155,
+          "table_columns": 155,
+          "q_shape": [
+            16384,
+            4,
+            128
+          ],
+          "cache_shape": [
+            155,
+            192,
+            1,
+            128
+          ],
+          "logits_width": 29696,
+          "chunk_rows": 112,
+          "score_and_dot_scratch_bytes": 66519040,
+          "nv_original_page_size": 196,
+          "nv_original_physical_pages": null,
+          "nv_original_table_columns": null,
+          "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+          "query_lengths_synthetic": false
+        }
+      },
+      "cube_boundary": false,
+      "unroll_loop": true,
+      "scope": "Representative N64/group8 full-score static inner-loop unroll versus current; same arithmetic/addressing/outputs; separate counter passes; no full-input/native claim",
+      "stage": "completed",
+      "output_bytes": {
+        "unrolled_full": 13303808,
+        "current": 13303808
+      },
+      "compiler": {
+        "unrolled_full": {
+          "loads": 28,
+          "dots": 8,
+          "stores": 8,
+          "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='2545e0cf91ed2f61fe426459999281b7b4faee1d2183ba1b739e32637fe16995', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_unrolled_full', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_unrolled_full', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=164416)",
+          "npubin_sha256": "d4677258c9fddf6fadd06b3c50887fa8a8646b52253ecdf917754184bc197949",
+          "loops": 1,
+          "copies": 20,
+          "transpose_lines": [
+            "%transposed = linalg.transpose ins(%73 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_47 = linalg.transpose ins(%126 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_70 = linalg.transpose ins(%173 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_93 = linalg.transpose ins(%220 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_116 = linalg.transpose ins(%267 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_139 = linalg.transpose ins(%314 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_162 = linalg.transpose ins(%361 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)",
+            "%transposed_185 = linalg.transpose ins(%408 : tensor<64x128xi8>) outs(%76 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc118)"
+          ],
+          "matmul_lines": [
+            "%77 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc91)",
+            "%129 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_47 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc91)",
+            "%176 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_70 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc91)",
+            "%223 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_93 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc91)",
+            "%270 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_116 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc91)",
+            "%317 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_139 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc91)",
+            "%364 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_162 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc91)",
+            "%411 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed_185 : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc91)"
+          ],
+          "reduction_lines": [
+            "%reduced = linalg.reduce ins(%31 : tensor<4xi32>) outs(%33 : tensor<i32>) dimensions = [0]",
+            "%reduced_29 = linalg.reduce ins(%reshape : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_50 = linalg.reduce ins(%reshape_49 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_73 = linalg.reduce ins(%reshape_72 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_96 = linalg.reduce ins(%reshape_95 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_119 = linalg.reduce ins(%reshape_118 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_142 = linalg.reduce ins(%reshape_141 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_165 = linalg.reduce ins(%reshape_164 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]",
+            "%reduced_188 = linalg.reduce ins(%reshape_187 : tensor<4x4x64xf32>) outs(%83 : tensor<4x64xf32>) dimensions = [1]"
+          ]
+        },
+        "current": {
+          "loads": 7,
+          "dots": 1,
+          "stores": 1,
+          "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='9dc97bad803be46a8601900177b53d76193af49f78ee818a9f4416cdaa3b3951', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_qk_single_page_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_qk_single_page_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=20576)",
+          "npubin_sha256": "c674f5686fad3e48f2bb3c61f92881fb698bc48ea4de8e6d2aa916d9a81c1245",
+          "loops": 2,
+          "copies": 6,
+          "transpose_lines": [
+            "%transposed = linalg.transpose ins(%74 : tensor<64x128xi8>) outs(%77 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc119)"
+          ],
+          "matmul_lines": [
+            "%78 = linalg.matmul {input_precision = \"ieee\"} ins(%20, %transposed : tensor<16x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<16x64xi32>) -> tensor<16x64xi32> loc(#loc92)"
+          ],
+          "reduction_lines": [
+            "%reduced = linalg.reduce ins(%31 : tensor<4xi32>) outs(%33 : tensor<i32>) dimensions = [0]",
+            "%reduced_29 = linalg.reduce ins(%reshape : tensor<4x4x64xf32>) outs(%84 : tensor<4x64xf32>) dimensions = [1]"
+          ]
+        }
+      },
+      "prechecks": {
+        "unrolled_full": {
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            56,
+            111
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "current": {
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            56,
+            111
+          ],
+          "max_abs_error": 7.62939453125e-06
+        }
+      },
+      "asm_inventory": {
+        "unrolled_full": {
+          "keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "text_artifacts": [
+            {
+              "key": "source",
+              "file": "int8_long100k-unrolled_full-lower-source.txt",
+              "truncated": false,
+              "static_occurrences": {
+                "barrier": 0,
+                "wait_flag": 0,
+                "set_flag": 0,
+                "fixpipe": 0,
+                "mmad": 0,
+                "transpose": 0
+              }
+            }
+          ]
+        },
+        "current": {
+          "keys": [
+            "source",
+            "ttir",
+            "ttadapter",
+            "mlirbc",
+            "bcmlir",
+            "npubin"
+          ],
+          "text_artifacts": [
+            {
+              "key": "source",
+              "file": "int8_long100k-current-lower-source.txt",
+              "truncated": false,
+              "static_occurrences": {
+                "barrier": 0,
+                "wait_flag": 0,
+                "set_flag": 0,
+                "fixpipe": 0,
+                "mmad": 0,
+                "transpose": 0
+              }
+            }
+          ]
+        }
+      },
+      "full_chunk_vs_legacy": true,
+      "tail_checks": [
+        {
+          "arm": "unrolled_full",
+          "empty_group": false,
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            3,
+            6
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        {
+          "arm": "current",
+          "empty_group": false,
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            3,
+            6
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        {
+          "arm": "unrolled_full",
+          "empty_group": true,
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            3,
+            6
+          ],
+          "max_abs_error": 3.814697265625e-06
+        },
+        {
+          "arm": "current",
+          "empty_group": true,
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            3,
+            6
+          ],
+          "max_abs_error": 3.814697265625e-06
+        }
+      ],
+      "kernel_timer": {
+        "backend": "explicit CPU+NPU Chrome trace",
+        "warmup": 2,
+        "active": 3,
+        "unit": "microseconds; sum of score device tasks per invocation",
+        "host_gaps_included": false,
+        "scope": "Instrumented exploratory kernel timing; rebuild all paired baselines",
+        "fallback": false,
+        "raw_traces_preserved": true,
+        "max_capture_attempts": 3,
+        "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+        "invocation_sum_check": {
+          "single": {
+            "kernel_us": 8720.179999999998,
+            "active_invocation_us": [
+              8723.46,
+              8718.38,
+              8718.7
+            ],
+            "device_task_count": 3,
+            "host_launch_count": 3,
+            "artifact": "int8_long100k-timer-01.json.gz"
+          },
+          "triple": {
+            "kernel_us": 26151.806666666667,
+            "active_invocation_us": [
+              26153.440000000002,
+              26150.26,
+              26151.72
+            ],
+            "device_task_count": 9,
+            "host_launch_count": 9,
+            "artifact": "int8_long100k-timer-02.json.gz"
+          },
+          "ratio": 2.998998491621351
+        },
+        "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+        "prefix_plan_artifact": "int8_long100k-prefix-plan-01.json.gz"
+      },
+      "single_capture_plan": [
+        {
+          "round": 0,
+          "arm": "unrolled_full",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "unrolled_full",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "unrolled_full",
+          "active": 2
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "unrolled_full",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "unrolled_full",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "unrolled_full",
+          "active": 2
+        }
+      ],
+      "single_capture_counts": {
+        "expected_host_counts": {
+          "_qsa_page64_prefix_unrolled_full": 6,
+          "_qsa_qk_single_page_score": 6
+        },
+        "observed_host_counts": {
+          "_qsa_page64_prefix_unrolled_full": 6,
+          "_qsa_qk_single_page_score": 6
+        },
+        "tasks_per_window": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "expected_tasks_per_window": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "samples": {
+        "unrolled_full": [
+          {
+            "kernel_us": 1706.8799999999999,
+            "active_invocation_us": [
+              1704.6,
+              1700.96,
+              1715.08
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              0,
+              2,
+              4
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 1705.7733333333333,
+            "active_invocation_us": [
+              1710.86,
+              1705.2,
+              1701.26
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              7,
+              9,
+              11
+            ],
+            "device_task_count": 3
+          }
+        ],
+        "current": [
+          {
+            "kernel_us": 1671.5199999999998,
+            "active_invocation_us": [
+              1671.16,
+              1669.92,
+              1673.48
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              1,
+              3,
+              5
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 1673.0266666666666,
+            "active_invocation_us": [
+              1669.7,
+              1675.7,
+              1673.68
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              6,
+              8,
+              10
+            ],
+            "device_task_count": 3
+          }
+        ]
+      },
+      "measurement_order": [
+        [
+          "unrolled_full",
+          "current"
+        ],
+        [
+          "current",
+          "unrolled_full"
+        ]
+      ],
+      "postchecks": {
+        "unrolled_full": {
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            56,
+            111
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "current": {
+          "all_masks_checked": true,
+          "cpu_local_rows": [
+            0,
+            56,
+            111
+          ],
+          "max_abs_error": 7.62939453125e-06
+        }
+      },
+      "latency": {
+        "unrolled_full": {
+          "kernel_us": {
+            "median": 1706.3266666666666,
+            "min": 1705.7733333333333,
+            "max": 1706.8799999999999,
+            "range_over_median": 0.0006485667066485334
+          }
+        },
+        "current": {
+          "kernel_us": {
+            "median": 1672.273333333333,
+            "min": 1671.5199999999998,
+            "max": 1673.0266666666666,
+            "range_over_median": 0.0009009691398137993
+          }
+        }
+      },
+      "unroll_speedup_vs_current": 0.9800428991713191,
+      "diagnostic_adjacent_deltas_us": {},
+      "hardware": {
+        "unrolled_full": {
+          "PipeUtilization": {
+            "status": "available",
+            "metric": "PipeUtilization",
+            "iterations": 2,
+            "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+            "score_rows_preview": [
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Duration(us)": "1692.740",
+                "aicore_time(us)": "1634.312",
+                "aic_total_cycles": "53932282",
+                "aic_mac_time(us)": "29.009",
+                "aic_mac_ratio": "0.018",
+                "aic_scalar_time(us)": "500.899",
+                "aic_scalar_ratio": "0.306",
+                "aic_mte1_time(us)": "42.84",
+                "aic_mte1_ratio": "0.026",
+                "aic_mte2_time(us)": "95.426",
+                "aic_mte2_ratio": "0.058",
+                "aic_fixpipe_time(us)": "139.227",
+                "aic_fixpipe_ratio": "0.085",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "1635.513",
+                "aiv_total_cycles": "107943872",
+                "aiv_vec_time(us)": "367.855",
+                "aiv_vec_ratio": "0.225",
+                "aiv_scalar_time(us)": "397.043",
+                "aiv_scalar_ratio": "0.243",
+                "aiv_mte2_time(us)": "225.242",
+                "aiv_mte2_ratio": "0.138",
+                "aiv_mte3_time(us)": "86.231",
+                "aiv_mte3_ratio": "0.053",
+                "aiv_icache_miss_rate": "0.141",
+                "cube_utilization(%)": "96.548"
+              },
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Duration(us)": "1705.260",
+                "aicore_time(us)": "1633.458",
+                "aic_total_cycles": "53904130",
+                "aic_mac_time(us)": "29.009",
+                "aic_mac_ratio": "0.018",
+                "aic_scalar_time(us)": "500.641",
+                "aic_scalar_ratio": "0.306",
+                "aic_mte1_time(us)": "42.838",
+                "aic_mte1_ratio": "0.026",
+                "aic_mte2_time(us)": "95.33",
+                "aic_mte2_ratio": "0.058",
+                "aic_fixpipe_time(us)": "139.149",
+                "aic_fixpipe_ratio": "0.085",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "1634.542",
+                "aiv_total_cycles": "107879756",
+                "aiv_vec_time(us)": "367.849",
+                "aiv_vec_ratio": "0.225",
+                "aiv_scalar_time(us)": "396.557",
+                "aiv_scalar_ratio": "0.243",
+                "aiv_mte2_time(us)": "225.495",
+                "aiv_mte2_ratio": "0.138",
+                "aiv_mte3_time(us)": "86.2",
+                "aiv_mte3_ratio": "0.053",
+                "aiv_icache_miss_rate": "0.141",
+                "cube_utilization(%)": "95.789"
+              },
+              {},
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Host Self Duration(us)": "28.83",
+                "Host Total Duration(us)": "28.83",
+                "Device Self Duration(us)": "1692.74",
+                "Device Total Duration(us)": "1692.74",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              },
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Host Self Duration(us)": "18.19",
+                "Host Total Duration(us)": "18.19",
+                "Device Self Duration(us)": "1705.26",
+                "Device Total Duration(us)": "1705.26",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              }
+            ],
+            "metric_columns": [
+              "aic_fixpipe_ratio",
+              "aic_fixpipe_time(us)",
+              "aic_icache_miss_rate",
+              "aic_mac_ratio",
+              "aic_mac_time(us)",
+              "aic_mte1_ratio",
+              "aic_mte1_time(us)",
+              "aic_mte2_ratio",
+              "aic_mte2_time(us)",
+              "aic_scalar_ratio",
+              "aic_scalar_time(us)",
+              "aic_total_cycles",
+              "aiv_icache_miss_rate",
+              "aiv_mte2_ratio",
+              "aiv_mte2_time(us)",
+              "aiv_mte3_ratio",
+              "aiv_mte3_time(us)",
+              "aiv_scalar_ratio",
+              "aiv_scalar_time(us)",
+              "aiv_time(us)",
+              "aiv_total_cycles",
+              "aiv_vec_ratio",
+              "aiv_vec_time(us)",
+              "cube_utilization(%)"
+            ],
+            "artifact": "int8_long100k-unrolled_full-PipeUtilization-attempt1-score-hardware-tables.json.gz",
+            "tables": [
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084536176_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "Level",
+                  "API Name",
+                  "Time(us)",
+                  "Count",
+                  "Avg(us)",
+                  "Min(us)",
+                  "Max(us)",
+                  "Variance"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084536176_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+                "columns": [
+                  "Device_id",
+                  "Model ID",
+                  "Task ID",
+                  "Stream ID",
+                  "Name",
+                  "Type",
+                  "OP State",
+                  "Accelerator Core",
+                  "Start Time(us)",
+                  "Duration(us)",
+                  "Wait Time(us)",
+                  "Block Num",
+                  "Mix Block Num",
+                  "HF32 Eligible",
+                  "Input Shapes",
+                  "Input Data Types",
+                  "Input Formats",
+                  "Output Shapes",
+                  "Output Data Types",
+                  "Output Formats",
+                  "Context ID",
+                  "aicore_time(us)",
+                  "aic_total_cycles",
+                  "aic_mac_time(us)",
+                  "aic_mac_ratio",
+                  "aic_scalar_time(us)",
+                  "aic_scalar_ratio",
+                  "aic_mte1_time(us)",
+                  "aic_mte1_ratio",
+                  "aic_mte2_time(us)",
+                  "aic_mte2_ratio",
+                  "aic_fixpipe_time(us)",
+                  "aic_fixpipe_ratio",
+                  "aic_icache_miss_rate",
+                  "aiv_time(us)",
+                  "aiv_total_cycles",
+                  "aiv_vec_time(us)",
+                  "aiv_vec_ratio",
+                  "aiv_scalar_time(us)",
+                  "aiv_scalar_ratio",
+                  "aiv_mte2_time(us)",
+                  "aiv_mte2_ratio",
+                  "aiv_mte3_time(us)",
+                  "aiv_mte3_ratio",
+                  "aiv_icache_miss_rate",
+                  "cube_utilization(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084536176_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "OP Type",
+                  "Core Type",
+                  "Count",
+                  "Total Time(us)",
+                  "Min Time(us)",
+                  "Avg Time(us)",
+                  "Max Time(us)",
+                  "Ratio(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084536176_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+                "columns": [
+                  "Name",
+                  "Input Shapes",
+                  "Call Stack",
+                  "Host Self Duration(us)",
+                  "Host Total Duration(us)",
+                  "Device Self Duration(us)",
+                  "Device Total Duration(us)",
+                  "Device Self Duration With AICore(us)",
+                  "Device Total Duration With AICore(us)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084536176_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+                "columns": [
+                  "Device_id",
+                  "Step",
+                  "Computing",
+                  "Communication(Not Overlapped)",
+                  "Overlapped",
+                  "Communication",
+                  "Free",
+                  "Stage",
+                  "Bubble",
+                  "Communication(Not Overlapped and Exclude Receive)",
+                  "Preparing"
+                ],
+                "truncated": false
+              }
+            ],
+            "capture_status": "exported",
+            "parsed": {
+              "status": "available",
+              "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084536176_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "score_row_count": 2,
+              "metric_columns": [
+                "aic_fixpipe_ratio",
+                "aic_fixpipe_time(us)",
+                "aic_mac_ratio",
+                "aic_mac_time(us)",
+                "aic_mte1_ratio",
+                "aic_mte1_time(us)",
+                "aic_mte2_ratio",
+                "aic_mte2_time(us)",
+                "aic_scalar_ratio",
+                "aic_scalar_time(us)",
+                "aiv_mte2_ratio",
+                "aiv_mte2_time(us)",
+                "aiv_mte3_ratio",
+                "aiv_mte3_time(us)",
+                "aiv_scalar_ratio",
+                "aiv_scalar_time(us)",
+                "aiv_vec_ratio",
+                "aiv_vec_time(us)",
+                "cube_utilization(%)"
+              ],
+              "raw_field_statistics": {
+                "aic_fixpipe_ratio": {
+                  "median": 0.085,
+                  "min": 0.085,
+                  "max": 0.085,
+                  "count": 2
+                },
+                "aic_fixpipe_time(us)": {
+                  "median": 139.188,
+                  "min": 139.149,
+                  "max": 139.227,
+                  "count": 2
+                },
+                "aic_mac_ratio": {
+                  "median": 0.018,
+                  "min": 0.018,
+                  "max": 0.018,
+                  "count": 2
+                },
+                "aic_mac_time(us)": {
+                  "median": 29.009,
+                  "min": 29.009,
+                  "max": 29.009,
+                  "count": 2
+                },
+                "aic_mte1_ratio": {
+                  "median": 0.026,
+                  "min": 0.026,
+                  "max": 0.026,
+                  "count": 2
+                },
+                "aic_mte1_time(us)": {
+                  "median": 42.839,
+                  "min": 42.838,
+                  "max": 42.84,
+                  "count": 2
+                },
+                "aic_mte2_ratio": {
+                  "median": 0.058,
+                  "min": 0.058,
+                  "max": 0.058,
+                  "count": 2
+                },
+                "aic_mte2_time(us)": {
+                  "median": 95.378,
+                  "min": 95.33,
+                  "max": 95.426,
+                  "count": 2
+                },
+                "aic_scalar_ratio": {
+                  "median": 0.306,
+                  "min": 0.306,
+                  "max": 0.306,
+                  "count": 2
+                },
+                "aic_scalar_time(us)": {
+                  "median": 500.77,
+                  "min": 500.641,
+                  "max": 500.899,
+                  "count": 2
+                },
+                "aiv_mte2_ratio": {
+                  "median": 0.138,
+                  "min": 0.138,
+                  "max": 0.138,
+                  "count": 2
+                },
+                "aiv_mte2_time(us)": {
+                  "median": 225.36849999999998,
+                  "min": 225.242,
+                  "max": 225.495,
+                  "count": 2
+                },
+                "aiv_mte3_ratio": {
+                  "median": 0.053,
+                  "min": 0.053,
+                  "max": 0.053,
+                  "count": 2
+                },
+                "aiv_mte3_time(us)": {
+                  "median": 86.21549999999999,
+                  "min": 86.2,
+                  "max": 86.231,
+                  "count": 2
+                },
+                "aiv_scalar_ratio": {
+                  "median": 0.243,
+                  "min": 0.243,
+                  "max": 0.243,
+                  "count": 2
+                },
+                "aiv_scalar_time(us)": {
+                  "median": 396.8,
+                  "min": 396.557,
+                  "max": 397.043,
+                  "count": 2
+                },
+                "aiv_vec_ratio": {
+                  "median": 0.225,
+                  "min": 0.225,
+                  "max": 0.225,
+                  "count": 2
+                },
+                "aiv_vec_time(us)": {
+                  "median": 367.852,
+                  "min": 367.849,
+                  "max": 367.855,
+                  "count": 2
+                },
+                "cube_utilization(%)": {
+                  "median": 96.1685,
+                  "min": 95.789,
+                  "max": 96.548,
+                  "count": 2
+                }
+              },
+              "rows_preview": [
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "64",
+                  "Stream ID": "2",
+                  "Name": "_qsa_page64_prefix_unrolled_full",
+                  "Type": "_qsa_page64_prefix_unrolled_full",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839536230537.774\t",
+                  "Duration(us)": "1692.740",
+                  "Wait Time(us)": "0",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "1634.312",
+                  "aic_total_cycles": "53932282",
+                  "aic_mac_time(us)": "29.009",
+                  "aic_mac_ratio": "0.018",
+                  "aic_scalar_time(us)": "500.899",
+                  "aic_scalar_ratio": "0.306",
+                  "aic_mte1_time(us)": "42.84",
+                  "aic_mte1_ratio": "0.026",
+                  "aic_mte2_time(us)": "95.426",
+                  "aic_mte2_ratio": "0.058",
+                  "aic_fixpipe_time(us)": "139.227",
+                  "aic_fixpipe_ratio": "0.085",
+                  "aic_icache_miss_rate": "0.0",
+                  "aiv_time(us)": "1635.513",
+                  "aiv_total_cycles": "107943872",
+                  "aiv_vec_time(us)": "367.855",
+                  "aiv_vec_ratio": "0.225",
+                  "aiv_scalar_time(us)": "397.043",
+                  "aiv_scalar_ratio": "0.243",
+                  "aiv_mte2_time(us)": "225.242",
+                  "aiv_mte2_ratio": "0.138",
+                  "aiv_mte3_time(us)": "86.231",
+                  "aiv_mte3_ratio": "0.053",
+                  "aiv_icache_miss_rate": "0.141",
+                  "cube_utilization(%)": "96.548"
+                },
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "65",
+                  "Stream ID": "2",
+                  "Name": "_qsa_page64_prefix_unrolled_full",
+                  "Type": "_qsa_page64_prefix_unrolled_full",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839536232233.254\t",
+                  "Duration(us)": "1705.260",
+                  "Wait Time(us)": "2.760000",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "1633.458",
+                  "aic_total_cycles": "53904130",
+                  "aic_mac_time(us)": "29.009",
+                  "aic_mac_ratio": "0.018",
+                  "aic_scalar_time(us)": "500.641",
+                  "aic_scalar_ratio": "0.306",
+                  "aic_mte1_time(us)": "42.838",
+                  "aic_mte1_ratio": "0.026",
+                  "aic_mte2_time(us)": "95.33",
+                  "aic_mte2_ratio": "0.058",
+                  "aic_fixpipe_time(us)": "139.149",
+                  "aic_fixpipe_ratio": "0.085",
+                  "aic_icache_miss_rate": "0.0",
+                  "aiv_time(us)": "1634.542",
+                  "aiv_total_cycles": "107879756",
+                  "aiv_vec_time(us)": "367.849",
+                  "aiv_vec_ratio": "0.225",
+                  "aiv_scalar_time(us)": "396.557",
+                  "aiv_scalar_ratio": "0.243",
+                  "aiv_mte2_time(us)": "225.495",
+                  "aiv_mte2_ratio": "0.138",
+                  "aiv_mte3_time(us)": "86.2",
+                  "aiv_mte3_ratio": "0.053",
+                  "aiv_icache_miss_rate": "0.141",
+                  "cube_utilization(%)": "95.789"
+                }
+              ],
+              "table_truncated": false,
+              "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+            },
+            "postcheck": {
+              "all_masks_checked": true,
+              "cpu_local_rows": [
+                0,
+                56,
+                111
+              ],
+              "max_abs_error": 7.62939453125e-06
+            },
+            "attempts": []
+          },
+          "ArithmeticUtilization": {
+            "status": "available",
+            "metric": "ArithmeticUtilization",
+            "iterations": 2,
+            "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+            "score_rows_preview": [
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Duration(us)": "1700.360",
+                "aicore_time(us)": "1641.045",
+                "aic_total_cycles": "54154498",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.023",
+                "aic_cube_fops": "20849229824.0",
+                "aiv_time(us)": "1642.141",
+                "aiv_total_cycles": "108381338",
+                "aiv_vec_fp32_ratio": "0.036",
+                "aiv_vec_fp16_ratio": "0.001",
+                "aiv_vec_int32_ratio": "0.003",
+                "aiv_vec_misc_ratio": "0.019",
+                "aiv_vector_fops": "341788224.0"
+              },
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Duration(us)": "1706.920",
+                "aicore_time(us)": "1640.597",
+                "aic_total_cycles": "54139711",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.024",
+                "aic_cube_fops": "20849229824.0",
+                "aiv_time(us)": "1641.689",
+                "aiv_total_cycles": "108351489",
+                "aiv_vec_fp32_ratio": "0.036",
+                "aiv_vec_fp16_ratio": "0.001",
+                "aiv_vec_int32_ratio": "0.003",
+                "aiv_vec_misc_ratio": "0.019",
+                "aiv_vector_fops": "341788224.0"
+              },
+              {},
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Host Self Duration(us)": "27.74",
+                "Host Total Duration(us)": "27.74",
+                "Device Self Duration(us)": "1700.36",
+                "Device Total Duration(us)": "1700.36",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              },
+              {
+                "Name": "_qsa_page64_prefix_unrolled_full",
+                "Host Self Duration(us)": "18.23",
+                "Host Total Duration(us)": "18.23",
+                "Device Self Duration(us)": "1706.92",
+                "Device Total Duration(us)": "1706.92",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              }
+            ],
+            "metric_columns": [
+              "aic_cube_fops",
+              "aic_mac_fp16_ratio",
+              "aic_mac_int8_ratio",
+              "aic_total_cycles",
+              "aiv_time(us)",
+              "aiv_total_cycles",
+              "aiv_vec_fp16_ratio",
+              "aiv_vec_fp32_ratio",
+              "aiv_vec_int32_ratio",
+              "aiv_vec_misc_ratio",
+              "aiv_vector_fops"
+            ],
+            "artifact": "int8_long100k-unrolled_full-ArithmeticUtilization-attempt1-score-hardware-tables.json.gz",
+            "tables": [
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084540993_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "Level",
+                  "API Name",
+                  "Time(us)",
+                  "Count",
+                  "Avg(us)",
+                  "Min(us)",
+                  "Max(us)",
+                  "Variance"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084540993_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+                "columns": [
+                  "Device_id",
+                  "Model ID",
+                  "Task ID",
+                  "Stream ID",
+                  "Name",
+                  "Type",
+                  "OP State",
+                  "Accelerator Core",
+                  "Start Time(us)",
+                  "Duration(us)",
+                  "Wait Time(us)",
+                  "Block Num",
+                  "Mix Block Num",
+                  "HF32 Eligible",
+                  "Input Shapes",
+                  "Input Data Types",
+                  "Input Formats",
+                  "Output Shapes",
+                  "Output Data Types",
+                  "Output Formats",
+                  "Context ID",
+                  "aicore_time(us)",
+                  "aic_total_cycles",
+                  "aic_mac_fp16_ratio",
+                  "aic_mac_int8_ratio",
+                  "aic_cube_fops",
+                  "aiv_time(us)",
+                  "aiv_total_cycles",
+                  "aiv_vec_fp32_ratio",
+                  "aiv_vec_fp16_ratio",
+                  "aiv_vec_int32_ratio",
+                  "aiv_vec_misc_ratio",
+                  "aiv_vector_fops"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084540993_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "OP Type",
+                  "Core Type",
+                  "Count",
+                  "Total Time(us)",
+                  "Min Time(us)",
+                  "Avg Time(us)",
+                  "Max Time(us)",
+                  "Ratio(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084540993_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+                "columns": [
+                  "Name",
+                  "Input Shapes",
+                  "Call Stack",
+                  "Host Self Duration(us)",
+                  "Host Total Duration(us)",
+                  "Device Self Duration(us)",
+                  "Device Total Duration(us)",
+                  "Device Self Duration With AICore(us)",
+                  "Device Total Duration With AICore(us)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084540993_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+                "columns": [
+                  "Device_id",
+                  "Step",
+                  "Computing",
+                  "Communication(Not Overlapped)",
+                  "Overlapped",
+                  "Communication",
+                  "Free",
+                  "Stage",
+                  "Bubble",
+                  "Communication(Not Overlapped and Exclude Receive)",
+                  "Preparing"
+                ],
+                "truncated": false
+              }
+            ],
+            "capture_status": "exported",
+            "parsed": {
+              "status": "available",
+              "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084540993_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "score_row_count": 2,
+              "metric_columns": [
+                "aic_cube_fops",
+                "aic_mac_fp16_ratio",
+                "aic_mac_int8_ratio",
+                "aiv_vec_fp16_ratio",
+                "aiv_vec_fp32_ratio",
+                "aiv_vector_fops"
+              ],
+              "raw_field_statistics": {
+                "aic_cube_fops": {
+                  "median": 20849229824.0,
+                  "min": 20849229824.0,
+                  "max": 20849229824.0,
+                  "count": 2
+                },
+                "aic_mac_fp16_ratio": {
+                  "median": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 2
+                },
+                "aic_mac_int8_ratio": {
+                  "median": 0.0235,
+                  "min": 0.023,
+                  "max": 0.024,
+                  "count": 2
+                },
+                "aiv_vec_fp16_ratio": {
+                  "median": 0.001,
+                  "min": 0.001,
+                  "max": 0.001,
+                  "count": 2
+                },
+                "aiv_vec_fp32_ratio": {
+                  "median": 0.036,
+                  "min": 0.036,
+                  "max": 0.036,
+                  "count": 2
+                },
+                "aiv_vector_fops": {
+                  "median": 341788224.0,
+                  "min": 341788224.0,
+                  "max": 341788224.0,
+                  "count": 2
+                }
+              },
+              "rows_preview": [
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "67",
+                  "Stream ID": "2",
+                  "Name": "_qsa_page64_prefix_unrolled_full",
+                  "Type": "_qsa_page64_prefix_unrolled_full",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839541046396.050\t",
+                  "Duration(us)": "1700.360",
+                  "Wait Time(us)": "0",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "1641.045",
+                  "aic_total_cycles": "54154498",
+                  "aic_mac_fp16_ratio": "0.0",
+                  "aic_mac_int8_ratio": "0.023",
+                  "aic_cube_fops": "20849229824.0",
+                  "aiv_time(us)": "1642.141",
+                  "aiv_total_cycles": "108381338",
+                  "aiv_vec_fp32_ratio": "0.036",
+                  "aiv_vec_fp16_ratio": "0.001",
+                  "aiv_vec_int32_ratio": "0.003",
+                  "aiv_vec_misc_ratio": "0.019",
+                  "aiv_vector_fops": "341788224.0"
+                },
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "68",
+                  "Stream ID": "2",
+                  "Name": "_qsa_page64_prefix_unrolled_full",
+                  "Type": "_qsa_page64_prefix_unrolled_full",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839541048099.490\t",
+                  "Duration(us)": "1706.920",
+                  "Wait Time(us)": "3.140000",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "1640.597",
+                  "aic_total_cycles": "54139711",
+                  "aic_mac_fp16_ratio": "0.0",
+                  "aic_mac_int8_ratio": "0.024",
+                  "aic_cube_fops": "20849229824.0",
+                  "aiv_time(us)": "1641.689",
+                  "aiv_total_cycles": "108351489",
+                  "aiv_vec_fp32_ratio": "0.036",
+                  "aiv_vec_fp16_ratio": "0.001",
+                  "aiv_vec_int32_ratio": "0.003",
+                  "aiv_vec_misc_ratio": "0.019",
+                  "aiv_vector_fops": "341788224.0"
+                }
+              ],
+              "table_truncated": false,
+              "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+            },
+            "postcheck": {
+              "all_masks_checked": true,
+              "cpu_local_rows": [
+                0,
+                56,
+                111
+              ],
+              "max_abs_error": 7.62939453125e-06
+            },
+            "attempts": []
+          }
+        },
+        "current": {
+          "PipeUtilization": {
+            "status": "available",
+            "metric": "PipeUtilization",
+            "iterations": 2,
+            "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+            "score_rows_preview": [
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Duration(us)": "1664.140",
+                "aicore_time(us)": "1598.288",
+                "aic_total_cycles": "52743512",
+                "aic_mac_time(us)": "29.009",
+                "aic_mac_ratio": "0.018",
+                "aic_scalar_time(us)": "585.631",
+                "aic_scalar_ratio": "0.366",
+                "aic_mte1_time(us)": "42.775",
+                "aic_mte1_ratio": "0.027",
+                "aic_mte2_time(us)": "93.664",
+                "aic_mte2_ratio": "0.059",
+                "aic_fixpipe_time(us)": "137.57",
+                "aic_fixpipe_ratio": "0.086",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "1598.463",
+                "aiv_total_cycles": "105498578",
+                "aiv_vec_time(us)": "366.512",
+                "aiv_vec_ratio": "0.229",
+                "aiv_scalar_time(us)": "710.056",
+                "aiv_scalar_ratio": "0.444",
+                "aiv_mte2_time(us)": "223.388",
+                "aiv_mte2_ratio": "0.14",
+                "aiv_mte3_time(us)": "73.422",
+                "aiv_mte3_ratio": "0.046",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "96.043"
+              },
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Duration(us)": "1667.040",
+                "aicore_time(us)": "1598.127",
+                "aic_total_cycles": "52738197",
+                "aic_mac_time(us)": "29.009",
+                "aic_mac_ratio": "0.018",
+                "aic_scalar_time(us)": "584.332",
+                "aic_scalar_ratio": "0.366",
+                "aic_mte1_time(us)": "42.775",
+                "aic_mte1_ratio": "0.027",
+                "aic_mte2_time(us)": "93.691",
+                "aic_mte2_ratio": "0.059",
+                "aic_fixpipe_time(us)": "137.666",
+                "aic_fixpipe_ratio": "0.086",
+                "aic_icache_miss_rate": "0.0",
+                "aiv_time(us)": "1598.258",
+                "aiv_total_cycles": "105485058",
+                "aiv_vec_time(us)": "366.511",
+                "aiv_vec_ratio": "0.229",
+                "aiv_scalar_time(us)": "712.707",
+                "aiv_scalar_ratio": "0.446",
+                "aiv_mte2_time(us)": "223.519",
+                "aiv_mte2_ratio": "0.14",
+                "aiv_mte3_time(us)": "73.414",
+                "aiv_mte3_ratio": "0.046",
+                "aiv_icache_miss_rate": "0.0",
+                "cube_utilization(%)": "95.866"
+              },
+              {},
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Host Self Duration(us)": "30.15",
+                "Host Total Duration(us)": "30.15",
+                "Device Self Duration(us)": "1664.14",
+                "Device Total Duration(us)": "1664.14",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              },
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Host Self Duration(us)": "17.88",
+                "Host Total Duration(us)": "17.88",
+                "Device Self Duration(us)": "1667.04",
+                "Device Total Duration(us)": "1667.04",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              }
+            ],
+            "metric_columns": [
+              "aic_fixpipe_ratio",
+              "aic_fixpipe_time(us)",
+              "aic_icache_miss_rate",
+              "aic_mac_ratio",
+              "aic_mac_time(us)",
+              "aic_mte1_ratio",
+              "aic_mte1_time(us)",
+              "aic_mte2_ratio",
+              "aic_mte2_time(us)",
+              "aic_scalar_ratio",
+              "aic_scalar_time(us)",
+              "aic_total_cycles",
+              "aiv_icache_miss_rate",
+              "aiv_mte2_ratio",
+              "aiv_mte2_time(us)",
+              "aiv_mte3_ratio",
+              "aiv_mte3_time(us)",
+              "aiv_scalar_ratio",
+              "aiv_scalar_time(us)",
+              "aiv_time(us)",
+              "aiv_total_cycles",
+              "aiv_vec_ratio",
+              "aiv_vec_time(us)",
+              "cube_utilization(%)"
+            ],
+            "artifact": "int8_long100k-current-PipeUtilization-attempt1-score-hardware-tables.json.gz",
+            "tables": [
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084545806_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "Level",
+                  "API Name",
+                  "Time(us)",
+                  "Count",
+                  "Avg(us)",
+                  "Min(us)",
+                  "Max(us)",
+                  "Variance"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084545806_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+                "columns": [
+                  "Device_id",
+                  "Model ID",
+                  "Task ID",
+                  "Stream ID",
+                  "Name",
+                  "Type",
+                  "OP State",
+                  "Accelerator Core",
+                  "Start Time(us)",
+                  "Duration(us)",
+                  "Wait Time(us)",
+                  "Block Num",
+                  "Mix Block Num",
+                  "HF32 Eligible",
+                  "Input Shapes",
+                  "Input Data Types",
+                  "Input Formats",
+                  "Output Shapes",
+                  "Output Data Types",
+                  "Output Formats",
+                  "Context ID",
+                  "aicore_time(us)",
+                  "aic_total_cycles",
+                  "aic_mac_time(us)",
+                  "aic_mac_ratio",
+                  "aic_scalar_time(us)",
+                  "aic_scalar_ratio",
+                  "aic_mte1_time(us)",
+                  "aic_mte1_ratio",
+                  "aic_mte2_time(us)",
+                  "aic_mte2_ratio",
+                  "aic_fixpipe_time(us)",
+                  "aic_fixpipe_ratio",
+                  "aic_icache_miss_rate",
+                  "aiv_time(us)",
+                  "aiv_total_cycles",
+                  "aiv_vec_time(us)",
+                  "aiv_vec_ratio",
+                  "aiv_scalar_time(us)",
+                  "aiv_scalar_ratio",
+                  "aiv_mte2_time(us)",
+                  "aiv_mte2_ratio",
+                  "aiv_mte3_time(us)",
+                  "aiv_mte3_ratio",
+                  "aiv_icache_miss_rate",
+                  "cube_utilization(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084545806_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "OP Type",
+                  "Core Type",
+                  "Count",
+                  "Total Time(us)",
+                  "Min Time(us)",
+                  "Avg Time(us)",
+                  "Max Time(us)",
+                  "Ratio(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084545806_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+                "columns": [
+                  "Name",
+                  "Input Shapes",
+                  "Call Stack",
+                  "Host Self Duration(us)",
+                  "Host Total Duration(us)",
+                  "Device Self Duration(us)",
+                  "Device Total Duration(us)",
+                  "Device Self Duration With AICore(us)",
+                  "Device Total Duration With AICore(us)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084545806_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+                "columns": [
+                  "Device_id",
+                  "Step",
+                  "Computing",
+                  "Communication(Not Overlapped)",
+                  "Overlapped",
+                  "Communication",
+                  "Free",
+                  "Stage",
+                  "Bubble",
+                  "Communication(Not Overlapped and Exclude Receive)",
+                  "Preparing"
+                ],
+                "truncated": false
+              }
+            ],
+            "capture_status": "exported",
+            "parsed": {
+              "status": "available",
+              "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084545806_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "score_row_count": 2,
+              "metric_columns": [
+                "aic_fixpipe_ratio",
+                "aic_fixpipe_time(us)",
+                "aic_mac_ratio",
+                "aic_mac_time(us)",
+                "aic_mte1_ratio",
+                "aic_mte1_time(us)",
+                "aic_mte2_ratio",
+                "aic_mte2_time(us)",
+                "aic_scalar_ratio",
+                "aic_scalar_time(us)",
+                "aiv_mte2_ratio",
+                "aiv_mte2_time(us)",
+                "aiv_mte3_ratio",
+                "aiv_mte3_time(us)",
+                "aiv_scalar_ratio",
+                "aiv_scalar_time(us)",
+                "aiv_vec_ratio",
+                "aiv_vec_time(us)",
+                "cube_utilization(%)"
+              ],
+              "raw_field_statistics": {
+                "aic_fixpipe_ratio": {
+                  "median": 0.086,
+                  "min": 0.086,
+                  "max": 0.086,
+                  "count": 2
+                },
+                "aic_fixpipe_time(us)": {
+                  "median": 137.618,
+                  "min": 137.57,
+                  "max": 137.666,
+                  "count": 2
+                },
+                "aic_mac_ratio": {
+                  "median": 0.018,
+                  "min": 0.018,
+                  "max": 0.018,
+                  "count": 2
+                },
+                "aic_mac_time(us)": {
+                  "median": 29.009,
+                  "min": 29.009,
+                  "max": 29.009,
+                  "count": 2
+                },
+                "aic_mte1_ratio": {
+                  "median": 0.027,
+                  "min": 0.027,
+                  "max": 0.027,
+                  "count": 2
+                },
+                "aic_mte1_time(us)": {
+                  "median": 42.775,
+                  "min": 42.775,
+                  "max": 42.775,
+                  "count": 2
+                },
+                "aic_mte2_ratio": {
+                  "median": 0.059,
+                  "min": 0.059,
+                  "max": 0.059,
+                  "count": 2
+                },
+                "aic_mte2_time(us)": {
+                  "median": 93.67750000000001,
+                  "min": 93.664,
+                  "max": 93.691,
+                  "count": 2
+                },
+                "aic_scalar_ratio": {
+                  "median": 0.366,
+                  "min": 0.366,
+                  "max": 0.366,
+                  "count": 2
+                },
+                "aic_scalar_time(us)": {
+                  "median": 584.9815,
+                  "min": 584.332,
+                  "max": 585.631,
+                  "count": 2
+                },
+                "aiv_mte2_ratio": {
+                  "median": 0.14,
+                  "min": 0.14,
+                  "max": 0.14,
+                  "count": 2
+                },
+                "aiv_mte2_time(us)": {
+                  "median": 223.45350000000002,
+                  "min": 223.388,
+                  "max": 223.519,
+                  "count": 2
+                },
+                "aiv_mte3_ratio": {
+                  "median": 0.046,
+                  "min": 0.046,
+                  "max": 0.046,
+                  "count": 2
+                },
+                "aiv_mte3_time(us)": {
+                  "median": 73.418,
+                  "min": 73.414,
+                  "max": 73.422,
+                  "count": 2
+                },
+                "aiv_scalar_ratio": {
+                  "median": 0.445,
+                  "min": 0.444,
+                  "max": 0.446,
+                  "count": 2
+                },
+                "aiv_scalar_time(us)": {
+                  "median": 711.3815,
+                  "min": 710.056,
+                  "max": 712.707,
+                  "count": 2
+                },
+                "aiv_vec_ratio": {
+                  "median": 0.229,
+                  "min": 0.229,
+                  "max": 0.229,
+                  "count": 2
+                },
+                "aiv_vec_time(us)": {
+                  "median": 366.5115,
+                  "min": 366.511,
+                  "max": 366.512,
+                  "count": 2
+                },
+                "cube_utilization(%)": {
+                  "median": 95.9545,
+                  "min": 95.866,
+                  "max": 96.043,
+                  "count": 2
+                }
+              },
+              "rows_preview": [
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "70",
+                  "Stream ID": "2",
+                  "Name": "_qsa_qk_single_page_score",
+                  "Type": "_qsa_qk_single_page_score",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839545862491.560\t",
+                  "Duration(us)": "1664.140",
+                  "Wait Time(us)": "0",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "1598.288",
+                  "aic_total_cycles": "52743512",
+                  "aic_mac_time(us)": "29.009",
+                  "aic_mac_ratio": "0.018",
+                  "aic_scalar_time(us)": "585.631",
+                  "aic_scalar_ratio": "0.366",
+                  "aic_mte1_time(us)": "42.775",
+                  "aic_mte1_ratio": "0.027",
+                  "aic_mte2_time(us)": "93.664",
+                  "aic_mte2_ratio": "0.059",
+                  "aic_fixpipe_time(us)": "137.57",
+                  "aic_fixpipe_ratio": "0.086",
+                  "aic_icache_miss_rate": "0.0",
+                  "aiv_time(us)": "1598.463",
+                  "aiv_total_cycles": "105498578",
+                  "aiv_vec_time(us)": "366.512",
+                  "aiv_vec_ratio": "0.229",
+                  "aiv_scalar_time(us)": "710.056",
+                  "aiv_scalar_ratio": "0.444",
+                  "aiv_mte2_time(us)": "223.388",
+                  "aiv_mte2_ratio": "0.14",
+                  "aiv_mte3_time(us)": "73.422",
+                  "aiv_mte3_ratio": "0.046",
+                  "aiv_icache_miss_rate": "0.0",
+                  "cube_utilization(%)": "96.043"
+                },
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "71",
+                  "Stream ID": "2",
+                  "Name": "_qsa_qk_single_page_score",
+                  "Type": "_qsa_qk_single_page_score",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839545864158.280\t",
+                  "Duration(us)": "1667.040",
+                  "Wait Time(us)": "2.610000",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "1598.127",
+                  "aic_total_cycles": "52738197",
+                  "aic_mac_time(us)": "29.009",
+                  "aic_mac_ratio": "0.018",
+                  "aic_scalar_time(us)": "584.332",
+                  "aic_scalar_ratio": "0.366",
+                  "aic_mte1_time(us)": "42.775",
+                  "aic_mte1_ratio": "0.027",
+                  "aic_mte2_time(us)": "93.691",
+                  "aic_mte2_ratio": "0.059",
+                  "aic_fixpipe_time(us)": "137.666",
+                  "aic_fixpipe_ratio": "0.086",
+                  "aic_icache_miss_rate": "0.0",
+                  "aiv_time(us)": "1598.258",
+                  "aiv_total_cycles": "105485058",
+                  "aiv_vec_time(us)": "366.511",
+                  "aiv_vec_ratio": "0.229",
+                  "aiv_scalar_time(us)": "712.707",
+                  "aiv_scalar_ratio": "0.446",
+                  "aiv_mte2_time(us)": "223.519",
+                  "aiv_mte2_ratio": "0.14",
+                  "aiv_mte3_time(us)": "73.414",
+                  "aiv_mte3_ratio": "0.046",
+                  "aiv_icache_miss_rate": "0.0",
+                  "cube_utilization(%)": "95.866"
+                }
+              ],
+              "table_truncated": false,
+              "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+            },
+            "postcheck": {
+              "all_masks_checked": true,
+              "cpu_local_rows": [
+                0,
+                56,
+                111
+              ],
+              "max_abs_error": 7.62939453125e-06
+            },
+            "attempts": []
+          },
+          "ArithmeticUtilization": {
+            "status": "available",
+            "metric": "ArithmeticUtilization",
+            "iterations": 2,
+            "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency",
+            "score_rows_preview": [
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Duration(us)": "1665.160",
+                "aicore_time(us)": "1597.943",
+                "aic_total_cycles": "52732134",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.024",
+                "aic_cube_fops": "20849229824.0",
+                "aiv_time(us)": "1598.115",
+                "aiv_total_cycles": "105475577",
+                "aiv_vec_fp32_ratio": "0.037",
+                "aiv_vec_fp16_ratio": "0.001",
+                "aiv_vec_int32_ratio": "0.003",
+                "aiv_vec_misc_ratio": "0.019",
+                "aiv_vector_fops": "341788224.0"
+              },
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Duration(us)": "1669.720",
+                "aicore_time(us)": "1598.989",
+                "aic_total_cycles": "52766639",
+                "aic_mac_fp16_ratio": "0.0",
+                "aic_mac_int8_ratio": "0.024",
+                "aic_cube_fops": "20849229824.0",
+                "aiv_time(us)": "1599.149",
+                "aiv_total_cycles": "105543836",
+                "aiv_vec_fp32_ratio": "0.037",
+                "aiv_vec_fp16_ratio": "0.001",
+                "aiv_vec_int32_ratio": "0.003",
+                "aiv_vec_misc_ratio": "0.019",
+                "aiv_vector_fops": "341788224.0"
+              },
+              {},
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Host Self Duration(us)": "26.27",
+                "Host Total Duration(us)": "26.27",
+                "Device Self Duration(us)": "1665.16",
+                "Device Total Duration(us)": "1665.16",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              },
+              {
+                "Name": "_qsa_qk_single_page_score",
+                "Host Self Duration(us)": "19.71",
+                "Host Total Duration(us)": "19.71",
+                "Device Self Duration(us)": "1669.72",
+                "Device Total Duration(us)": "1669.72",
+                "Device Self Duration With AICore(us)": "0",
+                "Device Total Duration With AICore(us)": "0"
+              }
+            ],
+            "metric_columns": [
+              "aic_cube_fops",
+              "aic_mac_fp16_ratio",
+              "aic_mac_int8_ratio",
+              "aic_total_cycles",
+              "aiv_time(us)",
+              "aiv_total_cycles",
+              "aiv_vec_fp16_ratio",
+              "aiv_vec_fp32_ratio",
+              "aiv_vec_int32_ratio",
+              "aiv_vec_misc_ratio",
+              "aiv_vector_fops"
+            ],
+            "artifact": "int8_long100k-current-ArithmeticUtilization-attempt1-score-hardware-tables.json.gz",
+            "tables": [
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084550636_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "Level",
+                  "API Name",
+                  "Time(us)",
+                  "Count",
+                  "Avg(us)",
+                  "Min(us)",
+                  "Max(us)",
+                  "Variance"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084550636_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+                "columns": [
+                  "Device_id",
+                  "Model ID",
+                  "Task ID",
+                  "Stream ID",
+                  "Name",
+                  "Type",
+                  "OP State",
+                  "Accelerator Core",
+                  "Start Time(us)",
+                  "Duration(us)",
+                  "Wait Time(us)",
+                  "Block Num",
+                  "Mix Block Num",
+                  "HF32 Eligible",
+                  "Input Shapes",
+                  "Input Data Types",
+                  "Input Formats",
+                  "Output Shapes",
+                  "Output Data Types",
+                  "Output Formats",
+                  "Context ID",
+                  "aicore_time(us)",
+                  "aic_total_cycles",
+                  "aic_mac_fp16_ratio",
+                  "aic_mac_int8_ratio",
+                  "aic_cube_fops",
+                  "aiv_time(us)",
+                  "aiv_total_cycles",
+                  "aiv_vec_fp32_ratio",
+                  "aiv_vec_fp16_ratio",
+                  "aiv_vec_int32_ratio",
+                  "aiv_vec_misc_ratio",
+                  "aiv_vector_fops"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084550636_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv",
+                "columns": [
+                  "Device_id",
+                  "OP Type",
+                  "Core Type",
+                  "Count",
+                  "Total Time(us)",
+                  "Min Time(us)",
+                  "Avg Time(us)",
+                  "Max Time(us)",
+                  "Ratio(%)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084550636_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv",
+                "columns": [
+                  "Name",
+                  "Input Shapes",
+                  "Call Stack",
+                  "Host Self Duration(us)",
+                  "Host Total Duration(us)",
+                  "Device Self Duration(us)",
+                  "Device Total Duration(us)",
+                  "Device Self Duration With AICore(us)",
+                  "Device Total Duration With AICore(us)"
+                ],
+                "truncated": false
+              },
+              {
+                "path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084550636_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv",
+                "columns": [
+                  "Device_id",
+                  "Step",
+                  "Computing",
+                  "Communication(Not Overlapped)",
+                  "Overlapped",
+                  "Communication",
+                  "Free",
+                  "Stage",
+                  "Bubble",
+                  "Communication(Not Overlapped and Exclude Receive)",
+                  "Preparing"
+                ],
+                "truncated": false
+              }
+            ],
+            "capture_status": "exported",
+            "parsed": {
+              "status": "available",
+              "primary_table": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_2860136_20261105084550636_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+              "score_row_count": 2,
+              "metric_columns": [
+                "aic_cube_fops",
+                "aic_mac_fp16_ratio",
+                "aic_mac_int8_ratio",
+                "aiv_vec_fp16_ratio",
+                "aiv_vec_fp32_ratio",
+                "aiv_vector_fops"
+              ],
+              "raw_field_statistics": {
+                "aic_cube_fops": {
+                  "median": 20849229824.0,
+                  "min": 20849229824.0,
+                  "max": 20849229824.0,
+                  "count": 2
+                },
+                "aic_mac_fp16_ratio": {
+                  "median": 0.0,
+                  "min": 0.0,
+                  "max": 0.0,
+                  "count": 2
+                },
+                "aic_mac_int8_ratio": {
+                  "median": 0.024,
+                  "min": 0.024,
+                  "max": 0.024,
+                  "count": 2
+                },
+                "aiv_vec_fp16_ratio": {
+                  "median": 0.001,
+                  "min": 0.001,
+                  "max": 0.001,
+                  "count": 2
+                },
+                "aiv_vec_fp32_ratio": {
+                  "median": 0.037,
+                  "min": 0.037,
+                  "max": 0.037,
+                  "count": 2
+                },
+                "aiv_vector_fops": {
+                  "median": 341788224.0,
+                  "min": 341788224.0,
+                  "max": 341788224.0,
+                  "count": 2
+                }
+              },
+              "rows_preview": [
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "73",
+                  "Stream ID": "2",
+                  "Name": "_qsa_qk_single_page_score",
+                  "Type": "_qsa_qk_single_page_score",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839550710380.554\t",
+                  "Duration(us)": "1665.160",
+                  "Wait Time(us)": "0",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "1597.943",
+                  "aic_total_cycles": "52732134",
+                  "aic_mac_fp16_ratio": "0.0",
+                  "aic_mac_int8_ratio": "0.024",
+                  "aic_cube_fops": "20849229824.0",
+                  "aiv_time(us)": "1598.115",
+                  "aiv_total_cycles": "105475577",
+                  "aiv_vec_fp32_ratio": "0.037",
+                  "aiv_vec_fp16_ratio": "0.001",
+                  "aiv_vec_int32_ratio": "0.003",
+                  "aiv_vec_misc_ratio": "0.019",
+                  "aiv_vector_fops": "341788224.0"
+                },
+                {
+                  "Device_id": "1",
+                  "Model ID": "4294967295",
+                  "Task ID": "74",
+                  "Stream ID": "2",
+                  "Name": "_qsa_qk_single_page_score",
+                  "Type": "_qsa_qk_single_page_score",
+                  "OP State": "static",
+                  "Accelerator Core": "MIX_AIC",
+                  "Start Time(us)": "1793839550712048.634\t",
+                  "Duration(us)": "1669.720",
+                  "Wait Time(us)": "3.090000",
+                  "Block Num": "20",
+                  "Mix Block Num": "40",
+                  "HF32 Eligible": "YES",
+                  "Input Shapes": "\"112,4,128;155,192,1,128;112,4;155,192,1;112,4\"",
+                  "Input Data Types": "INT8;INT8;FLOAT16;FLOAT16;FLOAT16",
+                  "Input Formats": "ND;ND;ND;ND;ND",
+                  "Output Shapes": "N/A",
+                  "Output Data Types": "N/A",
+                  "Output Formats": "N/A",
+                  "Context ID": "0",
+                  "aicore_time(us)": "1598.989",
+                  "aic_total_cycles": "52766639",
+                  "aic_mac_fp16_ratio": "0.0",
+                  "aic_mac_int8_ratio": "0.024",
+                  "aic_cube_fops": "20849229824.0",
+                  "aiv_time(us)": "1599.149",
+                  "aiv_total_cycles": "105543836",
+                  "aiv_vec_fp32_ratio": "0.037",
+                  "aiv_vec_fp16_ratio": "0.001",
+                  "aiv_vec_int32_ratio": "0.003",
+                  "aiv_vec_misc_ratio": "0.019",
+                  "aiv_vector_fops": "341788224.0"
+                }
+              ],
+              "table_truncated": false,
+              "aggregation": "Median of exported score rows, original field units; not whole-device utilization"
+            },
+            "postcheck": {
+              "all_masks_checked": true,
+              "cpu_local_rows": [
+                0,
+                56,
+                111
+              ],
+              "max_abs_error": 7.62939453125e-06
+            },
+            "attempts": []
+          }
+        }
+      },
+      "sources": {
+        "probe_qsa_int8_page64_prefix_910b.py": "9fb87249f525adf08701c804f1d5a024d34cb0c276c18727edb2ba9259f4e22c",
+        "qsa_int8_query_pack4_910b.py": "2541f709802d63c4c129aef6bb39bac863bcbe32b94f2a968454fab786b34178",
+        "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+        "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+      },
+      "exit_code": 0,
+      "subprocess_exit_code": 0
+    }
+  ],
+  "scope": "N64 scoring prefix diagnostics only; not native/TopK or full-input performance"
+}
