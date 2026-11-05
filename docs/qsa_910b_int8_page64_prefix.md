@@ -461,3 +461,29 @@ Local validation passed all-eight-tile coverage for all page start phases,
 valid token/page-offset equivalence, unchanged dot-to-store arithmetic, single
 store contract, Python compilation, lint and no-NPU CLI smoke (expected exit 2).
 Device compilation and performance remain pending.
+
+## Status after the four investigations
+
+| Investigation | Disposition | Device evidence |
+| --- | --- | --- |
+| Pack 16 queries | Default for eligible N64 chunks in the prepared INT8 entry | Full-input paired score replay `2931dfec4e3cd11d913428fdf7978fed9e3d44d4` |
+| Skip invisible tiles | Default conservative dispatch on eligible chunks | Paired replay `0a2467cefde7193ff73667a89317196a9848815f` |
+| Reuse page-table lookups | Default for eligible N64/query16 chunks, with either bounded or full dots | Ten-shape result `62bf93465b7eca2b845c0a2ae0755f1a4891f6aa`, confirmed by paired replay `480abc9d3cc48c68d5acb0784f77cee204e2cef8` |
+| Overlap K loading and scoring | Tested early-load candidate rejected | `long100k` scored in 312.550 us with current page reuse, 352.857 us with paired late load, and 362.077 us with paired early load. TTIR confirmed the load order. Report `98e088a35ca23ba101b1d1e38a9e8678ee22703c` |
+
+### Candidate: pre-bound score launches
+
+The investigation of gaps between scoring tasks produced a separate
+host-dispatch candidate. Call `adapter.prepare_bound_execution()` to get a
+callable for sequential use with the same prepared tensors and buffers.
+Eligible score launches are pre-bound, and ineligible chunks use the
+adapter's normal route. A request with zero eligible chunks uses the
+adapter directly.
+
+Report `08fc1f33f98582b6accb7639b763c03e85525e9d` passed all five cases with
+identical indices on each run. The four eligible cases showed 1.044x–1.054x
+wall-clock speedup with a reused plan and 1.008x–1.032x for a fresh adapter
+with preparation and first execution timed. The fresh comparison included
+large individual pair differences, and its zero-hit control measured
+0.987x. Candidate status is opt-in for the prepared INT8 entry. The benchmark
+uses `--bound-combined-samples 6 --include-request-preparation`.
