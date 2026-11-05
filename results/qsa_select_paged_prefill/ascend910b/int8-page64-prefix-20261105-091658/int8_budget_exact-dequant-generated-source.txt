@@ -1,0 +1,45 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def _qsa_page64_prefix_dequant(Q, K, QS, KS, Weights, Table, Visible, Out, ROWS: tl.constexpr, COLUMNS: tl.constexpr, WIDTH: tl.constexpr, PAGE: tl.constexpr, BLOCK_N: tl.constexpr, KEY_TILES: tl.constexpr):
+    tl.static_assert(BLOCK_N == 64 and PAGE == 192)
+    groups: tl.constexpr = triton.cdiv(ROWS, 16)
+    tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
+    dims = tl.arange(0, 128)
+    lanes = tl.arange(0, 64)
+    queries = tl.arange(0, 16)
+    blocks: tl.constexpr = triton.cdiv(tiles, KEY_TILES)
+    for unit in range(tl.program_id(0), groups * blocks, tl.num_programs(0)):
+        group = unit // blocks
+        first_tile = unit % blocks * KEY_TILES
+        base = group * 16
+        rows = base + queries
+        flat_heads = base * 4 + lanes
+        query = tl.load(Q + flat_heads[:, None] * 128 + dims[None, :], mask=flat_heads[:, None] < ROWS * 4, other=0)
+        query_scale = tl.load(QS + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(tl.float32)
+        weights = tl.load(Weights + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(tl.float32)
+        visible = tl.load(Visible + rows, mask=rows < ROWS, other=0)
+        max_visible = tl.max(visible, axis=0)
+        active_tiles = tl.minimum(KEY_TILES, tl.maximum(0, tl.cdiv(tl.minimum(WIDTH, max_visible), BLOCK_N) - first_tile))
+        first_page = first_tile // 3
+        page_count = tl.where(active_tiles > 0, tl.cdiv(first_tile % 3 + active_tiles, 3), 0)
+        for page in range(first_page, first_page + page_count):
+            tile_begin = tl.maximum(first_tile, page * 3)
+            tile_end = tl.minimum(first_tile + active_tiles, page * 3 + 3)
+            physical = tl.load(Table + base * COLUMNS + tl.minimum(page, COLUMNS - 1), mask=(page < COLUMNS) & (tile_begin < tile_end), other=0)
+            for tile in range(tile_begin, tile_end):
+                columns = tile * BLOCK_N + tl.arange(0, BLOCK_N)
+                key_live = (columns < WIDTH) & (columns < max_visible)
+                offset = (tile - page * 3) * BLOCK_N
+                token = physical.to(tl.int64) * PAGE + offset + tl.arange(0, BLOCK_N)
+                keys = tl.load(K + token[:, None] * 128 + dims[None, :], mask=key_live[:, None], other=0)
+                key_scale = tl.load(KS + token, mask=key_live, other=0).to(tl.float32)
+                dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)
+                dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+                scores = tl.sum(tl.reshape(dequant, (16, 4, BLOCK_N)), axis=1)
+                live = (columns[None, :] < WIDTH) & (columns[None, :] < visible[:, None])
+                tl.store(Out + rows[:, None] * WIDTH + columns[None, :], tl.where(live, scores, -float('inf')), mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS))
+        for empty_tile in range(active_tiles, KEY_TILES):
+            columns = (first_tile + empty_tile) * BLOCK_N + tl.arange(0, BLOCK_N)
+            tl.store(Out + rows[:, None] * WIDTH + columns[None, :], -float('inf'), mask=(rows[:, None] < ROWS) & (columns[None, :] < WIDTH))
