@@ -23,7 +23,9 @@ import re
 import statistics
 import subprocess
 import sys
+import time
 import traceback
+from itertools import permutations
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -737,6 +739,98 @@ def run_case(args):
                 ),
                 flush=True,
             )
+        if args.bound_combined_samples:
+            from benchmark_qsa_prefill_stages_910b import aggregate as aggregate_wall
+            from benchmark_qsa_prefill_stages_910b import sample as sample_wall
+
+            result["stage"] = "bound_combined_precheck"
+            expected_indices = current
+
+            def bind_plan():
+                launches = []
+                for first, count in chunks:
+                    target = scratch[:count]
+                    launches.append(
+                        (
+                            first,
+                            target,
+                            adapter.bind_query16_score(first, count, target),
+                        )
+                    )
+                return launches
+
+            def replay(launches):
+                for first, target, launch in launches:
+                    launch()
+                    adapter.select_chunk(first, target)
+                return output
+
+            def verify_indices(returned):
+                if not torch.equal(returned.cpu(), expected_indices):
+                    raise AssertionError(
+                        "Bound combined selection differs from dynamic indices"
+                    )
+
+            started = time.perf_counter()
+            bound_plan = bind_plan()
+            binding_ms = (time.perf_counter() - started) * 1000
+
+            def bind_and_run():
+                return replay(bind_plan())
+
+            functions = dict(
+                dynamic=combined_stage,
+                bind_and_run=bind_and_run,
+                reuse=lambda: replay(bound_plan),
+            )
+            for function in functions.values():
+                output.fill_(-2)
+                verify_indices(function())
+
+            result["stage"] = "bound_combined_timing"
+            orders = list(permutations(functions))
+            samples = {name: [] for name in functions}
+            measurement_order = []
+            for index in range(args.bound_combined_samples):
+                order = orders[index % len(orders)]
+                measurement_order.append(order)
+                for name in order:
+                    output.fill_(-2)
+                    samples[name].append(
+                        sample_wall(
+                            functions[name],
+                            torch,
+                            1,
+                            verify_indices,
+                            split_submission=True,
+                        )
+                    )
+            fields = (
+                "wall_us",
+                "event_us",
+                "submit_us",
+                "sync_wait_us",
+                "event_record_us",
+            )
+            timing = {
+                name: aggregate_wall(values, fields) for name, values in samples.items()
+            }
+            result["bound_combined"] = dict(
+                scope="Warm kernels and prepared request metadata. Bind-and-run includes a fresh score binding; reuse retains one binding for the same tensors. TopK runs after every score chunk.",
+                score_launches=len(bound_plan),
+                topk_launches=len(topk_chunks),
+                binding_ms=binding_ms,
+                exact_indices_each_run=True,
+                measurement_order=measurement_order,
+                timing=timing,
+                samples=samples,
+                wall_speedup_vs_dynamic={
+                    name: timing["dynamic"]["wall_us"]["median"]
+                    / timing[name]["wall_us"]["median"]
+                    for name in ("bind_and_run", "reuse")
+                },
+            )
+            print("BOUND_COMBINED", json.dumps(result["bound_combined"]), flush=True)
         jobs = dict(
             score=score_stage,
             topk=topk_stage,
@@ -972,6 +1066,7 @@ def run_case(args):
         "qsa_int8_page64_query16_910b_trial.py",
         "qsa_int8_query_pack4_910b.py",
         "qsa_int8_stage_trace_timer_910b.py",
+        "benchmark_qsa_prefill_stages_910b.py",
         "qsa_int8_trace_timer_910b.py",
     ):
         result.setdefault("sources", {})[name] = hashlib.sha256(
@@ -1082,7 +1177,19 @@ def main():
         action="store_true",
         help="Disable default page reuse for N64/query16 chunks",
     )
+    parser.add_argument(
+        "--bound-combined-samples",
+        type=int,
+        default=0,
+        help="Compare dynamic, bind-and-run, and reused score launch plans with TopK",
+    )
     args = parser.parse_args()
+    if args.bound_combined_samples < 0 or (
+        args.bound_combined_samples and not args.single_page64_dispatch
+    ):
+        parser.error(
+            "--bound-combined-samples must be nonnegative and requires --single-page64-dispatch when enabled"
+        )
     if args.no_page_reuse_dispatch and (
         args.page_reuse_dispatch or args.page_reuse_full_dispatch
     ):
@@ -1154,6 +1261,8 @@ def main():
             str(args.kernel_warmup),
             "--kernel-active",
             str(args.kernel_active),
+            "--bound-combined-samples",
+            str(args.bound_combined_samples),
         ]
         if args.integrated:
             command.append("--integrated")
