@@ -477,9 +477,23 @@ def run_case(args):
 
             def capture_unprofiled():
                 samples = [
-                    sample(score_all, torch, 1) for _ in range(args.wall_samples)
+                    sample(score_all, torch, 1, split_submission=True)
+                    for _ in range(args.wall_samples)
                 ]
-                return dict(samples=samples, timing=aggregate(samples))
+                return dict(
+                    samples=samples,
+                    timing=aggregate(
+                        samples,
+                        (
+                            "wall_us",
+                            "event_us",
+                            "submit_us",
+                            "sync_wait_us",
+                            "event_record_us",
+                        ),
+                    ),
+                    scope="Host submit includes Python and runtime calls, including any runtime blocking; wait starts after recording the end event",
+                )
 
             result["stage"] = "unprofiled_before"
             result["unprofiled"] = dict(before=capture_unprofiled())
@@ -649,6 +663,7 @@ def run_case(args):
     for name in (
         Path(__file__).name,
         "qsa_timeline_910b.py",
+        "benchmark_qsa_prefill_stages_910b.py",
         "qsa_int8_score_910b_trial.py",
         "qsa_int8_ten_workloads_910b.py",
         "qsa_int8_selection_910b_trial.py",
@@ -703,7 +718,7 @@ def main():
         "--wall-samples",
         type=int,
         default=0,
-        help="Measure NPU event span and synchronized wall time without a profiler before and after the trace",
+        help="Measure NPU event span, host submission and final sync without a profiler before and after the trace",
     )
     args = parser.parse_args()
     if args.wall_samples < 0 or (args.wall_samples and args.trace_iterations != 1):

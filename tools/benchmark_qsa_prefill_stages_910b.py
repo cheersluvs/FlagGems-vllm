@@ -60,7 +60,7 @@ def device_inventory():
         return dict(error=str(exc))
 
 
-def sample(fn, torch, iterations, verify_return=None):
+def sample(fn, torch, iterations, verify_return=None, *, split_submission=False):
     torch.npu.synchronize()
     start, end = (torch.npu.Event(enable_timing=True) for _ in range(2))
     # Prime lazy event handles before measuring the host interval.
@@ -69,12 +69,19 @@ def sample(fn, torch, iterations, verify_return=None):
     end.synchronize()
     begin = time.perf_counter()
     start.record()
+    if split_submission:
+        submit_begin = time.perf_counter()
     returned = None
     for _ in range(iterations):
         returned = fn()
+    if split_submission:
+        submit_end = time.perf_counter()
     end.record()
+    if split_submission:
+        wait_begin = time.perf_counter()
     end.synchronize()
-    wall = (time.perf_counter() - begin) * 1e6 / iterations
+    finished = time.perf_counter()
+    wall = (finished - begin) * 1e6 / iterations
     device = start.elapsed_time(end) * 1000 / iterations
     if not math.isfinite(wall) or not math.isfinite(device) or wall <= 0 or device <= 0:
         raise RuntimeError(f"Invalid timing: wall={wall}, device={device}")
@@ -83,19 +90,26 @@ def sample(fn, torch, iterations, verify_return=None):
         verify_return(returned)
     # Keep returned native tensors alive through the final event synchronization.
     del returned
-    return dict(wall_us=wall, event_us=device)
+    result = dict(wall_us=wall, event_us=device)
+    if split_submission:
+        result["submit_us"] = (submit_end - submit_begin) * 1e6 / iterations
+        result["sync_wait_us"] = (finished - wait_begin) * 1e6 / iterations
+        result["event_record_us"] = (
+            ((submit_begin - begin) + (wait_begin - submit_end)) * 1e6 / iterations
+        )
+    return result
 
 
-def aggregate(samples):
+def aggregate(samples, fields=("wall_us", "event_us")):
     result = {}
-    for field in ("wall_us", "event_us"):
+    for field in fields:
         values = [s[field] for s in samples]
         median = statistics.median(values)
         result[field] = dict(
             median=median,
             min=min(values),
             max=max(values),
-            range_over_median=(max(values) - min(values)) / median,
+            range_over_median=(max(values) - min(values)) / median if median else None,
         )
     return result
 
