@@ -56,7 +56,7 @@ if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     git -C "$qsa_tree" add -- "$qsa_dest" || exit 1
     git -C "$qsa_tree" -c user.name="QSA GPU reports" \
         -c user.email="qsa-reports@users.noreply.github.com" \
-        commit -m "Report Ascend 910B integrated grid20 N128 score profiling" || exit 1
+        commit -m "Report Ascend 910B integrated INT8 score profiling" || exit 1
     git -C "$qsa_tree" push https://github.com/cheersluvs/FlagGems-vllm.git \
         "HEAD:refs/heads/$qsa_branch" || {
         printf 'Upload failed; report retained: %s\nResult worktree: %s\n' "$qsa_report" "$qsa_tree"

@@ -24,6 +24,7 @@ import re
 import statistics
 import sys
 import traceback
+from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -48,33 +49,39 @@ METRICS = (
 )
 
 
-def validate_score_trace(timeline, report, expected):
+def validate_score_trace(timeline, report, expected, expected_names=None):
     """Validate this score-only trace, including generic CANN task names."""
     timeline["expected_score_launches"] = expected
     with gzip.open(Path(report) / timeline["trace_file"], "rt") as stream:
         payload = json.load(stream)
     events = payload.get("traceEvents", []) if isinstance(payload, dict) else payload
-    host_count = sum(
-        event.get("ph") == "X"
-        and event.get("cat") == "cpu_op"
-        and event.get("name") == "_quant_score_trial"
+    if expected_names is None:
+        expected_names = {"_quant_score_trial": expected}
+    host_names = Counter(
+        event["name"]
         for event in events
+        if event.get("ph") == "X"
+        and event.get("cat") == "cpu_op"
+        and event.get("name") in expected_names
     )
     names = timeline.get("kernels", {})
-    named_count = sum(
-        entry["count"] for name, entry in names.items() if "_quant_score_trial" in name
-    )
+    named_counts = {
+        kernel: sum(entry["count"] for name, entry in names.items() if kernel in name)
+        for kernel in expected_names
+    }
     generic_count = names.get("MIX_AIC", {}).get("count", 0)
     timeline["matched_score_task_names"] = [
-        name for name in names if "_quant_score_trial" in name
+        name for name in names if any(kernel in name for kernel in expected_names)
     ]
-    timeline["host_score_launch_count"] = host_count
+    timeline["expected_host_kernel_counts"] = expected_names
+    timeline["host_score_kernel_counts"] = dict(host_names)
+    timeline["host_score_launch_count"] = sum(host_names.values())
     timeline["identity_basis"] = "unconfirmed"
-    if timeline.get("task_count") == expected and named_count == expected:
+    if timeline.get("task_count") == expected and named_counts == expected_names:
         timeline["identity_basis"] = "named_device_tasks"
     elif (
         timeline.get("task_count") == expected
-        and host_count == expected
+        and host_names == expected_names
         and generic_count == expected
         and set(names) == {"MIX_AIC"}
     ):
@@ -192,7 +199,11 @@ def run_case(args):
         dict(
             case=args.case,
             status="failed",
-            profile_mode="integrated" if args.integrated else "frozen",
+            profile_mode=(
+                "page_reuse"
+                if args.page_reuse
+                else "integrated" if args.integrated else "frozen"
+            ),
         ),
         1,
     )
@@ -273,14 +284,50 @@ def run_case(args):
                 (1024 * 1024,), device=values["q"].device, dtype=torch.uint8
             )
             # This capture uses only score_into; no TopK module or kernel is loaded.
-            adapter = PreparedInt8Selection(values, output, scratch, workspace, None)
-            result["profile_entry"] = "PreparedInt8Selection.score_into"
+            if args.page_reuse:
+                from qsa_int8_shared_map_selection_910b_trial import (
+                    PreparedSharedMapInt8Selection,
+                )
+
+                adapter = PreparedSharedMapInt8Selection(
+                    values,
+                    output,
+                    scratch,
+                    workspace,
+                    None,
+                    plan["starts"],
+                    key_group4=True,
+                    single_page64=True,
+                )
+                route = next(
+                    entry
+                    for entry in adapter.route_checks
+                    if (entry["first"], entry["count"]) == (middle_first, middle_count)
+                )
+                if not route["page_reuse"]:
+                    raise AssertionError(
+                        "Representative chunk did not select page reuse"
+                    )
+                result["profile_entry"] = "PreparedSharedMapInt8Selection.score_into"
+                result["representative_route"] = route
+                result["preparation_ms"] = adapter.preparation_ms
+                block_n = 64
+            else:
+                adapter = PreparedInt8Selection(
+                    values, output, scratch, workspace, None
+                )
+                result["profile_entry"] = "PreparedInt8Selection.score_into"
             result["unused_selection_buffer_bytes"] = (
                 output.numel() * 4 + workspace.numel()
             )
         else:
             result["profile_entry"] = "qsa_int8_score_910b_trial.score"
-        work_tiles = middle_count * triton.cdiv(width, block_n)
+        if args.page_reuse:
+            work_tiles = triton.cdiv(middle_count, 16) * triton.cdiv(
+                triton.cdiv(width, block_n), 8
+            )
+        else:
+            work_tiles = middle_count * triton.cdiv(width, block_n)
         grid = min(grid, work_tiles)
         result["representative_chunk"] = dict(
             first=middle_first,
@@ -289,7 +336,10 @@ def run_case(args):
             visible_last=int(inputs["visible"][middle_first + middle_count - 1]),
             grid_programs=grid,
             block_n=block_n,
-            dot_shape=[block_n, 128, 16],
+            dot_shape=[64, 128, 64] if args.page_reuse else [block_n, 128, 16],
+            work_tile_unit=(
+                "group of eight N64 tiles" if args.page_reuse else "single score tile"
+            ),
             real_heads=4,
             padded_heads=16,
             work_tiles=work_tiles,
@@ -330,7 +380,16 @@ def run_case(args):
             return score_into(middle_first, middle_count)
 
         result["stage"] = "warmup_and_cpu_reference"
-        score_all()
+        expected_names = None
+        if args.page_reuse:
+            kernels = Counter(
+                score_into(first, count).metadata.name for first, count in chunks
+            )
+            expected_names = {
+                name: count * args.trace_iterations for name, count in kernels.items()
+            }
+        else:
+            score_all()
         torch.npu.synchronize()
         first, count = chunks[-1]
         result["checks"] = dict(
@@ -363,7 +422,22 @@ def run_case(args):
         result["checks"]["representative_pre"] = check_chunk(
             inputs, scratch[:middle_count].cpu(), middle_first, middle_count
         )
+        kernel_name = "_quant_score_trial"
+        expected_stores = 1
+        if args.page_reuse:
+            bounded = route["skip_invisible"]
+            kernel_name = (
+                "_qsa_page64_page_reuse_score"
+                if bounded
+                else "_qsa_page64_page_reuse_full_score"
+            )
+            expected_stores = 2 if bounded else 1
+            if compiled.metadata.name != kernel_name:
+                raise AssertionError(
+                    f"Expected {kernel_name}, got {compiled.metadata.name}"
+                )
         result["compiler"] = dict(
+            kernel_name=kernel_name,
             asm_keys=list(compiled.asm),
             metadata=repr(getattr(compiled, "metadata", None)),
             artifacts=[],
@@ -393,11 +467,11 @@ def run_case(args):
                 )
             )
         ir = compiled.asm["ttir"]
-        if len(re.findall(r"\btt\.store\b", ir)) != 1 or not any(
+        if len(re.findall(r"\btt\.store\b", ir)) != expected_stores or not any(
             "tt.dot" in line and "xi8>" in line and "xi32>" in line
             for line in ir.splitlines()
         ):
-            raise AssertionError("Expected frozen no-debug INT8 score IR")
+            raise AssertionError(f"Unexpected INT8 score IR for {kernel_name}")
         result["stage"] = "timeline"
         result["timeline_attempts"] = []
         for attempt in range(1, 4):
@@ -417,7 +491,10 @@ def run_case(args):
                 )
                 timeline = result["timeline"]["stages"]["score"]
                 validate_score_trace(
-                    timeline, report, len(chunks) * args.trace_iterations
+                    timeline,
+                    report,
+                    len(chunks) * args.trace_iterations,
+                    expected_names,
                 )
                 result["timeline_attempts"].append(
                     dict(attempt=attempt, capture=timeline)
@@ -462,7 +539,7 @@ def run_case(args):
                     worker=f"{args.case}-{group}-attempt{attempt}",
                     aic_metric=group,
                     counter_iterations=args.counter_iterations,
-                    kernel_substring="_quant_score_trial",
+                    kernel_substring=kernel_name,
                 )
                 capture = {}
                 collect_hardware(options, score_middle, torch, capture)
@@ -472,7 +549,9 @@ def run_case(args):
                 if artifact.is_file():
                     with gzip.open(artifact, "rt") as stream:
                         tables = json.load(stream)["tables"]
-                    entry["parsed"] = summarize_tables(tables, group)
+                    entry["parsed"] = summarize_tables(
+                        tables, group, kernel_substring=kernel_name
+                    )
                     entry["status"] = entry["parsed"]["status"]
                     if (
                         entry["status"] == "available"
@@ -532,7 +611,10 @@ def run_case(args):
     except Exception:
         result["traceback"] = traceback.format_exc()
     result["scope"] = (
-        "Frozen score profiling only; instrumentation changes timing; not benchmark speedup data"
+        "Score task timeline plus separate aggregate hardware counters; neither shows "
+        "instruction-level overlap"
+        if args.page_reuse
+        else "Frozen score profiling only; instrumentation changes timing; not benchmark speedup data"
     )
     for name in (
         Path(__file__).name,
@@ -540,6 +622,8 @@ def run_case(args):
         "qsa_int8_score_910b_trial.py",
         "qsa_int8_ten_workloads_910b.py",
         "qsa_int8_selection_910b_trial.py",
+        "qsa_int8_shared_map_selection_910b_trial.py",
+        "qsa_int8_query_pack4_910b.py",
     ):
         result.setdefault("sources", {})[name] = hashlib.sha256(
             (Path(__file__).parent / name).read_bytes()
@@ -580,7 +664,14 @@ def main():
         action="store_true",
         help="Profile integrated grid20/N128 score entry",
     )
+    parser.add_argument(
+        "--page-reuse",
+        action="store_true",
+        help="Profile the default prepared N64/query16 page-reuse dispatch",
+    )
     args = parser.parse_args()
+    if args.page_reuse and not args.integrated:
+        parser.error("--page-reuse requires --integrated")
     args.metrics = list(dict.fromkeys(args.metrics))
     if (
         min(args.trace_iterations, args.counter_iterations) < 1
@@ -594,7 +685,7 @@ def main():
     snapshot(report, "before")
     entries = []
     for name in dict.fromkeys(args.cases or CASES):
-        print(f"Starting frozen INT8 score profiling: {name}", flush=True)
+        print(f"Starting INT8 score profiling: {name}", flush=True)
         path = report / f"{name}.json"
         path.unlink(missing_ok=True)
         command = [
@@ -616,6 +707,8 @@ def main():
         ]
         if args.integrated:
             command.append("--integrated")
+        if args.page_reuse:
+            command.append("--page-reuse")
         code, timed_out = run_child(
             command, report / f"{name}-console.txt", args.timeout
         )
