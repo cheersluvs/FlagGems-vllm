@@ -1,0 +1,127 @@
+{
+  "case": "int8_long100k",
+  "status": "failed",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device_isolation": "not_verified"
+  },
+  "non_skip_selection": {
+    "first": 8176,
+    "count": 112,
+    "policy": {
+      "issued_tiles": 3248,
+      "useful_tiles": 3030,
+      "skipped_tiles": 218,
+      "skipped_fraction": 0.06711822660098522,
+      "selected": false,
+      "policy": "conservative"
+    },
+    "eligible_chunks": 134
+  },
+  "shared_map_guard": {
+    "groups": 28,
+    "all_group_maps_equal": true,
+    "same_request_per_group": true
+  },
+  "geometry": {
+    "first": 8176,
+    "count": 112,
+    "width": 29696,
+    "block_n": 64,
+    "key_tiles": 8,
+    "grid_cap": 20,
+    "plan": {
+      "name": "int8_long100k",
+      "nv_case": "fp8_long100k_float8_e4m3fn",
+      "origin": "dtype_variant",
+      "query_lengths": [
+        16384
+      ],
+      "prefix_tokens": [
+        102400
+      ],
+      "starts": [
+        0,
+        16384
+      ],
+      "batch_max_seq_len": 118784,
+      "heads": 4,
+      "dim": 128,
+      "ratio": 4,
+      "k": 512,
+      "dtype": "int8",
+      "page_size": 192,
+      "pages_per_request": [
+        155
+      ],
+      "physical_pages": 155,
+      "table_columns": 155,
+      "q_shape": [
+        16384,
+        4,
+        128
+      ],
+      "cache_shape": [
+        155,
+        192,
+        1,
+        128
+      ],
+      "logits_width": 29696,
+      "chunk_rows": 112,
+      "score_and_dot_scratch_bytes": 66519040,
+      "nv_original_page_size": 196,
+      "nv_original_physical_pages": null,
+      "nv_original_table_columns": null,
+      "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+      "query_lengths_synthetic": false
+    }
+  },
+  "query_group_guard": {
+    "groups": [
+      4,
+      8,
+      16
+    ],
+    "shared_maps_and_request_owners": true
+  },
+  "cube_boundary": false,
+  "unroll_loop": false,
+  "scope": "Same full-dot page reuse, with K carried one tile ahead within each page segment; TTIR order is not hardware overlap",
+  "visibility_tiles": {
+    "representative": {
+      "issued": 3248,
+      "useful": 3030,
+      "skipped": 218,
+      "skipped_fraction": 0.06711822660098522
+    },
+    "full_input": {
+      "issued": 475136,
+      "useful": 442880,
+      "skipped": 32256,
+      "skipped_fraction": 0.06788793103448276
+    },
+    "scope": "Query16 geometry, includes padded key tiles; theoretical skip count, not measured runtime instructions"
+  },
+  "stage": "compile_and_precheck",
+  "output_bytes": {
+    "page_prefetch": 13303808,
+    "current": 13303808
+  },
+  "compiler": {},
+  "prechecks": {},
+  "traceback": "Traceback (most recent call last):\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 330, in compile\n    next_module = compile_ir(module, metadata)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 1137, in <lambda>\n    stages[\"npubin\"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))\n                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 651, in _compile_linalg_to_npu_bin\n    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 835, in linalg_to_bin_enable_npu_compile_A2_A3\n    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py\", line 571, in run\n    raise CalledProcessError(retcode, process.args,\nsubprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmpk8uf3rdl/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=True', '--enable-auto-bind-sub-block=True', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmpk8uf3rdl/kernel']' returned non-zero exit status 1.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/flaggems-qsa-page-prefetch.CDzqR9QP/tools/probe_qsa_int8_page64_prefix_910b.py\", line 646, in run_case\n    kernel = launch(name, targets[name])\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-page-prefetch.CDzqR9QP/tools/probe_qsa_int8_page64_prefix_910b.py\", line 569, in launch\n    return launch_at(name, target, first, count, width)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-page-prefetch.CDzqR9QP/tools/probe_qsa_int8_page64_prefix_910b.py\", line 548, in launch_at\n    return kernels[name][\n           ^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 420, in <lambda>\n    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 736, in run\n    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 864, in _do_compile\n    kernel = self.compile(src, target=target, options=options.__dict__)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 351, in compile\n    raise MLIRCompilationError(stage_name, error_detail) from e\ntriton.compiler.errors.MLIRCompilationError: \n///------------------[ERROR][Triton][BEG]------------------\n[ConvertLinalgIRToBinary] encounters error:\nloc(\"/tmp/qsa-ascend910b-int8-page64-prefix.1K5tTaDB/generated-prefixes/int8_long100k_page_prefetch.py\":5:0): error: Failed to run BiShengHIR pipeline\n\nloc(\"keys\"(\"/tmp/qsa-ascend910b-int8-page64-prefix.1K5tTaDB/generated-prefixes/int8_long100k_page_prefetch.py\":34:42)): error: 'scf.for' op 0-th region iter_arg and 0-th yielded value have different type: 'memref<?x?x?x?xi8, #hivm.address_space<cbuf>>' != 'memref<64x128xi8, #hivm.address_space<cbuf>>'\n[ERROR] Failed to run BiShengIR pipeline\n\n\n[INFO]: The compiled kernel cache is in /root/.triton/cache/6B4UBTUEP3NVCIVJBQ6WRCU2A6KFYQ74A5JHJ5OFJDJE56A6HSZA\n\n///------------------[ERROR][Triton][END]------------------\n\n",
+  "sources": {
+    "probe_qsa_int8_page64_prefix_910b.py": "7262c48803b79354dc696bc6a8829caa736474469272271347c0f82ac12fe563",
+    "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+  },
+  "exit_code": 1
+}
