@@ -1,0 +1,38 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def _qsa_page64_prefix_raw_i32(Q, K, QS, KS, Weights, Table, Visible, Out, ROWS: tl.constexpr, COLUMNS: tl.constexpr, WIDTH: tl.constexpr, PAGE: tl.constexpr, BLOCK_N: tl.constexpr, KEY_TILES: tl.constexpr):
+    tl.static_assert(BLOCK_N == 64 and PAGE == 192)
+    groups: tl.constexpr = triton.cdiv(ROWS, 4)
+    tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
+    dims = tl.arange(0, 128)
+    lanes = tl.arange(0, 16)
+    queries = tl.arange(0, 4)
+    blocks: tl.constexpr = triton.cdiv(tiles, KEY_TILES)
+    for unit in range(tl.program_id(0), groups * blocks, tl.num_programs(0)):
+        group = unit // blocks
+        first_tile = unit % blocks * KEY_TILES
+        base = group * 4
+        rows = base + queries
+        flat_heads = base * 4 + lanes
+        query = tl.load(Q + flat_heads[:, None] * 128 + dims[None, :], mask=flat_heads[:, None] < ROWS * 4, other=0)
+        query_scale = tl.load(QS + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(tl.float32)
+        weights = tl.load(Weights + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(tl.float32)
+        visible = tl.load(Visible + rows, mask=rows < ROWS, other=0)
+        max_visible = tl.max(visible, axis=0)
+        for local_tile in range(KEY_TILES):
+            tile = first_tile + local_tile
+            columns = tile * BLOCK_N + tl.arange(0, BLOCK_N)
+            key_live = (columns < WIDTH) & (columns < max_visible)
+            start = tile * BLOCK_N
+            page = start // PAGE
+            offset = start % PAGE
+            physical = tl.load(Table + base * COLUMNS + tl.minimum(page, COLUMNS - 1), mask=(start < WIDTH) & (start < max_visible) & (page < COLUMNS), other=0)
+            token = physical.to(tl.int64) * PAGE + offset + tl.arange(0, BLOCK_N)
+            keys = tl.load(K + token[:, None] * 128 + dims[None, :], mask=key_live[:, None], other=0)
+            key_scale = tl.load(KS + token, mask=key_live, other=0).to(tl.float32)
+            dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)
+            raw_visible = tl.reshape(tl.broadcast_to(visible[:, None], (4, 4)), (16,))
+            raw_live = (columns[None, :] < WIDTH) & (columns[None, :] < raw_visible[:, None])
+            tl.store(Out + flat_heads[:, None] * WIDTH + columns[None, :], tl.where(raw_live, dot, -2147483648), mask=(flat_heads[:, None] < ROWS * 4) & (columns[None, :] < WIDTH))
