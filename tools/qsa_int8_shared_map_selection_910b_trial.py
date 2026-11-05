@@ -30,6 +30,30 @@ from qsa_int8_query_pack4_910b import (
 from qsa_int8_selection_910b_trial import PreparedInt8Selection
 
 
+def visibility_tile_policy(visible, width, policy):
+    """Count group16/N64 issued tiles and choose a conservative trial route."""
+    if policy not in ("all", "conservative"):
+        raise ValueError("Unknown visibility policy")
+    if not visible or width < 1 or any(v < 0 for v in visible):
+        raise ValueError("Nonempty nonnegative visibility and positive width required")
+    tiles = ((width + 63) // 64 + 7) // 8 * 8
+    issued = ((len(visible) + 15) // 16) * tiles
+    useful = sum(
+        (min(width, max(visible[b : b + 16])) + 63) // 64
+        for b in range(0, len(visible), 16)
+    )
+    skipped = issued - useful
+    selected = policy == "all" or (issued >= 512 and skipped * 8 >= issued)
+    return dict(
+        issued_tiles=issued,
+        useful_tiles=useful,
+        skipped_tiles=skipped,
+        skipped_fraction=skipped / issued,
+        selected=selected,
+        policy=policy,
+    )
+
+
 class PreparedSharedMapInt8Selection(PreparedInt8Selection):
     """Prepare guards from actual device tables; inputs must remain immutable.
 
@@ -49,9 +73,12 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         single_page64=False,
         query16=True,
         skip_invisible=False,
+        visibility_policy="all",
     ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)
+        if visibility_policy not in ("all", "conservative"):
+            raise ValueError("Unknown visibility policy")
         self.skip_invisible = bool(skip_invisible)
         self.key_group4 = bool(key_group4) and triton.cdiv(self.width, 128) >= 16
         self.single_page64 = bool(single_page64) and self.width >= 8192
@@ -94,6 +121,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                 )
             )
         self.query16_routes = {}
+        self.skip_invisible_routes = {}
+        visible = values["visible"].cpu().tolist() if self.skip_invisible else None
         for entry in self.route_checks:
             (first, count) = (entry["first"], entry["count"])
             eligible = query16 and self.single_page64 and entry["shared"]
@@ -112,7 +141,15 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                         reason = "Sixteen-query group crosses request or page mapping"
                         break
             self.query16_routes[first, count] = eligible
-            entry["skip_invisible"] = eligible and self.skip_invisible
+            selected = False
+            if eligible and self.skip_invisible:
+                stats = visibility_tile_policy(
+                    visible[first : first + count], self.width, visibility_policy
+                )
+                entry["visibility_tiles"] = stats
+                selected = stats["selected"]
+            self.skip_invisible_routes[first, count] = selected
+            entry["skip_invisible"] = selected
             entry["query_group"] = 16 if eligible else 4
             entry["query16_reason"] = (
                 "Shared mapping and request owner proven" if eligible else reason
@@ -194,7 +231,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         blocks = triton.cdiv(triton.cdiv(self.width, 64), 8)
         kernel = (
             _qsa_page64_skip_invisible_score
-            if self.skip_invisible
+            if self.skip_invisible_routes.get((first, count), False)
             else _qsa_page64_query16_score
         )
         return kernel[min(20, triton.cdiv(count, 16) * blocks),](

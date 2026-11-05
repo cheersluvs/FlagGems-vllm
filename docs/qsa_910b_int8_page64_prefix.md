@@ -311,3 +311,31 @@ The report records selected-route counts, loop headers, compiler metadata,
 preparation cost and source hashes. Local kernel AST equivalence, guard/fill
 coverage, Python compilation, CLI and formatting checks passed. Full ten-shape
 device validation is pending the next run.
+
+## Per-chunk visibility policy trial
+
+Independent replay `2a46bbe1804918bcf6e22a114ca522ea2d309911` confirmed
+short_tail at 0.9814x, two_balanced at 1.0606x, long100k at 1.0077x and
+tail112 at 1.1877x versus current query16. Uniform skip is not the default.
+
+`--visibility-policy conservative --skip-invisible-dispatch` tries a
+per-chunk policy requiring at least 512 issued query16/N64 tiles and a
+skippable fraction >=1/8. This is a screening heuristic, not an established
+optimal threshold. It uses actual immutable device visibility copied once
+at preparation, after the existing shared-map/request-owner proof. No model
+name, case name or inferred causal monotonicity participates in dispatch.
+The visibility copy and policy checks are included in reported preparation
+cost, outside the existing kernel-only timing scope. Each chunk records its
+counts and decision; console output includes aggregate VISIBILITY_POLICY.
+
+CPU fixture predictions for the ten cases: first_chunk 0, budget_exact 96,
+dominant_long 101, tail112 109, tail113 109, two_balanced 87, two_skewed 109,
+short_tail 0, compact 0, long100k 13 selected chunks. These predictions are
+not device performance results. Ineligible chunks retain their current
+query16/N128/legacy route. The comparator is unchanged query16, and both
+score IR variants are checked/exported when mixed routes occur.
+
+Local independent tile enumeration, exact threshold boundaries, partial
+rows, oversized visibility, adapter selection/fallback, metadata copy
+accounting, unchanged tested kernel AST, lint and compilation passed.
+Full-input device correctness and performance of this policy remain pending.

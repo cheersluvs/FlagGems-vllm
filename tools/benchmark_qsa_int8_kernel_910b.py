@@ -166,11 +166,13 @@ def run_case(args):
                     key_group4=args.key_group4_dispatch,
                     single_page64=args.single_page64_dispatch,
                     skip_invisible=args.skip_invisible_dispatch,
+                    visibility_policy=args.visibility_policy,
                 )
                 result["shared_map_dispatch"] = dict(
                     preparation_ms=adapter.preparation_ms,
                     query16_enabled=args.query16_dispatch,
                     skip_invisible_enabled=args.skip_invisible_dispatch,
+                    visibility_policy=args.visibility_policy,
                     skip_invisible_chunks=sum(
                         r.get("skip_invisible", False) for r in adapter.route_checks
                     ),
@@ -204,6 +206,26 @@ def run_case(args):
                     routes=adapter.route_checks,
                     calibration="Unchanged single-query scorer; candidate stages timed separately",
                 )
+                if args.skip_invisible_dispatch:
+                    stats = [
+                        r["visibility_tiles"]
+                        for r in adapter.route_checks
+                        if "visibility_tiles" in r
+                    ]
+                    result["visibility_policy_summary"] = dict(
+                        policy=args.visibility_policy,
+                        candidate_chunks=len(stats),
+                        selected_chunks=sum(v["selected"] for v in stats),
+                        issued_tiles=sum(v["issued_tiles"] for v in stats),
+                        skipped_tiles=sum(v["skipped_tiles"] for v in stats),
+                        extra_visible_copy_in_preparation=True,
+                        thresholds_scope="Candidate heuristic, not established optimum",
+                    )
+                    print(
+                        "VISIBILITY_POLICY",
+                        json.dumps(result["visibility_policy_summary"]),
+                        flush=True,
+                    )
                 result["dispatch"]["score_block_n"] = (
                     64
                     if adapter.single_page64 and all(adapter.shared_routes.values())
@@ -502,6 +524,7 @@ def run_case(args):
                     key_group4=True,
                     single_page64=args.single_page64_dispatch,
                     skip_invisible=args.skip_invisible_dispatch,
+                    visibility_policy=args.visibility_policy,
                 )
                 wanted = (
                     "legacy"
@@ -567,7 +590,7 @@ def run_case(args):
                 ):
                     route = (
                         "single_page64_skip_invisible"
-                        if args.skip_invisible_dispatch
+                        if adapter.skip_invisible_routes.get((first, count), False)
                         else "single_page64_query16"
                     )
                     if "tensor<64x128xi8>" not in kernel.asm["bcmlir"]:
@@ -631,7 +654,7 @@ def run_case(args):
         expected_stores = (
             2
             if args.skip_invisible_dispatch
-            and adapter.query16_routes.get(first_key, False)
+            and adapter.skip_invisible_routes.get(first_key, False)
             else 1
         )
         if stores != expected_stores or not integer_dot:
@@ -930,7 +953,15 @@ def main():
         action="store_true",
         help="Bound N64/query16 dot loops by visibility, including dense -inf fill; compare current query16",
     )
+    parser.add_argument(
+        "--visibility-policy",
+        choices=("all", "conservative"),
+        default="all",
+        help="Conservative trial requires >=512 issued tiles and >=1/8 skippable tiles per chunk",
+    )
     args = parser.parse_args()
+    if args.visibility_policy != "all" and not args.skip_invisible_dispatch:
+        parser.error("--visibility-policy requires --skip-invisible-dispatch")
     if args.skip_invisible_dispatch and not args.single_page64_dispatch:
         parser.error("--skip-invisible-dispatch requires --single-page64-dispatch")
     if args.query16_dispatch and not args.single_page64_dispatch:
@@ -991,7 +1022,13 @@ def main():
         if args.key_group4_dispatch:
             command.append("--key-group4-dispatch")
         if args.skip_invisible_dispatch:
-            command.append("--skip-invisible-dispatch")
+            command.extend(
+                [
+                    "--skip-invisible-dispatch",
+                    "--visibility-policy",
+                    args.visibility_policy,
+                ]
+            )
         if args.query16_dispatch:
             command.append("--query16-dispatch")
         if args.single_page64_dispatch:
