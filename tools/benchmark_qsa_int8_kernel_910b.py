@@ -167,19 +167,28 @@ def run_case(args):
                     single_page64=args.single_page64_dispatch,
                     skip_invisible=args.skip_invisible_dispatch,
                     visibility_policy=args.visibility_policy,
+                    page_reuse=args.page_reuse_dispatch,
                 )
                 result["shared_map_dispatch"] = dict(
                     preparation_ms=adapter.preparation_ms,
                     query16_enabled=args.query16_dispatch,
                     skip_invisible_enabled=args.skip_invisible_dispatch,
+                    page_reuse_enabled=args.page_reuse_dispatch,
+                    page_reuse_chunks=sum(
+                        r.get("page_reuse", False) for r in adapter.route_checks
+                    ),
                     visibility_policy=args.visibility_policy,
                     skip_invisible_chunks=sum(
                         r.get("skip_invisible", False) for r in adapter.route_checks
                     ),
                     score_comparator=(
-                        "current_query16"
-                        if args.skip_invisible_dispatch
-                        else "current_query4"
+                        "current_visibility"
+                        if args.page_reuse_dispatch
+                        else (
+                            "current_query16"
+                            if args.skip_invisible_dispatch
+                            else "current_query4"
+                        )
                     ),
                     query16_chunks=sum(
                         r.get("query_group") == 16 for r in adapter.route_checks
@@ -258,8 +267,15 @@ def run_case(args):
                     key_group4=True,
                     single_page64=True,
                     query16=args.skip_invisible_dispatch,
-                    skip_invisible=False,
+                    skip_invisible=args.page_reuse_dispatch,
+                    visibility_policy=args.visibility_policy,
                 )
+                if (
+                    args.page_reuse_dispatch
+                    and adapter.skip_invisible_routes
+                    != dispatch_adapter.skip_invisible_routes
+                ):
+                    raise AssertionError("Page reuse changed visibility dispatch")
             if args.key_group4_dispatch and not args.single_page64_dispatch:
                 qk_adapter = PreparedSharedMapInt8Selection(
                     values, output, scratch, workspace, topk, plan["starts"]
@@ -526,6 +542,7 @@ def run_case(args):
                     single_page64=args.single_page64_dispatch,
                     skip_invisible=args.skip_invisible_dispatch,
                     visibility_policy=args.visibility_policy,
+                    page_reuse=args.page_reuse_dispatch,
                 )
                 wanted = (
                     "legacy"
@@ -590,7 +607,11 @@ def run_case(args):
                     (first, count), False
                 ):
                     route = (
-                        "single_page64_skip_invisible"
+                        (
+                            "single_page64_page_reuse"
+                            if args.page_reuse_dispatch
+                            else "single_page64_skip_invisible"
+                        )
                         if adapter.skip_invisible_routes.get((first, count), False)
                         else "single_page64_query16"
                     )
@@ -604,19 +625,27 @@ def run_case(args):
                                 kernel.asm[key]
                             )
                     candidate_ir = kernel.asm["ttir"]
-                    if route == "single_page64_skip_invisible":
+                    if route in (
+                        "single_page64_skip_invisible",
+                        "single_page64_page_reuse",
+                    ):
                         headers = [
                             line.strip()
                             for line in candidate_ir.splitlines()
                             if "scf.for " in line
                         ]
-                        if len(headers) < 3:
+                        if len(headers) < (
+                            4 if route == "single_page64_page_reuse" else 3
+                        ):
                             raise AssertionError("Visibility and fill loops missing")
                         result.setdefault("visibility_compiler", {})[route] = dict(
                             loop_headers=headers, metadata=repr(kernel.metadata)
                         )
                     expected_stores = (
-                        2 if route == "single_page64_skip_invisible" else 1
+                        2
+                        if route
+                        in ("single_page64_skip_invisible", "single_page64_page_reuse")
+                        else 1
                     )
                     if len(
                         re.findall(r"\btt\.store\b", candidate_ir)
@@ -1026,7 +1055,14 @@ def main():
         action="store_true",
         help="One alternating full-input score trace, reverse order next round; omit legacy timing",
     )
+    parser.add_argument(
+        "--page-reuse-dispatch",
+        action="store_true",
+        help="Use page-segment reuse only on selected visibility chunks; compare same policy without page reuse",
+    )
     args = parser.parse_args()
+    if args.page_reuse_dispatch and not args.single_page64_dispatch:
+        parser.error("--page-reuse-dispatch requires --single-page64-dispatch")
     args.skip_invisible_dispatch = args.single_page64_dispatch
     if args.interleave_score and not args.skip_invisible_dispatch:
         parser.error("--interleave-score requires --skip-invisible-dispatch")
@@ -1089,6 +1125,8 @@ def main():
             command.append("--shared-map-qk")
         if args.key_group4_dispatch:
             command.append("--key-group4-dispatch")
+        if args.page_reuse_dispatch:
+            command.append("--page-reuse-dispatch")
         if args.interleave_score:
             command.append("--interleave-score")
         if args.skip_invisible_dispatch:

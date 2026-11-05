@@ -412,3 +412,24 @@ The fix requires exactly two baseline stores only in page-reuse mode. Other
 mode expectations are unchanged. No kernel, arithmetic or policy changes.
 Local checks evaluated the actual assertion across all existing arm names and
 both modes, and repeated the page partition/scoring preservation checks.
+
+## Page-reuse full-input candidate
+
+Corrected probe report `704112aab3a1bc94fb8758831432cebe77906389` passed
+all three representative chunks, with speedups 1.3907x/1.4093x/1.4295x for
+budget_exact/dominant_long/tail112. Candidate two-round ranges were below
+0.25%; workspace stayed 16448 bytes and the nested page loop remained in IR.
+All chunk/reference, CPU sample, empty-group and tail guards passed.
+
+`--page-reuse-dispatch` runs the tested page-segment scorer only on chunks
+already selected by the existing visibility policy. The comparator uses the
+same policy and the current visibility-bounded scorer. The benchmark asserts
+identical visibility route maps; TopK and fallback routes remain unchanged.
+It records page-reuse hit counts and checks four loop headers, two store
+sites and INT8-to-INT32 dot in candidate TTIR. Full-input scores and selected
+outputs are checked before device timing of score, TopK, combined and native.
+The page reuse switch stays opt-in pending full-input evidence.
+
+Local checks passed page partition/offset equivalence, the tested kernel AST
+(apart from an unused local assignment), same-policy routing, default
+fallback, formatting, lint and Python compilation. Device results pending.

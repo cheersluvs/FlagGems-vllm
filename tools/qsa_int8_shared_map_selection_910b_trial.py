@@ -20,6 +20,7 @@ import time
 import torch
 import triton
 from qsa_int8_query_pack4_910b import (
+    _qsa_page64_page_reuse_score,
     _qsa_page64_query16_score,
     _qsa_page64_skip_invisible_score,
     _qsa_qk_key_group_score,
@@ -74,12 +75,19 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         query16=True,
         skip_invisible=True,
         visibility_policy="conservative",
+        page_reuse=False,
     ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)
         if visibility_policy not in ("all", "conservative"):
             raise ValueError("Unknown visibility policy")
         self.skip_invisible = bool(skip_invisible)
+        self.page_reuse = bool(page_reuse)
+        self.visibility_kernel = (
+            _qsa_page64_page_reuse_score
+            if self.page_reuse
+            else _qsa_page64_skip_invisible_score
+        )
         self.key_group4 = bool(key_group4) and triton.cdiv(self.width, 128) >= 16
         self.single_page64 = bool(single_page64) and self.width >= 8192
         starts = list(request_starts)
@@ -150,6 +158,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                 selected = stats["selected"]
             self.skip_invisible_routes[first, count] = selected
             entry["skip_invisible"] = selected
+            entry["page_reuse"] = selected and self.page_reuse
             entry["query_group"] = 16 if eligible else 4
             entry["query16_reason"] = (
                 "Shared mapping and request owner proven" if eligible else reason
@@ -230,7 +239,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         v = self.values
         blocks = triton.cdiv(triton.cdiv(self.width, 64), 8)
         kernel = (
-            _qsa_page64_skip_invisible_score
+            self.visibility_kernel
             if self.skip_invisible_routes.get((first, count), False)
             else _qsa_page64_query16_score
         )
