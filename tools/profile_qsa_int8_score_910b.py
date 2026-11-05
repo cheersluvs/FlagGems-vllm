@@ -23,6 +23,7 @@ import os
 import re
 import statistics
 import sys
+import time
 import traceback
 from collections import Counter
 from pathlib import Path
@@ -475,25 +476,80 @@ def run_case(args):
         if args.wall_samples:
             from benchmark_qsa_prefill_stages_910b import aggregate, sample
 
-            def capture_unprofiled():
-                samples = [
-                    sample(score_all, torch, 1, split_submission=True)
-                    for _ in range(args.wall_samples)
+            if args.bound_launch_compare:
+                result["stage"] = "bound_launch_precheck"
+                started = time.perf_counter()
+                launches = [
+                    adapter.bind_query16_score(first, count, scratch[:count])
+                    for first, count in chunks
                 ]
-                return dict(
-                    samples=samples,
-                    timing=aggregate(
-                        samples,
-                        (
-                            "wall_us",
-                            "event_us",
-                            "submit_us",
-                            "sync_wait_us",
-                            "event_record_us",
-                        ),
-                    ),
-                    scope="Host submit includes Python and runtime calls, including any runtime blocking; wait starts after recording the end event",
+                bind_ms = (time.perf_counter() - started) * 1000
+                names = Counter()
+                for (first, count), launch in zip(chunks, launches):
+                    dynamic = score_into(first, count)
+                    expected = scratch[:count].clone()
+                    bound = launch()
+                    if dynamic.metadata.name != bound.metadata.name or bytes(
+                        dynamic.asm["npubin"]
+                    ) != bytes(bound.asm["npubin"]):
+                        raise AssertionError(
+                            f"Bound launch changed the binary at row {first}"
+                        )
+                    if not torch.equal(expected, scratch[:count]):
+                        raise AssertionError(
+                            f"Bound launch changed scores at row {first}"
+                        )
+                    names[bound.metadata.name] += 1
+                result["bound_launch_identity"] = dict(
+                    launch_count=len(launches),
+                    kernel_counts=dict(names),
+                    binding_ms=bind_ms,
+                    all_chunks_exact=True,
                 )
+
+            def score_all_bound():
+                for launch in launches:
+                    launch()
+
+            def capture_unprofiled(reverse=False):
+                functions = {"dispatch": score_all}
+                if args.bound_launch_compare:
+                    functions["bound"] = score_all_bound
+                samples = {name: [] for name in functions}
+                order = []
+                for index in range(args.wall_samples):
+                    names = list(functions)
+                    if (index + reverse) % 2:
+                        names.reverse()
+                    order.append(names)
+                    for name in names:
+                        samples[name].append(
+                            sample(functions[name], torch, 1, split_submission=True)
+                        )
+
+                def summarize(values):
+                    return dict(
+                        samples=values,
+                        timing=aggregate(
+                            values,
+                            (
+                                "wall_us",
+                                "event_us",
+                                "submit_us",
+                                "sync_wait_us",
+                                "event_record_us",
+                            ),
+                        ),
+                    )
+
+                capture = summarize(samples["dispatch"])
+                capture["scope"] = (
+                    "Host submit includes Python and runtime calls, including any runtime blocking; wait starts after recording the end event"
+                )
+                if args.bound_launch_compare:
+                    capture["bound"] = summarize(samples["bound"])
+                    capture["measurement_order"] = order
+                return capture
 
             result["stage"] = "unprofiled_before"
             result["unprofiled"] = dict(before=capture_unprofiled())
@@ -551,7 +607,7 @@ def run_case(args):
             )
         if args.wall_samples:
             result["stage"] = "unprofiled_after"
-            result["unprofiled"]["after"] = capture_unprofiled()
+            result["unprofiled"]["after"] = capture_unprofiled(reverse=True)
             timeline = result.get("timeline", {}).get("stages", {}).get("score", {})
             if timeline.get("usable"):
                 result["unprofiled"]["trace_comparison"] = dict(
@@ -720,7 +776,14 @@ def main():
         default=0,
         help="Measure NPU event span, host submission and final sync without a profiler before and after the trace",
     )
+    parser.add_argument(
+        "--bound-launch-compare",
+        action="store_true",
+        help="Interleave dynamic and pre-bound query16 launches in each unprofiled block",
+    )
     args = parser.parse_args()
+    if args.bound_launch_compare and (not args.page_reuse or not args.wall_samples):
+        parser.error("--bound-launch-compare requires --page-reuse and --wall-samples")
     if args.wall_samples < 0 or (args.wall_samples and args.trace_iterations != 1):
         parser.error(
             "--wall-samples must be nonnegative and requires one trace iteration when enabled"
@@ -766,6 +829,8 @@ def main():
             command.append("--integrated")
         if args.page_reuse:
             command.append("--page-reuse")
+        if args.bound_launch_compare:
+            command.append("--bound-launch-compare")
         code, timed_out = run_child(
             command, report / f"{name}-console.txt", args.timeout
         )

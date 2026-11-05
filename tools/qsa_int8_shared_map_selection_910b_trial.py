@@ -16,6 +16,7 @@
 
 import bisect
 import time
+from functools import partial
 
 import torch
 import triton
@@ -233,7 +234,13 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             num_warps=4,
         )
 
-    def _score_query16(self, first, count, target):
+    def bind_query16_score(self, first, count, target):
+        """Bind one eligible chunk's launch for the host-dispatch comparison."""
+        if not self.query16_routes.get((first, count), False):
+            raise ValueError("Binding requires an eligible query16 chunk")
+        return self._score_query16(first, count, target, bind=True)
+
+    def _score_query16(self, first, count, target, *, bind=False):
         if (
             target.shape != (count, self.width)
             or target.dtype != torch.float32
@@ -249,7 +256,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             kernel = _qsa_page64_page_reuse_full_score
         else:
             kernel = _qsa_page64_query16_score
-        return kernel[min(20, triton.cdiv(count, 16) * blocks),](
+        launch = kernel[min(20, triton.cdiv(count, 16) * blocks),]
+        args = (
             v["q"][first : first + count],
             v["cache"],
             v["qs"][first : first + count],
@@ -258,6 +266,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             v["row_table"][first : first + count],
             v["visible"][first : first + count],
             target,
+        )
+        kwargs = dict(
             ROWS=count,
             COLUMNS=v["row_table"].shape[1],
             WIDTH=self.width,
@@ -266,3 +276,4 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             KEY_TILES=8,
             num_warps=4,
         )
+        return partial(launch, *args, **kwargs) if bind else launch(*args, **kwargs)
