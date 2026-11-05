@@ -45,9 +45,12 @@ CASES = ("int8_budget_exact", "int8_long100k")
 FROZEN = "0d0b371e406168d706705c904eb382ffc12d4f382d3237fb969c23c9e9424ee6"
 
 
+PREFETCH_ARMS = ("page_prefetch", "page_prefetch_control")
+
+
 def build_source(arm):
     """Retain original addressing/loop prefixes and an explicit FP32 output sink."""
-    if arm == "page_prefetch":
+    if arm in PREFETCH_ARMS:
         source = Path(__file__).with_name("qsa_int8_query_pack4_910b.py")
         module = ast.parse(source.read_text())
         fn = next(
@@ -56,34 +59,45 @@ def build_source(arm):
             if isinstance(node, ast.FunctionDef)
             and node.name == "_qsa_page64_page_reuse_full_score"
         )
-        fn.name = "_qsa_page64_prefix_page_prefetch"
+        fn.name = f"_qsa_page64_prefix_{arm}"
         outer = next(node for node in fn.body if isinstance(node, ast.For))
         page = next(node for node in outer.body if isinstance(node, ast.For))
         tile = next(node for node in page.body if isinstance(node, ast.For))
-        first_load = ast.parse(
-            """
-first_columns = tile_begin * BLOCK_N + tl.arange(0, BLOCK_N)
-first_live = (first_columns < WIDTH) & (first_columns < max_visible)
-first_token = physical.to(tl.int64) * PAGE + (tile_begin - page * 3) * BLOCK_N + tl.arange(0, BLOCK_N)
-keys = tl.load(K + first_token[:, None] * 128 + dims[None, :], mask=first_live[:, None], other=0)
-"""
-        ).body
-        page_index = page.body.index(tile)
-        page.body[page_index:page_index] = first_load
-        key_index = next(
+        tile.iter = ast.parse("range(tile_begin, tile_end, 2)", mode="eval").body
+        first = tile.body
+        dot_index = next(
             i
-            for i, node in enumerate(tile.body)
+            for i, node in enumerate(first)
             if isinstance(node, ast.Assign)
-            and any(isinstance(t, ast.Name) and t.id == "keys" for t in node.targets)
+            and any(isinstance(t, ast.Name) and t.id == "dot" for t in node.targets)
         )
-        tile.body[key_index : key_index + 1] = ast.parse(
+        second_load = ast.parse(
             """
-next_columns = columns + BLOCK_N
-next_live = (tile + 1 < tile_end) & (next_columns < WIDTH) & (next_columns < max_visible)
-next_keys = tl.load(K + (token[:, None] + BLOCK_N) * 128 + dims[None, :], mask=next_live[:, None], other=0)
+next_tile = tile + 1
+next_columns = next_tile * BLOCK_N + tl.arange(0, BLOCK_N)
+next_live = (next_tile < tile_end) & (next_columns < WIDTH) & (next_columns < max_visible)
+next_token = physical.to(tl.int64) * PAGE + (next_tile - page * 3) * BLOCK_N + tl.arange(0, BLOCK_N)
+next_keys = tl.load(K + next_token[:, None] * 128 + dims[None, :], mask=next_live[:, None], other=0)
 """
         ).body
-        tile.body.extend(ast.parse("keys = next_keys").body)
+        second_score = ast.parse(
+            """
+if next_tile < tile_end:
+    next_key_scale = tl.load(KS + next_token, mask=next_live, other=0).to(tl.float32)
+"""
+        ).body[0]
+        score_text = ast.unparse(ast.Module(body=first[dot_index:], type_ignores=[]))
+        score_text = re.sub(
+            r"\b(columns|keys|key_scale|dot|dequant|weighted|scores|live)\b",
+            lambda match: f"next_{match[0]}",
+            score_text,
+        )
+        # Rename local values, leaving the tl.dot intrinsic intact.
+        second_score.body.extend(
+            ast.parse(score_text.replace("tl.next_dot", "tl.dot")).body
+        )
+        insert_at = dot_index if arm == "page_prefetch" else len(first)
+        tile.body = first[:insert_at] + second_load + first[insert_at:] + [second_score]
         ast.fix_missing_locations(fn)
         return (
             "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
@@ -273,47 +287,41 @@ for empty_tile in range(active_tiles, KEY_TILES):
 
 
 def prefetch_schedule(ttir):
-    """Check that the next K load feeds the next iteration, before timing."""
+    """Record the order and SSA use of the two K loads in the paired loop."""
     lines = ttir.splitlines()
     start = max(i for i, line in enumerate(lines) if "scf.for " in line)
     header = lines[start]
     body = lines[start + 1 :]
-    yield_index = next(
-        (i for i, line in enumerate(body) if "scf.yield " in line), len(body)
-    )
-    body = body[: yield_index + 1]
-    carried = re.search(r"iter_args\((%[\w.]+)\s*=", header)
-    load = next(
-        (
-            (i, line)
-            for i, line in enumerate(body)
-            if "tt.load" in line and "tensor<64x128x!tt.ptr<i8>>" in line
-        ),
-        None,
-    )
-    dot = next((i for i, line in enumerate(body) if "tt.dot " in line), None)
-    retained = False
-    if carried and load is not None and dot is not None:
-        next_value = load[1].split("=", 1)[0].strip()
-        trans = next(
-            (line for line in body[:dot] if f"tt.trans {carried[1]} " in line),
-            None,
-        )
-        retained = bool(
-            trans
-            and load[0] < dot
-            and trans.split("=", 1)[0].strip() in body[dot]
-            and re.search(rf"scf.yield\s+{re.escape(next_value)}(?:\s|,)", body[-1])
-        )
+    loads = [
+        (i, line)
+        for i, line in enumerate(body)
+        if "tt.load" in line and "tensor<64x128x!tt.ptr<i8>>" in line
+    ]
+    dots = [(i, line) for i, line in enumerate(body) if "tt.dot " in line]
+    order = "unconfirmed"
+    if len(loads) == len(dots) == 2:
+        feeds_dot = []
+        for (load_index, load), (dot_index, dot) in zip(loads, dots):
+            value = load.split("=", 1)[0].strip()
+            transposed = next(
+                (
+                    line.split("=", 1)[0].strip()
+                    for line in body[load_index + 1 : dot_index]
+                    if f"tt.trans {value} " in line
+                ),
+                None,
+            )
+            feeds_dot.append(transposed is not None and transposed in dot)
+        if all(feeds_dot):
+            order = "early" if loads[1][0] < dots[0][0] else "late"
     return dict(
-        retained=retained,
+        order=order,
         loop_header=header.strip(),
         operations=[
             line.strip()
             for line in body
             if any(
-                token in line
-                for token in ("tt.load", "tt.trans", "tt.dot", "scf.yield")
+                token in line for token in ("tt.load", "tt.trans", "tt.dot", "tt.store")
             )
         ],
     )
@@ -536,7 +544,7 @@ def run_case(args):
 
         if args.page_prefetch:
             result["scope"] = (
-                "Same full-dot page reuse, with K carried one tile ahead within each page segment; TTIR order is not hardware overlap"
+                "Same full-dot page reuse with early/late second-K loads in two-tile groups; TTIR order is not hardware overlap"
             )
 
         def launch_at(name, target, start, n, w, visible=None):
@@ -692,14 +700,10 @@ def run_case(args):
                 )
                 if len(loop_lines) < (4 if name == "page_reuse" else 3):
                     raise AssertionError("Visibility/fill loops not retained in TTIR")
-            if args.page_prefetch and name == "page_prefetch":
+            if args.page_prefetch and name in PREFETCH_ARMS:
                 schedule = prefetch_schedule(ttir)
-                result["prefetch_schedule"] = schedule
-                print("PREFETCH_SCHEDULE", json.dumps(schedule), flush=True)
-                if not schedule["retained"]:
-                    raise AssertionError(
-                        "TTIR did not retain the next-tile K dependency/order"
-                    )
+                result.setdefault("prefetch_schedule", {})[name] = schedule
+                print("PREFETCH_SCHEDULE", name, json.dumps(schedule), flush=True)
             dots = len(re.findall(r"\btt\.dot\b", ttir))
             loads = len(re.findall(r"\btt\.load\b", ttir))
             stores = len(re.findall(r"\btt\.store\b", ttir))
@@ -715,21 +719,27 @@ def run_case(args):
                 "skip_invisible": 7,
                 "page_reuse": 7,
                 "page_reuse_full": 7,
-                "page_prefetch": 8,
+                "page_prefetch": 9,
+                "page_prefetch_control": 9,
                 "packed_full": 7,
                 "unrolled_full": 28,
                 "raw_i32": 4,
                 "raw_fp32": 4,
             }
             if (
-                dots != (8 if name == "unrolled_full" else 0 if name == "loads" else 1)
+                dots
+                != (
+                    8
+                    if name == "unrolled_full"
+                    else 0 if name == "loads" else 2 if name in PREFETCH_ARMS else 1
+                )
                 or stores
                 != (
                     8
                     if name == "unrolled_full"
                     else (
                         2
-                        if name in ("skip_invisible", "page_reuse")
+                        if name in ("skip_invisible", "page_reuse", *PREFETCH_ARMS)
                         or (name == "current" and args.page_reuse)
                         else 1
                     )
@@ -842,6 +852,11 @@ def run_case(args):
         }
         if args.page_prefetch:
             hosts["current"] = {"_qsa_page64_page_reuse_full_score": 1}
+        if args.page_prefetch and any(
+            result["prefetch_schedule"][arm]["order"] != expected
+            for arm, expected in zip(PREFETCH_ARMS, ("early", "late"))
+        ):
+            raise AssertionError("TTIR did not retain distinct early and late K loads")
         result["stage"] = "prefix_timer"
         result["samples"], result["measurement_order"] = measure_prefix_plan(
             args, ARMS, launch, targets, torch, result, expected_hosts=hosts
@@ -1158,7 +1173,11 @@ def main():
             else ("skip_invisible", "current")
         )
     if args.page_reuse_full:
-        ARMS = ("page_prefetch" if args.page_prefetch else "page_reuse_full", "current")
+        ARMS = (
+            (*PREFETCH_ARMS, "current")
+            if args.page_prefetch
+            else ("page_reuse_full", "current")
+        )
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
