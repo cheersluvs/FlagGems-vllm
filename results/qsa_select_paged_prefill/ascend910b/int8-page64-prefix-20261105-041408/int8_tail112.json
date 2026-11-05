@@ -1,0 +1,205 @@
+{
+  "case": "int8_tail112",
+  "status": "failed",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device_isolation": "not_verified"
+  },
+  "shared_map_guard": {
+    "groups": 32,
+    "all_group_maps_equal": true,
+    "same_request_per_group": true
+  },
+  "geometry": {
+    "first": 8064,
+    "count": 128,
+    "width": 8256,
+    "block_n": 64,
+    "key_tiles": 8,
+    "grid_cap": 20,
+    "plan": {
+      "name": "int8_tail112",
+      "nv_case": "fp8_tail112_float8_e4m3fn",
+      "origin": "recorded_envelope",
+      "query_lengths": [
+        16368
+      ],
+      "prefix_tokens": [
+        16485
+      ],
+      "starts": [
+        0,
+        16368
+      ],
+      "batch_max_seq_len": 32853,
+      "heads": 4,
+      "dim": 128,
+      "ratio": 4,
+      "k": 512,
+      "dtype": "int8",
+      "page_size": 192,
+      "pages_per_request": [
+        43
+      ],
+      "physical_pages": 43,
+      "table_columns": 43,
+      "q_shape": [
+        16368,
+        4,
+        128
+      ],
+      "cache_shape": [
+        43,
+        192,
+        1,
+        128
+      ],
+      "logits_width": 8256,
+      "chunk_rows": 128,
+      "score_and_dot_scratch_bytes": 21135360,
+      "nv_original_page_size": 196,
+      "nv_original_physical_pages": 2712,
+      "nv_original_table_columns": 88,
+      "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+      "query_lengths_synthetic": false
+    }
+  },
+  "query_group_guard": {
+    "groups": [
+      4,
+      8,
+      16
+    ],
+    "shared_maps_and_request_owners": true
+  },
+  "cube_boundary": false,
+  "unroll_loop": false,
+  "scope": "Representative query16 N64 page-segment reuse vs visibility-bounded scorer; same eight-tile ownership and dense fill; not full-input/TopK/native timing",
+  "visibility_tiles": {
+    "representative": {
+      "issued": 1088,
+      "useful": 775,
+      "skipped": 313,
+      "skipped_fraction": 0.28768382352941174
+    },
+    "full_input": {
+      "issued": 139128,
+      "useful": 99135,
+      "skipped": 39993,
+      "skipped_fraction": 0.2874547179575643
+    },
+    "scope": "Query16 geometry, includes padded key tiles; theoretical skip count, not measured runtime instructions"
+  },
+  "stage": "compile_and_precheck",
+  "output_bytes": {
+    "page_reuse": 4227072,
+    "current": 4227072
+  },
+  "compiler": {
+    "page_reuse": {
+      "loads": 7,
+      "dots": 1,
+      "stores": 2,
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='8b02f7fe2e81a0687139cfbe572f33affaa77ba69c92157e7695f0d4c1e0a890', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_page_reuse', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_page_reuse', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=16448)",
+      "npubin_sha256": "17fa4abe1b55d9e92d43e2034558f7aee07ce6682bda1ec950bae57b06c24dbe",
+      "loops": 4,
+      "copies": 6,
+      "transpose_lines": [
+        "%transposed = linalg.transpose ins(%90 : tensor<64x128xi8>) outs(%93 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc154)"
+      ],
+      "matmul_lines": [
+        "%94 = linalg.matmul {input_precision = \"ieee\"} ins(%22, %transposed : tensor<64x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<64x64xi32>) -> tensor<64x64xi32> loc(#loc113)"
+      ],
+      "reduction_lines": [
+        "%reduced = linalg.reduce ins(%33 : tensor<16xi32>) outs(%35 : tensor<i32>) dimensions = [0]",
+        "%reduced_29 = linalg.reduce ins(%reshape : tensor<16x4x64xf32>) outs(%100 : tensor<16x64xf32>) dimensions = [1]"
+      ]
+    }
+  },
+  "prechecks": {
+    "page_reuse": {
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        64,
+        127
+      ],
+      "max_abs_error": 7.62939453125e-06
+    }
+  },
+  "asm_inventory": {
+    "page_reuse": {
+      "keys": [
+        "source",
+        "ttir",
+        "ttadapter",
+        "mlirbc",
+        "bcmlir",
+        "npubin"
+      ],
+      "text_artifacts": [
+        {
+          "key": "source",
+          "file": "int8_tail112-page_reuse-lower-source.txt",
+          "truncated": false,
+          "static_occurrences": {
+            "barrier": 0,
+            "wait_flag": 0,
+            "set_flag": 0,
+            "fixpipe": 0,
+            "mmad": 0,
+            "transpose": 0
+          }
+        }
+      ]
+    },
+    "current": {
+      "keys": [
+        "source",
+        "ttir",
+        "ttadapter",
+        "mlirbc",
+        "bcmlir",
+        "npubin"
+      ],
+      "text_artifacts": [
+        {
+          "key": "source",
+          "file": "int8_tail112-current-lower-source.txt",
+          "truncated": false,
+          "static_occurrences": {
+            "barrier": 0,
+            "wait_flag": 0,
+            "set_flag": 0,
+            "fixpipe": 0,
+            "mmad": 0,
+            "transpose": 0
+          }
+        }
+      ]
+    }
+  },
+  "visibility_loop_ir": {
+    "loop_headers": [
+      "scf.for %unit = %0 to %c136_i32 step %1  : i32 {",
+      "scf.for %page = %first_page to %2 step %c1_i32  : i32 {",
+      "scf.for %tile = %tile_begin_48 to %tile_end_50 step %c1_i32  : i32 {",
+      "scf.for %empty_tile = %active_tiles_42 to %c8_i32 step %c1_i32  : i32 {"
+    ],
+    "scope": "Dynamic dot-loop and store-only fill-loop source exported; runtime skip efficacy judged with timing, not static dot count"
+  },
+  "traceback": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-page-reuse.4psMh3QA/tools/probe_qsa_int8_page64_prefix_910b.py\", line 581, in run_case\n    raise AssertionError(\nAssertionError: Prefix IR contract mismatch: current, dots=1, stores=2\n",
+  "sources": {
+    "probe_qsa_int8_page64_prefix_910b.py": "bf4f0280b54bd1e50c02e2da3d456fd1836cf30d401831c7c4d32e4ae7840a42",
+    "qsa_int8_query_pack4_910b.py": "afefc184dbdad131e9b5d86adc6e6838dd58d9ff3d98a0c6e7758a755bbbe188",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+  },
+  "exit_code": 1
+}
