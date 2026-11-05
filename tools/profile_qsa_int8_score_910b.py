@@ -472,6 +472,17 @@ def run_case(args):
             for line in ir.splitlines()
         ):
             raise AssertionError(f"Unexpected INT8 score IR for {kernel_name}")
+        if args.wall_samples:
+            from benchmark_qsa_prefill_stages_910b import aggregate, sample
+
+            def capture_unprofiled():
+                samples = [
+                    sample(score_all, torch, 1) for _ in range(args.wall_samples)
+                ]
+                return dict(samples=samples, timing=aggregate(samples))
+
+            result["stage"] = "unprofiled_before"
+            result["unprofiled"] = dict(before=capture_unprofiled())
         result["stage"] = "timeline"
         result["timeline_attempts"] = []
         for attempt in range(1, 4):
@@ -524,6 +535,25 @@ def run_case(args):
             result["checks"]["last_timeline_chunk"] = check_chunk(
                 inputs, scratch[:count].cpu(), first, count
             )
+        if args.wall_samples:
+            result["stage"] = "unprofiled_after"
+            result["unprofiled"]["after"] = capture_unprofiled()
+            timeline = result.get("timeline", {}).get("stages", {}).get("score", {})
+            if timeline.get("usable"):
+                result["unprofiled"]["trace_comparison"] = dict(
+                    profiled_device_task_sum_us=timeline["device_task_duration_sum_us"],
+                    profiled_device_envelope_us=timeline["device_task_envelope_us"],
+                    profiled_uncovered_us=timeline["uncovered_envelope_us"],
+                    unprofiled_event_minus_profiled_envelope_us={
+                        phase: result["unprofiled"][phase]["timing"]["event_us"][
+                            "median"
+                        ]
+                        - timeline["device_task_envelope_us"]
+                        for phase in ("before", "after")
+                    },
+                    scope="Independent runs; event spans include submission gaps and stream boundaries",
+                )
+            print("UNPROFILED_SCORE", json.dumps(result["unprofiled"]), flush=True)
         result["hardware"] = {}
         for group in args.metrics:
             result["stage"] = f"hardware_{group}"
@@ -669,7 +699,17 @@ def main():
         action="store_true",
         help="Profile the default prepared N64/query16 page-reuse dispatch",
     )
+    parser.add_argument(
+        "--wall-samples",
+        type=int,
+        default=0,
+        help="Measure NPU event span and synchronized wall time without a profiler before and after the trace",
+    )
     args = parser.parse_args()
+    if args.wall_samples < 0 or (args.wall_samples and args.trace_iterations != 1):
+        parser.error(
+            "--wall-samples must be nonnegative and requires one trace iteration when enabled"
+        )
     if args.page_reuse and not args.integrated:
         parser.error("--page-reuse requires --integrated")
     args.metrics = list(dict.fromkeys(args.metrics))
@@ -702,6 +742,8 @@ def main():
             str(args.trace_iterations),
             "--counter-iterations",
             str(args.counter_iterations),
+            "--wall-samples",
+            str(args.wall_samples),
             "--metrics",
             *args.metrics,
         ]
