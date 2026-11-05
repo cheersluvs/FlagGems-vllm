@@ -1,0 +1,132 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+NON_SKIP_CHUNK {"first": 8176, "count": 112, "policy": {"issued_tiles": 3248, "useful_tiles": 3030, "skipped_tiles": 218, "skipped_fraction": 0.06711822660098522, "selected": false, "policy": "conservative"}, "eligible_chunks": 134}
+VISIBILITY_TILES {"representative": {"issued": 3248, "useful": 3030, "skipped": 218, "skipped_fraction": 0.06711822660098522}, "full_input": {"issued": 475136, "useful": 442880, "skipped": 32256, "skipped_fraction": 0.06788793103448276}, "scope": "Query16 geometry, includes padded key tiles; theoretical skip count, not measured runtime instructions"}
+{
+  "case": "int8_long100k",
+  "status": "failed",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device_isolation": "not_verified"
+  },
+  "non_skip_selection": {
+    "first": 8176,
+    "count": 112,
+    "policy": {
+      "issued_tiles": 3248,
+      "useful_tiles": 3030,
+      "skipped_tiles": 218,
+      "skipped_fraction": 0.06711822660098522,
+      "selected": false,
+      "policy": "conservative"
+    },
+    "eligible_chunks": 134
+  },
+  "shared_map_guard": {
+    "groups": 28,
+    "all_group_maps_equal": true,
+    "same_request_per_group": true
+  },
+  "geometry": {
+    "first": 8176,
+    "count": 112,
+    "width": 29696,
+    "block_n": 64,
+    "key_tiles": 8,
+    "grid_cap": 20,
+    "plan": {
+      "name": "int8_long100k",
+      "nv_case": "fp8_long100k_float8_e4m3fn",
+      "origin": "dtype_variant",
+      "query_lengths": [
+        16384
+      ],
+      "prefix_tokens": [
+        102400
+      ],
+      "starts": [
+        0,
+        16384
+      ],
+      "batch_max_seq_len": 118784,
+      "heads": 4,
+      "dim": 128,
+      "ratio": 4,
+      "k": 512,
+      "dtype": "int8",
+      "page_size": 192,
+      "pages_per_request": [
+        155
+      ],
+      "physical_pages": 155,
+      "table_columns": 155,
+      "q_shape": [
+        16384,
+        4,
+        128
+      ],
+      "cache_shape": [
+        155,
+        192,
+        1,
+        128
+      ],
+      "logits_width": 29696,
+      "chunk_rows": 112,
+      "score_and_dot_scratch_bytes": 66519040,
+      "nv_original_page_size": 196,
+      "nv_original_physical_pages": null,
+      "nv_original_table_columns": null,
+      "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+      "query_lengths_synthetic": false
+    }
+  },
+  "query_group_guard": {
+    "groups": [
+      4,
+      8,
+      16
+    ],
+    "shared_maps_and_request_owners": true
+  },
+  "cube_boundary": false,
+  "unroll_loop": false,
+  "scope": "Same full-dot page reuse with early/late second-K loads in two-tile groups; TTIR order is not hardware overlap",
+  "visibility_tiles": {
+    "representative": {
+      "issued": 3248,
+      "useful": 3030,
+      "skipped": 218,
+      "skipped_fraction": 0.06711822660098522
+    },
+    "full_input": {
+      "issued": 475136,
+      "useful": 442880,
+      "skipped": 32256,
+      "skipped_fraction": 0.06788793103448276
+    },
+    "scope": "Query16 geometry, includes padded key tiles; theoretical skip count, not measured runtime instructions"
+  },
+  "stage": "compile_and_precheck",
+  "output_bytes": {
+    "page_prefetch": 13303808,
+    "page_prefetch_control": 13303808,
+    "current": 13303808
+  },
+  "compiler": {},
+  "prechecks": {},
+  "traceback": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-page-prefetch-pair.xjzDNwnM/tools/probe_qsa_int8_page64_prefix_910b.py\", line 654, in run_case\n    kernel = launch(name, targets[name])\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-page-prefetch-pair.xjzDNwnM/tools/probe_qsa_int8_page64_prefix_910b.py\", line 577, in launch\n    return launch_at(name, target, first, count, width)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-page-prefetch-pair.xjzDNwnM/tools/probe_qsa_int8_page64_prefix_910b.py\", line 556, in launch_at\n    return kernels[name][\n           ^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 420, in <lambda>\n    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 736, in run\n    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 864, in _do_compile\n    kernel = self.compile(src, target=target, options=options.__dict__)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 309, in compile\n    module = src.make_ir(target, options, codegen_fns, module_map, context)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 83, in make_ir\n    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1724, in ast_to_ttir\n    generator.visit(fn.parse())\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\n    ret = super().visit(node)\n          ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 563, in visit_Module\n    ast.NodeVisitor.generic_visit(self, node)\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\n    ret = super().visit(node)\n          ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 661, in visit_FunctionDef\n    self.visit_compound_statement(node.body)\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\n    ret = self.visit(stmt)\n          ^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\n    ret = super().visit(node)\n          ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1276, in visit_For\n    names, init_handles, init_tys = self._find_carries(node, liveins)\n                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 516, in _find_carries\n    self.visit_compound_statement(node.body)\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\n    ret = self.visit(stmt)\n          ^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\n    ret = super().visit(node)\n          ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1276, in visit_For\n    names, init_handles, init_tys = self._find_carries(node, liveins)\n                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 516, in _find_carries\n    self.visit_compound_statement(node.body)\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\n    ret = self.visit(stmt)\n          ^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1628, in visit\n    ret = super().visit(node)\n          ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1276, in visit_For\n    names, init_handles, init_tys = self._find_carries(node, liveins)\n                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 516, in _find_carries\n    self.visit_compound_statement(node.body)\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 555, in visit_compound_statement\n    ret = self.visit(stmt)\n          ^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py\", line 1636, in visit\n    raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from None\ntriton.compiler.errors.CompilationError: at 44:16:\n                next_tile = tile + 1\n                next_columns = next_tile * BLOCK_N + tl.arange(0, BLOCK_N)\n                next_live = (next_tile < tile_end) & (next_columns < WIDTH) & (next_columns < max_visible)\n                next_token = physical.to(tl.int64) * PAGE + (next_tile - page * 3) * BLOCK_N + tl.arange(0, BLOCK_N)\n                next_keys = tl.load(K + next_token[:, None] * 128 + dims[None, :], mask=next_live[:, None], other=0)\n                dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)\n                dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]\n                weighted = tl.maximum(dequant, 0.0) * weights[:, None]\n                scores = tl.sum(tl.reshape(weighted, (16, 4, BLOCK_N)), axis=1)\n                live = (columns[None, :] < WIDTH) & (columns[None, :] < visible[:, None])\n                tl.store(Out + rows[:, None] * WIDTH + columns[None, :], tl.where(live, scores, -float('inf')), mask=(columns[None, :] < WIDTH) & (rows[:, None] < ROWS))\n                if next_tile < tile_end:\n                ^\nAssertionError('initial value for `next_live` is of type int1[constexpr[64]], but the then block redefines it as int1[constexpr[16], constexpr[64]]')\n",
+  "sources": {
+    "probe_qsa_int8_page64_prefix_910b.py": "abd113f5152214742c805ba1463817f013c3aebd8a2130c0797458d995a281bc",
+    "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+  },
+  "exit_code": 1
+}
+int8_long100k failed
