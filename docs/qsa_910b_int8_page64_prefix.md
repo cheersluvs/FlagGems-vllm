@@ -211,3 +211,27 @@ Local validation: grouping-only AST transformations and partial-row ownership
 passed for both arms; formatting/lint and Python compilation passed. On Mac,
 both child processes report prerequisites_missing (no Torch/NPU), exit 2;
 compilation, numerical correctness and performance require the card run.
+
+## Restricted ten-shape query16 trial
+
+The 2026-11-05 report `621fbf25bf51773a52b76cf81872061a3c2da8a7`
+measured query16 speedups of 3.1654x (budget_exact) and 3.3068x (long100k)
+against four-query N64 on representative chunks. These are score-only results.
+
+`benchmark_qsa_int8_kernel_910b.py --integrated --shared-map-qk
+--key-group4-dispatch --single-page64-dispatch --query16-dispatch` now tests
+all ten complete inputs. The candidate kernel matches the tested generated
+query16 AST. Only existing N64 chunks with identical page maps and request
+owners within each sixteen-query group take this path. All other chunks use
+the current implementation, including N128 and legacy fallback routes.
+Preparation cost is reported separately and inputs must remain immutable.
+
+The dispatch_score comparison is the current four-query N64 dispatch when
+query16 is enabled. Native remains the fused CANN baseline; no native score
+or TopK split is claimed. Candidate score, unchanged TopK and directly timed
+combined execution are reported separately. Full-input scores are checked
+against legacy, selection is checked against the baseline, and threshold
+checks cover nineteen-row tails and groups safe for four queries but unsafe
+for sixteen. Candidate M64 IR and fallback route artifacts are exported in
+this same run. Local AST equivalence, mocked route guards, lint, Python
+compilation and CLI checks passed; device execution remains pending.

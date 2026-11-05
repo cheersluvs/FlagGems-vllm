@@ -31,12 +31,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from probe_qsa_int8_pipeline_910b import check_selection  # noqa: E402
 from probe_qsa_int8_score_910b import reference  # noqa: E402
-from probe_qsa_int8_ten_shapes_910b import (  # noqa: E402
-    PLANS,
-    run_child,
-    selected_scores,
-    verify_structure,
-)
+from probe_qsa_int8_ten_shapes_910b import run_child  # noqa: E402
+from probe_qsa_int8_ten_shapes_910b import PLANS, selected_scores, verify_structure
 from qsa_kernel_benchmark_910b import aggregate, setup  # noqa: E402
 
 from tools.qsa_int8_ten_workloads_910b import make_inputs, sample_rows  # noqa: E402
@@ -159,7 +155,14 @@ def run_case(args):
                     PreparedSharedMapInt8Selection,
                 )
 
-                adapter = PreparedSharedMapInt8Selection(
+                CandidateSelection = PreparedSharedMapInt8Selection
+                if args.query16_dispatch:
+                    from qsa_int8_page64_query16_910b_trial import (
+                        PreparedQuery16Int8Selection,
+                    )
+
+                    CandidateSelection = PreparedQuery16Int8Selection
+                adapter = CandidateSelection(
                     values,
                     output,
                     scratch,
@@ -171,6 +174,10 @@ def run_case(args):
                 )
                 result["shared_map_dispatch"] = dict(
                     preparation_ms=adapter.preparation_ms,
+                    query16_enabled=args.query16_dispatch,
+                    query16_chunks=sum(
+                        r.get("query_group") == 16 for r in adapter.route_checks
+                    ),
                     group4_enabled=args.key_group4_dispatch,
                     single_page64_enabled=args.single_page64_dispatch,
                     single_page64_min_width=8192,
@@ -223,6 +230,7 @@ def run_case(args):
                     topk,
                     plan["starts"],
                     key_group4=True,
+                    single_page64=args.query16_dispatch,
                 )
             if args.key_group4_dispatch and not args.single_page64_dispatch:
                 qk_adapter = PreparedSharedMapInt8Selection(
@@ -448,15 +456,24 @@ def run_case(args):
                     (8192, "cross_request"),
                     (8192, "unequal_map"),
                 ]
+            if args.query16_dispatch:
+                tests += [
+                    (8192, "query16_cross_request"),
+                    (8192, "query16_unequal_map"),
+                ]
             result["group4_threshold_checks"] = []
             for test_width, kind in tests:
-                n = 7
+                n = 19 if args.query16_dispatch else 7
                 cpu = dict(inputs)
                 for key in ("q", "qs", "weights", "row_table", "visible"):
                     cpu[key] = inputs[key][:n].clone()
                 cpu["visible"].clamp_(max=test_width)
                 if kind == "unequal_map":
                     cpu["row_table"][1, 0] = (int(cpu["row_table"][1, 0]) + 1) % cpu[
+                        "cache"
+                    ].shape[0]
+                if kind == "query16_unequal_map":
+                    cpu["row_table"][8:16, 0] = (cpu["row_table"][8:16, 0] + 1) % cpu[
                         "cache"
                     ].shape[0]
                 device_values = dict(values)
@@ -466,19 +483,23 @@ def run_case(args):
                     (n, test_width), device=device, dtype=torch.float32
                 )
                 temp_out = torch.empty((n, 512), device=device, dtype=torch.int32)
-                trial = PreparedSharedMapInt8Selection(
+                trial = CandidateSelection(
                     device_values,
                     temp_out,
                     temp_scores,
                     workspace,
                     None,
-                    [0, 3, n] if kind == "cross_request" else [0, n],
+                    (
+                        [0, 3, n]
+                        if kind == "cross_request"
+                        else [0, 8, n] if kind == "query16_cross_request" else [0, n]
+                    ),
                     key_group4=True,
                     single_page64=args.single_page64_dispatch,
                 )
                 wanted = (
                     "legacy"
-                    if kind != "shared"
+                    if kind in ("cross_request", "unequal_map")
                     else (
                         "single_page64"
                         if args.single_page64_dispatch and test_width >= 8192
@@ -487,6 +508,10 @@ def run_case(args):
                 )
                 if trial.route_checks[0]["route"] != wanted:
                     raise AssertionError("Threshold/mapping route mismatch")
+                if args.query16_dispatch:
+                    expected_q16 = test_width >= 8192 and kind == "shared"
+                    if trial.query16_routes[0, n] != expected_q16:
+                        raise AssertionError("Query16 guarded fallback mismatch")
                 expected = torch.empty_like(temp_scores)
                 reference_adapter = PreparedInt8Selection(
                     device_values, temp_out, temp_scores, workspace, None
@@ -531,6 +556,12 @@ def run_case(args):
                     if adapter.shared_routes[first, count]
                     else "fallback"
                 )
+                if args.query16_dispatch and adapter.query16_routes.get(
+                    (first, count), False
+                ):
+                    route = "single_page64_query16"
+                    if "tensor<64x128xi8>" not in kernel.asm["bcmlir"]:
+                        raise AssertionError("Query16 M64 compiler contract missing")
                 if route not in route_artifacts:
                     route_artifacts.add(route)
                     for key in ("ttir", "ttadapter", "bcmlir"):
@@ -779,6 +810,7 @@ def run_case(args):
         "probe_qsa_int8_ten_shapes_910b.py",
         "qsa_int8_selection_910b_trial.py",
         "qsa_int8_shared_map_selection_910b_trial.py",
+        "qsa_int8_page64_query16_910b_trial.py",
         "qsa_int8_query_pack4_910b.py",
         "qsa_int8_stage_trace_timer_910b.py",
         "qsa_int8_trace_timer_910b.py",
@@ -855,7 +887,14 @@ def main():
         action="store_true",
         help="Trial N64/group8 for shared-map widths>=8192; retain current dispatch below",
     )
+    parser.add_argument(
+        "--query16-dispatch",
+        action="store_true",
+        help="Restricted N64 M64 query16 candidate; compare against current N64 dispatch",
+    )
     args = parser.parse_args()
+    if args.query16_dispatch and not args.single_page64_dispatch:
+        parser.error("--query16-dispatch requires --single-page64-dispatch")
     if args.single_page64_dispatch and not args.key_group4_dispatch:
         parser.error("--single-page64-dispatch requires --key-group4-dispatch")
     if args.key_group4_dispatch and not args.shared_map_qk:
@@ -909,6 +948,8 @@ def main():
             command.append("--shared-map-qk")
         if args.key_group4_dispatch:
             command.append("--key-group4-dispatch")
+        if args.query16_dispatch:
+            command.append("--query16-dispatch")
         if args.single_page64_dispatch:
             command.append("--single-page64-dispatch")
         code, timed_out = run_child(
