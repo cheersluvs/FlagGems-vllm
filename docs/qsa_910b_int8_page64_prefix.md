@@ -285,3 +285,29 @@ Local validation passed AST equivalence for active scoring, dot-free fill,
 empty/partial/oversized visibility coverage, lint and compilation. The Mac
 smoke run correctly returns prerequisites_missing (no Torch/NPU); device
 compilation, actual skip effectiveness and numerical checks remain pending.
+
+## Full-input restricted visibility candidate
+
+Report `c576e1ec3c2d1e429b9e259d02a2e7ca0ed6679e` passed all three
+representative probes. Query16 N64 score speedups were 1.5530x/1.0919x/1.0587x
+for first_chunk/budget_exact/long100k. Representative theoretical skipped
+fractions were 48.44%/24.22%/6.71%; workspace changed from 82016 to 16448 bytes.
+Compilation scheduling changes may contribute alongside skipped arithmetic.
+
+`--skip-invisible-dispatch` in the full-input kernel benchmark enables the
+same tested kernel only on already-proven N64/query16 chunks. N128, query4
+fallback and legacy routes are unchanged. The switch is opt-in; it does not
+promote this candidate to the default entry. The dispatch_score comparator
+is now the current query16 entry, not the older query4 implementation.
+TopK policy stays the same; score, TopK, combined and native fused timings
+are rebuilt in the same invocation. Native stage splitting remains unavailable.
+
+Full-input scoring is compared against legacy for every chunk, selected
+outputs are checked against native, and threshold/shared-map/request-owner
+checks still run. The candidate's TTIR must retain the bounded scoring and
+fill loops, two store sites and the INT8-to-INT32 dot. Actual first-chunk
+preflight IR checks account for whether it takes this candidate or a fallback.
+The report records selected-route counts, loop headers, compiler metadata,
+preparation cost and source hashes. Local kernel AST equivalence, guard/fill
+coverage, Python compilation, CLI and formatting checks passed. Full ten-shape
+device validation is pending the next run.

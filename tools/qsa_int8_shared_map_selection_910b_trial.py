@@ -21,6 +21,7 @@ import torch
 import triton
 from qsa_int8_query_pack4_910b import (
     _qsa_page64_query16_score,
+    _qsa_page64_skip_invisible_score,
     _qsa_qk_key_group_score,
     _qsa_qk_single_page_score,
     _qsa_query_pack4_score,
@@ -47,9 +48,11 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         key_group4=False,
         single_page64=False,
         query16=True,
+        skip_invisible=False,
     ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)
+        self.skip_invisible = bool(skip_invisible)
         self.key_group4 = bool(key_group4) and triton.cdiv(self.width, 128) >= 16
         self.single_page64 = bool(single_page64) and self.width >= 8192
         starts = list(request_starts)
@@ -109,6 +112,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                         reason = "Sixteen-query group crosses request or page mapping"
                         break
             self.query16_routes[first, count] = eligible
+            entry["skip_invisible"] = eligible and self.skip_invisible
             entry["query_group"] = 16 if eligible else 4
             entry["query16_reason"] = (
                 "Shared mapping and request owner proven" if eligible else reason
@@ -188,7 +192,12 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             raise ValueError("Contiguous FP32 score target required")
         v = self.values
         blocks = triton.cdiv(triton.cdiv(self.width, 64), 8)
-        return _qsa_page64_query16_score[min(20, triton.cdiv(count, 16) * blocks),](
+        kernel = (
+            _qsa_page64_skip_invisible_score
+            if self.skip_invisible
+            else _qsa_page64_query16_score
+        )
+        return kernel[min(20, triton.cdiv(count, 16) * blocks),](
             v["q"][first : first + count],
             v["cache"],
             v["qs"][first : first + count],

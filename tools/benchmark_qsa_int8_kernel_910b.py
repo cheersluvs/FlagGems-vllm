@@ -165,10 +165,20 @@ def run_case(args):
                     plan["starts"],
                     key_group4=args.key_group4_dispatch,
                     single_page64=args.single_page64_dispatch,
+                    skip_invisible=args.skip_invisible_dispatch,
                 )
                 result["shared_map_dispatch"] = dict(
                     preparation_ms=adapter.preparation_ms,
                     query16_enabled=args.query16_dispatch,
+                    skip_invisible_enabled=args.skip_invisible_dispatch,
+                    skip_invisible_chunks=sum(
+                        r.get("skip_invisible", False) for r in adapter.route_checks
+                    ),
+                    score_comparator=(
+                        "current_query16"
+                        if args.skip_invisible_dispatch
+                        else "current_query4"
+                    ),
                     query16_chunks=sum(
                         r.get("query_group") == 16 for r in adapter.route_checks
                     ),
@@ -225,7 +235,7 @@ def run_case(args):
                     plan["starts"],
                     key_group4=True,
                     single_page64=True,
-                    query16=False,
+                    query16=args.skip_invisible_dispatch,
                 )
             if args.key_group4_dispatch and not args.single_page64_dispatch:
                 qk_adapter = PreparedSharedMapInt8Selection(
@@ -491,6 +501,7 @@ def run_case(args):
                     ),
                     key_group4=True,
                     single_page64=args.single_page64_dispatch,
+                    skip_invisible=args.skip_invisible_dispatch,
                 )
                 wanted = (
                     "legacy"
@@ -554,7 +565,11 @@ def run_case(args):
                 if args.query16_dispatch and adapter.query16_routes.get(
                     (first, count), False
                 ):
-                    route = "single_page64_query16"
+                    route = (
+                        "single_page64_skip_invisible"
+                        if args.skip_invisible_dispatch
+                        else "single_page64_query16"
+                    )
                     if "tensor<64x128xi8>" not in kernel.asm["bcmlir"]:
                         raise AssertionError("Query16 M64 compiler contract missing")
                 if route not in route_artifacts:
@@ -565,7 +580,23 @@ def run_case(args):
                                 kernel.asm[key]
                             )
                     candidate_ir = kernel.asm["ttir"]
-                    if len(re.findall(r"\btt\.store\b", candidate_ir)) != 1 or not any(
+                    if route == "single_page64_skip_invisible":
+                        headers = [
+                            line.strip()
+                            for line in candidate_ir.splitlines()
+                            if "scf.for " in line
+                        ]
+                        if len(headers) < 3:
+                            raise AssertionError("Visibility and fill loops missing")
+                        result.setdefault("visibility_compiler", {})[route] = dict(
+                            loop_headers=headers, metadata=repr(kernel.metadata)
+                        )
+                    expected_stores = (
+                        2 if route == "single_page64_skip_invisible" else 1
+                    )
+                    if len(
+                        re.findall(r"\btt\.store\b", candidate_ir)
+                    ) != expected_stores or not any(
                         "tt.dot" in line and "xi8>" in line and "xi32>" in line
                         for line in candidate_ir.splitlines()
                     ):
@@ -596,7 +627,14 @@ def run_case(args):
         )
         result["no_debug_ir"] = dict(store_count=stores, int8_to_int32_dot=integer_dot)
         (report / f"{args.case}-score-no-debug-ttir.txt").write_text(ir)
-        if stores != 1 or not integer_dot:
+        first_key = chunks[0]
+        expected_stores = (
+            2
+            if args.skip_invisible_dispatch
+            and adapter.query16_routes.get(first_key, False)
+            else 1
+        )
+        if stores != expected_stores or not integer_dot:
             raise AssertionError("No-debug INT8 score IR contract failed")
         result["correctness"]["score"] = check_scores()
         if args.shared_map_qk:
@@ -887,7 +925,14 @@ def main():
         action="store_true",
         help="Restricted N64 M64 query16 candidate; compare against current N64 dispatch",
     )
+    parser.add_argument(
+        "--skip-invisible-dispatch",
+        action="store_true",
+        help="Bound N64/query16 dot loops by visibility, including dense -inf fill; compare current query16",
+    )
     args = parser.parse_args()
+    if args.skip_invisible_dispatch and not args.single_page64_dispatch:
+        parser.error("--skip-invisible-dispatch requires --single-page64-dispatch")
     if args.query16_dispatch and not args.single_page64_dispatch:
         parser.error("--query16-dispatch requires --single-page64-dispatch")
     # N64 entry now enables guarded query16 by default; retain the old flag.
@@ -945,6 +990,8 @@ def main():
             command.append("--shared-map-qk")
         if args.key_group4_dispatch:
             command.append("--key-group4-dispatch")
+        if args.skip_invisible_dispatch:
+            command.append("--skip-invisible-dispatch")
         if args.query16_dispatch:
             command.append("--query16-dispatch")
         if args.single_page64_dispatch:
