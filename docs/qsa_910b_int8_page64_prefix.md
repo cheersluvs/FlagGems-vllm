@@ -153,3 +153,39 @@ hardware attribution is fabricated. Terminal prints each metric's collection
 status and numeric statistics, plus the actual textual artifact inventory.
 Production, TopK, compiler and kernel source remain unchanged. The original
 prefix and Cube-boundary modes retain their previous defaults.
+
+## Static inner-loop unroll probe
+
+Hardware report41633e3a811e7f4c168b13b631a38fa04b80ecbb captured both current
+and raw INT32 arms. Current aic_mac_ratio0.015/0.018, aic_scalar_ratio0.356/0.365,
+aiv_scalar_ratio0.455/0.445. Removing FP32 scoring lowered vector activity but
+not latency; raw remained mixed mode. Pipeline counters overlap and do not
+prove a particular synchronization instruction is dominant. cube_utilization
+and MAC active ratio have different definitions; do not conflate them. The
+wheel exposed no lower textual assembly beyond available MLIR/source entries.
+
+--unroll-loop isolates exactly one source change: original inner
+range(KEY_TILES) becomes tl.static_range(KEY_TILES), with KEY_TILES8. Keep
+outer work ownership, N64/group8, Q/K layouts, bounded scalar page addressing,
+visibility masks and original full FP32 scoring. No page-offset recurrence,
+extra preparation, arithmetic reassociation or compiler flag is composed.
+AST checks require identity to the full clone after restoring this iterator.
+This is a diagnostic source variant; current and the trial adapter are unchanged.
+
+Use two arms, unrolled_full/current; compile/check/export/time and collect
+separate counters in one run for budget_exact/long100k. Require eight static
+dots/stores in expanded TTIR; record actual loads (20..28 allows reused table
+loads/common subexpressions) versus seven in current. Export lower artifacts,
+loop/copy/reduction counts, binary hash and resource metadata, including any
+workspace/code-size changes. Resource or compilation failure is a result,
+not a reason to silently alter tile sizes or disable buffering.
+
+Retain all-score preflight versus legacy, per-arm CPU/mask checks and 7-row
+partial query/key-block plus empty-group guarded tests. Compare all last timed
+unrolled/current scores. Named host/task gates require one device invocation
+per arm/window; code expansion must not be confused with eight launches.
+Two paired rounds, warmup2/active3. Print UNROLL_SPEEDUP_VS_CURRENT; hardware
+passes use the existing two-iteration collector, exact-kernel filtering and
+PipeUtilization availability gate. Use PipeUtilization/ArithmeticUtilization
+first to limit runtime, with optional memory groups supported. Counter-pass
+durations are not benchmark times. No TopK or full-input/native-overall claim.

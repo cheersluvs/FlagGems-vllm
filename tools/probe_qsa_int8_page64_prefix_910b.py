@@ -61,7 +61,9 @@ def build_source(arm):
     fn.name = f"_qsa_page64_prefix_{arm}"
     outer = next(n for n in fn.body if isinstance(n, ast.For))
     inner = next(n for n in outer.body if isinstance(n, ast.For))
-    if arm == "packed_full":
+    if arm == "unrolled_full":
+        inner.iter = ast.parse("tl.static_range(KEY_TILES)", mode="eval").body
+    elif arm == "packed_full":
         position = next(
             i
             for i, n in enumerate(inner.body)
@@ -205,6 +207,7 @@ def run_case(args):
             plan=plan,
         )
         result["cube_boundary"] = args.cube_boundary
+        result["unroll_loop"] = args.unroll_loop
         result["scope"] = (
             "Representative N64/group8 scoring prefixes; observable FP32 sinks and compiler rescheduling included; "
             "differences are not additive operation costs; no TopK/native stage timing"
@@ -213,6 +216,11 @@ def run_case(args):
             result["scope"] = (
                 "Representative N64 Cube boundary diagnostic; packed K excludes separately recorded preparation; "
                 "raw INT32/FP32 outputs write 4x bytes; no pure dot/layout/synchronization cost claim"
+            )
+        if args.unroll_loop:
+            result["scope"] = (
+                "Representative N64/group8 full-score static inner-loop unroll versus current; "
+                "same arithmetic/addressing/outputs; separate counter passes; no full-input/native claim"
             )
         scratch = torch.empty(
             (count, width), device=values["q"].device, dtype=torch.float32
@@ -386,13 +394,18 @@ def run_case(args):
                 "full": 7,
                 "current": 7,
                 "packed_full": 7,
+                "unrolled_full": 28,
                 "raw_i32": 4,
                 "raw_fp32": 4,
             }
             if (
-                dots != (0 if name == "loads" else 1)
-                or stores != 1
-                or loads != expected_loads[name]
+                dots != (8 if name == "unrolled_full" else 0 if name == "loads" else 1)
+                or stores != (8 if name == "unrolled_full" else 1)
+                or (
+                    not 20 <= loads <= 28
+                    if name == "unrolled_full"
+                    else loads != expected_loads[name]
+                )
             ):
                 raise AssertionError(
                     f"Prefix IR contract mismatch: {name}, dots={dots}, stores={stores}"
@@ -427,7 +440,11 @@ def run_case(args):
         for name in (
             ("packed_full", "full", "current")
             if args.cube_boundary
-            else ("current",) if args.hardware_boundary else ("full", "current")
+            else (
+                ("unrolled_full", "current")
+                if args.unroll_loop
+                else ("current",) if args.hardware_boundary else ("full", "current")
+            )
         ):
             if not torch.allclose(targets[name], reference, rtol=1e-3, atol=1e-3):
                 raise AssertionError(f"Full-chunk legacy mismatch: {name}")
@@ -503,6 +520,19 @@ def run_case(args):
         times = {
             name: v["kernel_us"]["median"] for name, v in result["latency"].items()
         }
+        if args.unroll_loop:
+            if not torch.allclose(
+                targets["unrolled_full"], targets["current"], rtol=1e-3, atol=1e-3
+            ):
+                raise AssertionError("Last timed unrolled scores differ from current")
+            result["unroll_speedup_vs_current"] = (
+                times["current"] / times["unrolled_full"]
+            )
+            print(
+                "UNROLL_SPEEDUP_VS_CURRENT",
+                result["unroll_speedup_vs_current"],
+                flush=True,
+            )
         if args.cube_boundary:
             result["boundary_comparisons"] = dict(
                 packed_full_vs_current=times["current"] / times["packed_full"],
@@ -524,7 +554,7 @@ def run_case(args):
             f"{b}_minus_{a}": times[b] - times[a]
             for a, b in (
                 []
-                if args.cube_boundary or args.hardware_boundary
+                if args.cube_boundary or args.hardware_boundary or args.unroll_loop
                 else zip(ARMS[:4], ARMS[1:5])
             )
         }
@@ -540,7 +570,7 @@ def run_case(args):
             flush=True,
         )
         result["status"], code = "passed", 0
-        if args.hardware_boundary:
+        if args.hardware_boundary or args.unroll_loop:
             from profile_qsa_int8_score_910b import summarize_tables
             from qsa_timeline_910b import collect_hardware
 
@@ -682,15 +712,22 @@ def main():
         default=["PipeUtilization", "ArithmeticUtilization", "Memory"],
     )
     parser.add_argument("--counter-iterations", type=int, default=2)
+    parser.add_argument(
+        "--unroll-loop",
+        action="store_true",
+        help="Static-unroll eight N64 tiles; full scores, timing and counter comparison",
+    )
     args = parser.parse_args()
-    if args.hardware_boundary and args.cube_boundary:
-        parser.error("--hardware-boundary and --cube-boundary are separate modes")
+    if sum((args.hardware_boundary, args.cube_boundary, args.unroll_loop)) > 1:
+        parser.error("Choose one boundary/unroll mode")
     if args.counter_iterations < 1:
         parser.error("Positive counter iterations required")
-    if args.hardware_boundary:
+    if args.hardware_boundary or args.unroll_loop:
         if "PipeUtilization" not in args.metrics:
             parser.error("Hardware mode requires PipeUtilization")
-        ARMS = ("raw_i32", "current")
+        ARMS = (
+            ("unrolled_full", "current") if args.unroll_loop else ("raw_i32", "current")
+        )
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
@@ -723,10 +760,10 @@ def main():
         ]
         if args.cube_boundary:
             command.append("--cube-boundary")
-        if args.hardware_boundary:
+        if args.hardware_boundary or args.unroll_loop:
             command.extend(
                 [
-                    "--hardware-boundary",
+                    "--unroll-loop" if args.unroll_loop else "--hardware-boundary",
                     "--counter-iterations",
                     str(args.counter_iterations),
                     "--metrics",
