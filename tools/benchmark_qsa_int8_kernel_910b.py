@@ -156,12 +156,6 @@ def run_case(args):
                 )
 
                 CandidateSelection = PreparedSharedMapInt8Selection
-                if args.query16_dispatch:
-                    from qsa_int8_page64_query16_910b_trial import (
-                        PreparedQuery16Int8Selection,
-                    )
-
-                    CandidateSelection = PreparedQuery16Int8Selection
                 adapter = CandidateSelection(
                     values,
                     output,
@@ -230,7 +224,8 @@ def run_case(args):
                     topk,
                     plan["starts"],
                     key_group4=True,
-                    single_page64=args.query16_dispatch,
+                    single_page64=True,
+                    query16=False,
                 )
             if args.key_group4_dispatch and not args.single_page64_dispatch:
                 qk_adapter = PreparedSharedMapInt8Selection(
@@ -895,6 +890,8 @@ def main():
     args = parser.parse_args()
     if args.query16_dispatch and not args.single_page64_dispatch:
         parser.error("--query16-dispatch requires --single-page64-dispatch")
+    # N64 entry now enables guarded query16 by default; retain the old flag.
+    args.query16_dispatch = args.single_page64_dispatch
     if args.single_page64_dispatch and not args.key_group4_dispatch:
         parser.error("--single-page64-dispatch requires --key-group4-dispatch")
     if args.key_group4_dispatch and not args.shared_map_qk:

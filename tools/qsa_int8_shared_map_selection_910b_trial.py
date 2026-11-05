@@ -14,11 +14,13 @@
 
 """Prepared immutable-input QK scoring with per-chunk shared-map fallback."""
 
+import bisect
 import time
 
 import torch
 import triton
 from qsa_int8_query_pack4_910b import (
+    _qsa_page64_query16_score,
     _qsa_qk_key_group_score,
     _qsa_qk_single_page_score,
     _qsa_query_pack4_score,
@@ -44,6 +46,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         request_starts,
         key_group4=False,
         single_page64=False,
+        query16=True,
     ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)
@@ -87,9 +90,35 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                     ),
                 )
             )
+        self.query16_routes = {}
+        for entry in self.route_checks:
+            (first, count) = (entry["first"], entry["count"])
+            eligible = query16 and self.single_page64 and entry["shared"]
+            reason = "Current route retained"
+            if eligible:
+                for base in range(first, first + count, 16):
+                    owner = bisect.bisect_right(starts, base) - 1
+                    if any(
+                        (
+                            table[row] != table[base]
+                            or bisect.bisect_right(starts, row) - 1 != owner
+                            for row in range(base, min(base + 16, first + count))
+                        )
+                    ):
+                        eligible = False
+                        reason = "Sixteen-query group crosses request or page mapping"
+                        break
+            self.query16_routes[first, count] = eligible
+            entry["query_group"] = 16 if eligible else 4
+            entry["query16_reason"] = (
+                "Shared mapping and request owner proven" if eligible else reason
+            )
+
         self.preparation_ms = (time.perf_counter() - started) * 1000
 
     def score_into(self, first, count, target):
+        if self.query16_routes.get((first, count), False):
+            return self._score_query16(first, count, target)
         if not self.shared_routes.get((first, count), False):
             return super().score_into(first, count, target)
         if (
@@ -146,5 +175,33 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             STORE_MODE=1,
             FLAT_QUERY=True,
             QUERY_LEFT=True,
+            num_warps=4,
+        )
+
+    def _score_query16(self, first, count, target):
+        if (
+            target.shape != (count, self.width)
+            or target.dtype != torch.float32
+            or target.device != self.scratch.device
+            or (not target.is_contiguous())
+        ):
+            raise ValueError("Contiguous FP32 score target required")
+        v = self.values
+        blocks = triton.cdiv(triton.cdiv(self.width, 64), 8)
+        return _qsa_page64_query16_score[min(20, triton.cdiv(count, 16) * blocks),](
+            v["q"][first : first + count],
+            v["cache"],
+            v["qs"][first : first + count],
+            v["ks"],
+            v["weights"][first : first + count],
+            v["row_table"][first : first + count],
+            v["visible"][first : first + count],
+            target,
+            ROWS=count,
+            COLUMNS=v["row_table"].shape[1],
+            WIDTH=self.width,
+            PAGE=192,
+            BLOCK_N=64,
+            KEY_TILES=8,
             num_warps=4,
         )

@@ -235,3 +235,26 @@ checks cover nineteen-row tails and groups safe for four queries but unsafe
 for sixteen. Candidate M64 IR and fallback route artifacts are exported in
 this same run. Local AST equivalence, mocked route guards, lint, Python
 compilation and CLI checks passed; device execution remains pending.
+
+## Integrated query16 entry (2026-11-05)
+
+Independent full-input replay `2931dfec4e3cd11d913428fdf7978fed9e3d44d4`
+confirmed budget_exact/two_balanced/long100k score speedups of
+3.2266x/3.0688x/3.2949x. Candidate two-round score ranges were
+0.0165%/0.1555%/0.0279%; all-chunk maximum score error was 1.5259e-5.
+
+The tested M64 kernel now lives in `qsa_int8_query_pack4_910b.py`.
+`PreparedSharedMapInt8Selection` enables proven query16 routes by default
+for N64 chunks, reusing its existing CPU table copy. `query16=False` retains
+the old four-query entry for paired measurements. The former candidate class
+is only a compatibility subclass. This remains an unregistered prepared INT8
+entry; preparation is outside device timing and requires immutable inputs.
+
+Run the full ten-shape benchmark with `--integrated --shared-map-qk
+--key-group4-dispatch --single-page64-dispatch`; no candidate switch is needed.
+The old `--query16-dispatch` spelling remains accepted. All-chunk score and
+selection checks, route boundary checks and IR export run before stage timing.
+Local checks establish kernel AST equivalence to the device-tested candidate,
+shared-map/owner guards, partial groups, explicit opt-out, unknown-chunk
+fallback and one CPU metadata copy. NPU validation of the integrated entry
+is pending this run.
