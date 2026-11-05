@@ -33,7 +33,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from benchmark_qsa_int8_kernel_910b import snapshot  # noqa: E402
-from probe_qsa_int8_ten_shapes_910b import PLANS, run_child  # noqa: E402
+from probe_qsa_int8_ten_shapes_910b import (  # noqa: E402
+    PLANS,
+    run_child,
+    selected_scores,
+    verify_structure,
+)
 from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan  # noqa: E402
 from qsa_int8_trace_timer_910b import setup_trace  # noqa: E402
 from qsa_kernel_benchmark_910b import aggregate  # noqa: E402
@@ -49,6 +54,7 @@ CURRENT_PREFIX_LOADS = dict(
     loads=7, dot=4, query_scaled=5, dequant=6, relu=6, current=7
 )
 CURRENT_PREFIX_ARMS = tuple(CURRENT_PREFIX_LOADS)
+SCALE_ORDER_ARMS = ("late_key_scale", "current", "combine_query_weight")
 
 
 def build_current_prefix(kernel, arm):
@@ -70,6 +76,29 @@ def build_current_prefix(kernel, arm):
         for i, node in enumerate(tile.body)
         if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
     }
+    if arm in ("late_key_scale", "combine_query_weight"):
+        if arm == "late_key_scale":
+            suffix = """
+dequant = dot.to(tl.float32) * query_scale[:, None]
+weighted = tl.maximum(dequant, 0.0) * weights[:, None]
+scores = tl.sum(tl.reshape(weighted, (16, 4, BLOCK_N)), axis=1)
+scores = scores * key_scale[None, :]
+"""
+        else:
+            unit.body.insert(
+                unit.body.index(page),
+                ast.parse("coefficient = query_scale * weights").body[0],
+            )
+            suffix = """
+dequant = dot.to(tl.float32) * key_scale[None, :]
+weighted = tl.maximum(dequant, 0.0) * coefficient[:, None]
+scores = tl.sum(tl.reshape(weighted, (16, 4, BLOCK_N)), axis=1)
+"""
+        tile.body[assignments["dequant"] : assignments["live"]] = ast.parse(suffix).body
+        return (
+            "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+        )
+
     cutoff, value = {
         "loads": (
             "key_scale",
@@ -381,7 +410,9 @@ def load_kernels(report, case, current=None):
     result = {}
     directory = report / "generated-prefixes"
     directory.mkdir(exist_ok=True)
-    for arm in ARMS[:-1]:
+    for arm in ARMS:
+        if arm == "current":
+            continue
         source = (
             build_current_prefix(current.fn.__name__, arm)
             if current
@@ -437,6 +468,14 @@ def run_case(args):
             raise NotImplementedError("910B required")
         plan = PLANS[args.case]
         inputs = make_inputs(plan)
+        if args.scale_order:
+            for name in ("qs", "ks"):
+                scale = inputs[name]
+                if not bool((torch.isfinite(scale) & (scale >= 0)).all()):
+                    raise ValueError(
+                        f"Scale-order probe requires finite nonnegative {name}"
+                    )
+            result["scale_order_preconditions"] = dict(qs=True, ks=True)
         values = {k: v.to(f"npu:{args.device}") for k, v in inputs.items()}
         rows, width, chunk = (
             plan["q_shape"][0],
@@ -583,6 +622,11 @@ def run_case(args):
                 "Current page-reuse chunk prefixes with observable FP32 sinks. "
                 "Diagnostic differences include compiler rescheduling and are not additive operation costs."
             )
+            if args.scale_order:
+                result["scope"] = (
+                    "Independent FP32 scale-order variants on one current chunk. "
+                    "TopK is checked outside the score-only timing windows."
+                )
             print("CURRENT_PAGE_ROUTE", json.dumps(route), flush=True)
         kernels = load_kernels(report, args.case, current)
         if args.skip_invisible:
@@ -825,7 +869,7 @@ def run_case(args):
             }
             if current is not None:
                 if (
-                    loads != CURRENT_PREFIX_LOADS[name]
+                    loads != (7 if args.scale_order else CURRENT_PREFIX_LOADS[name])
                     or dots != int(name != "loads")
                     or stores != (2 if bounded else 1)
                     or ttir.count("scf.for ") < (4 if bounded else 3)
@@ -897,7 +941,7 @@ def run_case(args):
         adapter.score_into(first, count, reference)
         for name in (
             ARMS
-            if args.query_pack_sweep or args.skip_invisible
+            if args.query_pack_sweep or args.skip_invisible or args.scale_order
             else (
                 ("packed_full", "full", "current")
                 if args.cube_boundary
@@ -915,6 +959,50 @@ def run_case(args):
             if not torch.allclose(targets[name], reference, rtol=1e-3, atol=1e-3):
                 raise AssertionError(f"Full-chunk legacy mismatch: {name}")
         result["full_chunk_vs_legacy"] = True
+
+        def check_scale_order():
+            expected = targets["current"]
+            lengths = inputs["visible"][first : first + count]
+            indices = {}
+            ordered = {}
+            for name in ARMS:
+                if not torch.allclose(targets[name], expected, rtol=1e-3, atol=1e-3):
+                    raise AssertionError(
+                        f"Scale-order scores differ from current: {name}"
+                    )
+                current_adapter.select_chunk(first, targets[name])
+                indices[name] = output[first : first + count].cpu()
+                ordered[name] = verify_structure(indices[name], lengths)
+            current_scores = selected_scores(
+                expected, indices["current"].to(expected.device), indices["current"]
+            )
+            checks = {}
+            for name in ARMS:
+                if name == "current":
+                    continue
+                scores = selected_scores(
+                    expected, indices[name].to(expected.device), indices[name]
+                )
+                checks[name] = dict(
+                    exact_index_order=torch.equal(indices[name], indices["current"]),
+                    identical_index_set_rows=int(
+                        (ordered[name] == ordered["current"]).all(dim=1).sum()
+                    ),
+                    rows=count,
+                    selected_scores_match=torch.allclose(
+                        scores, current_scores, rtol=1e-3, atol=1e-3
+                    ),
+                )
+                if not checks[name]["selected_scores_match"]:
+                    raise AssertionError(f"Selected scores differ from current: {name}")
+            return checks
+
+        if args.scale_order:
+            from qsa_prefill_pipeline_910b_trial import load_topk
+
+            current_adapter.topk = load_topk()
+            result["topk_precheck"] = check_scale_order()
+
         # Seven rows exercise partial query groups, partial key blocks and an empty group.
         result["tail_checks"] = []
         for empty in (False, True):
@@ -985,6 +1073,9 @@ def run_case(args):
         result["postchecks"] = {
             name: check(name, targets[name], first, count, width) for name in ARMS
         }
+        if args.scale_order:
+            result["topk_postcheck"] = check_scale_order()
+            print("SCALE_ORDER_TOPK", json.dumps(result["topk_postcheck"]), flush=True)
         if "full" in targets and not torch.allclose(
             targets["full"], targets["current"], rtol=1e-3, atol=1e-3
         ):
@@ -1062,6 +1153,7 @@ def run_case(args):
                 or args.unroll_loop
                 or args.query_pack_sweep
                 or args.skip_invisible
+                or args.scale_order
                 else (
                     zip(ARMS, ARMS[1:])
                     if args.current_page_prefix
@@ -1069,6 +1161,17 @@ def run_case(args):
                 )
             )
         }
+        if args.scale_order:
+            result["scale_order_speedup_vs_current"] = {
+                name: times["current"] / times[name]
+                for name in ARMS
+                if name != "current"
+            }
+            print(
+                "SCALE_ORDER_SPEEDUP_VS_CURRENT",
+                json.dumps(result["scale_order_speedup_vs_current"]),
+                flush=True,
+            )
         print("arm | kernel_us | relative_to_current", flush=True)
         for name in ARMS:
             print(
@@ -1267,7 +1370,14 @@ def main():
         action="store_true",
         help="Cut the current bounded/full page-reuse scorers on the profiled chunks",
     )
+    parser.add_argument(
+        "--scale-order",
+        action="store_true",
+        help="Compare independent scale-order variants with the current page scorer",
+    )
     args = parser.parse_args()
+    if args.scale_order and not args.current_page_prefix:
+        parser.error("--scale-order requires --current-page-prefix")
     if args.current_page_prefix and any(
         case not in CASES
         for case in ([args.case] if args.case else args.cases or CASES)
@@ -1318,7 +1428,7 @@ def main():
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if args.current_page_prefix:
-        ARMS = CURRENT_PREFIX_ARMS
+        ARMS = SCALE_ORDER_ARMS if args.scale_order else CURRENT_PREFIX_ARMS
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations required")
     report = Path(args.report)
@@ -1349,6 +1459,8 @@ def main():
         ]
         if args.current_page_prefix:
             command.append("--current-page-prefix")
+        if args.scale_order:
+            command.append("--scale-order")
         if args.page_prefetch:
             command.append("--page-prefetch")
         if args.page_reuse_full:
