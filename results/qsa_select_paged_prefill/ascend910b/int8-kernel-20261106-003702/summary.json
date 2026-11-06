@@ -1,0 +1,3874 @@
+{
+  "exit_code": 0,
+  "cases": [
+    {
+      "case": "int8_budget_exact",
+      "status": "passed",
+      "mode": "kernel",
+      "geometry": {
+        "name": "int8_budget_exact",
+        "nv_case": "fp8_budget_exact_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          16384
+        ],
+        "starts": [
+          0,
+          16384
+        ],
+        "batch_max_seq_len": 32768,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          43
+        ],
+        "physical_pages": 43,
+        "table_columns": 43,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          43,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8192,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 20971520,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device": "Ascend910B4-1",
+        "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU",
+        "topk_route_requested": "auto",
+        "device_isolation": "not_verified"
+      },
+      "measurement_scope": "Prepared inputs; sum of device kernel durations, not public production entry",
+      "stage": "completed",
+      "memory": {
+        "benchmark_only_full_logits_bytes": 536870912,
+        "bounded_score_scratch_bytes": 4194304,
+        "raw_dot_allocation_bytes": 0,
+        "free_before_staging": 65028214784,
+        "total": 65452113920
+      },
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-bounded-weight.6eILuLof/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+        "utility": "/tmp/flaggems-qsa-bounded-weight.6eILuLof/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "dispatch": {
+        "score_chunk_rows": 128,
+        "topk_call_rows": 32,
+        "topk_block": 256,
+        "score_calls": 128,
+        "topk_calls": 512,
+        "native_full_calls": 1,
+        "native_chunked_calls": 0,
+        "score_grid": 20,
+        "score_block_n": 64,
+        "debug_store": false,
+        "score_block_ns": [
+          64
+        ]
+      },
+      "shared_map_dispatch": {
+        "preparation_ms": 44.71599496901035,
+        "query16_enabled": true,
+        "skip_invisible_enabled": true,
+        "page_reuse_enabled": true,
+        "page_reuse_full_enabled": true,
+        "page_reuse_chunks": 128,
+        "visibility_policy": "conservative",
+        "skip_invisible_chunks": 96,
+        "score_comparator": "current_visibility",
+        "query16_chunks": 128,
+        "group4_enabled": true,
+        "single_page64_enabled": true,
+        "single_page64_min_width": 8192,
+        "single_page64_chunks": 128,
+        "group4_min_key_tiles": 16,
+        "group4_chunks": 0,
+        "plain_qk_chunks": 0,
+        "preparation_in_kernel_timing": false,
+        "immutable_inputs_required": true,
+        "qk_chunks": 128,
+        "fallback_chunks": 0,
+        "routes": [
+          {
+            "first": 0,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 520,
+              "skipped_tiles": 504,
+              "skipped_fraction": 0.4921875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 128,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 520,
+              "skipped_tiles": 504,
+              "skipped_fraction": 0.4921875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 256,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 528,
+              "skipped_tiles": 496,
+              "skipped_fraction": 0.484375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 384,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 528,
+              "skipped_tiles": 496,
+              "skipped_fraction": 0.484375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 512,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 536,
+              "skipped_tiles": 488,
+              "skipped_fraction": 0.4765625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 640,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 536,
+              "skipped_tiles": 488,
+              "skipped_fraction": 0.4765625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 768,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 544,
+              "skipped_tiles": 480,
+              "skipped_fraction": 0.46875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 896,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 544,
+              "skipped_tiles": 480,
+              "skipped_fraction": 0.46875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 1024,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 552,
+              "skipped_tiles": 472,
+              "skipped_fraction": 0.4609375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 1152,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 552,
+              "skipped_tiles": 472,
+              "skipped_fraction": 0.4609375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 1280,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 560,
+              "skipped_tiles": 464,
+              "skipped_fraction": 0.453125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 1408,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 560,
+              "skipped_tiles": 464,
+              "skipped_fraction": 0.453125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 1536,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 568,
+              "skipped_tiles": 456,
+              "skipped_fraction": 0.4453125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 1664,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 568,
+              "skipped_tiles": 456,
+              "skipped_fraction": 0.4453125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 1792,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 576,
+              "skipped_tiles": 448,
+              "skipped_fraction": 0.4375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 1920,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 576,
+              "skipped_tiles": 448,
+              "skipped_fraction": 0.4375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 2048,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 584,
+              "skipped_tiles": 440,
+              "skipped_fraction": 0.4296875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 2176,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 584,
+              "skipped_tiles": 440,
+              "skipped_fraction": 0.4296875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 2304,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 592,
+              "skipped_tiles": 432,
+              "skipped_fraction": 0.421875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 2432,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 592,
+              "skipped_tiles": 432,
+              "skipped_fraction": 0.421875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 2560,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 600,
+              "skipped_tiles": 424,
+              "skipped_fraction": 0.4140625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 2688,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 600,
+              "skipped_tiles": 424,
+              "skipped_fraction": 0.4140625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 2816,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 608,
+              "skipped_tiles": 416,
+              "skipped_fraction": 0.40625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 2944,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 608,
+              "skipped_tiles": 416,
+              "skipped_fraction": 0.40625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 3072,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 616,
+              "skipped_tiles": 408,
+              "skipped_fraction": 0.3984375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 3200,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 616,
+              "skipped_tiles": 408,
+              "skipped_fraction": 0.3984375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 3328,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 624,
+              "skipped_tiles": 400,
+              "skipped_fraction": 0.390625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 3456,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 624,
+              "skipped_tiles": 400,
+              "skipped_fraction": 0.390625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 3584,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 632,
+              "skipped_tiles": 392,
+              "skipped_fraction": 0.3828125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 3712,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 632,
+              "skipped_tiles": 392,
+              "skipped_fraction": 0.3828125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 3840,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 640,
+              "skipped_tiles": 384,
+              "skipped_fraction": 0.375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 3968,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 640,
+              "skipped_tiles": 384,
+              "skipped_fraction": 0.375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 4096,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 648,
+              "skipped_tiles": 376,
+              "skipped_fraction": 0.3671875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 4224,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 648,
+              "skipped_tiles": 376,
+              "skipped_fraction": 0.3671875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 4352,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 656,
+              "skipped_tiles": 368,
+              "skipped_fraction": 0.359375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 4480,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 656,
+              "skipped_tiles": 368,
+              "skipped_fraction": 0.359375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 4608,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 664,
+              "skipped_tiles": 360,
+              "skipped_fraction": 0.3515625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 4736,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 664,
+              "skipped_tiles": 360,
+              "skipped_fraction": 0.3515625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 4864,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 672,
+              "skipped_tiles": 352,
+              "skipped_fraction": 0.34375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 4992,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 672,
+              "skipped_tiles": 352,
+              "skipped_fraction": 0.34375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 5120,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 680,
+              "skipped_tiles": 344,
+              "skipped_fraction": 0.3359375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 5248,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 680,
+              "skipped_tiles": 344,
+              "skipped_fraction": 0.3359375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 5376,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 688,
+              "skipped_tiles": 336,
+              "skipped_fraction": 0.328125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 5504,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 688,
+              "skipped_tiles": 336,
+              "skipped_fraction": 0.328125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 5632,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 696,
+              "skipped_tiles": 328,
+              "skipped_fraction": 0.3203125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 5760,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 696,
+              "skipped_tiles": 328,
+              "skipped_fraction": 0.3203125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 5888,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 704,
+              "skipped_tiles": 320,
+              "skipped_fraction": 0.3125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 6016,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 704,
+              "skipped_tiles": 320,
+              "skipped_fraction": 0.3125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 6144,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 712,
+              "skipped_tiles": 312,
+              "skipped_fraction": 0.3046875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 6272,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 712,
+              "skipped_tiles": 312,
+              "skipped_fraction": 0.3046875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 6400,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 720,
+              "skipped_tiles": 304,
+              "skipped_fraction": 0.296875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 6528,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 720,
+              "skipped_tiles": 304,
+              "skipped_fraction": 0.296875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 6656,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 728,
+              "skipped_tiles": 296,
+              "skipped_fraction": 0.2890625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 6784,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 728,
+              "skipped_tiles": 296,
+              "skipped_fraction": 0.2890625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 6912,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 736,
+              "skipped_tiles": 288,
+              "skipped_fraction": 0.28125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 7040,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 736,
+              "skipped_tiles": 288,
+              "skipped_fraction": 0.28125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 7168,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 744,
+              "skipped_tiles": 280,
+              "skipped_fraction": 0.2734375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 7296,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 744,
+              "skipped_tiles": 280,
+              "skipped_fraction": 0.2734375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 7424,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 752,
+              "skipped_tiles": 272,
+              "skipped_fraction": 0.265625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 7552,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 752,
+              "skipped_tiles": 272,
+              "skipped_fraction": 0.265625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 7680,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 760,
+              "skipped_tiles": 264,
+              "skipped_fraction": 0.2578125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 7808,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 760,
+              "skipped_tiles": 264,
+              "skipped_fraction": 0.2578125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 7936,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 768,
+              "skipped_tiles": 256,
+              "skipped_fraction": 0.25,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 8064,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 768,
+              "skipped_tiles": 256,
+              "skipped_fraction": 0.25,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 8192,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 776,
+              "skipped_tiles": 248,
+              "skipped_fraction": 0.2421875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 8320,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 776,
+              "skipped_tiles": 248,
+              "skipped_fraction": 0.2421875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 8448,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 784,
+              "skipped_tiles": 240,
+              "skipped_fraction": 0.234375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 8576,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 784,
+              "skipped_tiles": 240,
+              "skipped_fraction": 0.234375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 8704,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 792,
+              "skipped_tiles": 232,
+              "skipped_fraction": 0.2265625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 8832,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 792,
+              "skipped_tiles": 232,
+              "skipped_fraction": 0.2265625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 8960,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 800,
+              "skipped_tiles": 224,
+              "skipped_fraction": 0.21875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 9088,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 800,
+              "skipped_tiles": 224,
+              "skipped_fraction": 0.21875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 9216,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 808,
+              "skipped_tiles": 216,
+              "skipped_fraction": 0.2109375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 9344,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 808,
+              "skipped_tiles": 216,
+              "skipped_fraction": 0.2109375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 9472,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 816,
+              "skipped_tiles": 208,
+              "skipped_fraction": 0.203125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 9600,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 816,
+              "skipped_tiles": 208,
+              "skipped_fraction": 0.203125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 9728,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 824,
+              "skipped_tiles": 200,
+              "skipped_fraction": 0.1953125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 9856,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 824,
+              "skipped_tiles": 200,
+              "skipped_fraction": 0.1953125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 9984,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 832,
+              "skipped_tiles": 192,
+              "skipped_fraction": 0.1875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 10112,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 832,
+              "skipped_tiles": 192,
+              "skipped_fraction": 0.1875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 10240,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 840,
+              "skipped_tiles": 184,
+              "skipped_fraction": 0.1796875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 10368,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 840,
+              "skipped_tiles": 184,
+              "skipped_fraction": 0.1796875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 10496,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 848,
+              "skipped_tiles": 176,
+              "skipped_fraction": 0.171875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 10624,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 848,
+              "skipped_tiles": 176,
+              "skipped_fraction": 0.171875,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 10752,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 856,
+              "skipped_tiles": 168,
+              "skipped_fraction": 0.1640625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 10880,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 856,
+              "skipped_tiles": 168,
+              "skipped_fraction": 0.1640625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 11008,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 864,
+              "skipped_tiles": 160,
+              "skipped_fraction": 0.15625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 11136,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 864,
+              "skipped_tiles": 160,
+              "skipped_fraction": 0.15625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 11264,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 872,
+              "skipped_tiles": 152,
+              "skipped_fraction": 0.1484375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 11392,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 872,
+              "skipped_tiles": 152,
+              "skipped_fraction": 0.1484375,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 11520,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 880,
+              "skipped_tiles": 144,
+              "skipped_fraction": 0.140625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 11648,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 880,
+              "skipped_tiles": 144,
+              "skipped_fraction": 0.140625,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 11776,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 888,
+              "skipped_tiles": 136,
+              "skipped_fraction": 0.1328125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 11904,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 888,
+              "skipped_tiles": 136,
+              "skipped_fraction": 0.1328125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 12032,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 896,
+              "skipped_tiles": 128,
+              "skipped_fraction": 0.125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 12160,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 896,
+              "skipped_tiles": 128,
+              "skipped_fraction": 0.125,
+              "selected": true,
+              "policy": "conservative"
+            },
+            "skip_invisible": true,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 12288,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 904,
+              "skipped_tiles": 120,
+              "skipped_fraction": 0.1171875,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 12416,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 904,
+              "skipped_tiles": 120,
+              "skipped_fraction": 0.1171875,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 12544,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 912,
+              "skipped_tiles": 112,
+              "skipped_fraction": 0.109375,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 12672,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 912,
+              "skipped_tiles": 112,
+              "skipped_fraction": 0.109375,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 12800,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 920,
+              "skipped_tiles": 104,
+              "skipped_fraction": 0.1015625,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 12928,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 920,
+              "skipped_tiles": 104,
+              "skipped_fraction": 0.1015625,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 13056,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 928,
+              "skipped_tiles": 96,
+              "skipped_fraction": 0.09375,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 13184,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 928,
+              "skipped_tiles": 96,
+              "skipped_fraction": 0.09375,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 13312,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 936,
+              "skipped_tiles": 88,
+              "skipped_fraction": 0.0859375,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 13440,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 936,
+              "skipped_tiles": 88,
+              "skipped_fraction": 0.0859375,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 13568,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 944,
+              "skipped_tiles": 80,
+              "skipped_fraction": 0.078125,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 13696,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 944,
+              "skipped_tiles": 80,
+              "skipped_fraction": 0.078125,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 13824,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 952,
+              "skipped_tiles": 72,
+              "skipped_fraction": 0.0703125,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 13952,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 952,
+              "skipped_tiles": 72,
+              "skipped_fraction": 0.0703125,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 14080,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 960,
+              "skipped_tiles": 64,
+              "skipped_fraction": 0.0625,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 14208,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 960,
+              "skipped_tiles": 64,
+              "skipped_fraction": 0.0625,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 14336,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 968,
+              "skipped_tiles": 56,
+              "skipped_fraction": 0.0546875,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 14464,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 968,
+              "skipped_tiles": 56,
+              "skipped_fraction": 0.0546875,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 14592,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 976,
+              "skipped_tiles": 48,
+              "skipped_fraction": 0.046875,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 14720,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 976,
+              "skipped_tiles": 48,
+              "skipped_fraction": 0.046875,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 14848,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 984,
+              "skipped_tiles": 40,
+              "skipped_fraction": 0.0390625,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 14976,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 984,
+              "skipped_tiles": 40,
+              "skipped_fraction": 0.0390625,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 15104,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 992,
+              "skipped_tiles": 32,
+              "skipped_fraction": 0.03125,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 15232,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 992,
+              "skipped_tiles": 32,
+              "skipped_fraction": 0.03125,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 15360,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 1000,
+              "skipped_tiles": 24,
+              "skipped_fraction": 0.0234375,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 15488,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 1000,
+              "skipped_tiles": 24,
+              "skipped_fraction": 0.0234375,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 15616,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 1008,
+              "skipped_tiles": 16,
+              "skipped_fraction": 0.015625,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 15744,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 1008,
+              "skipped_tiles": 16,
+              "skipped_fraction": 0.015625,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 15872,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 1016,
+              "skipped_tiles": 8,
+              "skipped_fraction": 0.0078125,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 16000,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 1016,
+              "skipped_tiles": 8,
+              "skipped_fraction": 0.0078125,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 16128,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 1024,
+              "skipped_tiles": 0,
+              "skipped_fraction": 0.0,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          },
+          {
+            "first": 16256,
+            "count": 128,
+            "shared": true,
+            "proof": {
+              "groups": 32,
+              "all_group_maps_equal": true,
+              "same_request_per_group": true
+            },
+            "route": "single_page64",
+            "visibility_tiles": {
+              "issued_tiles": 1024,
+              "useful_tiles": 1024,
+              "skipped_tiles": 0,
+              "skipped_fraction": 0.0,
+              "selected": false,
+              "policy": "conservative"
+            },
+            "skip_invisible": false,
+            "page_reuse": true,
+            "query_group": 16,
+            "query16_reason": "Shared mapping and request owner proven"
+          }
+        ],
+        "calibration": "Unchanged single-query scorer; candidate stages timed separately"
+      },
+      "visibility_policy_summary": {
+        "policy": "conservative",
+        "candidate_chunks": 128,
+        "selected_chunks": 96,
+        "issued_tiles": 131072,
+        "skipped_tiles": 32256,
+        "extra_visible_copy_in_preparation": true,
+        "thresholds_scope": "Candidate heuristic, not established optimum"
+      },
+      "bounded_query_weight": {
+        "hit_chunks": 96,
+        "chunks": 128,
+        "topk_pair": {
+          "rows": 16384,
+          "identical_set_rows": 16384,
+          "identical_order_rows": 16221,
+          "selected_scores_match": true
+        }
+      },
+      "integration": {
+        "entry": "qsa_int8_shared_map_selection_910b_trial.PreparedSharedMapInt8Selection.__call__",
+        "score_grid": 20,
+        "score_block_n": 64,
+        "topk_call_rows": 32,
+        "scope": "Prepared INT8 trial adapter; BF16 production unchanged"
+      },
+      "cpu_reference_rows": [
+        0,
+        127,
+        128,
+        8192,
+        16256,
+        16383
+      ],
+      "correctness": {
+        "score": {
+          "sampled_rows": [
+            0,
+            127,
+            128,
+            8192,
+            16256,
+            16383
+          ],
+          "max_abs_error": 7.62939453125e-06
+        },
+        "all_chunk_scores_vs_legacy": {
+          "chunks": 128,
+          "all_values_compared": true,
+          "max_abs_error": 1.52587890625e-05
+        },
+        "native_full_preflight": {
+          "all_rows_structure": true,
+          "rows": 16384,
+          "sampled_rows": [
+            0,
+            127,
+            128,
+            8192,
+            16256,
+            16383
+          ],
+          "selected_score_max_abs_error": 0.003814697265625
+        },
+        "topk": {
+          "indices": {
+            "all_rows_structure": true,
+            "rows": 16384,
+            "sampled_rows": [
+              0,
+              127,
+              128,
+              8192,
+              16256,
+              16383
+            ],
+            "selected_score_max_abs_error": 0.0
+          },
+          "paired": {
+            "all_rows_paired": true,
+            "rows": 16384,
+            "max_abs_error": 0.0219268798828125,
+            "rtol": 0.001,
+            "atol": 0.001
+          }
+        },
+        "combined": {
+          "indices": {
+            "all_rows_structure": true,
+            "rows": 16384,
+            "sampled_rows": [
+              0,
+              127,
+              128,
+              8192,
+              16256,
+              16383
+            ],
+            "selected_score_max_abs_error": 0.0
+          },
+          "paired": {
+            "all_rows_paired": true,
+            "rows": 16384,
+            "max_abs_error": 0.0219268798828125,
+            "rtol": 0.001,
+            "atol": 0.001
+          }
+        },
+        "post_interleaved_score": {
+          "last_chunk_checked": true,
+          "sampled": {
+            "sampled_rows": [
+              0,
+              127,
+              128,
+              8192,
+              16256,
+              16383
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        "post_native_fused": {
+          "indices": {
+            "all_rows_structure": true,
+            "rows": 16384,
+            "sampled_rows": [
+              0,
+              127,
+              128,
+              8192,
+              16256,
+              16383
+            ],
+            "selected_score_max_abs_error": 0.003814697265625
+          },
+          "paired": {
+            "all_rows_paired": true,
+            "rows": 16384,
+            "max_abs_error": 0.0219268798828125,
+            "rtol": 0.001,
+            "atol": 0.001
+          }
+        },
+        "post_combined": {
+          "indices": {
+            "all_rows_structure": true,
+            "rows": 16384,
+            "sampled_rows": [
+              0,
+              127,
+              128,
+              8192,
+              16256,
+              16383
+            ],
+            "selected_score_max_abs_error": 0.0
+          },
+          "paired": {
+            "all_rows_paired": true,
+            "rows": 16384,
+            "max_abs_error": 0.0219268798828125,
+            "rtol": 0.001,
+            "atol": 0.001
+          }
+        },
+        "post_topk": {
+          "indices": {
+            "all_rows_structure": true,
+            "rows": 16384,
+            "sampled_rows": [
+              0,
+              127,
+              128,
+              8192,
+              16256,
+              16383
+            ],
+            "selected_score_max_abs_error": 0.0
+          },
+          "paired": {
+            "all_rows_paired": true,
+            "rows": 16384,
+            "max_abs_error": 0.0219268798828125,
+            "rtol": 0.001,
+            "atol": 0.001
+          }
+        }
+      },
+      "group4_threshold_checks": [
+        {
+          "width": 1920,
+          "kind": "shared",
+          "route": "qk",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 1921,
+          "kind": "shared",
+          "route": "group4",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 2049,
+          "kind": "shared",
+          "route": "group4",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 1921,
+          "kind": "cross_request",
+          "route": "legacy",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 1921,
+          "kind": "unequal_map",
+          "route": "legacy",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 8191,
+          "kind": "shared",
+          "route": "group4",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 8192,
+          "kind": "shared",
+          "route": "single_page64",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 8193,
+          "kind": "shared",
+          "route": "single_page64",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 8192,
+          "kind": "cross_request",
+          "route": "legacy",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 8192,
+          "kind": "unequal_map",
+          "route": "legacy",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 8192,
+          "kind": "query16_cross_request",
+          "route": "single_page64",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        },
+        {
+          "width": 8192,
+          "kind": "query16_unequal_map",
+          "route": "single_page64",
+          "cpu": {
+            "rows": 19,
+            "all_chunk_score_masks_checked": true,
+            "cpu_reference_rows": [
+              0,
+              9,
+              18
+            ],
+            "max_abs_error": 7.62939453125e-06
+          }
+        }
+      ],
+      "visibility_compiler": {
+        "single_page64_page_reuse": {
+          "loop_headers": [
+            "scf.for %unit = %0 to %c128_i32 step %1  : i32 {",
+            "scf.for %page = %first_page to %2 step %c1_i32  : i32 {",
+            "scf.for %tile = %tile_begin_48 to %tile_end_50 step %c1_i32  : i32 {",
+            "scf.for %empty_tile = %active_tiles_42 to %c8_i32 step %c1_i32  : i32 {"
+          ],
+          "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='a2ab144718ffdffe333965a120170773ec805267a577a58ec4cac0f6c2e61c9e', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_combine_query_weight', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_combine_query_weight', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=16448)"
+        },
+        "single_page64_page_reuse_full": {
+          "loop_headers": [
+            "scf.for %unit = %0 to %c128_i32 step %1  : i32 {",
+            "scf.for %page = %first_page to %2 step %c1_i32  : i32 {",
+            "scf.for %tile = %tile_begin_40 to %tile_end_42 step %c1_i32  : i32 {"
+          ],
+          "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='4ff399d7e2c10ecbc43d5e016519a79af23594f4311df0760c3e4050d0aed68c', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_page_reuse_full_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_page_reuse_full_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=65600)"
+        }
+      },
+      "no_debug_ir": {
+        "store_count": 2,
+        "int8_to_int32_dot": true
+      },
+      "baseline_policy": {
+        "primary": "full native V1, one call",
+        "auxiliary": "omitted",
+        "no_fallback": true
+      },
+      "kernel_timer": {
+        "backend": "CPU+NPU Chrome trace with synchronized invocation windows",
+        "warmup": 1,
+        "active": 2,
+        "unit": "microseconds; sum of score device tasks per invocation",
+        "host_gaps_included": false,
+        "scope": "Exploratory device-task sums; all stage and native baselines rebuilt together; no host gaps",
+        "fallback": false,
+        "raw_traces_preserved": true,
+        "max_capture_attempts": 3,
+        "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+        "invocation_sum_check": {
+          "single": {
+            "kernel_us": 1772.7800000000002,
+            "active_invocation_us": [
+              1774.88,
+              1770.68
+            ],
+            "device_task_count": 2,
+            "host_launch_count": 2,
+            "artifact": "int8_budget_exact-timer-01.json.gz"
+          },
+          "triple": {
+            "kernel_us": 5310.6,
+            "active_invocation_us": [
+              5310.74,
+              5310.46
+            ],
+            "device_task_count": 6,
+            "host_launch_count": 6,
+            "artifact": "int8_budget_exact-timer-02.json.gz"
+          },
+          "ratio": 2.995633976015072
+        },
+        "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+        "prefix_plan_artifact": "int8_budget_exact-prefix-plan-01.json.gz"
+      },
+      "paired_score_identity": {
+        "same_chunk_binary_sequence": false,
+        "host_counts": {
+          "score": {
+            "_qsa_page64_prefix_combine_query_weight": 96,
+            "_qsa_page64_page_reuse_full_score": 32
+          },
+          "dispatch_score": {
+            "_qsa_page64_page_reuse_score": 96,
+            "_qsa_page64_page_reuse_full_score": 32
+          }
+        }
+      },
+      "single_capture_plan": [
+        {
+          "round": 0,
+          "arm": "score",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "dispatch_score",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "score",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "dispatch_score",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "dispatch_score",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "score",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "dispatch_score",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "score",
+          "active": 1
+        }
+      ],
+      "single_capture_counts": {
+        "expected_host_counts": {
+          "_qsa_page64_prefix_combine_query_weight": 384,
+          "_qsa_page64_page_reuse_full_score": 256,
+          "_qsa_page64_page_reuse_score": 384
+        },
+        "observed_host_counts": {
+          "_qsa_page64_prefix_combine_query_weight": 384,
+          "_qsa_page64_page_reuse_full_score": 256,
+          "_qsa_page64_page_reuse_score": 384
+        },
+        "tasks_per_window": [
+          128,
+          128,
+          128,
+          128,
+          128,
+          128,
+          128,
+          128
+        ],
+        "expected_tasks_per_window": [
+          128,
+          128,
+          128,
+          128,
+          128,
+          128,
+          128,
+          128
+        ]
+      },
+      "paired_score_order": [
+        [
+          "score",
+          "dispatch_score"
+        ],
+        [
+          "dispatch_score",
+          "score"
+        ]
+      ],
+      "samples": {
+        "score": [
+          {
+            "kernel_us": 13590.43,
+            "active_invocation_us": [
+              13589.419999999998,
+              13591.44
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              0,
+              2
+            ],
+            "device_task_count": 256
+          },
+          {
+            "kernel_us": 13588.719999999998,
+            "active_invocation_us": [
+              13587.359999999997,
+              13590.079999999996
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              5,
+              7
+            ],
+            "device_task_count": 256
+          }
+        ],
+        "dispatch_score": [
+          {
+            "kernel_us": 13995.669999999998,
+            "active_invocation_us": [
+              13993.519999999995,
+              13997.820000000002
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              1,
+              3
+            ],
+            "device_task_count": 256
+          },
+          {
+            "kernel_us": 14002.95,
+            "active_invocation_us": [
+              14005.180000000004,
+              14000.72
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              4,
+              6
+            ],
+            "device_task_count": 256
+          }
+        ],
+        "topk": [
+          {
+            "kernel_us": 15502.12000000001,
+            "active_invocation_us": [
+              15499.700000000019,
+              15504.54
+            ],
+            "device_task_count": 3072,
+            "tasks_per_invocation": [
+              1536,
+              1536
+            ],
+            "device_task_names_per_invocation": {
+              "_radix_hist_trivial_all": 512,
+              "_segmerge_seg_sort": 512,
+              "_segmerge_merge_unpack": 512
+            },
+            "artifact": "int8_budget_exact-stage-timer-03.json.gz",
+            "stage": "topk_stage"
+          },
+          {
+            "kernel_us": 15498.829999999998,
+            "active_invocation_us": [
+              15498.979999999992,
+              15498.680000000004
+            ],
+            "device_task_count": 3072,
+            "tasks_per_invocation": [
+              1536,
+              1536
+            ],
+            "device_task_names_per_invocation": {
+              "_radix_hist_trivial_all": 512,
+              "_segmerge_seg_sort": 512,
+              "_segmerge_merge_unpack": 512
+            },
+            "artifact": "int8_budget_exact-stage-timer-04.json.gz",
+            "stage": "topk_stage"
+          }
+        ],
+        "combined": [
+          {
+            "kernel_us": 29039.949999999946,
+            "active_invocation_us": [
+              29042.299999999967,
+              29037.59999999993
+            ],
+            "device_task_count": 3328,
+            "tasks_per_invocation": [
+              1664,
+              1664
+            ],
+            "device_task_names_per_invocation": {
+              "MIX_AIC": 128,
+              "_radix_hist_trivial_all": 512,
+              "_segmerge_seg_sort": 512,
+              "_segmerge_merge_unpack": 512
+            },
+            "artifact": "int8_budget_exact-stage-timer-02.json.gz",
+            "stage": "combined_stage"
+          },
+          {
+            "kernel_us": 29037.69999999996,
+            "active_invocation_us": [
+              29033.079999999973,
+              29042.319999999945
+            ],
+            "device_task_count": 3328,
+            "tasks_per_invocation": [
+              1664,
+              1664
+            ],
+            "device_task_names_per_invocation": {
+              "MIX_AIC": 128,
+              "_radix_hist_trivial_all": 512,
+              "_segmerge_seg_sort": 512,
+              "_segmerge_merge_unpack": 512
+            },
+            "artifact": "int8_budget_exact-stage-timer-05.json.gz",
+            "stage": "combined_stage"
+          }
+        ],
+        "native_fused": [
+          {
+            "kernel_us": 14269.23,
+            "active_invocation_us": [
+              14267.5,
+              14270.96
+            ],
+            "device_task_count": 2,
+            "tasks_per_invocation": [
+              1,
+              1
+            ],
+            "device_task_names_per_invocation": {
+              "QuantLightningIndexer": 1
+            },
+            "artifact": "int8_budget_exact-stage-timer-01.json.gz",
+            "stage": "native_stage"
+          },
+          {
+            "kernel_us": 14263.130000000001,
+            "active_invocation_us": [
+              14264.64,
+              14261.62
+            ],
+            "device_task_count": 2,
+            "tasks_per_invocation": [
+              1,
+              1
+            ],
+            "device_task_names_per_invocation": {
+              "QuantLightningIndexer": 1
+            },
+            "artifact": "int8_budget_exact-stage-timer-06.json.gz",
+            "stage": "native_stage"
+          }
+        ]
+      },
+      "measurement_order": [
+        [
+          "native_fused",
+          "combined",
+          "topk"
+        ],
+        [
+          "topk",
+          "combined",
+          "native_fused"
+        ]
+      ],
+      "latency": {
+        "score": {
+          "kernel_us": {
+            "median": 13589.574999999999,
+            "min": 13588.719999999998,
+            "max": 13590.43,
+            "range_over_median": 0.00012583174970540027
+          }
+        },
+        "dispatch_score": {
+          "kernel_us": {
+            "median": 13999.31,
+            "min": 13995.669999999998,
+            "max": 14002.95,
+            "range_over_median": 0.00052002562983479
+          }
+        },
+        "topk": {
+          "kernel_us": {
+            "median": 15500.475000000004,
+            "min": 15498.829999999998,
+            "max": 15502.12000000001,
+            "range_over_median": 0.00021225156003359808
+          }
+        },
+        "combined": {
+          "kernel_us": {
+            "median": 29038.824999999953,
+            "min": 29037.69999999996,
+            "max": 29039.949999999946,
+            "range_over_median": 7.748247389436218e-05
+          }
+        },
+        "native_fused": {
+          "kernel_us": {
+            "median": 14266.18,
+            "min": 14263.130000000001,
+            "max": 14269.23,
+            "range_over_median": 0.00042758467929035975
+          }
+        }
+      },
+      "speedup": {
+        "overall": 0.49127951974640927,
+        "auxiliary_chunked_native": null,
+        "score": null,
+        "topk": null
+      },
+      "score_speedup_vs_current_dispatch": 1.0301506853599174,
+      "native_split": {
+        "score_us": null,
+        "topk_us": null,
+        "reason": "Fused V1 API has no isolated stage entry"
+      },
+      "topk_state": {
+        "segmerge": {
+          "probed": true,
+          "usable": true
+        },
+        "persistent": {
+          "usable": true
+        }
+      },
+      "sources": {
+        "benchmark_qsa_int8_kernel_910b.py": "7a0bd3d49eb4c1b99accee90b73b21df9f9a523341cef4f180d416daf6cede55",
+        "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+        "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+        "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+        "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+        "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+        "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+        "qsa_int8_shared_map_selection_910b_trial.py": "82d602c9ae1e97d3c9629c145e23cb537d1f0c7a9affef602f0a805e02a1e4f7",
+        "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+        "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "qsa_int8_stage_trace_timer_910b.py": "3047bd02b8dda4d6c6604ef8e4ced29e5d96a2c3d69e09d511b48e887ff92cea",
+        "benchmark_qsa_prefill_stages_910b.py": "fade15f762a97c5e5136d20e7535014042a16d76ccfee645e1f2e83839cbb696",
+        "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+      },
+      "exit_code": 0,
+      "subprocess_exit_code": 0
+    }
+  ],
+  "all_ten_passed": false,
+  "arithmetic_mean_overall_speedup": null,
+  "scope": "Integrated prepared INT8 adapter; exploratory trace device sums; not public production API"
+}
