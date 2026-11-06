@@ -1,0 +1,122 @@
+msopprof (MindStudio Profiler For Operator) is part of MindStudio Operator-dev Tools.
+Used for Ascend C operator profiling by running on the board.
+
+Options:
+
+  -v, --version                             Show version information.
+  -h, --help                                Show help message.
+      --config=<FILE>                       Json file for op config path.
+      --application=<FILE>                  Executable file path.
+      --output=<PATH>                       Output path.
+                                              PATH:default "./"
+      --aic-metrics=<TYPE>                  Enable collection ability type:
+                                              TYPE:ArithmeticUtilization | MemoryUB | Memory | MemoryL0 | L2Cache |
+                                                | PipeUtilization | ResourceConflictRatio | Default | BasicInfo | Roofline |
+                                                | Occupancy | TimelineDetail | KernelScale | Source | MemoryDetail |
+      --kernel-name=<NAME>                  Specify the kernel name to profile.
+                                              Not effective in config mode.
+      --launch-count=<LIMIT>                Number of kernel that can be collected.
+                                              LIMIT:1-5000, default: 1
+      --launch-skip-before-match=<SKIP>     Set the number of kernel launch to skip
+                                              before starting to analyze the kernel.
+                                              SKIP:0-1000, default: 0
+      --replay-mode=<MODE>                  Data collection replay mode.
+                                              MODE:application|kernel|range, default: kernel
+      --kill=<SWITCH>                       Kill op process when the number of kernel reaches launch-count.
+                                              SWITCH:on|off, default: off
+      --mstx=<SWITCH>                       Enable mstx API or not.
+                                              SWITCH:on|off, default: off
+      --mstx-include=<RANGE>                Specify the mstx range for msprof op to be collected.
+      --warm-up=<TIMES>                     Set the number of warm up times.
+                                              TIMES:0-500, default: 5
+      --dump=<SWITCH>                       Enable or disable dump flushed to disk mode. Only effective when
+                                              --aic-metrics=<TIMELINEDETAIL>.
+                                              SWITCH:on|off, default: off
+      --core-id=<ID>                        Specify the id of cores to be parsed.
+                                              Only effective when --aic-metrics=<TIMELINEDETAIL> and only
+                                              effective in simulation products.
+      --custom-input=<FILE>                 Json file for op custom input.
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+SOL_WORK int8_budget_exact {"dot_tiles": 776, "active_dot_tiles": 776, "fully_invisible_dot_tiles": 0, "fill_only_tiles": 248, "executed_macs": 406847488, "useful_macs": 403685376, "tile_dot_result_logical_bytes": 12713984, "q_metadata_requested_bytes": 1089536, "k_scale_requested_bytes": 6408480, "page_lookup_sites_executed": 328, "score_write_bytes": 4194304, "unique_q_metadata_bytes": 68096, "unique_k_scale_bytes": 802880, "perfect_reuse_io_bytes": 5066336, "requested_io_bytes_upper": 11693632}
+SCORE_INSTRUCTION_ENTRY {"kernel": "_qsa_page64_page_reuse_score", "binary_sha256": "fb0e8f02f645f6b591111e2793469e3fad37db09ec34a103dbdcc278ed2b3015", "score_launches": 1}
+=================================================================
+                   >>>>>   MindStudio   <<<<<
+    THE END-TO-END TOOLCHAIN TO UNLEASH HUAWEI ASCEND COMPUTE
+=================================================================
+
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[WARN]  Currently, the root permission is used, which is unrecommended. Please ensure the security of the execution environment and programs.
+[INFO]  Op profiling analysis start.
+[INFO]  Running device task: DeviceProf
+SOL_WORK int8_budget_exact {"dot_tiles": 776, "active_dot_tiles": 776, "fully_invisible_dot_tiles": 0, "fill_only_tiles": 248, "executed_macs": 406847488, "useful_macs": 403685376, "tile_dot_result_logical_bytes": 12713984, "q_metadata_requested_bytes": 1089536, "k_scale_requested_bytes": 6408480, "page_lookup_sites_executed": 328, "score_write_bytes": 4194304, "unique_q_metadata_bytes": 68096, "unique_k_scale_bytes": 802880, "perfect_reuse_io_bytes": 5066336, "requested_io_bytes_upper": 11693632}
+[INFO] <ProfData> Start profiling on device 1, kernel: _qsa_page64_page_reuse_score_mix_aic
+[INFO] <WarmUp> Warm Up enabled. times:5
+[ERROR] <Save> Kernel context save failed, dump kernel args failed
+[WARN] <Launch> Msopt dump kernel failed
+SCORE_INSTRUCTION_ENTRY {"kernel": "_qsa_page64_page_reuse_score", "binary_sha256": "fb0e8f02f645f6b591111e2793469e3fad37db09ec34a103dbdcc278ed2b3015", "score_launches": 1}
+[INFO]  Profiling running finished. All task success.
+[INFO]  Start parse dump file
+[WARN]  Failed to get any available dump file to parse, please check
+[ERROR] Parse kernel data failed, kernel name is _qsa_page64_page_reuse_score_mix_aic, the order is 0
+[INFO]  Profiling results saved in /tmp/qsa-ascend910b-int8-score-instructions.F1x02VH2/int8_budget_exact/capture/OPPROF_20261106114149_SUATRQZTCGNPUPBN
+[WARN]  Profiling kernels result is: 0 success, 1 failed. Please check
+[INFO]  Start analyze kernel on device: device1, kernel: _qsa_page64_page_reuse_score_mix_aic, name is: 0
+[INFO]  Operator Basic Information:
+
+	Op Name: _qsa_page64_page_reuse_score_mix_aic
+	Op Type: mix
+	Task Duration(us): 111.602234
+	Block Dim: 20
+	Mix Block Dim: 40
+	Device Id: 1
+	Pid: 1356549
+	Current Freq: 1650
+	Rated Freq: 1650
+
+[INFO]  Profiling results saved in /tmp/qsa-ascend910b-int8-score-instructions.F1x02VH2/int8_budget_exact/capture/OPPROF_20261106114149_SUATRQZTCGNPUPBN
+[INFO]  Profiling data parse finished.
+[WARN]  TimelineDetail data collection failed
+[INFO]  Op profiling finish. Welcome to next use.
+SCORE_INSTRUCTIONS {"case": "int8_budget_exact", "reference_matches_historical_binary": true, "status": "capture_incomplete", "exit_code": 1, "profiled_binary_and_launch_match": true, "operator_table_matches": true, "file_count": 18, "evidence": [{"path": "OPPROF_20261106114149_SUATRQZTCGNPUPBN/visualize_data.bin", "bytes": 1566444, "archive": "int8_budget_exact-00-visualize_data.bin.gz"}]}
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+SOL_WORK int8_long100k {"dot_tiles": 3248, "active_dot_tiles": 3030, "fully_invisible_dot_tiles": 218, "fill_only_tiles": 0, "executed_macs": 1702887424, "useful_macs": 1586006016, "tile_dot_result_logical_bytes": 53215232, "q_metadata_requested_bytes": 3455872, "k_scale_requested_bytes": 25170600, "page_lookup_sites_executed": 1351, "score_write_bytes": 13303808, "unique_q_metadata_bytes": 59584, "unique_k_scale_bytes": 3597360, "perfect_reuse_io_bytes": 16964808, "requested_io_bytes_upper": 41935684}
+SCORE_INSTRUCTION_ENTRY {"kernel": "_qsa_page64_page_reuse_full_score", "binary_sha256": "39243371a6a2fe5af99548ba8d80a332389c79356f58f02a156608dd8c10a0f3", "score_launches": 1}
+=================================================================
+                   >>>>>   MindStudio   <<<<<
+    THE END-TO-END TOOLCHAIN TO UNLEASH HUAWEI ASCEND COMPUTE
+=================================================================
+
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[WARN]  Currently, the root permission is used, which is unrecommended. Please ensure the security of the execution environment and programs.
+[INFO]  Op profiling analysis start.
+[INFO]  Running device task: DeviceProf
+SOL_WORK int8_long100k {"dot_tiles": 3248, "active_dot_tiles": 3030, "fully_invisible_dot_tiles": 218, "fill_only_tiles": 0, "executed_macs": 1702887424, "useful_macs": 1586006016, "tile_dot_result_logical_bytes": 53215232, "q_metadata_requested_bytes": 3455872, "k_scale_requested_bytes": 25170600, "page_lookup_sites_executed": 1351, "score_write_bytes": 13303808, "unique_q_metadata_bytes": 59584, "unique_k_scale_bytes": 3597360, "perfect_reuse_io_bytes": 16964808, "requested_io_bytes_upper": 41935684}
+[INFO] <ProfData> Start profiling on device 1, kernel: _qsa_page64_page_reuse_full_score_mix_aic
+[INFO] <WarmUp> Warm Up enabled. times:5
+[ERROR] <Save> Kernel context save failed, dump kernel args failed
+[WARN] <Launch> Msopt dump kernel failed
+SCORE_INSTRUCTION_ENTRY {"kernel": "_qsa_page64_page_reuse_full_score", "binary_sha256": "39243371a6a2fe5af99548ba8d80a332389c79356f58f02a156608dd8c10a0f3", "score_launches": 1}
+[INFO]  Profiling running finished. All task success.
+[INFO]  Start parse dump file
+[WARN]  Failed to get any available dump file to parse, please check
+[ERROR] Parse kernel data failed, kernel name is _qsa_page64_page_reuse_full_score_mix_aic, the order is 0
+[INFO]  Profiling results saved in /tmp/qsa-ascend910b-int8-score-instructions.F1x02VH2/int8_long100k/capture/OPPROF_20261106114216_WNUCPHUDHEEWCXIY
+[WARN]  Profiling kernels result is: 0 success, 1 failed. Please check
+[INFO]  Start analyze kernel on device: device1, kernel: _qsa_page64_page_reuse_full_score_mix_aic, name is: 0
+[INFO]  Operator Basic Information:
+
+	Op Name: _qsa_page64_page_reuse_full_score_mix_aic
+	Op Type: mix
+	Task Duration(us): 312.746246
+	Block Dim: 20
+	Mix Block Dim: 40
+	Device Id: 1
+	Pid: 1360097
+	Current Freq: 1650
+	Rated Freq: 1650
+
+[INFO]  Profiling results saved in /tmp/qsa-ascend910b-int8-score-instructions.F1x02VH2/int8_long100k/capture/OPPROF_20261106114216_WNUCPHUDHEEWCXIY
+[INFO]  Profiling data parse finished.
+[WARN]  TimelineDetail data collection failed
+[INFO]  Op profiling finish. Welcome to next use.
+SCORE_INSTRUCTIONS {"case": "int8_long100k", "reference_matches_historical_binary": true, "status": "capture_incomplete", "exit_code": 1, "profiled_binary_and_launch_match": true, "operator_table_matches": true, "file_count": 18, "evidence": [{"path": "OPPROF_20261106114216_WNUCPHUDHEEWCXIY/visualize_data.bin", "bytes": 1566448, "archive": "int8_long100k-00-visualize_data.bin.gz"}]}
