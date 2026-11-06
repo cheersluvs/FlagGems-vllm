@@ -149,7 +149,11 @@ def run_case(args):
 
         root = os.getenv("QSA_ENV_ROOT")
         native = getattr(torch_npu, "npu_quant_lightning_indexer", None)
-        if not root or not torch.npu.is_available() or native is None:
+        if (
+            not root
+            or not torch.npu.is_available()
+            or (native is None and not args.group_visible_request_samples)
+        ):
             raise ModuleNotFoundError(
                 "Pinned NPU environment and native quant V1 required"
             )
@@ -192,6 +196,17 @@ def run_case(args):
                     "Bounded query-weight probe requires finite nonnegative QS"
                 )
         values = {key: value.to(f"npu:{args.device}") for key, value in inputs.items()}
+        if args.group_visible_request_samples:
+            from probe_qsa_int8_group_visible_request_910b import (
+                run_group_visible_request,
+            )
+
+            result["measurement_scope"] = (
+                "Current vs one-copy GroupVisible; paired score device time and fresh request wall time"
+            )
+            run_group_visible_request(args, result, inputs, values, plan, load_topk())
+            result["status"] = "passed"
+            return write_case_result(args, report, result, 0)
         rows, width, chunk = (
             plan["q_shape"][0],
             plan["logits_width"],
@@ -1323,6 +1338,8 @@ def write_case_result(args, report, result, code):
         "qsa_int8_stage_trace_timer_910b.py",
         "benchmark_qsa_prefill_stages_910b.py",
         "qsa_int8_trace_timer_910b.py",
+        "probe_qsa_int8_group_visible_request_910b.py",
+        "probe_qsa_int8_score_sol_910b.py",
     ):
         result.setdefault("sources", {})[name] = hashlib.sha256(
             (Path(__file__).parent / name).read_bytes()
@@ -1459,7 +1476,22 @@ def main():
         type=int,
         help="Compare dynamic with one binding plus N sequential calls, without stage tracing",
     )
+    parser.add_argument(
+        "--group-visible-request-samples",
+        type=int,
+        default=0,
+        help="Pair prepared device scores and fresh one-copy GroupVisible request wall time",
+    )
     args = parser.parse_args()
+    if args.group_visible_request_samples and (
+        args.group_visible_request_samples < 2
+        or args.bound_combined_samples
+        or args.audit_topk_boundary
+        or args.interleave_score
+    ):
+        parser.error(
+            "GroupVisible request mode requires at least two samples and its own timing path"
+        )
     if args.bound_reuse_counts:
         if (
             min(args.bound_reuse_counts) < 1
@@ -1538,7 +1570,12 @@ def main():
                 "Summary replay requires saved passed workers with zero subprocess exit codes"
             )
         return summarize(report, entries, [e["case"] for e in entries], args)
-    names = list(dict.fromkeys(args.cases or PLANS))
+    default_cases = (
+        ("int8_budget_exact", "int8_long100k", "int8_first_chunk")
+        if args.group_visible_request_samples
+        else PLANS
+    )
+    names = list(dict.fromkeys(args.cases or default_cases))
     snapshot(report, "before")
     entries = []
     for name in names:
@@ -1566,6 +1603,13 @@ def main():
         ]
         if args.include_request_preparation:
             command.append("--include-request-preparation")
+        if args.group_visible_request_samples:
+            command.extend(
+                [
+                    "--group-visible-request-samples",
+                    str(args.group_visible_request_samples),
+                ]
+            )
         if args.bound_reuse_counts:
             command.extend(["--bound-reuse-counts", *map(str, args.bound_reuse_counts)])
         if args.integrated:
@@ -1623,11 +1667,19 @@ def summarize(report, entries, names, args):
         if len(passed) == len(names)
         else (2 if all(e["status"] == "prerequisites_missing" for e in entries) else 1)
     )
-    if args.audit_topk_boundary or args.bound_reuse_counts:
+    if (
+        args.audit_topk_boundary
+        or args.bound_reuse_counts
+        or args.group_visible_request_samples
+    ):
         scope = (
             "TopK boundary audit only"
             if args.audit_topk_boundary
-            else "Sequential bound-reuse wall time only"
+            else (
+                "Sequential bound-reuse wall time only"
+                if args.bound_reuse_counts
+                else "GroupVisible score device timing and fresh request wall time"
+            )
         )
         (report / "summary.json").write_text(
             json.dumps(

@@ -79,6 +79,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         visibility_policy="conservative",
         page_reuse=True,
         page_reuse_full=True,
+        group_visible_kernels=None,
     ):
         started = time.perf_counter()
         super().__init__(values, output, scratch, workspace, topk)
@@ -136,7 +137,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         self.skip_invisible_routes = {}
         visible = values["visible"].cpu().tolist() if self.skip_invisible else None
         for entry in self.route_checks:
-            (first, count) = (entry["first"], entry["count"])
+            first, count = (entry["first"], entry["count"])
             eligible = query16 and self.single_page64 and entry["shared"]
             reason = "Current route retained"
             if eligible:
@@ -170,6 +171,37 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                 "Shared mapping and request owner proven" if eligible else reason
             )
 
+        self.group_visible_kernels = group_visible_kernels
+        self.group_visible = {}
+        self.group_visible_stats = dict(hit_chunks=0, bytes=0, prepare_us=0.0)
+        if group_visible_kernels is not None:
+            metadata_start = time.perf_counter_ns()
+            packed, spans = [], {}
+            for entry in self.route_checks:
+                first, count = entry["first"], entry["count"]
+                if not entry["page_reuse"] or entry["query_group"] != 16 or count % 16:
+                    continue
+                if visible is None:
+                    visible = values["visible"].cpu().tolist()
+                packed.extend([0] * (-len(packed) % 4))
+                offset = len(packed)
+                packed.extend(
+                    max(visible[row : row + 16])
+                    for row in range(first, first + count, 16)
+                )
+                spans[first, count] = (offset, len(packed))
+            if packed:
+                metadata = torch.tensor(packed, dtype=torch.int32, device="cpu").to(
+                    self.scratch.device
+                )
+                self.group_visible = {
+                    key: metadata[a:b] for key, (a, b) in spans.items()
+                }
+            self.group_visible_stats = dict(
+                hit_chunks=len(spans),
+                bytes=len(packed) * 4,
+                prepare_us=(time.perf_counter_ns() - metadata_start) / 1000,
+            )
         self.preparation_ms = (time.perf_counter() - started) * 1000
 
     def score_into(self, first, count, target):
@@ -281,6 +313,13 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             kernel = _qsa_page64_page_reuse_full_score
         else:
             kernel = _qsa_page64_query16_score
+        group_visible = (
+            self.group_visible.get((first, count)) if self.group_visible else None
+        )
+        if group_visible is not None:
+            kernel = self.group_visible_kernels[
+                self.skip_invisible_routes[(first, count)]
+            ]
         launch = kernel[min(20, triton.cdiv(count, 16) * blocks),]
         args = (
             v["q"][first : first + count],
@@ -292,6 +331,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             v["visible"][first : first + count],
             target,
         )
+        if group_visible is not None:
+            args += (group_visible,)
         kwargs = dict(
             ROWS=count,
             COLUMNS=v["row_table"].shape[1],

@@ -313,3 +313,29 @@ Check all candidate scores and visibility masks before and after timing.
 The experiment covers complete query16 groups in the two profiled chunks.
 
 [post-sync-long]: https://github.com/cheersluvs/FlagGems-vllm/commit/7ee5420bc6fcce95cbe2fdc1b201bc1b6447ec56
+
+## One-copy GroupVisible request probe
+
+The [chunk probe][group-visible-chunk] removed the maximum-visibility
+scalar handoff, while retaining the page-number handoff. It saved paired
+medians of 7.01 and 17.37 microseconds. A separate allocation/copy/sync per
+chunk exceeded those savings.
+
+`--group-visible-request-samples` uses the current prepared selection
+adapter on both arms. The candidate packs the maxima of eligible, complete
+query16 groups from the CPU visibility already available during route
+preparation. It aligns chunk views to 16 bytes and copies the packed INT32
+metadata once per request. Chunks that miss the existing page-reuse guard
+or have incomplete query groups use the original scorer. A zero-hit
+request performs no metadata allocation or transfer.
+
+Run budget_exact, long100k, and the zero-hit first_chunk. Check all FP32
+scores against current, CPU samples, and full persistent TopK indices.
+Measure the prepared score device task sums in alternating order. Measure
+wall time in separate alternating samples, with both arms creating fresh
+adapters on already available inputs and scratch, followed by one complete
+score+TopK execution and a final synchronization. The wall scope includes
+routing and metadata preparation. It excludes model projections, cache
+updates, and the original input/output buffer allocations.
+
+[group-visible-chunk]: https://github.com/cheersluvs/FlagGems-vllm/commit/5c703b205566f66ed07ac50fde33389fb2aa6faa

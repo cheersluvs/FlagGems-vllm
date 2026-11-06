@@ -377,9 +377,9 @@ def build_handoff_source(bounded, arm):
     return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
 
 
-def build_group_visible_source(bounded):
+def build_group_visible_source(bounded, arm="group_visible"):
     fn = page_reuse_function(bounded)
-    fn.name = "_qsa_page64_prefix_group_visible"
+    fn.name = f"_qsa_page64_prefix_{arm}"
     fn.args.args.insert(
         next(i for i, arg in enumerate(fn.args.args) if arg.arg == "ROWS"),
         ast.arg(arg="GroupVisible"),
