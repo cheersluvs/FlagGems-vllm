@@ -1,0 +1,390 @@
+{
+  "case": "int8_long100k",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_long100k",
+    "nv_case": "fp8_long100k_float8_e4m3fn",
+    "origin": "dtype_variant",
+    "query_lengths": [
+      16384
+    ],
+    "prefix_tokens": [
+      102400
+    ],
+    "starts": [
+      0,
+      16384
+    ],
+    "batch_max_seq_len": 118784,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      155
+    ],
+    "physical_pages": 155,
+    "table_columns": 155,
+    "q_shape": [
+      16384,
+      4,
+      128
+    ],
+    "cache_shape": [
+      155,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 29696,
+    "chunk_rows": 112,
+    "score_and_dot_scratch_bytes": 66519040,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": null,
+    "nv_original_table_columns": null,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Current vs one-copy GroupVisible; interleaved prepared score+TopK trace",
+  "stage": "group_visible_combined_trace_completed",
+  "correctness": {
+    "full_scores_bitwise_equal": true,
+    "all_topk_indices_bitwise_equal": true,
+    "cpu_reference_rows": [
+      0,
+      111,
+      112,
+      8192,
+      16352,
+      16383
+    ],
+    "chunks": 147
+  },
+  "group_visible_prepared": {
+    "hit_chunks": 147,
+    "bytes": 4096,
+    "groups_from_policy": 1024,
+    "copies": 1,
+    "pack_us": 88.751,
+    "alloc_copy_us": 404.734,
+    "prepare_us": 493.485
+  },
+  "score_binaries": {
+    "current": [
+      [
+        "_qsa_page64_page_reuse_full_score",
+        "39243371a6a2fe5af99548ba8d80a332389c79356f58f02a156608dd8c10a0f3"
+      ],
+      [
+        "_qsa_page64_page_reuse_full_score",
+        "aec90ac40152f3fa6b06378ff999b9f01c0cd3604d60568155b66ecff6ed42ce"
+      ],
+      [
+        "_qsa_page64_page_reuse_score",
+        "0dfcbf29a8f75e9f69b81727c408c09e572be0c873b24cb49bcc46be77f7b9a5"
+      ]
+    ],
+    "group_visible": [
+      [
+        "_qsa_page64_prefix_group_visible_bounded",
+        "0123dc69acde5c302c1130ca0e2e2eabe32fabcf42efb00b5c6be9d216a9df18"
+      ],
+      [
+        "_qsa_page64_prefix_group_visible_full",
+        "47b3aa83d8f60925cd03d1a8c655283e5287415c4071cc4df4654e32e568299b"
+      ],
+      [
+        "_qsa_page64_prefix_group_visible_full",
+        "c25c20aedf6b769242496a773299a88c52c1828f7e0dc0046766ceb24cd7ebb9"
+      ]
+    ]
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-combined-trace.jYHBEcIQ/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-combined-trace.jYHBEcIQ/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "kernel_timer": {
+    "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+    "prefix_plan_artifact": "int8_long100k-prefix-plan-01.json.gz"
+  },
+  "single_capture_plan": [
+    {
+      "round": 0,
+      "arm": "current",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "group_visible",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "current",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "group_visible",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "group_visible",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "current",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "group_visible",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "current",
+      "active": 1
+    }
+  ],
+  "single_capture_counts": {
+    "expected_host_counts": {
+      "_qsa_page64_page_reuse_score": 52,
+      "_qsa_page64_page_reuse_full_score": 536,
+      "_radix_hist_trivial_all": 4680,
+      "_psegmerge_seg_sort": 4680,
+      "_psegmerge_merge_level": 4680,
+      "_psegmerge_merge_final": 4680,
+      "_qsa_page64_prefix_group_visible_bounded": 52,
+      "_qsa_page64_prefix_group_visible_full": 536
+    },
+    "observed_host_counts": {
+      "_qsa_page64_page_reuse_score": 52,
+      "_radix_hist_trivial_all": 4680,
+      "_psegmerge_seg_sort": 4680,
+      "_psegmerge_merge_level": 4680,
+      "_psegmerge_merge_final": 4680,
+      "_qsa_page64_page_reuse_full_score": 536,
+      "_qsa_page64_prefix_group_visible_bounded": 52,
+      "_qsa_page64_prefix_group_visible_full": 536
+    },
+    "tasks_per_window": [
+      2487,
+      2487,
+      2487,
+      2487,
+      2487,
+      2487,
+      2487,
+      2487
+    ],
+    "expected_tasks_per_window": [
+      2487,
+      2487,
+      2487,
+      2487,
+      2487,
+      2487,
+      2487,
+      2487
+    ]
+  },
+  "combined_trace": {
+    "artifact": "int8_long100k-prefix-plan-01.json.gz",
+    "scope": "Prepared score+TopK request. Gaps are uncovered device intervals inside the first-to-last task span.",
+    "topk_tasks_per_window": {
+      "_radix_hist_trivial_all": 585,
+      "_psegmerge_seg_sort": 585,
+      "_psegmerge_merge_level": 585,
+      "_psegmerge_merge_final": 585
+    },
+    "medians_us": {
+      "current": {
+        "score_us": 45573.21999999999,
+        "topk_us": 50813.22000000003,
+        "device_union_us": 96394.06999999983,
+        "device_span_us": 323250.28,
+        "device_gap_us": 226873.42000000004,
+        "profiled_window_us": 323695.26
+      },
+      "group_visible": {
+        "score_us": 42907.26000000002,
+        "topk_us": 50945.310000000085,
+        "device_union_us": 93852.56999999957,
+        "device_span_us": 324104.49,
+        "device_gap_us": 230208.69000000088,
+        "profiled_window_us": 324581.33
+      }
+    },
+    "paired_saved_us": {
+      "score_us": [
+        2667.5199999999895,
+        2629.4999999999636,
+        2696.0599999999904,
+        2682.0999999999767
+      ],
+      "topk_us": [
+        -92.6600000000617,
+        -143.54000000012456,
+        -142.61999999993714,
+        -171.52000000004773
+      ],
+      "device_union_us": [
+        2574.860000000219,
+        2485.960000000632,
+        2553.440000001341,
+        2510.580000000744
+      ],
+      "device_span_us": [
+        -5389.460000000021,
+        -402.6000000000349,
+        -2082.5,
+        2225.039999999979
+      ],
+      "device_gap_us": [
+        -7964.32000000024,
+        -2888.560000000667,
+        -4635.940000001341,
+        -285.54000000076485
+      ],
+      "profiled_window_us": [
+        -5049.979999999981,
+        -435.0800000000163,
+        -2149.4500000000116,
+        2175.0599999999977
+      ]
+    },
+    "samples": [
+      {
+        "round": 0,
+        "arm": "current",
+        "active": 0,
+        "score_us": 45570.18,
+        "topk_us": 50838.82000000007,
+        "device_union_us": 96409.0,
+        "device_span_us": 317156.88,
+        "device_gap_us": 220747.88,
+        "profiled_window_us": 318038.78
+      },
+      {
+        "round": 0,
+        "arm": "group_visible",
+        "active": 0,
+        "score_us": 42902.66000000001,
+        "topk_us": 50931.480000000134,
+        "device_union_us": 93834.13999999978,
+        "device_span_us": 322546.34,
+        "device_gap_us": 228712.20000000024,
+        "profiled_window_us": 323088.76
+      },
+      {
+        "round": 0,
+        "arm": "current",
+        "active": 1,
+        "score_us": 45547.87999999999,
+        "topk_us": 50858.680000000015,
+        "device_union_us": 96406.55999999956,
+        "device_span_us": 323946.68,
+        "device_gap_us": 227540.12000000043,
+        "profiled_window_us": 324387.07
+      },
+      {
+        "round": 0,
+        "arm": "group_visible",
+        "active": 1,
+        "score_us": 42918.38000000003,
+        "topk_us": 51002.22000000014,
+        "device_union_us": 93920.59999999893,
+        "device_span_us": 324349.28,
+        "device_gap_us": 230428.6800000011,
+        "profiled_window_us": 324822.15
+      },
+      {
+        "round": 1,
+        "arm": "group_visible",
+        "active": 0,
+        "score_us": 42880.19999999999,
+        "topk_us": 50913.52000000007,
+        "device_union_us": 93793.71999999901,
+        "device_span_us": 324636.38,
+        "device_gap_us": 230842.660000001,
+        "profiled_window_us": 325152.9
+      },
+      {
+        "round": 1,
+        "arm": "current",
+        "active": 0,
+        "score_us": 45576.25999999998,
+        "topk_us": 50770.90000000013,
+        "device_union_us": 96347.16000000035,
+        "device_span_us": 322553.88,
+        "device_gap_us": 226206.71999999965,
+        "profiled_window_us": 323003.45
+      },
+      {
+        "round": 1,
+        "arm": "group_visible",
+        "active": 1,
+        "score_us": 42911.86000000002,
+        "topk_us": 50959.14000000003,
+        "device_union_us": 93870.99999999936,
+        "device_span_us": 323859.7,
+        "device_gap_us": 229988.70000000065,
+        "profiled_window_us": 324340.51
+      },
+      {
+        "round": 1,
+        "arm": "current",
+        "active": 1,
+        "score_us": 45593.96,
+        "topk_us": 50787.61999999998,
+        "device_union_us": 96381.5800000001,
+        "device_span_us": 326084.74,
+        "device_gap_us": 229703.1599999999,
+        "profiled_window_us": 326515.57
+      }
+    ]
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "a9e6de3b579f3c1ea1ad330a75c7a5064a30309d6371b6ac6ce0f8cdde12ab7d",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "probe_qsa_int8_page64_prefix_910b.py": "6474046912c72c2bbd88a61815a8198a179d5f3452469df7b1485bb6cf956aba",
+    "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+    "qsa_int8_shared_map_selection_910b_trial.py": "f64cc2f128ce1dfe48b6f4e5dd419a91a01d618d383d465f35452196d9b4ca10",
+    "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+    "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+    "qsa_int8_stage_trace_timer_910b.py": "c2eef1794f2e0db1b94a4d29bff6d6e29e694499ea30e10b53eb37e851152983",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "benchmark_qsa_prefill_stages_910b.py": "fade15f762a97c5e5136d20e7535014042a16d76ccfee645e1f2e83839cbb696",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6",
+    "qsa_timeline_910b.py": "c54f29cc8626b96342249382b22844f410a02b427bdef943dcf73c0f730251da",
+    "probe_qsa_int8_group_visible_request_910b.py": "6c9f5fa0fdd2057b5181e2dfd68dd5106326ae1d0ccb9bb1bc81fad061cd4f24",
+    "probe_qsa_int8_score_sol_910b.py": "54183cc4eebc64009e2e4c55fb8a0aab6b2ad6be2c3433bde82df3f5387d0d32"
+  },
+  "exit_code": 0
+}
