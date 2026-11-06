@@ -465,3 +465,23 @@ fresh request scratch on each candidate call. The wall comparison uses the
 old adapter as its control. The CANN kernel ratio uses device-task sums.
 
 [topk-workspace-sweep]: https://github.com/cheersluvs/FlagGems-vllm/commit/0b57d83755ed7b09b2f4491bc945f200b0db1587
+
+## Direct page-number load probe
+
+Use `--score-sol --page-id-handoff` on the two calibrated chunks. Compare
+current, GroupVisible, direct page load, and both changes together. The
+direct page arm removes the mask and default value from the scalar table
+load. It keeps the table index clamp, the physical mapping, all K/scale
+and output masks, the issued tiles, and the score arithmetic. Before
+launch, verify that all entries of the selected rows are valid physical
+page IDs and that query groups are complete. This diagnostic assumes a
+fully valid table even for inactive segments.
+
+Capture the post-sync-solver IR and time the same binaries in one paired
+run. Check CPU reference rows and compare every score and mask bitwise
+before and after timing. Check each direct-page arm against its matched
+control. Evidence for page handoff removal requires one fewer scalar
+workspace site on each side in aggregate and direct table scalar loads
+in both AIC and AIV. The report also records the INT32 tile workspace
+shapes. The paired timing is the net change including direct table reads
+and any changed scheduling. It does not assign cycles to individual waits.

@@ -109,6 +109,9 @@ def summarize_sync_ir(path):
     counts = collections.Counter()
     functions = set()
     scalar_workspace_sites = collections.Counter()
+    tile_workspace_shapes = collections.defaultdict(list)
+    table_reads = collections.Counter()
+    table_refs = set()
     examples = collections.defaultdict(list)
     with gzip.open(path, "rt", errors="replace") as stream:
         for lineno, line in enumerate(stream, 1):
@@ -124,8 +127,22 @@ def summarize_sync_ir(path):
             if match := re.search(r"\bfunc\.func\s+(?:private\s+)?@([^\s(]+)", line):
                 function = match[1]
                 functions.add(function)
+                # Table is arg8 after the three hidden workspace/sync arguments.
+                table_refs = {"%arg8"}
             if "memref_ext.alloc_workspace" in line and "to memref<1xi32" in line:
                 scalar_workspace_sites[function or "unknown"] += 1
+            if "memref_ext.alloc_workspace" in line:
+                if match := re.search(r"to memref<((?:\d+x)*64x64xi32),", line):
+                    tile_workspace_shapes[function or "unknown"].append(match[1])
+            if match := re.search(
+                r"(%[\w.]+) = memref\.(?:reinterpret_cast|subview|cast) (%[\w.]+)\b",
+                line,
+            ):
+                if match[2] in table_refs:
+                    table_refs.add(match[1])
+            if match := re.search(r"\bmemref\.load (%[\w.]+)\[", line):
+                if match[1] in table_refs:
+                    table_reads[function or "unknown"] += 1
             for token in re.findall(
                 r"\b(?:hivm\.hir\.[\w.]+|memref\.alloca?|memref\.copy|memref_ext\.alloc_workspace)\b",
                 line,
@@ -145,8 +162,33 @@ def summarize_sync_ir(path):
         functions=sorted(functions),
         operations=dict(counts),
         scalar_i32_workspace_sites=dict(scalar_workspace_sites),
+        int32_tile_workspace_shapes=dict(tile_workspace_shapes),
+        table_scalar_reads=dict(table_reads),
         examples=dict(examples),
     )
+
+
+def compile_sync_arm(report, case, name, launch, target, sync_ir):
+    from triton.backends.ascend import compiler
+
+    dump = SyncDumpCompiler(report, f"{case}-{name}")
+    with patch.object(compiler, "subprocess", dump):
+        compiled = launch(target)
+    evidence = {
+        rec["file"]: summarize_sync_ir(report / rec["file"])
+        for call in dump.calls
+        for rec in call["streams"].values()
+    }
+    sync_ir[name] = dict(
+        binary_sha256=hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
+        invocations=dump.calls,
+        evidence=evidence,
+    )
+    if len(dump.calls) != 1 or not any(
+        e["after_solver_dumps"] and e["functions"] for e in evidence.values()
+    ):
+        raise RuntimeError(f"Missing post-solver IR for {name}")
+    return compiled
 
 
 def traffic(width, visible, tables, bounded):
@@ -402,9 +444,180 @@ def build_group_visible_source(bounded, arm="group_visible", *, request_offset=F
     return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
 
 
+def build_direct_page_source(bounded, arm, *, precomputed_visibility):
+    """Remove only the scalar page-table load mask on fully valid tables."""
+    fn = (
+        ast.parse(build_group_visible_source(bounded, arm)).body[-1]
+        if precomputed_visibility
+        else page_reuse_function(bounded)
+    )
+    fn.name = f"_qsa_page64_prefix_{arm}"
+    (physical,) = (
+        node
+        for node in ast.walk(fn)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "physical"
+    )
+    if (
+        not isinstance(physical.value, ast.Call)
+        or ast.unparse(physical.value.func) != "tl.load"
+        or ast.unparse(physical.value.args[0])
+        != "Table + base * COLUMNS + tl.minimum(page, COLUMNS - 1)"
+        or {kw.arg for kw in physical.value.keywords} != {"mask", "other"}
+    ):
+        raise RuntimeError("Unexpected scalar page-table load in score source")
+    physical.value.keywords = []
+    return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+
+
+def page_ir_summary(record):
+    scalar = collections.Counter()
+    reads = collections.Counter()
+    tiles = collections.defaultdict(list)
+    for evidence in record["evidence"].values():
+        scalar.update(evidence["scalar_i32_workspace_sites"])
+        reads.update(evidence["table_scalar_reads"])
+        for function, shapes in evidence["int32_tile_workspace_shapes"].items():
+            tiles[function.rsplit("_", 1)[-1]].extend(shapes)
+    return dict(
+        scalar_i32_workspace_sites=sum(scalar.values()),
+        scalar_i32_workspace_sites_by_core={
+            f.rsplit("_", 1)[-1]: count for f, count in scalar.items()
+        },
+        table_scalar_reads={f.rsplit("_", 1)[-1]: count for f, count in reads.items()},
+        int32_tile_workspace_shapes={
+            core: sorted(shapes) for core, shapes in tiles.items()
+        },
+    )
+
+
+def run_page_id_handoff(args, result, inputs, adapter, score):
+    import torch
+
+    route = result["route"]
+    first, count = route["first"], route["count"]
+    table = inputs["row_table"][first : first + count]
+    if count % 16 or route["query_group"] != 16 or not table.shape[1]:
+        raise ValueError("Direct page load requires complete query16 groups")
+    if bool(((table < 0) | (table >= inputs["cache"].shape[0])).any()):
+        raise ValueError(
+            "Direct page load requires every clamped table entry to be valid"
+        )
+    group_visible = (
+        inputs["visible"][first : first + count]
+        .reshape(-1, 16)
+        .amax(1)
+        .to(score.device)
+    )
+    report = Path(args.report)
+    bounded = route["skip_invisible"]
+    sources = dict(
+        group_visible=build_group_visible_source(bounded),
+        direct_page=build_direct_page_source(
+            bounded, "direct_page", precomputed_visibility=False
+        ),
+        direct_page_group_visible=build_direct_page_source(
+            bounded, "direct_page_group_visible", precomputed_visibility=True
+        ),
+    )
+    bound = adapter.bind_query16_score(first, count, score)
+    arms = {"current": lambda out: adapter.score_into(first, count, out)}
+
+    def launch_variant(kernel, metadata, out):
+        return kernel[(GRID,)](*bound.args[:-1], out, *metadata, **bound.keywords)
+
+    for name, source in sources.items():
+        kernel = load_generated_prefix(report, args.case, name, source)
+        metadata = (group_visible,) if "group_visible" in name else ()
+        arms[name] = functools.partial(launch_variant, kernel, metadata)
+    targets = {
+        name: score if name == "current" else torch.empty_like(score) for name in arms
+    }
+    result.update(
+        mode="page_id_handoff",
+        sync_ir={},
+        table_check=dict(rows=count, columns=table.shape[1], all_entries_valid=True),
+    )
+
+    def compile_arm(name, launch, target):
+        return compile_sync_arm(
+            report, args.case, name, launch, target, result["sync_ir"]
+        )
+
+    def validate():
+        torch.npu.synchronize()
+        reference = score.cpu()
+        check_chunk(inputs, reference, first, count)
+        for name, target in targets.items():
+            if name != "current" and not torch.equal(reference, target.cpu()):
+                raise AssertionError(
+                    f"FP32 score or visibility mask differs for {name}"
+                )
+        return dict(full_outputs_bitwise_equal=True, cpu_reference_checked=True)
+
+    samples, medians = capture_arms(
+        args, result, torch, arms, targets, validate, set(arms), compile_arm=compile_arm
+    )
+    evidence = {
+        name: page_ir_summary(record) for name, record in result["sync_ir"].items()
+    }
+    comparisons = {}
+    for control, candidate in (
+        ("current", "direct_page"),
+        ("group_visible", "direct_page_group_visible"),
+    ):
+        old, new = evidence[control], evidence[candidate]
+        sites_removed = (
+            old["scalar_i32_workspace_sites"] - new["scalar_i32_workspace_sites"]
+        )
+        core_sites_removed = {
+            core: old["scalar_i32_workspace_sites_by_core"].get(core, 0)
+            - new["scalar_i32_workspace_sites_by_core"].get(core, 0)
+            for core in ("aic", "aiv")
+        }
+        saved = [
+            a - b
+            for old_round, new_round in zip(
+                samples[control], samples[candidate], strict=True
+            )
+            for a, b in zip(
+                old_round["active_invocation_us"],
+                new_round["active_invocation_us"],
+                strict=True,
+            )
+        ]
+        comparisons[candidate] = dict(
+            control=control,
+            speedup=medians[control] / medians[candidate],
+            paired_saved_us=saved,
+            median_paired_saved_us=statistics.median(saved),
+            scalar_workspace_sites_removed=sites_removed,
+            scalar_workspace_sites_removed_by_core=core_sites_removed,
+            page_handoff_removed=(
+                sites_removed == 2
+                and all(count == 1 for count in core_sites_removed.values())
+                and {"aic", "aiv"} <= new["table_scalar_reads"].keys()
+            ),
+            int32_tile_workspace_unchanged=(
+                bool(old["int32_tile_workspace_shapes"])
+                and old["int32_tile_workspace_shapes"]
+                == new["int32_tile_workspace_shapes"]
+            ),
+        )
+    result.update(
+        samples=samples, median_us=medians, page_ir=evidence, comparisons=comparisons
+    )
+    print(
+        "SCORE_PAGE_ID_HANDOFF",
+        args.case,
+        json.dumps(dict(median_us=medians, page_ir=evidence, comparisons=comparisons)),
+        flush=True,
+    )
+
+
 def run_group_visible(args, result, inputs, adapter, score):
     import torch
-    from triton.backends.ascend import compiler
 
     route = result["route"]
     first, count = route["first"], route["count"]
@@ -464,24 +677,9 @@ def run_group_visible(args, result, inputs, adapter, score):
     result["sync_ir"] = {}
 
     def compile_arm(name, launch, target):
-        dump = SyncDumpCompiler(report, f"{args.case}-{name}")
-        with patch.object(compiler, "subprocess", dump):
-            compiled = launch(target)
-        evidence = {
-            rec["file"]: summarize_sync_ir(report / rec["file"])
-            for call in dump.calls
-            for rec in call["streams"].values()
-        }
-        result["sync_ir"][name] = dict(
-            binary_sha256=hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
-            invocations=dump.calls,
-            evidence=evidence,
+        return compile_sync_arm(
+            report, args.case, name, launch, target, result["sync_ir"]
         )
-        if len(dump.calls) != 1 or not any(
-            e["after_solver_dumps"] and e["functions"] for e in evidence.values()
-        ):
-            raise RuntimeError(f"Missing post-solver IR for {name}")
-        return compiled
 
     def validate():
         torch.npu.synchronize()
@@ -1034,6 +1232,9 @@ def run_case(args, result):
     if args.group_visible:
         run_group_visible(args, result, inputs, adapter, score)
         return
+    if args.page_id_handoff:
+        run_page_id_handoff(args, result, inputs, adapter, score)
+        return
     if args.output_replay:
         run_output_replay(args, result, inputs, adapter, score)
         return
@@ -1179,6 +1380,11 @@ def main():
         help="Probe precomputed maximum visibility per 16 queries",
     )
     mode.add_argument(
+        "--page-id-handoff",
+        action="store_true",
+        help="Probe removing the page-number scalar handoff on fully valid tables",
+    )
+    mode.add_argument(
         "--instruction-entry", action="store_true", help=argparse.SUPPRESS
     )
     parser.add_argument("--verify-output", action="store_true", help=argparse.SUPPRESS)
@@ -1207,9 +1413,9 @@ def main():
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     if args.case:
-        if args.group_visible:
+        if args.group_visible or args.page_id_handoff:
             os.environ["TRITON_CACHE_DIR"] = tempfile.mkdtemp(
-                prefix=f"{args.case}-group-visible-cache-", dir=report
+                prefix=f"{args.case}-sync-probe-cache-", dir=report
             )
         result = {"case": args.case, "exit_code": 0}
         try:

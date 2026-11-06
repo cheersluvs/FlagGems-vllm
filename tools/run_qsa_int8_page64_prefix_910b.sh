@@ -50,6 +50,10 @@ if [[ ${1:-} == --score-sol ]]; then
         qsa_kind=int8-score-group-visible
         qsa_subject="precomputed score visibility"
         qsa_label="INT8 score group visibility"
+    elif [[ ${1:-} == --page-id-handoff ]]; then
+        qsa_kind=int8-score-page-id-handoff
+        qsa_subject="score page ID handoff"
+        qsa_label="INT8 score page ID handoff"
     fi
 elif [[ ${1:-} == --score-instructions ]]; then
     shift
