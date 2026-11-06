@@ -170,7 +170,7 @@ def export_device_object(report, stem, compiled):
                 continue
             try:
                 p = subprocess.run(
-                    [str(tool), "-d", str(obj)],
+                    [str(tool), "-d", "-h", "-t", str(obj)],
                     capture_output=True,
                     text=True,
                     errors="replace",
@@ -187,12 +187,17 @@ def export_device_object(report, stem, compiled):
                     r"^\s*[0-9a-fA-F]+:.*\t([a-zA-Z_][a-zA-Z0-9_.]*)", output, re.M
                 )
             ]
-            info["attempts"].append(
-                dict(tool=str(tool), exit_code=p.returncode, stderr=p.stderr[:4096])
+            attempt = dict(
+                tool=str(tool), exit_code=p.returncode, stderr=p.stderr[:4096]
             )
-            if p.returncode == 0 and opcodes:
-                path = report / f"{stem}-objdump.txt"
+            if output:
+                path = report / f"{stem}-objdump-{len(info['attempts']) + 1}.txt"
                 path.write_text(output)
+                attempt.update(
+                    stdout_file=path.name, truncated=len(p.stdout) > len(output)
+                )
+            info["attempts"].append(attempt)
+            if p.returncode == 0 and opcodes:
                 info.update(
                     status="instruction_text_exported",
                     disassembly=path.name,
@@ -227,11 +232,16 @@ def build_handoff_source(bounded, arm):
         for i, n in enumerate(tile.body)
         if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)
     }
-    edge = "((group * tiles + tile) * 4096 + lanes[:, None] * 64 + tl.arange(0, 64)[None, :])"
+    edge = "flat_heads[:, None] * WIDTH + columns[None, :]"
     if arm == "producer":
         tile.body = (
             tile.body[: assigned["dot"] + 1]
-            + ast.parse(f"tl.store(Out + {edge}, dot)").body
+            + ast.parse(
+                "raw_visible = tl.reshape(tl.broadcast_to(visible[:, None], (16, 4)), (64,))\n"
+                "raw_live = (columns[None, :] < WIDTH) & (columns[None, :] < raw_visible[:, None])\n"
+                f"tl.store(Out + {edge}, tl.where(raw_live, dot, -2147483648),\n"
+                "         mask=(flat_heads[:, None] < ROWS * 4) & (columns[None, :] < WIDTH))"
+            ).body
         )
         del tile.body[assigned["key_scale"]]
         for loop in tail:
@@ -268,7 +278,7 @@ def run_cv_handoff(args, result, inputs, adapter, score):
         for arm in ("producer", "consumer")
     }
     raw = torch.full(
-        (groups, tiles, 64, 64),
+        (count * 4, width),
         torch.iinfo(torch.int32).min,
         device=score.device,
         dtype=torch.int32,
@@ -304,48 +314,60 @@ def run_cv_handoff(args, result, inputs, adapter, score):
         torch.npu.synchronize()
         actual = score.cpu()
         checks = check_chunk(inputs, actual, first, count)
+        raw_cpu = raw.cpu()
+        raw_checks = []
+        for group in sorted({0, groups // 2, groups - 1}):
+            base = first + group * 16
+            visible = inputs["visible"][base : base + 16].repeat_interleave(4)
+            active = (min(width, int(visible.max())) + 63) // 64
+            for tile in sorted({0, 1, 2, 3, 7, 8, active - 1, tiles - 1}):
+                begin = tile * 64
+                x = raw_cpu[group * 64 : (group + 1) * 64, begin : begin + 64]
+                live = torch.arange(begin, begin + 64)[None, :] < visible[:, None]
+                want = torch.full_like(x, torch.iinfo(torch.int32).min)
+                if bool(live.any()):
+                    page, offset = divmod(begin, 192)
+                    physical = int(inputs["row_table"][base, page])
+                    k = inputs["cache"][physical, offset : offset + 64, 0].float()
+                    q = inputs["q"][base : base + 16].reshape(64, 128).float()
+                    want[live] = (q @ k.T).to(torch.int32)[live]
+                bad = x != want
+                record = dict(group=group, tile=tile, mismatch=int(bad.sum()))
+                if record["mismatch"]:
+                    i, j = bad.nonzero()[0].tolist()
+                    record.update(
+                        head_lane=i,
+                        key_lane=j,
+                        actual=int(x[i, j]),
+                        expected=int(want[i, j]),
+                        matches_transposed=torch.equal(x.T, want),
+                    )
+                raw_checks.append(record)
+        result["last_raw_checks"] = raw_checks
+        failures = [record for record in raw_checks if record["mismatch"]]
+        if failures:
+            print("SOL_CV_RAW_MISMATCH", args.case, json.dumps(failures), flush=True)
+            raise AssertionError(f"INT32 producer failed {len(failures)} sampled tiles")
         equal = {}
         for arm in ("consumer", "split"):
             candidate = targets[arm].cpu()
-            torch.testing.assert_close(candidate, actual, rtol=1e-3, atol=1e-3)
+            try:
+                torch.testing.assert_close(candidate, actual, rtol=1e-3, atol=1e-3)
+            except AssertionError as exc:
+                raise AssertionError(
+                    f"{arm} score mismatch after raw precheck: {exc}"
+                ) from exc
             equal[arm] = torch.equal(candidate, actual)
-        seen = []
-        for group in (0, groups - 1):
-            base = first + group * 16
-            visible = min(width, int(inputs["visible"][base : base + 16].max()))
-            active = (visible + 63) // 64
-            for tile in sorted({0, active - 1, tiles - 1}):
-                x = raw[group, tile].cpu()
-                if tile >= active:
-                    want = torch.full_like(
-                        x, torch.iinfo(torch.int32).min if bounded else 0
-                    )
-                else:
-                    begin = tile * 64
-                    page, offset = divmod(begin, 192)
-                    physical = int(inputs["row_table"][base, page])
-                    k = (
-                        inputs["cache"][physical, offset : offset + 64, 0]
-                        .float()
-                        .clone()
-                    )
-                    k[max(0, visible - begin) :] = 0
-                    q = inputs["q"][base : base + 16].reshape(64, 128).float()
-                    want = (q @ k.T).to(torch.int32)
-                if not torch.equal(x, want):
-                    raise AssertionError(
-                        f"INT32 handoff mismatch at group {group} tile {tile}"
-                    )
-                seen.append([group, tile])
         return dict(
             current=checks,
             full_outputs_checked=True,
             bitwise_equal=equal,
-            checked_raw_tiles=seen,
+            checked_raw_tiles=len(raw_checks),
         )
 
     result.update(
         mode="cv_handoff",
+        materialized_layout="head_major_with_visibility_sentinel",
         materialized_allocation_bytes=raw.numel() * raw.element_size(),
         materialized_transfer_bytes_each_direction=result["work"][
             "tile_dot_result_logical_bytes"

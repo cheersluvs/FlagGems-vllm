@@ -160,3 +160,21 @@ guide][ascend-debug].
 
 [output-replay]: https://github.com/cheersluvs/FlagGems-vllm/commit/06eb3e25b3db6b749d6dba4db7f5a0790ffe8ac9
 [ascend-debug]: https://github.com/triton-lang/triton-ascend/blob/main/docs/en/debug_guide/debugging.md
+
+The [first handoff run][handoff-first] compiled both cases but failed the
+FP32 comparison before recording any timings. The raw-tile check ran after
+that comparison and did not execute, so the failure was not localized.
+Both lowered sides used the same tile-major address expression. That
+pre-codegen agreement does not establish a correct device store or load.
+
+The retry uses the earlier raw INT32 probe's head-major store with a
+per-query visibility select and an INT32_MIN sentinel. The consumer reads
+the same address layout and preserves the original FP32 output contract.
+The raw check now runs first and samples tiles on both sides of page and
+work-unit boundaries, partial visibility, and the tail. On failure it
+records coordinates and the actual and expected integers. Each case still
+requires correct complete FP32 output before taking any timings. Preserve
+objdump section and symbol output even when the local tool exposes no
+instruction text.
+
+[handoff-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/ff058498e0a14c1cdfcf2f789782de591e126566
