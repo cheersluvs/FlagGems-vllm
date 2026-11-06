@@ -46,6 +46,12 @@ if [[ ${1:-} == --score-sol ]]; then
     qsa_kind=int8-score-sol
     qsa_subject="score throughput calibration"
     qsa_label="INT8 score throughput calibration"
+elif [[ ${1:-} == --score-instructions ]]; then
+    shift
+    qsa_probe=probe_qsa_int8_score_instructions_910b.py
+    qsa_kind=int8-score-instructions
+    qsa_subject="score instruction timeline"
+    qsa_label="INT8 score instruction timeline"
 fi
 qsa_report=$(mktemp -d "/tmp/qsa-ascend910b-$qsa_kind.XXXXXXXX") || exit 1
 qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
@@ -62,7 +68,8 @@ if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     git -C "$qsa_repo" worktree add -b "$qsa_branch" "$qsa_tree" "$qsa_commit" || exit 1
     qsa_dest="results/qsa_select_paged_prefill/ascend910b/$qsa_kind-$qsa_stamp"
     mkdir -p "$qsa_tree/$qsa_dest" || exit 1
-    find "$qsa_report" -maxdepth 1 -type f \( -name '*.json' -o -name '*.txt' -o -name '*.json.gz' -o -name '*.npubin.gz' \) \
+    find "$qsa_report" -maxdepth 1 -type f \
+        \( -name '*.json' -o -name '*.txt' -o -name '*.json.gz' -o -name '*.npubin.gz' -o -name '*.csv.gz' -o -name '*-visualize_data.bin.gz' \) \
         -exec cp -- {} "$qsa_tree/$qsa_dest/" \;
     git -C "$qsa_tree" add -- "$qsa_dest" || exit 1
     git -C "$qsa_tree" -c user.name="QSA GPU reports" \

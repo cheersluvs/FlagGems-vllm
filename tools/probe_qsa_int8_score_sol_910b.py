@@ -703,6 +703,24 @@ def run_case(args, result):
     result.update(route=route, width=width, work=work)
     print("SOL_WORK", args.case, json.dumps(work), flush=True)
 
+    if args.instruction_entry:
+        torch.npu.synchronize()
+        compiled = adapter.score_into(first, count, score)
+        torch.npu.synchronize()
+        result["instruction_entry"] = dict(
+            kernel=compiled.metadata.kernel_name,
+            binary_sha256=hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
+            score_launches=1,
+        )
+        if args.verify_output:
+            result["checks"] = check_chunk(inputs, score.cpu(), first, count)
+        print(
+            "SCORE_INSTRUCTION_ENTRY",
+            json.dumps(result["instruction_entry"]),
+            flush=True,
+        )
+        return
+
     if args.cv_handoff:
         run_cv_handoff(args, result, inputs, adapter, score)
         return
@@ -845,7 +863,17 @@ def main():
         action="store_true",
         help="Measure the real INT32 producer and consumer",
     )
+    mode.add_argument(
+        "--instruction-entry", action="store_true", help=argparse.SUPPRESS
+    )
+    parser.add_argument("--verify-output", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if (args.instruction_entry and not args.case) or (
+        args.verify_output and not args.instruction_entry
+    ):
+        parser.error(
+            "Instruction entry requires one --case and supports --verify-output"
+        )
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive timing counts required")
     report = Path(args.report)

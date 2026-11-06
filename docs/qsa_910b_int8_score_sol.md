@@ -178,3 +178,33 @@ objdump section and symbol output even when the local tool exposes no
 instruction text.
 
 [handoff-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/ff058498e0a14c1cdfcf2f789782de591e126566
+
+## Instruction timeline of the fused scorer
+
+The [validated handoff report][handoff-validated] showed that the explicit
+INT32 split is 1.48x and 1.81x as slow as the current bounded and full scorers.
+The binary export preserved both original fused objects. The bundled objdump
+recognized their ELF sections and symbols, but did not emit device instructions.
+
+Run the same two representative chunks with `--score-instructions`. The
+wrapper selects the pinned environment and discovers its `msopprof` or
+`msprof op`. It first runs an unprofiled single-launch check on each chunk,
+including independent CPU score samples and the complete visibility mask.
+Then it runs CANN 9.1 `TimelineDetail` filtered to the exact kernel name, with
+one requested launch and logical core 0 by default. The profiled launch must
+have the same binary hash as the reference launch. The report also compares
+that hash to the previous fused object and checks the kernel name against
+OpBasicInfo when that table is available.
+
+TimelineDetail generates a simulator-derived instruction timeline from a
+device capture. The [CANN 9.1 msOpProf guide] documents direct `instrTimeLine` as a separate mode
+for Ascend 950. The report preserves raw per-core traces and instruction CSVs
+within its upload budget, along with a manifest and examples of wait, signal,
+Fixpipe, transfer, Cube and Vector activity. Trace durations remain in the
+tool's original units. Overlapping instruction durations must not be added
+to infer a kernel critical path or substituted for device benchmark latency.
+A zero exit from the profiler alone is insufficient. Missing instruction
+evidence, target mismatch or a timeout is reported as incomplete.
+
+[handoff-validated]: https://github.com/cheersluvs/FlagGems-vllm/commit/35abcfc0b5c22002aa6ba0460ac77bd7a527805b
+[CANN 9.1 msOpProf guide]: https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/910/devaids/optool/docs/zh/user_guide/msopprof_user_guide.md
