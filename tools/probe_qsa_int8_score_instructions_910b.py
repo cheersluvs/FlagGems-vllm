@@ -21,6 +21,7 @@ import json
 import os
 import re
 import shutil
+import struct
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -261,9 +262,10 @@ def summarize_sync_ir(path):
                 function = match[1]
                 functions.add(function)
             for token in re.findall(
-                r"\b(?:hivm\.hir\.[\w.]+|memref\.alloca?|memref\.copy)\b", line
+                r"\b(?:hivm\.hir\.[\w.]+|memref\.alloca?|memref\.copy|memref_ext\.alloc_workspace)\b",
+                line,
             ):
-                if token.startswith("memref.") or re.search(
+                if token.startswith(("memref.", "memref_ext.")) or re.search(
                     r"sync|flag|barrier|copy|load|store|fixp|mmad|matmul", token
                 ):
                     counts[token] += 1
@@ -288,8 +290,11 @@ def run_sync_ir_case(args, case, report):
     ir_dir = root / "dump"
     for directory in (ref_dir, ir_dir):
         directory.mkdir(parents=True, exist_ok=True)
+    validate = ["--verify-output"]
+    if args.compare_fresh_binary:
+        validate.append("--export-instruction-object")
     ref_status, ref_timeout = run_child(
-        entry_command(ref_dir, case, args.device) + ["--verify-output"],
+        entry_command(ref_dir, case, args.device) + validate,
         report / f"{case}-sync-reference.txt",
         args.timeout,
     )
@@ -315,15 +320,30 @@ def run_sync_ir_case(args, case, report):
             status="reference_failed_or_changed",
             exit_code=2 if ref_status == 2 else 1,
         )
-    command = entry_command(ir_dir, case, args.device) + [
-        "--verify-output",
-        "--dump-sync-ir",
-    ]
+    if args.compare_fresh_binary:
+        fresh_dir = root / "fresh"
+        fresh_dir.mkdir(exist_ok=True)
+        with patch.dict(os.environ, {"TRITON_CACHE_DIR": str(root / "fresh-cache")}):
+            status, timed_out = run_child(
+                entry_command(fresh_dir, case, args.device) + validate,
+                report / f"{case}-sync-fresh.txt",
+                args.timeout,
+            )
+        result.update(
+            fresh=read_entry(fresh_dir, case),
+            fresh_exit=status,
+            fresh_timeout=timed_out,
+        )
+    command = entry_command(ir_dir, case, args.device) + validate + ["--dump-sync-ir"]
     with patch.dict(os.environ, {"TRITON_CACHE_DIR": str(root / "isolated-cache")}):
         dump_status, dump_timeout = run_child(
             command, report / f"{case}-sync-compile.txt", args.timeout
         )
     captured = read_entry(ir_dir, case)
+    if args.compare_fresh_binary:
+        result["object_comparison"] = compare_objects(
+            report, case, {"historical": ref_dir, "fresh": fresh_dir, "dump": ir_dir}
+        )
     evidence = {}
     for path in sorted(ir_dir.glob(f"{case}-bisheng-*.mlir.gz")):
         dest = report / path.name
@@ -341,6 +361,14 @@ def run_sync_ir_case(args, case, report):
         and same_binary
         and captured.get("checks")
         and found
+        and (
+            not args.compare_fresh_binary
+            or (
+                result["fresh_exit"] == 0
+                and not result["fresh_timeout"]
+                and result["fresh"].get("checks")
+            )
+        )
     )
     return dict(
         result,
@@ -354,6 +382,82 @@ def run_sync_ir_case(args, case, report):
         invocations=invocations,
         evidence=evidence,
     )
+
+
+def elf_allocated_sections(blob):
+    """Fingerprint named sections from little-endian ELF64 device objects."""
+    if blob[:6] != b"\x7fELF\x02\x01":
+        raise ValueError("Expected a little-endian ELF64 object")
+    offset = struct.unpack_from("<Q", blob, 40)[0]
+    stride, count, strings = struct.unpack_from("<HHH", blob, 58)
+    if stride < 64 or strings >= count or offset + count * stride > len(blob):
+        raise ValueError("Invalid ELF section table")
+    headers = [
+        struct.unpack_from("<IIQQQQIIQQ", blob, offset + i * stride)
+        for i in range(count)
+    ]
+    string_offset, string_size = headers[strings][4:6]
+    names = blob[string_offset : string_offset + string_size]
+    sections = {}
+    for name_offset, kind, flags, addr, start, size, *_ in headers:
+        end = names.find(b"\0", name_offset)
+        name = names[name_offset:end].decode(errors="replace")
+        if not name or not (
+            flags & 2 or name in ("__CCE_KernelArgSize", ".ascend.stack.size.record")
+        ):
+            continue
+        if kind != 8 and start + size > len(blob):
+            raise ValueError(f"Section outside object: {name}")
+        sections[name] = dict(
+            kind=kind,
+            flags=flags,
+            addr=addr,
+            bytes=size,
+            sha256=(
+                hashlib.sha256(blob[start : start + size]).hexdigest()
+                if kind != 8
+                else None
+            ),
+        )
+    return sections
+
+
+def compare_objects(report, case, directories):
+    objects = {}
+    for label, directory in directories.items():
+        path = directory / f"{case}.npubin.gz"
+        if not path.is_file():
+            continue
+        blob = gzip.decompress(path.read_bytes())
+        dest = report / f"{case}-{label}.npubin.gz"
+        shutil.copyfile(path, dest)
+        record = objects[label] = dict(
+            sha256=hashlib.sha256(blob).hexdigest(), file=dest.name
+        )
+        try:
+            record["sections"] = elf_allocated_sections(blob)
+        except (ValueError, struct.error) as exc:
+            record["section_error"] = str(exc)
+    comparisons = {}
+    for left, right in (
+        ("historical", "fresh"),
+        ("fresh", "dump"),
+        ("historical", "dump"),
+    ):
+        if left not in objects or right not in objects:
+            continue
+        a, b = objects[left], objects[right]
+        detail = comparisons[f"{left}_vs_{right}"] = dict(
+            whole_object_equal=a["sha256"] == b["sha256"]
+        )
+        if "sections" in a and "sections" in b:
+            lhs, rhs = a["sections"], b["sections"]
+            detail["changed_sections"] = sorted(
+                name
+                for name in lhs.keys() | rhs.keys()
+                if lhs.get(name) != rhs.get(name)
+            )
+    return dict(objects=objects, comparisons=comparisons)
 
 
 def address_failures(log):
@@ -475,6 +579,11 @@ def main():
     parser.add_argument(
         "--sync-ir", action="store_true", help="Dump post-solver BiSheng IR on device"
     )
+    parser.add_argument(
+        "--compare-fresh-binary",
+        action="store_true",
+        help="Compare a fresh ordinary compile with the IR dump",
+    )
     parser.add_argument("--device", type=int, default=1)
     parser.add_argument("--sim-device", type=int, default=0)
     parser.add_argument("--soc-version", default="Ascend910B4")
@@ -485,6 +594,8 @@ def main():
     parser.add_argument("--simulator-minutes", type=int, default=1)
     parser.add_argument("--cases", choices=CHUNKS, nargs="+", default=list(CHUNKS))
     args = parser.parse_args()
+    if args.compare_fresh_binary and not args.sync_ir:
+        parser.error("--compare-fresh-binary requires --sync-ir")
     cores = args.core_id.split("|")
     if (
         args.timeout < 1
@@ -513,7 +624,7 @@ def main():
                     {
                         k: v
                         for k, v in result.items()
-                        if k not in ("reference", "dump", "invocations")
+                        if k not in ("reference", "dump", "fresh", "invocations")
                     }
                 ),
                 flush=True,

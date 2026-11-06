@@ -794,11 +794,16 @@ def run_case(args, result):
             result["sync_ir_capture"] = capture.calls[0]
         else:
             compiled = launch()
+        binary = bytes(compiled.asm["npubin"])
         result["instruction_entry"] = dict(
             kernel=compiled.metadata.kernel_name,
-            binary_sha256=hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
+            binary_sha256=hashlib.sha256(binary).hexdigest(),
             score_launches=1,
         )
+        if args.export_instruction_object:
+            (Path(args.report) / f"{args.case}.npubin.gz").write_bytes(
+                gzip.compress(binary)
+            )
         (Path(args.report) / f"{args.case}-launched.json").write_text(
             json.dumps(result, indent=2) + "\n"
         )
@@ -962,9 +967,17 @@ def main():
         "--independent-buffers", action="store_true", help=argparse.SUPPRESS
     )
     parser.add_argument("--dump-sync-ir", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--export-instruction-object", action="store_true", help=argparse.SUPPRESS
+    )
     args = parser.parse_args()
     if (args.instruction_entry and not args.case) or (
-        (args.verify_output or args.independent_buffers or args.dump_sync_ir)
+        (
+            args.verify_output
+            or args.independent_buffers
+            or args.dump_sync_ir
+            or args.export_instruction_object
+        )
         and not args.instruction_entry
     ):
         parser.error(

@@ -271,3 +271,21 @@ synchronization and buffer relationships. Instruction frequency, overlap
 and runtime wait costs require separate measurement.
 
 [simulator-base]: https://github.com/cheersluvs/FlagGems-vllm/commit/72dd9a7fa3e4cee6e36a3eb27622e8e51c6f91b9
+
+The [first IR capture][post-sync-first] confirmed the bounded scorer at
+exact binary identity. Cube writes a 64-by-64 INT32 tile from its accumulator
+to GM workspace using Fixpipe NZ-to-ND, then signals flag 1. Vector waits,
+loads the 16 KiB result into UB, then signals flag 2 so Cube can overwrite
+the workspace slot. Vector also passes the maximum visible length per work
+unit and the physical page number per page segment to Cube through separate
+scalar workspace slots. These are static data dependencies.
+
+The long scorer's dump instead showed a four-slot ring for INT32 results.
+It passed score validation but its object hash differed from the historical
+binary. The `--compare-fresh-binary` control retains the historical
+reference, a normal rebuild from a separate empty cache, and the dump
+rebuild. It compares full hashes and fingerprints the allocated sections
+and ABI records. Section comparison diagnoses a mismatch and does not
+relax the exact-binary acceptance criterion.
+
+[post-sync-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/f8223be8875429308e190ccca66e2a3b54b578fa
