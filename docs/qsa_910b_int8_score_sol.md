@@ -124,3 +124,39 @@ INT32. It includes differences in data sources and scheduling, and does not
 isolate Cube-to-Vector transfer or wait time.
 
 [sol-calibration]: https://github.com/cheersluvs/FlagGems-vllm/commit/b86c2e6653624a649ad12a6093924523f167e183
+
+## Real INT32 handoff probe
+
+The [matched replay report][output-replay] found a 0.47 us row-stride delta
+and 0.75 us fill delta in budget_exact. The stride delta changed sign between
+rounds in long100k. The fused scorer exceeded row-strided replay by 45.69 and
+107.31 us in paired medians.
+
+| Arm | Work |
+| --- | --- |
+| Current | Unmodified fused scorer with its real inputs |
+| Producer | Original page traversal, Q/K and INT8 dot. Write each issued INT32 tile to global scratch |
+| Consumer | Original page traversal, actual scales/weights, load real INT32 tiles, and run the original FP32 postprocessing and masked output |
+| Split | Producer followed by Consumer on one stream. Count both device tasks in the window |
+
+The two diagnostic kernels are generated from the current bounded and full
+scorer source. The consumer retains the output coordinates and fill loop.
+The producer leaves skipped tiles untouched in the bounded case. The transfer
+payload is 16 KiB per issued tile in each direction, about 12.13 and 50.75 MiB
+per direction for these cases. Compile, compare sampled INT32 tiles against an
+independent CPU dot, compare every consumer/split FP32 value and mask with
+current, and time all arms in one run. The split timing excludes the interval
+between its two tasks. Compare it directly with the fused timing. The
+difference includes global scratch traffic and changes in scheduling, so it
+does not measure the fused kernel's internal transfer latency.
+
+Capture the actual compiled objects with SHA-256 and try locally available
+`llvm-objdump` on each object outside timing. A failed decode is recorded
+and the binary is retained. Validate the architecture and opcodes in any
+disassembly before using it as device instruction evidence. Earlier
+TTIR/ttadapter/BCMLIR alone do not expose the final handoff schedule.
+The compiler stage boundary is described in the [Triton-Ascend debugging
+guide][ascend-debug].
+
+[output-replay]: https://github.com/cheersluvs/FlagGems-vllm/commit/06eb3e25b3db6b749d6dba4db7f5a0790ffe8ac9
+[ascend-debug]: https://github.com/triton-lang/triton-ascend/blob/main/docs/en/debug_guide/debugging.md

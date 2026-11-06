@@ -13,14 +13,22 @@
 """Calibrate component throughput for the current Ascend INT8 scorer."""
 
 import argparse
+import ast
+import collections
 import functools
+import gzip
+import hashlib
 import json
 import os
+import re
+import shutil
 import statistics
+import subprocess
 import sys
 import traceback
 from pathlib import Path
 
+from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
 from probe_qsa_int8_ten_shapes_910b import PLANS, run_child
 from profile_qsa_int8_score_910b import check_chunk
 from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
@@ -99,7 +107,13 @@ def capture_arms(args, result, torch, arms, targets, validate, dot_arms):
     names = {}
     result["compiler"] = {}
     for arm in arms:
-        compiled = launch(arm, targets[arm])
+        launched = launch(arm, targets[arm])
+        if isinstance(launched, tuple):
+            names[arm] = dict(
+                collections.Counter(k.metadata.kernel_name for k in launched)
+            )
+            continue
+        compiled = launched
         names[arm] = {compiled.metadata.kernel_name: 1}
         result["compiler"][arm] = str(compiled.metadata)
         ttir = compiled.asm["ttir"]
@@ -109,6 +123,10 @@ def capture_arms(args, result, torch, arms, targets, validate, dot_arms):
             asm = compiled.asm.get(key)
             if isinstance(asm, str):
                 (Path(args.report) / f"{args.case}-{arm}-{key}.txt").write_text(asm)
+        if args.cv_handoff:
+            result.setdefault("device_objects", {})[arm] = export_device_object(
+                Path(args.report), f"{args.case}-{arm}", compiled
+            )
     result["precheck"] = validate()
     result["kernel_timer"] = {}
     samples, _ = measure_prefix_plan(
@@ -120,6 +138,241 @@ def capture_arms(args, result, torch, arms, targets, validate, dot_arms):
         for arm, rounds in samples.items()
     }
     return samples, med
+
+
+def export_device_object(report, stem, compiled):
+    binary = compiled.asm.get("npubin")
+    info = {"asm_keys": list(compiled.asm)}
+    if not binary:
+        return {**info, "status": "binary_unavailable"}
+    binary = bytes(binary)
+    archive = report / f"{stem}.npubin.gz"
+    archive.write_bytes(gzip.compress(binary))
+    info.update(
+        bytes=len(binary), sha256=hashlib.sha256(binary).hexdigest(), file=archive.name
+    )
+    ascend = (
+        Path(os.environ["ASCEND_HOME_PATH"]) if os.getenv("ASCEND_HOME_PATH") else None
+    )
+    candidates = []
+    if ascend:
+        for subdir in ("compiler/ccec_compiler/bin", "ccec_compiler/bin"):
+            candidates.append(ascend / subdir / "llvm-objdump")
+    if tool := shutil.which("llvm-objdump"):
+        candidates.append(Path(tool))
+    info["status"] = "disassembly_unavailable"
+    info["attempts"] = []
+    obj = report / f"{stem}.npubin"
+    obj.write_bytes(binary)
+    try:
+        for tool in dict.fromkeys(candidates):
+            if not tool.is_file() or not os.access(tool, os.X_OK):
+                continue
+            try:
+                p = subprocess.run(
+                    [str(tool), "-d", str(obj)],
+                    capture_output=True,
+                    text=True,
+                    errors="replace",
+                    timeout=15,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                info["attempts"].append(dict(tool=str(tool), error=str(exc)))
+                continue
+            output = p.stdout[: 2**21]
+            # A successful exit alone does not show that the target ISA was decoded.
+            opcodes = [
+                m.lower()
+                for m in re.findall(
+                    r"^\s*[0-9a-fA-F]+:.*\t([a-zA-Z_][a-zA-Z0-9_.]*)", output, re.M
+                )
+            ]
+            info["attempts"].append(
+                dict(tool=str(tool), exit_code=p.returncode, stderr=p.stderr[:4096])
+            )
+            if p.returncode == 0 and opcodes:
+                path = report / f"{stem}-objdump.txt"
+                path.write_text(output)
+                info.update(
+                    status="instruction_text_exported",
+                    disassembly=path.name,
+                    truncated=len(p.stdout) > len(output),
+                    observed_mnemonics=dict(collections.Counter(opcodes)),
+                )
+                break
+    finally:
+        obj.unlink()
+    return info
+
+
+def build_handoff_source(bounded, arm):
+    """Use the current tile traversal on both sides of a materialized INT32 edge."""
+    module = ast.parse(
+        Path(__file__).with_name("qsa_int8_query_pack4_910b.py").read_text()
+    )
+    kernel = (
+        "_qsa_page64_page_reuse_score"
+        if bounded
+        else "_qsa_page64_page_reuse_full_score"
+    )
+    fn = next(
+        n for n in module.body if isinstance(n, ast.FunctionDef) and n.name == kernel
+    )
+    fn.name = f"_qsa_page64_prefix_{arm}"
+    (unit,) = (n for n in fn.body if isinstance(n, ast.For))
+    page, *tail = (n for n in unit.body if isinstance(n, ast.For))
+    (tile,) = (n for n in page.body if isinstance(n, ast.For))
+    assigned = {
+        n.targets[0].id: i
+        for i, n in enumerate(tile.body)
+        if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)
+    }
+    edge = "((group * tiles + tile) * 4096 + lanes[:, None] * 64 + tl.arange(0, 64)[None, :])"
+    if arm == "producer":
+        tile.body = (
+            tile.body[: assigned["dot"] + 1]
+            + ast.parse(f"tl.store(Out + {edge}, dot)").body
+        )
+        del tile.body[assigned["key_scale"]]
+        for loop in tail:
+            unit.body.remove(loop)
+    elif arm == "consumer":
+        fn.args.args.insert(
+            next(i for i, x in enumerate(fn.args.args) if x.arg == "ROWS"),
+            ast.arg(arg="Raw"),
+        )
+        tile.body[assigned["dot"]].value = ast.parse(
+            f"tl.load(Raw + {edge})", mode="eval"
+        ).body
+        del tile.body[assigned["keys"]]
+    else:
+        raise ValueError(arm)
+    ast.fix_missing_locations(fn)
+    return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+
+
+def run_cv_handoff(args, result, inputs, adapter, score):
+    import torch
+
+    route = result["route"]
+    first, count = route["first"], route["count"]
+    bounded = route["skip_invisible"]
+    width = result["width"]
+    groups, tiles = count // 16, width // 64
+    if tiles % 8:
+        raise ValueError("Handoff requires full eight-tile units")
+    kernel = {
+        arm: load_generated_prefix(
+            Path(args.report), args.case, arm, build_handoff_source(bounded, arm)
+        )
+        for arm in ("producer", "consumer")
+    }
+    raw = torch.full(
+        (groups, tiles, 64, 64),
+        torch.iinfo(torch.int32).min,
+        device=score.device,
+        dtype=torch.int32,
+    )
+    bound = adapter.bind_query16_score(first, count, score)
+    original_inputs = bound.args[:-1]
+    produce = functools.partial(
+        kernel["producer"][(GRID,)], *original_inputs, **bound.keywords
+    )
+
+    def consume(out):
+        return kernel["consumer"][(GRID,)](*original_inputs, out, raw, **bound.keywords)
+
+    def split(out):
+        producer = produce(raw)
+        consumer = consume(out)
+        return producer, consumer
+
+    targets = dict(
+        current=score,
+        producer=raw,
+        consumer=torch.empty_like(score),
+        split=torch.empty_like(score),
+    )
+    arms = dict(
+        current=lambda out: adapter.score_into(first, count, out),
+        producer=produce,
+        consumer=consume,
+        split=split,
+    )
+
+    def validate():
+        torch.npu.synchronize()
+        actual = score.cpu()
+        checks = check_chunk(inputs, actual, first, count)
+        equal = {}
+        for arm in ("consumer", "split"):
+            candidate = targets[arm].cpu()
+            torch.testing.assert_close(candidate, actual, rtol=1e-3, atol=1e-3)
+            equal[arm] = torch.equal(candidate, actual)
+        seen = []
+        for group in (0, groups - 1):
+            base = first + group * 16
+            visible = min(width, int(inputs["visible"][base : base + 16].max()))
+            active = (visible + 63) // 64
+            for tile in sorted({0, active - 1, tiles - 1}):
+                x = raw[group, tile].cpu()
+                if tile >= active:
+                    want = torch.full_like(
+                        x, torch.iinfo(torch.int32).min if bounded else 0
+                    )
+                else:
+                    begin = tile * 64
+                    page, offset = divmod(begin, 192)
+                    physical = int(inputs["row_table"][base, page])
+                    k = (
+                        inputs["cache"][physical, offset : offset + 64, 0]
+                        .float()
+                        .clone()
+                    )
+                    k[max(0, visible - begin) :] = 0
+                    q = inputs["q"][base : base + 16].reshape(64, 128).float()
+                    want = (q @ k.T).to(torch.int32)
+                if not torch.equal(x, want):
+                    raise AssertionError(
+                        f"INT32 handoff mismatch at group {group} tile {tile}"
+                    )
+                seen.append([group, tile])
+        return dict(
+            current=checks,
+            full_outputs_checked=True,
+            bitwise_equal=equal,
+            checked_raw_tiles=seen,
+        )
+
+    result.update(
+        mode="cv_handoff",
+        materialized_allocation_bytes=raw.numel() * raw.element_size(),
+        materialized_transfer_bytes_each_direction=result["work"][
+            "tile_dot_result_logical_bytes"
+        ],
+        scope="Fused score versus split score with explicit INT32 global-memory handoff. "
+        "Split device task sum excludes the launch interval and includes additional traffic and changed scheduling.",
+    )
+    samples, med = capture_arms(
+        args, result, torch, arms, targets, validate, {"current", "producer"}
+    )
+    deltas = [
+        s - c
+        for a, b in zip(samples["split"], samples["current"], strict=True)
+        for s, c in zip(
+            a["active_invocation_us"], b["active_invocation_us"], strict=True
+        )
+    ]
+    comparison = dict(
+        median_us=med,
+        paired_split_minus_current_us=dict(
+            samples_us=deltas, median_us=statistics.median(deltas)
+        ),
+        split_over_current=med["split"] / med["current"],
+        object_status={k: v["status"] for k, v in result["device_objects"].items()},
+    )
+    result.update(samples=samples, **comparison)
+    print("SOL_CV_HANDOFF", args.case, json.dumps(comparison), flush=True)
 
 
 def run_output_replay(args, result, inputs, adapter, current_score):
@@ -428,6 +681,9 @@ def run_case(args, result):
     result.update(route=route, width=width, work=work)
     print("SOL_WORK", args.case, json.dumps(work), flush=True)
 
+    if args.cv_handoff:
+        run_cv_handoff(args, result, inputs, adapter, score)
+        return
     if args.output_replay:
         run_output_replay(args, result, inputs, adapter, score)
         return
@@ -556,10 +812,16 @@ def main():
     parser.add_argument("--kernel-active", type=int, default=3)
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--case", choices=CHUNKS)
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--output-replay",
         action="store_true",
         help="Compare production-shaped Vector replay with compact and row-strided outputs",
+    )
+    mode.add_argument(
+        "--cv-handoff",
+        action="store_true",
+        help="Measure the real INT32 producer and consumer",
     )
     args = parser.parse_args()
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
