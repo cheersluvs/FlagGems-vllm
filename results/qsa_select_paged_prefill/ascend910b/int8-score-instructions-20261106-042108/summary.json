@@ -1,0 +1,503 @@
+{
+  "profiler": [
+    "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/tools/msopprof/bin/msopprof",
+    "simulator"
+  ],
+  "tool_checks": [
+    {
+      "command": [
+        "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/tools/msopprof/bin/msopprof",
+        "simulator"
+      ],
+      "status": 0,
+      "timed_out": false,
+      "available": true,
+      "help_file": "simulator-help-1.txt"
+    }
+  ],
+  "soc_version": "Ascend910B4",
+  "scope": "Standalone CANN simulation, with an independent device reference launch. Raw event durations describe simulation and do not establish device latency.",
+  "cases": [
+    {
+      "case": "int8_budget_exact",
+      "kernel": "_qsa_page64_page_reuse_score",
+      "reference": {
+        "case": "int8_budget_exact",
+        "exit_code": 0,
+        "environment": {
+          "device": "Ascend910B4-1",
+          "torch": "2.10.0+cpu",
+          "torch_npu": "2.10.0",
+          "triton": "3.5.1",
+          "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+          "opp": "/opt/qsa-opp-910b-qw4qRghU"
+        },
+        "route": {
+          "first": 8192,
+          "count": 128,
+          "shared": true,
+          "proof": {
+            "groups": 32,
+            "all_group_maps_equal": true,
+            "same_request_per_group": true
+          },
+          "route": "single_page64",
+          "visibility_tiles": {
+            "issued_tiles": 1024,
+            "useful_tiles": 776,
+            "skipped_tiles": 248,
+            "skipped_fraction": 0.2421875,
+            "selected": true,
+            "policy": "conservative"
+          },
+          "skip_invisible": true,
+          "page_reuse": true,
+          "query_group": 16,
+          "query16_reason": "Shared mapping and request owner proven"
+        },
+        "width": 8192,
+        "work": {
+          "dot_tiles": 776,
+          "active_dot_tiles": 776,
+          "fully_invisible_dot_tiles": 0,
+          "fill_only_tiles": 248,
+          "executed_macs": 406847488,
+          "useful_macs": 403685376,
+          "tile_dot_result_logical_bytes": 12713984,
+          "q_metadata_requested_bytes": 1089536,
+          "k_scale_requested_bytes": 6408480,
+          "page_lookup_sites_executed": 328,
+          "score_write_bytes": 4194304,
+          "unique_q_metadata_bytes": 68096,
+          "unique_k_scale_bytes": 802880,
+          "perfect_reuse_io_bytes": 5066336,
+          "requested_io_bytes_upper": 11693632
+        },
+        "independent_buffers": {
+          "input_shapes": [
+            [
+              128,
+              4,
+              128
+            ],
+            [
+              43,
+              192,
+              1,
+              128
+            ],
+            [
+              128,
+              4
+            ],
+            [
+              43,
+              192,
+              1
+            ],
+            [
+              128,
+              4
+            ],
+            [
+              128,
+              43
+            ],
+            [
+              128
+            ],
+            [
+              128,
+              8192
+            ]
+          ],
+          "allocator_cache_disabled": true
+        },
+        "instruction_entry": {
+          "kernel": "_qsa_page64_page_reuse_score",
+          "binary_sha256": "fb0e8f02f645f6b591111e2793469e3fad37db09ec34a103dbdcc278ed2b3015",
+          "score_launches": 1
+        },
+        "checks": {
+          "rows": 128,
+          "all_chunk_score_masks_checked": true,
+          "cpu_reference_rows": [
+            8192,
+            8256,
+            8319
+          ],
+          "max_abs_error": 7.62939453125e-06
+        }
+      },
+      "reference_exit": 0,
+      "reference_timeout": false,
+      "historical_binary_sha256": "fb0e8f02f645f6b591111e2793469e3fad37db09ec34a103dbdcc278ed2b3015",
+      "reference_matches_historical_binary": true,
+      "status": "simulator_address_error",
+      "exit_code": 1,
+      "command": [
+        "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/tools/msopprof/bin/msopprof",
+        "simulator",
+        "--soc-version=Ascend910B4",
+        "--core-id=0",
+        "--kernel-name=_qsa_page64_page_reuse_score",
+        "--launch-count=1",
+        "--timeout=1",
+        "--output=/tmp/qsa-ascend910b-int8-score-instructions.x3GnSbBR/int8_budget_exact/capture",
+        "/flagos/bin/python3",
+        "-u",
+        "/tmp/flaggems-qsa-sim-base-buffers.PoIVoxzl/tools/probe_qsa_int8_score_sol_910b.py",
+        "--instruction-entry",
+        "--independent-buffers",
+        "--report",
+        "/tmp/qsa-ascend910b-int8-score-instructions.x3GnSbBR/int8_budget_exact/profiled",
+        "--case",
+        "int8_budget_exact",
+        "--device",
+        "0"
+      ],
+      "profiler_exit": 0,
+      "timed_out": false,
+      "profiled": {},
+      "launch_before_sync": {},
+      "address_failures": {
+        "invalid_addresses": 64,
+        "pcs": {
+          "0x10d0d084": 20,
+          "0x10d0d090": 20,
+          "0x10d0d250": 20,
+          "0x10d0d394": 4
+        }
+      },
+      "dumped_binary_hashes": {
+        "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/dump/aicore_binary.o": "fb0e8f02f645f6b591111e2793469e3fad37db09ec34a103dbdcc278ed2b3015"
+      },
+      "profiled_binary_and_launch_match": false,
+      "operator_table_matches": null,
+      "file_count": 13,
+      "files": [
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/dump/aicore_binary.o",
+          "bytes": 10560
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/dump/pc_start_addr.txt",
+          "bytes": 10
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.cubecore0/core0.cubecore0_code_exe.csv",
+          "bytes": 40
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.cubecore0/core0.cubecore0_instr_exe.csv",
+          "bytes": 14984
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.cubecore0/trace.json",
+          "bytes": 55851
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore0/core0.veccore0_code_exe.csv",
+          "bytes": 40
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore0/core0.veccore0_instr_exe.csv",
+          "bytes": 54252
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore0/trace.json",
+          "bytes": 160995
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore1/core0.veccore1_code_exe.csv",
+          "bytes": 40
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore1/core0.veccore1_instr_exe.csv",
+          "bytes": 54274
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore1/trace.json",
+          "bytes": 161013
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/trace.json",
+          "bytes": 423284
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/visualize_data.bin",
+          "bytes": 702200
+        }
+      ],
+      "evidence": [
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.cubecore0/core0.cubecore0_instr_exe.csv",
+          "bytes": 14984,
+          "instruction_rows": {
+            "wait": 3,
+            "transfer": 1,
+            "signal_or_barrier": 6,
+            "other": 182
+          },
+          "example": {
+            "wait": {
+              "instr": "WAIT_FLAG_DEVI",
+              "pipe": "FLOWCTRL",
+              "addr": "282120748",
+              "cycles": "1725",
+              "call_count": "1",
+              "detail": "UIMM:0,"
+            },
+            "transfer": {
+              "instr": "MOV_OUT_TO_L1_MULTI_ND2NZ",
+              "pipe": "MTE2",
+              "addr": "282120740",
+              "cycles": "453",
+              "call_count": "1",
+              "detail": "Src:OUT,Dst:L1,XD:X1=0,XN:X6=0x14418e00,XM:X4=0x8000400010,XT:X7=0x1000100400080,Dtype:B8,id:1"
+            },
+            "signal_or_barrier": {
+              "instr": "SET_FLAG",
+              "pipe": "MTE2",
+              "addr": "282120744",
+              "cycles": "452",
+              "call_count": "1",
+              "detail": "PIPE:MTE2,TRIGGERPIPE:MTE1,FLAGID:0,"
+            }
+          },
+          "archive": "int8_budget_exact-00-core0.cubecore0_instr_exe.csv.gz"
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore0/core0.veccore0_instr_exe.csv",
+          "bytes": 54252,
+          "instruction_rows": {
+            "transfer": 16,
+            "wait": 27,
+            "signal_or_barrier": 31,
+            "other": 563,
+            "vector": 53
+          },
+          "example": {
+            "transfer": {
+              "instr": "MOV_SRC_TO_DST_ALIGN",
+              "pipe": "MTE2",
+              "addr": "282123592",
+              "cycles": "625",
+              "call_count": "1",
+              "detail": "Src:OUT,Dst:UB,XD:X17=0x4c00,XN:X16=0x1442f400,XM:X18=0x400010,XT:X1=0,Dtype:B32,id:15"
+            },
+            "wait": {
+              "instr": "WAIT_FLAG",
+              "pipe": "SCALAR",
+              "addr": "282123620",
+              "cycles": "624",
+              "call_count": "1",
+              "detail": "PIPE:VEC,TRIGGERPIPE:SCALAR,FLAGID:7,"
+            },
+            "signal_or_barrier": {
+              "instr": "SET_FLAG",
+              "pipe": "MTE2",
+              "addr": "282123596",
+              "cycles": "624",
+              "call_count": "1",
+              "detail": "PIPE:MTE2,TRIGGERPIPE:VEC,FLAGID:0,"
+            },
+            "vector": {
+              "instr": "BAR",
+              "pipe": "VECTOR",
+              "addr": "282122348",
+              "cycles": "206",
+              "call_count": "1",
+              "detail": "PIPE:VEC"
+            }
+          },
+          "archive": "int8_budget_exact-01-core0.veccore0_instr_exe.csv.gz"
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore1/core0.veccore1_instr_exe.csv",
+          "bytes": 54274,
+          "instruction_rows": {
+            "transfer": 16,
+            "wait": 27,
+            "signal_or_barrier": 31,
+            "other": 563,
+            "vector": 53
+          },
+          "example": {
+            "transfer": {
+              "instr": "MOV_SRC_TO_DST_ALIGN",
+              "pipe": "MTE2",
+              "addr": "282123592",
+              "cycles": "628",
+              "call_count": "1",
+              "detail": "Src:OUT,Dst:UB,XD:X17=0x4c00,XN:X16=0x1442f400,XM:X18=0x400010,XT:X1=0,Dtype:B32,id:14"
+            },
+            "wait": {
+              "instr": "WAIT_FLAG",
+              "pipe": "SCALAR",
+              "addr": "282123620",
+              "cycles": "627",
+              "call_count": "1",
+              "detail": "PIPE:VEC,TRIGGERPIPE:SCALAR,FLAGID:7,"
+            },
+            "signal_or_barrier": {
+              "instr": "SET_FLAG",
+              "pipe": "MTE2",
+              "addr": "282123596",
+              "cycles": "627",
+              "call_count": "1",
+              "detail": "PIPE:MTE2,TRIGGERPIPE:VEC,FLAGID:0,"
+            },
+            "vector": {
+              "instr": "BAR",
+              "pipe": "VECTOR",
+              "addr": "282122348",
+              "cycles": "206",
+              "call_count": "1",
+              "detail": "PIPE:VEC"
+            }
+          },
+          "archive": "int8_budget_exact-02-core0.veccore1_instr_exe.csv.gz"
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.cubecore0/trace.json",
+          "bytes": 55851,
+          "timed_events": {
+            "other": 235,
+            "signal_or_barrier": 6,
+            "wait": 3
+          },
+          "largest_event_in_trace_units": {
+            "signal_or_barrier": {
+              "name": "SET_FLAG",
+              "pid": 50,
+              "tid": 1,
+              "ts": 6.953333377838135,
+              "dur": 0.000606060610152781,
+              "args": {
+                "code": "",
+                "detail": "PIPE:MTE1,TRIGGERPIPE:MTE2,FLAGID:0,",
+                "pc_addr": "0x10d0d094"
+              }
+            },
+            "wait": {
+              "name": "WAIT_FLAG_DEVI",
+              "pid": 90,
+              "tid": 1,
+              "ts": 7.070302963256836,
+              "dur": 1.045454502105713,
+              "args": {
+                "code": "",
+                "detail": "UIMM:0,",
+                "pc_addr": "0x10d0d22c"
+              }
+            }
+          },
+          "archive": "int8_budget_exact-03-trace.json.gz"
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore0/trace.json",
+          "bytes": 160995,
+          "timed_events": {
+            "other": 668,
+            "wait": 27,
+            "signal_or_barrier": 31
+          },
+          "largest_event_in_trace_units": {
+            "wait": {
+              "name": "WAIT_FLAG",
+              "pid": 10,
+              "tid": 1,
+              "ts": 7.4030303955078125,
+              "dur": 0.3781818151473999,
+              "args": {
+                "code": "",
+                "detail": "PIPE:VEC,TRIGGERPIPE:SCALAR,FLAGID:7,",
+                "pc_addr": "0x10d0dd64"
+              }
+            },
+            "signal_or_barrier": {
+              "name": "SET_FLAG",
+              "pid": 10,
+              "tid": 3,
+              "ts": 7.124242305755615,
+              "dur": 0.000606060610152781,
+              "args": {
+                "code": "",
+                "detail": "PIPE:SCALAR,TRIGGERPIPE:VEC,FLAGID:7,",
+                "pc_addr": "0x10d0d7e8"
+              }
+            }
+          },
+          "archive": "int8_budget_exact-04-trace.json.gz"
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/core0.veccore1/trace.json",
+          "bytes": 161013,
+          "timed_events": {
+            "other": 668,
+            "wait": 27,
+            "signal_or_barrier": 31
+          },
+          "largest_event_in_trace_units": {
+            "wait": {
+              "name": "WAIT_FLAG",
+              "pid": 10,
+              "tid": 1,
+              "ts": 7.401212215423584,
+              "dur": 0.3799999952316284,
+              "args": {
+                "code": "",
+                "detail": "PIPE:VEC,TRIGGERPIPE:SCALAR,FLAGID:7,",
+                "pc_addr": "0x10d0dd64"
+              }
+            },
+            "signal_or_barrier": {
+              "name": "SET_FLAG",
+              "pid": 10,
+              "tid": 3,
+              "ts": 7.124848365783691,
+              "dur": 0.000606060610152781,
+              "args": {
+                "code": "",
+                "detail": "PIPE:SCALAR,TRIGGERPIPE:VEC,FLAGID:7,",
+                "pc_addr": "0x10d0d7e8"
+              }
+            }
+          },
+          "archive": "int8_budget_exact-05-trace.json.gz"
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/trace.json",
+          "bytes": 423284,
+          "timed_events": {
+            "other": 1571,
+            "wait": 5
+          },
+          "largest_event_in_trace_units": {
+            "wait": {
+              "name": "WAIT_FLAG_DEVI",
+              "pid": "core0.cubecore0",
+              "tid": "FLOWCTRL",
+              "ts": 7.070302963256836,
+              "dur": 1.045454502105713,
+              "args": {
+                "code": "",
+                "detail": "UIMM:0,",
+                "pc_addr": "0x10d0d22c"
+              }
+            }
+          },
+          "archive": "int8_budget_exact-06-trace.json.gz"
+        },
+        {
+          "path": "OPPROF_20261106122003_UVJKQTMEUAEXEHAC/simulator/visualize_data.bin",
+          "bytes": 702200,
+          "archive": "int8_budget_exact-07-visualize_data.bin.gz"
+        }
+      ],
+      "instruction_evidence": true
+    }
+  ],
+  "exit_code": 1
+}
