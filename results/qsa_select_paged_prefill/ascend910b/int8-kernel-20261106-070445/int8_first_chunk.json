@@ -1,0 +1,421 @@
+{
+  "case": "int8_first_chunk",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_first_chunk",
+    "nv_case": "fp8_first_chunk_float8_e4m3fn",
+    "origin": "recorded_envelope",
+    "query_lengths": [
+      16384
+    ],
+    "prefix_tokens": [
+      0
+    ],
+    "starts": [
+      0,
+      16384
+    ],
+    "batch_max_seq_len": 16384,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      22
+    ],
+    "physical_pages": 22,
+    "table_columns": 22,
+    "q_shape": [
+      16384,
+      4,
+      128
+    ],
+    "cache_shape": [
+      22,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 4096,
+    "chunk_rows": 128,
+    "score_and_dot_scratch_bytes": 10485760,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": 2712,
+    "nv_original_table_columns": 88,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Current vs one-copy GroupVisible; paired score device time and fresh request wall time",
+  "stage": "group_visible_request_completed",
+  "correctness": {
+    "full_scores_bitwise_equal": true,
+    "all_topk_indices_bitwise_equal": true,
+    "cpu_reference_rows": [
+      0,
+      127,
+      128,
+      2046,
+      2047,
+      2048,
+      8192,
+      16256,
+      16383
+    ],
+    "chunks": 128
+  },
+  "group_visible_prepared": {
+    "hit_chunks": 0,
+    "bytes": 0,
+    "prepare_us": 12.63
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-group-visible-request.sC5DhBkb/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-group-visible-request.sC5DhBkb/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "kernel_timer": {
+    "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+    "prefix_plan_artifact": "int8_first_chunk-prefix-plan-01.json.gz"
+  },
+  "single_capture_plan": [
+    {
+      "round": 0,
+      "arm": "current",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "group_visible",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "current",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "group_visible",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "group_visible",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "current",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "group_visible",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "current",
+      "active": 1
+    }
+  ],
+  "single_capture_counts": {
+    "expected_host_counts": {
+      "_qsa_qk_key_group_score": 1024
+    },
+    "observed_host_counts": {
+      "_qsa_qk_key_group_score": 1024
+    },
+    "tasks_per_window": [
+      128,
+      128,
+      128,
+      128,
+      128,
+      128,
+      128,
+      128
+    ],
+    "expected_tasks_per_window": [
+      128,
+      128,
+      128,
+      128,
+      128,
+      128,
+      128,
+      128
+    ]
+  },
+  "score_device_us": {
+    "medians": {
+      "current": 36370.90000000001,
+      "group_visible": 36363.71999999999
+    },
+    "samples": {
+      "current": [
+        {
+          "kernel_us": 36393.17000000001,
+          "active_invocation_us": [
+            36400.92000000001,
+            36385.420000000006
+          ],
+          "artifact": "int8_first_chunk-prefix-plan-01.json.gz",
+          "window_indices": [
+            0,
+            2
+          ],
+          "device_task_count": 256
+        },
+        {
+          "kernel_us": 36343.11,
+          "active_invocation_us": [
+            36356.38000000001,
+            36329.83999999999
+          ],
+          "artifact": "int8_first_chunk-prefix-plan-01.json.gz",
+          "window_indices": [
+            5,
+            7
+          ],
+          "device_task_count": 256
+        }
+      ],
+      "group_visible": [
+        {
+          "kernel_us": 36360.999999999985,
+          "active_invocation_us": [
+            36380.91999999998,
+            36341.079999999994
+          ],
+          "artifact": "int8_first_chunk-prefix-plan-01.json.gz",
+          "window_indices": [
+            1,
+            3
+          ],
+          "device_task_count": 256
+        },
+        {
+          "kernel_us": 36378.220000000016,
+          "active_invocation_us": [
+            36346.520000000004,
+            36409.92000000003
+          ],
+          "artifact": "int8_first_chunk-prefix-plan-01.json.gz",
+          "window_indices": [
+            4,
+            6
+          ],
+          "device_task_count": 256
+        }
+      ]
+    },
+    "paired_saved_us": [
+      20.00000000003638,
+      44.34000000001106,
+      9.860000000007858,
+      -80.08000000003813
+    ],
+    "speedup": 1.0001974495458668
+  },
+  "request_wall_us": {
+    "medians": {
+      "current": 206642.737,
+      "group_visible": 207319.4225
+    },
+    "samples": [
+      {
+        "order": [
+          "current",
+          "group_visible"
+        ],
+        "current": {
+          "wall_us": 209689.759,
+          "preparation_us": 23827.381432056427,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 0.0
+          }
+        },
+        "group_visible": {
+          "wall_us": 209436.047,
+          "preparation_us": 22639.291360974312,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 10.49
+          }
+        }
+      },
+      {
+        "order": [
+          "group_visible",
+          "current"
+        ],
+        "group_visible": {
+          "wall_us": 208294.906,
+          "preparation_us": 23080.432787537575,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 10.34
+          }
+        },
+        "current": {
+          "wall_us": 206754.063,
+          "preparation_us": 22946.732118725777,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 0.0
+          }
+        }
+      },
+      {
+        "order": [
+          "current",
+          "group_visible"
+        ],
+        "current": {
+          "wall_us": 204590.184,
+          "preparation_us": 23435.095325112343,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 0.0
+          }
+        },
+        "group_visible": {
+          "wall_us": 366293.15,
+          "preparation_us": 184403.195977211,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 10.67
+          }
+        }
+      },
+      {
+        "order": [
+          "group_visible",
+          "current"
+        ],
+        "group_visible": {
+          "wall_us": 206190.358,
+          "preparation_us": 21661.01150214672,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 10.37
+          }
+        },
+        "current": {
+          "wall_us": 205643.353,
+          "preparation_us": 21509.921178221703,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 0.0
+          }
+        }
+      },
+      {
+        "order": [
+          "current",
+          "group_visible"
+        ],
+        "current": {
+          "wall_us": 206531.411,
+          "preparation_us": 21998.59358370304,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 0.0
+          }
+        },
+        "group_visible": {
+          "wall_us": 206050.457,
+          "preparation_us": 21784.961223602295,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 10.56
+          }
+        }
+      },
+      {
+        "order": [
+          "group_visible",
+          "current"
+        ],
+        "group_visible": {
+          "wall_us": 206343.939,
+          "preparation_us": 22431.308403611183,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 10.76
+          }
+        },
+        "current": {
+          "wall_us": 209268.165,
+          "preparation_us": 22143.2838588953,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "prepare_us": 0.0
+          }
+        }
+      }
+    ],
+    "speedup": 0.9967360245757968,
+    "paired_saved_us": [
+      253.71199999999953,
+      -1540.8429999999935,
+      -161702.96600000001,
+      -547.0050000000047,
+      480.9539999999979,
+      2924.225999999995
+    ],
+    "median_group_visible_prepare_us": 10.525,
+    "scope": "Fresh route/metadata preparation, one score+TopK request and final sync on ready inputs and buffers."
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "c8b168181dc912ce7b516cc12afb86fc8511a9804068c99d3dbb61fa7f1ca0d3",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "probe_qsa_int8_page64_prefix_910b.py": "6474046912c72c2bbd88a61815a8198a179d5f3452469df7b1485bb6cf956aba",
+    "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+    "qsa_int8_shared_map_selection_910b_trial.py": "669bb2377570c8f0cc44d65ad546ca7ed04ebe9bc797f07b0a73ddf6c10e84b0",
+    "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+    "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+    "qsa_int8_stage_trace_timer_910b.py": "3047bd02b8dda4d6c6604ef8e4ced29e5d96a2c3d69e09d511b48e887ff92cea",
+    "benchmark_qsa_prefill_stages_910b.py": "fade15f762a97c5e5136d20e7535014042a16d76ccfee645e1f2e83839cbb696",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6",
+    "probe_qsa_int8_group_visible_request_910b.py": "48c93535e67ef0fb4d5e4f92aa26d9190e0bcb766058366e93a74fa035381868",
+    "probe_qsa_int8_score_sol_910b.py": "9f6cd7321d2f7f0dc82e764d21e4584b498f6fe32b04fe6223460c1eeabcd183"
+  },
+  "exit_code": 0
+}
