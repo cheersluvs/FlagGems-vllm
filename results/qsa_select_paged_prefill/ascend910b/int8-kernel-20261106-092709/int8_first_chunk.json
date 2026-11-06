@@ -1,0 +1,2570 @@
+{
+  "case": "int8_first_chunk",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_first_chunk",
+    "nv_case": "fp8_first_chunk_float8_e4m3fn",
+    "origin": "recorded_envelope",
+    "query_lengths": [
+      16384
+    ],
+    "prefix_tokens": [
+      0
+    ],
+    "starts": [
+      0,
+      16384
+    ],
+    "batch_max_seq_len": 16384,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      22
+    ],
+    "physical_pages": 22,
+    "table_columns": 22,
+    "q_shape": [
+      16384,
+      4,
+      128
+    ],
+    "cache_shape": [
+      22,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 4096,
+    "chunk_rows": 128,
+    "score_and_dot_scratch_bytes": 10485760,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": 2712,
+    "nv_original_table_columns": 88,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Prepared inputs; sum of device kernel durations, not public production entry",
+  "stage": "completed",
+  "memory": {
+    "benchmark_only_full_logits_bytes": 268435456,
+    "bounded_score_scratch_bytes": 2097152,
+    "raw_dot_allocation_bytes": 0,
+    "free_before_staging": 65028562944,
+    "total": 65452113920
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-topk-integration.TtHS5SUD/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "ba379c38f5421fd84bf768d5c86b566117e4b0219e9fcdc5695f5913b7acc6dc",
+    "utility": "/tmp/flaggems-qsa-topk-integration.TtHS5SUD/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "dispatch": {
+    "score_chunk_rows": 128,
+    "topk_call_rows": 32,
+    "topk_block": 256,
+    "score_calls": 128,
+    "topk_calls": 512,
+    "native_full_calls": 1,
+    "native_chunked_calls": 0,
+    "score_grid": 20,
+    "score_block_n": 128,
+    "debug_store": false,
+    "score_block_ns": [
+      128
+    ]
+  },
+  "shared_map_dispatch": {
+    "preparation_ms": 22.24096469581127,
+    "query16_enabled": true,
+    "skip_invisible_enabled": true,
+    "page_reuse_enabled": true,
+    "page_reuse_full_enabled": true,
+    "page_reuse_chunks": 0,
+    "visibility_policy": "conservative",
+    "skip_invisible_chunks": 0,
+    "score_comparator": "current_visibility",
+    "query16_chunks": 0,
+    "group4_enabled": true,
+    "single_page64_enabled": true,
+    "single_page64_min_width": 8192,
+    "single_page64_chunks": 0,
+    "group4_min_key_tiles": 16,
+    "group4_chunks": 128,
+    "plain_qk_chunks": 0,
+    "preparation_in_kernel_timing": false,
+    "immutable_inputs_required": true,
+    "qk_chunks": 128,
+    "fallback_chunks": 0,
+    "routes": [
+      {
+        "first": 0,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 128,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 256,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 384,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 512,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 640,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 768,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 896,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 1024,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 1152,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 1280,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 1408,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 1536,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 1664,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 1792,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 1920,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 2048,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 2176,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 2304,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 2432,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 2560,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 2688,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 2816,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 2944,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 3072,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 3200,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 3328,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 3456,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 3584,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 3712,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 3840,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 3968,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 4096,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 4224,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 4352,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 4480,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 4608,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 4736,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 4864,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 4992,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 5120,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 5248,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 5376,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 5504,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 5632,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 5760,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 5888,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 6016,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 6144,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 6272,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 6400,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 6528,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 6656,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 6784,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 6912,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 7040,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 7168,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 7296,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 7424,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 7552,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 7680,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 7808,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 7936,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 8064,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 8192,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 8320,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 8448,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 8576,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 8704,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 8832,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 8960,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 9088,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 9216,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 9344,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 9472,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 9600,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 9728,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 9856,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 9984,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 10112,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 10240,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 10368,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 10496,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 10624,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 10752,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 10880,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 11008,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 11136,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 11264,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 11392,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 11520,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 11648,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 11776,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 11904,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 12032,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 12160,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 12288,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 12416,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 12544,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 12672,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 12800,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 12928,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 13056,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 13184,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 13312,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 13440,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 13568,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 13696,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 13824,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 13952,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 14080,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 14208,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 14336,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 14464,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 14592,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 14720,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 14848,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 14976,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 15104,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 15232,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 15360,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 15488,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 15616,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 15744,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 15872,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 16000,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 16128,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      },
+      {
+        "first": 16256,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "group4",
+        "skip_invisible": false,
+        "page_reuse": false,
+        "query_group": 4,
+        "query16_reason": "Current route retained"
+      }
+    ],
+    "calibration": "Unchanged single-query scorer; candidate stages timed separately"
+  },
+  "visibility_policy_summary": {
+    "policy": "conservative",
+    "candidate_chunks": 0,
+    "selected_chunks": 0,
+    "issued_tiles": 0,
+    "skipped_tiles": 0,
+    "extra_visible_copy_in_preparation": true,
+    "thresholds_scope": "Candidate heuristic, not established optimum"
+  },
+  "integration": {
+    "entry": "qsa_int8_shared_map_selection_910b_trial.PreparedSharedMapInt8Selection.__call__",
+    "score_grid": 20,
+    "score_block_n": 128,
+    "topk_call_rows": 32,
+    "reuse_topk_scratch": true,
+    "scope": "Prepared INT8 trial adapter; BF16 production unchanged"
+  },
+  "cpu_reference_rows": [
+    0,
+    127,
+    128,
+    2046,
+    2047,
+    2048,
+    8192,
+    16256,
+    16383
+  ],
+  "correctness": {
+    "score": {
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        2046,
+        2047,
+        2048,
+        8192,
+        16256,
+        16383
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    "all_chunk_scores_vs_legacy": {
+      "chunks": 128,
+      "all_values_compared": true,
+      "max_abs_error": 1.52587890625e-05
+    },
+    "native_full_preflight": {
+      "all_rows_structure": true,
+      "rows": 16384,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        2046,
+        2047,
+        2048,
+        8192,
+        16256,
+        16383
+      ],
+      "selected_score_max_abs_error": 0.0
+    },
+    "topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.019748687744140625,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.019748687744140625,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "topk_scratch_exact_vs_current": true,
+    "post_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "post_topk": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.019748687744140625,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_combined": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.019748687744140625,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_native_fused": {
+      "indices": {
+        "all_rows_structure": true,
+        "rows": 16384,
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "selected_score_max_abs_error": 0.0
+      },
+      "paired": {
+        "all_rows_paired": true,
+        "rows": 16384,
+        "max_abs_error": 0.019748687744140625,
+        "rtol": 0.001,
+        "atol": 0.001
+      }
+    },
+    "post_legacy_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    },
+    "post_dispatch_score": {
+      "last_timed_chunk_checked": true,
+      "sampled": {
+        "sampled_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "max_abs_error": 7.62939453125e-06
+      }
+    }
+  },
+  "no_debug_ir": {
+    "store_count": 1,
+    "int8_to_int32_dot": true
+  },
+  "baseline_policy": {
+    "primary": "full native V1, one call",
+    "auxiliary": "omitted",
+    "no_fallback": true
+  },
+  "topk_scratch": {
+    "allocation_names": [
+      "props",
+      "nv_props",
+      "buf_a",
+      "buf_b",
+      "nv_a",
+      "nv_b",
+      "scratch"
+    ],
+    "route": "existing_fallback",
+    "calls_by_rows": {
+      "32": 512
+    },
+    "reused_calls_by_rows": {},
+    "shapes": {},
+    "bytes": 0
+  },
+  "kernel_timer": {
+    "backend": "CPU+NPU Chrome trace with synchronized invocation windows",
+    "warmup": 1,
+    "active": 2,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Exploratory device-task sums; all stage and native baselines rebuilt together; no host gaps",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "invocation_sum_check": {
+      "single": {
+        "kernel_us": 510.46000000000004,
+        "active_invocation_us": [
+          514.44,
+          506.48
+        ],
+        "device_task_count": 2,
+        "host_launch_count": 2,
+        "artifact": "int8_first_chunk-timer-01.json.gz"
+      },
+      "triple": {
+        "kernel_us": 1520.26,
+        "active_invocation_us": [
+          1522.1200000000001,
+          1518.3999999999999
+        ],
+        "device_task_count": 6,
+        "host_launch_count": 6,
+        "artifact": "int8_first_chunk-timer-02.json.gz"
+      },
+      "ratio": 2.978215726991341
+    }
+  },
+  "samples": {
+    "score": [
+      {
+        "kernel_us": 36382.14,
+        "active_invocation_us": [
+          36394.95999999999,
+          36369.320000000014
+        ],
+        "device_task_count": 256,
+        "tasks_per_invocation": [
+          128,
+          128
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 128
+        },
+        "artifact": "int8_first_chunk-stage-timer-01.json.gz",
+        "stage": "score_stage"
+      }
+    ],
+    "topk": [
+      {
+        "kernel_us": 7616.480000000006,
+        "active_invocation_us": [
+          7617.720000000002,
+          7615.24000000001
+        ],
+        "device_task_count": 3072,
+        "tasks_per_invocation": [
+          1536,
+          1536
+        ],
+        "device_task_names_per_invocation": {
+          "_radix_hist_trivial_all": 512,
+          "_segmerge_seg_sort": 512,
+          "_segmerge_merge_unpack": 512
+        },
+        "artifact": "int8_first_chunk-stage-timer-02.json.gz",
+        "stage": "topk_stage"
+      }
+    ],
+    "combined": [
+      {
+        "kernel_us": 44705.53000000002,
+        "active_invocation_us": [
+          44729.78000000004,
+          44681.28
+        ],
+        "device_task_count": 3328,
+        "tasks_per_invocation": [
+          1664,
+          1664
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 128,
+          "_radix_hist_trivial_all": 512,
+          "_segmerge_seg_sort": 512,
+          "_segmerge_merge_unpack": 512
+        },
+        "artifact": "int8_first_chunk-stage-timer-03.json.gz",
+        "stage": "combined_stage"
+      }
+    ],
+    "native_fused": [
+      {
+        "kernel_us": 8040.530000000001,
+        "active_invocation_us": [
+          8048.02,
+          8033.04
+        ],
+        "device_task_count": 2,
+        "tasks_per_invocation": [
+          1,
+          1
+        ],
+        "device_task_names_per_invocation": {
+          "QuantLightningIndexer": 1
+        },
+        "artifact": "int8_first_chunk-stage-timer-04.json.gz",
+        "stage": "native_stage"
+      }
+    ],
+    "legacy_score": [
+      {
+        "kernel_us": 120503.59000000003,
+        "active_invocation_us": [
+          120480.87999999998,
+          120526.30000000006
+        ],
+        "device_task_count": 256,
+        "tasks_per_invocation": [
+          128,
+          128
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 128
+        },
+        "artifact": "int8_first_chunk-stage-timer-05.json.gz",
+        "stage": "legacy_score_stage"
+      }
+    ],
+    "dispatch_score": [
+      {
+        "kernel_us": 36401.29999999999,
+        "active_invocation_us": [
+          36410.89999999999,
+          36391.7
+        ],
+        "device_task_count": 256,
+        "tasks_per_invocation": [
+          128,
+          128
+        ],
+        "device_task_names_per_invocation": {
+          "MIX_AIC": 128
+        },
+        "artifact": "int8_first_chunk-stage-timer-06.json.gz",
+        "stage": "dispatch_score_stage"
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "score",
+      "topk",
+      "combined",
+      "native_fused",
+      "legacy_score",
+      "dispatch_score"
+    ]
+  ],
+  "latency": {
+    "score": {
+      "kernel_us": {
+        "median": 36382.14,
+        "min": 36382.14,
+        "max": 36382.14,
+        "range_over_median": 0.0
+      }
+    },
+    "topk": {
+      "kernel_us": {
+        "median": 7616.480000000006,
+        "min": 7616.480000000006,
+        "max": 7616.480000000006,
+        "range_over_median": 0.0
+      }
+    },
+    "combined": {
+      "kernel_us": {
+        "median": 44705.53000000002,
+        "min": 44705.53000000002,
+        "max": 44705.53000000002,
+        "range_over_median": 0.0
+      }
+    },
+    "native_fused": {
+      "kernel_us": {
+        "median": 8040.530000000001,
+        "min": 8040.530000000001,
+        "max": 8040.530000000001,
+        "range_over_median": 0.0
+      }
+    },
+    "legacy_score": {
+      "kernel_us": {
+        "median": 120503.59000000003,
+        "min": 120503.59000000003,
+        "max": 120503.59000000003,
+        "range_over_median": 0.0
+      }
+    },
+    "dispatch_score": {
+      "kernel_us": {
+        "median": 36401.29999999999,
+        "min": 36401.29999999999,
+        "max": 36401.29999999999,
+        "range_over_median": 0.0
+      }
+    }
+  },
+  "speedup": {
+    "overall": 0.17985537807067709,
+    "auxiliary_chunked_native": null,
+    "score": null,
+    "topk": null
+  },
+  "score_speedup_vs_legacy": 3.3121633306891796,
+  "score_speedup_vs_current_dispatch": 1.0005266320232946,
+  "native_split": {
+    "score_us": null,
+    "topk_us": null,
+    "reason": "Fused V1 API has no isolated stage entry"
+  },
+  "topk_state": {
+    "segmerge": {
+      "probed": true,
+      "usable": true
+    },
+    "persistent": {
+      "usable": true
+    }
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "78fde4a8ed1e12d3d1e0c7f85166cd215862ef9bcbd50c86bc5ac5eff503309e",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "e6ea2a5887363e90094e258def7e6d2c1de9eb79f3fad63b684e7e17fe260f8e",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "probe_qsa_int8_page64_prefix_910b.py": "6474046912c72c2bbd88a61815a8198a179d5f3452469df7b1485bb6cf956aba",
+    "qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+    "qsa_int8_shared_map_selection_910b_trial.py": "207eea1d999437a85195cdc6ac8c46d1d0f57eb7fdd945e0e71818b637c42fee",
+    "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+    "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+    "qsa_int8_stage_trace_timer_910b.py": "c2eef1794f2e0db1b94a4d29bff6d6e29e694499ea30e10b53eb37e851152983",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "benchmark_qsa_prefill_stages_910b.py": "fade15f762a97c5e5136d20e7535014042a16d76ccfee645e1f2e83839cbb696",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6",
+    "qsa_timeline_910b.py": "c54f29cc8626b96342249382b22844f410a02b427bdef943dcf73c0f730251da",
+    "probe_qsa_int8_group_visible_request_910b.py": "c6082d6ad9e396db1b3e4915f7860ba38e45a0835b0afa18a4c42d7f8496d068",
+    "probe_qsa_int8_topk_workspace_910b.py": "817678cbc80f1b17f2754be108e2bc1dc11affa2644ec017940d3fb635b284b8",
+    "probe_qsa_int8_score_sol_910b.py": "54183cc4eebc64009e2e4c55fb8a0aab6b2ad6be2c3433bde82df3f5387d0d32"
+  },
+  "exit_code": 0
+}
