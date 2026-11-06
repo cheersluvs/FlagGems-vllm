@@ -80,6 +80,27 @@ def build_current_prefix(kernel, arm):
         for i, node in enumerate(tile.body)
         if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
     }
+    if arm == "page_address":
+        page.body.insert(
+            page.body.index(tile),
+            ast.parse(
+                "page_token_bias = (physical.to(tl.int64) - page.to(tl.int64)) * PAGE"
+            ).body[0],
+        )
+        column_position = assignments["columns"]
+        tile.body[assignments["token"]].value = ast.parse(
+            "page_token_bias + column_base.to(tl.int64) + tl.arange(0, BLOCK_N)",
+            mode="eval",
+        ).body
+        del tile.body[assignments["offset"]]
+        tile.body[column_position : column_position + 1] = ast.parse(
+            "column_base = tile * BLOCK_N\n"
+            "columns = column_base + tl.arange(0, BLOCK_N)"
+        ).body
+        return (
+            "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+        )
+
     if arm in ("head_last", "head_gather"):
         position = assignments["scores"]
         if arm == "head_last":
@@ -496,7 +517,7 @@ def run_case(args):
             raise NotImplementedError("910B required")
         plan = PLANS[args.case]
         inputs = make_inputs(plan)
-        full_score_ab = args.scale_order or args.head_layout
+        full_score_ab = args.scale_order or args.head_layout or args.page_address
         if args.scale_order:
             for name in ("qs", "ks"):
                 scale = inputs[name]
@@ -661,6 +682,11 @@ def run_case(args):
                     f"FP32 head aggregation via {args.head_layout_variant} versus current. "
                     "Same pre-reduction arithmetic, loops and store coordinates. "
                     "TopK checked outside timing."
+                )
+            if args.page_address:
+                result["scope"] = (
+                    "Hoist the physical-minus-logical token base per page; reuse the "
+                    "tile column base for K/KS addressing. TopK checked outside timing."
                 )
             print("CURRENT_PAGE_ROUTE", json.dumps(route), flush=True)
         kernels = load_kernels(report, args.case, current)
@@ -987,6 +1013,15 @@ def run_case(args):
                     if "linalg.reduce " in line
                 ],
             )
+            if args.page_address:
+                address_ir = [
+                    dict(line=i, indent=len(line) - len(line.lstrip()), ir=line.strip())
+                    for i, line in enumerate(kernel.asm["bcmlir"].splitlines(), 1)
+                    if "scf.for " in line
+                    or ("arith.muli " in line and "%c192_i64" in line)
+                ]
+                result["compiler"][name]["page_address_ir"] = address_ir
+                print("PAGE_ADDRESS_IR", name, json.dumps(address_ir), flush=True)
             result["prechecks"][name] = check(name, targets[name], first, count, width)
         reference = torch.empty_like(scratch)
         adapter.score_into(first, count, reference)
@@ -1045,6 +1080,8 @@ def run_case(args):
                         scores, current_scores, rtol=1e-3, atol=1e-3
                     ),
                 )
+                if args.page_address and not checks[name]["exact_scores"]:
+                    raise AssertionError(f"Page address rewrite changed scores: {name}")
                 if not checks[name]["selected_scores_match"]:
                     raise AssertionError(f"Selected scores differ from current: {name}")
             return checks
@@ -1235,6 +1272,15 @@ def run_case(args):
             print(
                 "HEAD_LAYOUT_SPEEDUP_VS_CURRENT",
                 result["head_layout_speedup_vs_current"],
+                flush=True,
+            )
+        if args.page_address:
+            result["page_address_speedup_vs_current"] = (
+                times["current"] / times["page_address"]
+            )
+            print(
+                "PAGE_ADDRESS_SPEEDUP_VS_CURRENT",
+                result["page_address_speedup_vs_current"],
                 flush=True,
             )
         print("arm | kernel_us | relative_to_current", flush=True)
@@ -1451,7 +1497,16 @@ def main():
         default="transpose",
         help="Select the original transpose experiment or explicit head gathering",
     )
+    parser.add_argument(
+        "--page-address",
+        action="store_true",
+        help="Compare hoisted per-page token base with the current page-reuse scorer",
+    )
     args = parser.parse_args()
+    if args.page_address and (
+        not args.current_page_prefix or args.scale_order or args.head_layout
+    ):
+        parser.error("--page-address requires --current-page-prefix by itself")
     if args.head_layout_variant != "transpose" and not args.head_layout:
         parser.error("--head-layout-variant requires --head-layout")
     if args.head_layout and (not args.current_page_prefix or args.scale_order):
@@ -1513,7 +1568,11 @@ def main():
         ARMS = (
             HEAD_LAYOUT_ARMS[args.head_layout_variant]
             if args.head_layout
-            else SCALE_ORDER_ARMS if args.scale_order else CURRENT_PREFIX_ARMS
+            else (
+                ("page_address", "current")
+                if args.page_address
+                else SCALE_ORDER_ARMS if args.scale_order else CURRENT_PREFIX_ARMS
+            )
         )
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations required")
@@ -1547,6 +1606,8 @@ def main():
             command.append("--current-page-prefix")
         if args.scale_order:
             command.append("--scale-order")
+        if args.page_address:
+            command.append("--page-address")
         if args.head_layout:
             command.extend(
                 ["--head-layout", "--head-layout-variant", args.head_layout_variant]
