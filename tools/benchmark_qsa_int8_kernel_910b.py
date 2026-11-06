@@ -87,6 +87,12 @@ def run_case(args):
         )
         result["stage"] = "inputs_and_allocation"
         inputs = make_inputs(plan)
+        if args.bounded_query_weight:
+            query_scale = inputs["qs"]
+            if not bool((torch.isfinite(query_scale) & (query_scale >= 0)).all()):
+                raise ValueError(
+                    "Bounded query-weight probe requires finite nonnegative QS"
+                )
         values = {key: value.to(f"npu:{args.device}") for key, value in inputs.items()}
         rows, width, chunk = (
             plan["q_shape"][0],
@@ -264,7 +270,32 @@ def run_case(args):
                     flush=True,
                 )
 
-            if args.single_page64_dispatch:
+            if args.bounded_query_weight:
+                from probe_qsa_int8_page64_prefix_910b import (
+                    build_current_prefix,
+                    load_generated_prefix,
+                )
+
+                dispatch_adapter = prepare_shared_adapter()
+                if adapter.route_checks != dispatch_adapter.route_checks:
+                    raise AssertionError("Candidate/control routes differ")
+                arm = "combine_query_weight"
+                adapter.visibility_kernel = load_generated_prefix(
+                    report,
+                    args.case,
+                    arm,
+                    build_current_prefix(adapter.visibility_kernel.fn.__name__, arm),
+                )
+                hits = sum(adapter.skip_invisible_routes.values())
+                result["bounded_query_weight"] = dict(
+                    hit_chunks=hits, chunks=len(chunks)
+                )
+                print(
+                    "BOUNDED_QUERY_WEIGHT",
+                    json.dumps(result["bounded_query_weight"]),
+                    flush=True,
+                )
+            elif args.single_page64_dispatch:
                 dispatch_adapter = PreparedSharedMapInt8Selection(
                     values,
                     output,
@@ -904,6 +935,11 @@ def run_case(args):
 
             result["stage"] = "paired_score_precheck"
             hosts, signatures = {}, {}
+            if args.bounded_query_weight:
+                topk_pair = dict(
+                    rows=rows, identical_set_rows=0, identical_order_rows=0
+                )
+                result["bounded_query_weight"]["topk_pair"] = topk_pair
             for name, prepared in (
                 ("score", adapter),
                 ("dispatch_score", dispatch_adapter),
@@ -924,7 +960,44 @@ def run_case(args):
                         raise AssertionError(
                             f"Paired precheck mismatch: {name}, {first}"
                         )
+                    if args.bounded_query_weight and name == "dispatch_score":
+                        current_logits = scratch[:count]
+                        candidate_logits = frozen[first : first + count]
+                        idx = output[first : first + count]
+                        adapter.select_chunk(first, candidate_logits)
+                        candidate_idx = idx.cpu()
+                        prepared.select_chunk(first, current_logits)
+                        control_idx = idx.cpu()
+                        lengths = inputs["visible"][first : first + count]
+                        candidate_set = verify_structure(candidate_idx, lengths)
+                        control_set = verify_structure(control_idx, lengths)
+                        topk_pair["identical_set_rows"] += int(
+                            (candidate_set == control_set).all(dim=1).sum()
+                        )
+                        topk_pair["identical_order_rows"] += int(
+                            (candidate_idx == control_idx).all(dim=1).sum()
+                        )
+                        candidate_scores = selected_scores(
+                            current_logits, candidate_idx.to(device), candidate_idx
+                        )
+                        control_scores = selected_scores(
+                            current_logits, control_idx.to(device), control_idx
+                        )
+                        if not torch.allclose(
+                            candidate_scores, control_scores, rtol=1e-3, atol=1e-3
+                        ):
+                            raise AssertionError(
+                                f"Paired TopK score mismatch at {first}"
+                            )
                 hosts[name], signatures[name] = dict(counts), fingerprints
+            if args.bounded_query_weight:
+                for chunk_key, a, b in zip(
+                    chunks, signatures["score"], signatures["dispatch_score"]
+                ):
+                    if (a != b) != adapter.skip_invisible_routes[chunk_key]:
+                        raise AssertionError(f"Unexpected binary change at {chunk_key}")
+                topk_pair["selected_scores_match"] = True
+                print("BOUNDED_QUERY_WEIGHT_TOPK", json.dumps(topk_pair), flush=True)
             same = signatures["score"] == signatures["dispatch_score"]
             result["paired_score_identity"] = dict(
                 same_chunk_binary_sequence=same, host_counts=hosts
@@ -1208,6 +1281,11 @@ def main():
         action="store_true",
         help="Also compare fresh dynamic and bound adapters including metadata preparation",
     )
+    parser.add_argument(
+        "--bounded-query-weight",
+        action="store_true",
+        help="Compare coefficient merging only on bounded page-reuse chunks against default dispatch",
+    )
     args = parser.parse_args()
     if args.include_request_preparation and not args.bound_combined_samples:
         parser.error("--include-request-preparation requires --bound-combined-samples")
@@ -1233,6 +1311,15 @@ def main():
         parser.error("--page-reuse-full-dispatch requires --page-reuse-dispatch")
     if args.page_reuse_dispatch and not args.single_page64_dispatch:
         parser.error("--page-reuse-dispatch requires --single-page64-dispatch")
+    if args.bounded_query_weight and (
+        not args.interleave_score
+        or not args.page_reuse_full_dispatch
+        or args.visibility_policy != "conservative"
+        or args.bound_combined_samples
+    ):
+        parser.error(
+            "--bounded-query-weight requires interleaved scoring and default page reuse/visibility"
+        )
     args.skip_invisible_dispatch = args.single_page64_dispatch
     if args.interleave_score and not args.skip_invisible_dispatch:
         parser.error("--interleave-score requires --skip-invisible-dispatch")
@@ -1307,6 +1394,8 @@ def main():
             command.append("--page-reuse-full-dispatch")
         if args.interleave_score:
             command.append("--interleave-score")
+        if args.bounded_query_weight:
+            command.append("--bounded-query-weight")
         if args.skip_invisible_dispatch:
             command.extend(
                 [

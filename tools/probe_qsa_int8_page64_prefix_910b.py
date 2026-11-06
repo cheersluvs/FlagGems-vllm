@@ -406,10 +406,24 @@ def prefetch_schedule(ttir):
     )
 
 
-def load_kernels(report, case, current=None):
-    result = {}
+def load_generated_prefix(report, case, arm, source):
     directory = report / "generated-prefixes"
     directory.mkdir(exist_ok=True)
+    path = directory / f"{case}_{arm}.py"
+    path.write_text(source)
+    (report / f"{case}-{arm}-generated-source.txt").write_text(source)
+    name = f"_qsa_page64_{case}_{arm}"
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return getattr(module, f"_qsa_page64_prefix_{arm}")
+
+
+def load_kernels(report, case, current=None):
+    from qsa_int8_query_pack4_910b import _qsa_qk_single_page_score
+
+    result = {"current": current or _qsa_qk_single_page_score}
     for arm in ARMS:
         if arm == "current":
             continue
@@ -418,18 +432,7 @@ def load_kernels(report, case, current=None):
             if current
             else build_source(arm)
         )
-        path = directory / f"{case}_{arm}.py"
-        path.write_text(source)
-        (report / f"{case}-{arm}-generated-source.txt").write_text(source)
-        name = f"_qsa_page64_{case}_{arm}"
-        spec = importlib.util.spec_from_file_location(name, path)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[name] = module
-        spec.loader.exec_module(module)
-        result[arm] = getattr(module, f"_qsa_page64_prefix_{arm}")
-    from qsa_int8_query_pack4_910b import _qsa_qk_single_page_score
-
-    result["current"] = current or _qsa_qk_single_page_score
+        result[arm] = load_generated_prefix(report, case, arm, source)
     return result
 
 
