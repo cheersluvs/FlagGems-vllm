@@ -37,7 +37,13 @@ from probe_qsa_int8_ten_shapes_910b import run_child  # noqa: E402
 from probe_qsa_int8_ten_shapes_910b import PLANS, selected_scores, verify_structure
 from qsa_kernel_benchmark_910b import aggregate, setup  # noqa: E402
 
-from tools.qsa_int8_ten_workloads_910b import make_inputs, sample_rows  # noqa: E402
+from tools.qsa_int8_ten_workloads_910b import (  # noqa: E402
+    make_inputs,
+    sample_rows,
+    topk_workspace_cases,
+)
+
+WORKSPACE_PLANS = topk_workspace_cases()
 
 
 def topk_boundary_changes(
@@ -170,7 +176,7 @@ def run_case(args):
         from qsa_int8_score_910b_trial import score
         from qsa_prefill_pipeline_910b_trial import load_topk
 
-        plan = PLANS[args.case]
+        plan = (PLANS | WORKSPACE_PLANS)[args.case]
         result["geometry"] = plan
         result["environment"] = dict(
             python=sys.executable,
@@ -200,7 +206,9 @@ def run_case(args):
             from probe_qsa_int8_topk_workspace_910b import run_topk_workspace_probe
 
             result["measurement_scope"] = (
-                "Current vs request-local TopK scratch reuse; paired wall and combined trace"
+                "Current vs request-local TopK scratch reuse; paired wall"
+                if args.topk_workspace_wall_only
+                else "Current vs request-local TopK scratch reuse; paired wall and combined trace"
             )
             run_topk_workspace_probe(args, result, inputs, values, plan, load_topk())
             result["status"] = "passed"
@@ -1400,8 +1408,8 @@ def main():
     parser.add_argument("--kernel-warmup", type=int, default=1)
     parser.add_argument("--kernel-active", type=int, default=3)
     parser.add_argument("--timeout", type=int, default=1800)
-    parser.add_argument("--cases", nargs="+", choices=PLANS)
-    parser.add_argument("--case", choices=PLANS)
+    parser.add_argument("--cases", nargs="+", choices=PLANS | WORKSPACE_PLANS)
+    parser.add_argument("--case", choices=PLANS | WORKSPACE_PLANS)
     parser.add_argument(
         "--integrated",
         action="store_true",
@@ -1508,6 +1516,11 @@ def main():
         default=0,
         help="Pair long100k request-local TopK scratch reuse, then collect a combined trace",
     )
+    parser.add_argument(
+        "--topk-workspace-wall-only",
+        action="store_true",
+        help="Run the TopK scratch reuse sweep with correctness and unprofiled wall timing",
+    )
     args = parser.parse_args()
     args.group_visible_probe = args.group_visible_combined_trace or bool(
         args.group_visible_request_samples
@@ -1523,9 +1536,17 @@ def main():
         parser.error("GroupVisible request wall timing requires at least two samples")
     if args.topk_workspace_samples and args.topk_workspace_samples < 2:
         parser.error("TopK workspace probe requires at least two wall samples")
-    if (args.group_visible_combined_trace or args.topk_workspace_samples) and any(
-        case != "int8_long100k" for case in (args.cases or [args.case]) if case
-    ):
+    selected = {*args.cases} if args.cases else set()
+    if args.case:
+        selected.add(args.case)
+    if args.topk_workspace_wall_only and not args.topk_workspace_samples:
+        parser.error("Workspace wall sweep requires --topk-workspace-samples")
+    if selected.intersection(WORKSPACE_PLANS) and not args.topk_workspace_wall_only:
+        parser.error("Synthetic workspace cases require --topk-workspace-wall-only")
+    combined_probe = args.group_visible_combined_trace or (
+        args.topk_workspace_samples and not args.topk_workspace_wall_only
+    )
+    if combined_probe and selected.difference(("int8_long100k",)):
         parser.error("This standalone trace probe requires int8_long100k")
     if args.bound_reuse_counts:
         if (
@@ -1605,15 +1626,14 @@ def main():
                 "Summary replay requires saved passed workers with zero subprocess exit codes"
             )
         return summarize(report, entries, [e["case"] for e in entries], args)
-    default_cases = (
-        ("int8_long100k",)
-        if args.group_visible_combined_trace or args.topk_workspace_samples
-        else (
-            ("int8_budget_exact", "int8_long100k", "int8_first_chunk")
-            if args.group_visible_request_samples
-            else PLANS
-        )
-    )
+    if args.topk_workspace_wall_only:
+        default_cases = (*WORKSPACE_PLANS, "int8_short_tail")
+    elif combined_probe:
+        default_cases = ("int8_long100k",)
+    elif args.group_visible_request_samples:
+        default_cases = ("int8_budget_exact", "int8_long100k", "int8_first_chunk")
+    else:
+        default_cases = PLANS
     names = list(dict.fromkeys(args.cases or default_cases))
     snapshot(report, "before")
     entries = []
@@ -1648,6 +1668,8 @@ def main():
             command.extend(
                 ["--topk-workspace-samples", str(args.topk_workspace_samples)]
             )
+        if args.topk_workspace_wall_only:
+            command.append("--topk-workspace-wall-only")
         if args.group_visible_request_samples:
             command.extend(
                 [
@@ -1717,7 +1739,11 @@ def summarize(report, entries, names, args):
     elif args.bound_reuse_counts:
         scope = "Sequential bound-reuse wall time only"
     elif args.topk_workspace_samples:
-        scope = "Request-local TopK scratch reuse wall time and combined trace"
+        scope = (
+            "Request-local TopK scratch reuse wall sweep"
+            if args.topk_workspace_wall_only
+            else "Request-local TopK scratch reuse wall time and combined trace"
+        )
     elif args.group_visible_combined_trace:
         scope = "GroupVisible prepared score+TopK combined trace"
     elif args.group_visible_probe:
@@ -1733,6 +1759,22 @@ def summarize(report, entries, names, args):
                 indent=2,
             )
         )
+        if args.topk_workspace_wall_only and passed:
+            print(
+                "case | route | current ms | reuse ms | speedup | wins | scratch bytes",
+                flush=True,
+            )
+            for entry in passed:
+                wall = entry["request_wall_us"]
+                workspace = entry["workspace"]
+                print(
+                    f"{entry['case']} | {workspace['route']} | "
+                    f"{wall['medians']['current'] / 1000:.3f} | "
+                    f"{wall['medians']['workspace_reuse'] / 1000:.3f} | "
+                    f"{wall['speedup']:.4f} | {wall['candidate_wins']}/{len(wall['samples'])} | "
+                    f"{workspace['bytes']}",
+                    flush=True,
+                )
         print(f"{scope}: {len(passed)}/{len(names)} cases passed", flush=True)
         return status
     complete = len(names) == len(PLANS) and len(passed) == len(PLANS)

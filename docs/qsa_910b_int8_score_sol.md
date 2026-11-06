@@ -430,3 +430,19 @@ The trace expects 4,095 such allocations in current and zero in the
 candidate per request. Report total scratch size and allocation time.
 
 [group-visible-combined]: https://github.com/cheersluvs/FlagGems-vllm/commit/f8f7ede735adbcf26cecdd13193790e6cdd0560b
+
+The [long100k workspace report][topk-workspace-long] recorded 293.63 to
+238.22 ms without a profiler, with all eight pairs faster and exact indices.
+The combined trace confirmed 4,095 to zero allocations between the two
+TopK enqueues and about 41 ms of paired savings before segment-sort enqueue.
+
+The `--topk-workspace-wall-only` sweep preserves the regular ten-shape
+benchmark list. It uses three synthetic inputs around the route boundary
+and the existing `int8_short_tail` workload. The 16,384-key and 8,512-key
+controls use the existing route on both arms, with no new scratch. The
+16,448-key case uses five segments and a 17-row tail batch. The 32,832-key
+case uses nine segments, with 32-, 6-, and 1-row TopK batches. The probe
+checks actual reusable launch counts by row count before timing, preserves
+exact full indices, and times one new workspace per candidate request.
+
+[topk-workspace-long]: https://github.com/cheersluvs/FlagGems-vllm/commit/dcd30eba0cf8285b6c4c554f9287b2f58941d75b

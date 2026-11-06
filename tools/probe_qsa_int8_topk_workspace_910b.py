@@ -15,6 +15,7 @@
 import ast
 import collections
 import copy
+import os
 import statistics
 from bisect import bisect_left
 from decimal import Decimal
@@ -195,26 +196,44 @@ def run_topk_workspace_probe(args, result, inputs, values, plan, topk):
         key_group4=True,
         single_page64=True,
     )
-    score_hosts = collections.Counter(
-        current.score_into(first, count, score[:count]).metadata.kernel_name
-        for first, count in current.chunks
+    batch_counts = collections.Counter(
+        min(32, count - offset)
+        for _, count in current.chunks
+        for offset in range(0, count, 32)
     )
     row_counts = sorted(
-        {
-            min(32, count - offset)
-            for _, count in current.chunks
-            for offset in range(0, count, 32)
-        }
+        count for count in batch_counts if topk._psegmerge_applicable(count, width, 512)
     )
-    if not all(topk._psegmerge_applicable(count, width, 512) for count in row_counts):
-        raise RuntimeError(
-            "Workspace probe requires the persistent TopK route for every batch"
-        )
-    allocate, launcher_code = workspace_functions(topk)
+    expected_reuse = plan.get("workspace_reuse_expected", args.case == "int8_long100k")
+    if bool(row_counts) != expected_reuse:
+        raise RuntimeError("Unexpected workspace route eligibility")
 
-    def make_candidate():
+    result["stage"] = "topk_workspace_correctness"
+    output.fill_(-2)
+    expected = current().cpu()
+    verify_structure(expected, inputs["visible"])
+    if row_counts:
+        if (
+            os.environ.get(topk._SEGMERGE_ENV, "auto").lower() == "radix"
+            or not topk._PSEGMERGE_STATE["usable"]
+            or not topk._segmerge_probe()
+        ):
+            raise RuntimeError("Expected persistent TopK route is unavailable")
+        allocate, launcher_code = workspace_functions(topk)
+
+    def make_candidate(audit=None):
+        if not row_counts:
+            return current, {}
         buffers = {count: allocate(score[:count], 512, width) for count in row_counts}
-        launcher = FunctionType(launcher_code, dict(vars(topk), qsa_buffers=buffers))
+        raw_launcher = FunctionType(
+            launcher_code, dict(vars(topk), qsa_buffers=buffers)
+        )
+
+        def launch_checked(logits, *operands):
+            audit[logits.shape[0]] += 1
+            return raw_launcher(logits, *operands)
+
+        launcher = raw_launcher if audit is None else launch_checked
         scope = dict(vars(topk), **{HOST_HELPER: launcher})
         reused_topk = FunctionType(
             topk.persistent_topk.__code__,
@@ -226,26 +245,27 @@ def run_topk_workspace_probe(args, result, inputs, values, plan, topk):
         adapter.topk = SimpleNamespace(persistent_topk=reused_topk)
         return adapter, buffers
 
-    result["stage"] = "topk_workspace_correctness"
-    output.fill_(-2)
-    expected = current().cpu()
-    verify_structure(expected, inputs["visible"])
-
     def check_indices(actual):
         if not torch.equal(actual.cpu(), expected):
             raise AssertionError("Workspace reuse changed TopK indices")
-        if not topk._PSEGMERGE_STATE["usable"]:
+        if row_counts and not topk._PSEGMERGE_STATE["usable"]:
             raise AssertionError("Persistent TopK route fell back")
 
-    candidate, buffers = make_candidate()
+    observed = collections.Counter()
+    candidate, buffers = make_candidate(audit=observed)
     output.fill_(-2)
     check_indices(candidate())
+    if observed != {count: batch_counts[count] for count in row_counts}:
+        raise AssertionError(f"Unexpected TopK reuse launch counts: {dict(observed)}")
     result["correctness"] = dict(
         all_topk_indices_bitwise_equal=True, score_unchanged=True
     )
     result["topk_identity"] = topk.probe_identity
     result["workspace"] = dict(
         allocation_names=BUFFER_NAMES,
+        route="segmerge_persistent" if row_counts else "existing_fallback",
+        calls_by_rows=dict(batch_counts),
+        reused_calls_by_rows=dict(observed),
         shapes={
             count: [list(buf.shape) for buf in group]
             for count, group in buffers.items()
@@ -270,10 +290,19 @@ def run_topk_workspace_probe(args, result, inputs, values, plan, topk):
     )
     print(
         "TOPK_WORKSPACE_WALL",
+        args.case,
+        result["workspace"],
         {k: v for k, v in result["request_wall_us"].items() if k != "samples"},
         flush=True,
     )
+    if args.topk_workspace_wall_only:
+        result["stage"] = "topk_workspace_wall_completed"
+        return
 
+    score_hosts = collections.Counter(
+        current.score_into(first, count, score[:count]).metadata.kernel_name
+        for first, count in current.chunks
+    )
     candidate, _ = make_candidate()
     measure_combined_trace(
         args,

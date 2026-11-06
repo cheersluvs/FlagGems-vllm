@@ -73,6 +73,43 @@ def cases():
     return result
 
 
+def topk_workspace_cases():
+    """Build focused synthetic controls around the persistent TopK route boundary."""
+    result = {}
+    for name, width, rows, reuse in (
+        ("int8_workspace_4segments_tail17", 16384, 4113, False),
+        ("int8_workspace_5segments_tail17", 16448, 4113, True),
+        ("int8_workspace_9segments_tail1", 32832, 4081, True),
+    ):
+        pages = (width + 191) // 192
+        chunk = min(128, 64 * 1024**2 // (width * 4 * 5))
+        result[name] = dict(
+            name=name,
+            origin="synthetic_workspace_route_boundary",
+            query_lengths=[rows],
+            prefix_tokens=[width * 4 - rows],
+            starts=[0, rows],
+            batch_max_seq_len=width * 4,
+            heads=4,
+            dim=128,
+            ratio=4,
+            k=512,
+            dtype="int8",
+            page_size=192,
+            pages_per_request=[pages],
+            physical_pages=pages,
+            table_columns=pages,
+            q_shape=[rows, 4, 128],
+            cache_shape=[pages, 192, 1, 128],
+            logits_width=width,
+            chunk_rows=chunk,
+            score_and_dot_scratch_bytes=chunk * width * 4 * 5,
+            query_lengths_synthetic=True,
+            workspace_reuse_expected=reuse,
+        )
+    return result
+
+
 def sample_rows(case):
     rows, chunk = case["q_shape"][0], case["chunk_rows"]
     picks = {
