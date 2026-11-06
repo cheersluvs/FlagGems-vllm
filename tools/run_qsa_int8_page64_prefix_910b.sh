@@ -36,11 +36,22 @@ if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     printf 'Pinned runtime environment: %s\n' "$qsa_env_root"
 fi
 qsa_python=${QSA_PYTHON:-python3}
-qsa_report=$(mktemp -d /tmp/qsa-ascend910b-int8-page64-prefix.XXXXXXXX) || exit 1
+qsa_probe=probe_qsa_int8_page64_prefix_910b.py
+qsa_kind=int8-page64-prefix
+qsa_subject="single-page scoring prefix probe"
+qsa_label="INT8 page64 prefix"
+if [[ ${1:-} == --score-sol ]]; then
+    shift
+    qsa_probe=probe_qsa_int8_score_sol_910b.py
+    qsa_kind=int8-score-sol
+    qsa_subject="score throughput calibration"
+    qsa_label="INT8 score throughput calibration"
+fi
+qsa_report=$(mktemp -d "/tmp/qsa-ascend910b-$qsa_kind.XXXXXXXX") || exit 1
 qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
 printf 'Code commit: %s\nReport: %s\n' "$qsa_commit" "$qsa_report"
 printf '%s\n' "$qsa_commit" > "$qsa_report/code-commit.txt"
-"$qsa_python" -u "$qsa_repo/tools/probe_qsa_int8_page64_prefix_910b.py" \
+"$qsa_python" -u "$qsa_repo/tools/$qsa_probe" \
     --report "$qsa_report" "$@" 2>&1 | tee "$qsa_report/console.txt"
 qsa_status=${PIPESTATUS[0]}
 printf '%s\n' "$qsa_status" > "$qsa_report/exit-code.txt"
@@ -49,14 +60,14 @@ if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     qsa_branch="codex/qsa-ascend910b-results-$qsa_stamp-$$"
     qsa_tree=$(mktemp -d /tmp/flaggems-qsa-910b-results.XXXXXXXX) || exit 1
     git -C "$qsa_repo" worktree add -b "$qsa_branch" "$qsa_tree" "$qsa_commit" || exit 1
-    qsa_dest="results/qsa_select_paged_prefill/ascend910b/int8-page64-prefix-$qsa_stamp"
+    qsa_dest="results/qsa_select_paged_prefill/ascend910b/$qsa_kind-$qsa_stamp"
     mkdir -p "$qsa_tree/$qsa_dest" || exit 1
     find "$qsa_report" -maxdepth 1 -type f \( -name '*.json' -o -name '*.txt' -o -name '*.json.gz' \) \
         -exec cp -- {} "$qsa_tree/$qsa_dest/" \;
     git -C "$qsa_tree" add -- "$qsa_dest" || exit 1
     git -C "$qsa_tree" -c user.name="QSA GPU reports" \
         -c user.email="qsa-reports@users.noreply.github.com" \
-        commit -m "Report Ascend 910B INT8 single-page scoring prefix probe" || exit 1
+        commit -m "Report Ascend 910B INT8 $qsa_subject" || exit 1
     git -C "$qsa_tree" push https://github.com/cheersluvs/FlagGems-vllm.git \
         "HEAD:refs/heads/$qsa_branch" || {
         printf 'Upload failed; report retained: %s\nResult worktree: %s\n' "$qsa_report" "$qsa_tree"
@@ -66,5 +77,5 @@ if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     printf '报告回传完成。\n结果分支：%s\n' "$qsa_branch"
     git -C "$qsa_tree" rev-parse HEAD
 fi
-printf 'INT8 page64 prefix exit code: %s (2 means prerequisites missing)\n' "$qsa_status"
+printf '%s exit code: %s (2 means prerequisites missing)\n' "$qsa_label" "$qsa_status"
 exit "$qsa_status"

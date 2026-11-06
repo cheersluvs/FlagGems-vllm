@@ -1,0 +1,92 @@
+<!--
+ Copyright 2026 FlagOS Contributors
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+# Ascend INT8 score throughput references
+
+| Project fact | Value |
+| --- | --- |
+| Path | Current prepared query16/N64 page reuse, grid20, eight key tiles per unit |
+| Runtime | Pinned 910B4 FlagTree/CANN environment from the existing prefix runner |
+| Cases | Profiled bounded `budget_exact` (row 8192, 128 rows) and full-dot `long100k` (row 8176, 112 rows) |
+| Timing | Interleaved device task timing with one named host launch and one device task per arm and sample |
+| Integration | Diagnostic only. No production dispatch, tuning or compiler changes |
+
+| Contract | Check |
+| --- | --- |
+| Current score | INT8 Q/K, INT32 dot, FP16 scales/weights, FP32 scoring and dense output with exact negative infinity at invisible positions |
+| Current validation | Entire visibility mask and three CPU score reference rows per chunk at rtol/atol 1e-3 before and after timing |
+| Calibration validation | Entire copy, three exact integer accumulator samples and three CPU vector-output samples including masks, before and after timing |
+
+| Arm | Work and observed output |
+| --- | --- |
+| Current | Actual prepared scorer with its existing bounded/full-dot policy |
+| Copy | 64 MiB contiguous INT8 source and destination, 8 KiB tiles, both read and write counted |
+| Cube | Same M64/N64/K128 INT8 dot geometry, independent K panels, Q reused over eight panels, one accumulated INT32 output per eight panels |
+| Vector | INT32 tile replay with original FP32 cast, scale order, ReLU, weight, head sum and visibility selection, writing one FP32 tile per dot tile |
+
+## Static accounting
+
+The [current score profile][profile] reports about 111 and 304 microseconds for
+these chunks. The BCMLIR for both variants shows four input staging copies
+(Q, QS, W and visibility) in the unit loop, a scalar page-table load in the
+page loop, and a K and KS staging copy in the tile loop. Each dot tile has
+a logical K transpose, an INT32 matmul, FP32 conversion, three broadcasts
+feeding multiplications, ReLU, and a head reduction. The score is written
+with the original row stride. The bounded kernel has a separate fill loop.
+BCMLIR precedes the final device schedule and does not expose physical
+placement, the number of Cube-to-Vector transfers or synchronization waits.
+
+| Source-level work per chunk | budget_exact | long100k |
+| --- | ---: | ---: |
+| Issued dot tiles | 776 | 3,248 |
+| Fully invisible dot tiles | 0 | 218 |
+| Fill-only tiles | 248 | 0 |
+| MACs issued | 406,847,488 | 1,702,887,424 |
+| MACs contributing to visible scores | 403,685,376 | 1,586,006,016 |
+| Fraction of MACs for invisible scores | 0.78% | 6.86% |
+| K and KS requested bytes | 6,408,480 | 25,170,600 |
+| Unique useful K and KS bytes | 802,880 | 3,597,360 |
+| Dense FP32 score bytes written | 4,194,304 | 13,303,808 |
+| Logical INT32 tile results before head reduction | 12,713,984 B | 53,215,232 B |
+
+One MAC is a multiply plus an accumulate. A full dot tile has 524,288 MACs
+and 16 KiB of logical INT32 results. The repeated K and KS payload is a count
+of source requests before caching. The logical INT32 result volume does not
+establish the volume transferred through GM. Page-table sites whose masks
+are false count in the source-side upper byte model but may never load.
+
+## Interpreting the calibrated target
+
+The probe scales each component by the actual chunk work. It reports
+contiguous-copy-equivalent time for the unique inputs plus dense output and
+separately for source traffic without cache reuse. It reports both issued
+and useful MAC equivalents and a vector equivalent for all issued dot tiles.
+The `ideal_overlap_reference_us` is the maximum of perfect-reuse copy
+equivalent, issued Cube equivalent and issued vector equivalent. It gives
+a same-card target for the current amount of work assuming full overlap.
+`current_over_ideal_overlap_reference` gives the measured scorer-to-target ratio.
+
+These are empirical reference times. The Cube calibration amortizes its
+sink and retains a loop-carried accumulator. The vector calibration reads
+materialized INT32 from memory and uses tile-major output, unlike production.
+The copy runs with contiguous access. The reference assumes full overlap
+and does not include page lookup, partial masks, tail-fill control or mixed
+pipeline dependencies. The ratio is neither a physical roofline nor a
+prediction of obtainable speedup. Timings for the four arms cannot be
+subtracted to attribute per-stage costs. Use a source-level bottleneck
+probe only after checking the compiled arms and comparing the references.
+
+[profile]: https://github.com/cheersluvs/FlagGems-vllm/commit/b9159913dcd9dd6a6103eab9199b5cb90b32739f
