@@ -379,3 +379,28 @@ the wait still exposed after the call returns. Read the paired phase deltas
 together with score-only device timing and the zero-hit control.
 
 [group-visible-offset]: https://github.com/cheersluvs/FlagGems-vllm/commit/62efab9e6c64bb2e7a3e2b28bb6d6ece0b9a7802
+
+## Combined score and TopK timeline
+
+The [wall phase report][group-visible-wall] confirmed 1.69 ms paired score
+savings for `long100k`. The prepared score+TopK wall test had no consistent
+gain. Most elapsed time was inside the selection call, with about 0.1 ms
+exposed at final synchronization. The zero-hit control also showed
+substantial fresh preparation outliers.
+
+Use `--group-visible-combined-trace` for `int8_long100k` only. Reuse validated
+adapters on ready inputs and capture alternating current and candidate
+windows in one CPU+NPU trace. Both arms use the same TopK and ordinary
+per-chunk execution. Check score and TopK launch counts and device task
+names. The pinned long case uses 147 score tasks and 585 launches of each of
+the four TopK kernels per invocation. Score output and full indices are
+checked before tracing, and all indices are rechecked afterward.
+
+Report separate score and TopK device sums, the union of device intervals,
+the first-to-last device span, and the uncovered part of that span. The raw
+trace preserves CPU launch events and flow markers where available. Gaps
+can include submission delays, runtime scheduling and dependencies. The
+instrumented CPU window is diagnostic and can differ from unprofiled wall
+time.
+
+[group-visible-wall]: https://github.com/cheersluvs/FlagGems-vllm/commit/f8018031029479100c3da50d6acb0da847d4a403

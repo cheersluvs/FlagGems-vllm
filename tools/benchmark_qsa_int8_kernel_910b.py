@@ -152,7 +152,7 @@ def run_case(args):
         if (
             not root
             or not torch.npu.is_available()
-            or (native is None and not args.group_visible_request_samples)
+            or (native is None and not args.group_visible_probe)
         ):
             raise ModuleNotFoundError(
                 "Pinned NPU environment and native quant V1 required"
@@ -196,13 +196,15 @@ def run_case(args):
                     "Bounded query-weight probe requires finite nonnegative QS"
                 )
         values = {key: value.to(f"npu:{args.device}") for key, value in inputs.items()}
-        if args.group_visible_request_samples:
+        if args.group_visible_probe:
             from probe_qsa_int8_group_visible_request_910b import (
                 run_group_visible_request,
             )
 
             result["measurement_scope"] = (
-                "Current vs one-copy GroupVisible; paired score device time and prepared/fresh request wall phases"
+                "Current vs one-copy GroupVisible; interleaved prepared score+TopK trace"
+                if args.group_visible_combined_trace
+                else "Current vs one-copy GroupVisible; paired score device time and prepared/fresh request wall phases"
             )
             run_group_visible_request(args, result, inputs, values, plan, load_topk())
             result["status"] = "passed"
@@ -1336,8 +1338,10 @@ def write_case_result(args, report, result, code):
         "qsa_int8_page64_query16_910b_trial.py",
         "qsa_int8_query_pack4_910b.py",
         "qsa_int8_stage_trace_timer_910b.py",
+        "qsa_int8_prefix_plan_timer_910b.py",
         "benchmark_qsa_prefill_stages_910b.py",
         "qsa_int8_trace_timer_910b.py",
+        "qsa_timeline_910b.py",
         "probe_qsa_int8_group_visible_request_910b.py",
         "probe_qsa_int8_score_sol_910b.py",
     ):
@@ -1476,22 +1480,32 @@ def main():
         type=int,
         help="Compare dynamic with one binding plus N sequential calls, without stage tracing",
     )
-    parser.add_argument(
+    group_visible = parser.add_mutually_exclusive_group()
+    group_visible.add_argument(
         "--group-visible-request-samples",
         type=int,
         default=0,
         help="Pair device scores and prepared/fresh one-copy GroupVisible request wall phases",
     )
+    group_visible.add_argument(
+        "--group-visible-combined-trace",
+        action="store_true",
+        help="Trace paired prepared score+TopK execution for long100k",
+    )
     args = parser.parse_args()
-    if args.group_visible_request_samples and (
-        args.group_visible_request_samples < 2
-        or args.bound_combined_samples
-        or args.audit_topk_boundary
-        or args.interleave_score
+    args.group_visible_probe = args.group_visible_combined_trace or bool(
+        args.group_visible_request_samples
+    )
+    if args.group_visible_probe and (
+        args.bound_combined_samples or args.audit_topk_boundary or args.interleave_score
     ):
-        parser.error(
-            "GroupVisible request mode requires at least two samples and its own timing path"
-        )
+        parser.error("GroupVisible probes use their own timing path")
+    if args.group_visible_request_samples and args.group_visible_request_samples < 2:
+        parser.error("GroupVisible request wall timing requires at least two samples")
+    if args.group_visible_combined_trace and any(
+        case != "int8_long100k" for case in (args.cases or [args.case]) if case
+    ):
+        parser.error("GroupVisible combined trace requires int8_long100k")
     if args.bound_reuse_counts:
         if (
             min(args.bound_reuse_counts) < 1
@@ -1571,9 +1585,13 @@ def main():
             )
         return summarize(report, entries, [e["case"] for e in entries], args)
     default_cases = (
-        ("int8_budget_exact", "int8_long100k", "int8_first_chunk")
-        if args.group_visible_request_samples
-        else PLANS
+        ("int8_long100k",)
+        if args.group_visible_combined_trace
+        else (
+            ("int8_budget_exact", "int8_long100k", "int8_first_chunk")
+            if args.group_visible_request_samples
+            else PLANS
+        )
     )
     names = list(dict.fromkeys(args.cases or default_cases))
     snapshot(report, "before")
@@ -1603,6 +1621,8 @@ def main():
         ]
         if args.include_request_preparation:
             command.append("--include-request-preparation")
+        if args.group_visible_combined_trace:
+            command.append("--group-visible-combined-trace")
         if args.group_visible_request_samples:
             command.extend(
                 [
@@ -1667,18 +1687,18 @@ def summarize(report, entries, names, args):
         if len(passed) == len(names)
         else (2 if all(e["status"] == "prerequisites_missing" for e in entries) else 1)
     )
-    if (
-        args.audit_topk_boundary
-        or args.bound_reuse_counts
-        or args.group_visible_request_samples
-    ):
+    if args.audit_topk_boundary or args.bound_reuse_counts or args.group_visible_probe:
         scope = (
             "TopK boundary audit only"
             if args.audit_topk_boundary
             else (
                 "Sequential bound-reuse wall time only"
                 if args.bound_reuse_counts
-                else "GroupVisible score device timing and prepared/fresh request wall phases"
+                else (
+                    "GroupVisible prepared score+TopK combined trace"
+                    if args.group_visible_combined_trace
+                    else "GroupVisible score device timing and prepared/fresh request wall phases"
+                )
             )
         )
         (report / "summary.json").write_text(

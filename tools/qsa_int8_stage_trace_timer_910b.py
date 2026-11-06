@@ -22,8 +22,8 @@ from pathlib import Path
 from qsa_int8_trace_timer_910b import IncompleteScoreTrace, setup_trace
 
 
-def stage_mean(events, active, require_uniform_tasks=True):
-    """Sum device durations inside each complete invocation window."""
+def stage_windows(events, active):
+    """Yield complete invocation windows and their device tasks."""
     pids = {
         e.get("pid")
         for e in events
@@ -49,7 +49,6 @@ def stage_mean(events, active, require_uniform_tasks=True):
         raise IncompleteScoreTrace(
             f"Incomplete stage trace: windows={len(windows)}, tasks={len(tasks)}"
         )
-    counts, samples, names = [], [], []
     covered = 0
     previous_end = None
     for index, window in enumerate(windows):
@@ -69,21 +68,28 @@ def stage_mean(events, active, require_uniform_tasks=True):
         if not selected:
             raise IncompleteScoreTrace(f"Empty device invocation window: {index}")
         covered += len(selected)
+        yield window, selected
+    if covered != len(tasks):
+        raise IncompleteScoreTrace(
+            f"Incomplete stage task coverage: covered={covered}, tasks={len(tasks)}"
+        )
+
+
+def stage_mean(events, active, require_uniform_tasks=True):
+    """Sum device durations inside each complete invocation window."""
+    counts, samples, names = [], [], []
+    for _, selected in stage_windows(events, active):
         counts.append(len(selected))
         samples.append(sum(e["dur"] for e in selected))
         names.append(
             dict(collections.Counter(e.get("name", "unknown") for e in selected))
         )
-    if covered != len(tasks) or (
-        require_uniform_tasks and any(n != names[0] for n in names)
-    ):
-        raise IncompleteScoreTrace(
-            f"Incomplete stage task coverage: covered={covered}, tasks={len(tasks)}, counts={counts}"
-        )
+    if require_uniform_tasks and any(n != names[0] for n in names):
+        raise IncompleteScoreTrace(f"Nonuniform stage device tasks: counts={counts}")
     return dict(
         kernel_us=sum(samples) / active,
         active_invocation_us=samples,
-        device_task_count=len(tasks),
+        device_task_count=sum(counts),
         tasks_per_invocation=counts,
         device_task_names_per_invocation=(names[0] if require_uniform_tasks else names),
     )

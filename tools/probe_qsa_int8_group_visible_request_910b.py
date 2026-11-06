@@ -13,6 +13,7 @@
 """Pair the current and one-copy GroupVisible request paths on 910B."""
 
 import collections
+import gzip
 import hashlib
 import json
 import statistics
@@ -24,8 +25,108 @@ from probe_qsa_int8_score_910b import reference
 from probe_qsa_int8_score_sol_910b import build_group_visible_source
 from probe_qsa_int8_ten_shapes_910b import verify_structure
 from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
+from qsa_int8_stage_trace_timer_910b import stage_windows
+from qsa_timeline_910b import summarize as summarize_timeline
 
 from tools.qsa_int8_ten_workloads_910b import sample_rows
+
+
+def combined_windows(events, plan, score_hosts, topk_hosts):
+    metadata = [e for e in events if e.get("ph") == "M"]
+    for job, (window, tasks) in zip(
+        plan, stage_windows(events, len(plan)), strict=True
+    ):
+        expected_score = score_hosts[job["arm"]]
+        score, topk = [], []
+        for task in tasks:
+            name = task["name"]
+            if name == "MIX_AIC" or name in expected_score:
+                score.append(task["dur"])
+            elif name in topk_hosts:
+                topk.append(task)
+            else:
+                raise RuntimeError(f"Unexpected combined device task: {name}")
+        counts = collections.Counter(task["name"] for task in topk)
+        if len(score) != sum(expected_score.values()) or counts != topk_hosts:
+            raise RuntimeError(
+                f"Unexpected tasks in {window['name']}: score={len(score)}, TopK={dict(counts)}"
+            )
+        timeline = summarize_timeline(metadata + tasks)
+        yield dict(
+            **job,
+            score_us=sum(score),
+            topk_us=sum(task["dur"] for task in topk),
+            device_union_us=timeline["device_task_union_us"],
+            device_span_us=timeline["device_task_envelope_us"],
+            device_gap_us=timeline["uncovered_envelope_us"],
+            profiled_window_us=window["dur"],
+        )
+
+
+def measure_combined_trace(args, torch, result, adapters, score_hosts, check_indices):
+    names = tuple(adapters)
+    topk_calls = sum((count + 31) // 32 for _, count in adapters["current"].chunks)
+    # long100k's pinned 910B TopK route, verified against host and device events.
+    topk_hosts = collections.Counter(
+        dict.fromkeys(
+            (
+                "_radix_hist_trivial_all",
+                "_psegmerge_seg_sort",
+                "_psegmerge_merge_level",
+                "_psegmerge_merge_final",
+            ),
+            topk_calls,
+        )
+    )
+    result["stage"] = "group_visible_combined_trace"
+    result["kernel_timer"] = {}
+    measure_prefix_plan(
+        args,
+        names,
+        lambda name, _: adapters[name](),
+        dict.fromkeys(names),
+        torch,
+        result,
+        expected_hosts={name: score_hosts[name] + topk_hosts for name in names},
+    )
+    artifact = result["kernel_timer"]["prefix_plan_artifact"]
+    with gzip.open(Path(args.report) / artifact, "rt") as stream:
+        data = json.load(stream)
+    events = data.get("traceEvents", []) if isinstance(data, dict) else data
+    samples = list(
+        combined_windows(events, result["single_capture_plan"], score_hosts, topk_hosts)
+    )
+    by_arm = {name: [s for s in samples if s["arm"] == name] for name in names}
+    pairs = list(zip(*(by_arm[name] for name in names), strict=True))
+    fields = (
+        "score_us",
+        "topk_us",
+        "device_union_us",
+        "device_span_us",
+        "device_gap_us",
+        "profiled_window_us",
+    )
+    for adapter in adapters.values():
+        check_indices(adapter())
+    result["combined_trace"] = dict(
+        artifact=artifact,
+        scope="Prepared score+TopK request. Gaps are uncovered device intervals inside the first-to-last task span.",
+        topk_tasks_per_window=dict(topk_hosts),
+        medians_us={
+            name: {f: statistics.median(s[f] for s in by_arm[name]) for f in fields}
+            for name in names
+        },
+        paired_saved_us={f: [a[f] - b[f] for a, b in pairs] for f in fields},
+        samples=samples,
+    )
+    result["stage"] = "group_visible_combined_trace_completed"
+    print(
+        "GROUP_VISIBLE_COMBINED_TRACE",
+        json.dumps(
+            {k: v for k, v in result["combined_trace"].items() if k != "samples"}
+        ),
+        flush=True,
+    )
 
 
 def measure_request_wall(names, get_adapter, synchronize, check_indices, sample_count):
@@ -200,6 +301,10 @@ def run_group_visible_request(args, result, inputs, values, plan, topk):
     ):
         raise AssertionError("Zero-hit control compiled different score binaries")
     result["topk_identity"] = topk.probe_identity
+
+    if args.group_visible_combined_trace:
+        measure_combined_trace(args, torch, result, adapters, host_names, check_indices)
+        return
 
     result["stage"] = "group_visible_score_trace"
     result["kernel_timer"] = {}
