@@ -1,0 +1,792 @@
+{
+  "cases": [
+    {
+      "case": "int8_budget_exact",
+      "exit_code": 1,
+      "environment": {
+        "device": "Ascend910B4-1",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU"
+      },
+      "route": {
+        "first": 8192,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "visibility_tiles": {
+          "issued_tiles": 1024,
+          "useful_tiles": 776,
+          "skipped_tiles": 248,
+          "skipped_fraction": 0.2421875,
+          "selected": true,
+          "policy": "conservative"
+        },
+        "skip_invisible": true,
+        "page_reuse": true,
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      "width": 8192,
+      "work": {
+        "dot_tiles": 776,
+        "active_dot_tiles": 776,
+        "fully_invisible_dot_tiles": 0,
+        "fill_only_tiles": 248,
+        "executed_macs": 406847488,
+        "useful_macs": 403685376,
+        "tile_dot_result_logical_bytes": 12713984,
+        "q_metadata_requested_bytes": 1089536,
+        "k_scale_requested_bytes": 6408480,
+        "page_lookup_sites_executed": 328,
+        "score_write_bytes": 4194304,
+        "unique_q_metadata_bytes": 68096,
+        "unique_k_scale_bytes": 802880,
+        "perfect_reuse_io_bytes": 5066336,
+        "requested_io_bytes_upper": 11693632
+      },
+      "table_check": {
+        "rows": 128,
+        "columns": 43,
+        "all_entries_valid": true
+      },
+      "mode": "tile_handoff",
+      "sync_ir": {
+        "direct_page_group_visible": {
+          "binary_sha256": "2361c31191051299f80d16b9b2b381d6fdae5afa1b14571bbc0ec5098fc1b2c4",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmplzdu_jb_/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmplzdu_jb_/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_budget_exact-direct_page_group_visible-bisheng-1-stderr.mlir.gz",
+                  "bytes": 54533,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_budget_exact-direct_page_group_visible-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.set_flag": 34,
+                "hivm.hir.wait_flag": 34,
+                "hivm.hir.pipe_barrier": 30,
+                "hivm.hir.mmadL1": 1,
+                "memref_ext.alloc_workspace": 2,
+                "hivm.hir.sync_block_wait": 3,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.sync_block_set": 3,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 2
+              },
+              "scalar_i32_workspace_sites": {},
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic": [
+                  "64x64xi32"
+                ],
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv": [
+                  "64x64xi32"
+                ]
+              },
+              "int32_fixpipe_destination_shapes": {
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic": [
+                  "64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic": 1,
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 36,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 40,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 70,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 78,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 168,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 72,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 76,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 100,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 170,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 174,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %84]"
+                  },
+                  {
+                    "line": 179,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 185,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 194,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 74,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 172,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 200,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 281,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 285,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 314,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 333,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 361,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 181,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_7, %true, %23, %c128, %98 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_11 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %84, %69, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 183,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "%102 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 433,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "%82 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 184,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 199,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 434,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 186,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_11 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%102 : memref<64x64xi32, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 189,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 278,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 441,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 320,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_6 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 339,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_10 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_11 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 362,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_14 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_15 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 427,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_21 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_22 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 439,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_23 : memref<4096xi32, #hivm.address_space<gm>>) outs(%collapse_shape_24 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\"} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 563,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_60 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_61 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 583,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_20 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_21 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "paired_n64": {
+          "binary_sha256": "786ca37f2aa1aacfbac0462235326edd15917a5f06478e141894eae699ef52fc",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmp48ksbc_z/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmp48ksbc_z/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_budget_exact-paired_n64-bisheng-1-stderr.mlir.gz",
+                  "bytes": 108806,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_budget_exact-paired_n64-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_prefix_paired_n64_mix_aic",
+                "_qsa_page64_prefix_paired_n64_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.set_flag": 62,
+                "hivm.hir.wait_flag": 62,
+                "hivm.hir.pipe_barrier": 82,
+                "hivm.hir.mmadL1": 3,
+                "memref_ext.alloc_workspace": 6,
+                "hivm.hir.sync_block_wait": 9,
+                "hivm.hir.fixpipe": 3,
+                "hivm.hir.sync_block_set": 9,
+                "hivm.hir.load": 9,
+                "hivm.hir.store": 4
+              },
+              "scalar_i32_workspace_sites": {},
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_prefix_paired_n64_mix_aic": [
+                  "64x64xi32",
+                  "64x64xi32",
+                  "64x64xi32"
+                ],
+                "_qsa_page64_prefix_paired_n64_mix_aiv": [
+                  "64x64xi32",
+                  "64x64xi32",
+                  "64x64xi32"
+                ]
+              },
+              "int32_fixpipe_destination_shapes": {
+                "_qsa_page64_prefix_paired_n64_mix_aic": [
+                  "64x64xi32",
+                  "64x64xi32",
+                  "64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_prefix_paired_n64_mix_aic": 1,
+                "_qsa_page64_prefix_paired_n64_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 44,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 45,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 46,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 47,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 48,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID5>]"
+                  },
+                  {
+                    "line": 49,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID6>]"
+                  },
+                  {
+                    "line": 50,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 51,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID1>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 83,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 87,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 111,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 190,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 194,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %89]"
+                  },
+                  {
+                    "line": 199,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 205,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 234,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 85,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 192,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 236,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 314,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 347,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 433,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 437,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 447,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 201,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_9, %true, %23, %c128, %104 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_13 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64_1, %c-1_i64, %89, %72, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  },
+                  {
+                    "line": 245,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_15, %true, %23, %c128, %122 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_19 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64_20, %c0_i64_0, %c-1_i64_20, %87, %72, %c-1_i64_20, %c-1_i64_20 : i64, i64, i64, i64, i64, i64, i64)"
+                  },
+                  {
+                    "line": 323,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_9, %true, %23, %c128, %101 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_13 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %87, %72, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 203,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "%108 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 247,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "%126 = memref_ext.alloc_workspace() from %arg2 offset = [%c16384] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 325,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "%105 = memref_ext.alloc_workspace() from %arg2 offset = [%c32768] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 601,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "%87 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 769,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "%141 = memref_ext.alloc_workspace() from %arg2 offset = [%c16384] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 939,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "%87 = memref_ext.alloc_workspace() from %arg2 offset = [%c32768] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 204,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 248,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 326,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 344,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 345,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 346,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 602,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 770,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 206,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_13 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%108 : memref<64x64xi32, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 250,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_19 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%126 : memref<64x64xi32, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 328,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_13 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%105 : memref<64x64xi32, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 209,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 253,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 331,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 428,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 429,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 430,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 609,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 777,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 482,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_8 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 501,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_12 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_13 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 524,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_16 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_17 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 595,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_23 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_24 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 607,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_25 : memref<4096xi32, #hivm.address_space<gm>>) outs(%collapse_shape_26 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\"} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  },
+                  {
+                    "line": 763,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_65 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_66 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 775,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_67 : memref<4096xi32, #hivm.address_space<gm>>) outs(%collapse_shape_68 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\"} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  },
+                  {
+                    "line": 933,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_23 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_24 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 733,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_62 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_63 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 900,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_102 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_103 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 1070,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_62 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_63 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 1090,
+                    "function": "_qsa_page64_prefix_paired_n64_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_22 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_23 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "pair_work": {
+        "n128_pairs": 256,
+        "n64_tails": 264,
+        "n64_equivalent_tiles": 776,
+        "n64_control_transfers": 776,
+        "n128_candidate_transfers": 520,
+        "logical_result_bytes": 12713984
+      },
+      "compiler": {
+        "direct_page_group_visible": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='b57fa4b79ea35ec0f8fd54e04c72a4454992f80d2d550200e61d6f9410cb6857', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_direct_page_group_visible', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_direct_page_group_visible', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1, 0], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=16384)",
+        "paired_n64": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='e4593a2b4d9933a932427f1425ea2512a70d8d50370d8be026205d079dfab6b3', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_paired_n64', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_paired_n64', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1, 0], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=49152)"
+      },
+      "traceback": "Traceback (most recent call last):\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 330, in compile\n    next_module = compile_ir(module, metadata)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 1137, in <lambda>\n    stages[\"npubin\"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))\n                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 651, in _compile_linalg_to_npu_bin\n    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 835, in linalg_to_bin_enable_npu_compile_A2_A3\n    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-tile-handoff.ilR2f5cB/tools/probe_qsa_int8_score_sol_910b.py\", line 81, in run\n    completed = subprocess.run(captured, *args, **kwargs)\n                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py\", line 571, in run\n    raise CalledProcessError(retcode, process.args,\nsubprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmp8cfso8i6/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=True', '--enable-auto-bind-sub-block=True', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmp8cfso8i6/kernel', '--bishengir-print-ir-after=hivm-graph-sync-solver']' returned non-zero exit status 1.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/flaggems-qsa-tile-handoff.ilR2f5cB/tools/probe_qsa_int8_score_sol_910b.py\", line 1634, in main\n    run_case(args, result)\n  File \"/tmp/flaggems-qsa-tile-handoff.ilR2f5cB/tools/probe_qsa_int8_score_sol_910b.py\", line 1441, in run_case\n    run_tile_handoff(args, result, inputs, adapter, score)\n  File \"/tmp/flaggems-qsa-tile-handoff.ilR2f5cB/tools/probe_qsa_int8_score_sol_910b.py\", line 757, in run_tile_handoff\n    samples, medians = capture_arms(\n                       ^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-tile-handoff.ilR2f5cB/tools/probe_qsa_int8_score_sol_910b.py\", line 271, in capture_arms\n    else compile_arm(arm, arms[arm], targets[arm])\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-tile-handoff.ilR2f5cB/tools/probe_qsa_int8_score_sol_910b.py\", line 742, in compile_arm\n    return compile_sync_arm(\n           ^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-tile-handoff.ilR2f5cB/tools/probe_qsa_int8_score_sol_910b.py\", line 184, in compile_sync_arm\n    compiled = launch(target)\n               ^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-tile-handoff.ilR2f5cB/tools/probe_qsa_int8_score_sol_910b.py\", line 726, in launch\n    return kernel[(GRID,)](*bound.args[:-1], out, group_visible, **bound.keywords)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 420, in <lambda>\n    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 736, in run\n    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 864, in _do_compile\n    kernel = self.compile(src, target=target, options=options.__dict__)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py\", line 83, in tle_compile\n    compiled_kernel = original_compile_fn(src, target, options)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 351, in compile\n    raise MLIRCompilationError(stage_name, error_detail) from e\ntriton.compiler.errors.MLIRCompilationError: \n///------------------[ERROR][Triton][BEG]------------------\n[ConvertLinalgIRToBinary] encounters error:\n// -----// IR Dump After GraphSyncSolver (hivm-graph-sync-solver) //----- //\nfunc.func @_qsa_page64_prefix_paired_n128_mix_aic(%arg0: i64 {hacc.arg_type = #hacc.arg_type<ffts_base_address>}, %arg1: memref<?xi8, #hivm.address_space<gm>> {hacc.arg_type = #hacc.arg_type<sync_block_lock>}, %arg2: memref<?xi8, #hivm.address_space<gm>> {hacc.arg_type = #hacc.arg_type<workspace>}, %arg3: memref<?xi8, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg4: memref<?xi8, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg5: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg6: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg7: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg8: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg9: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg10: memref<?xf32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 1 : i32}, %arg11: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg12: i32, %arg13: i32, %arg14: i32) attributes {SyncBlockLockArgIdx = 0 : i64, WorkspaceArgIdx = 1 : i64, func_dyn_memref_args = dense<[false, true, true, true, true, true, true, true, true, true, true, true, false, false, false]> : vector<15xi1>, hacc.entry, hacc.function_kind = #hacc.function_kind<DEVICE>, hivm.func_core_type = #hivm.func_core_type<AIC>, hivm.part_of_mix, hivm.storage_aligned, mix_mode = \"mix\", parallel_mode = \"simd\"} {\n  %c0_i64 = arith.constant 0 : i64\n  %c0_i64_0 = arith.constant 0 : i64\n  %c57344_i64 = arith.constant 57344 : i64\n  %c24576_i64 = arith.constant 24576 : i64\n  %c40960_i64 = arith.constant 40960 : i64\n  %c8192_i64 = arith.constant 8192 : i64\n  %c32768_i64 = arith.constant 32768 : i64\n  %c0_i64_1 = arith.constant 0 : i64\n  %c0_i32 = arith.constant 0 : i32\n  %c8_i32 = arith.constant 8 : i32\n  %c16_i32 = arith.constant 16 : i32\n  %c8192_i32 = arith.constant 8192 : i32\n  %c64_i32 = arith.constant 64 : i32\n  %c3_i32 = arith.constant 3 : i32\n  %c42_i32 = arith.constant 42 : i32\n  %c2_i32 = arith.constant 2 : i32\n  %c192_i64 = arith.constant 192 : i64\n  %c128_i32 = arith.constant 128 : i32\n  %c63_i32 = arith.constant 63 : i32\n  %c688_i32 = arith.constant 688 : i32\n  %c128 = arith.constant 128 : index\n  %c64 = arith.constant 64 : index\n  %c0_i8 = arith.constant 0 : i8\n  %c0 = arith.constant 0 : index\n  %true = arith.constant true\n  %c1_i32 = arith.constant 1 : i32\n  %c32768 = arith.constant 32768 : index\n  hivm.hir.set_ffts_base_addr %arg0\n  hivm.hir.set_mask_norm\n  %0 = arith.muli %arg12, %arg13 : i32\n  %1 = arith.muli %0, %arg14 : i32\n  annotation.mark %1 {logical_block_num} : i32\n  %2 = hivm.hir.get_block_idx -> i64\n  %3 = arith.trunci %2 : i64 to i32\n  %4 = arith.muli %arg14, %arg13 : i32\n  %5 = arith.divsi %3, %4 : i32\n  %6 = arith.remsi %5, %arg12 : i32\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]\n  hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n  scf.for %arg15 = %6 to %c128_i32 step %arg12  : i32 {\n    %7 = arith.index_cast %arg15 : i32 to index\n    %8 = arith.index_cast %6 : i32 to index\n    %9 = arith.index_cast %c128_i32 : i32 to index\n    %10 = arith.index_cast %arg12 : i32 to index\n    %11 = affine.apply affine_map<()[s0, s1, s2] -> (((s0 - s1) floordiv s2) mod 2)>()[%7, %8, %10]\n    %12 = arith.index_cast %11 : index to i1\n    %c0_i64_2 = arith.constant 0 : i64\n    %c1_i64 = arith.constant 1 : i64\n    %13 = arith.select %12, %c0_i64_2, %c1_i64 : i64\n    %14 = hivm.hir.pointer_cast(%c0_i64_1, %c32768_i64) : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n    annotation.mark %14 {hivm.multi_buffer = 2 : i32} : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n    %15 = arith.divsi %arg15, %c16_i32 : i32\n    %16 = arith.remsi %arg15, %c16_i32 : i32\n    %17 = arith.muli %16, %c8_i32 : i32\n    %18 = arith.muli %15, %c64_i32 : i32\n    %19 = arith.index_cast %18 : i32 to index\n    %20 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%19]\n    %reinterpret_cast = memref.reinterpret_cast %arg3 to offset: [%20], sizes: [64, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n    %cast = memref.cast %14 : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n    %21 = affine.max affine_map<()[s0] -> (512, s0)>()[%19]\n    %22 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%21, %19]\n    %23 = affine.apply affine_map<()[s0, s1] -> (s0 - s1)>()[%22, %19]\n    %24 = arith.cmpi slt, %23, %c64 : index\n    %subview = memref.subview %reinterpret_cast[0, 0] [%23, 128] [1, 1] : memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n    %25 = affine.apply affine_map<()[s0, s1] -> ((s0 - s1 + 15) floordiv 16)>()[%22, %19]\n    %subview_3 = memref.subview %14[0, 0, 0, 0] [4, %25, 16, 32] [1, 1, 1, 1] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>>\n    %cast_4 = memref.cast %subview_3 : memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n    scf.if %24 {\n      hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n      %collapse_shape = memref.collapse_shape %14 [[0, 1, 2, 3]] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> into memref<8192xi8, #hivm.address_space<cbuf>>\n      hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n      hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<8192xi8, #hivm.address_space<cbuf>>)\n      hivm.hir.pipe_barrier[<PIPE_MTE2>]\n    } {hivm.unlikely_condition}\n    hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]\n    hivm.hir.nd2nz {dst_continuous} ins(%subview : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_4 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n    hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n    %26 = arith.index_cast %15 : i32 to index\n    %reinterpret_cast_5 = memref.reinterpret_cast %arg11 to offset: [%26], sizes: [1], strides: [1] : memref<?xi32, #hivm.address_space<gm>> to memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n    %27 = memref.load %reinterpret_cast_5[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n    %28 = arith.minsi %27, %c8192_i32 : i32\n    %29 = arith.addi %28, %c63_i32 : i32\n    %30 = arith.divsi %29, %c64_i32 : i32\n    %31 = arith.subi %30, %17 : i32\n    %32 = arith.maxsi %31, %c0_i32 : i32\n    %33 = arith.minsi %32, %c8_i32 : i32\n    %34 = arith.divsi %17, %c3_i32 : i32\n    %35 = arith.cmpi sgt, %33, %c0_i32 : i32\n    %36 = arith.remsi %17, %c3_i32 : i32\n    %37 = arith.addi %36, %33 : i32\n    %38 = arith.addi %37, %c2_i32 : i32\n    %39 = arith.divsi %38, %c3_i32 : i32\n    %40 = arith.select %35, %39, %c0_i32 : i32\n    %41 = arith.addi %34, %40 : i32\n    %42 = arith.addi %17, %33 : i32\n    %43 = arith.muli %15, %c688_i32 : i32\n    %44 = arith.index_cast %43 : i32 to index\n    %45 = arith.index_cast %27 : i32 to index\n    hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n    scf.for %arg16 = %34 to %41 step %c1_i32  : i32 {\n      %46 = arith.muli %arg16, %c3_i32 : i32\n      %47 = arith.maxsi %17, %46 : i32\n      %48 = arith.addi %46, %c3_i32 : i32\n      %49 = arith.minsi %42, %48 : i32\n      %50 = arith.minsi %arg16, %c42_i32 : i32\n      %51 = arith.index_cast %50 : i32 to index\n      %52 = affine.apply affine_map<()[s0, s1] -> (s0 + s1)>()[%44, %51]\n      %reinterpret_cast_6 = memref.reinterpret_cast %arg8 to offset: [%52], sizes: [1], strides: [1] : memref<?xi32, #hivm.address_space<gm>> to memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n      %53 = memref.load %reinterpret_cast_6[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n      %54 = arith.subi %49, %47 : i32\n      %55 = arith.remsi %54, %c2_i32 : i32\n      %56 = arith.subi %49, %55 : i32\n      %57 = arith.extsi %53 : i32 to i64\n      %58 = arith.muli %57, %c192_i64 : i64\n      scf.for %arg17 = %47 to %56 step %c2_i32  : i32 {\n        %59 = arith.index_cast %arg17 : i32 to index\n        %60 = arith.index_cast %47 : i32 to index\n        %61 = arith.index_cast %56 : i32 to index\n        %62 = arith.index_cast %c2_i32 : i32 to index\n        %63 = arith.index_cast %arg16 : i32 to index\n        %64 = arith.index_cast %34 : i32 to index\n        %65 = arith.index_cast %41 : i32 to index\n        %66 = arith.index_cast %c1_i32 : i32 to index\n        %67 = arith.index_cast %arg15 : i32 to index\n        %68 = arith.index_cast %6 : i32 to index\n        %69 = arith.index_cast %c128_i32 : i32 to index\n        %70 = arith.index_cast %arg12 : i32 to index\n        %71 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> ((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7)))>()[%59, %60, %61, %62, %63, %64, %65, %66, %67, %68, %70]\n        %72 = arith.index_cast %71 : index to i64\n        %73 = arith.index_cast %arg17 : i32 to index\n        %74 = arith.index_cast %47 : i32 to index\n        %75 = arith.index_cast %56 : i32 to index\n        %76 = arith.index_cast %c2_i32 : i32 to index\n        %77 = arith.index_cast %arg16 : i32 to index\n        %78 = arith.index_cast %34 : i32 to index\n        %79 = arith.index_cast %41 : i32 to index\n        %80 = arith.index_cast %c1_i32 : i32 to index\n        %81 = arith.index_cast %arg15 : i32 to index\n        %82 = arith.index_cast %6 : i32 to index\n        %83 = arith.index_cast %c128_i32 : i32 to index\n        %84 = arith.index_cast %arg12 : i32 to index\n        %85 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> (((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7))) mod 2)>()[%73, %74, %75, %76, %77, %78, %79, %80, %81, %82, %84]\n        %86 = arith.index_cast %85 : index to i1\n        %c3_i64 = arith.constant 3 : i64\n        %c4_i64 = arith.constant 4 : i64\n        %87 = arith.select %86, %c3_i64, %c4_i64 : i64\n        %88 = hivm.hir.pointer_cast(%c8192_i64, %c40960_i64) : memref<4x8x16x32xi8, #hivm.address_space<cbuf>>\n        annotation.mark %88 {hivm.multi_buffer = 2 : i32} : memref<4x8x16x32xi8, #hivm.address_space<cbuf>>\n        %89 = arith.muli %arg17, %c64_i32 : i32\n        %90 = arith.subi %arg17, %46 : i32\n        %91 = arith.muli %90, %c64_i32 : i32\n        %92 = arith.extsi %91 : i32 to i64\n        %93 = arith.addi %58, %92 : i64\n        %94 = arith.index_cast %93 : i64 to index\n        %95 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%94]\n        %reinterpret_cast_7 = memref.reinterpret_cast %arg4 to offset: [%95], sizes: [128, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<128x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %cast_8 = memref.cast %88 : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n        %96 = arith.index_cast %89 : i32 to index\n        %97 = affine.max affine_map<()[s0] -> (8192, s0)>()[%96]\n        %98 = affine.min affine_map<()[s0, s1] -> (s1 + 128, s0)>()[%97, %96]\n        %99 = affine.max affine_map<()[s0, s1] -> (s1, s0)>()[%96, %45]\n        %100 = affine.min affine_map<()[s0, s1] -> (s1 + 128, s0)>()[%99, %96]\n        %101 = affine.min affine_map<()[s0, s1, s2] -> (-s1 + s2, s0 - s1)>()[%98, %96, %100]\n        %102 = arith.cmpi slt, %101, %c128 : index\n        %subview_9 = memref.subview %reinterpret_cast_7[0, 0] [%101, 128] [1, 1] : memref<128x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %103 = affine.apply affine_map<()[s0] -> ((s0 + 15) floordiv 16)>()[%101]\n        %subview_10 = memref.subview %88[0, 0, 0, 0] [4, %103, 16, 32] [1, 1, 1, 1] : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[4096, 512, 32, 1]>, #hivm.address_space<cbuf>>\n        %cast_11 = memref.cast %subview_10 : memref<4x?x16x32xi8, strided<[4096, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n        scf.if %102 {\n          hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n          %collapse_shape = memref.collapse_shape %88 [[0, 1, 2, 3]] : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> into memref<16384xi8, #hivm.address_space<cbuf>>\n          hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n          hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<16384xi8, #hivm.address_space<cbuf>>)\n          hivm.hir.pipe_barrier[<PIPE_MTE2>]\n        } {hivm.unlikely_condition}\n        hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %87]\n        hivm.hir.nd2nz {dst_continuous} ins(%subview_9 : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_11 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n        hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n        %104 = hivm.hir.pointer_cast(%c0_i64_1) : memref<8x4x16x16xi32, #hivm.address_space<cc>>\n        %cast_12 = memref.cast %104 : memref<8x4x16x16xi32, #hivm.address_space<cc>> to memref<?x?x?x?xi32, #hivm.address_space<cc>>\n        hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        %c-1_i64 = arith.constant -1 : i64\n        hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_8, %true, %23, %c128, %101 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64_0, %c-1_i64, %87, %72, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)\n        hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        %105 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1\n        hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%105 : memref<64x128xi32, #hivm.address_space<gm>>)\n        hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        annotation.mark %105 : memref<64x128xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0\n      } {fixpipe_for_mmad_result_already_inserted = true}\n      scf.for %arg17 = %56 to %49 step %c1_i32  : i32 {\n        %59 = arith.index_cast %arg17 : i32 to index\n        %60 = arith.index_cast %56 : i32 to index\n        %61 = arith.index_cast %49 : i32 to index\n        %62 = arith.index_cast %c1_i32 : i32 to index\n        %63 = arith.index_cast %arg16 : i32 to index\n        %64 = arith.index_cast %34 : i32 to index\n        %65 = arith.index_cast %41 : i32 to index\n        %66 = arith.index_cast %c1_i32 : i32 to index\n        %67 = arith.index_cast %arg15 : i32 to index\n        %68 = arith.index_cast %6 : i32 to index\n        %69 = arith.index_cast %c128_i32 : i32 to index\n        %70 = arith.index_cast %arg12 : i32 to index\n        %71 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> ((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7)))>()[%59, %60, %61, %62, %63, %64, %65, %66, %67, %68, %70]\n        %72 = arith.index_cast %71 : index to i64\n        %73 = arith.index_cast %arg17 : i32 to index\n        %74 = arith.index_cast %56 : i32 to index\n        %75 = arith.index_cast %49 : i32 to index\n        %76 = arith.index_cast %c1_i32 : i32 to index\n        %77 = arith.index_cast %arg16 : i32 to index\n        %78 = arith.index_cast %34 : i32 to index\n        %79 = arith.index_cast %41 : i32 to index\n        %80 = arith.index_cast %c1_i32 : i32 to index\n        %81 = arith.index_cast %arg15 : i32 to index\n        %82 = arith.index_cast %6 : i32 to index\n        %83 = arith.index_cast %c128_i32 : i32 to index\n        %84 = arith.index_cast %arg12 : i32 to index\n        %85 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> (((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7))) mod 2)>()[%73, %74, %75, %76, %77, %78, %79, %80, %81, %82, %84]\n        %86 = arith.index_cast %85 : index to i1\n        %c3_i64 = arith.constant 3 : i64\n        %c4_i64 = arith.constant 4 : i64\n        %87 = arith.select %86, %c3_i64, %c4_i64 : i64\n        %88 = hivm.hir.pointer_cast(%c24576_i64, %c57344_i64) : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n        annotation.mark %88 {hivm.multi_buffer = 2 : i32} : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n        %89 = arith.muli %arg17, %c64_i32 : i32\n        %90 = arith.subi %arg17, %46 : i32\n        %91 = arith.muli %90, %c64_i32 : i32\n        %92 = arith.extsi %91 : i32 to i64\n        %93 = arith.addi %58, %92 : i64\n        %94 = arith.index_cast %93 : i64 to index\n        %95 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%94]\n        %reinterpret_cast_7 = memref.reinterpret_cast %arg4 to offset: [%95], sizes: [64, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %cast_8 = memref.cast %88 : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n        %96 = arith.index_cast %89 : i32 to index\n        %97 = affine.max affine_map<()[s0] -> (8192, s0)>()[%96]\n        %98 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%97, %96]\n        %99 = affine.max affine_map<()[s0, s1] -> (s1, s0)>()[%96, %45]\n        %100 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%99, %96]\n        %101 = affine.min affine_map<()[s0, s1, s2] -> (-s1 + s2, s0 - s1)>()[%98, %96, %100]\n        %102 = arith.cmpi slt, %101, %c64 : index\n        %subview_9 = memref.subview %reinterpret_cast_7[0, 0] [%101, 128] [1, 1] : memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %103 = affine.apply affine_map<()[s0] -> ((s0 + 15) floordiv 16)>()[%101]\n        %subview_10 = memref.subview %88[0, 0, 0, 0] [4, %103, 16, 32] [1, 1, 1, 1] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>>\n        %cast_11 = memref.cast %subview_10 : memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n        scf.if %102 {\n          hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n          %collapse_shape = memref.collapse_shape %88 [[0, 1, 2, 3]] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> into memref<8192xi8, #hivm.address_space<cbuf>>\n          hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n          hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<8192xi8, #hivm.address_space<cbuf>>)\n          hivm.hir.pipe_barrier[<PIPE_MTE2>]\n        } {hivm.unlikely_condition}\n        hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %87]\n        hivm.hir.nd2nz {dst_continuous} ins(%subview_9 : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_11 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n        hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n        %104 = hivm.hir.pointer_cast(%c32768_i64) : memref<4x4x16x16xi32, #hivm.address_space<cc>>\n        %cast_12 = memref.cast %104 : memref<4x4x16x16xi32, #hivm.address_space<cc>> to memref<?x?x?x?xi32, #hivm.address_space<cc>>\n        hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        %c-1_i64 = arith.constant -1 : i64\n        hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_8, %true, %23, %c128, %101 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %87, %72, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)\n        hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        %105 = memref_ext.alloc_workspace() from %arg2 offset = [%c32768] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2\n        hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%105 : memref<64x64xi32, #hivm.address_space<gm>>)\n        hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        annotation.mark %105 : memref<64x64xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0\n      } {fixpipe_for_mmad_result_already_inserted = true}\n    }\n    hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]\n  }\n  hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]\n  hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1\n  hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2\n  hivm.hir.pipe_barrier[<PIPE_ALL>]\n  return\n}\n\n[NOTE] Ub overflow detected; automatically set enable-code-motion to false and retrying compilation.\n// -----// IR Dump After GraphSyncSolver (hivm-graph-sync-solver) //----- //\nfunc.func @_qsa_page64_prefix_paired_n128_mix_aic(%arg0: i64 {hacc.arg_type = #hacc.arg_type<ffts_base_address>}, %arg1: memref<?xi8, #hivm.address_space<gm>> {hacc.arg_type = #hacc.arg_type<sync_block_lock>}, %arg2: memref<?xi8, #hivm.address_space<gm>> {hacc.arg_type = #hacc.arg_type<workspace>}, %arg3: memref<?xi8, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg4: memref<?xi8, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg5: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg6: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg7: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg8: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg9: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg10: memref<?xf32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 1 : i32}, %arg11: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg12: i32, %arg13: i32, %arg14: i32) attributes {SyncBlockLockArgIdx = 0 : i64, WorkspaceArgIdx = 1 : i64, func_dyn_memref_args = dense<[false, true, true, true, true, true, true, true, true, true, true, true, false, false, false]> : vector<15xi1>, hacc.entry, hacc.function_kind = #hacc.function_kind<DEVICE>, hivm.func_core_type = #hivm.func_core_type<AIC>, hivm.part_of_mix, hivm.storage_aligned, mix_mode = \"mix\", parallel_mode = \"simd\"} {\n  %c0_i64 = arith.constant 0 : i64\n  %c0_i64_0 = arith.constant 0 : i64\n  %c57344_i64 = arith.constant 57344 : i64\n  %c24576_i64 = arith.constant 24576 : i64\n  %c40960_i64 = arith.constant 40960 : i64\n  %c8192_i64 = arith.constant 8192 : i64\n  %c32768_i64 = arith.constant 32768 : i64\n  %c0_i64_1 = arith.constant 0 : i64\n  %c0_i32 = arith.constant 0 : i32\n  %c8_i32 = arith.constant 8 : i32\n  %c16_i32 = arith.constant 16 : i32\n  %c8192_i32 = arith.constant 8192 : i32\n  %c64_i32 = arith.constant 64 : i32\n  %c3_i32 = arith.constant 3 : i32\n  %c42_i32 = arith.constant 42 : i32\n  %c2_i32 = arith.constant 2 : i32\n  %c192_i64 = arith.constant 192 : i64\n  %c128_i32 = arith.constant 128 : i32\n  %c63_i32 = arith.constant 63 : i32\n  %c688_i32 = arith.constant 688 : i32\n  %c128 = arith.constant 128 : index\n  %c64 = arith.constant 64 : index\n  %c0_i8 = arith.constant 0 : i8\n  %c0 = arith.constant 0 : index\n  %true = arith.constant true\n  %c1_i32 = arith.constant 1 : i32\n  %c32768 = arith.constant 32768 : index\n  hivm.hir.set_ffts_base_addr %arg0\n  hivm.hir.set_mask_norm\n  %0 = arith.muli %arg12, %arg13 : i32\n  %1 = arith.muli %0, %arg14 : i32\n  annotation.mark %1 {logical_block_num} : i32\n  %2 = hivm.hir.get_block_idx -> i64\n  %3 = arith.trunci %2 : i64 to i32\n  %4 = arith.muli %arg14, %arg13 : i32\n  %5 = arith.divsi %3, %4 : i32\n  %6 = arith.remsi %5, %arg12 : i32\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]\n  hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n  scf.for %arg15 = %6 to %c128_i32 step %arg12  : i32 {\n    %7 = arith.index_cast %arg15 : i32 to index\n    %8 = arith.index_cast %6 : i32 to index\n    %9 = arith.index_cast %c128_i32 : i32 to index\n    %10 = arith.index_cast %arg12 : i32 to index\n    %11 = affine.apply affine_map<()[s0, s1, s2] -> (((s0 - s1) floordiv s2) mod 2)>()[%7, %8, %10]\n    %12 = arith.index_cast %11 : index to i1\n    %c0_i64_2 = arith.constant 0 : i64\n    %c1_i64 = arith.constant 1 : i64\n    %13 = arith.select %12, %c0_i64_2, %c1_i64 : i64\n    %14 = hivm.hir.pointer_cast(%c0_i64_1, %c32768_i64) : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n    annotation.mark %14 {hivm.multi_buffer = 2 : i32} : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n    %15 = arith.divsi %arg15, %c16_i32 : i32\n    %16 = arith.remsi %arg15, %c16_i32 : i32\n    %17 = arith.muli %16, %c8_i32 : i32\n    %18 = arith.muli %15, %c64_i32 : i32\n    %19 = arith.index_cast %18 : i32 to index\n    %20 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%19]\n    %reinterpret_cast = memref.reinterpret_cast %arg3 to offset: [%20], sizes: [64, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n    %cast = memref.cast %14 : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n    %21 = affine.max affine_map<()[s0] -> (512, s0)>()[%19]\n    %22 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%21, %19]\n    %23 = affine.apply affine_map<()[s0, s1] -> (s0 - s1)>()[%22, %19]\n    %24 = arith.cmpi slt, %23, %c64 : index\n    %subview = memref.subview %reinterpret_cast[0, 0] [%23, 128] [1, 1] : memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n    %25 = affine.apply affine_map<()[s0, s1] -> ((s0 - s1 + 15) floordiv 16)>()[%22, %19]\n    %subview_3 = memref.subview %14[0, 0, 0, 0] [4, %25, 16, 32] [1, 1, 1, 1] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>>\n    %cast_4 = memref.cast %subview_3 : memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n    scf.if %24 {\n      hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n      %collapse_shape = memref.collapse_shape %14 [[0, 1, 2, 3]] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> into memref<8192xi8, #hivm.address_space<cbuf>>\n      hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n      hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<8192xi8, #hivm.address_space<cbuf>>)\n      hivm.hir.pipe_barrier[<PIPE_MTE2>]\n    } {hivm.unlikely_condition}\n    hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]\n    hivm.hir.nd2nz {dst_continuous} ins(%subview : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_4 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n    hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n    %26 = arith.index_cast %15 : i32 to index\n    %reinterpret_cast_5 = memref.reinterpret_cast %arg11 to offset: [%26], sizes: [1], strides: [1] : memref<?xi32, #hivm.address_space<gm>> to memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n    %27 = memref.load %reinterpret_cast_5[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n    %28 = arith.minsi %27, %c8192_i32 : i32\n    %29 = arith.addi %28, %c63_i32 : i32\n    %30 = arith.divsi %29, %c64_i32 : i32\n    %31 = arith.subi %30, %17 : i32\n    %32 = arith.maxsi %31, %c0_i32 : i32\n    %33 = arith.minsi %32, %c8_i32 : i32\n    %34 = arith.divsi %17, %c3_i32 : i32\n    %35 = arith.cmpi sgt, %33, %c0_i32 : i32\n    %36 = arith.remsi %17, %c3_i32 : i32\n    %37 = arith.addi %36, %33 : i32\n    %38 = arith.addi %37, %c2_i32 : i32\n    %39 = arith.divsi %38, %c3_i32 : i32\n    %40 = arith.select %35, %39, %c0_i32 : i32\n    %41 = arith.addi %34, %40 : i32\n    hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n    scf.for %arg16 = %34 to %41 step %c1_i32  : i32 {\n      %42 = arith.muli %arg16, %c3_i32 : i32\n      %43 = arith.maxsi %17, %42 : i32\n      %44 = arith.addi %17, %33 : i32\n      %45 = arith.addi %42, %c3_i32 : i32\n      %46 = arith.minsi %44, %45 : i32\n      %47 = arith.muli %15, %c688_i32 : i32\n      %48 = arith.index_cast %47 : i32 to index\n      %49 = arith.minsi %arg16, %c42_i32 : i32\n      %50 = arith.index_cast %49 : i32 to index\n      %51 = affine.apply affine_map<()[s0, s1] -> (s0 + s1)>()[%48, %50]\n      %reinterpret_cast_6 = memref.reinterpret_cast %arg8 to offset: [%51], sizes: [1], strides: [1] : memref<?xi32, #hivm.address_space<gm>> to memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n      %52 = memref.load %reinterpret_cast_6[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n      %53 = arith.subi %46, %43 : i32\n      %54 = arith.remsi %53, %c2_i32 : i32\n      %55 = arith.subi %46, %54 : i32\n      scf.for %arg17 = %43 to %55 step %c2_i32  : i32 {\n        %56 = arith.index_cast %arg17 : i32 to index\n        %57 = arith.index_cast %43 : i32 to index\n        %58 = arith.index_cast %55 : i32 to index\n        %59 = arith.index_cast %c2_i32 : i32 to index\n        %60 = arith.index_cast %arg16 : i32 to index\n        %61 = arith.index_cast %34 : i32 to index\n        %62 = arith.index_cast %41 : i32 to index\n        %63 = arith.index_cast %c1_i32 : i32 to index\n        %64 = arith.index_cast %arg15 : i32 to index\n        %65 = arith.index_cast %6 : i32 to index\n        %66 = arith.index_cast %c128_i32 : i32 to index\n        %67 = arith.index_cast %arg12 : i32 to index\n        %68 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> ((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7)))>()[%56, %57, %58, %59, %60, %61, %62, %63, %64, %65, %67]\n        %69 = arith.index_cast %68 : index to i64\n        %70 = arith.index_cast %arg17 : i32 to index\n        %71 = arith.index_cast %43 : i32 to index\n        %72 = arith.index_cast %55 : i32 to index\n        %73 = arith.index_cast %c2_i32 : i32 to index\n        %74 = arith.index_cast %arg16 : i32 to index\n        %75 = arith.index_cast %34 : i32 to index\n        %76 = arith.index_cast %41 : i32 to index\n        %77 = arith.index_cast %c1_i32 : i32 to index\n        %78 = arith.index_cast %arg15 : i32 to index\n        %79 = arith.index_cast %6 : i32 to index\n        %80 = arith.index_cast %c128_i32 : i32 to index\n        %81 = arith.index_cast %arg12 : i32 to index\n        %82 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> (((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7))) mod 2)>()[%70, %71, %72, %73, %74, %75, %76, %77, %78, %79, %81]\n        %83 = arith.index_cast %82 : index to i1\n        %c3_i64 = arith.constant 3 : i64\n        %c4_i64 = arith.constant 4 : i64\n        %84 = arith.select %83, %c3_i64, %c4_i64 : i64\n        %85 = hivm.hir.pointer_cast(%c8192_i64, %c40960_i64) : memref<4x8x16x32xi8, #hivm.address_space<cbuf>>\n        annotation.mark %85 {hivm.multi_buffer = 2 : i32} : memref<4x8x16x32xi8, #hivm.address_space<cbuf>>\n        %86 = arith.muli %arg17, %c64_i32 : i32\n        %87 = arith.extsi %52 : i32 to i64\n        %88 = arith.muli %87, %c192_i64 : i64\n        %89 = arith.subi %arg17, %42 : i32\n        %90 = arith.muli %89, %c64_i32 : i32\n        %91 = arith.extsi %90 : i32 to i64\n        %92 = arith.addi %88, %91 : i64\n        %93 = arith.index_cast %92 : i64 to index\n        %94 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%93]\n        %reinterpret_cast_7 = memref.reinterpret_cast %arg4 to offset: [%94], sizes: [128, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<128x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %cast_8 = memref.cast %85 : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n        %95 = arith.index_cast %86 : i32 to index\n        %96 = affine.max affine_map<()[s0] -> (8192, s0)>()[%95]\n        %97 = affine.min affine_map<()[s0, s1] -> (s1 + 128, s0)>()[%96, %95]\n        %98 = arith.index_cast %27 : i32 to index\n        %99 = affine.max affine_map<()[s0, s1] -> (s1, s0)>()[%95, %98]\n        %100 = affine.min affine_map<()[s0, s1] -> (s1 + 128, s0)>()[%99, %95]\n        %101 = affine.min affine_map<()[s0, s1, s2] -> (-s1 + s2, s0 - s1)>()[%97, %95, %100]\n        %102 = arith.cmpi slt, %101, %c128 : index\n        %subview_9 = memref.subview %reinterpret_cast_7[0, 0] [%101, 128] [1, 1] : memref<128x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %103 = affine.apply affine_map<()[s0] -> ((s0 + 15) floordiv 16)>()[%101]\n        %subview_10 = memref.subview %85[0, 0, 0, 0] [4, %103, 16, 32] [1, 1, 1, 1] : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[4096, 512, 32, 1]>, #hivm.address_space<cbuf>>\n        %cast_11 = memref.cast %subview_10 : memref<4x?x16x32xi8, strided<[4096, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n        scf.if %102 {\n          hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n          %collapse_shape = memref.collapse_shape %85 [[0, 1, 2, 3]] : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> into memref<16384xi8, #hivm.address_space<cbuf>>\n          hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n          hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<16384xi8, #hivm.address_space<cbuf>>)\n          hivm.hir.pipe_barrier[<PIPE_MTE2>]\n        } {hivm.unlikely_condition}\n        hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %84]\n        hivm.hir.nd2nz {dst_continuous} ins(%subview_9 : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_11 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n        hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n        %104 = hivm.hir.pointer_cast(%c0_i64_1) : memref<8x4x16x16xi32, #hivm.address_space<cc>>\n        %cast_12 = memref.cast %104 : memref<8x4x16x16xi32, #hivm.address_space<cc>> to memref<?x?x?x?xi32, #hivm.address_space<cc>>\n        hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        %c-1_i64 = arith.constant -1 : i64\n        hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_8, %true, %23, %c128, %101 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64_0, %c-1_i64, %84, %69, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)\n        hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        %105 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1\n        hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%105 : memref<64x128xi32, #hivm.address_space<gm>>)\n        hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        annotation.mark %105 : memref<64x128xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0\n      } {fixpipe_for_mmad_result_already_inserted = true}\n      scf.for %arg17 = %55 to %46 step %c1_i32  : i32 {\n        %56 = arith.index_cast %arg17 : i32 to index\n        %57 = arith.index_cast %55 : i32 to index\n        %58 = arith.index_cast %46 : i32 to index\n        %59 = arith.index_cast %c1_i32 : i32 to index\n        %60 = arith.index_cast %arg16 : i32 to index\n        %61 = arith.index_cast %34 : i32 to index\n        %62 = arith.index_cast %41 : i32 to index\n        %63 = arith.index_cast %c1_i32 : i32 to index\n        %64 = arith.index_cast %arg15 : i32 to index\n        %65 = arith.index_cast %6 : i32 to index\n        %66 = arith.index_cast %c128_i32 : i32 to index\n        %67 = arith.index_cast %arg12 : i32 to index\n        %68 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> ((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7)))>()[%56, %57, %58, %59, %60, %61, %62, %63, %64, %65, %67]\n        %69 = arith.index_cast %68 : index to i64\n        %70 = arith.index_cast %arg17 : i32 to index\n        %71 = arith.index_cast %55 : i32 to index\n        %72 = arith.index_cast %46 : i32 to index\n        %73 = arith.index_cast %c1_i32 : i32 to index\n        %74 = arith.index_cast %arg16 : i32 to index\n        %75 = arith.index_cast %34 : i32 to index\n        %76 = arith.index_cast %41 : i32 to index\n        %77 = arith.index_cast %c1_i32 : i32 to index\n        %78 = arith.index_cast %arg15 : i32 to index\n        %79 = arith.index_cast %6 : i32 to index\n        %80 = arith.index_cast %c128_i32 : i32 to index\n        %81 = arith.index_cast %arg12 : i32 to index\n        %82 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> (((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7))) mod 2)>()[%70, %71, %72, %73, %74, %75, %76, %77, %78, %79, %81]\n        %83 = arith.index_cast %82 : index to i1\n        %c3_i64 = arith.constant 3 : i64\n        %c4_i64 = arith.constant 4 : i64\n        %84 = arith.select %83, %c3_i64, %c4_i64 : i64\n        %85 = hivm.hir.pointer_cast(%c24576_i64, %c57344_i64) : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n        annotation.mark %85 {hivm.multi_buffer = 2 : i32} : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n        %86 = arith.muli %arg17, %c64_i32 : i32\n        %87 = arith.subi %arg17, %42 : i32\n        %88 = arith.muli %87, %c64_i32 : i32\n        %89 = arith.extsi %52 : i32 to i64\n        %90 = arith.muli %89, %c192_i64 : i64\n        %91 = arith.extsi %88 : i32 to i64\n        %92 = arith.addi %90, %91 : i64\n        %93 = arith.index_cast %92 : i64 to index\n        %94 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%93]\n        %reinterpret_cast_7 = memref.reinterpret_cast %arg4 to offset: [%94], sizes: [64, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %cast_8 = memref.cast %85 : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n        %95 = arith.index_cast %86 : i32 to index\n        %96 = affine.max affine_map<()[s0] -> (8192, s0)>()[%95]\n        %97 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%96, %95]\n        %98 = arith.index_cast %27 : i32 to index\n        %99 = affine.max affine_map<()[s0, s1] -> (s1, s0)>()[%95, %98]\n        %100 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%99, %95]\n        %101 = affine.min affine_map<()[s0, s1, s2] -> (-s1 + s2, s0 - s1)>()[%97, %95, %100]\n        %102 = arith.cmpi slt, %101, %c64 : index\n        %subview_9 = memref.subview %reinterpret_cast_7[0, 0] [%101, 128] [1, 1] : memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %103 = affine.apply affine_map<()[s0] -> ((s0 + 15) floordiv 16)>()[%101]\n        %subview_10 = memref.subview %85[0, 0, 0, 0] [4, %103, 16, 32] [1, 1, 1, 1] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>>\n        %cast_11 = memref.cast %subview_10 : memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n        scf.if %102 {\n          hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n          %collapse_shape = memref.collapse_shape %85 [[0, 1, 2, 3]] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> into memref<8192xi8, #hivm.address_space<cbuf>>\n          hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n          hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<8192xi8, #hivm.address_space<cbuf>>)\n          hivm.hir.pipe_barrier[<PIPE_MTE2>]\n        } {hivm.unlikely_condition}\n        hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %84]\n        hivm.hir.nd2nz {dst_continuous} ins(%subview_9 : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_11 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n        hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n        %104 = hivm.hir.pointer_cast(%c32768_i64) : memref<4x4x16x16xi32, #hivm.address_space<cc>>\n        %cast_12 = memref.cast %104 : memref<4x4x16x16xi32, #hivm.address_space<cc>> to memref<?x?x?x?xi32, #hivm.address_space<cc>>\n        hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        %c-1_i64 = arith.constant -1 : i64\n        hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_8, %true, %23, %c128, %101 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %84, %69, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)\n        hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        %105 = memref_ext.alloc_workspace() from %arg2 offset = [%c32768] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2\n        hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%105 : memref<64x64xi32, #hivm.address_space<gm>>)\n        hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        annotation.mark %105 : memref<64x64xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0\n      } {fixpipe_for_mmad_result_already_inserted = true}\n    }\n    hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]\n  }\n  hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]\n  hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1\n  hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2\n  hivm.hir.pipe_barrier[<PIPE_ALL>]\n  return\n}\n\n[NOTE] Ub overflow detected; automatically set enable-auto-multi-buffer to false and retrying compilation.\n// -----// IR Dump After GraphSyncSolver (hivm-graph-sync-solver) //----- //\nfunc.func @_qsa_page64_prefix_paired_n128_mix_aic(%arg0: i64 {hacc.arg_type = #hacc.arg_type<ffts_base_address>}, %arg1: memref<?xi8, #hivm.address_space<gm>> {hacc.arg_type = #hacc.arg_type<sync_block_lock>}, %arg2: memref<?xi8, #hivm.address_space<gm>> {hacc.arg_type = #hacc.arg_type<workspace>}, %arg3: memref<?xi8, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg4: memref<?xi8, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg5: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg6: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg7: memref<?xf16, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg8: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg9: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg10: memref<?xf32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 1 : i32}, %arg11: memref<?xi32, #hivm.address_space<gm>> {tt.divisibility = 16 : i32, tt.tensor_kind = 0 : i32}, %arg12: i32, %arg13: i32, %arg14: i32) attributes {SyncBlockLockArgIdx = 0 : i64, WorkspaceArgIdx = 1 : i64, func_dyn_memref_args = dense<[false, true, true, true, true, true, true, true, true, true, true, true, false, false, false]> : vector<15xi1>, hacc.entry, hacc.function_kind = #hacc.function_kind<DEVICE>, hivm.func_core_type = #hivm.func_core_type<AIC>, hivm.part_of_mix, hivm.storage_aligned, mix_mode = \"mix\", parallel_mode = \"simd\"} {\n  %c2_i64 = arith.constant 2 : i64\n  %c2_i64_0 = arith.constant 2 : i64\n  %c0_i64 = arith.constant 0 : i64\n  %c0_i64_1 = arith.constant 0 : i64\n  %c32768_i64 = arith.constant 32768 : i64\n  %c24576_i64 = arith.constant 24576 : i64\n  %c8192_i64 = arith.constant 8192 : i64\n  %c0_i64_2 = arith.constant 0 : i64\n  %c0_i32 = arith.constant 0 : i32\n  %c8_i32 = arith.constant 8 : i32\n  %c16_i32 = arith.constant 16 : i32\n  %c8192_i32 = arith.constant 8192 : i32\n  %c64_i32 = arith.constant 64 : i32\n  %c3_i32 = arith.constant 3 : i32\n  %c42_i32 = arith.constant 42 : i32\n  %c2_i32 = arith.constant 2 : i32\n  %c192_i64 = arith.constant 192 : i64\n  %c128_i32 = arith.constant 128 : i32\n  %c63_i32 = arith.constant 63 : i32\n  %c688_i32 = arith.constant 688 : i32\n  %c128 = arith.constant 128 : index\n  %c64 = arith.constant 64 : index\n  %c0_i8 = arith.constant 0 : i8\n  %c0 = arith.constant 0 : index\n  %true = arith.constant true\n  %c1_i32 = arith.constant 1 : i32\n  %c32768 = arith.constant 32768 : index\n  hivm.hir.set_ffts_base_addr %arg0\n  hivm.hir.set_mask_norm\n  %0 = arith.muli %arg12, %arg13 : i32\n  %1 = arith.muli %0, %arg14 : i32\n  annotation.mark %1 {logical_block_num} : i32\n  %2 = hivm.hir.get_block_idx -> i64\n  %3 = arith.trunci %2 : i64 to i32\n  %4 = arith.muli %arg14, %arg13 : i32\n  %5 = arith.divsi %3, %4 : i32\n  %6 = arith.remsi %5, %arg12 : i32\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n  hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n  hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n  scf.for %arg15 = %6 to %c128_i32 step %arg12  : i32 {\n    %7 = arith.divsi %arg15, %c16_i32 : i32\n    %8 = arith.remsi %arg15, %c16_i32 : i32\n    %9 = arith.muli %8, %c8_i32 : i32\n    %10 = arith.muli %7, %c64_i32 : i32\n    %11 = arith.index_cast %10 : i32 to index\n    %12 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%11]\n    %reinterpret_cast = memref.reinterpret_cast %arg3 to offset: [%12], sizes: [64, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n    %13 = hivm.hir.pointer_cast(%c0_i64_2) : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n    %cast = memref.cast %13 : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n    %14 = affine.max affine_map<()[s0] -> (512, s0)>()[%11]\n    %15 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%14, %11]\n    %16 = affine.apply affine_map<()[s0, s1] -> (s0 - s1)>()[%15, %11]\n    %17 = arith.cmpi slt, %16, %c64 : index\n    %subview = memref.subview %reinterpret_cast[0, 0] [%16, 128] [1, 1] : memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n    %18 = affine.apply affine_map<()[s0, s1] -> ((s0 - s1 + 15) floordiv 16)>()[%15, %11]\n    %subview_3 = memref.subview %13[0, 0, 0, 0] [4, %18, 16, 32] [1, 1, 1, 1] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>>\n    %cast_4 = memref.cast %subview_3 : memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n    scf.if %17 {\n      hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]\n      %collapse_shape = memref.collapse_shape %13 [[0, 1, 2, 3]] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> into memref<8192xi8, #hivm.address_space<cbuf>>\n      hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]\n      hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<8192xi8, #hivm.address_space<cbuf>>)\n      hivm.hir.pipe_barrier[<PIPE_MTE2>]\n    } {hivm.unlikely_condition}\n    hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n    hivm.hir.nd2nz {dst_continuous} ins(%subview : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_4 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n    hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n    %19 = arith.index_cast %7 : i32 to index\n    %reinterpret_cast_5 = memref.reinterpret_cast %arg11 to offset: [%19], sizes: [1], strides: [1] : memref<?xi32, #hivm.address_space<gm>> to memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n    %20 = memref.load %reinterpret_cast_5[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n    %21 = arith.minsi %20, %c8192_i32 : i32\n    %22 = arith.addi %21, %c63_i32 : i32\n    %23 = arith.divsi %22, %c64_i32 : i32\n    %24 = arith.subi %23, %9 : i32\n    %25 = arith.maxsi %24, %c0_i32 : i32\n    %26 = arith.minsi %25, %c8_i32 : i32\n    %27 = arith.divsi %9, %c3_i32 : i32\n    %28 = arith.cmpi sgt, %26, %c0_i32 : i32\n    %29 = arith.remsi %9, %c3_i32 : i32\n    %30 = arith.addi %29, %26 : i32\n    %31 = arith.addi %30, %c2_i32 : i32\n    %32 = arith.divsi %31, %c3_i32 : i32\n    %33 = arith.select %28, %32, %c0_i32 : i32\n    %34 = arith.addi %27, %33 : i32\n    hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n    scf.for %arg16 = %27 to %34 step %c1_i32  : i32 {\n      %35 = arith.muli %arg16, %c3_i32 : i32\n      %36 = arith.maxsi %9, %35 : i32\n      %37 = arith.addi %9, %26 : i32\n      %38 = arith.addi %35, %c3_i32 : i32\n      %39 = arith.minsi %37, %38 : i32\n      %40 = arith.muli %7, %c688_i32 : i32\n      %41 = arith.index_cast %40 : i32 to index\n      %42 = arith.minsi %arg16, %c42_i32 : i32\n      %43 = arith.index_cast %42 : i32 to index\n      %44 = affine.apply affine_map<()[s0, s1] -> (s0 + s1)>()[%41, %43]\n      %reinterpret_cast_6 = memref.reinterpret_cast %arg8 to offset: [%44], sizes: [1], strides: [1] : memref<?xi32, #hivm.address_space<gm>> to memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n      %45 = memref.load %reinterpret_cast_6[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>\n      %46 = arith.subi %39, %36 : i32\n      %47 = arith.remsi %46, %c2_i32 : i32\n      %48 = arith.subi %39, %47 : i32\n      scf.for %arg17 = %36 to %48 step %c2_i32  : i32 {\n        %49 = arith.index_cast %arg17 : i32 to index\n        %50 = arith.index_cast %36 : i32 to index\n        %51 = arith.index_cast %48 : i32 to index\n        %52 = arith.index_cast %c2_i32 : i32 to index\n        %53 = arith.index_cast %arg16 : i32 to index\n        %54 = arith.index_cast %27 : i32 to index\n        %55 = arith.index_cast %34 : i32 to index\n        %56 = arith.index_cast %c1_i32 : i32 to index\n        %57 = arith.index_cast %arg15 : i32 to index\n        %58 = arith.index_cast %6 : i32 to index\n        %59 = arith.index_cast %c128_i32 : i32 to index\n        %60 = arith.index_cast %arg12 : i32 to index\n        %61 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> ((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7)))>()[%49, %50, %51, %52, %53, %54, %55, %56, %57, %58, %60]\n        %62 = arith.index_cast %61 : index to i64\n        %63 = arith.muli %arg17, %c64_i32 : i32\n        %64 = arith.extsi %45 : i32 to i64\n        %65 = arith.muli %64, %c192_i64 : i64\n        %66 = arith.subi %arg17, %35 : i32\n        %67 = arith.muli %66, %c64_i32 : i32\n        %68 = arith.extsi %67 : i32 to i64\n        %69 = arith.addi %65, %68 : i64\n        %70 = arith.index_cast %69 : i64 to index\n        %71 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%70]\n        %reinterpret_cast_7 = memref.reinterpret_cast %arg4 to offset: [%71], sizes: [128, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<128x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %72 = hivm.hir.pointer_cast(%c8192_i64) : memref<4x8x16x32xi8, #hivm.address_space<cbuf>>\n        %cast_8 = memref.cast %72 : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n        %73 = arith.index_cast %63 : i32 to index\n        %74 = affine.max affine_map<()[s0] -> (8192, s0)>()[%73]\n        %75 = affine.min affine_map<()[s0, s1] -> (s1 + 128, s0)>()[%74, %73]\n        %76 = arith.index_cast %20 : i32 to index\n        %77 = affine.max affine_map<()[s0, s1] -> (s1, s0)>()[%73, %76]\n        %78 = affine.min affine_map<()[s0, s1] -> (s1 + 128, s0)>()[%77, %73]\n        %79 = affine.min affine_map<()[s0, s1, s2] -> (-s1 + s2, s0 - s1)>()[%75, %73, %78]\n        %80 = arith.cmpi slt, %79, %c128 : index\n        %subview_9 = memref.subview %reinterpret_cast_7[0, 0] [%79, 128] [1, 1] : memref<128x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %81 = affine.apply affine_map<()[s0] -> ((s0 + 15) floordiv 16)>()[%79]\n        %subview_10 = memref.subview %72[0, 0, 0, 0] [4, %81, 16, 32] [1, 1, 1, 1] : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[4096, 512, 32, 1]>, #hivm.address_space<cbuf>>\n        %cast_11 = memref.cast %subview_10 : memref<4x?x16x32xi8, strided<[4096, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n        scf.if %80 {\n          hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n          %collapse_shape = memref.collapse_shape %72 [[0, 1, 2, 3]] : memref<4x8x16x32xi8, #hivm.address_space<cbuf>> into memref<16384xi8, #hivm.address_space<cbuf>>\n          hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n          hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<16384xi8, #hivm.address_space<cbuf>>)\n          hivm.hir.pipe_barrier[<PIPE_MTE2>]\n        } {hivm.unlikely_condition}\n        hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n        hivm.hir.nd2nz {dst_continuous} ins(%subview_9 : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_11 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n        hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n        %82 = hivm.hir.pointer_cast(%c0_i64_2) : memref<8x4x16x16xi32, #hivm.address_space<cc>>\n        %cast_12 = memref.cast %82 : memref<8x4x16x16xi32, #hivm.address_space<cc>> to memref<?x?x?x?xi32, #hivm.address_space<cc>>\n        hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        %c-1_i64 = arith.constant -1 : i64\n        hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_8, %true, %16, %c128, %79 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64_1, %c-1_i64, %c2_i64_0, %62, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)\n        hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        %83 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1\n        hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%83 : memref<64x128xi32, #hivm.address_space<gm>>)\n        hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        annotation.mark %83 : memref<64x128xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0\n      } {fixpipe_for_mmad_result_already_inserted = true}\n      scf.for %arg17 = %48 to %39 step %c1_i32  : i32 {\n        %49 = arith.index_cast %arg17 : i32 to index\n        %50 = arith.index_cast %48 : i32 to index\n        %51 = arith.index_cast %39 : i32 to index\n        %52 = arith.index_cast %c1_i32 : i32 to index\n        %53 = arith.index_cast %arg16 : i32 to index\n        %54 = arith.index_cast %27 : i32 to index\n        %55 = arith.index_cast %34 : i32 to index\n        %56 = arith.index_cast %c1_i32 : i32 to index\n        %57 = arith.index_cast %arg15 : i32 to index\n        %58 = arith.index_cast %6 : i32 to index\n        %59 = arith.index_cast %c128_i32 : i32 to index\n        %60 = arith.index_cast %arg12 : i32 to index\n        %61 = affine.apply affine_map<()[s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10] -> ((s0 - s1) floordiv s3 + ((s4 - s5) floordiv s7) * ((-s1 + s2 + s3 - 1) floordiv s3) + ((s8 - s9) floordiv s10) * (((-s1 + s2 + s3 - 1) floordiv s3) * ((-s5 + s6 + s7 - 1) floordiv s7)))>()[%49, %50, %51, %52, %53, %54, %55, %56, %57, %58, %60]\n        %62 = arith.index_cast %61 : index to i64\n        %63 = arith.muli %arg17, %c64_i32 : i32\n        %64 = arith.subi %arg17, %35 : i32\n        %65 = arith.muli %64, %c64_i32 : i32\n        %66 = arith.extsi %45 : i32 to i64\n        %67 = arith.muli %66, %c192_i64 : i64\n        %68 = arith.extsi %65 : i32 to i64\n        %69 = arith.addi %67, %68 : i64\n        %70 = arith.index_cast %69 : i64 to index\n        %71 = affine.apply affine_map<()[s0] -> (s0 * 128)>()[%70]\n        %reinterpret_cast_7 = memref.reinterpret_cast %arg4 to offset: [%71], sizes: [64, 128], strides: [128, 1] : memref<?xi8, #hivm.address_space<gm>> to memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %72 = hivm.hir.pointer_cast(%c24576_i64) : memref<4x4x16x32xi8, #hivm.address_space<cbuf>>\n        %cast_8 = memref.cast %72 : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, #hivm.address_space<cbuf>>\n        %73 = arith.index_cast %63 : i32 to index\n        %74 = affine.max affine_map<()[s0] -> (8192, s0)>()[%73]\n        %75 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%74, %73]\n        %76 = arith.index_cast %20 : i32 to index\n        %77 = affine.max affine_map<()[s0, s1] -> (s1, s0)>()[%73, %76]\n        %78 = affine.min affine_map<()[s0, s1] -> (s1 + 64, s0)>()[%77, %73]\n        %79 = affine.min affine_map<()[s0, s1, s2] -> (-s1 + s2, s0 - s1)>()[%75, %73, %78]\n        %80 = arith.cmpi slt, %79, %c64 : index\n        %subview_9 = memref.subview %reinterpret_cast_7[0, 0] [%79, 128] [1, 1] : memref<64x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>> to memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>\n        %81 = affine.apply affine_map<()[s0] -> ((s0 + 15) floordiv 16)>()[%79]\n        %subview_10 = memref.subview %72[0, 0, 0, 0] [4, %81, 16, 32] [1, 1, 1, 1] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> to memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>>\n        %cast_11 = memref.cast %subview_10 : memref<4x?x16x32xi8, strided<[2048, 512, 32, 1]>, #hivm.address_space<cbuf>> to memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>\n        scf.if %80 {\n          hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n          %collapse_shape = memref.collapse_shape %72 [[0, 1, 2, 3]] : memref<4x4x16x32xi8, #hivm.address_space<cbuf>> into memref<8192xi8, #hivm.address_space<cbuf>>\n          hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n          hivm.hir.vbrc ins(%c0_i8 : i8) outs(%collapse_shape : memref<8192xi8, #hivm.address_space<cbuf>>)\n          hivm.hir.pipe_barrier[<PIPE_MTE2>]\n        } {hivm.unlikely_condition}\n        hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n        hivm.hir.nd2nz {dst_continuous} ins(%subview_9 : memref<?x128xi8, strided<[128, 1], offset: ?>, #hivm.address_space<gm>>) outs(%cast_11 : memref<?x?x?x?xi8, strided<[?, ?, ?, 1], offset: ?>, #hivm.address_space<cbuf>>) init_out_buffer = false\n        hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]\n        %82 = hivm.hir.pointer_cast(%c32768_i64) : memref<4x4x16x16xi32, #hivm.address_space<cc>>\n        %cast_12 = memref.cast %82 : memref<4x4x16x16xi32, #hivm.address_space<cc>> to memref<?x?x?x?xi32, #hivm.address_space<cc>>\n        hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        %c-1_i64 = arith.constant -1 : i64\n        hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_8, %true, %16, %c128, %79 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %c2_i64, %62, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)\n        hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        %83 = memref_ext.alloc_workspace() from %arg2 offset = [%c32768] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2\n        hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]\n        hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%83 : memref<64x64xi32, #hivm.address_space<gm>>)\n        hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n        annotation.mark %83 : memref<64x64xi32, #hivm.address_space<gm>>\n        hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0\n      } {fixpipe_for_mmad_result_already_inserted = true}\n    }\n    hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n  }\n  hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]\n  hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]\n  hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1\n  hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2\n  hivm.hir.pipe_barrier[<PIPE_ALL>]\n  return\n}\n\n[NOTE] Due to Ub overflow, automatically set enable-code-motion to false, set enable-auto-multi-buffer to false; compilation still failed.\nloc(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":5:0): error: Failed to run BiShengHIR pipeline\n\nloc(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":5:0): error: ub overflow, requires 8474624 bits while 1572864 bits available! (possible reason: tiling basic block is too large or block number is more than what user expect due to multi-buffer feature is enabled and some ops need extra local buffer.)\nloc(\"query_scale\"(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":20:30)): error: cannot align 0 axis for %42 = \"memref.alloc\"() <{operandSegmentSizes = array<i32: 0, 0>}> {hivm.stride_align_dims = array<i32: 0, 1>, hivm.stride_align_value_in_byte = array<i32: 32, 32>} : () -> memref<16x4xf16, #hivm.address_space<ub>>\nloc(\"weights\"(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":21:26)): error: cannot align 0 axis for %48 = \"memref.alloc\"() <{operandSegmentSizes = array<i32: 0, 0>}> {hivm.stride_align_dims = array<i32: 0, 1>, hivm.stride_align_value_in_byte = array<i32: 32, 32>} : () -> memref<16x4xf16, #hivm.address_space<ub>>\nloc(\"query_scale\"(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":20:30)): error: cannot align 0 axis for %42 = \"memref.alloc\"() <{operandSegmentSizes = array<i32: 0, 0>}> {hivm.stride_align_dims = array<i32: 0, 1>, hivm.stride_align_value_in_byte = array<i32: 32, 32>} : () -> memref<16x4xf16, #hivm.address_space<ub>>\nloc(\"weights\"(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":21:26)): error: cannot align 0 axis for %48 = \"memref.alloc\"() <{operandSegmentSizes = array<i32: 0, 0>}> {hivm.stride_align_dims = array<i32: 0, 1>, hivm.stride_align_value_in_byte = array<i32: 32, 32>} : () -> memref<16x4xf16, #hivm.address_space<ub>>\nloc(\"query_scale\"(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":20:30)): error: cannot align 0 axis for %42 = \"memref.alloc\"() <{operandSegmentSizes = array<i32: 0, 0>}> {hivm.stride_align_dims = array<i32: 0, 1>, hivm.stride_align_value_in_byte = array<i32: 32, 32>} : () -> memref<16x4xf16, #hivm.address_space<ub>>\nloc(\"weights\"(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":21:26)): error: cannot align 0 axis for %48 = \"memref.alloc\"() <{operandSegmentSizes = array<i32: 0, 0>}> {hivm.stride_align_dims = array<i32: 0, 1>, hivm.stride_align_value_in_byte = array<i32: 32, 32>} : () -> memref<16x4xf16, #hivm.address_space<ub>>\nloc(\"query_scale\"(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":20:30)): error: cannot align 0 axis for %42 = \"memref.alloc\"() <{operandSegmentSizes = array<i32: 0, 0>}> {hivm.stride_align_dims = array<i32: 0, 1>, hivm.stride_align_value_in_byte = array<i32: 32, 32>} : () -> memref<16x4xf16, #hivm.address_space<ub>>\nloc(\"weights\"(\"/tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/generated-prefixes/int8_budget_exact_paired_n128.py\":21:26)): error: cannot align 0 axis for %48 = \"memref.alloc\"() <{operandSegmentSizes = array<i32: 0, 0>}> {hivm.stride_align_dims = array<i32: 0, 1>, hivm.stride_align_value_in_byte = array<i32: 32, 32>} : () -> memref<16x4xf16, #hivm.address_space<ub>>\n[ERROR] Failed to run BiShengIR pipeline\n\n\n[INFO]: The compiled kernel cache is in /tmp/qsa-ascend910b-int8-score-tile-handoff.WY44tPfi/int8_budget_exact-sync-probe-cache-8xktlz8p/TKTLPUSMH4IVWMRGRBIWUD7IUFKR7F47DUSK32PEO3PNZBMZCTAA\n\n///------------------[ERROR][Triton][END]------------------\n\n",
+      "worker_status": 1,
+      "timed_out": false
+    }
+  ],
+  "exit_code": 1
+}
