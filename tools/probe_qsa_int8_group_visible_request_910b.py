@@ -28,6 +28,57 @@ from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
 from tools.qsa_int8_ten_workloads_910b import sample_rows
 
 
+def measure_request_wall(names, get_adapter, synchronize, check_indices, sample_count):
+    """Measure host intervals around one ordinary asynchronous selection call."""
+    pairs = []
+    for i in range(sample_count):
+        order = names if i % 2 == 0 else names[::-1]
+        pair = {"order": order}
+        for name in order:
+            synchronize()
+            start = time.perf_counter_ns()
+            prepared = get_adapter(name)
+            ready = time.perf_counter_ns()
+            actual = prepared()
+            submitted = time.perf_counter_ns()
+            synchronize()
+            end = time.perf_counter_ns()
+            check_indices(actual)
+            pair[name] = dict(
+                wall_us=(end - start) / 1000,
+                preparation_us=(ready - start) / 1000,
+                submit_us=(submitted - ready) / 1000,
+                sync_us=(end - submitted) / 1000,
+                group_visible=prepared.group_visible_stats,
+            )
+            del prepared
+        pairs.append(pair)
+
+    phases = ("preparation_us", "submit_us", "sync_us", "wall_us")
+    medians = {
+        phase: {
+            name: statistics.median(p[name][phase] for p in pairs) for name in names
+        }
+        for phase in phases
+    }
+    saved = {
+        phase: [p["current"][phase] - p["group_visible"][phase] for p in pairs]
+        for phase in phases
+    }
+    wall = medians["wall_us"]
+    return dict(
+        medians=wall,
+        phase_medians_us=medians,
+        phase_paired_median_saved_us={
+            phase: statistics.median(samples) for phase, samples in saved.items()
+        },
+        samples=pairs,
+        speedup=wall["current"] / wall["group_visible"],
+        paired_saved_us=saved["wall_us"],
+        candidate_wins=sum(delta > 0 for delta in saved["wall_us"]),
+    )
+
+
 def run_group_visible_request(args, result, inputs, values, plan, topk):
     import torch
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
@@ -144,6 +195,10 @@ def run_group_visible_request(args, result, inputs, values, plan, topk):
     result["score_binaries"] = {
         name: sorted(set(entries.values())) for name, entries in binaries.items()
     }
+    if not expected_hits and (
+        result["score_binaries"]["current"] != result["score_binaries"]["group_visible"]
+    ):
+        raise AssertionError("Zero-hit control compiled different score binaries")
     result["topk_identity"] = topk.probe_identity
 
     result["stage"] = "group_visible_score_trace"
@@ -181,47 +236,39 @@ def run_group_visible_request(args, result, inputs, values, plan, topk):
         speedup=score_medians["current"] / score_medians["group_visible"],
     )
 
+    result["stage"] = "group_visible_prepared_request_wall"
+    prepared_wall = measure_request_wall(
+        names,
+        adapters.__getitem__,
+        torch.npu.synchronize,
+        check_indices,
+        args.group_visible_request_samples,
+    )
+    prepared_wall["scope"] = (
+        "Reuse an adapter on ready inputs, run score+TopK, then sync."
+    )
+    result["prepared_request_wall_us"] = prepared_wall
+
     result["stage"] = "group_visible_request_wall"
-    pairs = []
-    for i in range(args.group_visible_request_samples):
-        order = names if i % 2 == 0 else names[::-1]
-        pair = {"order": order}
-        for name in order:
-            torch.npu.synchronize()
-            start = time.perf_counter_ns()
-            prepared = prepare(name)
-            actual = prepared()
-            torch.npu.synchronize()
-            end = time.perf_counter_ns()
-            check_indices(actual)
-            pair[name] = dict(
-                wall_us=(end - start) / 1000,
-                preparation_us=prepared.preparation_ms * 1000,
-                group_visible=prepared.group_visible_stats,
+    fresh_wall = measure_request_wall(
+        names,
+        prepare,
+        torch.npu.synchronize,
+        check_indices,
+        args.group_visible_request_samples,
+    )
+    pairs = fresh_wall["samples"]
+    fresh_wall.update(
+        {
+            f"median_group_visible_{phase}": statistics.median(
+                p["group_visible"]["group_visible"][phase] for p in pairs
             )
-        pairs.append(pair)
-    wall = {
-        name: statistics.median(p[name]["wall_us"] for p in pairs) for name in names
-    }
-    result["request_wall_us"] = dict(
-        medians=wall,
-        samples=pairs,
-        speedup=wall["current"] / wall["group_visible"],
-        paired_saved_us=[
-            p["current"]["wall_us"] - p["group_visible"]["wall_us"] for p in pairs
-        ],
-        median_group_visible_prepare_us=statistics.median(
-            p["group_visible"]["group_visible"]["prepare_us"] for p in pairs
-        ),
-        median_group_visible_pack_us=statistics.median(
-            p["group_visible"]["group_visible"]["pack_us"] for p in pairs
-        ),
-        median_group_visible_alloc_copy_us=statistics.median(
-            p["group_visible"]["group_visible"]["alloc_copy_us"] for p in pairs
-        ),
+            for phase in ("prepare_us", "pack_us", "alloc_copy_us")
+        },
         scope="Fresh route/metadata preparation, one score+TopK request and final sync "
         "on ready inputs and buffers.",
     )
+    result["request_wall_us"] = fresh_wall
     result["stage"] = "group_visible_request_completed"
     print(
         "GROUP_VISIBLE_REQUEST",
@@ -232,9 +279,10 @@ def run_group_visible_request(args, result, inputs, values, plan, topk):
                 score_device_us={
                     k: v for k, v in result["score_device_us"].items() if k != "samples"
                 },
-                request_wall_us={
-                    k: v for k, v in result["request_wall_us"].items() if k != "samples"
+                prepared_request_wall_us={
+                    k: v for k, v in prepared_wall.items() if k != "samples"
                 },
+                request_wall_us={k: v for k, v in fresh_wall.items() if k != "samples"},
             )
         ),
         flush=True,

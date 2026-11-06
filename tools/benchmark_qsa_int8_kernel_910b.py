@@ -202,7 +202,7 @@ def run_case(args):
             )
 
             result["measurement_scope"] = (
-                "Current vs one-copy GroupVisible; paired score device time and fresh request wall time"
+                "Current vs one-copy GroupVisible; paired score device time and prepared/fresh request wall phases"
             )
             run_group_visible_request(args, result, inputs, values, plan, load_topk())
             result["status"] = "passed"
@@ -1480,7 +1480,7 @@ def main():
         "--group-visible-request-samples",
         type=int,
         default=0,
-        help="Pair prepared device scores and fresh one-copy GroupVisible request wall time",
+        help="Pair device scores and prepared/fresh one-copy GroupVisible request wall phases",
     )
     args = parser.parse_args()
     if args.group_visible_request_samples and (
@@ -1678,7 +1678,7 @@ def summarize(report, entries, names, args):
             else (
                 "Sequential bound-reuse wall time only"
                 if args.bound_reuse_counts
-                else "GroupVisible score device timing and fresh request wall time"
+                else "GroupVisible score device timing and prepared/fresh request wall phases"
             )
         )
         (report / "summary.json").write_text(

@@ -355,3 +355,27 @@ request wall time. The packing counter excludes the route-policy calculation
 that both arms perform.
 
 [group-visible-request]: https://github.com/cheersluvs/FlagGems-vllm/commit/984a34820fa9823dcd92db2dc305cfc6de98a2a2
+
+## Prepared and fresh request wall phases
+
+The [offset report][group-visible-offset] reduced the measured metadata pack
+and copy to 0.44 ms for `budget_exact` and 0.57 ms for `long100k`. Paired score
+device savings were 0.39 ms and 2.49 ms. Fresh request wall time favored the
+candidate in two of six pairs for each case. `first_chunk` used the same
+scorer binary on both sides and performed no metadata copy.
+
+Use `long100k` and the zero-hit `first_chunk` to compare prepared and fresh
+requests. Both calls use ready inputs and scratch, the same TopK, and the
+same sequence of score and TopK launches. The prepared measurement reuses
+the validated adapter. The fresh measurement constructs it on each sample.
+Within each measurement alternate the two arms, start from a synchronized
+device, and check all output indices after timing. Adapter teardown occurs
+outside the measured interval.
+
+Record elapsed time through adapter preparation, return from the selection
+call, and return from final synchronization. The call can overlap host
+submission with device work and may include runtime waits. Final sync measures
+the wait still exposed after the call returns. Read the paired phase deltas
+together with score-only device timing and the zero-hit control.
+
+[group-visible-offset]: https://github.com/cheersluvs/FlagGems-vllm/commit/62efab9e6c64bb2e7a3e2b28bb6d6ece0b9a7802
