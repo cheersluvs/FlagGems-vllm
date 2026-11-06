@@ -244,3 +244,30 @@ binaries, and launch identity before device synchronization when available.
 Start with budget_exact only.
 
 [simulator-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/d5664bce1972488ecaa87b7ac6971ed447ebccd4
+
+## HIVM synchronization after the graph solver
+
+The [independent-buffer simulator retry][simulator-base] reproduced all 64
+address faults at the same PCs. The captured object matched the hardware
+reference. Three fault PCs mapped to device stores whose base register was
+zero. It came from the first launch-argument slot, used by the pinned
+FlagTree 910B launcher for the FFTS control address. The partial trace
+stopped before an executed matrix multiply.
+
+The `--score-instructions --sync-ir` mode runs the same two score chunks
+on the pinned physical-device environment. It checks the ordinary scorer
+against CPU samples and all visibility masks. A second process compiles
+the same scorer with an isolated Triton cache. Within the compiler module
+it appends only the pinned backend's existing
+`--bishengir-print-ir-after=hivm-graph-sync-solver` option to the final
+BiSheng invocation. It preserves the original command and compiler output.
+A successful capture requires an identified post-solver dump, correct
+device output and a binary hash matching both the ordinary launch and the
+historical scorer.
+
+The summary identifies functions, static synchronization operations and
+memory operations with source lines from the dump. This IR can show
+synchronization and buffer relationships. Instruction frequency, overlap
+and runtime wait costs require separate measurement.
+
+[simulator-base]: https://github.com/cheersluvs/FlagGems-vllm/commit/72dd9a7fa3e4cee6e36a3eb27622e8e51c6f91b9

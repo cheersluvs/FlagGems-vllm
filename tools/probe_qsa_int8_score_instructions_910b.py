@@ -23,6 +23,7 @@ import re
 import shutil
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 from probe_qsa_int8_score_sol_910b import CHUNKS
 from probe_qsa_int8_ten_shapes_910b import run_child
@@ -223,6 +224,138 @@ def read_entry(directory, case):
     return json.loads(path.read_text()) if path.is_file() else {}
 
 
+def entry_command(directory, case, device):
+    return [
+        sys.executable,
+        "-u",
+        str(ENTRY),
+        "--instruction-entry",
+        "--report",
+        str(directory),
+        "--case",
+        case,
+        "--device",
+        str(device),
+    ]
+
+
+def summarize_sync_ir(path):
+    after = 0
+    active = False
+    function = None
+    counts = collections.Counter()
+    functions = set()
+    examples = collections.defaultdict(list)
+    with gzip.open(path, "rt", errors="replace") as stream:
+        for lineno, line in enumerate(stream, 1):
+            if "IR Dump" in line:
+                active = "IR Dump After" in line and "graphsyncsolver" in re.sub(
+                    r"[^a-z]", "", line.lower()
+                )
+                if active:
+                    after += 1
+                    function = None
+            if not active:
+                continue
+            if match := re.search(r"\bfunc\.func\s+(?:private\s+)?@([^\s(]+)", line):
+                function = match[1]
+                functions.add(function)
+            for token in re.findall(
+                r"\b(?:hivm\.hir\.[\w.]+|memref\.alloca?|memref\.copy)\b", line
+            ):
+                if token.startswith("memref.") or re.search(
+                    r"sync|flag|barrier|copy|load|store|fixp|mmad|matmul", token
+                ):
+                    counts[token] += 1
+                    if len(examples[token]) < 8:
+                        examples[token].append(
+                            dict(
+                                line=lineno, function=function, text=line.strip()[:1000]
+                            )
+                        )
+    return dict(
+        after_solver_dumps=after,
+        functions=sorted(functions),
+        operations=dict(counts),
+        examples=dict(examples),
+    )
+
+
+def run_sync_ir_case(args, case, report):
+    kernel, expected_hash = EXPECTED[case]
+    root = report / case
+    ref_dir = root / "reference"
+    ir_dir = root / "dump"
+    for directory in (ref_dir, ir_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+    ref_status, ref_timeout = run_child(
+        entry_command(ref_dir, case, args.device) + ["--verify-output"],
+        report / f"{case}-sync-reference.txt",
+        args.timeout,
+    )
+    reference = read_entry(ref_dir, case)
+    ref_entry = reference.get("instruction_entry", {})
+    ref_ok = (
+        ref_status == 0
+        and not ref_timeout
+        and reference.get("checks")
+        and ref_entry.get("kernel") == kernel
+        and ref_entry.get("binary_sha256") == expected_hash
+    )
+    result = dict(
+        case=case,
+        reference=reference,
+        reference_exit=ref_status,
+        reference_timeout=ref_timeout,
+        historical_binary_sha256=expected_hash,
+    )
+    if not ref_ok:
+        return dict(
+            result,
+            status="reference_failed_or_changed",
+            exit_code=2 if ref_status == 2 else 1,
+        )
+    command = entry_command(ir_dir, case, args.device) + [
+        "--verify-output",
+        "--dump-sync-ir",
+    ]
+    with patch.dict(os.environ, {"TRITON_CACHE_DIR": str(root / "isolated-cache")}):
+        dump_status, dump_timeout = run_child(
+            command, report / f"{case}-sync-compile.txt", args.timeout
+        )
+    captured = read_entry(ir_dir, case)
+    evidence = {}
+    for path in sorted(ir_dir.glob(f"{case}-bisheng-*.mlir.gz")):
+        dest = report / path.name
+        shutil.copyfile(path, dest)
+        evidence[path.name] = summarize_sync_ir(dest)
+    invocations_path = ir_dir / f"{case}-bisheng-invocations.json"
+    invocations = (
+        json.loads(invocations_path.read_text()) if invocations_path.is_file() else []
+    )
+    same_binary = captured.get("instruction_entry") == ref_entry
+    found = any(e["after_solver_dumps"] and e["functions"] for e in evidence.values())
+    ok = (
+        dump_status == 0
+        and not dump_timeout
+        and same_binary
+        and captured.get("checks")
+        and found
+    )
+    return dict(
+        result,
+        status="captured" if ok else "capture_incomplete",
+        exit_code=0 if ok else 1,
+        dump=captured,
+        dump_exit=dump_status,
+        dump_timeout=dump_timeout,
+        dump_binary_matches_reference=same_binary,
+        after_solver_ir_found=found,
+        invocations=invocations,
+        evidence=evidence,
+    )
+
+
 def address_failures(log):
     count = 0
     pcs = collections.Counter()
@@ -244,19 +377,7 @@ def run_case(args, case, profiler, report):
         (root / part).mkdir(parents=True, exist_ok=True)
 
     def app(part, device):
-        return [
-            sys.executable,
-            "-u",
-            str(ENTRY),
-            "--instruction-entry",
-            "--independent-buffers",
-            "--report",
-            str(root / part),
-            "--case",
-            case,
-            "--device",
-            str(device),
-        ]
+        return entry_command(root / part, case, device) + ["--independent-buffers"]
 
     ref_status, ref_timeout = run_child(
         app("reference", args.device) + ["--verify-output"],
@@ -351,6 +472,9 @@ def run_case(args, case, profiler, report):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", required=True)
+    parser.add_argument(
+        "--sync-ir", action="store_true", help="Dump post-solver BiSheng IR on device"
+    )
     parser.add_argument("--device", type=int, default=1)
     parser.add_argument("--sim-device", type=int, default=0)
     parser.add_argument("--soc-version", default="Ascend910B4")
@@ -363,15 +487,51 @@ def main():
     args = parser.parse_args()
     cores = args.core_id.split("|")
     if (
-        not 1 <= args.simulator_minutes <= 2880
-        or args.timeout <= 60 * args.simulator_minutes
-        or not all(c.isascii() and c.isdecimal() and 0 <= int(c) < 50 for c in cores)
+        args.timeout < 1
+        or not args.sync_ir
+        and (
+            not 1 <= args.simulator_minutes <= 2880
+            or args.timeout <= 60 * args.simulator_minutes
+            or not all(
+                c.isascii() and c.isdecimal() and 0 <= int(c) < 50 for c in cores
+            )
+        )
     ):
         parser.error(
             "Use core IDs 0 to 49 and an outer timeout longer than the simulator limit"
         )
     report = Path(args.report).resolve()
     report.mkdir(parents=True, exist_ok=True)
+    if args.sync_ir:
+        cases = []
+        for case in dict.fromkeys(args.cases):
+            result = run_sync_ir_case(args, case, report)
+            cases.append(result)
+            print(
+                "SCORE_SYNC_IR",
+                json.dumps(
+                    {
+                        k: v
+                        for k, v in result.items()
+                        if k not in ("reference", "dump", "invocations")
+                    }
+                ),
+                flush=True,
+            )
+        codes = {c["exit_code"] for c in cases}
+        status = 1 if 1 in codes else 2 if 2 in codes else 0
+        (report / "summary.json").write_text(
+            json.dumps(
+                dict(
+                    mode="post_sync_solver_ir",
+                    exit_code=status,
+                    cases=cases,
+                ),
+                indent=2,
+            )
+            + "\n"
+        )
+        return status
     os.environ["PYTORCH_NO_NPU_MEMORY_CACHING"] = "1"
     profiler, tool_checks = find_simulator(report)
     result = dict(

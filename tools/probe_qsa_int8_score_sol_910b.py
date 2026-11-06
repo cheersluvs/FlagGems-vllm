@@ -27,6 +27,7 @@ import subprocess
 import sys
 import traceback
 from pathlib import Path
+from unittest.mock import patch
 
 from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
 from probe_qsa_int8_ten_shapes_910b import PLANS, run_child
@@ -41,6 +42,62 @@ GRID = 20
 UNITS = GRID * 16
 TILES = UNITS * 8
 COPY_BYTES = 64 * 1024**2
+SYNC_DUMP_FLAG = "--bishengir-print-ir-after=hivm-graph-sync-solver"
+
+
+class SyncDumpCompiler:
+    """Intercept only the compiler module's final BiSheng call."""
+
+    def __init__(self, report, case):
+        self.report = report
+        self.case = case
+        self.calls = []
+
+    def __getattr__(self, name):
+        return getattr(subprocess, name)
+
+    def run(self, command, *args, **kwargs):
+        if (
+            not isinstance(command, (list, tuple))
+            or not command
+            or Path(command[0]).name != "bishengir-compile"
+            or "--enable-triton-kernel-compile=true" not in command
+            or "-o" not in command
+        ):
+            return subprocess.run(command, *args, **kwargs)
+        if SYNC_DUMP_FLAG in command:
+            raise RuntimeError(
+                "Expected ordinary compiler options before adding IR dump flag"
+            )
+        captured = [*command, SYNC_DUMP_FLAG]
+        record = dict(
+            original_command=[str(x) for x in command], added_option=SYNC_DUMP_FLAG
+        )
+        self.calls.append(record)
+        try:
+            completed = subprocess.run(captured, *args, **kwargs)
+        except subprocess.CalledProcessError as exc:
+            self.save(exc, record)
+            raise
+        self.save(completed, record)
+        return completed
+
+    def save(self, process, record):
+        record.update(exit_code=process.returncode, streams={})
+        for name in ("stdout", "stderr"):
+            stream = getattr(process, name)
+            if not stream:
+                continue
+            data = stream.encode() if isinstance(stream, str) else stream
+            stem = f"{self.case}-bisheng-{len(self.calls)}-{name}.mlir.gz"
+            limit = 24 * 1024**2
+            (self.report / stem).write_bytes(gzip.compress(data[:limit]))
+            record["streams"][name] = dict(
+                file=stem, bytes=len(data), truncated=len(data) > limit
+            )
+        (self.report / f"{self.case}-bisheng-invocations.json").write_text(
+            json.dumps(self.calls, indent=2) + "\n"
+        )
 
 
 def traffic(width, visible, tables, bounded):
@@ -724,7 +781,19 @@ def run_case(args, result):
             )
             launch = functools.partial(bound.func, *tensors, **bound.keywords)
         torch.npu.synchronize()
-        compiled = launch()
+        if args.dump_sync_ir:
+            from triton.backends.ascend import compiler
+
+            capture = SyncDumpCompiler(Path(args.report), args.case)
+            with patch.object(compiler, "subprocess", capture):
+                compiled = launch()
+            if len(capture.calls) != 1:
+                raise RuntimeError(
+                    f"Expected one final BiSheng invocation, captured {len(capture.calls)}"
+                )
+            result["sync_ir_capture"] = capture.calls[0]
+        else:
+            compiled = launch()
         result["instruction_entry"] = dict(
             kernel=compiled.metadata.kernel_name,
             binary_sha256=hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
@@ -892,9 +961,11 @@ def main():
     parser.add_argument(
         "--independent-buffers", action="store_true", help=argparse.SUPPRESS
     )
+    parser.add_argument("--dump-sync-ir", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if (args.instruction_entry and not args.case) or (
-        (args.verify_output or args.independent_buffers) and not args.instruction_entry
+        (args.verify_output or args.independent_buffers or args.dump_sync_ir)
+        and not args.instruction_entry
     ):
         parser.error(
             "Instruction entry requires one --case and supports --verify-output"

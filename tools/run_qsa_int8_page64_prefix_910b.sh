@@ -52,6 +52,11 @@ elif [[ ${1:-} == --score-instructions ]]; then
     qsa_kind=int8-score-instructions
     qsa_subject="score instruction timeline"
     qsa_label="INT8 score instruction timeline"
+    if [[ ${1:-} == --sync-ir ]]; then
+        qsa_kind=int8-score-sync-ir
+        qsa_subject="score post-sync-solver IR"
+        qsa_label="INT8 score post-sync-solver IR"
+    fi
 fi
 qsa_report=$(mktemp -d "/tmp/qsa-ascend910b-$qsa_kind.XXXXXXXX") || exit 1
 qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
@@ -69,7 +74,7 @@ if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     qsa_dest="results/qsa_select_paged_prefill/ascend910b/$qsa_kind-$qsa_stamp"
     mkdir -p "$qsa_tree/$qsa_dest" || exit 1
     find "$qsa_report" -maxdepth 1 -type f \
-        \( -name '*.json' -o -name '*.txt' -o -name '*.json.gz' -o -name '*.npubin.gz' -o -name '*.csv.gz' -o -name '*-visualize_data.bin.gz' \) \
+        \( -name '*.json' -o -name '*.txt' -o -name '*.json.gz' -o -name '*.npubin.gz' -o -name '*.csv.gz' -o -name '*.mlir.gz' -o -name '*-visualize_data.bin.gz' \) \
         -exec cp -- {} "$qsa_tree/$qsa_dest/" \;
     git -C "$qsa_tree" add -- "$qsa_dest" || exit 1
     git -C "$qsa_tree" -c user.name="QSA GPU reports" \
