@@ -1,0 +1,3769 @@
+{
+  "cases": [
+    {
+      "case": "int8_budget_exact",
+      "exit_code": 0,
+      "environment": {
+        "device": "Ascend910B4-1",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU"
+      },
+      "route": {
+        "first": 8192,
+        "count": 128,
+        "shared": true,
+        "proof": {
+          "groups": 32,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "visibility_tiles": {
+          "issued_tiles": 1024,
+          "useful_tiles": 776,
+          "skipped_tiles": 248,
+          "skipped_fraction": 0.2421875,
+          "selected": true,
+          "policy": "conservative"
+        },
+        "skip_invisible": true,
+        "page_reuse": true,
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      "width": 8192,
+      "work": {
+        "dot_tiles": 776,
+        "active_dot_tiles": 776,
+        "fully_invisible_dot_tiles": 0,
+        "fill_only_tiles": 248,
+        "executed_macs": 406847488,
+        "useful_macs": 403685376,
+        "tile_dot_result_logical_bytes": 12713984,
+        "q_metadata_requested_bytes": 1089536,
+        "k_scale_requested_bytes": 6408480,
+        "page_lookup_sites_executed": 328,
+        "score_write_bytes": 4194304,
+        "unique_q_metadata_bytes": 68096,
+        "unique_k_scale_bytes": 802880,
+        "perfect_reuse_io_bytes": 5066336,
+        "requested_io_bytes_upper": 11693632
+      },
+      "mode": "page_id_handoff",
+      "sync_ir": {
+        "current": {
+          "binary_sha256": "fb0e8f02f645f6b591111e2793469e3fad37db09ec34a103dbdcc278ed2b3015",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmpetyl60t0/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmpetyl60t0/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_budget_exact-current-bisheng-1-stderr.mlir.gz",
+                  "bytes": 58202,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_budget_exact-current-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_page_reuse_score_mix_aic",
+                "_qsa_page64_page_reuse_score_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.sync_block_set": 9,
+                "hivm.hir.set_flag": 39,
+                "hivm.hir.wait_flag": 39,
+                "hivm.hir.pipe_barrier": 27,
+                "memref_ext.alloc_workspace": 6,
+                "hivm.hir.sync_block_wait": 9,
+                "hivm.hir.mmadL1": 1,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 4
+              },
+              "scalar_i32_workspace_sites": {
+                "_qsa_page64_page_reuse_score_mix_aic": 2,
+                "_qsa_page64_page_reuse_score_mix_aiv": 2
+              },
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_page_reuse_score_mix_aic": [
+                  "64x64xi32"
+                ],
+                "_qsa_page64_page_reuse_score_mix_aiv": [
+                  "64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_page_reuse_score_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 35,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 36,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 83,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 110,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 190,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 297,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 380,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 434,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  }
+                ],
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 40,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 41,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 71,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 79,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 169,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 73,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 77,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 101,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 171,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 175,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %80]"
+                  },
+                  {
+                    "line": 180,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 186,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 195,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 75,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 173,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 201,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 283,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 287,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 403,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE3>]"
+                  },
+                  {
+                    "line": 490,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 499,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 80,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "%26 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 107,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "%48 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 184,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "%98 = memref_ext.alloc_workspace() from %arg2 offset = [%c64] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 376,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "%39 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 430,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "%76 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 472,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "%97 = memref_ext.alloc_workspace() from %arg2 offset = [%c64] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 81,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 108,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 185,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 200,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 377,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 431,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 473,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 630,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 182,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_5, %true, %23, %c128, %94 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_9 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %80, %65, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 187,
+                    "function": "_qsa_page64_page_reuse_score_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_9 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%98 : memref<64x64xi32, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 326,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_6 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 342,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_10 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_11 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 364,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_14 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_15 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 466,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_20 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_21 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 478,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_22 : memref<4096xi32, #hivm.address_space<gm>>) outs(%collapse_shape_23 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\"} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 378,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.store ins(%36 : memref<1xi32, #hivm.address_space<ub>>) outs(%39 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+                  },
+                  {
+                    "line": 432,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.store ins(%73 : memref<1xi32, #hivm.address_space<ub>>) outs(%76 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+                  },
+                  {
+                    "line": 599,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_59 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_60 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 620,
+                    "function": "_qsa_page64_page_reuse_score_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_20 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_21 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>) {tiled_op}"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "group_visible": {
+          "binary_sha256": "e45570c0439d19e6b461e32313b420a552a032466ae3c45f964cf1a1daa497b6",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmp8io2gqew/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmp8io2gqew/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_budget_exact-group_visible-bisheng-1-stderr.mlir.gz",
+                  "bytes": 56973,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_budget_exact-group_visible-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_prefix_group_visible_mix_aic",
+                "_qsa_page64_prefix_group_visible_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.sync_block_set": 6,
+                "hivm.hir.set_flag": 38,
+                "hivm.hir.wait_flag": 38,
+                "hivm.hir.pipe_barrier": 30,
+                "memref_ext.alloc_workspace": 4,
+                "hivm.hir.sync_block_wait": 6,
+                "hivm.hir.mmadL1": 1,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 3
+              },
+              "scalar_i32_workspace_sites": {
+                "_qsa_page64_prefix_group_visible_mix_aic": 1,
+                "_qsa_page64_prefix_group_visible_mix_aiv": 1
+              },
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_prefix_group_visible_mix_aic": [
+                  "64x64xi32"
+                ],
+                "_qsa_page64_prefix_group_visible_mix_aiv": [
+                  "64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_prefix_group_visible_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 35,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 107,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 187,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 282,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 426,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 470,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  }
+                ],
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 36,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 40,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 70,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 78,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 166,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 72,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 76,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 98,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 168,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 172,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %80]"
+                  },
+                  {
+                    "line": 177,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 183,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 192,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 74,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 170,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 198,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 288,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 292,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 319,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 338,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 366,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 104,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "%48 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 181,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "%98 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 420,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "%72 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 462,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "%91 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 105,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 182,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 197,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 421,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 463,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 623,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 179,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_6, %true, %23, %c128, %94 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %80, %65, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 184,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%98 : memref<64x64xi32, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 325,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_6 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 344,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_10 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_11 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 367,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_14 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_15 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 456,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_21 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_22 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 468,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_23 : memref<4096xi32, #hivm.address_space<gm>>) outs(%collapse_shape_24 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\"} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 423,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%69 : memref<1xi32, #hivm.address_space<ub>>) outs(%72 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+                  },
+                  {
+                    "line": 592,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_60 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_61 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 612,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_20 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_21 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "direct_page": {
+          "binary_sha256": "e2f79a65a7cae29fb642b9c9f1ee6801e264354b44aca4d84145cfbc0a0ed6d3",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmpm8dmn7uv/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmpm8dmn7uv/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_budget_exact-direct_page-bisheng-1-stderr.mlir.gz",
+                  "bytes": 55842,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_budget_exact-direct_page-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_prefix_direct_page_mix_aic",
+                "_qsa_page64_prefix_direct_page_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.sync_block_set": 6,
+                "hivm.hir.set_flag": 35,
+                "hivm.hir.wait_flag": 35,
+                "hivm.hir.pipe_barrier": 27,
+                "memref_ext.alloc_workspace": 4,
+                "hivm.hir.sync_block_wait": 6,
+                "hivm.hir.mmadL1": 1,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 3
+              },
+              "scalar_i32_workspace_sites": {
+                "_qsa_page64_prefix_direct_page_mix_aic": 1,
+                "_qsa_page64_prefix_direct_page_mix_aiv": 1
+              },
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_prefix_direct_page_mix_aic": [
+                  "64x64xi32"
+                ],
+                "_qsa_page64_prefix_direct_page_mix_aiv": [
+                  "64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_prefix_direct_page_mix_aic": 1,
+                "_qsa_page64_prefix_direct_page_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 84,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 193,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 295,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 377,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 455,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  }
+                ],
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 40,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 41,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 42,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 72,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 80,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 172,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 74,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 78,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 104,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 174,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 178,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %84]"
+                  },
+                  {
+                    "line": 183,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 189,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 198,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 76,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 176,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 204,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 281,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 285,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 400,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE3>]"
+                  },
+                  {
+                    "line": 465,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 474,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 81,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "%26 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 187,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "%102 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 373,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "%39 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 447,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "%88 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 82,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 188,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 203,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 374,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 448,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 604,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 3"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 185,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_6, %true, %23, %c128, %98 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %84, %69, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 190,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%102 : memref<64x64xi32, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 323,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_6 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 339,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_10 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_11 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 361,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_14 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_15 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 441,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_20 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_21 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 453,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_22 : memref<4096xi32, #hivm.address_space<gm>>) outs(%collapse_shape_23 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\"} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 375,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.store ins(%36 : memref<1xi32, #hivm.address_space<ub>>) outs(%39 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+                  },
+                  {
+                    "line": 574,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_59 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_60 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 595,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_20 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_21 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>) {tiled_op}"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "direct_page_group_visible": {
+          "binary_sha256": "2361c31191051299f80d16b9b2b381d6fdae5afa1b14571bbc0ec5098fc1b2c4",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmpl2sq_flw/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmpl2sq_flw/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_budget_exact-direct_page_group_visible-bisheng-1-stderr.mlir.gz",
+                  "bytes": 54533,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_budget_exact-direct_page_group_visible-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.set_flag": 34,
+                "hivm.hir.wait_flag": 34,
+                "hivm.hir.pipe_barrier": 30,
+                "hivm.hir.mmadL1": 1,
+                "memref_ext.alloc_workspace": 2,
+                "hivm.hir.sync_block_wait": 3,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.sync_block_set": 3,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 2
+              },
+              "scalar_i32_workspace_sites": {},
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic": [
+                  "64x64xi32"
+                ],
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv": [
+                  "64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic": 1,
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 36,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 40,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 70,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 78,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 168,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 72,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 76,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 100,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 170,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 174,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %84]"
+                  },
+                  {
+                    "line": 179,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 185,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 194,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 74,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 172,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 200,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 281,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 285,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 314,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 333,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 361,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 181,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_7, %true, %23, %c128, %98 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_11 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %84, %69, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 183,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "%102 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 433,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "%82 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 184,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 199,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 434,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 186,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_11 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%102 : memref<64x64xi32, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 189,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 278,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 441,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 320,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_6 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 339,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_10 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_11 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 362,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_14 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_15 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 427,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_21 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_22 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 439,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_23 : memref<4096xi32, #hivm.address_space<gm>>) outs(%collapse_shape_24 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\"} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 563,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_60 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_61 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  },
+                  {
+                    "line": 583,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_20 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_21 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "table_check": {
+        "rows": 128,
+        "columns": 43,
+        "all_entries_valid": true
+      },
+      "compiler": {
+        "current": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='3ac05b7ca58121fd482367187ad554bf99db6372db04a8f8afa75e8550ac8574', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_page_reuse_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_page_reuse_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=16448)",
+        "group_visible": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='3238a32d8e03d5351f793898b25f682659c7d9408e161a9ff92b13e1b82e29ce', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_group_visible', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_group_visible', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1, 0], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=16416)",
+        "direct_page": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='6bd702bf380a446a2ed8a2d31625a594d9fad74efab0d6e5dbbd121ca7785b6b', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_direct_page', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_direct_page', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=16416)",
+        "direct_page_group_visible": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='b57fa4b79ea35ec0f8fd54e04c72a4454992f80d2d550200e61d6f9410cb6857', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_direct_page_group_visible', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_direct_page_group_visible', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1, 0], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=16384)"
+      },
+      "precheck": {
+        "full_outputs_bitwise_equal": true,
+        "cpu_reference_checked": true
+      },
+      "kernel_timer": {
+        "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+        "prefix_plan_artifact": "int8_budget_exact-prefix-plan-01.json.gz"
+      },
+      "single_capture_plan": [
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "direct_page",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "direct_page_group_visible",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "direct_page",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "direct_page_group_visible",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 2
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 2
+        },
+        {
+          "round": 0,
+          "arm": "direct_page",
+          "active": 2
+        },
+        {
+          "round": 0,
+          "arm": "direct_page_group_visible",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "direct_page_group_visible",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "direct_page",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "direct_page_group_visible",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "direct_page",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "direct_page_group_visible",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "direct_page",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 2
+        }
+      ],
+      "single_capture_counts": {
+        "expected_host_counts": {
+          "_qsa_page64_page_reuse_score": 6,
+          "_qsa_page64_prefix_group_visible": 6,
+          "_qsa_page64_prefix_direct_page": 6,
+          "_qsa_page64_prefix_direct_page_group_visible": 6
+        },
+        "observed_host_counts": {
+          "_qsa_page64_page_reuse_score": 6,
+          "_qsa_page64_prefix_group_visible": 6,
+          "_qsa_page64_prefix_direct_page": 6,
+          "_qsa_page64_prefix_direct_page_group_visible": 6
+        },
+        "tasks_per_window": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "expected_tasks_per_window": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "postcheck": {
+        "full_outputs_bitwise_equal": true,
+        "cpu_reference_checked": true
+      },
+      "samples": {
+        "current": [
+          {
+            "kernel_us": 116.74000000000001,
+            "active_invocation_us": [
+              117.3,
+              116.44,
+              116.48
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              0,
+              4,
+              8
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 116.58,
+            "active_invocation_us": [
+              116.72,
+              116.34,
+              116.68
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              15,
+              19,
+              23
+            ],
+            "device_task_count": 3
+          }
+        ],
+        "group_visible": [
+          {
+            "kernel_us": 109.68666666666667,
+            "active_invocation_us": [
+              109.64,
+              109.7,
+              109.72
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              1,
+              5,
+              9
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 109.30666666666667,
+            "active_invocation_us": [
+              108.36,
+              109.02,
+              110.54
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              14,
+              18,
+              22
+            ],
+            "device_task_count": 3
+          }
+        ],
+        "direct_page": [
+          {
+            "kernel_us": 88.34666666666668,
+            "active_invocation_us": [
+              87.86,
+              88.44,
+              88.74
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              2,
+              6,
+              10
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 86.80666666666667,
+            "active_invocation_us": [
+              85.72,
+              87.18,
+              87.52
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              13,
+              17,
+              21
+            ],
+            "device_task_count": 3
+          }
+        ],
+        "direct_page_group_visible": [
+          {
+            "kernel_us": 78.20666666666666,
+            "active_invocation_us": [
+              78.28,
+              78.1,
+              78.24
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              3,
+              7,
+              11
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 76.48,
+            "active_invocation_us": [
+              72.9,
+              78.34,
+              78.2
+            ],
+            "artifact": "int8_budget_exact-prefix-plan-01.json.gz",
+            "window_indices": [
+              12,
+              16,
+              20
+            ],
+            "device_task_count": 3
+          }
+        ]
+      },
+      "median_us": {
+        "current": 116.58000000000001,
+        "group_visible": 109.67,
+        "direct_page": 87.69,
+        "direct_page_group_visible": 78.22
+      },
+      "page_ir": {
+        "current": {
+          "scalar_i32_workspace_sites": 4,
+          "scalar_i32_workspace_sites_by_core": {
+            "aic": 2,
+            "aiv": 2
+          },
+          "table_scalar_reads": {
+            "aiv": 1
+          },
+          "int32_tile_workspace_shapes": {
+            "aic": [
+              "64x64xi32"
+            ],
+            "aiv": [
+              "64x64xi32"
+            ]
+          }
+        },
+        "group_visible": {
+          "scalar_i32_workspace_sites": 2,
+          "scalar_i32_workspace_sites_by_core": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "table_scalar_reads": {
+            "aiv": 1
+          },
+          "int32_tile_workspace_shapes": {
+            "aic": [
+              "64x64xi32"
+            ],
+            "aiv": [
+              "64x64xi32"
+            ]
+          }
+        },
+        "direct_page": {
+          "scalar_i32_workspace_sites": 2,
+          "scalar_i32_workspace_sites_by_core": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "table_scalar_reads": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "int32_tile_workspace_shapes": {
+            "aic": [
+              "64x64xi32"
+            ],
+            "aiv": [
+              "64x64xi32"
+            ]
+          }
+        },
+        "direct_page_group_visible": {
+          "scalar_i32_workspace_sites": 0,
+          "scalar_i32_workspace_sites_by_core": {},
+          "table_scalar_reads": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "int32_tile_workspace_shapes": {
+            "aic": [
+              "64x64xi32"
+            ],
+            "aiv": [
+              "64x64xi32"
+            ]
+          }
+        }
+      },
+      "comparisons": {
+        "direct_page": {
+          "control": "current",
+          "speedup": 1.329456038316798,
+          "paired_saved_us": [
+            29.439999999999998,
+            28.0,
+            27.74000000000001,
+            31.0,
+            29.159999999999997,
+            29.16000000000001
+          ],
+          "median_paired_saved_us": 29.160000000000004,
+          "scalar_workspace_sites_removed": 2,
+          "scalar_workspace_sites_removed_by_core": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "page_handoff_removed": true,
+          "int32_tile_workspace_unchanged": true
+        },
+        "direct_page_group_visible": {
+          "control": "group_visible",
+          "speedup": 1.4020710815648172,
+          "paired_saved_us": [
+            31.36,
+            31.60000000000001,
+            31.480000000000004,
+            35.459999999999994,
+            30.679999999999993,
+            32.34
+          ],
+          "median_paired_saved_us": 31.540000000000006,
+          "scalar_workspace_sites_removed": 2,
+          "scalar_workspace_sites_removed_by_core": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "page_handoff_removed": true,
+          "int32_tile_workspace_unchanged": true
+        }
+      },
+      "worker_status": 0,
+      "timed_out": false
+    },
+    {
+      "case": "int8_long100k",
+      "exit_code": 0,
+      "environment": {
+        "device": "Ascend910B4-1",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU"
+      },
+      "route": {
+        "first": 8176,
+        "count": 112,
+        "shared": true,
+        "proof": {
+          "groups": 28,
+          "all_group_maps_equal": true,
+          "same_request_per_group": true
+        },
+        "route": "single_page64",
+        "visibility_tiles": {
+          "issued_tiles": 3248,
+          "useful_tiles": 3030,
+          "skipped_tiles": 218,
+          "skipped_fraction": 0.06711822660098522,
+          "selected": false,
+          "policy": "conservative"
+        },
+        "skip_invisible": false,
+        "page_reuse": true,
+        "query_group": 16,
+        "query16_reason": "Shared mapping and request owner proven"
+      },
+      "width": 29696,
+      "work": {
+        "dot_tiles": 3248,
+        "active_dot_tiles": 3030,
+        "fully_invisible_dot_tiles": 218,
+        "fill_only_tiles": 0,
+        "executed_macs": 1702887424,
+        "useful_macs": 1586006016,
+        "tile_dot_result_logical_bytes": 53215232,
+        "q_metadata_requested_bytes": 3455872,
+        "k_scale_requested_bytes": 25170600,
+        "page_lookup_sites_executed": 1351,
+        "score_write_bytes": 13303808,
+        "unique_q_metadata_bytes": 59584,
+        "unique_k_scale_bytes": 3597360,
+        "perfect_reuse_io_bytes": 16964808,
+        "requested_io_bytes_upper": 41935684
+      },
+      "mode": "page_id_handoff",
+      "sync_ir": {
+        "current": {
+          "binary_sha256": "1d751888e57f4f00c92ba0eddd14442dde765a1a3e8b81c644d667dd35b57bb4",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmpy5wqqvch/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmpy5wqqvch/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_long100k-current-bisheng-1-stderr.mlir.gz",
+                  "bytes": 61286,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_long100k-current-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_page_reuse_full_score_mix_aic",
+                "_qsa_page64_page_reuse_full_score_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.sync_block_set": 12,
+                "hivm.hir.set_flag": 39,
+                "hivm.hir.wait_flag": 39,
+                "hivm.hir.pipe_barrier": 26,
+                "memref_ext.alloc_workspace": 6,
+                "hivm.hir.sync_block_wait": 12,
+                "hivm.hir.mmadL1": 1,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 3
+              },
+              "scalar_i32_workspace_sites": {
+                "_qsa_page64_page_reuse_full_score_mix_aic": 2,
+                "_qsa_page64_page_reuse_full_score_mix_aiv": 2
+              },
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_page_reuse_full_score_mix_aic": [
+                  "4x64x64xi32"
+                ],
+                "_qsa_page64_page_reuse_full_score_mix_aiv": [
+                  "4x64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_page_reuse_full_score_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 34,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 6"
+                  },
+                  {
+                    "line": 35,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 7"
+                  },
+                  {
+                    "line": 82,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 7"
+                  },
+                  {
+                    "line": 100,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 6"
+                  },
+                  {
+                    "line": 189,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 5"
+                  },
+                  {
+                    "line": 276,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 277,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 278,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  }
+                ],
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 36,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 40,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 70,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 78,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 168,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 72,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 76,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 91,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 170,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 174,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %75]"
+                  },
+                  {
+                    "line": 179,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 186,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 195,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 74,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 172,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 204,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 285,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 433,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 439,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 473,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 477,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 79,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "%26 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 97,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "%39 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 102,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "%41 = memref_ext.alloc_workspace() from %arg2 offset = [%c64] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 362,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "%36 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 415,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "%68 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 423,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "%69 = memref_ext.alloc_workspace() from %arg2 offset = [%c64] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 80,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 98,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 185,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = %78"
+                  },
+                  {
+                    "line": 200,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 201,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 202,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 203,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 363,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 7"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 181,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_5, %true, %23, %c128, %93 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_9 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %75, %60, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 187,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_9 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%collapse_shape : memref<64x64xi32, strided<[64, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 314,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_4 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 330,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_8 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_9 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 351,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_12 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_13 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 463,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_18 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_19 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 546,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_19 : memref<4096xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%collapse_shape_20 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\", vector_producer_to_fuse_0} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 365,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.store ins(%33 : memref<1xi32, #hivm.address_space<ub>>) outs(%36 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+                  },
+                  {
+                    "line": 418,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.store ins(%65 : memref<1xi32, #hivm.address_space<ub>>) outs(%68 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+                  },
+                  {
+                    "line": 619,
+                    "function": "_qsa_page64_page_reuse_full_score_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_44 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_45 : memref<?x?xf32, strided<[29696, 1], offset: ?>, #hivm.address_space<gm>>) {op_to_tile_0_0}"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "group_visible": {
+          "binary_sha256": "d24fd560da6f5a154d095e3b4ade6a98da9a43b080b63cb0a393cff8ee56d754",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmpp74sxr36/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmpp74sxr36/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_long100k-group_visible-bisheng-1-stderr.mlir.gz",
+                  "bytes": 60160,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_long100k-group_visible-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_prefix_group_visible_mix_aic",
+                "_qsa_page64_prefix_group_visible_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.sync_block_set": 9,
+                "hivm.hir.set_flag": 36,
+                "hivm.hir.wait_flag": 36,
+                "hivm.hir.pipe_barrier": 29,
+                "memref_ext.alloc_workspace": 4,
+                "hivm.hir.sync_block_wait": 9,
+                "hivm.hir.mmadL1": 1,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 2
+              },
+              "scalar_i32_workspace_sites": {
+                "_qsa_page64_prefix_group_visible_mix_aic": 1,
+                "_qsa_page64_prefix_group_visible_mix_aiv": 1
+              },
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_prefix_group_visible_mix_aic": [
+                  "4x64x64xi32"
+                ],
+                "_qsa_page64_prefix_group_visible_mix_aiv": [
+                  "4x64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_prefix_group_visible_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 34,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 6"
+                  },
+                  {
+                    "line": 97,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 6"
+                  },
+                  {
+                    "line": 186,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 5"
+                  },
+                  {
+                    "line": 273,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 274,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 275,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 276,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 410,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  }
+                ],
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 35,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 36,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 69,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 77,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 165,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 71,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 75,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 88,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 167,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 171,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %75]"
+                  },
+                  {
+                    "line": 176,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 183,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 192,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 73,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 169,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 201,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 282,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 307,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 326,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 354,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 399,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 94,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "%39 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 99,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "%41 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 404,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "%66 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 412,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "%67 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 95,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 182,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = %78"
+                  },
+                  {
+                    "line": 197,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 198,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 199,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 200,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 405,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 6"
+                  },
+                  {
+                    "line": 529,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 5"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 178,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_6, %true, %23, %c128, %93 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %75, %60, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 184,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%collapse_shape : memref<64x64xi32, strided<[64, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 313,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_4 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 332,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_8 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_9 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 355,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_12 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_13 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 451,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_19 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_20 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 534,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_20 : memref<4096xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%collapse_shape_21 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\", vector_producer_to_fuse_0} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 407,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%63 : memref<1xi32, #hivm.address_space<ub>>) outs(%66 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+                  },
+                  {
+                    "line": 607,
+                    "function": "_qsa_page64_prefix_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_45 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_46 : memref<?x?xf32, strided<[29696, 1], offset: ?>, #hivm.address_space<gm>>) {op_to_tile_0_0}"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "direct_page": {
+          "binary_sha256": "0f928a79762bf0c6ae0ded1c245de8ac8bf9f235213ecd3a2b99f473ad5d6ed5",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmprw1phv3r/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmprw1phv3r/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_long100k-direct_page-bisheng-1-stderr.mlir.gz",
+                  "bytes": 58627,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_long100k-direct_page-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_prefix_direct_page_mix_aic",
+                "_qsa_page64_prefix_direct_page_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.sync_block_set": 9,
+                "hivm.hir.set_flag": 34,
+                "hivm.hir.wait_flag": 34,
+                "hivm.hir.pipe_barrier": 26,
+                "memref_ext.alloc_workspace": 4,
+                "hivm.hir.sync_block_wait": 9,
+                "hivm.hir.mmadL1": 1,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 2
+              },
+              "scalar_i32_workspace_sites": {
+                "_qsa_page64_prefix_direct_page_mix_aic": 1,
+                "_qsa_page64_prefix_direct_page_mix_aiv": 1
+              },
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_prefix_direct_page_mix_aic": [
+                  "4x64x64xi32"
+                ],
+                "_qsa_page64_prefix_direct_page_mix_aiv": [
+                  "4x64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_prefix_direct_page_mix_aic": 1,
+                "_qsa_page64_prefix_direct_page_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 36,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 6"
+                  },
+                  {
+                    "line": 83,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 6"
+                  },
+                  {
+                    "line": 192,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 5"
+                  },
+                  {
+                    "line": 276,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 277,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 278,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 279,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 368,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  }
+                ],
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 40,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 41,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 71,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 79,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 171,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 73,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 77,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 94,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 173,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 177,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %79]"
+                  },
+                  {
+                    "line": 182,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 189,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 198,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 75,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 175,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 207,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 285,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 403,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 409,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 443,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 447,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 80,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "%26 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 105,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "%45 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 362,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "%36 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 393,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "%55 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 81,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 188,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = %82"
+                  },
+                  {
+                    "line": 203,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 204,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 205,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 206,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 363,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 6"
+                  },
+                  {
+                    "line": 511,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 5"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 184,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_6, %true, %23, %c128, %97 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %79, %64, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 190,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%collapse_shape : memref<64x64xi32, strided<[64, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 313,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_4 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 329,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_8 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_9 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 350,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_12 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_13 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 433,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_18 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_19 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 516,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_19 : memref<4096xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%collapse_shape_20 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\", vector_producer_to_fuse_0} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 365,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.store ins(%33 : memref<1xi32, #hivm.address_space<ub>>) outs(%36 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+                  },
+                  {
+                    "line": 589,
+                    "function": "_qsa_page64_prefix_direct_page_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_44 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_45 : memref<?x?xf32, strided<[29696, 1], offset: ?>, #hivm.address_space<gm>>) {op_to_tile_0_0}"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "direct_page_group_visible": {
+          "binary_sha256": "0cf721f5589e70e4a669a0eacfd692ac4ecaa31ceb9854cc93b8cc8d73e340bf",
+          "invocations": [
+            {
+              "original_command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmp6so8znj7/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmp6so8znj7/kernel"
+              ],
+              "added_option": "--bishengir-print-ir-after=hivm-graph-sync-solver",
+              "exit_code": 0,
+              "streams": {
+                "stderr": {
+                  "file": "int8_long100k-direct_page_group_visible-bisheng-1-stderr.mlir.gz",
+                  "bytes": 57414,
+                  "truncated": false
+                }
+              }
+            }
+          ],
+          "evidence": {
+            "int8_long100k-direct_page_group_visible-bisheng-1-stderr.mlir.gz": {
+              "after_solver_dumps": 2,
+              "functions": [
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv"
+              ],
+              "operations": {
+                "hivm.hir.set_flag": 32,
+                "hivm.hir.wait_flag": 32,
+                "hivm.hir.pipe_barrier": 29,
+                "memref_ext.alloc_workspace": 2,
+                "hivm.hir.mmadL1": 1,
+                "hivm.hir.sync_block_wait": 6,
+                "hivm.hir.fixpipe": 1,
+                "hivm.hir.sync_block_set": 6,
+                "hivm.hir.load": 5,
+                "hivm.hir.store": 1
+              },
+              "scalar_i32_workspace_sites": {},
+              "int32_tile_workspace_shapes": {
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic": [
+                  "4x64x64xi32"
+                ],
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv": [
+                  "4x64x64xi32"
+                ]
+              },
+              "table_scalar_reads": {
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aic": 1,
+                "_qsa_page64_prefix_direct_page_group_visible_mix_aiv": 1
+              },
+              "examples": {
+                "hivm.hir.set_flag": [
+                  {
+                    "line": 35,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 36,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+                  },
+                  {
+                    "line": 37,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+                  },
+                  {
+                    "line": 38,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+                  },
+                  {
+                    "line": 39,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 69,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 77,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 166,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  }
+                ],
+                "hivm.hir.wait_flag": [
+                  {
+                    "line": 71,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 75,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %13]"
+                  },
+                  {
+                    "line": 90,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 168,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+                  },
+                  {
+                    "line": 172,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %79]"
+                  },
+                  {
+                    "line": 177,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 184,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+                  },
+                  {
+                    "line": 193,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+                  }
+                ],
+                "hivm.hir.pipe_barrier": [
+                  {
+                    "line": 73,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 170,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 202,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_ALL>]"
+                  },
+                  {
+                    "line": 275,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 302,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 321,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  },
+                  {
+                    "line": 349,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_MTE2>]"
+                  },
+                  {
+                    "line": 387,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.pipe_barrier[<PIPE_V>]"
+                  }
+                ],
+                "memref_ext.alloc_workspace": [
+                  {
+                    "line": 101,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "%45 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+                  },
+                  {
+                    "line": 377,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "%53 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+                  }
+                ],
+                "hivm.hir.mmadL1": [
+                  {
+                    "line": 179,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_7, %true, %23, %c128, %96 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_11 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %79, %64, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+                  }
+                ],
+                "hivm.hir.sync_block_wait": [
+                  {
+                    "line": 183,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = %81"
+                  },
+                  {
+                    "line": 198,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 199,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 200,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 201,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 494,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 4"
+                  }
+                ],
+                "hivm.hir.fixpipe": [
+                  {
+                    "line": 185,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_11 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%collapse_shape : memref<64x64xi32, strided<[64, 1], offset: ?>, #hivm.address_space<gm>>)"
+                  }
+                ],
+                "hivm.hir.sync_block_set": [
+                  {
+                    "line": 187,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aic",
+                    "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 4"
+                  },
+                  {
+                    "line": 269,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 0"
+                  },
+                  {
+                    "line": 270,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+                  },
+                  {
+                    "line": 271,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+                  },
+                  {
+                    "line": 272,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+                  },
+                  {
+                    "line": 501,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = %62"
+                  }
+                ],
+                "hivm.hir.load": [
+                  {
+                    "line": 308,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_4 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 327,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_8 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_9 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 350,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_12 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_13 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 417,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%subview_19 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_20 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_1 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+                  },
+                  {
+                    "line": 499,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.load ins(%collapse_shape_20 : memref<4096xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%collapse_shape_21 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\", vector_producer_to_fuse_0} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+                  }
+                ],
+                "hivm.hir.store": [
+                  {
+                    "line": 572,
+                    "function": "_qsa_page64_prefix_direct_page_group_visible_mix_aiv",
+                    "text": "hivm.hir.store ins(%subview_45 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_46 : memref<?x?xf32, strided<[29696, 1], offset: ?>, #hivm.address_space<gm>>) {op_to_tile_0_0}"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "table_check": {
+        "rows": 112,
+        "columns": 155,
+        "all_entries_valid": true
+      },
+      "compiler": {
+        "current": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='145fec9d81ce928545a709cd39cfb278aa8d23dffb01e6495581290b302bd666', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_page_reuse_full_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_page_reuse_full_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=65600)",
+        "group_visible": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='49deb953dbd5d539a6fa457274b6fe2268efc450a044a4556f2ca2ebd590f6ac', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_group_visible', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_group_visible', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1, 0], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=65568)",
+        "direct_page": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='df013bd356ab37da305c13a7cf2473c23b286615c10ac0cc38bd4068da55e61b', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_direct_page', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_direct_page', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=65568)",
+        "direct_page_group_visible": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='7a1fbb3f00178ef8f547d1baeac5ae0c6389d68ed5826b58bc4bc20aecb81708', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_direct_page_group_visible', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_direct_page_group_visible', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1, 0], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=65536)"
+      },
+      "precheck": {
+        "full_outputs_bitwise_equal": true,
+        "cpu_reference_checked": true
+      },
+      "kernel_timer": {
+        "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+        "prefix_plan_artifact": "int8_long100k-prefix-plan-01.json.gz"
+      },
+      "single_capture_plan": [
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "direct_page",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "direct_page_group_visible",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "direct_page",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "direct_page_group_visible",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 2
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 2
+        },
+        {
+          "round": 0,
+          "arm": "direct_page",
+          "active": 2
+        },
+        {
+          "round": 0,
+          "arm": "direct_page_group_visible",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "direct_page_group_visible",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "direct_page",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "direct_page_group_visible",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "direct_page",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "direct_page_group_visible",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "direct_page",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 2
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 2
+        }
+      ],
+      "single_capture_counts": {
+        "expected_host_counts": {
+          "_qsa_page64_page_reuse_full_score": 6,
+          "_qsa_page64_prefix_group_visible": 6,
+          "_qsa_page64_prefix_direct_page": 6,
+          "_qsa_page64_prefix_direct_page_group_visible": 6
+        },
+        "observed_host_counts": {
+          "_qsa_page64_page_reuse_full_score": 6,
+          "_qsa_page64_prefix_group_visible": 6,
+          "_qsa_page64_prefix_direct_page": 6,
+          "_qsa_page64_prefix_direct_page_group_visible": 6
+        },
+        "tasks_per_window": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "expected_tasks_per_window": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "postcheck": {
+        "full_outputs_bitwise_equal": true,
+        "cpu_reference_checked": true
+      },
+      "samples": {
+        "current": [
+          {
+            "kernel_us": 315.06666666666666,
+            "active_invocation_us": [
+              316.64,
+              314.98,
+              313.58
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              0,
+              4,
+              8
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 312.46,
+            "active_invocation_us": [
+              313.3,
+              310.72,
+              313.36
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              15,
+              19,
+              23
+            ],
+            "device_task_count": 3
+          }
+        ],
+        "group_visible": [
+          {
+            "kernel_us": 291.78,
+            "active_invocation_us": [
+              292.58,
+              290.48,
+              292.28
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              1,
+              5,
+              9
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 291.8933333333334,
+            "active_invocation_us": [
+              293.66,
+              290.86,
+              291.16
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              14,
+              18,
+              22
+            ],
+            "device_task_count": 3
+          }
+        ],
+        "direct_page": [
+          {
+            "kernel_us": 261.67333333333335,
+            "active_invocation_us": [
+              261.04,
+              261.66,
+              262.32
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              2,
+              6,
+              10
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 261.5133333333333,
+            "active_invocation_us": [
+              259.56,
+              262.26,
+              262.72
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              13,
+              17,
+              21
+            ],
+            "device_task_count": 3
+          }
+        ],
+        "direct_page_group_visible": [
+          {
+            "kernel_us": 231.58,
+            "active_invocation_us": [
+              231.62,
+              231.54,
+              231.58
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              3,
+              7,
+              11
+            ],
+            "device_task_count": 3
+          },
+          {
+            "kernel_us": 231.46666666666667,
+            "active_invocation_us": [
+              230.22,
+              232.3,
+              231.88
+            ],
+            "artifact": "int8_long100k-prefix-plan-01.json.gz",
+            "window_indices": [
+              12,
+              16,
+              20
+            ],
+            "device_task_count": 3
+          }
+        ]
+      },
+      "median_us": {
+        "current": 313.47,
+        "group_visible": 291.72,
+        "direct_page": 261.96000000000004,
+        "direct_page_group_visible": 231.60000000000002
+      },
+      "page_ir": {
+        "current": {
+          "scalar_i32_workspace_sites": 4,
+          "scalar_i32_workspace_sites_by_core": {
+            "aic": 2,
+            "aiv": 2
+          },
+          "table_scalar_reads": {
+            "aiv": 1
+          },
+          "int32_tile_workspace_shapes": {
+            "aic": [
+              "4x64x64xi32"
+            ],
+            "aiv": [
+              "4x64x64xi32"
+            ]
+          }
+        },
+        "group_visible": {
+          "scalar_i32_workspace_sites": 2,
+          "scalar_i32_workspace_sites_by_core": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "table_scalar_reads": {
+            "aiv": 1
+          },
+          "int32_tile_workspace_shapes": {
+            "aic": [
+              "4x64x64xi32"
+            ],
+            "aiv": [
+              "4x64x64xi32"
+            ]
+          }
+        },
+        "direct_page": {
+          "scalar_i32_workspace_sites": 2,
+          "scalar_i32_workspace_sites_by_core": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "table_scalar_reads": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "int32_tile_workspace_shapes": {
+            "aic": [
+              "4x64x64xi32"
+            ],
+            "aiv": [
+              "4x64x64xi32"
+            ]
+          }
+        },
+        "direct_page_group_visible": {
+          "scalar_i32_workspace_sites": 0,
+          "scalar_i32_workspace_sites_by_core": {},
+          "table_scalar_reads": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "int32_tile_workspace_shapes": {
+            "aic": [
+              "4x64x64xi32"
+            ],
+            "aiv": [
+              "4x64x64xi32"
+            ]
+          }
+        }
+      },
+      "comparisons": {
+        "direct_page": {
+          "control": "current",
+          "speedup": 1.1966330737517177,
+          "paired_saved_us": [
+            55.599999999999966,
+            53.31999999999999,
+            51.25999999999999,
+            53.74000000000001,
+            48.460000000000036,
+            50.639999999999986
+          ],
+          "median_paired_saved_us": 52.28999999999999,
+          "scalar_workspace_sites_removed": 2,
+          "scalar_workspace_sites_removed_by_core": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "page_handoff_removed": true,
+          "int32_tile_workspace_unchanged": true
+        },
+        "direct_page_group_visible": {
+          "control": "group_visible",
+          "speedup": 1.2595854922279792,
+          "paired_saved_us": [
+            60.95999999999998,
+            58.940000000000026,
+            60.69999999999996,
+            63.440000000000026,
+            58.56,
+            59.28000000000003
+          ],
+          "median_paired_saved_us": 59.989999999999995,
+          "scalar_workspace_sites_removed": 2,
+          "scalar_workspace_sites_removed_by_core": {
+            "aic": 1,
+            "aiv": 1
+          },
+          "page_handoff_removed": true,
+          "int32_tile_workspace_unchanged": true
+        }
+      },
+      "worker_status": 0,
+      "timed_out": false
+    }
+  ],
+  "exit_code": 0
+}
