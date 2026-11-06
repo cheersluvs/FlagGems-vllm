@@ -225,3 +225,22 @@ instruction evidence counts as captured.
 
 [timeline-detail-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/71c502af8f8600e86d68725ebe4293ac11188187
 [triton-ascend-profiling]: https://github.com/triton-lang/triton-ascend/blob/main/docs/en/debug_guide/profiling.md
+
+The [first standalone simulation][simulator-first] reached the target kernel
+on both cases. The simulator reported 64 and 130 invalid load/store addresses
+and neither run returned from the kernel before the outer timeout. Both
+physical-device references passed and matched the historical fused binaries.
+The report does not establish which argument or internal address triggered
+the simulator fault.
+
+The next diagnostic gives the per-query arguments independent NPU buffers
+with storage offset zero and disables the Torch NPU allocator cache inside
+the report process and its children. The tensors, launch specialization
+and physical reference binary are checked before simulation. The simulator
+gets its own one-minute timeout to allow it to parse partial output before
+the outer watchdog. An invalid-address log always invalidates a capture.
+The report now records fault counts, instruction PCs, hashes of dumped
+binaries, and launch identity before device synchronization when available.
+Start with budget_exact only.
+
+[simulator-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/d5664bce1972488ecaa87b7ac6971ed447ebccd4

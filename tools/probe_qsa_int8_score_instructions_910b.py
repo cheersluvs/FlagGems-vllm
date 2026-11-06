@@ -16,6 +16,7 @@ import argparse
 import collections
 import csv
 import gzip
+import hashlib
 import json
 import os
 import re
@@ -222,6 +223,20 @@ def read_entry(directory, case):
     return json.loads(path.read_text()) if path.is_file() else {}
 
 
+def address_failures(log):
+    count = 0
+    pcs = collections.Counter()
+    with log.open(errors="replace") as stream:
+        for line in stream:
+            if "invalid ldst addr" in line:
+                count += 1
+            elif "unrecognize ldst addr" in line:
+                match = re.search(r"pc:\s*(0x[\da-fA-F]+)", line)
+                if match:
+                    pcs[match[1]] += 1
+    return dict(invalid_addresses=count, pcs=dict(pcs.most_common(20)))
+
+
 def run_case(args, case, profiler, report):
     kernel, expected_hash = EXPECTED[case]
     root = report / case
@@ -234,6 +249,7 @@ def run_case(args, case, profiler, report):
             "-u",
             str(ENTRY),
             "--instruction-entry",
+            "--independent-buffers",
             "--report",
             str(root / part),
             "--case",
@@ -272,20 +288,30 @@ def run_case(args, case, profiler, report):
         ref_entry.get("binary_sha256") == expected_hash
     )
 
+    if not result["reference_matches_historical_binary"]:
+        return dict(result, status="reference_binary_changed", exit_code=1)
+
     command = [
         *profiler,
         f"--soc-version={args.soc_version}",
         f"--core-id={args.core_id}",
         f"--kernel-name={kernel}",
         "--launch-count=1",
+        f"--timeout={args.simulator_minutes}",
         f"--output={root / 'capture'}",
         *app("profiled", args.sim_device),
     ]
-    status, timed_out = run_child(
-        command, report / f"{case}-simulator.txt", args.timeout
-    )
+    log = report / f"{case}-simulator.txt"
+    status, timed_out = run_child(command, log, args.timeout)
     profiled = read_entry(root / "profiled", case)
+    launched = read_entry(root / "profiled", f"{case}-launched")
+    faults = address_failures(log)
     captured = collect(case, root / "capture", report)
+    binaries = {
+        str(p.relative_to(root / "capture")): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted((root / "capture").rglob("aicore_binary.o"))
+        if p.is_file() and 0 < p.stat().st_size <= MAX_RAW_BYTES
+    }
     op_tables = sorted((root / "capture").rglob("OpBasicInfo*.csv"))
     operator_match = (
         any(kernel in p.read_text(errors="replace") for p in op_tables)
@@ -299,15 +325,23 @@ def run_case(args, case, profiler, report):
         and matched
         and operator_match is not False
         and captured["instruction_evidence"]
+        and not faults["invalid_addresses"]
     )
     return dict(
         result,
-        status="captured" if ok else "capture_incomplete",
+        status=(
+            "simulator_address_error"
+            if faults["invalid_addresses"]
+            else "captured" if ok else "capture_incomplete"
+        ),
         exit_code=0 if ok else 1,
         command=command,
         profiler_exit=status,
         timed_out=timed_out,
         profiled=profiled,
+        launch_before_sync=launched,
+        address_failures=faults,
+        dumped_binary_hashes=binaries,
         profiled_binary_and_launch_match=matched,
         operator_table_matches=operator_match,
         **captured,
@@ -322,17 +356,23 @@ def main():
     parser.add_argument("--soc-version", default="Ascend910B4")
     parser.add_argument("--core-id", default="0", help="Logical cores, separated by |")
     parser.add_argument(
-        "--timeout", type=int, default=360, help="Seconds per profiling case"
+        "--timeout", type=int, default=150, help="Outer timeout in seconds per case"
     )
+    parser.add_argument("--simulator-minutes", type=int, default=1)
     parser.add_argument("--cases", choices=CHUNKS, nargs="+", default=list(CHUNKS))
     args = parser.parse_args()
     cores = args.core_id.split("|")
-    if args.timeout < 1 or not all(
-        c.isascii() and c.isdecimal() and 0 <= int(c) < 50 for c in cores
+    if (
+        not 1 <= args.simulator_minutes <= 2880
+        or args.timeout <= 60 * args.simulator_minutes
+        or not all(c.isascii() and c.isdecimal() and 0 <= int(c) < 50 for c in cores)
     ):
-        parser.error("Choose logical core IDs from 0 to 49 and a positive timeout")
+        parser.error(
+            "Use core IDs 0 to 49 and an outer timeout longer than the simulator limit"
+        )
     report = Path(args.report).resolve()
     report.mkdir(parents=True, exist_ok=True)
+    os.environ["PYTORCH_NO_NPU_MEMORY_CACHING"] = "1"
     profiler, tool_checks = find_simulator(report)
     result = dict(
         profiler=profiler,
@@ -365,6 +405,8 @@ def main():
                             "operator_table_matches",
                             "file_count",
                             "evidence",
+                            "address_failures",
+                            "dumped_binary_hashes",
                         )
                     }
                 ),

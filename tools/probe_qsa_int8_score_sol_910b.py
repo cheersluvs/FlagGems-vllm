@@ -704,14 +704,36 @@ def run_case(args, result):
     print("SOL_WORK", args.case, json.dumps(work), flush=True)
 
     if args.instruction_entry:
+        launch = functools.partial(adapter.score_into, first, count, score)
+        if args.independent_buffers:
+            bound = adapter.bind_query16_score(first, count, score)
+            tensors = list(bound.args)
+            row_inputs = {0: "q", 2: "qs", 4: "weights", 5: "row_table", 6: "visible"}
+            for position, name in row_inputs.items():
+                tensors[position] = (
+                    inputs[name][first : first + count].clone().to(device)
+                )
+            if any(t.storage_offset() != 0 or not t.is_contiguous() for t in tensors):
+                raise AssertionError(
+                    "Instruction entry requires base contiguous allocations"
+                )
+            result["independent_buffers"] = dict(
+                input_shapes=[list(t.shape) for t in tensors],
+                allocator_cache_disabled=os.getenv("PYTORCH_NO_NPU_MEMORY_CACHING")
+                == "1",
+            )
+            launch = functools.partial(bound.func, *tensors, **bound.keywords)
         torch.npu.synchronize()
-        compiled = adapter.score_into(first, count, score)
-        torch.npu.synchronize()
+        compiled = launch()
         result["instruction_entry"] = dict(
             kernel=compiled.metadata.kernel_name,
             binary_sha256=hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
             score_launches=1,
         )
+        (Path(args.report) / f"{args.case}-launched.json").write_text(
+            json.dumps(result, indent=2) + "\n"
+        )
+        torch.npu.synchronize()
         if args.verify_output:
             result["checks"] = check_chunk(inputs, score.cpu(), first, count)
         print(
@@ -867,9 +889,12 @@ def main():
         "--instruction-entry", action="store_true", help=argparse.SUPPRESS
     )
     parser.add_argument("--verify-output", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--independent-buffers", action="store_true", help=argparse.SUPPRESS
+    )
     args = parser.parse_args()
     if (args.instruction_entry and not args.case) or (
-        args.verify_output and not args.instruction_entry
+        (args.verify_output or args.independent_buffers) and not args.instruction_entry
     ):
         parser.error(
             "Instruction entry requires one --case and supports --verify-output"
