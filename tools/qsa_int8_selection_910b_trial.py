@@ -26,9 +26,12 @@ class PreparedInt8Selection:
     quantized; row tables and visibility use compressed-group coordinates.
     """
 
-    def __init__(self, values, output, scratch, workspace, topk):
+    def __init__(
+        self, values, output, scratch, workspace, topk, *, reuse_topk_scratch=False
+    ):
         self.values, self.output, self.scratch = values, output, scratch
         self.workspace, self.topk = workspace, topk
+        self.reuse_topk_scratch = reuse_topk_scratch
         q, cache = values["q"], values["cache"]
         rows = q.shape[0]
         if q.ndim != 3 or q.shape[1:] != (4, 128) or q.dtype != torch.int8:
@@ -126,7 +129,19 @@ class PreparedInt8Selection:
         for first, count in self.chunks:
             self.score_into(first, count, self.scratch[:count])
 
-    def select_chunk(self, first, scores):
+    def _new_topk_scratch(self):
+        if self.reuse_topk_scratch and self.topk._psegmerge_applicable(
+            1, self.width, 512
+        ):
+            return self.topk._PersistentTopKScratch()
+        return None
+
+    def select_chunk(self, first, scores, persistent_scratch=None):
+        scratch_kwargs = (
+            {}
+            if persistent_scratch is None
+            else {"persistent_scratch": persistent_scratch}
+        )
         for local in range(0, scores.shape[0], 32):
             end = min(scores.shape[0], local + 32)
             self.topk.persistent_topk(
@@ -137,6 +152,7 @@ class PreparedInt8Selection:
                 k=512,
                 max_seq_len=self.width,
                 block=256,
+                **scratch_kwargs,
             )
 
     def topk_all(self, staged_scores):
@@ -149,11 +165,16 @@ class PreparedInt8Selection:
             raise ValueError(
                 "Prepared contiguous FP32 scores required for isolated TopK"
             )
+        persistent_scratch = self._new_topk_scratch()
         for first, count in self.chunks:
-            self.select_chunk(first, staged_scores[first : first + count])
+            self.select_chunk(
+                first, staged_scores[first : first + count], persistent_scratch
+            )
 
-    def __call__(self):
+    def __call__(self, *, persistent_scratch=None):
+        if persistent_scratch is None:
+            persistent_scratch = self._new_topk_scratch()
         for first, count in self.chunks:
             self.score_into(first, count, self.scratch[:count])
-            self.select_chunk(first, self.scratch[:count])
+            self.select_chunk(first, self.scratch[:count], persistent_scratch)
         return self.output

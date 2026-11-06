@@ -83,9 +83,18 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         page_reuse=True,
         page_reuse_full=True,
         group_visible_kernels=None,
+        *,
+        reuse_topk_scratch=False,
     ):
         started = time.perf_counter()
-        super().__init__(values, output, scratch, workspace, topk)
+        super().__init__(
+            values,
+            output,
+            scratch,
+            workspace,
+            topk,
+            reuse_topk_scratch=reuse_topk_scratch,
+        )
         if visibility_policy not in ("all", "conservative"):
             raise ValueError("Unknown visibility policy")
         self.skip_invisible = bool(skip_invisible)
@@ -298,13 +307,14 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             launches.append((first, count, target, launch))
 
         def execute():
+            persistent_scratch = self._new_topk_scratch()
             for first, count, target, launch in launches:
                 if launch is None:
                     target = self.scratch[:count]
                     self.score_into(first, count, target)
                 else:
                     launch()
-                self.select_chunk(first, target)
+                self.select_chunk(first, target, persistent_scratch)
             return self.output
 
         return execute

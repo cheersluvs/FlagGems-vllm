@@ -12,15 +12,12 @@
 
 """Measure request-local reuse of the Ascend persistent TopK scratch."""
 
-import ast
 import collections
 import copy
-import os
 import statistics
 from bisect import bisect_left
 from decimal import Decimal
-from pathlib import Path
-from types import FunctionType, SimpleNamespace
+from functools import partial
 
 from probe_qsa_int8_group_visible_request_910b import (
     measure_combined_trace,
@@ -29,47 +26,8 @@ from probe_qsa_int8_group_visible_request_910b import (
 from probe_qsa_int8_ten_shapes_910b import verify_structure
 from qsa_int8_stage_trace_timer_910b import stage_windows
 
-HOST_HELPER = "_persistent_topk_segmerge_persistent"
 BUFFER_NAMES = ("props", "nv_props", "buf_a", "buf_b", "nv_a", "nv_b", "scratch")
 ARMS = ("current", "workspace_reuse")
-
-
-def workspace_functions(topk):
-    """Derive the allocator and launcher from the unchanged source helper."""
-    source = Path(topk.probe_identity["source"])
-    host = next(
-        node
-        for node in ast.parse(source.read_text()).body
-        if isinstance(node, ast.FunctionDef) and node.name == HOST_HELPER
-    )
-    allocations = {
-        i: node.targets[0].id
-        for i, node in enumerate(host.body)
-        if isinstance(node, ast.Assign)
-        and isinstance(node.value, ast.Call)
-        and ast.unparse(node.value.func) == "torch.empty"
-    }
-    if tuple(allocations.values()) != BUFFER_NAMES:
-        raise RuntimeError("Persistent TopK scratch layout changed")
-    names = ", ".join(BUFFER_NAMES)
-    allocator = ast.parse("def allocate(logits, k, max_seq_len): pass").body[0]
-    allocator.body = copy.deepcopy(host.body[: max(allocations) + 1])
-    allocator.body += ast.parse(f"return {names}").body
-
-    first = min(allocations)
-    launcher = copy.deepcopy(host)
-    launcher.body[first] = ast.copy_location(
-        ast.parse(f"{names} = qsa_buffers[num_rows]").body[0], launcher.body[first]
-    )
-    launcher.body = [
-        node
-        for i, node in enumerate(launcher.body)
-        if i == first or i not in allocations
-    ]
-    scope = dict(vars(topk))
-    tree = ast.Module(body=[allocator, launcher], type_ignores=[])
-    exec(compile(ast.fix_missing_locations(tree), str(source), "exec"), scope)
-    return scope["allocate"], scope[HOST_HELPER].__code__
 
 
 def launch_gap_summary(events, plan, topk_calls):
@@ -177,6 +135,74 @@ def launch_gap_summary(events, plan, topk_calls):
     )
 
 
+def verify_workspace_request(torch, current, candidate, expected_reuse, visible):
+    """Check the integrated entry against its original TopK path."""
+    topk = candidate.topk
+    output = candidate.output
+    counts = collections.Counter(
+        min(32, count - offset)
+        for _, count in candidate.chunks
+        for offset in range(0, count, 32)
+    )
+    eligible = {
+        count: calls
+        for count, calls in counts.items()
+        if topk._psegmerge_applicable(count, candidate.width, 512)
+    }
+    if bool(eligible) != expected_reuse:
+        raise AssertionError("Unexpected workspace route eligibility")
+
+    observed = collections.Counter()
+
+    class AuditedScratch(topk._PersistentTopKScratch):
+        def get(self, num_rows, segs, k, device):
+            observed[num_rows] += 1
+            return super().get(num_rows, segs, k, device)
+
+    output.fill_(-2)
+    expected = current().cpu()
+    verify_structure(expected, visible)
+
+    def check_indices(actual):
+        if not torch.equal(actual.cpu(), expected):
+            raise AssertionError("Workspace reuse changed TopK indices")
+        if eligible and not topk._PSEGMERGE_STATE["usable"]:
+            raise AssertionError("Persistent TopK route fell back")
+
+    audit = AuditedScratch()
+    output.fill_(-2)
+    check_indices(candidate(persistent_scratch=audit))
+    if observed != eligible or sorted(key[0] for key in audit.buffers) != sorted(
+        eligible
+    ):
+        raise AssertionError(f"Unexpected TopK reuse launch counts: {dict(observed)}")
+
+    if eligible:
+        # Exercise release of request-local buffers before stream completion.
+        first = candidate().clone()
+        output.fill_(-2)
+        check_indices(candidate())
+        check_indices(first)
+    else:
+        check_indices(candidate())
+
+    return check_indices, dict(
+        allocation_names=BUFFER_NAMES,
+        route="segmerge_persistent" if eligible else "existing_fallback",
+        calls_by_rows=dict(counts),
+        reused_calls_by_rows=dict(observed),
+        shapes={
+            key[0]: [list(buf.shape) for buf in group]
+            for key, group in audit.buffers.items()
+        },
+        bytes=sum(
+            buf.numel() * buf.element_size()
+            for group in audit.buffers.values()
+            for buf in group
+        ),
+    )
+
+
 def run_topk_workspace_probe(args, result, inputs, values, plan, topk):
     import torch
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
@@ -196,93 +222,26 @@ def run_topk_workspace_probe(args, result, inputs, values, plan, topk):
         key_group4=True,
         single_page64=True,
     )
-    batch_counts = collections.Counter(
-        min(32, count - offset)
-        for _, count in current.chunks
-        for offset in range(0, count, 32)
-    )
-    row_counts = sorted(
-        count for count in batch_counts if topk._psegmerge_applicable(count, width, 512)
-    )
-    expected_reuse = plan.get("workspace_reuse_expected", args.case == "int8_long100k")
-    if bool(row_counts) != expected_reuse:
-        raise RuntimeError("Unexpected workspace route eligibility")
-
     result["stage"] = "topk_workspace_correctness"
-    output.fill_(-2)
-    expected = current().cpu()
-    verify_structure(expected, inputs["visible"])
-    if row_counts:
-        if (
-            os.environ.get(topk._SEGMERGE_ENV, "auto").lower() == "radix"
-            or not topk._PSEGMERGE_STATE["usable"]
-            or not topk._segmerge_probe()
-        ):
-            raise RuntimeError("Expected persistent TopK route is unavailable")
-        allocate, launcher_code = workspace_functions(topk)
-
-    def make_candidate(audit=None):
-        if not row_counts:
-            return current, {}
-        buffers = {count: allocate(score[:count], 512, width) for count in row_counts}
-        raw_launcher = FunctionType(
-            launcher_code, dict(vars(topk), qsa_buffers=buffers)
-        )
-
-        def launch_checked(logits, *operands):
-            audit[logits.shape[0]] += 1
-            return raw_launcher(logits, *operands)
-
-        launcher = raw_launcher if audit is None else launch_checked
-        scope = dict(vars(topk), **{HOST_HELPER: launcher})
-        reused_topk = FunctionType(
-            topk.persistent_topk.__code__,
-            scope,
-            argdefs=topk.persistent_topk.__defaults__,
-        )
-        reused_topk.__kwdefaults__ = topk.persistent_topk.__kwdefaults__
-        adapter = copy.copy(current)
-        adapter.topk = SimpleNamespace(persistent_topk=reused_topk)
-        return adapter, buffers
-
-    def check_indices(actual):
-        if not torch.equal(actual.cpu(), expected):
-            raise AssertionError("Workspace reuse changed TopK indices")
-        if row_counts and not topk._PSEGMERGE_STATE["usable"]:
-            raise AssertionError("Persistent TopK route fell back")
-
-    observed = collections.Counter()
-    candidate, buffers = make_candidate(audit=observed)
-    output.fill_(-2)
-    check_indices(candidate())
-    if observed != {count: batch_counts[count] for count in row_counts}:
-        raise AssertionError(f"Unexpected TopK reuse launch counts: {dict(observed)}")
+    candidate = copy.copy(current)
+    candidate.reuse_topk_scratch = True
+    check_indices, result["workspace"] = verify_workspace_request(
+        torch,
+        current,
+        candidate,
+        plan.get("workspace_reuse_expected", args.case == "int8_long100k"),
+        inputs["visible"],
+    )
     result["correctness"] = dict(
         all_topk_indices_bitwise_equal=True, score_unchanged=True
     )
     result["topk_identity"] = topk.probe_identity
-    result["workspace"] = dict(
-        allocation_names=BUFFER_NAMES,
-        route="segmerge_persistent" if row_counts else "existing_fallback",
-        calls_by_rows=dict(batch_counts),
-        reused_calls_by_rows=dict(observed),
-        shapes={
-            count: [list(buf.shape) for buf in group]
-            for count, group in buffers.items()
-        },
-        bytes=sum(
-            buf.numel() * buf.element_size()
-            for group in buffers.values()
-            for buf in group
-        ),
-    )
-    # The timed candidate allocates its own buffers once per request. Drop the preflight copy.
-    del candidate, buffers
 
     result["stage"] = "topk_workspace_wall"
+    adapters = dict(zip(ARMS, (current, candidate), strict=True))
     result["request_wall_us"] = measure_request_wall(
         ARMS,
-        lambda name: current if name == "current" else make_candidate()[0],
+        adapters.__getitem__,
         torch.npu.synchronize,
         check_indices,
         args.topk_workspace_samples,
@@ -303,12 +262,16 @@ def run_topk_workspace_probe(args, result, inputs, values, plan, topk):
         current.score_into(first, count, score[:count]).metadata.kernel_name
         for first, count in current.chunks
     )
-    candidate, _ = make_candidate()
+    prepared_scratch = candidate._new_topk_scratch()
+    check_indices(candidate(persistent_scratch=prepared_scratch))
+    adapters["workspace_reuse"] = partial(
+        candidate, persistent_scratch=prepared_scratch
+    )
     measure_combined_trace(
         args,
         torch,
         result,
-        dict(zip(ARMS, (current, candidate), strict=True)),
+        adapters,
         dict.fromkeys(ARMS, score_hosts),
         check_indices,
         label="topk_workspace",

@@ -446,3 +446,22 @@ checks actual reusable launch counts by row count before timing, preserves
 exact full indices, and times one new workspace per candidate request.
 
 [topk-workspace-long]: https://github.com/cheersluvs/FlagGems-vllm/commit/dcd30eba0cf8285b6c4c554f9287b2f58941d75b
+
+### Integrated INT8 entry
+
+The [workspace sweep][topk-workspace-sweep] reproduced 1.223x and 1.220x
+wall speedups above the route boundary. Full indices matched and both
+controls allocated zero extra scratch. The integrated shared-map INT8
+adapter can enable the same reuse with `--reuse-topk-scratch`. The existing
+TopK backend owns the allocator and accepts optional scratch; the adapter
+owns one lazy scratch object per invocation. No other routes use it. The
+standalone probes exercise the same implementation.
+
+The ten-case run retains the full fused CANN V1 device-kernel comparison
+and individual score and TopK device sums. It also checks exact indices
+against the same adapter with reuse disabled. On `long100k` it validates
+consecutive asynchronous calls and records six unprofiled wall pairs with
+fresh request scratch on each candidate call. The wall comparison uses the
+old adapter as its control. The CANN kernel ratio uses device-task sums.
+
+[topk-workspace-sweep]: https://github.com/cheersluvs/FlagGems-vllm/commit/0b57d83755ed7b09b2f4491bc945f200b0db1587

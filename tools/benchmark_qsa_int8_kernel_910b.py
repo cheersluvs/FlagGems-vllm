@@ -25,6 +25,7 @@ import subprocess
 import sys
 import time
 import traceback
+from copy import copy
 from itertools import permutations
 from pathlib import Path
 
@@ -311,6 +312,7 @@ def run_case(args):
                         visibility_policy=args.visibility_policy,
                         page_reuse=args.page_reuse_dispatch,
                         page_reuse_full=args.page_reuse_full_dispatch,
+                        reuse_topk_scratch=args.reuse_topk_scratch,
                     )
 
                 adapter = prepare_shared_adapter()
@@ -463,6 +465,7 @@ def run_case(args):
                     64 if args.single_page64_dispatch and adapter.single_page64 else 128
                 ),
                 topk_call_rows=32,
+                reuse_topk_scratch=args.reuse_topk_scratch,
                 scope="Prepared INT8 trial adapter; BF16 production unchanged",
             )
 
@@ -904,6 +907,48 @@ def run_case(args):
                         checks=result["correctness"][name],
                     )
                 ),
+                flush=True,
+            )
+        if args.reuse_topk_scratch:
+            from probe_qsa_int8_group_visible_request_910b import measure_request_wall
+            from probe_qsa_int8_topk_workspace_910b import (
+                ARMS,
+                verify_workspace_request,
+            )
+
+            result["stage"] = "integrated_topk_scratch_check"
+            control = copy(adapter)
+            control.reuse_topk_scratch = False
+            verify_indices, scratch_stats = verify_workspace_request(
+                torch, control, adapter, args.case == "int8_long100k", inputs["visible"]
+            )
+            result["topk_scratch"] = scratch_stats
+            result["correctness"]["topk_scratch_exact_vs_current"] = True
+            if scratch_stats["bytes"]:
+                arms = dict(zip(ARMS, (control, adapter), strict=True))
+                result["topk_scratch_wall_us"] = measure_request_wall(
+                    ARMS,
+                    arms.__getitem__,
+                    torch.npu.synchronize,
+                    verify_indices,
+                    6,
+                    record_group_visible=False,
+                )
+                print(
+                    "INTEGRATED_TOPK_SCRATCH_WALL",
+                    json.dumps(
+                        {
+                            k: v
+                            for k, v in result["topk_scratch_wall_us"].items()
+                            if k != "samples"
+                        }
+                    ),
+                    flush=True,
+                )
+            print(
+                "INTEGRATED_TOPK_SCRATCH",
+                args.case,
+                json.dumps(scratch_stats),
                 flush=True,
             )
         if args.bound_combined_samples:
@@ -1421,6 +1466,11 @@ def main():
         help="Use guarded QK score adapter; requires --integrated",
     )
     parser.add_argument(
+        "--reuse-topk-scratch",
+        action="store_true",
+        help="Enable request-local persistent TopK scratch in the integrated shared-map adapter",
+    )
+    parser.add_argument(
         "--summarize-only",
         action="store_true",
         help="Regenerate summary/CSV from saved entries; no NPU execution",
@@ -1532,6 +1582,10 @@ def main():
         args.bound_combined_samples or args.audit_topk_boundary or args.interleave_score
     ):
         parser.error("Standalone request probes use their own timing path")
+    if args.reuse_topk_scratch and (not args.shared_map_qk or args.standalone_probe):
+        parser.error(
+            "Integrated TopK scratch reuse requires --shared-map-qk without a standalone probe"
+        )
     if args.group_visible_request_samples and args.group_visible_request_samples < 2:
         parser.error("GroupVisible request wall timing requires at least two samples")
     if args.topk_workspace_samples and args.topk_workspace_samples < 2:
@@ -1681,6 +1735,8 @@ def main():
             command.extend(["--bound-reuse-counts", *map(str, args.bound_reuse_counts)])
         if args.integrated:
             command.append("--integrated")
+        if args.reuse_topk_scratch:
+            command.append("--reuse-topk-scratch")
         if args.shared_map_qk:
             command.append("--shared-map-qk")
         if args.key_group4_dispatch:

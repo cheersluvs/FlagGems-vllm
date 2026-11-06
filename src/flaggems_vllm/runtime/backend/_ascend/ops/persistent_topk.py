@@ -1359,6 +1359,35 @@ def _persistent_topk_segmerge_persistent_half(
     )
 
 
+def _allocate_psegmerge_scratch(num_rows, segs, k, device):
+    props = torch.empty((num_rows, segs, 2 * k), device=device, dtype=torch.float32)
+    nv_props = torch.empty((num_rows, segs), device=device, dtype=torch.int32)
+    first_groups = (segs + _PSEGMERGE_FANOUT - 1) // _PSEGMERGE_FANOUT
+    buf_a = torch.empty(
+        (num_rows, first_groups, 2 * k), device=device, dtype=torch.float32
+    )
+    buf_b = torch.empty(
+        (num_rows, first_groups, 2 * k), device=device, dtype=torch.float32
+    )
+    nv_a = torch.empty((num_rows, first_groups), device=device, dtype=torch.int32)
+    nv_b = torch.empty((num_rows, first_groups), device=device, dtype=torch.int32)
+    scratch = torch.empty((num_rows, 2 * k), device=device, dtype=torch.float32)
+    return props, nv_props, buf_a, buf_b, nv_a, nv_b, scratch
+
+
+class _PersistentTopKScratch:
+    """Own scratch for sequential launches on one request's NPU stream."""
+
+    def __init__(self):
+        self.buffers = {}
+
+    def get(self, num_rows, segs, k, device):
+        key = (num_rows, segs, k, device)
+        if key not in self.buffers:
+            self.buffers[key] = _allocate_psegmerge_scratch(*key)
+        return self.buffers[key]
+
+
 def _persistent_topk_segmerge_persistent(
     logits: torch.Tensor,
     seq_lens: torch.Tensor,
@@ -1366,29 +1395,20 @@ def _persistent_topk_segmerge_persistent(
     k: int,
     max_seq_len: int,
     next_n: int,
+    persistent_scratch: _PersistentTopKScratch | None = None,
 ) -> None:
     """Run the persistent (fixed grid + in-core striding) path for long rows."""
     num_rows = logits.size(0)
     stride = logits.stride(0)
     segs = (max_seq_len + _SEGMERGE_SEG - 1) // _SEGMERGE_SEG
-    props = torch.empty(
-        (num_rows, segs, 2 * k), device=logits.device, dtype=torch.float32
+    allocate = (
+        _allocate_psegmerge_scratch
+        if persistent_scratch is None
+        else persistent_scratch.get
     )
-    nv_props = torch.empty((num_rows, segs), device=logits.device, dtype=torch.int32)
-    first_groups = (segs + _PSEGMERGE_FANOUT - 1) // _PSEGMERGE_FANOUT
-    buf_a = torch.empty(
-        (num_rows, first_groups, 2 * k), device=logits.device, dtype=torch.float32
+    props, nv_props, buf_a, buf_b, nv_a, nv_b, scratch = allocate(
+        num_rows, segs, k, logits.device
     )
-    buf_b = torch.empty(
-        (num_rows, first_groups, 2 * k), device=logits.device, dtype=torch.float32
-    )
-    nv_a = torch.empty(
-        (num_rows, first_groups), device=logits.device, dtype=torch.int32
-    )
-    nv_b = torch.empty(
-        (num_rows, first_groups), device=logits.device, dtype=torch.int32
-    )
-    scratch = torch.empty((num_rows, 2 * k), device=logits.device, dtype=torch.float32)
     sort_impl = _psegmerge_sort_impl(k)
     tmp_sz = _psegmerge_sort_tmp_size(_SEGMERGE_SEG, k, sort_impl)
     _psegmerge_seg_sort[(_PSEGMERGE_GRID,)](
@@ -1437,7 +1457,9 @@ def persistent_topk(
     max_seq_len: int | None = None,
     *,
     block: int | None = None,
+    persistent_scratch: _PersistentTopKScratch | None = None,
 ) -> None:
+    """Select indices, optionally reusing one request's same-stream scratch."""
     # The default preserves existing callers; QSA supplies its own tile size.
     if block is None:
         block = _BLOCK
@@ -1487,7 +1509,7 @@ def persistent_topk(
     ):
         try:
             _persistent_topk_segmerge_persistent(
-                logits, seq_lens, output, k, msl, next_n
+                logits, seq_lens, output, k, msl, next_n, persistent_scratch
             )
             return
         except Exception as exc:  # compile/launch failure -> permanent fallback
