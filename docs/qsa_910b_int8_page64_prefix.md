@@ -487,3 +487,60 @@ with preparation and first execution timed. The fresh comparison included
 large individual pair differences, and its zero-hit control measured
 0.987x. Candidate status is opt-in for the prepared INT8 entry. The benchmark
 uses `--bound-combined-samples 6 --include-request-preparation`.
+
+## Closeout of the five follow-up experiments
+
+The reference remains the default prepared INT8 path: guarded N64/query16
+dispatch, conservative visibility skipping, and page lookup reuse in both the
+bounded and full-dot loops. It uses the existing FP32 score formula and Ascend
+`persistent_topk` TLE sort/merge. This is a prepared trial entry under
+`tools/`; it is not wired into the public vLLM-Ascend model path.
+
+| Step | Result | Disposition |
+| --- | --- | --- |
+| 1. Cut the current scorer into prefixes | In `budget_exact`, adding key-scale dequantization increased the representative chunk by 8.02 us. The `long100k` complete scorer was faster than the dot cut, so its post-dot costs cannot be inferred by subtracting the cuts. [Report][closeout-prefix] | Use the cuts to select probes. Each cut has a score sink and may change compiler scheduling. |
+| 2. Compare scale order | Late key scale scored 1.047x on the bounded chunk and 0.996x on the full-dot chunk. Combining query scale and weight reached 1.056x and 0.984x, respectively. Restricted full-input dispatch gave 1.030x (`budget_exact`), 1.034x (`tail112`), 1.025x (`two_balanced`), and 1.003x (`long100k`). [Chunk comparison][closeout-scale] · [Full inputs][closeout-scale-full] · [Budget replay][closeout-scale-budget] | Keep query scale plus weight as an opt-in bounded-loop candidate. Keep late key scale at probe scope. The two were tested independently. |
+| 3. Change head reduction layout | The head-last transpose compiled but failed finite/mask checks. Explicit gather passed tolerance checks and preserved the selected sets on both representative chunks, but took about 1,052x and 3,775x the current scorer's time. The inner loop contained four gather calls and the compiler workspace grew by 80 KiB. [Transpose][closeout-transpose] · [Gather][closeout-gather] | Keep the current `tl.sum` and score store. Neither candidate is eligible for dispatch. |
+| 4. Simplify scalar addressing and bounds | The page address multiply moved out of the tile loop, but measured 0.996x/0.995x (full-dot/bounded). Sharing the visible prefix simplified its calculation by one `min` and one subtraction, but measured 0.995x/1.007x. Both rewrites matched the current scores and TopK indices exactly on the two chunks. [Address][closeout-address] · [Boundary][closeout-boundary] | Keep the current addressing and bounds. The measured differences were under 1%. |
+| 5. Bind host launches | On prepared tensors, measured single-call speedups were 1.034x/1.030x (`budget_exact`/`short_tail`) including binding. With a fresh adapter, metadata preparation and one execution, the speedups were 1.025x/1.044x, and the zero-hit `first_chunk` control was 1.004x. TopK indices matched. [Reuse sweep][closeout-reuse] · [Fresh single call][closeout-fresh] | Keep the explicit `prepare_bound_execution()` candidate. The single-call experiment supports typical latency gains in the two high-hit fixtures. The zero-hit control and the large outliers prevent a tail-latency claim. |
+
+The bounded query-weight candidate requires finite, nonnegative query scales.
+It is available in the benchmark through `--interleave-score
+--bounded-query-weight`. It changed the TopK set in 3 of the 65,465 rows
+across the four full inputs. The audit reproduced all three replacements at
+rank 512, with tied values or a one-ULP difference under either scorer. One
+row had strict, opposite rankings in the two scorers. Index order also
+changed. Promotion requires checking the consumer's index contract and, if
+boundary substitutions are allowed, measuring sparse attention output on the
+affected rows. [Boundary audit][closeout-index-audit]
+
+The bound plan captures the adapter's tensor views and buffers. Reuse is
+sequential with the same prepared inputs; zero-hit requests take the ordinary
+execution path. Inspection of the vLLM-Ascend image showed one indexer
+selection per regular QSA forward, while the MTP `skip_topk` branch returns
+existing indices. The fresh single-call benchmark therefore times the relevant
+shape of work, from already available tensors through selection. It excludes
+model projections and cache updates. The candidate remains opt-in until it
+can be tested on actual inference traffic for route hit rate and tail latency.
+
+For an independent reading of the remaining gap, the three-case default
+device benchmark measured 0.597x/0.482x/0.525x versus the fused CANN V1
+baseline (`short_tail`/`budget_exact`/`long100k`). TopK was 51%–53% of
+our separate score-plus-TopK device times. Native V1 does not expose per-stage
+times. The bound-plan gain is a wall-time result and should not be added to
+the score-only speedup or used to revise the device benchmark. [Default device
+benchmark][closeout-device] · [Score profiling][closeout-profile]
+
+[closeout-prefix]: https://github.com/cheersluvs/FlagGems-vllm/commit/7174c539381800ca000113671fdd9e29600579bb
+[closeout-scale]: https://github.com/cheersluvs/FlagGems-vllm/commit/b7545d8e060c437a9fd5787e2d9de1462c0e1ea9
+[closeout-scale-full]: https://github.com/cheersluvs/FlagGems-vllm/commit/bcb80bb7c3d47be73260dbfa0d7150fcc4e43695
+[closeout-scale-budget]: https://github.com/cheersluvs/FlagGems-vllm/commit/4927630cc1101842ecec410f3ddaf970a1b610c2
+[closeout-index-audit]: https://github.com/cheersluvs/FlagGems-vllm/commit/09855b2dcbba06275aaa6bffd8160231b50c6c56
+[closeout-transpose]: https://github.com/cheersluvs/FlagGems-vllm/commit/53760a3f9288260c5efc34cb8497f33fcb79be3f
+[closeout-gather]: https://github.com/cheersluvs/FlagGems-vllm/commit/f2364fe70dad85de0f2fbcf1a6e662673abcdd02
+[closeout-address]: https://github.com/cheersluvs/FlagGems-vllm/commit/bf8df1276f52e99821a90e4bffc1ef122df6e554
+[closeout-boundary]: https://github.com/cheersluvs/FlagGems-vllm/commit/ff5ab18521e9052cf097112c6d42b840ea36ae6e
+[closeout-reuse]: https://github.com/cheersluvs/FlagGems-vllm/commit/83b69da212f85343d2e9f4b8c1c1266de5185d3b
+[closeout-fresh]: https://github.com/cheersluvs/FlagGems-vllm/commit/361c30c4a01dc9e32131fecd02261ca5da43db77
+[closeout-device]: https://github.com/cheersluvs/FlagGems-vllm/commit/8962677938a27f5063cd2ed4df04f6a8f5ed9004
+[closeout-profile]: https://github.com/cheersluvs/FlagGems-vllm/commit/b9159913dcd9dd6a6103eab9199b5cb90b32739f
