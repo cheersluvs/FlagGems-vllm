@@ -40,6 +40,44 @@ from qsa_kernel_benchmark_910b import aggregate, setup  # noqa: E402
 from tools.qsa_int8_ten_workloads_910b import make_inputs, sample_rows  # noqa: E402
 
 
+def topk_boundary_changes(
+    torch, first, lengths, control_logits, candidate_logits, control_idx, candidate_idx
+):
+    """Inspect changed selections against each scorer's exact cutoff."""
+    changed = (control_idx.sort(dim=1).values != candidate_idx.sort(dim=1).values).any(
+        dim=1
+    )
+    details = []
+    for row in changed.nonzero().flatten().tolist():
+        length = int(lengths[row])
+        control = set(control_idx[row].tolist()) - {-1}
+        candidate = set(candidate_idx[row].tolist()) - {-1}
+        removed, added = sorted(control - candidate), sorted(candidate - control)
+        entry = dict(row=first + row, visible=length, removed=removed, added=added)
+        for label, logits in (
+            ("control", control_logits),
+            ("candidate", candidate_logits),
+        ):
+            values = logits[row, :length].cpu()
+            cutoff = float(torch.topk(values, min(512, length)).values[-1])
+            entry[label] = dict(
+                cutoff=cutoff,
+                strictly_above=int((values > cutoff).sum()),
+                tied_at_cutoff=int((values == cutoff).sum()),
+                changed=[
+                    dict(
+                        index=index,
+                        score=float(values[index]),
+                        delta_from_cutoff=float(values[index]) - cutoff,
+                        strictly_above=int((values > values[index]).sum()),
+                    )
+                    for index in removed + added
+                ],
+            )
+        details.append(entry)
+    return details
+
+
 def run_case(args):
     result, code = dict(case=args.case, status="failed", mode="kernel"), 1
     report = Path(args.report)
@@ -907,26 +945,28 @@ def run_case(args):
                 qk_adapter.score_all()
 
             jobs["qk_score"] = qk_score_stage
-        result["stage"] = "kernel_timer"
-        if args.integrated:
-            jobs.pop("native_chunked")
-        timer_setup = setup
-        if args.integrated:
-            from qsa_int8_stage_trace_timer_910b import setup_stage_trace
+        if not args.audit_topk_boundary:
+            result["stage"] = "kernel_timer"
+            if args.integrated:
+                jobs.pop("native_chunked")
+            timer_setup = setup
+            if args.integrated:
+                from qsa_int8_stage_trace_timer_910b import setup_stage_trace
 
-            timer_setup = setup_stage_trace
-        measure = timer_setup(
-            args,
-            dict(
-                chunks=chunks,
-                score_into=(
-                    legacy_adapter.score_into if args.shared_map_qk else score_into
+                timer_setup = setup_stage_trace
+            measure = timer_setup(
+                args,
+                dict(
+                    chunks=chunks,
+                    score_into=(
+                        legacy_adapter.score_into if args.shared_map_qk else score_into
+                    ),
+                    logits=scratch,
                 ),
-                logits=scratch,
-            ),
-            torch,
-            result,
-        )
+                torch,
+                result,
+            )
+
         paired_samples = {}
         if args.interleave_score:
             from collections import Counter
@@ -940,6 +980,8 @@ def run_case(args):
                     rows=rows, identical_set_rows=0, identical_order_rows=0
                 )
                 result["bounded_query_weight"]["topk_pair"] = topk_pair
+                if args.audit_topk_boundary:
+                    topk_pair["boundary_changes"] = []
             for name, prepared in (
                 ("score", adapter),
                 ("dispatch_score", dispatch_adapter),
@@ -977,6 +1019,18 @@ def run_case(args):
                         topk_pair["identical_order_rows"] += int(
                             (candidate_idx == control_idx).all(dim=1).sum()
                         )
+                        if args.audit_topk_boundary:
+                            topk_pair["boundary_changes"].extend(
+                                topk_boundary_changes(
+                                    torch,
+                                    first,
+                                    lengths,
+                                    current_logits,
+                                    candidate_logits,
+                                    control_idx,
+                                    candidate_idx,
+                                )
+                            )
                         candidate_scores = selected_scores(
                             current_logits, candidate_idx.to(device), candidate_idx
                         )
@@ -1009,6 +1063,14 @@ def run_case(args):
                 raise AssertionError(
                     "No selected skip chunks but score binaries differ"
                 )
+        if args.audit_topk_boundary:
+            result["measurement_scope"] = (
+                "Full-input correctness and TopK boundary audit"
+            )
+            result["stage"], result["status"] = "audit_completed", "passed"
+            return write_case_result(args, report, result, 0)
+
+        if args.interleave_score:
             paired_samples, orders = measure_prefix_plan(
                 args,
                 ("score", "dispatch_score"),
@@ -1147,6 +1209,10 @@ def run_case(args):
         code = 2
     except Exception:
         result["traceback"] = traceback.format_exc()
+    return write_case_result(args, report, result, code)
+
+
+def write_case_result(args, report, result, code):
     for name in (
         Path(__file__).name,
         "qsa_int8_score_910b_trial.py",
@@ -1154,6 +1220,7 @@ def run_case(args):
         "qsa_prefill_fp8_workloads.py",
         "qsa_kernel_benchmark_910b.py",
         "probe_qsa_int8_ten_shapes_910b.py",
+        "probe_qsa_int8_page64_prefix_910b.py",
         "qsa_int8_selection_910b_trial.py",
         "qsa_int8_shared_map_selection_910b_trial.py",
         "qsa_int8_page64_query16_910b_trial.py",
@@ -1286,7 +1353,14 @@ def main():
         action="store_true",
         help="Compare coefficient merging only on bounded page-reuse chunks against default dispatch",
     )
+    parser.add_argument(
+        "--audit-topk-boundary",
+        action="store_true",
+        help="Inspect changed TopK sets without collecting benchmark timings",
+    )
     args = parser.parse_args()
+    if args.audit_topk_boundary and not args.bounded_query_weight:
+        parser.error("--audit-topk-boundary requires --bounded-query-weight")
     if args.include_request_preparation and not args.bound_combined_samples:
         parser.error("--include-request-preparation requires --bound-combined-samples")
     if args.bound_combined_samples < 0 or (
@@ -1396,6 +1470,8 @@ def main():
             command.append("--interleave-score")
         if args.bounded_query_weight:
             command.append("--bounded-query-weight")
+        if args.audit_topk_boundary:
+            command.append("--audit-topk-boundary")
         if args.skip_invisible_dispatch:
             command.extend(
                 [
@@ -1433,6 +1509,17 @@ def summarize(report, entries, names, args):
         if len(passed) == len(names)
         else (2 if all(e["status"] == "prerequisites_missing" for e in entries) else 1)
     )
+    if args.audit_topk_boundary:
+        (report / "summary.json").write_text(
+            json.dumps(
+                dict(exit_code=status, cases=entries, scope="TopK boundary audit only"),
+                indent=2,
+            )
+        )
+        print(
+            f"TopK boundary audit: {len(passed)}/{len(names)} cases passed", flush=True
+        )
+        return status
     complete = len(names) == len(PLANS) and len(passed) == len(PLANS)
     summary = dict(
         exit_code=status,
