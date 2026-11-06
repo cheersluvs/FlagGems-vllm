@@ -80,6 +80,29 @@ def build_current_prefix(kernel, arm):
         for i, node in enumerate(tile.body)
         if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
     }
+    if arm == "key_boundary":
+        max_visible = next(
+            i
+            for i, node in enumerate(unit.body)
+            if isinstance(node, ast.Assign)
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "max_visible"
+        )
+        unit.body.insert(
+            max_visible + 1,
+            ast.parse("key_limit = tl.minimum(WIDTH, max_visible)").body[0],
+        )
+        start, end = assignments["columns"], assignments["key_live"]
+        tile.body[start : end + 1] = ast.parse(
+            "column_base = tile * BLOCK_N\n"
+            "columns = column_base + tl.arange(0, BLOCK_N)\n"
+            "valid_keys = tl.maximum(0, tl.minimum(BLOCK_N, key_limit - column_base))\n"
+            "key_live = tl.arange(0, BLOCK_N) < valid_keys"
+        ).body
+        return (
+            "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+        )
+
     if arm == "page_address":
         page.body.insert(
             page.body.index(tile),
@@ -517,7 +540,8 @@ def run_case(args):
             raise NotImplementedError("910B required")
         plan = PLANS[args.case]
         inputs = make_inputs(plan)
-        full_score_ab = args.scale_order or args.head_layout or args.page_address
+        address_only = args.page_address or args.key_boundary
+        full_score_ab = args.scale_order or args.head_layout or address_only
         if args.scale_order:
             for name in ("qs", "ks"):
                 scale = inputs[name]
@@ -687,6 +711,11 @@ def run_case(args):
                 result["scope"] = (
                     "Hoist the physical-minus-logical token base per page; reuse the "
                     "tile column base for K/KS addressing. TopK checked outside timing."
+                )
+            if args.key_boundary:
+                result["scope"] = (
+                    "One shared K/KS prefix length from a group-level visible bound; "
+                    "same page traversal and score store. TopK checked outside timing."
                 )
             print("CURRENT_PAGE_ROUTE", json.dumps(route), flush=True)
         kernels = load_kernels(report, args.case, current)
@@ -1022,6 +1051,37 @@ def run_case(args):
                 ]
                 result["compiler"][name]["page_address_ir"] = address_ir
                 print("PAGE_ADDRESS_IR", name, json.dumps(address_ir), flush=True)
+            if args.key_boundary:
+                lines = kernel.asm["bcmlir"].splitlines()
+                dot_line = next(
+                    (i for i, line in enumerate(lines) if "linalg.matmul " in line),
+                    len(lines),
+                )
+                tile_loop = max(
+                    (
+                        i
+                        for i, line in enumerate(lines[:dot_line])
+                        if "scf.for " in line
+                    ),
+                    default=0,
+                )
+                boundary_ir = [
+                    dict(line=i + 1, ir=lines[i].strip())
+                    for i in range(tile_loop, dot_line)
+                    if any(
+                        op in lines[i]
+                        for op in (
+                            "scf.for ",
+                            "arith.minsi ",
+                            "arith.maxsi ",
+                            "arith.subi ",
+                            "memref.subview ",
+                            "memref.copy ",
+                        )
+                    )
+                ]
+                result["compiler"][name]["key_boundary_ir"] = boundary_ir
+                print("KEY_BOUNDARY_IR", name, json.dumps(boundary_ir), flush=True)
             result["prechecks"][name] = check(name, targets[name], first, count, width)
         reference = torch.empty_like(scratch)
         adapter.score_into(first, count, reference)
@@ -1080,8 +1140,8 @@ def run_case(args):
                         scores, current_scores, rtol=1e-3, atol=1e-3
                     ),
                 )
-                if args.page_address and not checks[name]["exact_scores"]:
-                    raise AssertionError(f"Page address rewrite changed scores: {name}")
+                if address_only and not checks[name]["exact_scores"]:
+                    raise AssertionError(f"Address/mask rewrite changed scores: {name}")
                 if not checks[name]["selected_scores_match"]:
                     raise AssertionError(f"Selected scores differ from current: {name}")
             return checks
@@ -1281,6 +1341,15 @@ def run_case(args):
             print(
                 "PAGE_ADDRESS_SPEEDUP_VS_CURRENT",
                 result["page_address_speedup_vs_current"],
+                flush=True,
+            )
+        if args.key_boundary:
+            result["key_boundary_speedup_vs_current"] = (
+                times["current"] / times["key_boundary"]
+            )
+            print(
+                "KEY_BOUNDARY_SPEEDUP_VS_CURRENT",
+                result["key_boundary_speedup_vs_current"],
                 flush=True,
             )
         print("arm | kernel_us | relative_to_current", flush=True)
@@ -1502,11 +1571,28 @@ def main():
         action="store_true",
         help="Compare hoisted per-page token base with the current page-reuse scorer",
     )
+    parser.add_argument(
+        "--key-boundary",
+        action="store_true",
+        help="Share one visible prefix length between K and key scale loads",
+    )
     args = parser.parse_args()
-    if args.page_address and (
-        not args.current_page_prefix or args.scale_order or args.head_layout
-    ):
-        parser.error("--page-address requires --current-page-prefix by itself")
+    if args.page_address or args.key_boundary:
+        if (
+            not args.current_page_prefix
+            or sum(
+                (
+                    args.page_address,
+                    args.key_boundary,
+                    args.scale_order,
+                    args.head_layout,
+                )
+            )
+            != 1
+        ):
+            parser.error(
+                "Address experiments require --current-page-prefix and one variant"
+            )
     if args.head_layout_variant != "transpose" and not args.head_layout:
         parser.error("--head-layout-variant requires --head-layout")
     if args.head_layout and (not args.current_page_prefix or args.scale_order):
@@ -1565,15 +1651,14 @@ def main():
     if args.cube_boundary:
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if args.current_page_prefix:
-        ARMS = (
-            HEAD_LAYOUT_ARMS[args.head_layout_variant]
-            if args.head_layout
-            else (
-                ("page_address", "current")
-                if args.page_address
-                else SCALE_ORDER_ARMS if args.scale_order else CURRENT_PREFIX_ARMS
-            )
-        )
+        if args.head_layout:
+            ARMS = HEAD_LAYOUT_ARMS[args.head_layout_variant]
+        elif args.page_address:
+            ARMS = ("page_address", "current")
+        elif args.key_boundary:
+            ARMS = ("key_boundary", "current")
+        else:
+            ARMS = SCALE_ORDER_ARMS if args.scale_order else CURRENT_PREFIX_ARMS
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive iterations required")
     report = Path(args.report)
@@ -1608,6 +1693,8 @@ def main():
             command.append("--scale-order")
         if args.page_address:
             command.append("--page-address")
+        if args.key_boundary:
+            command.append("--key-boundary")
         if args.head_layout:
             command.extend(
                 ["--head-layout", "--head-layout-variant", args.head_layout_variant]
