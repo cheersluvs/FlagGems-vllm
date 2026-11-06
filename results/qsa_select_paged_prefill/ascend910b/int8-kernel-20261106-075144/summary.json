@@ -1,0 +1,1917 @@
+{
+  "exit_code": 0,
+  "cases": [
+    {
+      "case": "int8_long100k",
+      "status": "passed",
+      "mode": "kernel",
+      "geometry": {
+        "name": "int8_long100k",
+        "nv_case": "fp8_long100k_float8_e4m3fn",
+        "origin": "dtype_variant",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          102400
+        ],
+        "starts": [
+          0,
+          16384
+        ],
+        "batch_max_seq_len": 118784,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          155
+        ],
+        "physical_pages": 155,
+        "table_columns": 155,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          155,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 29696,
+        "chunk_rows": 112,
+        "score_and_dot_scratch_bytes": 66519040,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": null,
+        "nv_original_table_columns": null,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device": "Ascend910B4-1",
+        "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU",
+        "topk_route_requested": "auto",
+        "device_isolation": "not_verified"
+      },
+      "measurement_scope": "Current vs one-copy GroupVisible; paired score device time and prepared/fresh request wall phases",
+      "stage": "group_visible_request_completed",
+      "correctness": {
+        "full_scores_bitwise_equal": true,
+        "all_topk_indices_bitwise_equal": true,
+        "cpu_reference_rows": [
+          0,
+          111,
+          112,
+          8192,
+          16352,
+          16383
+        ],
+        "chunks": 147
+      },
+      "group_visible_prepared": {
+        "hit_chunks": 147,
+        "bytes": 4096,
+        "groups_from_policy": 1024,
+        "copies": 1,
+        "pack_us": 107.21,
+        "alloc_copy_us": 419.224,
+        "prepare_us": 526.434
+      },
+      "score_binaries": {
+        "current": [
+          [
+            "_qsa_page64_page_reuse_full_score",
+            "39243371a6a2fe5af99548ba8d80a332389c79356f58f02a156608dd8c10a0f3"
+          ],
+          [
+            "_qsa_page64_page_reuse_full_score",
+            "aec90ac40152f3fa6b06378ff999b9f01c0cd3604d60568155b66ecff6ed42ce"
+          ],
+          [
+            "_qsa_page64_page_reuse_score",
+            "0dfcbf29a8f75e9f69b81727c408c09e572be0c873b24cb49bcc46be77f7b9a5"
+          ]
+        ],
+        "group_visible": [
+          [
+            "_qsa_page64_prefix_group_visible_bounded",
+            "0123dc69acde5c302c1130ca0e2e2eabe32fabcf42efb00b5c6be9d216a9df18"
+          ],
+          [
+            "_qsa_page64_prefix_group_visible_full",
+            "47b3aa83d8f60925cd03d1a8c655283e5287415c4071cc4df4654e32e568299b"
+          ],
+          [
+            "_qsa_page64_prefix_group_visible_full",
+            "c25c20aedf6b769242496a773299a88c52c1828f7e0dc0046766ceb24cd7ebb9"
+          ]
+        ]
+      },
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-group-visible-wall.jkMGEHcw/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+        "utility": "/tmp/flaggems-qsa-group-visible-wall.jkMGEHcw/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "kernel_timer": {
+        "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+        "prefix_plan_artifact": "int8_long100k-prefix-plan-01.json.gz"
+      },
+      "single_capture_plan": [
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 1
+        }
+      ],
+      "single_capture_counts": {
+        "expected_host_counts": {
+          "_qsa_page64_page_reuse_score": 52,
+          "_qsa_page64_page_reuse_full_score": 536,
+          "_qsa_page64_prefix_group_visible_bounded": 52,
+          "_qsa_page64_prefix_group_visible_full": 536
+        },
+        "observed_host_counts": {
+          "_qsa_page64_page_reuse_score": 52,
+          "_qsa_page64_page_reuse_full_score": 536,
+          "_qsa_page64_prefix_group_visible_bounded": 52,
+          "_qsa_page64_prefix_group_visible_full": 536
+        },
+        "tasks_per_window": [
+          147,
+          147,
+          147,
+          147,
+          147,
+          147,
+          147,
+          147
+        ],
+        "expected_tasks_per_window": [
+          147,
+          147,
+          147,
+          147,
+          147,
+          147,
+          147,
+          147
+        ]
+      },
+      "score_device_us": {
+        "medians": {
+          "current": 45324.52,
+          "group_visible": 43634.73000000001
+        },
+        "samples": {
+          "current": [
+            {
+              "kernel_us": 45296.630000000005,
+              "active_invocation_us": [
+                45284.42000000002,
+                45308.83999999998
+              ],
+              "artifact": "int8_long100k-prefix-plan-01.json.gz",
+              "window_indices": [
+                0,
+                2
+              ],
+              "device_task_count": 294
+            },
+            {
+              "kernel_us": 45342.59,
+              "active_invocation_us": [
+                45344.97999999998,
+                45340.20000000001
+              ],
+              "artifact": "int8_long100k-prefix-plan-01.json.gz",
+              "window_indices": [
+                5,
+                7
+              ],
+              "device_task_count": 294
+            }
+          ],
+          "group_visible": [
+            {
+              "kernel_us": 43624.69000000001,
+              "active_invocation_us": [
+                43597.70000000002,
+                43651.68
+              ],
+              "artifact": "int8_long100k-prefix-plan-01.json.gz",
+              "window_indices": [
+                1,
+                3
+              ],
+              "device_task_count": 294
+            },
+            {
+              "kernel_us": 43634.73000000001,
+              "active_invocation_us": [
+                43619.54000000003,
+                43649.91999999999
+              ],
+              "artifact": "int8_long100k-prefix-plan-01.json.gz",
+              "window_indices": [
+                4,
+                6
+              ],
+              "device_task_count": 294
+            }
+          ]
+        },
+        "paired_saved_us": [
+          1686.7200000000012,
+          1657.1599999999817,
+          1725.4399999999514,
+          1690.2800000000207
+        ],
+        "speedup": 1.0387258039639522
+      },
+      "prepared_request_wall_us": {
+        "medians": {
+          "current": 297971.5725,
+          "group_visible": 298095.6895
+        },
+        "phase_medians_us": {
+          "preparation_us": {
+            "current": 2.2649999999999997,
+            "group_visible": 2.3449999999999998
+          },
+          "submit_us": {
+            "current": 297874.9815,
+            "group_visible": 297470.713
+          },
+          "sync_us": {
+            "current": 95.76599999999999,
+            "group_visible": 107.4015
+          },
+          "wall_us": {
+            "current": 297971.5725,
+            "group_visible": 298095.6895
+          }
+        },
+        "phase_paired_median_saved_us": {
+          "preparation_us": -0.09999999999999998,
+          "submit_us": -1858.8740000000107,
+          "sync_us": -6.229500000000002,
+          "wall_us": -1855.0194999999949
+        },
+        "samples": [
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 284708.59,
+              "preparation_us": 1.41,
+              "submit_us": 284617.26,
+              "sync_us": 89.92,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 296840.882,
+              "preparation_us": 2.11,
+              "submit_us": 295751.101,
+              "sync_us": 1087.671,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 107.21,
+                "alloc_copy_us": 419.224,
+                "prepare_us": 526.434
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 299350.497,
+              "preparation_us": 1.52,
+              "submit_us": 299190.325,
+              "sync_us": 158.652,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 107.21,
+                "alloc_copy_us": 419.224,
+                "prepare_us": 526.434
+              }
+            },
+            "current": {
+              "wall_us": 296438.737,
+              "preparation_us": 2.28,
+              "submit_us": 296338.946,
+              "sync_us": 97.511,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 309861.712,
+              "preparation_us": 2.04,
+              "submit_us": 309152.725,
+              "sync_us": 706.947,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 294855.552,
+              "preparation_us": 38.69,
+              "submit_us": 293714.471,
+              "sync_us": 1102.391,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 107.21,
+                "alloc_copy_us": 419.224,
+                "prepare_us": 526.434
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 302903.753,
+              "preparation_us": 2.58,
+              "submit_us": 302804.702,
+              "sync_us": 96.471,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 107.21,
+                "alloc_copy_us": 419.224,
+                "prepare_us": 526.434
+              }
+            },
+            "current": {
+              "wall_us": 302105.474,
+              "preparation_us": 3.08,
+              "submit_us": 301938.333,
+              "sync_us": 164.061,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 302474.138,
+              "preparation_us": 2.05,
+              "submit_us": 302378.067,
+              "sync_us": 94.021,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 303062.044,
+              "preparation_us": 3.04,
+              "submit_us": 302966.353,
+              "sync_us": 92.651,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 107.21,
+                "alloc_copy_us": 419.224,
+                "prepare_us": 526.434
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 302444.138,
+              "preparation_us": 1.81,
+              "submit_us": 302342.947,
+              "sync_us": 99.381,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 107.21,
+                "alloc_copy_us": 419.224,
+                "prepare_us": 526.434
+              }
+            },
+            "current": {
+              "wall_us": 299504.408,
+              "preparation_us": 2.55,
+              "submit_us": 299411.017,
+              "sync_us": 90.841,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 293754.911,
+              "preparation_us": 2.76,
+              "submit_us": 293412.237,
+              "sync_us": 339.914,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 283257.796,
+              "preparation_us": 43.48,
+              "submit_us": 283098.894,
+              "sync_us": 115.422,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 107.21,
+                "alloc_copy_us": 419.224,
+                "prepare_us": 526.434
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 287757.73,
+              "preparation_us": 1.72,
+              "submit_us": 287676.88,
+              "sync_us": 79.13,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 107.21,
+                "alloc_copy_us": 419.224,
+                "prepare_us": 526.434
+              }
+            },
+            "current": {
+              "wall_us": 284024.633,
+              "preparation_us": 2.25,
+              "submit_us": 283947.172,
+              "sync_us": 75.211,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          }
+        ],
+        "speedup": 0.9995836336975951,
+        "paired_saved_us": [
+          -12132.291999999958,
+          -2911.759999999951,
+          15006.159999999974,
+          -798.2790000000386,
+          -587.9060000000172,
+          -2939.7299999999814,
+          10497.115000000049,
+          -3733.097000000009
+        ],
+        "candidate_wins": 2,
+        "scope": "Reuse an adapter on ready inputs, run score+TopK, then sync."
+      },
+      "request_wall_us": {
+        "medians": {
+          "current": 412398.72349999996,
+          "group_visible": 420372.1835
+        },
+        "phase_medians_us": {
+          "preparation_us": {
+            "current": 129851.625,
+            "group_visible": 135663.6875
+          },
+          "submit_us": {
+            "current": 282552.9185,
+            "group_visible": 284838.7865
+          },
+          "sync_us": {
+            "current": 85.686,
+            "group_visible": 95.956
+          },
+          "wall_us": {
+            "current": 412398.72349999996,
+            "group_visible": 420372.1835
+          }
+        },
+        "phase_paired_median_saved_us": {
+          "preparation_us": -7402.364500000003,
+          "submit_us": -2191.727499999979,
+          "sync_us": -7.049999999999997,
+          "wall_us": -10092.636499999993
+        },
+        "samples": [
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 432391.819,
+              "preparation_us": 151583.988,
+              "submit_us": 280730.6,
+              "sync_us": 77.231,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 451898.244,
+              "preparation_us": 165906.211,
+              "submit_us": 285887.972,
+              "sync_us": 104.061,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 106.371,
+                "alloc_copy_us": 456.024,
+                "prepare_us": 562.395
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 422041.865,
+              "preparation_us": 137588.727,
+              "submit_us": 284368.797,
+              "sync_us": 84.341,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 97.21,
+                "alloc_copy_us": 360.593,
+                "prepare_us": 457.803
+              }
+            },
+            "current": {
+              "wall_us": 414462.559,
+              "preparation_us": 130498.336,
+              "submit_us": 283879.092,
+              "sync_us": 85.131,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 410261.917,
+              "preparation_us": 125494.567,
+              "submit_us": 284685.98,
+              "sync_us": 81.37,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 734373.261,
+              "preparation_us": 451776.442,
+              "submit_us": 282504.559,
+              "sync_us": 92.26,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 88.291,
+                "alloc_copy_us": 513.296,
+                "prepare_us": 601.587
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 416717.361,
+              "preparation_us": 133738.648,
+              "submit_us": 282852.502,
+              "sync_us": 126.211,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 95.961,
+                "alloc_copy_us": 366.703,
+                "prepare_us": 462.664
+              }
+            },
+            "current": {
+              "wall_us": 410334.888,
+              "preparation_us": 129204.914,
+              "submit_us": 281046.743,
+              "sync_us": 83.231,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 406096.535,
+              "preparation_us": 123236.873,
+              "submit_us": 282765.661,
+              "sync_us": 94.001,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 418702.502,
+              "preparation_us": 130951.211,
+              "submit_us": 287652.57,
+              "sync_us": 98.721,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 104.621,
+                "alloc_copy_us": 404.064,
+                "prepare_us": 508.685
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 413885.353,
+              "preparation_us": 128874.29,
+              "submit_us": 284917.872,
+              "sync_us": 93.191,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 101.83,
+                "alloc_copy_us": 576.656,
+                "prepare_us": 678.486
+              }
+            },
+            "current": {
+              "wall_us": 418718.972,
+              "preparation_us": 136210.474,
+              "submit_us": 282340.176,
+              "sync_us": 168.322,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 421216.327,
+              "preparation_us": 139590.478,
+              "submit_us": 281539.608,
+              "sync_us": 86.241,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 636611.243,
+              "preparation_us": 351464.338,
+              "submit_us": 285062.644,
+              "sync_us": 84.261,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 94.56,
+                "alloc_copy_us": 434.164,
+                "prepare_us": 528.724
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 405988.165,
+              "preparation_us": 121129.363,
+              "submit_us": 284759.701,
+              "sync_us": 99.101,
+              "group_visible": {
+                "hit_chunks": 147,
+                "bytes": 4096,
+                "groups_from_policy": 1024,
+                "copies": 1,
+                "pack_us": 102.111,
+                "alloc_copy_us": 462.195,
+                "prepare_us": 564.306
+              }
+            },
+            "current": {
+              "wall_us": 406343.748,
+              "preparation_us": 123169.953,
+              "submit_us": 283084.074,
+              "sync_us": 89.721,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          }
+        ],
+        "speedup": 0.9810323796079623,
+        "paired_saved_us": [
+          -19506.42499999999,
+          -7579.305999999982,
+          -324111.34400000004,
+          -6382.472999999998,
+          -12605.967000000004,
+          4833.619000000006,
+          -215394.91600000003,
+          355.5830000000424
+        ],
+        "candidate_wins": 2,
+        "median_group_visible_prepare_us": 545.5595000000001,
+        "median_group_visible_pack_us": 99.52,
+        "median_group_visible_alloc_copy_us": 445.094,
+        "scope": "Fresh route/metadata preparation, one score+TopK request and final sync on ready inputs and buffers."
+      },
+      "sources": {
+        "benchmark_qsa_int8_kernel_910b.py": "9e97a0d1ffc9315f2047534daac564741b57b1c2578f4b57445d4dae2254164e",
+        "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+        "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+        "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+        "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+        "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+        "probe_qsa_int8_page64_prefix_910b.py": "6474046912c72c2bbd88a61815a8198a179d5f3452469df7b1485bb6cf956aba",
+        "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+        "qsa_int8_shared_map_selection_910b_trial.py": "f64cc2f128ce1dfe48b6f4e5dd419a91a01d618d383d465f35452196d9b4ca10",
+        "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+        "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "qsa_int8_stage_trace_timer_910b.py": "3047bd02b8dda4d6c6604ef8e4ced29e5d96a2c3d69e09d511b48e887ff92cea",
+        "benchmark_qsa_prefill_stages_910b.py": "fade15f762a97c5e5136d20e7535014042a16d76ccfee645e1f2e83839cbb696",
+        "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6",
+        "probe_qsa_int8_group_visible_request_910b.py": "c62294e3e4600e7743977dd601dfd62393a8690667a12a9a9924b19db7843d6a",
+        "probe_qsa_int8_score_sol_910b.py": "54183cc4eebc64009e2e4c55fb8a0aab6b2ad6be2c3433bde82df3f5387d0d32"
+      },
+      "exit_code": 0,
+      "subprocess_exit_code": 0
+    },
+    {
+      "case": "int8_first_chunk",
+      "status": "passed",
+      "mode": "kernel",
+      "geometry": {
+        "name": "int8_first_chunk",
+        "nv_case": "fp8_first_chunk_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          0
+        ],
+        "starts": [
+          0,
+          16384
+        ],
+        "batch_max_seq_len": 16384,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          22
+        ],
+        "physical_pages": 22,
+        "table_columns": 22,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          22,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 4096,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 10485760,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "environment": {
+        "python": "/flagos/bin/python3",
+        "torch": "2.10.0+cpu",
+        "torch_npu": "2.10.0",
+        "triton": "3.5.1",
+        "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+        "device": "Ascend910B4-1",
+        "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+        "opp": "/opt/qsa-opp-910b-qw4qRghU",
+        "topk_route_requested": "auto",
+        "device_isolation": "not_verified"
+      },
+      "measurement_scope": "Current vs one-copy GroupVisible; paired score device time and prepared/fresh request wall phases",
+      "stage": "group_visible_request_completed",
+      "correctness": {
+        "full_scores_bitwise_equal": true,
+        "all_topk_indices_bitwise_equal": true,
+        "cpu_reference_rows": [
+          0,
+          127,
+          128,
+          2046,
+          2047,
+          2048,
+          8192,
+          16256,
+          16383
+        ],
+        "chunks": 128
+      },
+      "group_visible_prepared": {
+        "hit_chunks": 0,
+        "bytes": 0,
+        "groups_from_policy": 0,
+        "copies": 0,
+        "pack_us": 0.0,
+        "alloc_copy_us": 0.0,
+        "prepare_us": 0.0
+      },
+      "score_binaries": {
+        "current": [
+          [
+            "_qsa_qk_key_group_score",
+            "870d63bc37b245938217115ae09dd2e151e023d2e68d97082f167dc86b539ce8"
+          ]
+        ],
+        "group_visible": [
+          [
+            "_qsa_qk_key_group_score",
+            "870d63bc37b245938217115ae09dd2e151e023d2e68d97082f167dc86b539ce8"
+          ]
+        ]
+      },
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-group-visible-wall.jkMGEHcw/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+        "utility": "/tmp/flaggems-qsa-group-visible-wall.jkMGEHcw/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "kernel_timer": {
+        "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+        "prefix_plan_artifact": "int8_first_chunk-prefix-plan-01.json.gz"
+      },
+      "single_capture_plan": [
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 0
+        },
+        {
+          "round": 0,
+          "arm": "current",
+          "active": 1
+        },
+        {
+          "round": 0,
+          "arm": "group_visible",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 0
+        },
+        {
+          "round": 1,
+          "arm": "group_visible",
+          "active": 1
+        },
+        {
+          "round": 1,
+          "arm": "current",
+          "active": 1
+        }
+      ],
+      "single_capture_counts": {
+        "expected_host_counts": {
+          "_qsa_qk_key_group_score": 1024
+        },
+        "observed_host_counts": {
+          "_qsa_qk_key_group_score": 1024
+        },
+        "tasks_per_window": [
+          128,
+          128,
+          128,
+          128,
+          128,
+          128,
+          128,
+          128
+        ],
+        "expected_tasks_per_window": [
+          128,
+          128,
+          128,
+          128,
+          128,
+          128,
+          128,
+          128
+        ]
+      },
+      "score_device_us": {
+        "medians": {
+          "current": 36337.820000000014,
+          "group_visible": 36351.88
+        },
+        "samples": {
+          "current": [
+            {
+              "kernel_us": 36332.3,
+              "active_invocation_us": [
+                36309.400000000016,
+                36355.19999999999
+              ],
+              "artifact": "int8_first_chunk-prefix-plan-01.json.gz",
+              "window_indices": [
+                0,
+                2
+              ],
+              "device_task_count": 256
+            },
+            {
+              "kernel_us": 36337.820000000014,
+              "active_invocation_us": [
+                36343.400000000016,
+                36332.24000000001
+              ],
+              "artifact": "int8_first_chunk-prefix-plan-01.json.gz",
+              "window_indices": [
+                5,
+                7
+              ],
+              "device_task_count": 256
+            }
+          ],
+          "group_visible": [
+            {
+              "kernel_us": 36353.16,
+              "active_invocation_us": [
+                36328.920000000006,
+                36377.40000000001
+              ],
+              "artifact": "int8_first_chunk-prefix-plan-01.json.gz",
+              "window_indices": [
+                1,
+                3
+              ],
+              "device_task_count": 256
+            },
+            {
+              "kernel_us": 36351.88,
+              "active_invocation_us": [
+                36337.64,
+                36366.119999999995
+              ],
+              "artifact": "int8_first_chunk-prefix-plan-01.json.gz",
+              "window_indices": [
+                4,
+                6
+              ],
+              "device_task_count": 256
+            }
+          ]
+        },
+        "paired_saved_us": [
+          -19.519999999989523,
+          -22.200000000018917,
+          5.760000000016589,
+          -33.87999999998283
+        ],
+        "speedup": 0.9996132249556287
+      },
+      "prepared_request_wall_us": {
+        "medians": {
+          "current": 168309.425,
+          "group_visible": 169105.90850000002
+        },
+        "phase_medians_us": {
+          "preparation_us": {
+            "current": 1.5350000000000001,
+            "group_visible": 1.565
+          },
+          "submit_us": {
+            "current": 168223.584,
+            "group_visible": 169021.8625
+          },
+          "sync_us": {
+            "current": 79.4855,
+            "group_visible": 81.46100000000001
+          },
+          "wall_us": {
+            "current": 168309.425,
+            "group_visible": 169105.90850000002
+          }
+        },
+        "phase_paired_median_saved_us": {
+          "preparation_us": -0.08500000000000008,
+          "submit_us": -795.7185000000027,
+          "sync_us": 0.18999999999999773,
+          "wall_us": -796.4835000000021
+        },
+        "samples": [
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 169091.043,
+              "preparation_us": 1.02,
+              "submit_us": 169013.802,
+              "sync_us": 76.221,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 169834.021,
+              "preparation_us": 1.78,
+              "submit_us": 169746.78,
+              "sync_us": 85.461,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 168216.254,
+              "preparation_us": 1.28,
+              "submit_us": 168134.113,
+              "sync_us": 80.861,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "current": {
+              "wall_us": 167356.445,
+              "preparation_us": 1.65,
+              "submit_us": 167275.654,
+              "sync_us": 79.141,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 167332.185,
+              "preparation_us": 1.75,
+              "submit_us": 167248.875,
+              "sync_us": 81.56,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 167180.784,
+              "preparation_us": 1.87,
+              "submit_us": 167106.963,
+              "sync_us": 71.951,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 167576.948,
+              "preparation_us": 1.56,
+              "submit_us": 167493.327,
+              "sync_us": 82.061,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "current": {
+              "wall_us": 167464.656,
+              "preparation_us": 1.51,
+              "submit_us": 167383.316,
+              "sync_us": 79.83,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 171851.26,
+              "preparation_us": 1.19,
+              "submit_us": 171764.089,
+              "sync_us": 85.981,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 170125.023,
+              "preparation_us": 1.57,
+              "submit_us": 170039.572,
+              "sync_us": 83.881,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 168377.796,
+              "preparation_us": 1.41,
+              "submit_us": 168296.945,
+              "sync_us": 79.441,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "current": {
+              "wall_us": 167527.807,
+              "preparation_us": 1.56,
+              "submit_us": 167433.366,
+              "sync_us": 92.881,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 170954.421,
+              "preparation_us": 1.68,
+              "submit_us": 170876.341,
+              "sync_us": 76.4,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 175067.862,
+              "preparation_us": 1.36,
+              "submit_us": 174973.312,
+              "sync_us": 93.19,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 172078.122,
+              "preparation_us": 2.13,
+              "submit_us": 172000.562,
+              "sync_us": 75.43,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "current": {
+              "wall_us": 170576.887,
+              "preparation_us": 1.44,
+              "submit_us": 170497.666,
+              "sync_us": 77.781,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          }
+        ],
+        "speedup": 0.9952900315130028,
+        "paired_saved_us": [
+          -742.9780000000028,
+          -859.8089999999793,
+          151.40099999998347,
+          -112.29200000001583,
+          1726.2370000000228,
+          -849.9890000000014,
+          -4113.440999999992,
+          -1501.2350000000151
+        ],
+        "candidate_wins": 2,
+        "scope": "Reuse an adapter on ready inputs, run score+TopK, then sync."
+      },
+      "request_wall_us": {
+        "medians": {
+          "current": 196454.026,
+          "group_visible": 195573.0125
+        },
+        "phase_medians_us": {
+          "preparation_us": {
+            "current": 22156.377,
+            "group_visible": 22451.235
+          },
+          "submit_us": {
+            "current": 174279.70500000002,
+            "group_visible": 172906.2555
+          },
+          "sync_us": {
+            "current": 80.5505,
+            "group_visible": 80.901
+          },
+          "wall_us": {
+            "current": 196454.026,
+            "group_visible": 195573.0125
+          }
+        },
+        "phase_paired_median_saved_us": {
+          "preparation_us": -404.459499999999,
+          "submit_us": 1289.4089999999997,
+          "sync_us": -0.2850000000000037,
+          "wall_us": 789.8179999999847
+        },
+        "samples": [
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 196752.449,
+              "preparation_us": 22835.798,
+              "submit_us": 173839.241,
+              "sync_us": 77.41,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 194685.259,
+              "preparation_us": 22465.735,
+              "submit_us": 172138.403,
+              "sync_us": 81.121,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 196185.504,
+              "preparation_us": 22436.735,
+              "submit_us": 173670.648,
+              "sync_us": 78.121,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "current": {
+              "wall_us": 199051.342,
+              "preparation_us": 22063.241,
+              "submit_us": 176907.371,
+              "sync_us": 80.73,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 195433.386,
+              "preparation_us": 22514.055,
+              "submit_us": 172834.15,
+              "sync_us": 85.181,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 367554.019,
+              "preparation_us": 195120.643,
+              "submit_us": 172353.635,
+              "sync_us": 79.741,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 193791.5,
+              "preparation_us": 21556.786,
+              "submit_us": 172154.033,
+              "sync_us": 80.681,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "current": {
+              "wall_us": 196155.603,
+              "preparation_us": 20948.279,
+              "submit_us": 175127.853,
+              "sync_us": 79.471,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 194957.872,
+              "preparation_us": 21600.857,
+              "submit_us": 173277.224,
+              "sync_us": 79.791,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 194168.094,
+              "preparation_us": 21145.622,
+              "submit_us": 172942.231,
+              "sync_us": 80.241,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 194960.521,
+              "preparation_us": 21768.498,
+              "submit_us": 173110.312,
+              "sync_us": 81.711,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "current": {
+              "wall_us": 195750.379,
+              "preparation_us": 21365.633,
+              "submit_us": 174298.475,
+              "sync_us": 86.271,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "current",
+              "group_visible"
+            ],
+            "current": {
+              "wall_us": 196794.94,
+              "preparation_us": 22451.304,
+              "submit_us": 174260.935,
+              "sync_us": 82.701,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "group_visible": {
+              "wall_us": 371262.646,
+              "preparation_us": 198309.545,
+              "submit_us": 172870.28,
+              "sync_us": 82.821,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          },
+          {
+            "order": [
+              "group_visible",
+              "current"
+            ],
+            "group_visible": {
+              "wall_us": 196733.69,
+              "preparation_us": 22655.567,
+              "submit_us": 173993.562,
+              "sync_us": 84.561,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            },
+            "current": {
+              "wall_us": 196768.59,
+              "preparation_us": 22249.513,
+              "submit_us": 174438.706,
+              "sync_us": 80.371,
+              "group_visible": {
+                "hit_chunks": 0,
+                "bytes": 0,
+                "groups_from_policy": 0,
+                "copies": 0,
+                "pack_us": 0.0,
+                "alloc_copy_us": 0.0,
+                "prepare_us": 0.0
+              }
+            }
+          }
+        ],
+        "speedup": 1.0045047805356069,
+        "paired_saved_us": [
+          2067.1900000000023,
+          2865.838000000018,
+          -172120.63299999997,
+          2364.103000000003,
+          789.7779999999912,
+          789.8579999999783,
+          -174467.706,
+          34.89999999999418
+        ],
+        "candidate_wins": 6,
+        "median_group_visible_prepare_us": 0.0,
+        "median_group_visible_pack_us": 0.0,
+        "median_group_visible_alloc_copy_us": 0.0,
+        "scope": "Fresh route/metadata preparation, one score+TopK request and final sync on ready inputs and buffers."
+      },
+      "sources": {
+        "benchmark_qsa_int8_kernel_910b.py": "9e97a0d1ffc9315f2047534daac564741b57b1c2578f4b57445d4dae2254164e",
+        "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+        "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+        "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+        "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+        "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+        "probe_qsa_int8_page64_prefix_910b.py": "6474046912c72c2bbd88a61815a8198a179d5f3452469df7b1485bb6cf956aba",
+        "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+        "qsa_int8_shared_map_selection_910b_trial.py": "f64cc2f128ce1dfe48b6f4e5dd419a91a01d618d383d465f35452196d9b4ca10",
+        "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+        "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "qsa_int8_stage_trace_timer_910b.py": "3047bd02b8dda4d6c6604ef8e4ced29e5d96a2c3d69e09d511b48e887ff92cea",
+        "benchmark_qsa_prefill_stages_910b.py": "fade15f762a97c5e5136d20e7535014042a16d76ccfee645e1f2e83839cbb696",
+        "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6",
+        "probe_qsa_int8_group_visible_request_910b.py": "c62294e3e4600e7743977dd601dfd62393a8690667a12a9a9924b19db7843d6a",
+        "probe_qsa_int8_score_sol_910b.py": "54183cc4eebc64009e2e4c55fb8a0aab6b2ad6be2c3433bde82df3f5387d0d32"
+      },
+      "exit_code": 0,
+      "subprocess_exit_code": 0
+    }
+  ],
+  "scope": "GroupVisible score device timing and prepared/fresh request wall phases"
+}
