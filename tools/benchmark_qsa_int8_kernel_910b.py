@@ -78,6 +78,66 @@ def topk_boundary_changes(
     return details
 
 
+def measure_bound_reuse(args, torch, adapter, prepare_adapter, output, verify_indices):
+    """Measure the cost of binding once and executing the same request N times."""
+    counts = args.bound_reuse_counts
+    arms = ("dynamic", "bound")
+
+    def prepare(name, prepared):
+        if name == "dynamic":
+            return prepared, 0.0
+        started = time.perf_counter_ns()
+        execute = prepared.prepare_bound_execution()
+        return execute, (time.perf_counter_ns() - started) / 1000
+
+    # Verify both callables across consecutive executions before measuring wall time.
+    for name in arms:
+        execute, _ = prepare(name, adapter)
+        for _ in range(2):
+            output.fill_(-2)
+            verify_indices(execute())
+
+    def measure(name, count):
+        output.fill_(-2)
+        torch.npu.synchronize()
+        started = time.perf_counter_ns()
+        prepared = prepare_adapter() if args.include_request_preparation else adapter
+        execute, binding_us = prepare(name, prepared)
+        for _ in range(count):
+            returned = execute()
+            torch.npu.synchronize()
+        wall_us = (time.perf_counter_ns() - started) / 1000
+        verify_indices(returned)
+        return dict(wall_us=wall_us, binding_us=binding_us)
+
+    by_count = {count: [] for count in counts}
+    for sample in range(args.bound_combined_samples):
+        count_order = counts if sample % 2 == 0 else list(reversed(counts))
+        for count in count_order:
+            order = arms if (sample + counts.index(count)) % 2 == 0 else arms[::-1]
+            by_count[count].append(
+                dict(order=order, **{name: measure(name, count) for name in order})
+            )
+
+    results = []
+    for count, pairs in by_count.items():
+        speedups = [p["dynamic"]["wall_us"] / p["bound"]["wall_us"] for p in pairs]
+        results.append(
+            dict(
+                calls=count,
+                dynamic_wall_us=statistics.median(
+                    p["dynamic"]["wall_us"] for p in pairs
+                ),
+                bound_wall_us=statistics.median(p["bound"]["wall_us"] for p in pairs),
+                binding_us=statistics.median(p["bound"]["binding_us"] for p in pairs),
+                paired_speedup_median=statistics.median(speedups),
+                bound_wins=sum(s > 1 for s in speedups),
+                pairs=pairs,
+            )
+        )
+    return results
+
+
 def run_case(args):
     result, code = dict(case=args.case, status="failed", mode="kernel"), 1
     report = Path(args.report)
@@ -825,6 +885,41 @@ def run_case(args):
                         "Bound combined selection differs from dynamic indices"
                     )
 
+            if args.bound_reuse_counts:
+                result["stage"] = "bound_reuse_timing"
+                result["bound_reuse"] = dict(
+                    scope="Wall time for sequential score+TopK calls on the same tensors, synchronizing after each call. Bound arm creates one plan per sample.",
+                    includes_request_preparation=args.include_request_preparation,
+                    kernels_warm=True,
+                    topk_indices_checked_before_timing_and_at_sample_end=True,
+                    score_chunks=len(chunks),
+                    bound_score_chunks=sum(adapter.query16_routes.values()),
+                    topk_calls_per_execution=len(topk_chunks),
+                    by_call_count=measure_bound_reuse(
+                        args,
+                        torch,
+                        adapter,
+                        prepare_shared_adapter,
+                        output,
+                        verify_indices,
+                    ),
+                )
+                print(
+                    "calls | dynamic_ms | bind_plus_calls_ms | binding_ms | paired_speedup | wins",
+                    flush=True,
+                )
+                for entry in result["bound_reuse"]["by_call_count"]:
+                    print(
+                        f"{entry['calls']} | {entry['dynamic_wall_us'] / 1000:.3f} | "
+                        f"{entry['bound_wall_us'] / 1000:.3f} | {entry['binding_us'] / 1000:.3f} | "
+                        f"{entry['paired_speedup_median']:.4f} | "
+                        f"{entry['bound_wins']}/{len(entry['pairs'])}",
+                        flush=True,
+                    )
+                result["measurement_scope"] = "Sequential bound-reuse wall time"
+                result["stage"], result["status"] = "bound_reuse_completed", "passed"
+                return write_case_result(args, report, result, 0)
+
             started = time.perf_counter()
             bound_execution = adapter.prepare_bound_execution()
             binding_ms = (time.perf_counter() - started) * 1000
@@ -1358,7 +1453,24 @@ def main():
         action="store_true",
         help="Inspect changed TopK sets without collecting benchmark timings",
     )
+    parser.add_argument(
+        "--bound-reuse-counts",
+        nargs="+",
+        type=int,
+        help="Compare dynamic with one binding plus N sequential calls, without stage tracing",
+    )
     args = parser.parse_args()
+    if args.bound_reuse_counts:
+        if (
+            min(args.bound_reuse_counts) < 1
+            or args.bound_combined_samples < 2
+            or args.interleave_score
+            or args.audit_topk_boundary
+        ):
+            parser.error(
+                "Bound reuse requires positive counts and at least two paired samples"
+            )
+        args.bound_reuse_counts = sorted(set(args.bound_reuse_counts))
     if args.audit_topk_boundary and not args.bounded_query_weight:
         parser.error("--audit-topk-boundary requires --bounded-query-weight")
     if args.include_request_preparation and not args.bound_combined_samples:
@@ -1454,6 +1566,8 @@ def main():
         ]
         if args.include_request_preparation:
             command.append("--include-request-preparation")
+        if args.bound_reuse_counts:
+            command.extend(["--bound-reuse-counts", *map(str, args.bound_reuse_counts)])
         if args.integrated:
             command.append("--integrated")
         if args.shared_map_qk:
@@ -1509,16 +1623,19 @@ def summarize(report, entries, names, args):
         if len(passed) == len(names)
         else (2 if all(e["status"] == "prerequisites_missing" for e in entries) else 1)
     )
-    if args.audit_topk_boundary:
+    if args.audit_topk_boundary or args.bound_reuse_counts:
+        scope = (
+            "TopK boundary audit only"
+            if args.audit_topk_boundary
+            else "Sequential bound-reuse wall time only"
+        )
         (report / "summary.json").write_text(
             json.dumps(
-                dict(exit_code=status, cases=entries, scope="TopK boundary audit only"),
+                dict(exit_code=status, cases=entries, scope=scope),
                 indent=2,
             )
         )
-        print(
-            f"TopK boundary audit: {len(passed)}/{len(names)} cases passed", flush=True
-        )
+        print(f"{scope}: {len(passed)}/{len(names)} cases passed", flush=True)
         return status
     complete = len(names) == len(PLANS) and len(passed) == len(PLANS)
     summary = dict(
