@@ -1,0 +1,264 @@
+{
+  "case": "int8_workspace_4segments_tail17",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_workspace_4segments_tail17",
+    "origin": "synthetic_workspace_route_boundary",
+    "query_lengths": [
+      4113
+    ],
+    "prefix_tokens": [
+      61423
+    ],
+    "starts": [
+      0,
+      4113
+    ],
+    "batch_max_seq_len": 65536,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      86
+    ],
+    "physical_pages": 86,
+    "table_columns": 86,
+    "q_shape": [
+      4113,
+      4,
+      128
+    ],
+    "cache_shape": [
+      86,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 16384,
+    "chunk_rows": 128,
+    "score_and_dot_scratch_bytes": 41943040,
+    "query_lengths_synthetic": true,
+    "workspace_reuse_expected": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Current vs request-local TopK scratch reuse; paired wall",
+  "stage": "topk_workspace_wall_completed",
+  "correctness": {
+    "all_topk_indices_bitwise_equal": true,
+    "score_unchanged": true
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-topk-workspace-sweep.jvVYUS4E/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-topk-workspace-sweep.jvVYUS4E/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "workspace": {
+    "allocation_names": [
+      "props",
+      "nv_props",
+      "buf_a",
+      "buf_b",
+      "nv_a",
+      "nv_b",
+      "scratch"
+    ],
+    "route": "existing_fallback",
+    "calls_by_rows": {
+      "32": 128,
+      "17": 1
+    },
+    "reused_calls_by_rows": {},
+    "shapes": {},
+    "bytes": 0
+  },
+  "request_wall_us": {
+    "medians": {
+      "current": 48099.479999999996,
+      "workspace_reuse": 47338.5175
+    },
+    "phase_medians_us": {
+      "preparation_us": {
+        "current": 1.31,
+        "workspace_reuse": 3.98
+      },
+      "submit_us": {
+        "current": 48042.004499999995,
+        "workspace_reuse": 47274.382
+      },
+      "sync_us": {
+        "current": 62.3305,
+        "workspace_reuse": 59.245999999999995
+      },
+      "wall_us": {
+        "current": 48099.479999999996,
+        "workspace_reuse": 47338.5175
+      }
+    },
+    "phase_paired_median_saved_us": {
+      "preparation_us": -2.595,
+      "submit_us": 564.9205000000002,
+      "sync_us": 1.6750000000000007,
+      "wall_us": 557.630000000001
+    },
+    "samples": [
+      {
+        "order": [
+          "current",
+          "workspace_reuse"
+        ],
+        "current": {
+          "wall_us": 47035.23,
+          "preparation_us": 1.3,
+          "submit_us": 46968.269,
+          "sync_us": 65.661
+        },
+        "workspace_reuse": {
+          "wall_us": 47266.012,
+          "preparation_us": 3.91,
+          "submit_us": 47201.281,
+          "sync_us": 60.821
+        }
+      },
+      {
+        "order": [
+          "workspace_reuse",
+          "current"
+        ],
+        "workspace_reuse": {
+          "wall_us": 47099.761,
+          "preparation_us": 4.05,
+          "submit_us": 47038.04,
+          "sync_us": 57.671
+        },
+        "current": {
+          "wall_us": 49987.759,
+          "preparation_us": 1.47,
+          "submit_us": 49901.448,
+          "sync_us": 84.841
+        }
+      },
+      {
+        "order": [
+          "current",
+          "workspace_reuse"
+        ],
+        "current": {
+          "wall_us": 47194.592,
+          "preparation_us": 1.32,
+          "submit_us": 47135.261,
+          "sync_us": 58.011
+        },
+        "workspace_reuse": {
+          "wall_us": 47411.023,
+          "preparation_us": 11.53,
+          "submit_us": 47347.483,
+          "sync_us": 52.01
+        }
+      },
+      {
+        "order": [
+          "workspace_reuse",
+          "current"
+        ],
+        "workspace_reuse": {
+          "wall_us": 47627.976,
+          "preparation_us": 3.87,
+          "submit_us": 47562.325,
+          "sync_us": 61.781
+        },
+        "current": {
+          "wall_us": 48135.0,
+          "preparation_us": 1.97,
+          "submit_us": 48074.03,
+          "sync_us": 59.0
+        }
+      },
+      {
+        "order": [
+          "current",
+          "workspace_reuse"
+        ],
+        "current": {
+          "wall_us": 48518.254,
+          "preparation_us": 1.24,
+          "submit_us": 48442.074,
+          "sync_us": 74.94
+        },
+        "workspace_reuse": {
+          "wall_us": 47910.018,
+          "preparation_us": 4.47,
+          "submit_us": 47823.938,
+          "sync_us": 81.61
+        }
+      },
+      {
+        "order": [
+          "workspace_reuse",
+          "current"
+        ],
+        "workspace_reuse": {
+          "wall_us": 47239.942,
+          "preparation_us": 3.45,
+          "submit_us": 47182.291,
+          "sync_us": 54.201
+        },
+        "current": {
+          "wall_us": 48063.96,
+          "preparation_us": 1.27,
+          "submit_us": 48009.979,
+          "sync_us": 52.711
+        }
+      }
+    ],
+    "speedup": 1.0160749119361414,
+    "paired_saved_us": [
+      -230.78199999999924,
+      2887.9979999999996,
+      -216.43100000000413,
+      507.0239999999976,
+      608.2360000000044,
+      824.0179999999964
+    ],
+    "candidate_wins": 4
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "8f04c83820eb1cff2f02709d698e102638f2488ca6b62271668de4b70f6c7e22",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "e6ea2a5887363e90094e258def7e6d2c1de9eb79f3fad63b684e7e17fe260f8e",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "probe_qsa_int8_page64_prefix_910b.py": "6474046912c72c2bbd88a61815a8198a179d5f3452469df7b1485bb6cf956aba",
+    "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+    "qsa_int8_shared_map_selection_910b_trial.py": "f64cc2f128ce1dfe48b6f4e5dd419a91a01d618d383d465f35452196d9b4ca10",
+    "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+    "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+    "qsa_int8_stage_trace_timer_910b.py": "c2eef1794f2e0db1b94a4d29bff6d6e29e694499ea30e10b53eb37e851152983",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "benchmark_qsa_prefill_stages_910b.py": "fade15f762a97c5e5136d20e7535014042a16d76ccfee645e1f2e83839cbb696",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6",
+    "qsa_timeline_910b.py": "c54f29cc8626b96342249382b22844f410a02b427bdef943dcf73c0f730251da",
+    "probe_qsa_int8_group_visible_request_910b.py": "c6082d6ad9e396db1b3e4915f7860ba38e45a0835b0afa18a4c42d7f8496d068",
+    "probe_qsa_int8_topk_workspace_910b.py": "6c5161aae364e8b7f3b66e8cefc8c69e094c04307357971cdbfa1da17c45f6c8",
+    "probe_qsa_int8_score_sol_910b.py": "54183cc4eebc64009e2e4c55fb8a0aab6b2ad6be2c3433bde82df3f5387d0d32"
+  },
+  "exit_code": 0
+}
