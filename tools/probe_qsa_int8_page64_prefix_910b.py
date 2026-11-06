@@ -55,7 +55,10 @@ CURRENT_PREFIX_LOADS = dict(
 )
 CURRENT_PREFIX_ARMS = tuple(CURRENT_PREFIX_LOADS)
 SCALE_ORDER_ARMS = ("late_key_scale", "current", "combine_query_weight")
-HEAD_LAYOUT_ARMS = ("head_last", "current")
+HEAD_LAYOUT_ARMS = {
+    "transpose": ("head_last", "current"),
+    "gather": ("current", "head_gather"),
+}
 
 
 def build_current_prefix(kernel, arm):
@@ -77,12 +80,23 @@ def build_current_prefix(kernel, arm):
         for i, node in enumerate(tile.body)
         if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
     }
-    if arm == "head_last":
+    if arm in ("head_last", "head_gather"):
         position = assignments["scores"]
-        tile.body[position : position + 1] = ast.parse(
-            "heads = tl.reshape(weighted, (16, 4, BLOCK_N))\n"
-            "scores = tl.sum(tl.permute(heads, (0, 2, 1)), axis=2)"
-        ).body
+        if arm == "head_last":
+            reduction = (
+                "heads = tl.reshape(weighted, (16, 4, BLOCK_N))\n"
+                "scores = tl.sum(tl.permute(heads, (0, 2, 1)), axis=2)"
+            )
+        else:
+            reduction = """
+head_rows = tl.broadcast_to((queries * 4)[:, None], (16, BLOCK_N))
+h0 = tl.gather(weighted, head_rows, axis=0)
+h1 = tl.gather(weighted, head_rows + 1, axis=0)
+h2 = tl.gather(weighted, head_rows + 2, axis=0)
+h3 = tl.gather(weighted, head_rows + 3, axis=0)
+scores = (h0 + h1) + (h2 + h3)
+"""
+        tile.body[position : position + 1] = ast.parse(reduction).body
         return (
             "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
         )
@@ -644,8 +658,9 @@ def run_case(args):
                 )
             if args.head_layout:
                 result["scope"] = (
-                    "Head-last FP32 reduction versus current. "
-                    "Same input arithmetic, loops and store coordinates. TopK checked outside timing."
+                    f"FP32 head aggregation via {args.head_layout_variant} versus current. "
+                    "Same pre-reduction arithmetic, loops and store coordinates. "
+                    "TopK checked outside timing."
                 )
             print("CURRENT_PAGE_ROUTE", json.dumps(route), flush=True)
         kernels = load_kernels(report, args.case, current)
@@ -750,6 +765,22 @@ def run_case(args):
             if not bool(torch.isfinite(actual[mask]).all()) or not bool(
                 (actual[~mask] == invalid).all()
             ):
+                live_bad = mask & ~torch.isfinite(actual)
+                masked_bad = ~mask & (actual != invalid)
+                samples = {}
+                for label, bad in (
+                    ("visible_nonfinite", live_bad),
+                    ("invisible_not_fill", masked_bad),
+                ):
+                    coords = bad.nonzero()
+                    samples[label] = dict(
+                        count=coords.shape[0],
+                        examples=[
+                            dict(index=index, value=str(actual[tuple(index)].item()))
+                            for index in coords[:8].tolist()
+                        ],
+                    )
+                result.setdefault("mask_failures", {})[name] = samples
                 raise AssertionError(f"Prefix finite/mask mismatch: {name}")
             maximum = 0.0
             for local in sorted({0, n // 2, n - 1}):
@@ -1196,8 +1227,10 @@ def run_case(args):
                 flush=True,
             )
         if args.head_layout:
+            candidate = next(name for name in ARMS if name != "current")
+            result["head_layout_variant"] = args.head_layout_variant
             result["head_layout_speedup_vs_current"] = (
-                times["current"] / times["head_last"]
+                times["current"] / times[candidate]
             )
             print(
                 "HEAD_LAYOUT_SPEEDUP_VS_CURRENT",
@@ -1410,9 +1443,17 @@ def main():
     parser.add_argument(
         "--head-layout",
         action="store_true",
-        help="Compare a head-last FP32 reduction with the current page-reuse scorer",
+        help="Compare an alternative FP32 head aggregation with current page reuse",
+    )
+    parser.add_argument(
+        "--head-layout-variant",
+        choices=HEAD_LAYOUT_ARMS,
+        default="transpose",
+        help="Select the original transpose experiment or explicit head gathering",
     )
     args = parser.parse_args()
+    if args.head_layout_variant != "transpose" and not args.head_layout:
+        parser.error("--head-layout-variant requires --head-layout")
     if args.head_layout and (not args.current_page_prefix or args.scale_order):
         parser.error(
             "--head-layout requires --current-page-prefix without --scale-order"
@@ -1470,7 +1511,7 @@ def main():
         ARMS = ("dot", "raw_i32", "raw_fp32", "packed_full", "full", "current")
     if args.current_page_prefix:
         ARMS = (
-            HEAD_LAYOUT_ARMS
+            HEAD_LAYOUT_ARMS[args.head_layout_variant]
             if args.head_layout
             else SCALE_ORDER_ARMS if args.scale_order else CURRENT_PREFIX_ARMS
         )
@@ -1507,7 +1548,9 @@ def main():
         if args.scale_order:
             command.append("--scale-order")
         if args.head_layout:
-            command.append("--head-layout")
+            command.extend(
+                ["--head-layout", "--head-layout-variant", args.head_layout_variant]
+            )
         if args.page_prefetch:
             command.append("--page-prefetch")
         if args.page_reuse_full:
