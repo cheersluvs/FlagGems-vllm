@@ -1,0 +1,514 @@
+{
+  "case": "int8_long100k",
+  "status": "passed",
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "compiler": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "device_isolation": "not_verified"
+  },
+  "shared_map_guard": {
+    "groups": 28,
+    "all_group_maps_equal": true,
+    "same_request_per_group": true
+  },
+  "geometry": {
+    "first": 8176,
+    "count": 112,
+    "width": 29696,
+    "block_n": 64,
+    "key_tiles": 8,
+    "grid_cap": 20,
+    "plan": {
+      "name": "int8_long100k",
+      "nv_case": "fp8_long100k_float8_e4m3fn",
+      "origin": "dtype_variant",
+      "query_lengths": [
+        16384
+      ],
+      "prefix_tokens": [
+        102400
+      ],
+      "starts": [
+        0,
+        16384
+      ],
+      "batch_max_seq_len": 118784,
+      "heads": 4,
+      "dim": 128,
+      "ratio": 4,
+      "k": 512,
+      "dtype": "int8",
+      "page_size": 192,
+      "pages_per_request": [
+        155
+      ],
+      "physical_pages": 155,
+      "table_columns": 155,
+      "q_shape": [
+        16384,
+        4,
+        128
+      ],
+      "cache_shape": [
+        155,
+        192,
+        1,
+        128
+      ],
+      "logits_width": 29696,
+      "chunk_rows": 112,
+      "score_and_dot_scratch_bytes": 66519040,
+      "nv_original_page_size": 196,
+      "nv_original_physical_pages": null,
+      "nv_original_table_columns": null,
+      "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+      "query_lengths_synthetic": false
+    }
+  },
+  "query_group_guard": {
+    "groups": [
+      4,
+      8,
+      16
+    ],
+    "shared_maps_and_request_owners": true
+  },
+  "cube_boundary": false,
+  "unroll_loop": false,
+  "scope": "FP32 head aggregation via gather versus current. Same pre-reduction arithmetic, loops and store coordinates. TopK checked outside timing.",
+  "current_route": {
+    "first": 8176,
+    "count": 112,
+    "shared": true,
+    "proof": {
+      "groups": 28,
+      "all_group_maps_equal": true,
+      "same_request_per_group": true
+    },
+    "route": "single_page64",
+    "visibility_tiles": {
+      "issued_tiles": 3248,
+      "useful_tiles": 3030,
+      "skipped_tiles": 218,
+      "skipped_fraction": 0.06711822660098522,
+      "selected": false,
+      "policy": "conservative"
+    },
+    "skip_invisible": false,
+    "page_reuse": true,
+    "query_group": 16,
+    "query16_reason": "Shared mapping and request owner proven"
+  },
+  "stage": "prefix_timer",
+  "output_bytes": {
+    "current": 13303808,
+    "head_gather": 13303808
+  },
+  "compiler": {
+    "current": {
+      "loads": 7,
+      "dots": 1,
+      "stores": 1,
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='145fec9d81ce928545a709cd39cfb278aa8d23dffb01e6495581290b302bd666', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_page_reuse_full_score', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_page_reuse_full_score', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=65600)",
+      "npubin_sha256": "39243371a6a2fe5af99548ba8d80a332389c79356f58f02a156608dd8c10a0f3",
+      "loops": 3,
+      "copies": 6,
+      "transpose_lines": [
+        "%transposed = linalg.transpose ins(%86 : tensor<64x128xi8>) outs(%89 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc141)"
+      ],
+      "matmul_lines": [
+        "%90 = linalg.matmul {input_precision = \"ieee\"} ins(%22, %transposed : tensor<64x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<64x64xi32>) -> tensor<64x64xi32> loc(#loc104)"
+      ],
+      "reduction_lines": [
+        "%reduced = linalg.reduce ins(%33 : tensor<16xi32>) outs(%35 : tensor<i32>) dimensions = [0]",
+        "%reduced_29 = linalg.reduce ins(%reshape : tensor<16x4x64xf32>) outs(%96 : tensor<16x64xf32>) dimensions = [1]"
+      ]
+    },
+    "head_gather": {
+      "loads": 7,
+      "dots": 1,
+      "stores": 1,
+      "metadata": "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=True, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=None, disable_auto_inject_block_sync=None, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=None, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='0d2ed05ca1ea3473c7cba7ceac54e2c5904038a54e2b567f044bcdd20f11b0f0', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_qsa_page64_prefix_head_gather', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=True, name='_qsa_page64_prefix_head_gather', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=4, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=None, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 0, 0, 0, 0, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=None, use_bytecode=True, vf_merge_level=1, warp_size=32, workspace_size=147520)",
+      "npubin_sha256": "81118eb06ee0647e4931d60128a2ac846f0b5c9db1b7f7ab8f17b4807afe5a32",
+      "loops": 3,
+      "copies": 6,
+      "transpose_lines": [
+        "%transposed = linalg.transpose ins(%93 : tensor<64x128xi8>) outs(%96 : tensor<128x64xi8>) permutation = [1, 0]  loc(#loc158)"
+      ],
+      "matmul_lines": [
+        "%97 = linalg.matmul {input_precision = \"ieee\"} ins(%29, %transposed : tensor<64x128xi8>, tensor<128x64xi8>) outs(%1 : tensor<64x64xi32>) -> tensor<64x64xi32> loc(#loc120)"
+      ],
+      "reduction_lines": [
+        "%reduced = linalg.reduce ins(%40 : tensor<16xi32>) outs(%42 : tensor<i32>) dimensions = [0]"
+      ]
+    }
+  },
+  "prechecks": {
+    "current": {
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        56,
+        111
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    "head_gather": {
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        56,
+        111
+      ],
+      "max_abs_error": 7.62939453125e-06
+    }
+  },
+  "asm_inventory": {
+    "current": {
+      "keys": [
+        "source",
+        "ttir",
+        "ttadapter",
+        "mlirbc",
+        "bcmlir",
+        "npubin"
+      ],
+      "text_artifacts": [
+        {
+          "key": "source",
+          "file": "int8_long100k-current-lower-source.txt",
+          "truncated": false,
+          "static_occurrences": {
+            "barrier": 0,
+            "wait_flag": 0,
+            "set_flag": 0,
+            "fixpipe": 0,
+            "mmad": 0,
+            "transpose": 0
+          }
+        }
+      ]
+    },
+    "head_gather": {
+      "keys": [
+        "source",
+        "ttir",
+        "ttadapter",
+        "mlirbc",
+        "bcmlir",
+        "npubin"
+      ],
+      "text_artifacts": [
+        {
+          "key": "source",
+          "file": "int8_long100k-head_gather-lower-source.txt",
+          "truncated": false,
+          "static_occurrences": {
+            "barrier": 0,
+            "wait_flag": 0,
+            "set_flag": 0,
+            "fixpipe": 0,
+            "mmad": 0,
+            "transpose": 0
+          }
+        }
+      ]
+    }
+  },
+  "full_chunk_vs_legacy": true,
+  "topk_precheck": {
+    "head_gather": {
+      "exact_scores": false,
+      "exact_index_order": false,
+      "identical_index_set_rows": 112,
+      "rows": 112,
+      "selected_scores_match": true
+    }
+  },
+  "tail_checks": [
+    {
+      "arm": "current",
+      "empty_group": false,
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        9,
+        18
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    {
+      "arm": "head_gather",
+      "empty_group": false,
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        9,
+        18
+      ],
+      "max_abs_error": 3.814697265625e-06
+    },
+    {
+      "arm": "current",
+      "empty_group": true,
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        9,
+        18
+      ],
+      "max_abs_error": 3.814697265625e-06
+    },
+    {
+      "arm": "head_gather",
+      "empty_group": true,
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        9,
+        18
+      ],
+      "max_abs_error": 3.814697265625e-06
+    }
+  ],
+  "kernel_timer": {
+    "backend": "explicit CPU+NPU Chrome trace",
+    "warmup": 1,
+    "active": 2,
+    "unit": "microseconds; sum of score device tasks per invocation",
+    "host_gaps_included": false,
+    "scope": "Instrumented exploratory kernel timing; rebuild all paired baselines",
+    "fallback": false,
+    "raw_traces_preserved": true,
+    "max_capture_attempts": 3,
+    "retry_policy": "Only incomplete task counts; retain first valid capture, never resample valid timings",
+    "invocation_sum_check": {
+      "single": {
+        "kernel_us": 8718.8,
+        "active_invocation_us": [
+          8719.32,
+          8718.28
+        ],
+        "device_task_count": 2,
+        "host_launch_count": 2,
+        "artifact": "int8_long100k-timer-01.json.gz"
+      },
+      "triple": {
+        "kernel_us": 26151.03,
+        "active_invocation_us": [
+          26153.26,
+          26148.8
+        ],
+        "device_task_count": 6,
+        "host_launch_count": 6,
+        "artifact": "int8_long100k-timer-02.json.gz"
+      },
+      "ratio": 2.9993840895536086
+    },
+    "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+    "prefix_plan_artifact": "int8_long100k-prefix-plan-01.json.gz"
+  },
+  "single_capture_plan": [
+    {
+      "round": 0,
+      "arm": "current",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "head_gather",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "current",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "head_gather",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "head_gather",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "current",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "head_gather",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "current",
+      "active": 1
+    }
+  ],
+  "single_capture_counts": {
+    "expected_host_counts": {
+      "_qsa_page64_page_reuse_full_score": 4,
+      "_qsa_page64_prefix_head_gather": 4
+    },
+    "observed_host_counts": {
+      "_qsa_page64_page_reuse_full_score": 4,
+      "_qsa_page64_prefix_head_gather": 4
+    },
+    "tasks_per_window": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "expected_tasks_per_window": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "samples": {
+    "current": [
+      {
+        "kernel_us": 305.86,
+        "active_invocation_us": [
+          306.42,
+          305.3
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          0,
+          2
+        ],
+        "device_task_count": 2
+      },
+      {
+        "kernel_us": 304.87,
+        "active_invocation_us": [
+          306.5,
+          303.24
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          5,
+          7
+        ],
+        "device_task_count": 2
+      }
+    ],
+    "head_gather": [
+      {
+        "kernel_us": 321330.5,
+        "active_invocation_us": [
+          321327.58,
+          321333.42
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          1,
+          3
+        ],
+        "device_task_count": 2
+      },
+      {
+        "kernel_us": 321339.14,
+        "active_invocation_us": [
+          321334.7,
+          321343.58
+        ],
+        "artifact": "int8_long100k-prefix-plan-01.json.gz",
+        "window_indices": [
+          4,
+          6
+        ],
+        "device_task_count": 2
+      }
+    ]
+  },
+  "measurement_order": [
+    [
+      "current",
+      "head_gather"
+    ],
+    [
+      "head_gather",
+      "current"
+    ]
+  ],
+  "postchecks": {
+    "current": {
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        56,
+        111
+      ],
+      "max_abs_error": 7.62939453125e-06
+    },
+    "head_gather": {
+      "all_masks_checked": true,
+      "cpu_local_rows": [
+        0,
+        56,
+        111
+      ],
+      "max_abs_error": 7.62939453125e-06
+    }
+  },
+  "topk_postcheck": {
+    "head_gather": {
+      "exact_scores": false,
+      "exact_index_order": false,
+      "identical_index_set_rows": 112,
+      "rows": 112,
+      "selected_scores_match": true
+    }
+  },
+  "latency": {
+    "current": {
+      "kernel_us": {
+        "median": 305.365,
+        "min": 304.87,
+        "max": 305.86,
+        "range_over_median": 0.0032420218427128486
+      }
+    },
+    "head_gather": {
+      "kernel_us": {
+        "median": 321334.82,
+        "min": 321330.5,
+        "max": 321339.14,
+        "range_over_median": 2.6887842406913668e-05
+      }
+    }
+  },
+  "diagnostic_adjacent_deltas_us": {},
+  "head_layout_variant": "gather",
+  "head_layout_speedup_vs_current": 0.0009503016199738329,
+  "sources": {
+    "probe_qsa_int8_page64_prefix_910b.py": "731af1b16755281f9e607e01266cee32f3551f6c2c38f09590edbfde3afe700f",
+    "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+    "qsa_int8_shared_map_selection_910b_trial.py": "82d602c9ae1e97d3c9629c145e23cb537d1f0c7a9affef602f0a805e02a1e4f7",
+    "qsa_int8_prefix_plan_timer_910b.py": "8d078b724b2b8b432addeb64e55fea2d25a6872d36fc6d3c55a7043ac1db5d54",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6"
+  },
+  "exit_code": 0
+}
