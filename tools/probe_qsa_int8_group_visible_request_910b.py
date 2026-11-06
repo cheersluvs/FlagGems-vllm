@@ -63,7 +63,17 @@ def combined_windows(events, plan, score_hosts, topk_hosts):
         )
 
 
-def measure_combined_trace(args, torch, result, adapters, score_hosts, check_indices):
+def measure_combined_trace(
+    args,
+    torch,
+    result,
+    adapters,
+    score_hosts,
+    check_indices,
+    *,
+    label="group_visible",
+    launch_gap_summary=None,
+):
     names = tuple(adapters)
     topk_calls = sum((count + 31) // 32 for _, count in adapters["current"].chunks)
     # long100k's pinned 910B TopK route, verified against host and device events.
@@ -78,7 +88,7 @@ def measure_combined_trace(args, torch, result, adapters, score_hosts, check_ind
             topk_calls,
         )
     )
-    result["stage"] = "group_visible_combined_trace"
+    result["stage"] = f"{label}_combined_trace"
     result["kernel_timer"] = {}
     measure_prefix_plan(
         args,
@@ -119,9 +129,13 @@ def measure_combined_trace(args, torch, result, adapters, score_hosts, check_ind
         paired_saved_us={f: [a[f] - b[f] for a, b in pairs] for f in fields},
         samples=samples,
     )
-    result["stage"] = "group_visible_combined_trace_completed"
+    if launch_gap_summary is not None:
+        result["combined_trace"]["launch_gaps"] = launch_gap_summary(
+            events, result["single_capture_plan"], topk_calls
+        )
+    result["stage"] = f"{label}_combined_trace_completed"
     print(
-        "GROUP_VISIBLE_COMBINED_TRACE",
+        f"{label.upper()}_COMBINED_TRACE",
         json.dumps(
             {k: v for k, v in result["combined_trace"].items() if k != "samples"}
         ),
@@ -129,7 +143,15 @@ def measure_combined_trace(args, torch, result, adapters, score_hosts, check_ind
     )
 
 
-def measure_request_wall(names, get_adapter, synchronize, check_indices, sample_count):
+def measure_request_wall(
+    names,
+    get_adapter,
+    synchronize,
+    check_indices,
+    sample_count,
+    *,
+    record_group_visible=True,
+):
     """Measure host intervals around one ordinary asynchronous selection call."""
     pairs = []
     for i in range(sample_count):
@@ -150,8 +172,9 @@ def measure_request_wall(names, get_adapter, synchronize, check_indices, sample_
                 preparation_us=(ready - start) / 1000,
                 submit_us=(submitted - ready) / 1000,
                 sync_us=(end - submitted) / 1000,
-                group_visible=prepared.group_visible_stats,
             )
+            if record_group_visible:
+                pair[name]["group_visible"] = prepared.group_visible_stats
             del prepared
         pairs.append(pair)
 
@@ -162,8 +185,9 @@ def measure_request_wall(names, get_adapter, synchronize, check_indices, sample_
         }
         for phase in phases
     }
+    current, candidate = names
     saved = {
-        phase: [p["current"][phase] - p["group_visible"][phase] for p in pairs]
+        phase: [p[current][phase] - p[candidate][phase] for p in pairs]
         for phase in phases
     }
     wall = medians["wall_us"]
@@ -174,7 +198,7 @@ def measure_request_wall(names, get_adapter, synchronize, check_indices, sample_
             phase: statistics.median(samples) for phase, samples in saved.items()
         },
         samples=pairs,
-        speedup=wall["current"] / wall["group_visible"],
+        speedup=wall[current] / wall[candidate],
         paired_saved_us=saved["wall_us"],
         candidate_wins=sum(delta > 0 for delta in saved["wall_us"]),
     )

@@ -152,7 +152,7 @@ def run_case(args):
         if (
             not root
             or not torch.npu.is_available()
-            or (native is None and not args.group_visible_probe)
+            or (native is None and not args.standalone_probe)
         ):
             raise ModuleNotFoundError(
                 "Pinned NPU environment and native quant V1 required"
@@ -196,6 +196,15 @@ def run_case(args):
                     "Bounded query-weight probe requires finite nonnegative QS"
                 )
         values = {key: value.to(f"npu:{args.device}") for key, value in inputs.items()}
+        if args.topk_workspace_samples:
+            from probe_qsa_int8_topk_workspace_910b import run_topk_workspace_probe
+
+            result["measurement_scope"] = (
+                "Current vs request-local TopK scratch reuse; paired wall and combined trace"
+            )
+            run_topk_workspace_probe(args, result, inputs, values, plan, load_topk())
+            result["status"] = "passed"
+            return write_case_result(args, report, result, 0)
         if args.group_visible_probe:
             from probe_qsa_int8_group_visible_request_910b import (
                 run_group_visible_request,
@@ -1343,6 +1352,7 @@ def write_case_result(args, report, result, code):
         "qsa_int8_trace_timer_910b.py",
         "qsa_timeline_910b.py",
         "probe_qsa_int8_group_visible_request_910b.py",
+        "probe_qsa_int8_topk_workspace_910b.py",
         "probe_qsa_int8_score_sol_910b.py",
     ):
         result.setdefault("sources", {})[name] = hashlib.sha256(
@@ -1480,32 +1490,43 @@ def main():
         type=int,
         help="Compare dynamic with one binding plus N sequential calls, without stage tracing",
     )
-    group_visible = parser.add_mutually_exclusive_group()
-    group_visible.add_argument(
+    request_probe = parser.add_mutually_exclusive_group()
+    request_probe.add_argument(
         "--group-visible-request-samples",
         type=int,
         default=0,
         help="Pair device scores and prepared/fresh one-copy GroupVisible request wall phases",
     )
-    group_visible.add_argument(
+    request_probe.add_argument(
         "--group-visible-combined-trace",
         action="store_true",
         help="Trace paired prepared score+TopK execution for long100k",
+    )
+    request_probe.add_argument(
+        "--topk-workspace-samples",
+        type=int,
+        default=0,
+        help="Pair long100k request-local TopK scratch reuse, then collect a combined trace",
     )
     args = parser.parse_args()
     args.group_visible_probe = args.group_visible_combined_trace or bool(
         args.group_visible_request_samples
     )
-    if args.group_visible_probe and (
+    args.standalone_probe = args.group_visible_probe or bool(
+        args.topk_workspace_samples
+    )
+    if args.standalone_probe and (
         args.bound_combined_samples or args.audit_topk_boundary or args.interleave_score
     ):
-        parser.error("GroupVisible probes use their own timing path")
+        parser.error("Standalone request probes use their own timing path")
     if args.group_visible_request_samples and args.group_visible_request_samples < 2:
         parser.error("GroupVisible request wall timing requires at least two samples")
-    if args.group_visible_combined_trace and any(
+    if args.topk_workspace_samples and args.topk_workspace_samples < 2:
+        parser.error("TopK workspace probe requires at least two wall samples")
+    if (args.group_visible_combined_trace or args.topk_workspace_samples) and any(
         case != "int8_long100k" for case in (args.cases or [args.case]) if case
     ):
-        parser.error("GroupVisible combined trace requires int8_long100k")
+        parser.error("This standalone trace probe requires int8_long100k")
     if args.bound_reuse_counts:
         if (
             min(args.bound_reuse_counts) < 1
@@ -1586,7 +1607,7 @@ def main():
         return summarize(report, entries, [e["case"] for e in entries], args)
     default_cases = (
         ("int8_long100k",)
-        if args.group_visible_combined_trace
+        if args.group_visible_combined_trace or args.topk_workspace_samples
         else (
             ("int8_budget_exact", "int8_long100k", "int8_first_chunk")
             if args.group_visible_request_samples
@@ -1623,6 +1644,10 @@ def main():
             command.append("--include-request-preparation")
         if args.group_visible_combined_trace:
             command.append("--group-visible-combined-trace")
+        if args.topk_workspace_samples:
+            command.extend(
+                ["--topk-workspace-samples", str(args.topk_workspace_samples)]
+            )
         if args.group_visible_request_samples:
             command.extend(
                 [
@@ -1687,20 +1712,21 @@ def summarize(report, entries, names, args):
         if len(passed) == len(names)
         else (2 if all(e["status"] == "prerequisites_missing" for e in entries) else 1)
     )
-    if args.audit_topk_boundary or args.bound_reuse_counts or args.group_visible_probe:
+    if args.audit_topk_boundary:
+        scope = "TopK boundary audit only"
+    elif args.bound_reuse_counts:
+        scope = "Sequential bound-reuse wall time only"
+    elif args.topk_workspace_samples:
+        scope = "Request-local TopK scratch reuse wall time and combined trace"
+    elif args.group_visible_combined_trace:
+        scope = "GroupVisible prepared score+TopK combined trace"
+    elif args.group_visible_probe:
         scope = (
-            "TopK boundary audit only"
-            if args.audit_topk_boundary
-            else (
-                "Sequential bound-reuse wall time only"
-                if args.bound_reuse_counts
-                else (
-                    "GroupVisible prepared score+TopK combined trace"
-                    if args.group_visible_combined_trace
-                    else "GroupVisible score device timing and prepared/fresh request wall phases"
-                )
-            )
+            "GroupVisible score device timing and prepared/fresh request wall phases"
         )
+    else:
+        scope = None
+    if scope:
         (report / "summary.json").write_text(
             json.dumps(
                 dict(exit_code=status, cases=entries, scope=scope),

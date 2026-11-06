@@ -404,3 +404,29 @@ instrumented CPU window is diagnostic and can differ from unprofiled wall
 time.
 
 [group-visible-wall]: https://github.com/cheersluvs/FlagGems-vllm/commit/f8018031029479100c3da50d6acb0da847d4a403
+
+## Request-local persistent TopK scratch probe
+
+The [combined trace][group-visible-combined] found 2.67 ms of paired score
+savings and 3.76 ms of additional uncovered device time. For current
+`long100k`, about 155 ms of the uncovered time preceded the next host
+enqueue. The interval from the short-row kernel to the segment-sort kernel
+was the largest single transition. There were seven `empty_tensor` calls
+between those two host enqueues in each of the 585 TopK calls.
+
+`--topk-workspace-samples` retains the current score path on both sides. It
+derives a probe-only host helper from the existing persistent TopK source
+and reuses its seven temporary buffers within each request. Allocation
+shapes, dtypes, score and TopK kernels, and their launch arguments are
+preserved. Allocate one buffer set per TopK row count and use it only on
+the request's stream. The worker checks exact complete TopK output before
+and after timing.
+
+Measure unprofiled score+TopK wall time first. Candidate timing includes
+allocating the request buffers. The paired combined trace then uses a
+prepared candidate to check the device task counts, time before the next
+enqueue, and allocations between the short-row and segment-sort enqueues.
+The trace expects 4,095 such allocations in current and zero in the
+candidate per request. Report total scratch size and allocation time.
+
+[group-visible-combined]: https://github.com/cheersluvs/FlagGems-vllm/commit/f8f7ede735adbcf26cecdd13193790e6cdd0560b
