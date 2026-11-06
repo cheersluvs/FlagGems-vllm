@@ -13,6 +13,7 @@
 """Calibrate component throughput for the current Ascend INT8 scorer."""
 
 import argparse
+import functools
 import json
 import os
 import statistics
@@ -20,8 +21,8 @@ import sys
 import traceback
 from pathlib import Path
 
-from profile_qsa_int8_score_910b import check_chunk
 from probe_qsa_int8_ten_shapes_910b import PLANS, run_child
+from profile_qsa_int8_score_910b import check_chunk
 from qsa_int8_prefix_plan_timer_910b import measure_prefix_plan
 
 from tools.qsa_int8_ten_workloads_910b import make_inputs
@@ -91,6 +92,230 @@ def traffic(width, visible, tables, bounded):
     )
 
 
+def capture_arms(args, result, torch, arms, targets, validate, dot_arms):
+    def launch(name, target):
+        return arms[name](target)
+
+    names = {}
+    result["compiler"] = {}
+    for arm in arms:
+        compiled = launch(arm, targets[arm])
+        names[arm] = {compiled.metadata.kernel_name: 1}
+        result["compiler"][arm] = str(compiled.metadata)
+        ttir = compiled.asm["ttir"]
+        if ttir.count("tt.dot") != int(arm in dot_arms):
+            raise AssertionError(f"Unexpected dot count in {arm}")
+        for key in ("ttir", "ttadapter", "bcmlir"):
+            asm = compiled.asm.get(key)
+            if isinstance(asm, str):
+                (Path(args.report) / f"{args.case}-{arm}-{key}.txt").write_text(asm)
+    result["precheck"] = validate()
+    result["kernel_timer"] = {}
+    samples, _ = measure_prefix_plan(
+        args, arms, launch, targets, torch, result, expected_hosts=names
+    )
+    result["postcheck"] = validate()
+    med = {
+        arm: statistics.median(t for row in rounds for t in row["active_invocation_us"])
+        for arm, rounds in samples.items()
+    }
+    return samples, med
+
+
+def run_output_replay(args, result, inputs, adapter, current_score):
+    import torch
+    import triton
+
+    @triton.jit
+    def _sol_output_replay(
+        Dot,
+        QS,
+        KS,
+        W,
+        Visible,
+        Out,
+        GROUPS: tl.constexpr,
+        WIDTH: tl.constexpr,
+        ROW_STRIDE: tl.constexpr,
+        TILE_STRIDE: tl.constexpr,
+        BOUNDED: tl.constexpr,
+        FILL: tl.constexpr,
+    ):
+        tiles: tl.constexpr = WIDTH // 64
+        units: tl.constexpr = tl.cdiv(tiles, 8)
+        n = tl.arange(0, 64)
+        q = tl.arange(0, 16)
+        for unit in range(tl.program_id(0), GROUPS * units, tl.num_programs(0)):
+            group = unit // units
+            first_tile = unit % units * 8
+            heads = group * 64 + n
+            qs = tl.load(QS + heads).to(tl.float32)
+            w = tl.load(W + heads).to(tl.float32)
+            visible = tl.load(Visible + group * 16 + q)
+            if BOUNDED:
+                max_visible = tl.max(visible, axis=0)
+                active = tl.minimum(
+                    8,
+                    tl.maximum(
+                        0, tl.cdiv(tl.minimum(WIDTH, max_visible), 64) - first_tile
+                    ),
+                )
+            else:
+                active = 8
+            first_page = first_tile // 3
+            page_count = tl.where(active > 0, tl.cdiv(first_tile % 3 + active, 3), 0)
+            for page in range(first_page, first_page + page_count):
+                start = tl.maximum(first_tile, page * 3)
+                end = tl.minimum(first_tile + active, page * 3 + 3)
+                for tile in range(start, end):
+                    t = group * tiles + tile
+                    x = tl.load(Dot + t * 4096 + n[:, None] * 64 + n[None, :])
+                    ks = tl.load(KS + t * 64 + n).to(tl.float32)
+                    value = x.to(tl.float32) * qs[:, None] * ks[None, :]
+                    weighted = tl.maximum(value, 0.0) * w[:, None]
+                    score = tl.sum(tl.reshape(weighted, (16, 4, 64)), axis=1)
+                    live = tile * 64 + n[None, :] < visible[:, None]
+                    tl.store(
+                        Out
+                        + group * 16 * WIDTH
+                        + tile * TILE_STRIDE
+                        + q[:, None] * ROW_STRIDE
+                        + n[None, :],
+                        tl.where(live, score, -float("inf")),
+                    )
+            if BOUNDED and FILL:
+                for tile in range(first_tile + active, first_tile + 8):
+                    tl.store(
+                        Out
+                        + group * 16 * WIDTH
+                        + tile * TILE_STRIDE
+                        + q[:, None] * ROW_STRIDE
+                        + n[None, :],
+                        tl.full((16, 64), -float("inf"), tl.float32),
+                    )
+
+    route = result["route"]
+    first, count = route["first"], route["count"]
+    bounded = route["skip_invisible"]
+    width = result["width"]
+    groups, tiles = count // 16, width // 64
+    if tiles % 8:
+        raise ValueError("Output replay requires complete eight-tile units")
+    device = current_score.device
+    gen = torch.Generator().manual_seed(20261106)
+    dot = torch.randint(
+        -1024, 1025, (groups, tiles, 64, 64), generator=gen, dtype=torch.int32
+    )
+    ks = torch.rand((groups, tiles, 64), generator=gen).half()
+    qs, w, visible = (
+        inputs[name][first : first + count] for name in ("qs", "weights", "visible")
+    )
+    device_inputs = [x.to(device) for x in (dot, qs, ks, w, visible)]
+    sentinel = 12345.0
+    layout = {
+        "compact_dense": (64, 1024, True),
+        "row_dense": (width, 64, True),
+    }
+    if bounded:
+        layout["compact_scored"] = (64, 1024, False)
+    targets = {"current": current_score}
+    arms = {"current": lambda out: adapter.score_into(first, count, out)}
+    for name, (row_stride, tile_stride, fill) in layout.items():
+        shape = (count, width) if name == "row_dense" else (groups, tiles, 16, 64)
+        targets[name] = torch.full(shape, sentinel, device=device, dtype=torch.float32)
+        arms[name] = functools.partial(
+            _sol_output_replay[(GRID,)],
+            *device_inputs,
+            GROUPS=groups,
+            WIDTH=width,
+            ROW_STRIDE=row_stride,
+            TILE_STRIDE=tile_stride,
+            BOUNDED=bounded,
+            FILL=fill,
+            num_warps=4,
+        )
+
+    vis = visible.reshape(groups, 16)
+    tile_index = torch.arange(tiles)
+    active_tiles = (vis.amax(1).clamp(max=width) + 63) // 64
+    fill_mask = tile_index[None, :] >= active_tiles[:, None]
+    if int(fill_mask.sum()) * int(bounded) != result["work"]["fill_only_tiles"]:
+        raise AssertionError("Replay fill count disagrees with production accounting")
+
+    def validate():
+        torch.npu.synchronize()
+        checks = {"current": check_chunk(inputs, current_score.cpu(), first, count)}
+        dense = targets["compact_dense"].cpu()
+        row = targets["row_dense"].cpu().reshape(groups, 16, tiles, 64).transpose(1, 2)
+        torch.testing.assert_close(row, dense, rtol=1e-3, atol=1e-3)
+        scored = targets["compact_scored"].cpu() if bounded else None
+        if bounded:
+            if not bool((scored[fill_mask] == sentinel).all()):
+                raise AssertionError("No-fill replay wrote skipped tiles")
+            torch.testing.assert_close(
+                scored[~fill_mask], dense[~fill_mask], rtol=1e-3, atol=1e-3
+            )
+        columns = torch.arange(width).reshape(tiles, 1, 64)
+        for group in range(groups):
+            heads = slice(group * 16, (group + 1) * 16)
+            scaled = (
+                dot[group].float()
+                * qs[heads].reshape(64, 1).float()
+                * ks[group, :, None, :].float()
+            )
+            weighted = scaled.relu() * w[heads].reshape(64, 1).float()
+            want = weighted.reshape(tiles, 16, 4, 64).sum(dim=2)
+            want.masked_fill_(columns >= vis[group, None, :, None], -float("inf"))
+            for got in (dense[group], row[group]):
+                torch.testing.assert_close(got, want, rtol=1e-3, atol=1e-3)
+        checks.update(
+            replay_all_outputs_checked=True,
+            row_compact_bitwise_equal=torch.equal(row, dense),
+        )
+        return checks
+
+    result.update(
+        mode="output_replay",
+        layout={
+            k: dict(row_stride=r, tile_stride=t, fill=f)
+            for k, (r, t, f) in layout.items()
+        },
+        scope="Current score versus AIV replay from materialized INT32. "
+        "Replay comparisons capture output layout and fill effects, including compiler rescheduling.",
+    )
+    samples, med = capture_arms(
+        args, result, torch, arms, targets, validate, {"current"}
+    )
+
+    def paired(a, b):
+        deltas = [
+            x - y
+            for round_a, round_b in zip(samples[a], samples[b], strict=True)
+            for x, y in zip(
+                round_a["active_invocation_us"],
+                round_b["active_invocation_us"],
+                strict=True,
+            )
+        ]
+        return dict(samples_us=deltas, median_us=statistics.median(deltas))
+
+    differences = {
+        "row_minus_compact_dense": paired("row_dense", "compact_dense"),
+        "current_minus_row_dense": paired("current", "row_dense"),
+    }
+    if bounded:
+        differences["compact_dense_minus_compact_scored"] = paired(
+            "compact_dense", "compact_scored"
+        )
+    comparison = dict(
+        median_us=med,
+        paired_differences=differences,
+        current_over_row_dense=med["current"] / med["row_dense"],
+    )
+    result.update(samples=samples, **comparison)
+    print("SOL_OUTPUT_REPLAY", args.case, json.dumps(comparison), flush=True)
+
+
 def run_case(args, result):
     global tl
 
@@ -98,7 +323,6 @@ def run_case(args, result):
     import torch_npu
     import triton
     import triton.language as tl
-
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
 
     root = os.getenv("QSA_ENV_ROOT")
@@ -204,6 +428,10 @@ def run_case(args, result):
     result.update(route=route, width=width, work=work)
     print("SOL_WORK", args.case, json.dumps(work), flush=True)
 
+    if args.output_replay:
+        run_output_replay(args, result, inputs, adapter, score)
+        return
+
     gen = torch.Generator().manual_seed(20261106)
 
     def integers(low, high, shape, dtype):
@@ -236,9 +464,6 @@ def run_case(args, result):
         ),
     }
 
-    def launch(name, target):
-        return arms[name](target)
-
     def validate():
         torch.npu.synchronize()
         checks = check_chunk(inputs, score.cpu(), first, count)
@@ -265,29 +490,9 @@ def run_case(args, result):
             )
         return checks
 
-    names = {}
-    result["compiler"] = {}
-    for arm in arms:
-        compiled = launch(arm, targets[arm])
-        names[arm] = {compiled.metadata.kernel_name: 1}
-        result["compiler"][arm] = str(compiled.metadata)
-        ttir = compiled.asm["ttir"]
-        if ttir.count("tt.dot") != int(arm in ("current", "cube")):
-            raise AssertionError(f"Unexpected dot count in {arm}")
-        for key in ("ttir", "ttadapter", "bcmlir"):
-            asm = compiled.asm.get(key)
-            if isinstance(asm, str):
-                (Path(args.report) / f"{args.case}-{arm}-{key}.txt").write_text(asm)
-    result["precheck"] = validate()
-    result["kernel_timer"] = {}
-    samples, _ = measure_prefix_plan(
-        args, arms, launch, targets, torch, result, expected_hosts=names
+    samples, med = capture_arms(
+        args, result, torch, arms, targets, validate, {"current", "cube"}
     )
-    result["postcheck"] = validate()
-    med = {
-        arm: statistics.median(t for row in rounds for t in row["active_invocation_us"])
-        for arm, rounds in samples.items()
-    }
     copy_bytes_us = (2 * COPY_BYTES) / med["copy"]
     macs_us = TILES * MACS / med["cube"]
     vector_tiles_us = TILES / med["vector"]
@@ -351,6 +556,11 @@ def main():
     parser.add_argument("--kernel-active", type=int, default=3)
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--case", choices=CHUNKS)
+    parser.add_argument(
+        "--output-replay",
+        action="store_true",
+        help="Compare production-shaped Vector replay with compact and row-strided outputs",
+    )
     args = parser.parse_args()
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive timing counts required")

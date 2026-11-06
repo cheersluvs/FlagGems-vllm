@@ -90,3 +90,37 @@ subtracted to attribute per-stage costs. Use a source-level bottleneck
 probe only after checking the compiled arms and comparing the references.
 
 [profile]: https://github.com/cheersluvs/FlagGems-vllm/commit/b9159913dcd9dd6a6103eab9199b5cb90b32739f
+
+## Matched Vector output replay
+
+The first [throughput calibration][sol-calibration] measured 111.22 and
+313.29 microseconds for current score and produced 54.04 and 227.44 microsecond
+ideal-overlap references. Both references were limited by the synthetic
+Vector arm. That arm used a large calibration batch and a compact store.
+The `--score-sol --output-replay` mode uses the actual two chunk geometries
+to estimate how much of the gap comes from the output layout and tail fill.
+
+| Arm | Output |
+| --- | --- |
+| Current | Existing score kernel on the same chunk |
+| Compact dense | Tile-major score and fill for every output position |
+| Row dense | Row-major with the original WIDTH stride, same scores and fill |
+| Compact scored | Bounded case only. Compact writes for scored tiles, sentinels preserved in skipped tiles |
+
+The three Vector replays share INT32 input tiles, query/key scales, weights,
+actual per-row visibility, grid20, query16, eight-tile units and 192-key page
+loop boundaries. Key scales and dot values are synthetic for replay, while the
+visibility, query scales and weights are from the fixture. Replays perform the
+same FP32 postprocessing and differ in output strides and, for Compact scored,
+the fill loop. Complete replay outputs and masks are checked against a CPU
+reference before and after timing. Compact scored also checks that every
+skipped tile retains its sentinel.
+
+Report paired `row_dense - compact_dense`, `compact_dense - compact_scored`
+(bounded case), and `current - row_dense` device times. The first two
+comparisons include any changes in lowering caused by layout and fill.
+The last comparison is a residual against a replay that reads materialized
+INT32. It includes differences in data sources and scheduling, and does not
+isolate Cube-to-Vector transfer or wait time.
+
+[sol-calibration]: https://github.com/cheersluvs/FlagGems-vllm/commit/b86c2e6653624a649ad12a6093924523f167e183
