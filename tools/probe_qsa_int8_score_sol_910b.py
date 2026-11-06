@@ -180,18 +180,19 @@ def compile_sync_arm(report, case, name, launch, target, sync_ir):
     from triton.backends.ascend import compiler
 
     dump = SyncDumpCompiler(report, f"{case}-{name}")
-    with patch.object(compiler, "subprocess", dump):
-        compiled = launch(target)
-    evidence = {
-        rec["file"]: summarize_sync_ir(report / rec["file"])
-        for call in dump.calls
-        for rec in call["streams"].values()
-    }
-    sync_ir[name] = dict(
-        binary_sha256=hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
-        invocations=dump.calls,
-        evidence=evidence,
-    )
+    try:
+        with patch.object(compiler, "subprocess", dump):
+            compiled = launch(target)
+    finally:
+        evidence = {
+            rec["file"]: summarize_sync_ir(report / rec["file"])
+            for call in dump.calls
+            for rec in call["streams"].values()
+        }
+        sync_ir[name] = dict(invocations=dump.calls, evidence=evidence)
+    sync_ir[name]["binary_sha256"] = hashlib.sha256(
+        bytes(compiled.asm["npubin"])
+    ).hexdigest()
     if len(dump.calls) != 1 or not any(
         e["after_solver_dumps"] and e["functions"] for e in evidence.values()
     ):
@@ -270,6 +271,8 @@ def capture_arms(
             if compile_arm is None
             else compile_arm(arm, arms[arm], targets[arm])
         )
+        if launched is None:
+            continue
         if isinstance(launched, tuple):
             names[arm] = dict(
                 collections.Counter(k.metadata.kernel_name for k in launched)
@@ -295,7 +298,7 @@ def capture_arms(
     result["precheck"] = validate()
     result["kernel_timer"] = {}
     samples, _ = measure_prefix_plan(
-        args, arms, launch, targets, torch, result, expected_hosts=names
+        args, names, launch, targets, torch, result, expected_hosts=names
     )
     result["postcheck"] = validate()
     med = {
@@ -645,32 +648,31 @@ def build_paired_tile_source(arm, *, wide):
     page = next(node for node in unit.body if isinstance(node, ast.For))
     (tail,) = (node for node in page.body if isinstance(node, ast.For))
     position = page.body.index(tail)
-    paired = ast.parse("for pair in range(tile_begin, pair_end, 2): pass").body[0]
-    two = ast.parse("for i in tl.static_range(0, 2):\n    tile = pair + i").body[0]
-    body = deepcopy(tail.body)
-    paired.body = []
+    paired = deepcopy(tail)
+    paired.iter = ast.parse("range(tile_begin, pair_end, 2)", mode="eval").body
     if wide:
-        assigned = {
-            node.targets[0].id: node for node in body if isinstance(node, ast.Assign)
-        }
-        keys = (
-            ast.unparse(assigned["keys"].value)
-            .replace("token", "pair_token")
-            .replace("key_live", "pair_live")
-        )
-        paired.body = ast.parse(
-            "pair_lanes = tl.arange(0, 2 * BLOCK_N)\n"
-            "pair_columns = pair * BLOCK_N + pair_lanes\n"
-            "pair_live = (pair_columns < WIDTH) & (pair_columns < max_visible)\n"
-            "pair_token = physical.to(tl.int64) * PAGE + (pair - page * 3) * BLOCK_N + pair_lanes\n"
-            f"keys = {keys}\n"
-            "wide_dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)\n"
-            "left, right = tl.split(tl.permute(tl.reshape(wide_dot, (64, 2, BLOCK_N)), (0, 2, 1)))"
-        ).body
-        body.remove(assigned["keys"])
-        assigned["dot"].value = ast.parse("left if i == 0 else right", mode="eval").body
-    two.body += body
-    paired.body.append(two)
+        for node in paired.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            name = node.targets[0].id
+            if name in ("columns", "token"):
+                extent = "tl.arange(0, BLOCK_N)"
+                expression = ast.unparse(node.value)
+                if expression.count(extent) != 1:
+                    raise RuntimeError(f"Unexpected tile extent in {name}")
+                node.value = ast.parse(
+                    expression.replace(extent, "tl.arange(0, 2 * BLOCK_N)"), mode="eval"
+                ).body
+            elif name == "scores":
+                node.value = ast.parse(
+                    "tl.sum(tl.reshape(weighted, (16, 4, 2 * BLOCK_N)), axis=1)",
+                    mode="eval",
+                ).body
+    else:
+        paired.target.id = "pair"
+        two = ast.parse("for i in tl.static_range(0, 2):\n    tile = pair + i").body[0]
+        two.body += paired.body
+        paired.body = [two]
     tail.iter = ast.parse("range(pair_end, tile_end)", mode="eval").body
     split = ast.parse("pair_end = tile_end - (tile_end - tile_begin) % 2").body[0]
     page.body[position:position] = [split, paired]
@@ -700,6 +702,7 @@ def paired_tile_work(width, visible):
 
 def run_tile_handoff(args, result, inputs, adapter, score):
     import torch
+    from triton.compiler.errors import MLIRCompilationError
 
     route = result["route"]
     first, count = route["first"], route["count"]
@@ -739,9 +742,26 @@ def run_tile_handoff(args, result, inputs, adapter, score):
     result.update(mode="tile_handoff", sync_ir={}, pair_work=work)
 
     def compile_arm(name, launch, target):
-        return compile_sync_arm(
-            report, args.case, name, launch, target, result["sync_ir"]
-        )
+        try:
+            return compile_sync_arm(
+                report, args.case, name, launch, target, result["sync_ir"]
+            )
+        except MLIRCompilationError as exc:
+            if name != "paired_n128":
+                raise
+            diagnostics = [
+                line.strip() for line in str(exc).splitlines() if "error:" in line
+            ]
+            result["wide_compile_rejection"] = dict(
+                arm=name, diagnostics=diagnostics[-12:]
+            )
+            print(
+                "SCORE_TILE_WIDE_REJECTED",
+                args.case,
+                json.dumps(result["wide_compile_rejection"]),
+                flush=True,
+            )
+            return None
 
     def validate():
         torch.npu.synchronize()
@@ -749,6 +769,8 @@ def run_tile_handoff(args, result, inputs, adapter, score):
         check_chunk(inputs, reference, first, count)
         exact = {}
         for name in ("paired_n64", "paired_n128"):
+            if name not in result["compiler"]:
+                continue
             actual = targets[name].cpu()
             torch.testing.assert_close(actual, reference, rtol=1e-3, atol=1e-3)
             exact[name] = torch.equal(actual, reference)
@@ -767,11 +789,12 @@ def run_tile_handoff(args, result, inputs, adapter, score):
     evidence = {
         name: page_ir_summary(record) for name, record in result["sync_ir"].items()
     }
-    n64, n128 = evidence["paired_n64"], evidence["paired_n128"]
+    n64, n128 = evidence["paired_n64"], evidence.get("paired_n128", {})
     narrow = n64["int32_fixpipe_destination_shapes"].get("aic", [])
-    wide = n128["int32_fixpipe_destination_shapes"].get("aic", [])
+    wide = n128.get("int32_fixpipe_destination_shapes", {}).get("aic", [])
     verified = (
-        n64["scalar_i32_workspace_sites"] == n128["scalar_i32_workspace_sites"] == 0
+        "paired_n128" in samples
+        and n64["scalar_i32_workspace_sites"] == n128["scalar_i32_workspace_sites"] == 0
         and len(narrow) >= 3
         and all(shape.endswith("64x64xi32") for shape in narrow)
         and any(shape.endswith("64x128xi32") for shape in wide)
@@ -782,16 +805,22 @@ def run_tile_handoff(args, result, inputs, adapter, score):
         )
     )
     comparisons = {}
-    for control in ("direct_page_group_visible", "paired_n64"):
+    for control, candidate in (
+        ("direct_page_group_visible", "paired_n64"),
+        ("direct_page_group_visible", "paired_n128"),
+        ("paired_n64", "paired_n128"),
+    ):
+        if candidate not in samples:
+            continue
         deltas = [
             a - b
-            for old, new in zip(samples[control], samples["paired_n128"], strict=True)
+            for old, new in zip(samples[control], samples[candidate], strict=True)
             for a, b in zip(
                 old["active_invocation_us"], new["active_invocation_us"], strict=True
             )
         ]
-        comparisons[control] = dict(
-            speedup=medians[control] / medians["paired_n128"],
+        comparisons[f"{control}_vs_{candidate}"] = dict(
+            speedup=medians[control] / medians[candidate],
             paired_saved_us=deltas,
             median_paired_saved_us=statistics.median(deltas),
         )
@@ -802,6 +831,8 @@ def run_tile_handoff(args, result, inputs, adapter, score):
         grouped_fixpipe_verified=verified,
         comparisons=comparisons,
     )
+    if "paired_n128" not in samples:
+        result["exit_code"] = 1
     print(
         "SCORE_TILE_HANDOFF",
         args.case,

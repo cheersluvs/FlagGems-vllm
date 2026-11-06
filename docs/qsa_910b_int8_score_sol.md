@@ -497,7 +497,7 @@ Use `--score-sol --tile-handoff` on the bounded `budget_exact` chunk. Both
 scalar handoffs are removed in all arms. The base keeps the existing
 per-page N64 loop. The paired N64 control executes the two original dots
 in a two-tile loop. The N128 arm uses one wide dot for the same two tiles,
-then splits the result into the original N64 postprocessing and stores.
+with contiguous N128 postprocessing and stores for each pair.
 All arms retain N64 odd tails, per-key visibility, dense FP32 output and
 the original fill loop. A pair never crosses a page or work-unit boundary.
 
@@ -511,3 +511,14 @@ scheduling. It measures the net grouped-tile change, with payload bytes
 and the source-level INT8 MAC count held fixed.
 
 [page-id-handoff]: https://github.com/cheersluvs/FlagGems-vllm/commit/8c8ef6588449a45f9c7dc12e7561139e1eb63498
+
+The [first tile run][tile-handoff-first] compiled both N64 arms. The N128
+arm with split-to-N64 postprocessing reached the sync solver, then failed
+with UB overflow and stride-alignment errors. No timings were collected.
+The retry removes the reshape/permute/split from the wide path. Its net
+timing also includes any difference in Vector tile shape and stores. A
+wide compiler rejection now retains the failed IR and measures the two
+valid N64 controls. That partial run returns exit code 1 and emits no N128
+speedup.
+
+[tile-handoff-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/b9760827c799a4d240b98d8ea50af6f06ae22394
