@@ -208,3 +208,20 @@ evidence, target mismatch or a timeout is reported as incomplete.
 
 [handoff-validated]: https://github.com/cheersluvs/FlagGems-vllm/commit/35abcfc0b5c22002aa6ba0460ac77bd7a527805b
 [CANN 9.1 msOpProf guide]: https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/910/devaids/optool/docs/zh/user_guide/msopprof_user_guide.md
+
+The [first TimelineDetail run][timeline-detail-first] matched the target
+kernel and binary on both cases. It captured operator basic information,
+but the profiler failed to save the kernel arguments and emitted no
+instruction trace or CSV. The CANN 9.1 guide explicitly excludes Triton
+from this on-board mode.
+
+The runner now uses standalone `msopprof simulator` (or
+`msprof op simulator`) in application mode, as described by the
+[Triton-Ascend profiling guide][triton-ascend-profiling]. It checks the
+simulator CLI before starting and defaults to the Ascend910B4 model and
+simulated device 0. The independent correctness and binary reference still
+uses the selected physical device. Only a matching simulated launch with
+instruction evidence counts as captured.
+
+[timeline-detail-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/71c502af8f8600e86d68725ebe4293ac11188187
+[triton-ascend-profiling]: https://github.com/triton-lang/triton-ascend/blob/main/docs/en/debug_guide/profiling.md

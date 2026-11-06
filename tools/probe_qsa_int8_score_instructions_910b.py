@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Capture CANN TimelineDetail for one current score launch per fixture."""
+"""Simulate the instruction timeline of one current score launch per fixture."""
 
 import argparse
 import collections
@@ -41,8 +41,10 @@ MAX_ARCHIVE_BYTES = 24 * 1024**2
 ENTRY = Path(__file__).with_name("probe_qsa_int8_score_sol_910b.py")
 
 
-def find_profiler():
+def find_simulator(report):
     root = os.getenv("ASCEND_HOME_PATH")
+    attempted = set()
+    checks = []
     for name in ("msopprof", "msprof"):
         candidates = []
         if root:
@@ -50,9 +52,31 @@ def find_profiler():
         if tool := shutil.which(name):
             candidates.append(Path(tool))
         for path in candidates:
-            if path.is_file() and os.access(path, os.X_OK):
-                return [str(path.resolve())] + (["op"] if name == "msprof" else [])
-    return None
+            if not path.is_file() or not os.access(path, os.X_OK):
+                continue
+            command = [str(path.resolve()), "simulator"]
+            if name == "msprof":
+                command.insert(1, "op")
+            key = tuple(command)
+            if key in attempted:
+                continue
+            attempted.add(key)
+            log = report / f"simulator-help-{len(checks) + 1}.txt"
+            status, timed_out = run_child(command + ["--help"], log, 30)
+            help_text = log.read_text(errors="replace")
+            available = status == 0 and not timed_out and "--soc-version" in help_text
+            checks.append(
+                dict(
+                    command=command,
+                    status=status,
+                    timed_out=timed_out,
+                    available=available,
+                    help_file=log.name,
+                )
+            )
+            if available:
+                return command, checks
+    return None, checks
 
 
 def category(label):
@@ -204,7 +228,7 @@ def run_case(args, case, profiler, report):
     for part in ("reference", "profiled", "capture"):
         (root / part).mkdir(parents=True, exist_ok=True)
 
-    def app(part):
+    def app(part, device):
         return [
             sys.executable,
             "-u",
@@ -215,11 +239,11 @@ def run_case(args, case, profiler, report):
             "--case",
             case,
             "--device",
-            str(args.device),
+            str(device),
         ]
 
     ref_status, ref_timeout = run_child(
-        app("reference") + ["--verify-output"],
+        app("reference", args.device) + ["--verify-output"],
         report / f"{case}-reference.txt",
         min(args.timeout, 120),
     )
@@ -250,15 +274,15 @@ def run_case(args, case, profiler, report):
 
     command = [
         *profiler,
-        "--aic-metrics=TimelineDetail",
+        f"--soc-version={args.soc_version}",
         f"--core-id={args.core_id}",
         f"--kernel-name={kernel}",
         "--launch-count=1",
         f"--output={root / 'capture'}",
-        *app("profiled"),
+        *app("profiled", args.sim_device),
     ]
     status, timed_out = run_child(
-        command, report / f"{case}-timeline-detail.txt", args.timeout
+        command, report / f"{case}-simulator.txt", args.timeout
     )
     profiled = read_entry(root / "profiled", case)
     captured = collect(case, root / "capture", report)
@@ -294,6 +318,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report", required=True)
     parser.add_argument("--device", type=int, default=1)
+    parser.add_argument("--sim-device", type=int, default=0)
+    parser.add_argument("--soc-version", default="Ascend910B4")
     parser.add_argument("--core-id", default="0", help="Logical cores, separated by |")
     parser.add_argument(
         "--timeout", type=int, default=360, help="Seconds per profiling case"
@@ -307,21 +333,19 @@ def main():
         parser.error("Choose logical core IDs from 0 to 49 and a positive timeout")
     report = Path(args.report).resolve()
     report.mkdir(parents=True, exist_ok=True)
-    profiler = find_profiler()
+    profiler, tool_checks = find_simulator(report)
     result = dict(
         profiler=profiler,
-        scope="CANN TimelineDetail simulator-derived instruction trace from a device launch. "
-        "Raw event durations are tool units and do not establish device latency.",
+        tool_checks=tool_checks,
+        soc_version=args.soc_version,
+        scope="Standalone CANN simulation, with an independent device reference launch. "
+        "Raw event durations describe simulation and do not establish device latency.",
         cases=[],
     )
     if not profiler:
         result.update(status="profiler_unavailable", exit_code=2)
         print("SCORE_INSTRUCTION_TOOL_UNAVAILABLE", flush=True)
     else:
-        help_status, help_timeout = run_child(
-            profiler + ["--help"], report / "timeline-detail-help.txt", 30
-        )
-        result.update(help_exit=help_status, help_timeout=help_timeout)
         for case in dict.fromkeys(args.cases):
             capture = run_case(args, case, profiler, report)
             result["cases"].append(capture)
