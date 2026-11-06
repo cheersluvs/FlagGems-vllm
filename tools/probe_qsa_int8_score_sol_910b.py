@@ -28,6 +28,7 @@ import sys
 import tempfile
 import time
 import traceback
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
@@ -110,6 +111,7 @@ def summarize_sync_ir(path):
     functions = set()
     scalar_workspace_sites = collections.Counter()
     tile_workspace_shapes = collections.defaultdict(list)
+    fixpipe_shapes = collections.defaultdict(list)
     table_reads = collections.Counter()
     table_refs = set()
     examples = collections.defaultdict(list)
@@ -132,8 +134,13 @@ def summarize_sync_ir(path):
             if "memref_ext.alloc_workspace" in line and "to memref<1xi32" in line:
                 scalar_workspace_sites[function or "unknown"] += 1
             if "memref_ext.alloc_workspace" in line:
-                if match := re.search(r"to memref<((?:\d+x)*64x64xi32),", line):
+                if match := re.search(r"to memref<((?:\d+x)*64x(?:64|128)xi32),", line):
                     tile_workspace_shapes[function or "unknown"].append(match[1])
+            if "hivm.hir.fixpipe " in line and "#hivm.address_space<gm>" in line:
+                if match := re.search(
+                    r"outs\(.*?memref<((?:\d+x)*64x(?:64|128)xi32),", line
+                ):
+                    fixpipe_shapes[function or "unknown"].append(match[1])
             if match := re.search(
                 r"(%[\w.]+) = memref\.(?:reinterpret_cast|subview|cast) (%[\w.]+)\b",
                 line,
@@ -163,6 +170,7 @@ def summarize_sync_ir(path):
         operations=dict(counts),
         scalar_i32_workspace_sites=dict(scalar_workspace_sites),
         int32_tile_workspace_shapes=dict(tile_workspace_shapes),
+        int32_fixpipe_destination_shapes=dict(fixpipe_shapes),
         table_scalar_reads=dict(table_reads),
         examples=dict(examples),
     )
@@ -271,7 +279,10 @@ def capture_arms(
         names[arm] = {compiled.metadata.kernel_name: 1}
         result["compiler"][arm] = str(compiled.metadata)
         ttir = compiled.asm["ttir"]
-        if ttir.count("tt.dot") != int(arm in dot_arms):
+        expected_dots = (
+            dot_arms[arm] if isinstance(dot_arms, dict) else int(arm in dot_arms)
+        )
+        if ttir.count("tt.dot") != expected_dots:
             raise AssertionError(f"Unexpected dot count in {arm}")
         for key in ("ttir", "ttadapter", "bcmlir"):
             asm = compiled.asm.get(key)
@@ -475,11 +486,14 @@ def page_ir_summary(record):
     scalar = collections.Counter()
     reads = collections.Counter()
     tiles = collections.defaultdict(list)
+    fixpipe = collections.defaultdict(list)
     for evidence in record["evidence"].values():
         scalar.update(evidence["scalar_i32_workspace_sites"])
         reads.update(evidence["table_scalar_reads"])
         for function, shapes in evidence["int32_tile_workspace_shapes"].items():
             tiles[function.rsplit("_", 1)[-1]].extend(shapes)
+        for function, shapes in evidence["int32_fixpipe_destination_shapes"].items():
+            fixpipe[function.rsplit("_", 1)[-1]].extend(shapes)
     return dict(
         scalar_i32_workspace_sites=sum(scalar.values()),
         scalar_i32_workspace_sites_by_core={
@@ -489,12 +503,13 @@ def page_ir_summary(record):
         int32_tile_workspace_shapes={
             core: sorted(shapes) for core, shapes in tiles.items()
         },
+        int32_fixpipe_destination_shapes={
+            core: sorted(shapes) for core, shapes in fixpipe.items()
+        },
     )
 
 
-def run_page_id_handoff(args, result, inputs, adapter, score):
-    import torch
-
+def direct_page_inputs(result, inputs, adapter, score):
     route = result["route"]
     first, count = route["first"], route["count"]
     table = inputs["row_table"][first : first + count]
@@ -510,6 +525,18 @@ def run_page_id_handoff(args, result, inputs, adapter, score):
         .amax(1)
         .to(score.device)
     )
+    result["table_check"] = dict(
+        rows=count, columns=table.shape[1], all_entries_valid=True
+    )
+    return adapter.bind_query16_score(first, count, score), group_visible
+
+
+def run_page_id_handoff(args, result, inputs, adapter, score):
+    import torch
+
+    route = result["route"]
+    first, count = route["first"], route["count"]
+    bound, group_visible = direct_page_inputs(result, inputs, adapter, score)
     report = Path(args.report)
     bounded = route["skip_invisible"]
     sources = dict(
@@ -521,7 +548,6 @@ def run_page_id_handoff(args, result, inputs, adapter, score):
             bounded, "direct_page_group_visible", precomputed_visibility=True
         ),
     )
-    bound = adapter.bind_query16_score(first, count, score)
     arms = {"current": lambda out: adapter.score_into(first, count, out)}
 
     def launch_variant(kernel, metadata, out):
@@ -534,11 +560,7 @@ def run_page_id_handoff(args, result, inputs, adapter, score):
     targets = {
         name: score if name == "current" else torch.empty_like(score) for name in arms
     }
-    result.update(
-        mode="page_id_handoff",
-        sync_ir={},
-        table_check=dict(rows=count, columns=table.shape[1], all_entries_valid=True),
-    )
+    result.update(mode="page_id_handoff", sync_ir={})
 
     def compile_arm(name, launch, target):
         return compile_sync_arm(
@@ -612,6 +634,186 @@ def run_page_id_handoff(args, result, inputs, adapter, score):
         "SCORE_PAGE_ID_HANDOFF",
         args.case,
         json.dumps(dict(median_us=medians, page_ir=evidence, comparisons=comparisons)),
+        flush=True,
+    )
+
+
+def build_paired_tile_source(arm, *, wide):
+    base = build_direct_page_source(True, arm, precomputed_visibility=True)
+    fn = ast.parse(base).body[-1]
+    (unit,) = (node for node in fn.body if isinstance(node, ast.For))
+    page = next(node for node in unit.body if isinstance(node, ast.For))
+    (tail,) = (node for node in page.body if isinstance(node, ast.For))
+    position = page.body.index(tail)
+    paired = ast.parse("for pair in range(tile_begin, pair_end, 2): pass").body[0]
+    two = ast.parse("for i in tl.static_range(0, 2):\n    tile = pair + i").body[0]
+    body = deepcopy(tail.body)
+    paired.body = []
+    if wide:
+        assigned = {
+            node.targets[0].id: node for node in body if isinstance(node, ast.Assign)
+        }
+        keys = (
+            ast.unparse(assigned["keys"].value)
+            .replace("token", "pair_token")
+            .replace("key_live", "pair_live")
+        )
+        paired.body = ast.parse(
+            "pair_lanes = tl.arange(0, 2 * BLOCK_N)\n"
+            "pair_columns = pair * BLOCK_N + pair_lanes\n"
+            "pair_live = (pair_columns < WIDTH) & (pair_columns < max_visible)\n"
+            "pair_token = physical.to(tl.int64) * PAGE + (pair - page * 3) * BLOCK_N + pair_lanes\n"
+            f"keys = {keys}\n"
+            "wide_dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)\n"
+            "left, right = tl.split(tl.permute(tl.reshape(wide_dot, (64, 2, BLOCK_N)), (0, 2, 1)))"
+        ).body
+        body.remove(assigned["keys"])
+        assigned["dot"].value = ast.parse("left if i == 0 else right", mode="eval").body
+    two.body += body
+    paired.body.append(two)
+    tail.iter = ast.parse("range(pair_end, tile_end)", mode="eval").body
+    split = ast.parse("pair_end = tile_end - (tile_end - tile_begin) % 2").body[0]
+    page.body[position:position] = [split, paired]
+    return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+
+
+def paired_tile_work(width, visible):
+    """Count pairs without crossing the page or eight-tile unit boundary."""
+    pairs = tails = 0
+    for base in range(0, len(visible), 16):
+        active = (min(width, max(visible[base : base + 16])) + 63) // 64
+        for first_tile in range(0, active, 8):
+            end_tile = min(active, first_tile + 8)
+            for page in range(first_tile // 3, (end_tile - 1) // 3 + 1):
+                count = min(end_tile, page * 3 + 3) - max(first_tile, page * 3)
+                pairs += count // 2
+                tails += count % 2
+    return dict(
+        n128_pairs=pairs,
+        n64_tails=tails,
+        n64_equivalent_tiles=2 * pairs + tails,
+        n64_control_transfers=2 * pairs + tails,
+        n128_candidate_transfers=pairs + tails,
+        logical_result_bytes=(2 * pairs + tails) * 64 * 64 * 4,
+    )
+
+
+def run_tile_handoff(args, result, inputs, adapter, score):
+    import torch
+
+    route = result["route"]
+    first, count = route["first"], route["count"]
+    if not route["skip_invisible"]:
+        raise ValueError("Tile handoff probe requires the bounded score route")
+    bound, group_visible = direct_page_inputs(result, inputs, adapter, score)
+    visible = inputs["visible"][first : first + count].tolist()
+    work = paired_tile_work(result["width"], visible)
+    if (
+        not work["n128_pairs"]
+        or work["n64_equivalent_tiles"] != result["work"]["dot_tiles"]
+    ):
+        raise AssertionError("Tile pairing changed the issued dot work")
+    report = Path(args.report)
+    sources = dict(
+        direct_page_group_visible=build_direct_page_source(
+            True, "direct_page_group_visible", precomputed_visibility=True
+        ),
+        paired_n64=build_paired_tile_source("paired_n64", wide=False),
+        paired_n128=build_paired_tile_source("paired_n128", wide=True),
+    )
+
+    def launch(kernel, out):
+        return kernel[(GRID,)](*bound.args[:-1], out, group_visible, **bound.keywords)
+
+    arms = {
+        name: functools.partial(
+            launch, load_generated_prefix(report, args.case, name, source)
+        )
+        for name, source in sources.items()
+    }
+    targets = dict(
+        direct_page_group_visible=score,
+        paired_n64=torch.empty_like(score),
+        paired_n128=torch.empty_like(score),
+    )
+    result.update(mode="tile_handoff", sync_ir={}, pair_work=work)
+
+    def compile_arm(name, launch, target):
+        return compile_sync_arm(
+            report, args.case, name, launch, target, result["sync_ir"]
+        )
+
+    def validate():
+        torch.npu.synchronize()
+        reference = score.cpu()
+        check_chunk(inputs, reference, first, count)
+        exact = {}
+        for name in ("paired_n64", "paired_n128"):
+            actual = targets[name].cpu()
+            torch.testing.assert_close(actual, reference, rtol=1e-3, atol=1e-3)
+            exact[name] = torch.equal(actual, reference)
+        return dict(full_outputs_checked=True, bitwise_equal=exact)
+
+    samples, medians = capture_arms(
+        args,
+        result,
+        torch,
+        arms,
+        targets,
+        validate,
+        dict(direct_page_group_visible=1, paired_n64=3, paired_n128=2),
+        compile_arm=compile_arm,
+    )
+    evidence = {
+        name: page_ir_summary(record) for name, record in result["sync_ir"].items()
+    }
+    n64, n128 = evidence["paired_n64"], evidence["paired_n128"]
+    narrow = n64["int32_fixpipe_destination_shapes"].get("aic", [])
+    wide = n128["int32_fixpipe_destination_shapes"].get("aic", [])
+    verified = (
+        n64["scalar_i32_workspace_sites"] == n128["scalar_i32_workspace_sites"] == 0
+        and len(narrow) >= 3
+        and all(shape.endswith("64x64xi32") for shape in narrow)
+        and any(shape.endswith("64x128xi32") for shape in wide)
+        and any(shape.endswith("64x64xi32") for shape in wide)
+        and any(
+            shape.endswith("64x128xi32")
+            for shape in n128["int32_tile_workspace_shapes"].get("aiv", [])
+        )
+    )
+    comparisons = {}
+    for control in ("direct_page_group_visible", "paired_n64"):
+        deltas = [
+            a - b
+            for old, new in zip(samples[control], samples["paired_n128"], strict=True)
+            for a, b in zip(
+                old["active_invocation_us"], new["active_invocation_us"], strict=True
+            )
+        ]
+        comparisons[control] = dict(
+            speedup=medians[control] / medians["paired_n128"],
+            paired_saved_us=deltas,
+            median_paired_saved_us=statistics.median(deltas),
+        )
+    result.update(
+        samples=samples,
+        median_us=medians,
+        tile_ir=evidence,
+        grouped_fixpipe_verified=verified,
+        comparisons=comparisons,
+    )
+    print(
+        "SCORE_TILE_HANDOFF",
+        args.case,
+        json.dumps(
+            dict(
+                median_us=medians,
+                pair_work=work,
+                tile_ir=evidence,
+                grouped_fixpipe_verified=verified,
+                comparisons=comparisons,
+            )
+        ),
         flush=True,
     )
 
@@ -1235,6 +1437,9 @@ def run_case(args, result):
     if args.page_id_handoff:
         run_page_id_handoff(args, result, inputs, adapter, score)
         return
+    if args.tile_handoff:
+        run_tile_handoff(args, result, inputs, adapter, score)
+        return
     if args.output_replay:
         run_output_replay(args, result, inputs, adapter, score)
         return
@@ -1385,6 +1590,11 @@ def main():
         help="Probe removing the page-number scalar handoff on fully valid tables",
     )
     mode.add_argument(
+        "--tile-handoff",
+        action="store_true",
+        help="Compare two N64 transfers with one N128 transfer on budget_exact",
+    )
+    mode.add_argument(
         "--instruction-entry", action="store_true", help=argparse.SUPPRESS
     )
     parser.add_argument("--verify-output", action="store_true", help=argparse.SUPPRESS)
@@ -1410,10 +1620,12 @@ def main():
         )
     if min(args.rounds, args.kernel_warmup, args.kernel_active, args.timeout) < 1:
         parser.error("Positive timing counts required")
+    if args.tile_handoff and args.case not in (None, "int8_budget_exact"):
+        parser.error("Tile handoff probe requires int8_budget_exact")
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     if args.case:
-        if args.group_visible or args.page_id_handoff:
+        if args.group_visible or args.page_id_handoff or args.tile_handoff:
             os.environ["TRITON_CACHE_DIR"] = tempfile.mkdtemp(
                 prefix=f"{args.case}-sync-probe-cache-", dir=report
             )
@@ -1430,7 +1642,7 @@ def main():
         return result["exit_code"]
 
     results = []
-    for case in CHUNKS:
+    for case in ("int8_budget_exact",) if args.tile_handoff else CHUNKS:
         path = report / f"{case}.json"
         path.unlink(missing_ok=True)
         command = [sys.executable, "-u", __file__, *sys.argv[1:], "--case", case]

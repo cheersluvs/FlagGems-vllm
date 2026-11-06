@@ -485,3 +485,29 @@ workspace site on each side in aggregate and direct table scalar loads
 in both AIC and AIV. The report also records the INT32 tile workspace
 shapes. The paired timing is the net change including direct table reads
 and any changed scheduling. It does not assign cycles to individual waits.
+
+## Paired INT32 tile handoff probe
+
+The [page-number report][page-id-handoff] confirmed independent scalar
+page-table loads on AIC and AIV. With both scalar handoffs removed,
+`budget_exact` took 78.22 us against the 54.04 us overlap reference. The
+remaining INT32 tile workspace has one slot in that case.
+
+Use `--score-sol --tile-handoff` on the bounded `budget_exact` chunk. Both
+scalar handoffs are removed in all arms. The base keeps the existing
+per-page N64 loop. The paired N64 control executes the two original dots
+in a two-tile loop. The N128 arm uses one wide dot for the same two tiles,
+then splits the result into the original N64 postprocessing and stores.
+All arms retain N64 odd tails, per-key visibility, dense FP32 output and
+the original fill loop. A pair never crosses a page or work-unit boundary.
+
+Compare full outputs and masks before and after timing. Count logical
+handoffs and report the Fixpipe destination and INT32 workspace shapes
+from the post-solver IR. Credit grouped transfers only when the matched
+control retains separate N64 Fixpipe sites, the N128 arm has a wide
+Fixpipe and matching Vector workspace, and scalar handoffs stay absent.
+The measured delta includes any changed Cube, Vector or writeback
+scheduling. It measures the net grouped-tile change, with payload bytes
+and the source-level INT8 MAC count held fixed.
+
+[page-id-handoff]: https://github.com/cheersluvs/FlagGems-vllm/commit/8c8ef6588449a45f9c7dc12e7561139e1eb63498

@@ -54,6 +54,10 @@ if [[ ${1:-} == --score-sol ]]; then
         qsa_kind=int8-score-page-id-handoff
         qsa_subject="score page ID handoff"
         qsa_label="INT8 score page ID handoff"
+    elif [[ ${1:-} == --tile-handoff ]]; then
+        qsa_kind=int8-score-tile-handoff
+        qsa_subject="score INT32 tile handoff"
+        qsa_label="INT8 score tile handoff"
     fi
 elif [[ ${1:-} == --score-instructions ]]; then
     shift
