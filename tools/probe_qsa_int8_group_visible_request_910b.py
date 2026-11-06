@@ -13,6 +13,7 @@
 """Pair the current and one-copy GroupVisible request paths on 910B."""
 
 import collections
+import hashlib
 import json
 import statistics
 import time
@@ -43,7 +44,10 @@ def run_group_visible_request(args, result, inputs, values, plan, topk):
     for bounded in (True, False):
         arm = "group_visible_bounded" if bounded else "group_visible_full"
         kernels[bounded] = load_generated_prefix(
-            report, args.case, arm, build_group_visible_source(bounded, arm)
+            report,
+            args.case,
+            arm,
+            build_group_visible_source(bounded, arm, request_offset=True),
         )
 
     def prepare(name):
@@ -69,30 +73,48 @@ def run_group_visible_request(args, result, inputs, values, plan, topk):
         for r in current.route_checks
         if r["page_reuse"] and r["query_group"] == 16 and r["count"] % 16 == 0
     }
-    if set(candidate.group_visible) != expected_hits:
+    if set(candidate.group_visible_offsets) != expected_hits:
         raise AssertionError("Unexpected GroupVisible routing")
     if args.case in ("int8_budget_exact", "int8_long100k") and not expected_hits:
         raise AssertionError("Expected candidate hits in the profiled fixtures")
     if args.case == "int8_first_chunk" and expected_hits:
         raise AssertionError("first_chunk must exercise the zero-hit control")
-    for (first, count), packed in candidate.group_visible.items():
-        if packed.data_ptr() % 16:
-            raise AssertionError("GroupVisible input is not 16-byte aligned")
+    metadata = candidate.group_visible_metadata
+    if (metadata is not None) != bool(expected_hits):
+        raise AssertionError("GroupVisible allocation does not match candidate hits")
+    packed = metadata.cpu() if metadata is not None else None
+    expected_offset = 0
+    for (first, count), offset in candidate.group_visible_offsets.items():
+        if offset != expected_offset:
+            raise AssertionError("Invalid GroupVisible offset")
+        expected_offset += count // 16
         torch.testing.assert_close(
-            packed.cpu(),
+            packed[offset:expected_offset],
             inputs["visible"][first : first + count].reshape(-1, 16).amax(1),
             rtol=0,
             atol=0,
         )
+    if (packed is not None and packed.numel() != expected_offset) or (
+        candidate.group_visible_stats["groups_from_policy"] != expected_offset
+    ):
+        raise AssertionError(
+            "GroupVisible must reuse the policy maxima for every group"
+        )
 
     references = {row: reference(inputs, row)[1] for row in sample_rows(plan)}
     host_names = {name: collections.Counter() for name in names}
+    binaries = {name: {} for name in names}
     result["stage"] = "group_visible_full_score_check"
     for first, count in current.chunks:
         a = current.score_into(first, count, score[:count])
         b = candidate.score_into(first, count, alternate[:count])
         for name, compiled in zip(names, (a, b), strict=True):
             host_names[name][compiled.metadata.kernel_name] += 1
+            if id(compiled) not in binaries[name]:
+                binaries[name][id(compiled)] = (
+                    compiled.metadata.kernel_name,
+                    hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
+                )
         if not torch.equal(score[:count], alternate[:count]):
             raise AssertionError(f"FP32 score differs at chunk starting {first}")
         for row, expected in references.items():
@@ -119,6 +141,9 @@ def run_group_visible_request(args, result, inputs, values, plan, topk):
         chunks=len(current.chunks),
     )
     result["group_visible_prepared"] = candidate.group_visible_stats
+    result["score_binaries"] = {
+        name: sorted(set(entries.values())) for name, entries in binaries.items()
+    }
     result["topk_identity"] = topk.probe_identity
 
     result["stage"] = "group_visible_score_trace"
@@ -187,6 +212,12 @@ def run_group_visible_request(args, result, inputs, values, plan, topk):
         ],
         median_group_visible_prepare_us=statistics.median(
             p["group_visible"]["group_visible"]["prepare_us"] for p in pairs
+        ),
+        median_group_visible_pack_us=statistics.median(
+            p["group_visible"]["group_visible"]["pack_us"] for p in pairs
+        ),
+        median_group_visible_alloc_copy_us=statistics.median(
+            p["group_visible"]["group_visible"]["alloc_copy_us"] for p in pairs
         ),
         scope="Fresh route/metadata preparation, one score+TopK request and final sync "
         "on ready inputs and buffers.",

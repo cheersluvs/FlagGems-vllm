@@ -339,3 +339,19 @@ routing and metadata preparation. It excludes model projections, cache
 updates, and the original input/output buffer allocations.
 
 [group-visible-chunk]: https://github.com/cheersluvs/FlagGems-vllm/commit/5c703b205566f66ed07ac50fde33389fb2aa6faa
+
+The [first request report][group-visible-request] found stable prepared score
+gains of 1.029x and 1.045x, but fresh request wall time did not improve
+consistently. The metadata path cost 1.91 and 2.29 ms in the two hit cases.
+
+The revised candidate captures the exact maxima already evaluated by the
+visibility policy, and packs them into one request buffer without alignment
+padding or device tensor views per chunk. The candidate kernel loads from
+that shared buffer using a runtime chunk offset. FlagTree's
+`do_not_specialize` applies to the offset. The benchmark records distinct
+compiled score binaries and checks every offset and all metadata against
+independent maxima. Measure packing and allocation/copy separately from
+request wall time. The packing counter excludes the route-policy calculation
+that both arms perform.
+
+[group-visible-request]: https://github.com/cheersluvs/FlagGems-vllm/commit/984a34820fa9823dcd92db2dc305cfc6de98a2a2

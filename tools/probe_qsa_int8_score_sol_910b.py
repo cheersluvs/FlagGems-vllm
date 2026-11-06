@@ -377,13 +377,18 @@ def build_handoff_source(bounded, arm):
     return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
 
 
-def build_group_visible_source(bounded, arm="group_visible"):
+def build_group_visible_source(bounded, arm="group_visible", *, request_offset=False):
     fn = page_reuse_function(bounded)
     fn.name = f"_qsa_page64_prefix_{arm}"
-    fn.args.args.insert(
-        next(i for i, arg in enumerate(fn.args.args) if arg.arg == "ROWS"),
-        ast.arg(arg="GroupVisible"),
-    )
+    index = next(i for i, arg in enumerate(fn.args.args) if arg.arg == "ROWS")
+    fn.args.args.insert(index, ast.arg(arg="GroupVisible"))
+    pointer = "GroupVisible + group"
+    if request_offset:
+        fn.args.args.insert(index + 1, ast.arg(arg="GroupOffset"))
+        fn.decorator_list = [
+            ast.parse('triton.jit(do_not_specialize=["GroupOffset"])', mode="eval").body
+        ]
+        pointer = "GroupVisible + GroupOffset + group"
     (unit,) = (n for n in fn.body if isinstance(n, ast.For))
     (maximum,) = (
         n
@@ -392,7 +397,7 @@ def build_group_visible_source(bounded, arm="group_visible"):
         and isinstance(n.targets[0], ast.Name)
         and n.targets[0].id == "max_visible"
     )
-    maximum.value = ast.parse("tl.load(GroupVisible + group)", mode="eval").body
+    maximum.value = ast.parse(f"tl.load({pointer})", mode="eval").body
     ast.fix_missing_locations(fn)
     return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
 

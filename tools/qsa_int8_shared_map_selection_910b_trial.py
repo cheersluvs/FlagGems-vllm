@@ -33,18 +33,21 @@ from qsa_int8_query_pack4_910b import (
 from qsa_int8_selection_910b_trial import PreparedInt8Selection
 
 
-def visibility_tile_policy(visible, width, policy):
-    """Count group16/N64 issued tiles and choose a conservative trial route."""
+def visibility_tile_policy(visible, width, policy, *, maxima_out=None):
+    """Count issued tiles and optionally capture maxima in an empty list."""
     if policy not in ("all", "conservative"):
         raise ValueError("Unknown visibility policy")
     if not visible or width < 1 or any(v < 0 for v in visible):
         raise ValueError("Nonempty nonnegative visibility and positive width required")
     tiles = ((width + 63) // 64 + 7) // 8 * 8
     issued = ((len(visible) + 15) // 16) * tiles
-    useful = sum(
-        (min(width, max(visible[b : b + 16])) + 63) // 64
-        for b in range(0, len(visible), 16)
-    )
+    maxima = (max(visible[b : b + 16]) for b in range(0, len(visible), 16))
+    if maxima_out is not None:
+        if maxima_out:
+            raise ValueError("maxima_out must be empty")
+        maxima_out.extend(maxima)
+        maxima = maxima_out
+    useful = sum((min(width, maximum) + 63) // 64 for maximum in maxima)
     skipped = issued - useful
     selected = policy == "all" or (issued >= 512 and skipped * 8 >= issued)
     return dict(
@@ -136,6 +139,11 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         self.query16_routes = {}
         self.skip_invisible_routes = {}
         visible = values["visible"].cpu().tolist() if self.skip_invisible else None
+        self.group_visible_kernels = group_visible_kernels
+        self.group_visible_offsets = {}
+        packed = []
+        metadata_pack_ns = 0
+        groups_from_policy = 0
         for entry in self.route_checks:
             first, count = (entry["first"], entry["count"])
             eligible = query16 and self.single_page64 and entry["shared"]
@@ -155,9 +163,19 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                         break
             self.query16_routes[first, count] = eligible
             selected = False
+            want_metadata = (
+                group_visible_kernels is not None
+                and eligible
+                and self.page_reuse
+                and count % 16 == 0
+            )
+            maxima = [] if want_metadata else None
             if eligible and self.skip_invisible:
                 stats = visibility_tile_policy(
-                    visible[first : first + count], self.width, visibility_policy
+                    visible[first : first + count],
+                    self.width,
+                    visibility_policy,
+                    maxima_out=maxima,
                 )
                 entry["visibility_tiles"] = stats
                 selected = stats["selected"]
@@ -170,38 +188,38 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             entry["query16_reason"] = (
                 "Shared mapping and request owner proven" if eligible else reason
             )
+            if want_metadata and entry["page_reuse"]:
+                metadata_start = time.perf_counter_ns()
+                self.group_visible_offsets[first, count] = len(packed)
+                if maxima:
+                    packed.extend(maxima)
+                    groups_from_policy += len(maxima)
+                else:
+                    if visible is None:
+                        visible = values["visible"].cpu().tolist()
+                    packed.extend(
+                        max(visible[row : row + 16])
+                        for row in range(first, first + count, 16)
+                    )
+                metadata_pack_ns += time.perf_counter_ns() - metadata_start
 
-        self.group_visible_kernels = group_visible_kernels
-        self.group_visible = {}
-        self.group_visible_stats = dict(hit_chunks=0, bytes=0, prepare_us=0.0)
-        if group_visible_kernels is not None:
-            metadata_start = time.perf_counter_ns()
-            packed, spans = [], {}
-            for entry in self.route_checks:
-                first, count = entry["first"], entry["count"]
-                if not entry["page_reuse"] or entry["query_group"] != 16 or count % 16:
-                    continue
-                if visible is None:
-                    visible = values["visible"].cpu().tolist()
-                packed.extend([0] * (-len(packed) % 4))
-                offset = len(packed)
-                packed.extend(
-                    max(visible[row : row + 16])
-                    for row in range(first, first + count, 16)
-                )
-                spans[first, count] = (offset, len(packed))
-            if packed:
-                metadata = torch.tensor(packed, dtype=torch.int32, device="cpu").to(
-                    self.scratch.device
-                )
-                self.group_visible = {
-                    key: metadata[a:b] for key, (a, b) in spans.items()
-                }
-            self.group_visible_stats = dict(
-                hit_chunks=len(spans),
-                bytes=len(packed) * 4,
-                prepare_us=(time.perf_counter_ns() - metadata_start) / 1000,
-            )
+        self.group_visible_metadata = None
+        copy_ns = 0
+        if packed:
+            copy_start = time.perf_counter_ns()
+            self.group_visible_metadata = torch.tensor(
+                packed, dtype=torch.int32, device="cpu"
+            ).to(self.scratch.device)
+            copy_ns = time.perf_counter_ns() - copy_start
+        self.group_visible_stats = dict(
+            hit_chunks=len(self.group_visible_offsets),
+            bytes=len(packed) * 4,
+            groups_from_policy=groups_from_policy,
+            copies=int(bool(packed)),
+            pack_us=metadata_pack_ns / 1000,
+            alloc_copy_us=copy_ns / 1000,
+            prepare_us=(metadata_pack_ns + copy_ns) / 1000,
+        )
         self.preparation_ms = (time.perf_counter() - started) * 1000
 
     def score_into(self, first, count, target):
@@ -313,10 +331,12 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             kernel = _qsa_page64_page_reuse_full_score
         else:
             kernel = _qsa_page64_query16_score
-        group_visible = (
-            self.group_visible.get((first, count)) if self.group_visible else None
+        group_offset = (
+            self.group_visible_offsets.get((first, count))
+            if self.group_visible_offsets
+            else None
         )
-        if group_visible is not None:
+        if group_offset is not None:
             kernel = self.group_visible_kernels[
                 self.skip_invisible_routes[(first, count)]
             ]
@@ -331,8 +351,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             v["visible"][first : first + count],
             target,
         )
-        if group_visible is not None:
-            args += (group_visible,)
+        if group_offset is not None:
+            args += (self.group_visible_metadata, group_offset)
         kwargs = dict(
             ROWS=count,
             COLUMNS=v["row_table"].shape[1],
