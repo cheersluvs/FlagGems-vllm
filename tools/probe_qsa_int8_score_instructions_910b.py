@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-from probe_qsa_int8_score_sol_910b import CHUNKS
+from probe_qsa_int8_score_sol_910b import CHUNKS, summarize_sync_ir
 from probe_qsa_int8_ten_shapes_910b import run_child
 
 EXPECTED = {
@@ -238,49 +238,6 @@ def entry_command(directory, case, device):
         "--device",
         str(device),
     ]
-
-
-def summarize_sync_ir(path):
-    after = 0
-    active = False
-    function = None
-    counts = collections.Counter()
-    functions = set()
-    examples = collections.defaultdict(list)
-    with gzip.open(path, "rt", errors="replace") as stream:
-        for lineno, line in enumerate(stream, 1):
-            if "IR Dump" in line:
-                active = "IR Dump After" in line and "graphsyncsolver" in re.sub(
-                    r"[^a-z]", "", line.lower()
-                )
-                if active:
-                    after += 1
-                    function = None
-            if not active:
-                continue
-            if match := re.search(r"\bfunc\.func\s+(?:private\s+)?@([^\s(]+)", line):
-                function = match[1]
-                functions.add(function)
-            for token in re.findall(
-                r"\b(?:hivm\.hir\.[\w.]+|memref\.alloca?|memref\.copy|memref_ext\.alloc_workspace)\b",
-                line,
-            ):
-                if token.startswith(("memref.", "memref_ext.")) or re.search(
-                    r"sync|flag|barrier|copy|load|store|fixp|mmad|matmul", token
-                ):
-                    counts[token] += 1
-                    if len(examples[token]) < 8:
-                        examples[token].append(
-                            dict(
-                                line=lineno, function=function, text=line.strip()[:1000]
-                            )
-                        )
-    return dict(
-        after_solver_dumps=after,
-        functions=sorted(functions),
-        operations=dict(counts),
-        examples=dict(examples),
-    )
 
 
 def run_sync_ir_case(args, case, report):

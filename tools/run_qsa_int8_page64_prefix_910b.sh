@@ -46,6 +46,11 @@ if [[ ${1:-} == --score-sol ]]; then
     qsa_kind=int8-score-sol
     qsa_subject="score throughput calibration"
     qsa_label="INT8 score throughput calibration"
+    if [[ ${1:-} == --group-visible ]]; then
+        qsa_kind=int8-score-group-visible
+        qsa_subject="precomputed score visibility"
+        qsa_label="INT8 score group visibility"
+    fi
 elif [[ ${1:-} == --score-instructions ]]; then
     shift
     qsa_probe=probe_qsa_int8_score_instructions_910b.py

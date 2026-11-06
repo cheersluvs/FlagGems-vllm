@@ -289,3 +289,27 @@ and ABI records. Section comparison diagnoses a mismatch and does not
 relax the exact-binary acceptance criterion.
 
 [post-sync-first]: https://github.com/cheersluvs/FlagGems-vllm/commit/f8223be8875429308e190ccca66e2a3b54b578fa
+
+## Precomputed maximum visibility probe
+
+Both [bounded][post-sync-first] and [full][post-sync-long] exact-binary IR
+dumps have two scalar INT32 workspace sites on each side of the Cube/Vector
+boundary. One carries the group maximum visibility and the other carries
+the physical page. The full scorer has a four-slot INT32 result buffer.
+
+The `--score-sol --group-visible` probe replaces the in-kernel reduction
+over 16 query rows with a load of one precomputed INT32 maximum. It retains
+the same route, grid, page traversal, QK dot, FP32 scoring, per-row mask and
+output layout. Both arms compile in an isolated cache with the same
+post-solver print option, and the reported binaries are the ones used for
+paired device timing. Record whether the candidate loses the workspace sites
+and inspect the actual IR to see which data still crosses the boundary. A
+scalar load may still be lowered to Vector and forwarded to Cube.
+
+The fixture's visibility is available on CPU. Report the incremental CPU
+reduction and separately the synchronized allocation and H2D cost for the
+chunk metadata. The paired kernel measurement uses already prepared metadata.
+Check all candidate scores and visibility masks before and after timing.
+The experiment covers complete query16 groups in the two profiled chunks.
+
+[post-sync-long]: https://github.com/cheersluvs/FlagGems-vllm/commit/7ee5420bc6fcce95cbe2fdc1b201bc1b6447ec56

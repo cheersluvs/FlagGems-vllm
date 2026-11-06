@@ -25,6 +25,8 @@ import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
+import time
 import traceback
 from pathlib import Path
 from unittest.mock import patch
@@ -100,6 +102,53 @@ class SyncDumpCompiler:
         )
 
 
+def summarize_sync_ir(path):
+    after = 0
+    active = False
+    function = None
+    counts = collections.Counter()
+    functions = set()
+    scalar_workspace_sites = collections.Counter()
+    examples = collections.defaultdict(list)
+    with gzip.open(path, "rt", errors="replace") as stream:
+        for lineno, line in enumerate(stream, 1):
+            if "IR Dump" in line:
+                active = "IR Dump After" in line and "graphsyncsolver" in re.sub(
+                    r"[^a-z]", "", line.lower()
+                )
+                if active:
+                    after += 1
+                    function = None
+            if not active:
+                continue
+            if match := re.search(r"\bfunc\.func\s+(?:private\s+)?@([^\s(]+)", line):
+                function = match[1]
+                functions.add(function)
+            if "memref_ext.alloc_workspace" in line and "to memref<1xi32" in line:
+                scalar_workspace_sites[function or "unknown"] += 1
+            for token in re.findall(
+                r"\b(?:hivm\.hir\.[\w.]+|memref\.alloca?|memref\.copy|memref_ext\.alloc_workspace)\b",
+                line,
+            ):
+                if token.startswith(("memref.", "memref_ext.")) or re.search(
+                    r"sync|flag|barrier|copy|load|store|fixp|mmad|matmul", token
+                ):
+                    counts[token] += 1
+                    if len(examples[token]) < 8:
+                        examples[token].append(
+                            dict(
+                                line=lineno, function=function, text=line.strip()[:1000]
+                            )
+                        )
+    return dict(
+        after_solver_dumps=after,
+        functions=sorted(functions),
+        operations=dict(counts),
+        scalar_i32_workspace_sites=dict(scalar_workspace_sites),
+        examples=dict(examples),
+    )
+
+
 def traffic(width, visible, tables, bounded):
     """Count source-level work and the unique useful input, ignoring cache lines."""
     if width % 64 or len(visible) % 16:
@@ -157,14 +206,20 @@ def traffic(width, visible, tables, bounded):
     )
 
 
-def capture_arms(args, result, torch, arms, targets, validate, dot_arms):
+def capture_arms(
+    args, result, torch, arms, targets, validate, dot_arms, compile_arm=None
+):
     def launch(name, target):
         return arms[name](target)
 
     names = {}
     result["compiler"] = {}
     for arm in arms:
-        launched = launch(arm, targets[arm])
+        launched = (
+            launch(arm, targets[arm])
+            if compile_arm is None
+            else compile_arm(arm, arms[arm], targets[arm])
+        )
         if isinstance(launched, tuple):
             names[arm] = dict(
                 collections.Counter(k.metadata.kernel_name for k in launched)
@@ -267,8 +322,7 @@ def export_device_object(report, stem, compiled):
     return info
 
 
-def build_handoff_source(bounded, arm):
-    """Use the current tile traversal on both sides of a materialized INT32 edge."""
+def page_reuse_function(bounded):
     module = ast.parse(
         Path(__file__).with_name("qsa_int8_query_pack4_910b.py").read_text()
     )
@@ -277,9 +331,14 @@ def build_handoff_source(bounded, arm):
         if bounded
         else "_qsa_page64_page_reuse_full_score"
     )
-    fn = next(
+    return next(
         n for n in module.body if isinstance(n, ast.FunctionDef) and n.name == kernel
     )
+
+
+def build_handoff_source(bounded, arm):
+    """Use the current tile traversal on both sides of a materialized INT32 edge."""
+    fn = page_reuse_function(bounded)
     fn.name = f"_qsa_page64_prefix_{arm}"
     (unit,) = (n for n in fn.body if isinstance(n, ast.For))
     page, *tail = (n for n in unit.body if isinstance(n, ast.For))
@@ -316,6 +375,153 @@ def build_handoff_source(bounded, arm):
         raise ValueError(arm)
     ast.fix_missing_locations(fn)
     return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+
+
+def build_group_visible_source(bounded):
+    fn = page_reuse_function(bounded)
+    fn.name = "_qsa_page64_prefix_group_visible"
+    fn.args.args.insert(
+        next(i for i, arg in enumerate(fn.args.args) if arg.arg == "ROWS"),
+        ast.arg(arg="GroupVisible"),
+    )
+    (unit,) = (n for n in fn.body if isinstance(n, ast.For))
+    (maximum,) = (
+        n
+        for n in unit.body
+        if isinstance(n, ast.Assign)
+        and isinstance(n.targets[0], ast.Name)
+        and n.targets[0].id == "max_visible"
+    )
+    maximum.value = ast.parse("tl.load(GroupVisible + group)", mode="eval").body
+    ast.fix_missing_locations(fn)
+    return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
+
+
+def run_group_visible(args, result, inputs, adapter, score):
+    import torch
+    from triton.backends.ascend import compiler
+
+    route = result["route"]
+    first, count = route["first"], route["count"]
+    if count % 16 or route["query_group"] != 16:
+        raise ValueError("Group visibility probe requires complete query16 groups")
+    report = Path(args.report)
+    variant = load_generated_prefix(
+        report,
+        args.case,
+        "group_visible",
+        build_group_visible_source(route["skip_invisible"]),
+    )
+    prepared = []
+    # Production route preparation already reads the per-query visibility on CPU.
+    visible_cpu = inputs["visible"][first : first + count]
+    torch.npu.synchronize()
+    for _ in range(8):
+        start = time.perf_counter_ns()
+        maxima = visible_cpu.reshape(-1, 16).amax(dim=1)
+        end = time.perf_counter_ns()
+        group_visible = maxima.to(score.device)
+        torch.npu.synchronize()
+        prepared.append(
+            dict(
+                cpu_reduce_us=(end - start) / 1000,
+                copy_and_sync_us=(time.perf_counter_ns() - end) / 1000,
+            )
+        )
+    result.update(
+        mode="group_visible",
+        preparation=dict(
+            samples=prepared,
+            median_cpu_reduce_us=statistics.median(
+                x["cpu_reduce_us"] for x in prepared
+            ),
+            median_copy_and_sync_us=statistics.median(
+                x["copy_and_sync_us"] for x in prepared
+            ),
+            metadata_bytes=group_visible.numel() * group_visible.element_size(),
+            scope="CPU reduction from available host visibility, then allocate/copy/synchronize. "
+            "Excludes D2H and adapter preparation.",
+        ),
+        group_max_visible=maxima.tolist(),
+    )
+    bound = adapter.bind_query16_score(first, count, score)
+    original_inputs = bound.args[:-1]
+    targets = dict(current=score, group_visible=torch.empty_like(score))
+    arms = dict(
+        current=lambda out: adapter.score_into(first, count, out),
+        group_visible=lambda out: variant[(GRID,)](
+            *original_inputs,
+            out,
+            group_visible,
+            **bound.keywords,
+        ),
+    )
+    result["sync_ir"] = {}
+
+    def compile_arm(name, launch, target):
+        dump = SyncDumpCompiler(report, f"{args.case}-{name}")
+        with patch.object(compiler, "subprocess", dump):
+            compiled = launch(target)
+        evidence = {
+            rec["file"]: summarize_sync_ir(report / rec["file"])
+            for call in dump.calls
+            for rec in call["streams"].values()
+        }
+        result["sync_ir"][name] = dict(
+            binary_sha256=hashlib.sha256(bytes(compiled.asm["npubin"])).hexdigest(),
+            invocations=dump.calls,
+            evidence=evidence,
+        )
+        if len(dump.calls) != 1 or not any(
+            e["after_solver_dumps"] and e["functions"] for e in evidence.values()
+        ):
+            raise RuntimeError(f"Missing post-solver IR for {name}")
+        return compiled
+
+    def validate():
+        torch.npu.synchronize()
+        current = score.cpu()
+        candidate = targets["group_visible"].cpu()
+        for output in (current, candidate):
+            check_chunk(inputs, output, first, count)
+        torch.testing.assert_close(candidate, current, rtol=1e-3, atol=1e-3)
+        return dict(
+            full_outputs_checked=True, bitwise_equal=torch.equal(candidate, current)
+        )
+
+    samples, med = capture_arms(
+        args,
+        result,
+        torch,
+        arms,
+        targets,
+        validate,
+        set(arms),
+        compile_arm=compile_arm,
+    )
+    site_counts = {
+        arm: sum(
+            sum(e["scalar_i32_workspace_sites"].values())
+            for e in record["evidence"].values()
+        )
+        for arm, record in result["sync_ir"].items()
+    }
+    deltas = [
+        baseline - candidate
+        for a, b in zip(samples["current"], samples["group_visible"], strict=True)
+        for baseline, candidate in zip(
+            a["active_invocation_us"], b["active_invocation_us"], strict=True
+        )
+    ]
+    comparison = dict(
+        median_us=med,
+        score_speedup=med["current"] / med["group_visible"],
+        paired_saved_us=dict(samples=deltas, median=statistics.median(deltas)),
+        scalar_i32_workspace_sites=site_counts,
+        preparation=result["preparation"],
+    )
+    result.update(samples=samples, **comparison)
+    print("SCORE_GROUP_VISIBLE", args.case, json.dumps(comparison), flush=True)
 
 
 def run_cv_handoff(args, result, inputs, adapter, score):
@@ -820,6 +1026,9 @@ def run_case(args, result):
     if args.cv_handoff:
         run_cv_handoff(args, result, inputs, adapter, score)
         return
+    if args.group_visible:
+        run_group_visible(args, result, inputs, adapter, score)
+        return
     if args.output_replay:
         run_output_replay(args, result, inputs, adapter, score)
         return
@@ -960,6 +1169,11 @@ def main():
         help="Measure the real INT32 producer and consumer",
     )
     mode.add_argument(
+        "--group-visible",
+        action="store_true",
+        help="Probe precomputed maximum visibility per 16 queries",
+    )
+    mode.add_argument(
         "--instruction-entry", action="store_true", help=argparse.SUPPRESS
     )
     parser.add_argument("--verify-output", action="store_true", help=argparse.SUPPRESS)
@@ -988,6 +1202,10 @@ def main():
     report = Path(args.report)
     report.mkdir(parents=True, exist_ok=True)
     if args.case:
+        if args.group_visible:
+            os.environ["TRITON_CACHE_DIR"] = tempfile.mkdtemp(
+                prefix=f"{args.case}-group-visible-cache-", dir=report
+            )
         result = {"case": args.case, "exit_code": 0}
         try:
             run_case(args, result)
