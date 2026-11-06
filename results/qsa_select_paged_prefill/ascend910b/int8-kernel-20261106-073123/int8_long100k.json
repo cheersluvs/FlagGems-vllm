@@ -1,0 +1,508 @@
+{
+  "case": "int8_long100k",
+  "status": "passed",
+  "mode": "kernel",
+  "geometry": {
+    "name": "int8_long100k",
+    "nv_case": "fp8_long100k_float8_e4m3fn",
+    "origin": "dtype_variant",
+    "query_lengths": [
+      16384
+    ],
+    "prefix_tokens": [
+      102400
+    ],
+    "starts": [
+      0,
+      16384
+    ],
+    "batch_max_seq_len": 118784,
+    "heads": 4,
+    "dim": 128,
+    "ratio": 4,
+    "k": 512,
+    "dtype": "int8",
+    "page_size": 192,
+    "pages_per_request": [
+      155
+    ],
+    "physical_pages": 155,
+    "table_columns": 155,
+    "q_shape": [
+      16384,
+      4,
+      128
+    ],
+    "cache_shape": [
+      155,
+      192,
+      1,
+      128
+    ],
+    "logits_width": 29696,
+    "chunk_rows": 112,
+    "score_and_dot_scratch_bytes": 66519040,
+    "nv_original_page_size": 196,
+    "nv_original_physical_pages": null,
+    "nv_original_table_columns": null,
+    "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+    "query_lengths_synthetic": false
+  },
+  "environment": {
+    "python": "/flagos/bin/python3",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0",
+    "triton": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "device": "Ascend910B4-1",
+    "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "opp": "/opt/qsa-opp-910b-qw4qRghU",
+    "topk_route_requested": "auto",
+    "device_isolation": "not_verified"
+  },
+  "measurement_scope": "Current vs one-copy GroupVisible; paired score device time and fresh request wall time",
+  "stage": "group_visible_request_completed",
+  "correctness": {
+    "full_scores_bitwise_equal": true,
+    "all_topk_indices_bitwise_equal": true,
+    "cpu_reference_rows": [
+      0,
+      111,
+      112,
+      8192,
+      16352,
+      16383
+    ],
+    "chunks": 147
+  },
+  "group_visible_prepared": {
+    "hit_chunks": 147,
+    "bytes": 4096,
+    "groups_from_policy": 1024,
+    "copies": 1,
+    "pack_us": 115.57,
+    "alloc_copy_us": 399.204,
+    "prepare_us": 514.774
+  },
+  "score_binaries": {
+    "current": [
+      [
+        "_qsa_page64_page_reuse_full_score",
+        "39243371a6a2fe5af99548ba8d80a332389c79356f58f02a156608dd8c10a0f3"
+      ],
+      [
+        "_qsa_page64_page_reuse_full_score",
+        "aec90ac40152f3fa6b06378ff999b9f01c0cd3604d60568155b66ecff6ed42ce"
+      ],
+      [
+        "_qsa_page64_page_reuse_score",
+        "0dfcbf29a8f75e9f69b81727c408c09e572be0c873b24cb49bcc46be77f7b9a5"
+      ]
+    ],
+    "group_visible": [
+      [
+        "_qsa_page64_prefix_group_visible_bounded",
+        "0123dc69acde5c302c1130ca0e2e2eabe32fabcf42efb00b5c6be9d216a9df18"
+      ],
+      [
+        "_qsa_page64_prefix_group_visible_full",
+        "47b3aa83d8f60925cd03d1a8c655283e5287415c4071cc4df4654e32e568299b"
+      ],
+      [
+        "_qsa_page64_prefix_group_visible_full",
+        "c25c20aedf6b769242496a773299a88c52c1828f7e0dc0046766ceb24cd7ebb9"
+      ]
+    ]
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-group-visible-offset.A31DByZ9/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "49223004dabc490485aeb8ff4a59a51cb6007b04ff3198f6cd140a02b3bf8327",
+    "utility": "/tmp/flaggems-qsa-group-visible-offset.A31DByZ9/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "kernel_timer": {
+    "measurement_backend": "Single interleaved CPU+NPU trace; synchronized per-launch windows; raw slow samples retained",
+    "prefix_plan_artifact": "int8_long100k-prefix-plan-01.json.gz"
+  },
+  "single_capture_plan": [
+    {
+      "round": 0,
+      "arm": "current",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "group_visible",
+      "active": 0
+    },
+    {
+      "round": 0,
+      "arm": "current",
+      "active": 1
+    },
+    {
+      "round": 0,
+      "arm": "group_visible",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "group_visible",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "current",
+      "active": 0
+    },
+    {
+      "round": 1,
+      "arm": "group_visible",
+      "active": 1
+    },
+    {
+      "round": 1,
+      "arm": "current",
+      "active": 1
+    }
+  ],
+  "single_capture_counts": {
+    "expected_host_counts": {
+      "_qsa_page64_page_reuse_score": 52,
+      "_qsa_page64_page_reuse_full_score": 536,
+      "_qsa_page64_prefix_group_visible_bounded": 52,
+      "_qsa_page64_prefix_group_visible_full": 536
+    },
+    "observed_host_counts": {
+      "_qsa_page64_page_reuse_score": 52,
+      "_qsa_page64_page_reuse_full_score": 536,
+      "_qsa_page64_prefix_group_visible_bounded": 52,
+      "_qsa_page64_prefix_group_visible_full": 536
+    },
+    "tasks_per_window": [
+      147,
+      147,
+      147,
+      147,
+      147,
+      147,
+      147,
+      147
+    ],
+    "expected_tasks_per_window": [
+      147,
+      147,
+      147,
+      147,
+      147,
+      147,
+      147,
+      147
+    ]
+  },
+  "score_device_us": {
+    "medians": {
+      "current": 45405.06,
+      "group_visible": 42890.11000000001
+    },
+    "samples": {
+      "current": [
+        {
+          "kernel_us": 45410.509999999966,
+          "active_invocation_us": [
+            45410.75999999995,
+            45410.25999999999
+          ],
+          "artifact": "int8_long100k-prefix-plan-01.json.gz",
+          "window_indices": [
+            0,
+            2
+          ],
+          "device_task_count": 294
+        },
+        {
+          "kernel_us": 45376.54,
+          "active_invocation_us": [
+            45399.86,
+            45353.22
+          ],
+          "artifact": "int8_long100k-prefix-plan-01.json.gz",
+          "window_indices": [
+            5,
+            7
+          ],
+          "device_task_count": 294
+        }
+      ],
+      "group_visible": [
+        {
+          "kernel_us": 42923.45000000001,
+          "active_invocation_us": [
+            42957.659999999996,
+            42889.24000000003
+          ],
+          "artifact": "int8_long100k-prefix-plan-01.json.gz",
+          "window_indices": [
+            1,
+            3
+          ],
+          "device_task_count": 294
+        },
+        {
+          "kernel_us": 42884.20999999999,
+          "active_invocation_us": [
+            42877.439999999995,
+            42890.97999999999
+          ],
+          "artifact": "int8_long100k-prefix-plan-01.json.gz",
+          "window_indices": [
+            4,
+            6
+          ],
+          "device_task_count": 294
+        }
+      ]
+    },
+    "paired_saved_us": [
+      2453.099999999955,
+      2521.0199999999604,
+      2522.4200000000055,
+      2462.2400000000125
+    ],
+    "speedup": 1.0586370610847113
+  },
+  "request_wall_us": {
+    "medians": {
+      "current": 425575.99600000004,
+      "group_visible": 430602.5495
+    },
+    "samples": [
+      {
+        "order": [
+          "current",
+          "group_visible"
+        ],
+        "current": {
+          "wall_us": 432068.324,
+          "preparation_us": 130263.08827102184,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "groups_from_policy": 0,
+            "copies": 0,
+            "pack_us": 0.0,
+            "alloc_copy_us": 0.0,
+            "prepare_us": 0.0
+          }
+        },
+        "group_visible": {
+          "wall_us": 438245.193,
+          "preparation_us": 132656.60032629967,
+          "group_visible": {
+            "hit_chunks": 147,
+            "bytes": 4096,
+            "groups_from_policy": 1024,
+            "copies": 1,
+            "pack_us": 107.311,
+            "alloc_copy_us": 399.754,
+            "prepare_us": 507.065
+          }
+        }
+      },
+      {
+        "order": [
+          "group_visible",
+          "current"
+        ],
+        "group_visible": {
+          "wall_us": 480983.706,
+          "preparation_us": 162539.8900359869,
+          "group_visible": {
+            "hit_chunks": 147,
+            "bytes": 4096,
+            "groups_from_policy": 1024,
+            "copies": 1,
+            "pack_us": 220.773,
+            "alloc_copy_us": 705.067,
+            "prepare_us": 925.84
+          }
+        },
+        "current": {
+          "wall_us": 458983.673,
+          "preparation_us": 151280.00266849995,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "groups_from_policy": 0,
+            "copies": 0,
+            "pack_us": 0.0,
+            "alloc_copy_us": 0.0,
+            "prepare_us": 0.0
+          }
+        }
+      },
+      {
+        "order": [
+          "current",
+          "group_visible"
+        ],
+        "current": {
+          "wall_us": 704969.95,
+          "preparation_us": 394323.630258441,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "groups_from_policy": 0,
+            "copies": 0,
+            "pack_us": 0.0,
+            "alloc_copy_us": 0.0,
+            "prepare_us": 0.0
+          }
+        },
+        "group_visible": {
+          "wall_us": 447144.469,
+          "preparation_us": 135275.26706457138,
+          "group_visible": {
+            "hit_chunks": 147,
+            "bytes": 4096,
+            "groups_from_policy": 1024,
+            "copies": 1,
+            "pack_us": 111.192,
+            "alloc_copy_us": 593.246,
+            "prepare_us": 704.438
+          }
+        }
+      },
+      {
+        "order": [
+          "group_visible",
+          "current"
+        ],
+        "group_visible": {
+          "wall_us": 422959.906,
+          "preparation_us": 123103.1883507967,
+          "group_visible": {
+            "hit_chunks": 147,
+            "bytes": 4096,
+            "groups_from_policy": 1024,
+            "copies": 1,
+            "pack_us": 99.421,
+            "alloc_copy_us": 409.844,
+            "prepare_us": 509.265
+          }
+        },
+        "current": {
+          "wall_us": 419083.668,
+          "preparation_us": 125362.73896694183,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "groups_from_policy": 0,
+            "copies": 0,
+            "pack_us": 0.0,
+            "alloc_copy_us": 0.0,
+            "prepare_us": 0.0
+          }
+        }
+      },
+      {
+        "order": [
+          "current",
+          "group_visible"
+        ],
+        "current": {
+          "wall_us": 409826.149,
+          "preparation_us": 115964.93981778622,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "groups_from_policy": 0,
+            "copies": 0,
+            "pack_us": 0.0,
+            "alloc_copy_us": 0.0,
+            "prepare_us": 0.0
+          }
+        },
+        "group_visible": {
+          "wall_us": 415398.622,
+          "preparation_us": 118907.04743564129,
+          "group_visible": {
+            "hit_chunks": 147,
+            "bytes": 4096,
+            "groups_from_policy": 1024,
+            "copies": 1,
+            "pack_us": 106.58,
+            "alloc_copy_us": 463.924,
+            "prepare_us": 570.504
+          }
+        }
+      },
+      {
+        "order": [
+          "group_visible",
+          "current"
+        ],
+        "group_visible": {
+          "wall_us": 414632.945,
+          "preparation_us": 118716.56589210033,
+          "group_visible": {
+            "hit_chunks": 147,
+            "bytes": 4096,
+            "groups_from_policy": 1024,
+            "copies": 1,
+            "pack_us": 103.911,
+            "alloc_copy_us": 462.534,
+            "prepare_us": 566.445
+          }
+        },
+        "current": {
+          "wall_us": 414972.318,
+          "preparation_us": 120932.46728181839,
+          "group_visible": {
+            "hit_chunks": 0,
+            "bytes": 0,
+            "groups_from_policy": 0,
+            "copies": 0,
+            "pack_us": 0.0,
+            "alloc_copy_us": 0.0,
+            "prepare_us": 0.0
+          }
+        }
+      }
+    ],
+    "speedup": 0.9883266982375357,
+    "paired_saved_us": [
+      -6176.869000000006,
+      -22000.032999999996,
+      257825.48099999997,
+      -3876.238000000012,
+      -5572.472999999998,
+      339.3730000000214
+    ],
+    "median_group_visible_prepare_us": 568.4745,
+    "median_group_visible_pack_us": 106.94550000000001,
+    "median_group_visible_alloc_copy_us": 463.229,
+    "scope": "Fresh route/metadata preparation, one score+TopK request and final sync on ready inputs and buffers."
+  },
+  "sources": {
+    "benchmark_qsa_int8_kernel_910b.py": "c8b168181dc912ce7b516cc12afb86fc8511a9804068c99d3dbb61fa7f1ca0d3",
+    "qsa_int8_score_910b_trial.py": "13718b109b2ffd93164b87c077c9d991b59caaa7f073302f3b7aced74a787334",
+    "qsa_int8_ten_workloads_910b.py": "7874d884786c0e4076022a59f03995f23c85d2a75583866a2d6c2f7b60a48f40",
+    "qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2",
+    "qsa_kernel_benchmark_910b.py": "8cb6b2145b25adbc5dd4e1292c31112302de227263d27617979181d0fabd2f3c",
+    "probe_qsa_int8_ten_shapes_910b.py": "9c86e564bb64c8ce98c35ca997676f740aaa781ccce4b1e27198f41f7f719373",
+    "probe_qsa_int8_page64_prefix_910b.py": "6474046912c72c2bbd88a61815a8198a179d5f3452469df7b1485bb6cf956aba",
+    "qsa_int8_selection_910b_trial.py": "c3821e8b6988842376d333e21c51eafa3044bded9e1c989c7aad0eebf4d5ec61",
+    "qsa_int8_shared_map_selection_910b_trial.py": "f64cc2f128ce1dfe48b6f4e5dd419a91a01d618d383d465f35452196d9b4ca10",
+    "qsa_int8_page64_query16_910b_trial.py": "3d8dc3448159ac936a51f91b181f690bd2047c6745fb890dd875b3f4ff5a6ca6",
+    "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+    "qsa_int8_stage_trace_timer_910b.py": "3047bd02b8dda4d6c6604ef8e4ced29e5d96a2c3d69e09d511b48e887ff92cea",
+    "benchmark_qsa_prefill_stages_910b.py": "fade15f762a97c5e5136d20e7535014042a16d76ccfee645e1f2e83839cbb696",
+    "qsa_int8_trace_timer_910b.py": "72ca2c927168f6572de38ca07e22117da36fb92bc9115c28adc9cbcca98c16f6",
+    "probe_qsa_int8_group_visible_request_910b.py": "59d4e3ceb456303c489cb3fb9a8e58d1bb472283e113fb1a396896c874e5e2fa",
+    "probe_qsa_int8_score_sol_910b.py": "54183cc4eebc64009e2e4c55fb8a0aab6b2ad6be2c3433bde82df3f5387d0d32"
+  },
+  "exit_code": 0
+}
