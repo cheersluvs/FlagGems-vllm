@@ -165,6 +165,48 @@ def _prefill_topk_adapter(prefill, row_starts):
     return select
 
 
+def _measure_stages(name, route, adapter, expected_indices, device):
+    rows, width = adapter.rows, adapter.width
+    print(
+        f"QSA_INT8_HARNESS_STAGE_INPUT {name} score_bytes={rows * width * 4}",
+        flush=True,
+    )
+    scores = torch.empty((rows, width), dtype=torch.float32, device=device)
+    for first, count in adapter.chunks:
+        adapter.score_into(first, count, scores[first : first + count])
+    torch.npu.synchronize()
+
+    def topk_only():
+        adapter.topk_all(scores)
+
+    def check_topk():
+        assert torch.equal(
+            adapter.output.cpu(), expected_indices
+        ), f"{name}: isolated TopK indices differ from the full pipeline"
+
+    adapter.output.fill_(-4)
+    topk_only()
+    torch.npu.synchronize()
+    check_topk()
+    for stage, execute in (("score", adapter.score_all), ("topk", topk_only)):
+
+        def stage_inputs(shape, dtype, target_device):
+            yield (dict(case_name=name, route=route, candidate=execute),)
+
+        QSAPrefillInt8Benchmark(
+            op_name=f"{OP_NAME}_{stage}",
+            case_name=name,
+            torch_op=None,
+            gems_op=_call_candidate,
+            input_fn=stage_inputs,
+            dtypes=[torch.int8],
+            device=device,
+        ).run()
+        if stage == "topk":
+            torch.npu.synchronize()
+            check_topk()
+
+
 @pytest.mark.qsa_select_paged_prefill_int8_910b
 @pytest.mark.parametrize("case_name", [shape[0] for shape in CASES])
 @pytest.mark.skipif(
@@ -363,6 +405,8 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             f"total_chunks={len(candidate.chunks)}",
             flush=True,
         )
+        if not diagnose_only and os.environ.get("QSA_HARNESS_STAGES") == "1":
+            _measure_stages(name, route, candidate, selected, device)
         del original, selected, native_output, expected, control, refs, inputs
 
         if not diagnose_only and name == "int8_budget_exact":

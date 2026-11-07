@@ -82,11 +82,21 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
         cd -- "$qsa_repo" || exit 1
         ulimit -c 0 || exit 1
         qsa_cases=$("$qsa_python" -c '
+import os
 from tools.qsa_int8_ten_workloads_910b import cases
-names = [case["name"] for case in cases()]
-names.sort(key=lambda name: name != "int8_dominant_long")
+from tools.summarize_qsa_int8_harness_910b import STAGE_CASES
+if os.environ.get("QSA_HARNESS_STAGES") == "1":
+    names = STAGE_CASES
+else:
+    names = [case["name"] for case in cases()]
+    names.sort(key=lambda name: name != "int8_dominant_long")
 print("\n".join(names))
 ') || exit 1
+        qsa_stage_flag=
+        if [[ ${QSA_HARNESS_STAGES:-0} == 1 ]]; then
+            qsa_stage_flag=--stages
+            printf 'QSA INT8 stage profile: four diagnostic cases; no acceptance mean\n'
+        fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do
             printf 'QSA INT8 harness worker: %s\n' "$qsa_case"
@@ -112,7 +122,7 @@ print("\n".join(names))
         done <<< "$qsa_cases"
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
-            --merge-case-reports
+            --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"
