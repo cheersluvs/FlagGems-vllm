@@ -18,6 +18,7 @@ import hashlib
 import json
 import statistics
 import time
+from itertools import permutations
 from pathlib import Path
 
 from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
@@ -158,8 +159,9 @@ def measure_request_wall(
 ):
     """Measure host intervals around one ordinary asynchronous selection call."""
     pairs = []
+    orders = tuple(permutations(names))
     for i in range(sample_count):
-        order = names if i % 2 == 0 else names[::-1]
+        order = orders[i % len(orders)]
         pair = {"order": order}
         for name in order:
             synchronize()
@@ -191,7 +193,7 @@ def measure_request_wall(
         }
         for phase in phases
     }
-    current, candidate = names
+    current, candidate = names[0], names[-1]
     saved = {
         phase: [p[current][phase] - p[candidate][phase] for p in pairs]
         for phase in phases
@@ -246,9 +248,9 @@ def check_group_visible_routes(args, torch, inputs, current, candidate):
     return expected_hits
 
 
-def check_direct_page_edges(torch, values, prepare, width):
+def check_direct_page_edges(torch, values, prepare, width, *, cached):
     """Exercise padding and query-tail dispatch outside the timed fixtures."""
-    begin, rows, chunk = 8192, 129, 64
+    begin, rows, chunk = 8192, 193, 64
     padded = {
         key: value[begin : begin + rows] if key not in ("cache", "ks") else value
         for key, value in values.items()
@@ -258,7 +260,7 @@ def check_direct_page_edges(torch, values, prepare, width):
     table[:chunk, -1] = -1
     table[chunk : 2 * chunk, -1] = padded["cache"].shape[0]
     # The full-dot chunk still visits the last page, but no live key is there.
-    visible[chunk : 2 * chunk] = width - 512
+    visible[chunk : 3 * chunk] = width - 512
     padded.update(row_table=table, visible=visible)
     device = padded["q"].device
     scratch = torch.empty((chunk, width), dtype=torch.float32, device=device)
@@ -272,17 +274,26 @@ def check_direct_page_edges(torch, values, prepare, width):
     expected = {
         (0, chunk): "bounded",
         (chunk, chunk): "invalid_page_id",
-        (2 * chunk, 1): "partial_query_group",
+        (2 * chunk, chunk): "full",
+        (3 * chunk, 1): "partial_query_group",
     }
     if candidate.direct_page_routes != expected:
         raise AssertionError(f"Unexpected edge routes: {candidate.direct_page_routes}")
+    if cached:
+        scanned = prepare("scanned_direct_page", **kwargs)
+        if (
+            scanned.direct_page_routes != expected
+            or candidate.direct_page_unique_mappings != 3
+        ):
+            raise AssertionError("Cached guard must distinguish the three mappings")
     for first, count in current.chunks:
         a = current.score_into(first, count, scratch[:count])
         b = candidate.score_into(first, count, alternate[:count])
         kernel = b.metadata.kernel_name
+        mode = expected[first, count]
         expected_kernel = (
-            "_qsa_page64_prefix_direct_page_bounded"
-            if first == 0
+            f"_qsa_page64_prefix_direct_page_{mode}"
+            if mode in ("bounded", "full")
             else a.metadata.kernel_name
         )
         if kernel != expected_kernel:
@@ -306,6 +317,7 @@ def run_score_request_probe(args, result, inputs, values, plan, topk):
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
 
     direct_page = bool(args.direct_page_request_samples)
+    cached = args.cache_direct_page_guard
     variant = "direct_page" if direct_page else "group_visible"
     sample_count = (
         args.direct_page_request_samples
@@ -342,9 +354,15 @@ def run_score_request_probe(args, result, inputs, values, plan, topk):
     )
 
     def prepare(name, **overrides):
-        route_kernels = {f"{variant}_kernels": kernels} if name == variant else {}
+        route_kernels = (
+            {f"{variant}_kernels": kernels}
+            if name in (variant, "scanned_direct_page")
+            else {}
+        )
         return PreparedSharedMapInt8Selection(
-            **(adapter_args | overrides), **route_kernels
+            **(adapter_args | overrides),
+            **route_kernels,
+            cache_direct_page_guard=cached and name == variant,
         )
 
     names = ("current", variant)
@@ -366,6 +384,21 @@ def run_score_request_probe(args, result, inputs, values, plan, topk):
             raise AssertionError("Expected direct-page hits in profiled fixtures")
         if args.case == "int8_first_chunk" and expected_hits:
             raise AssertionError("first_chunk must exercise the zero-hit control")
+        if cached:
+            scanned = prepare("scanned_direct_page")
+            if (
+                scanned.route_checks != candidate.route_checks
+                or scanned.direct_page_routes != routes
+            ):
+                raise AssertionError("Cached page guard changed chunk dispatch")
+            unique_mappings = candidate.direct_page_unique_mappings
+            if (expected_hits and not unique_mappings) or (
+                args.case == "int8_first_chunk" and unique_mappings
+            ):
+                raise AssertionError(
+                    "Unexpected cache activity in the focused fixtures"
+                )
+            del scanned
         result["direct_page"] = dict(
             hit_chunks=len(expected_hits),
             counts=dict(collections.Counter(routes.values())),
@@ -376,7 +409,11 @@ def run_score_request_probe(args, result, inputs, values, plan, topk):
         )
         if args.case == "int8_budget_exact":
             result["direct_page"]["edge_routes_checked"] = check_direct_page_edges(
-                torch, values, prepare, width
+                torch, values, prepare, width, cached=cached
+            )
+        if cached:
+            result["direct_page"]["cached_guard"] = dict(
+                routes_equal_to_scan=True, unique_mappings=unique_mappings
             )
     else:
         expected_hits = check_group_visible_routes(
@@ -501,7 +538,7 @@ def run_score_request_probe(args, result, inputs, values, plan, topk):
 
     result["stage"] = f"{variant}_request_wall"
     fresh_wall = measure_request_wall(
-        names,
+        ("current", "scanned_direct_page", variant) if cached else names,
         prepare,
         torch.npu.synchronize,
         check_indices,
@@ -514,6 +551,23 @@ def run_score_request_probe(args, result, inputs, values, plan, topk):
         fresh_wall["median_direct_page_guard_us"] = statistics.median(
             p[variant]["direct_page_guard_us"] for p in pairs
         )
+        if cached:
+            saved = {
+                phase: [
+                    p["scanned_direct_page"][phase] - p[variant][phase] for p in pairs
+                ]
+                for phase in ("direct_page_guard_us", "preparation_us", "wall_us")
+            }
+            fresh_wall["cached_vs_scanned"] = dict(
+                scanned_guard_us=statistics.median(
+                    p["scanned_direct_page"]["direct_page_guard_us"] for p in pairs
+                ),
+                paired_median_saved_us={
+                    phase: statistics.median(samples)
+                    for phase, samples in saved.items()
+                },
+                wall_wins=sum(delta > 0 for delta in saved["wall_us"]),
+            )
     else:
         fresh_wall.update(
             {

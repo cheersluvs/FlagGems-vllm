@@ -60,7 +60,9 @@ def visibility_tile_policy(visible, width, policy, *, maxima_out=None):
     )
 
 
-def direct_page_route(table, first, count, width, physical_pages, *, maxima):
+def direct_page_route(
+    table, first, count, width, physical_pages, *, maxima, valid_prefixes=None
+):
     """Prove all scalar page reads, including those with no live keys."""
     if count % 16:
         return "partial_query_group"
@@ -74,9 +76,25 @@ def direct_page_route(table, first, count, width, physical_pages, *, maxima):
             if maxima is None
             else triton.cdiv(min(width, maxima[group]), 192)
         )
-        pages = table[row][:required]
-        if pages and (min(pages) < 0 or max(pages) >= physical_pages):
-            return "invalid_page_id"
+        if valid_prefixes is None:
+            pages = table[row][:required]
+            if pages and (min(pages) < 0 or max(pages) >= physical_pages):
+                return "invalid_page_id"
+        else:
+            mapping = tuple(table[row])
+            prefix = valid_prefixes.get(mapping)
+            if prefix is None:
+                prefix = next(
+                    (
+                        i
+                        for i, page in enumerate(mapping)
+                        if not 0 <= page < physical_pages
+                    ),
+                    columns,
+                )
+                valid_prefixes[mapping] = prefix
+            if required > prefix:
+                return "invalid_page_id"
     return "full" if maxima is None else "bounded"
 
 
@@ -105,6 +123,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         group_visible_kernels=None,
         *,
         direct_page_kernels=None,
+        cache_direct_page_guard=False,
         reuse_topk_scratch=False,
     ):
         started = time.perf_counter()
@@ -174,6 +193,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         self.direct_page_kernels = direct_page_kernels
         self.direct_page_routes = {}
         direct_page_guard_ns = 0
+        valid_prefixes = {} if cache_direct_page_guard else None
         packed = []
         metadata_pack_ns = 0
         groups_from_policy = 0
@@ -237,6 +257,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                         self.width,
                         values["cache"].shape[0],
                         maxima=maxima if selected else None,
+                        valid_prefixes=valid_prefixes,
                     )
                     direct_page_guard_ns += time.perf_counter_ns() - guard_start
                 self.direct_page_routes[first, count] = route
@@ -273,6 +294,9 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             prepare_us=(metadata_pack_ns + copy_ns) / 1000,
         )
         self.direct_page_guard_us = direct_page_guard_ns / 1000
+        self.direct_page_unique_mappings = (
+            None if valid_prefixes is None else len(valid_prefixes)
+        )
         self.preparation_ms = (time.perf_counter() - started) * 1000
 
     def score_into(self, first, count, target):

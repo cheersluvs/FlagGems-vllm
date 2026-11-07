@@ -1560,6 +1560,11 @@ def main():
         default=0,
         help="Compare guarded direct page reads across the ten complete INT8 inputs",
     )
+    parser.add_argument(
+        "--cache-direct-page-guard",
+        action="store_true",
+        help="Compare cached and scanned direct-page guards; default to three focused inputs",
+    )
     request_probe.add_argument(
         "--group-visible-request-samples",
         type=int,
@@ -1599,6 +1604,12 @@ def main():
         )
     if args.direct_page_request_samples and args.direct_page_request_samples < 2:
         parser.error("Direct page request wall timing requires at least two samples")
+    if args.cache_direct_page_guard and (
+        args.direct_page_request_samples < 6 or args.direct_page_request_samples % 6
+    ):
+        parser.error(
+            "Cached guard comparison requires wall samples in multiples of six"
+        )
     if args.group_visible_request_samples and args.group_visible_request_samples < 2:
         parser.error("GroupVisible request wall timing requires at least two samples")
     if args.topk_workspace_samples and args.topk_workspace_samples < 2:
@@ -1697,7 +1708,7 @@ def main():
         default_cases = (*WORKSPACE_PLANS, "int8_short_tail")
     elif combined_probe:
         default_cases = ("int8_long100k",)
-    elif args.group_visible_request_samples:
+    elif args.group_visible_request_samples or args.cache_direct_page_guard:
         default_cases = ("int8_budget_exact", "int8_long100k", "int8_first_chunk")
     else:
         default_cases = PLANS
@@ -1741,6 +1752,8 @@ def main():
             command.extend(
                 ["--direct-page-request-samples", str(args.direct_page_request_samples)]
             )
+        if args.cache_direct_page_guard:
+            command.append("--cache-direct-page-guard")
         if args.group_visible_request_samples:
             command.extend(
                 [
@@ -1852,6 +1865,25 @@ def summarize(report, entries, names, args):
                     f"{wall['speedup']:.4f}",
                     flush=True,
                 )
+            if args.cache_direct_page_guard:
+                print(
+                    "case | unique maps | scanned guard ms | cached guard ms | "
+                    "paired preparation saved ms | paired wall saved ms | wall wins",
+                    flush=True,
+                )
+                for entry in passed:
+                    cache = entry["direct_page"]["cached_guard"]
+                    wall = entry["request_wall_us"]
+                    comparison = wall["cached_vs_scanned"]
+                    saved = comparison["paired_median_saved_us"]
+                    print(
+                        f"{entry['case']} | {cache['unique_mappings']} | "
+                        f"{comparison['scanned_guard_us'] / 1000:.3f} | "
+                        f"{wall['median_direct_page_guard_us'] / 1000:.3f} | "
+                        f"{saved['preparation_us'] / 1000:.3f} | {saved['wall_us'] / 1000:.3f} | "
+                        f"{comparison['wall_wins']}/{len(wall['samples'])}",
+                        flush=True,
+                    )
         if args.topk_workspace_wall_only and passed:
             print(
                 "case | route | current ms | reuse ms | speedup | wins | scratch bytes",
