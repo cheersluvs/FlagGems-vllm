@@ -25,6 +25,42 @@ from tools.qsa_int8_ten_workloads_910b import cases
 OP_NAME = "qsa_select_paged_prefill_int8_910b"
 
 
+def merge_case_reports(directory):
+    """Preserve completed harness records when a later shape fails."""
+    details, outcomes = [], {}
+    for case in cases():
+        name = case["name"]
+        path = directory / f"harness-{name}.json"
+        if not path.is_file():
+            outcomes[name] = "missing"
+            continue
+        entry = json.loads(path.read_text()).get(OP_NAME, {})
+        outcome = entry.get("result", "missing")
+        if outcome == "passed":
+            case_details = entry.get("details", [])
+            shapes = [
+                row.get("shape_detail")
+                for detail in case_details
+                for row in detail["result"]
+            ]
+            if shapes != [[name]]:
+                outcome = "invalid_shape_record"
+            else:
+                details.extend(case_details)
+        outcomes[name] = outcome
+    return {
+        OP_NAME: dict(
+            result=(
+                "passed"
+                if all(v == "passed" for v in outcomes.values())
+                else "incomplete"
+            ),
+            details=details,
+            case_outcomes=outcomes,
+        )
+    }
+
+
 def summarize(report, pytest_exit_code):
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
@@ -79,9 +115,15 @@ def main():
     parser.add_argument("report", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("pytest_exit_code", type=int)
+    parser.add_argument("--merge-case-reports", action="store_true")
     args = parser.parse_args()
     try:
-        summary = summarize(json.loads(args.report.read_text()), args.pytest_exit_code)
+        if args.merge_case_reports:
+            report = merge_case_reports(args.report.parent)
+            args.report.write_text(json.dumps(report, indent=2) + "\n")
+        else:
+            report = json.loads(args.report.read_text())
+        summary = summarize(report, args.pytest_exit_code)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         summary = dict(
             exit_code=1,

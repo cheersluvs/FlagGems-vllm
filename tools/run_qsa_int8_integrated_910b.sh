@@ -66,12 +66,29 @@ printf '%s\n' "$qsa_commit" > "$qsa_report/$qsa_commit_file"
 if [[ "$qsa_kind" == int8-harness ]]; then
     (
         cd -- "$qsa_repo" || exit 1
-        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$qsa_python" -u -m pytest -q -s \
-            benchmark/test_qsa_select_paged_prefill_int8_perf.py --mode kernel \
-            "$@" --record json --output "$qsa_report/harness.json"
-        qsa_pytest_status=$?
+        qsa_cases=$("$qsa_python" -c '
+from tools.qsa_int8_ten_workloads_910b import cases
+names = [case["name"] for case in cases()]
+names.sort(key=lambda name: name != "int8_dominant_long")
+print("\n".join(names))
+') || exit 1
+        qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel
+        qsa_pytest_status=0
+        while IFS= read -r qsa_case; do
+            printf 'QSA INT8 harness worker: %s\n' "$qsa_case"
+            PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$qsa_python" -u -m pytest -q -s \
+                "$qsa_test[$qsa_case]" --mode kernel "$@" \
+                --record json --output "$qsa_report/harness-$qsa_case.json"
+            qsa_pytest_status=$?
+            if [[ "$qsa_pytest_status" != 0 ]]; then
+                printf 'QSA INT8 harness worker failed: %s (pytest exit %s)\n' \
+                    "$qsa_case" "$qsa_pytest_status"
+                break
+            fi
+        done <<< "$qsa_cases"
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
-            "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status"
+            "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
+            --merge-case-reports
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"
@@ -107,5 +124,9 @@ if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     printf '报告回传完成。\n结果分支：%s\n' "$qsa_branch"
     git -C "$qsa_tree" rev-parse HEAD
 fi
-printf 'INT8 kernel benchmark exit code: %s (2 means prerequisites missing)\n' "$qsa_status"
+if [[ "$qsa_kind" == int8-harness ]]; then
+    printf 'INT8 harness kernel benchmark exit code: %s\n' "$qsa_status"
+else
+    printf 'INT8 kernel benchmark exit code: %s (2 means prerequisites missing)\n' "$qsa_status"
+fi
 exit "$qsa_status"

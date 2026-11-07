@@ -38,9 +38,11 @@ CASES = {(case["name"],): case for case in cases()}
 
 
 class QSAPrefillInt8Benchmark(base.GenericBenchmark):
+    case_name = None
+
     def set_shapes(self, shape_file_path=None):
-        self.shapes = list(CASES)
-        self.shape_desc = "Ten INT8 selection cases with H=4, D=128, page=192, K=512"
+        self.shapes = [(self.case_name,)]
+        self.shape_desc = "INT8 selection with H=4, D=128, page=192, K=512"
 
     def record_shapes(self, *, case_name, **kwargs):
         return (case_name,)
@@ -55,10 +57,11 @@ def _call_candidate(*, candidate, **kwargs):
 
 
 @pytest.mark.qsa_select_paged_prefill_int8_910b
+@pytest.mark.parametrize("case_name", [shape[0] for shape in CASES])
 @pytest.mark.skipif(
     flaggems_vllm.vendor_name != "ascend", reason="Ascend 910B required"
 )
-def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path):
+def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
     torch_npu = pytest.importorskip("torch_npu")
     if not torch.npu.is_available():
         pytest.skip("Ascend NPU unavailable")
@@ -176,10 +179,19 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path):
             pre_tokens=2**63 - 1,
             next_tokens=2**63 - 1,
         )
-        original = control().cpu()
-        selected = candidate().cpu()
+        torch.npu.synchronize()
+        print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} control", flush=True)
+        original = control()
+        torch.npu.synchronize()
+        original = original.cpu()
+        print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} candidate", flush=True)
+        selected = candidate()
+        torch.npu.synchronize()
+        selected = selected.cpu()
         assert torch.equal(original, selected), f"{name}: candidate indices differ"
+        print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} cann_v1", flush=True)
         native_output = native_call()
+        torch.npu.synchronize()
         assert native_output.shape == (rows, 1, 512)
         expected = native_output.cpu().squeeze(1)
         for indices in (expected, selected):
@@ -222,6 +234,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path):
 
     benchmark = QSAPrefillInt8Benchmark(
         op_name=OP_NAME,
+        case_name=case_name,
         torch_op=_call_reference,
         gems_op=_call_candidate,
         input_fn=prepare_case,
