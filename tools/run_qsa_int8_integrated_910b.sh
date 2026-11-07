@@ -17,8 +17,8 @@
 set -uo pipefail
 qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
 qsa_kind=int8-integrated
-if [[ ${1:-} == --harness ]]; then
-    qsa_kind=int8-harness
+if [[ ${1:-} == --harness || ${1:-} == --harness-diagnose ]]; then
+    qsa_kind="int8-${1#--}"
     shift
     if [[ -n "${QSA_SUMMARIZE_REPORT:-}" ]]; then
         echo 'Harness summaries use tools.summarize_qsa_int8_harness_910b'
@@ -63,16 +63,30 @@ fi
 qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
 printf 'Code commit: %s\nReport: %s\n' "$qsa_commit" "$qsa_report"
 printf '%s\n' "$qsa_commit" > "$qsa_report/$qsa_commit_file"
-if [[ "$qsa_kind" == int8-harness ]]; then
+qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel
+qsa_harness_diagnose() (
+    cd -- "$qsa_repo" || exit 1
+    ulimit -c 0 || exit 1
+    qsa_diagnostic_case=$1
+    shift
+    ASCEND_LAUNCH_BLOCKING=1 QSA_INT8_HARNESS_PREFLIGHT_ONLY=1 \
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$qsa_python" -u -m pytest \
+        -q -s --tb=short "$qsa_test[$qsa_diagnostic_case]" --mode kernel "$@"
+)
+if [[ "$qsa_kind" == int8-harness-diagnose ]]; then
+    qsa_harness_diagnose "${QSA_HARNESS_DIAG_CASE:-int8_dominant_long}" "$@" \
+        2>&1 | tee "$qsa_report/$qsa_console"
+    qsa_status=${PIPESTATUS[0]}
+elif [[ "$qsa_kind" == int8-harness ]]; then
     (
         cd -- "$qsa_repo" || exit 1
+        ulimit -c 0 || exit 1
         qsa_cases=$("$qsa_python" -c '
 from tools.qsa_int8_ten_workloads_910b import cases
 names = [case["name"] for case in cases()]
 names.sort(key=lambda name: name != "int8_dominant_long")
 print("\n".join(names))
 ') || exit 1
-        qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do
             printf 'QSA INT8 harness worker: %s\n' "$qsa_case"
@@ -86,11 +100,10 @@ print("\n".join(names))
             if [[ "$qsa_pytest_status" != 0 ]]; then
                 printf 'QSA INT8 harness worker failed: %s (pytest exit %s)\n' \
                     "$qsa_case" "$qsa_pytest_status"
-                if grep -Eq '507035|current working operator name is _segmerge_seg_sort' "$qsa_case_console"; then
+                if [[ "$qsa_pytest_status" == 134 ]] || \
+                    grep -Eiq '507035|vector core exception|VEC instruction parameter is invalid' "$qsa_case_console"; then
                     printf 'QSA INT8 synchronized preflight diagnostic: %s\n' "$qsa_case"
-                    ASCEND_LAUNCH_BLOCKING=1 QSA_INT8_HARNESS_PREFLIGHT_ONLY=1 \
-                        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$qsa_python" -u -m pytest \
-                        -q -s --tb=short "$qsa_test[$qsa_case]" --mode kernel \
+                    qsa_harness_diagnose "$qsa_case" \
                         2>&1 | tee "$qsa_report/harness-$qsa_case-diagnostic.txt"
                     printf 'QSA INT8 preflight diagnostic exit: %s\n' "${PIPESTATUS[0]}"
                 fi
@@ -135,7 +148,9 @@ if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     printf '报告回传完成。\n结果分支：%s\n' "$qsa_branch"
     git -C "$qsa_tree" rev-parse HEAD
 fi
-if [[ "$qsa_kind" == int8-harness ]]; then
+if [[ "$qsa_kind" == int8-harness-diagnose ]]; then
+    printf 'INT8 harness synchronized diagnostic exit code: %s\n' "$qsa_status"
+elif [[ "$qsa_kind" == int8-harness ]]; then
     printf 'INT8 harness kernel benchmark exit code: %s\n' "$qsa_status"
 else
     printf 'INT8 kernel benchmark exit code: %s (2 means prerequisites missing)\n' "$qsa_status"

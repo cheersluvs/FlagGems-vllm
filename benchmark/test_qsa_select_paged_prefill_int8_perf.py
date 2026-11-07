@@ -55,6 +55,39 @@ def _call_candidate(*, candidate, **kwargs):
     return candidate()
 
 
+class _SynchronizedTopKKernel:
+    """Identify the failing launch without relying on asynchronous error labels."""
+
+    def __init__(self, name, kernel):
+        self.name = name
+        self.kernel = kernel
+        self.binaries = set()
+
+    def __getitem__(self, grid):
+        launch = self.kernel[grid]
+
+        def checked(*args, **kwargs):
+            print(
+                f"QSA_INT8_HARNESS_DIAG_LAUNCH {self.name} grid={grid} meta={kwargs}",
+                flush=True,
+            )
+            compiled = launch(*args, **kwargs)
+            if compiled is not None and id(compiled) not in self.binaries:
+                binary = compiled.asm.get("npubin")
+                if binary is not None:
+                    digest = hashlib.sha256(bytes(binary)).hexdigest()
+                    print(
+                        f"QSA_INT8_HARNESS_DIAG_BINARY {self.name} "
+                        f"compiled={compiled.metadata.kernel_name} sha256={digest}",
+                        flush=True,
+                    )
+                self.binaries.add(id(compiled))
+            torch.npu.synchronize()
+            return compiled
+
+        return checked
+
+
 def _preflight_select(name, arm, adapter, diagnose_only):
     print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} {arm}", flush=True)
     if not diagnose_only:
@@ -127,6 +160,15 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         ).resolve()
     ):
         pytest.fail(f"Unexpected persistent TopK source: {topk.__file__}")
+    if diagnose_only:
+        for name in (
+            "_radix_hist_trivial_all",
+            "_segmerge_seg_sort",
+            "_segmerge_merge_unpack",
+        ):
+            monkeypatch.setattr(
+                topk, name, _SynchronizedTopKKernel(name, getattr(topk, name))
+            )
     compiler = Path(triton.__file__).resolve()
     env_root = os.environ.get("QSA_ENV_ROOT")
     if env_root and not compiler.is_relative_to(Path(env_root).resolve() / "flagtree"):
