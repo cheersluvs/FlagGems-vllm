@@ -604,14 +604,13 @@ def _segmerge_merge_unpack(
     got = tl.zeros((), dtype=tl.int32)
     cons = tl.zeros([4], dtype=tl.int32)
     idx4 = tl.arange(0, 4)
+    MERGE_FLOATS: tl.constexpr = 2 * TOPK * (4 if SEGS > 2 else SEGS)
+    oo = tl.arange(0, MERGE_FLOATS)
     for _ in tl.static_range(0, 4):
         if got < TOPK:
-            # The op only emits the 2*TOPK float prefix of its output (an exhaustion
-            # merge over ways of TOPK cannot yield more), so the span is sized 2*TOPK.
-            # The previous 8*TOPK span cost an extra 64 KB of UB at k=2048 and pushed
-            # this kernel over the 192 KB budget (measured: 2*TOPK compiles and merges
-            # correctly).
-            out_t = tl.zeros([2 * TOPK], dtype=tl.float32)
+            # The raw merge writes the sum of consumed proposals into UB.
+            # Size for all input ways; the GM store keeps only the requested prefix.
+            out_t = tl.zeros([MERGE_FLOATS], dtype=tl.float32)
             out_t, cons = tle.dsa.ascend.raw(
                 "merge_exhaust_sort4",
                 tle.dsa.to_tensor(in_ub),
@@ -639,7 +638,6 @@ def _segmerge_merge_unpack(
             l1 -= cons1
             l2 -= cons2
             l3 -= cons3
-            oo = tl.arange(0, 2 * TOPK)
             tl.store(base + got * 2 + oo, out_t, mask=oo < take * 2)
             got += take
     s_ub = tle.dsa.alloc([2 * TOPK], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
