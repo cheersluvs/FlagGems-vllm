@@ -60,6 +60,26 @@ def visibility_tile_policy(visible, width, policy, *, maxima_out=None):
     )
 
 
+def direct_page_route(table, first, count, width, physical_pages, *, maxima):
+    """Prove all scalar page reads, including those with no live keys."""
+    if count % 16:
+        return "partial_query_group"
+    columns = len(table[first])
+    # Full-dot loops round up to eight N64 tiles and clamp the table index.
+    full_columns = min(columns, triton.cdiv(triton.cdiv(width, 512) * 512, 192))
+    for group, row in enumerate(range(first, first + count, 16)):
+        # The bounded loop stops at the last visible tile of each query group.
+        required = (
+            full_columns
+            if maxima is None
+            else triton.cdiv(min(width, maxima[group]), 192)
+        )
+        pages = table[row][:required]
+        if pages and (min(pages) < 0 or max(pages) >= physical_pages):
+            return "invalid_page_id"
+    return "full" if maxima is None else "bounded"
+
+
 class PreparedSharedMapInt8Selection(PreparedInt8Selection):
     """Prepare guards from actual device tables; inputs must remain immutable.
 
@@ -84,6 +104,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         page_reuse_full=True,
         group_visible_kernels=None,
         *,
+        direct_page_kernels=None,
         reuse_topk_scratch=False,
     ):
         started = time.perf_counter()
@@ -150,6 +171,9 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         visible = values["visible"].cpu().tolist() if self.skip_invisible else None
         self.group_visible_kernels = group_visible_kernels
         self.group_visible_offsets = {}
+        self.direct_page_kernels = direct_page_kernels
+        self.direct_page_routes = {}
+        direct_page_guard_ns = 0
         packed = []
         metadata_pack_ns = 0
         groups_from_policy = 0
@@ -178,7 +202,12 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                 and self.page_reuse
                 and count % 16 == 0
             )
-            maxima = [] if want_metadata else None
+            want_page_check = (
+                direct_page_kernels is not None and eligible and self.page_reuse
+            )
+            maxima = (
+                [] if want_metadata or (want_page_check and count % 16 == 0) else None
+            )
             if eligible and self.skip_invisible:
                 stats = visibility_tile_policy(
                     visible[first : first + count],
@@ -197,6 +226,20 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             entry["query16_reason"] = (
                 "Shared mapping and request owner proven" if eligible else reason
             )
+            if direct_page_kernels is not None:
+                route = "ineligible_route"
+                if want_page_check and entry["page_reuse"]:
+                    guard_start = time.perf_counter_ns()
+                    route = direct_page_route(
+                        table,
+                        first,
+                        count,
+                        self.width,
+                        values["cache"].shape[0],
+                        maxima=maxima if selected else None,
+                    )
+                    direct_page_guard_ns += time.perf_counter_ns() - guard_start
+                self.direct_page_routes[first, count] = route
             if want_metadata and entry["page_reuse"]:
                 metadata_start = time.perf_counter_ns()
                 self.group_visible_offsets[first, count] = len(packed)
@@ -229,6 +272,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             alloc_copy_us=copy_ns / 1000,
             prepare_us=(metadata_pack_ns + copy_ns) / 1000,
         )
+        self.direct_page_guard_us = direct_page_guard_ns / 1000
         self.preparation_ms = (time.perf_counter() - started) * 1000
 
     def score_into(self, first, count, target):
@@ -350,6 +394,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             kernel = self.group_visible_kernels[
                 self.skip_invisible_routes[(first, count)]
             ]
+        elif self.direct_page_routes.get((first, count)) in ("bounded", "full"):
+            kernel = self.direct_page_kernels[self.skip_invisible_routes[first, count]]
         launch = kernel[min(20, triton.cdiv(count, 16) * blocks),]
         args = (
             v["q"][first : first + count],

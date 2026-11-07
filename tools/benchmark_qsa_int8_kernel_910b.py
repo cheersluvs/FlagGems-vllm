@@ -214,17 +214,22 @@ def run_case(args):
             run_topk_workspace_probe(args, result, inputs, values, plan, load_topk())
             result["status"] = "passed"
             return write_case_result(args, report, result, 0)
-        if args.group_visible_probe:
+        if args.group_visible_probe or args.direct_page_request_samples:
             from probe_qsa_int8_group_visible_request_910b import (
-                run_group_visible_request,
+                run_score_request_probe,
             )
 
             result["measurement_scope"] = (
-                "Current vs one-copy GroupVisible; interleaved prepared score+TopK trace"
-                if args.group_visible_combined_trace
-                else "Current vs one-copy GroupVisible; paired score device time and prepared/fresh request wall phases"
+                "Current vs guarded direct page load; paired score device time and fresh request wall"
+                if args.direct_page_request_samples
+                else (
+                    "Current vs one-copy GroupVisible; interleaved prepared score+TopK trace"
+                    if args.group_visible_combined_trace
+                    else "Current vs one-copy GroupVisible; paired score device time "
+                    "and prepared/fresh request wall phases"
+                )
             )
-            run_group_visible_request(args, result, inputs, values, plan, load_topk())
+            run_score_request_probe(args, result, inputs, values, plan, load_topk())
             result["status"] = "passed"
             return write_case_result(args, report, result, 0)
         rows, width, chunk = (
@@ -1550,6 +1555,12 @@ def main():
     )
     request_probe = parser.add_mutually_exclusive_group()
     request_probe.add_argument(
+        "--direct-page-request-samples",
+        type=int,
+        default=0,
+        help="Compare guarded direct page reads across the ten complete INT8 inputs",
+    )
+    request_probe.add_argument(
         "--group-visible-request-samples",
         type=int,
         default=0,
@@ -1576,7 +1587,7 @@ def main():
         args.group_visible_request_samples
     )
     args.standalone_probe = args.group_visible_probe or bool(
-        args.topk_workspace_samples
+        args.topk_workspace_samples or args.direct_page_request_samples
     )
     if args.standalone_probe and (
         args.bound_combined_samples or args.audit_topk_boundary or args.interleave_score
@@ -1586,6 +1597,8 @@ def main():
         parser.error(
             "Integrated TopK scratch reuse requires --shared-map-qk without a standalone probe"
         )
+    if args.direct_page_request_samples and args.direct_page_request_samples < 2:
+        parser.error("Direct page request wall timing requires at least two samples")
     if args.group_visible_request_samples and args.group_visible_request_samples < 2:
         parser.error("GroupVisible request wall timing requires at least two samples")
     if args.topk_workspace_samples and args.topk_workspace_samples < 2:
@@ -1724,6 +1737,10 @@ def main():
             )
         if args.topk_workspace_wall_only:
             command.append("--topk-workspace-wall-only")
+        if args.direct_page_request_samples:
+            command.extend(
+                ["--direct-page-request-samples", str(args.direct_page_request_samples)]
+            )
         if args.group_visible_request_samples:
             command.extend(
                 [
@@ -1800,6 +1817,8 @@ def summarize(report, entries, names, args):
             if args.topk_workspace_wall_only
             else "Request-local TopK scratch reuse wall time and combined trace"
         )
+    elif args.direct_page_request_samples:
+        scope = "Guarded direct page score device timing and prepared/fresh request wall phases"
     elif args.group_visible_combined_trace:
         scope = "GroupVisible prepared score+TopK combined trace"
     elif args.group_visible_probe:
@@ -1815,6 +1834,24 @@ def summarize(report, entries, names, args):
                 indent=2,
             )
         )
+        if args.direct_page_request_samples and passed:
+            print(
+                "case | hits/total | score current ms | score direct ms | "
+                "score speedup | guard ms | fresh wall speedup",
+                flush=True,
+            )
+            for entry in passed:
+                route = entry["direct_page"]
+                score = entry["score_device_us"]
+                wall = entry["request_wall_us"]
+                print(
+                    f"{entry['case']} | {route['hit_chunks']}/{len(route['routes'])} | "
+                    f"{score['medians']['current'] / 1000:.3f} | "
+                    f"{score['medians']['direct_page'] / 1000:.3f} | "
+                    f"{score['speedup']:.4f} | {wall['median_direct_page_guard_us'] / 1000:.3f} | "
+                    f"{wall['speedup']:.4f}",
+                    flush=True,
+                )
         if args.topk_workspace_wall_only and passed:
             print(
                 "case | route | current ms | reuse ms | speedup | wins | scratch bytes",
