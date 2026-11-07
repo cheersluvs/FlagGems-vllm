@@ -28,11 +28,11 @@ import triton
 
 import flaggems_vllm
 from tools.qsa_int8_ten_workloads_910b import cases, make_inputs, sample_rows
+from tools.summarize_qsa_int8_harness_910b import OP_NAME, TOPK_SEGMENT, topk_route
 
 from . import base, consts
 from .conftest import Config
 
-OP_NAME = "qsa_select_paged_prefill_int8_910b"
 CASES = {(case["name"],): case for case in cases()}
 
 
@@ -43,8 +43,8 @@ class QSAPrefillInt8Benchmark(base.GenericBenchmark):
         self.shapes = [(self.case_name,)]
         self.shape_desc = "INT8 selection with H=4, D=128, page=192, K=512"
 
-    def record_shapes(self, *, case_name, **kwargs):
-        return (case_name,)
+    def record_shapes(self, *, case_name, route, **kwargs):
+        return (case_name, route)
 
 
 def _call_reference(*, reference, **kwargs):
@@ -151,6 +151,10 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
     from triton.backends.ascend.testing import do_bench_npu
 
     topk = load_topk()
+    policy = os.environ.get("QSA_HARNESS_TOPK_POLICY", "auto")
+    assert topk._SEGMERGE_SEG == TOPK_SEGMENT
+    route = topk_route(CASES[(case_name,)], policy)
+    monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", route)
     if not topk.HAS_TLE_PTK:
         pytest.fail("Ascend persistent TopK TLE is required")
     if (
@@ -190,7 +194,8 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 timer_signature=str(inspect.signature(do_bench_npu)),
                 topk_source=topk.__file__,
                 topk_identity=topk.probe_identity,
-                topk_route=os.environ.get("FLAGGEMS_ASCEND_PTK_PATH", "auto"),
+                topk_policy=policy,
+                topk_route=route,
             )
         ),
         flush=True,
@@ -297,7 +302,11 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 f"QSA_INT8_HARNESS_TIMER one_ms={single} three_ms={triple} ratio={ratio}"
             )
         # The harness unpacks dictionaries nested in the input tuple as kwargs.
-        yield (dict(case_name=name, reference=native_call, candidate=candidate),)
+        yield (
+            dict(
+                case_name=name, route=route, reference=native_call, candidate=candidate
+            ),
+        )
 
     benchmark = QSAPrefillInt8Benchmark(
         op_name=OP_NAME,

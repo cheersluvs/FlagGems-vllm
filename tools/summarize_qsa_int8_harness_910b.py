@@ -23,6 +23,17 @@ from pathlib import Path
 from tools.qsa_int8_ten_workloads_910b import cases
 
 OP_NAME = "qsa_select_paged_prefill_int8_910b"
+TOPK_SEGMENT = 4096
+
+
+def topk_route(case, policy):
+    if policy not in ("auto", "radix_3seg"):
+        raise ValueError(f"Unknown QSA harness TopK policy: {policy}")
+    width = case["logits_width"]
+    segments = (width + TOPK_SEGMENT - 1) // TOPK_SEGMENT
+    if policy == "radix_3seg" and case["k"] == 512 and segments == 3:
+        return "radix"
+    return "auto"
 
 
 def merge_case_reports(directory):
@@ -43,7 +54,7 @@ def merge_case_reports(directory):
                 for detail in case_details
                 for row in detail["result"]
             ]
-            if shapes != [[name]]:
+            if shapes not in ([[name]], [[name, "auto"]], [[name, "radix"]]):
                 outcome = "invalid_shape_record"
             else:
                 details.extend(case_details)
@@ -67,7 +78,7 @@ def summarize(report, pytest_exit_code):
     entry = report[OP_NAME]
     if entry.get("result") != "passed":
         raise ValueError(f"Benchmark outcome: {entry.get('result')}")
-    expected = [case["name"] for case in cases()]
+    expected = {case["name"]: case for case in cases()}
     rows = {}
     for detail in entry["details"]:
         if (
@@ -77,9 +88,12 @@ def summarize(report, pytest_exit_code):
         ):
             raise ValueError("Expected the INT8 kernel benchmark")
         for result in detail["result"]:
-            (name,) = result["shape_detail"]
+            name, *route_values = result["shape_detail"]
+            route = route_values[0] if route_values else "auto"
             if name not in expected or name in rows or result.get("error_msg"):
                 raise ValueError(f"Invalid or duplicate case: {name}")
+            if len(route_values) > 1 or route not in ("auto", "radix"):
+                raise ValueError(f"Invalid TopK route record for {name}")
             baseline, candidate, ratio = (
                 result["latency_base"],
                 result["latency"],
@@ -93,16 +107,29 @@ def summarize(report, pytest_exit_code):
             if not math.isclose(ratio, baseline / candidate, rel_tol=1e-9):
                 raise ValueError(f"Kernel speedup does not match latencies for {name}")
             rows[name] = dict(
-                case=name, baseline_ms=baseline, candidate_ms=candidate, speedup=ratio
+                case=name,
+                baseline_ms=baseline,
+                candidate_ms=candidate,
+                speedup=ratio,
+                topk_route=route,
             )
     if set(rows) != set(expected):
         raise ValueError(f"Missing kernel cases: {sorted(set(expected) - set(rows))}")
+    for policy in ("auto", "radix_3seg"):
+        if all(
+            rows[name]["topk_route"] == topk_route(case, policy)
+            for name, case in expected.items()
+        ):
+            break
+    else:
+        raise ValueError("TopK routes do not match a single harness policy")
     return dict(
         exit_code=0,
         mode="kernel",
         benchmark=OP_NAME,
         baseline="torch_npu.npu_quant_lightning_indexer (CANN V1)",
         candidate="Prepared INT8 selection with shared page proof",
+        topk_policy=policy,
         cases=[rows[name] for name in expected],
         arithmetic_mean_speedup=statistics.mean(
             row["speedup"] for row in rows.values()
@@ -135,7 +162,7 @@ def main():
     if summary["exit_code"] == 0:
         print(
             f"QSA INT8 harness kernel arithmetic mean ({len(summary['cases'])} cases): "
-            f"{summary['arithmetic_mean_speedup']:.6f}x"
+            f"{summary['arithmetic_mean_speedup']:.6f}x [TopK {summary['topk_policy']}]"
         )
     else:
         print(f"QSA INT8 harness summary unavailable: {summary['error']}")
