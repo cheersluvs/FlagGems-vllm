@@ -16,6 +16,15 @@
 # Execute this file with bash; never source it into the container login shell.
 set -uo pipefail
 qsa_repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
+qsa_kind=int8-integrated
+if [[ ${1:-} == --harness ]]; then
+    qsa_kind=int8-harness
+    shift
+    if [[ -n "${QSA_SUMMARIZE_REPORT:-}" ]]; then
+        echo 'Harness summaries use tools.summarize_qsa_int8_harness_910b'
+        exit 1
+    fi
+fi
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -48,29 +57,47 @@ if [[ -n "${QSA_SUMMARIZE_REPORT:-}" ]]; then
         cp -- "$qsa_report/exit-code.txt" "$qsa_report/original-exit-code.txt" || exit 1
     fi
 else
-    qsa_report=$(mktemp -d /tmp/qsa-ascend910b-int8-integrated.XXXXXXXX) || exit 1
+    qsa_report=$(mktemp -d "/tmp/qsa-ascend910b-$qsa_kind.XXXXXXXX") || exit 1
     qsa_commit_file=code-commit.txt
 fi
 qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
 printf 'Code commit: %s\nReport: %s\n' "$qsa_commit" "$qsa_report"
 printf '%s\n' "$qsa_commit" > "$qsa_report/$qsa_commit_file"
-"$qsa_python" -u "$qsa_repo/tools/benchmark_qsa_int8_kernel_910b.py" \
-    --report "$qsa_report" --integrated ${qsa_summary_flag:+"$qsa_summary_flag"} "$@" 2>&1 | tee "$qsa_report/$qsa_console"
-qsa_status=${PIPESTATUS[0]}
+if [[ "$qsa_kind" == int8-harness ]]; then
+    (
+        cd -- "$qsa_repo" || exit 1
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$qsa_python" -u -m pytest -q -s \
+            benchmark/test_qsa_select_paged_prefill_int8_perf.py --mode kernel \
+            "$@" --record json --output "$qsa_report/harness.json"
+        qsa_pytest_status=$?
+        "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
+            "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status"
+        qsa_summary_status=$?
+        if [[ "$qsa_pytest_status" != 0 ]]; then
+            exit "$qsa_pytest_status"
+        fi
+        exit "$qsa_summary_status"
+    ) 2>&1 | tee "$qsa_report/$qsa_console"
+    qsa_status=${PIPESTATUS[0]}
+else
+    "$qsa_python" -u "$qsa_repo/tools/benchmark_qsa_int8_kernel_910b.py" \
+        --report "$qsa_report" --integrated ${qsa_summary_flag:+"$qsa_summary_flag"} "$@" 2>&1 | tee "$qsa_report/$qsa_console"
+    qsa_status=${PIPESTATUS[0]}
+fi
 printf '%s\n' "$qsa_status" > "$qsa_report/exit-code.txt"
 if [[ ${QSA_UPLOAD_REPORT:-1} == 1 ]]; then
     qsa_stamp=$(date -u +%Y%m%d-%H%M%S)
     qsa_branch="codex/qsa-ascend910b-results-$qsa_stamp-$$"
     qsa_tree=$(mktemp -d /tmp/flaggems-qsa-910b-results.XXXXXXXX) || exit 1
     git -C "$qsa_repo" worktree add -b "$qsa_branch" "$qsa_tree" "$qsa_commit" || exit 1
-    qsa_dest="results/qsa_select_paged_prefill/ascend910b/int8-integrated-$qsa_stamp"
+    qsa_dest="results/qsa_select_paged_prefill/ascend910b/$qsa_kind-$qsa_stamp"
     mkdir -p "$qsa_tree/$qsa_dest" || exit 1
     find "$qsa_report" -maxdepth 1 -type f \( -name '*.json' -o -name '*.txt' -o -name '*.json.gz' -o -name '*.csv' \) \
         -exec cp -- {} "$qsa_tree/$qsa_dest/" \;
     git -C "$qsa_tree" add -- "$qsa_dest" || exit 1
     git -C "$qsa_tree" -c user.name="QSA GPU reports" \
         -c user.email="qsa-reports@users.noreply.github.com" \
-        commit -m "Report Ascend 910B integrated INT8 staged comparison" || exit 1
+        commit -m "Report Ascend 910B $qsa_kind comparison" || exit 1
     git -C "$qsa_tree" push https://github.com/cheersluvs/FlagGems-vllm.git \
         "HEAD:refs/heads/$qsa_branch" || {
         printf 'Upload failed; report retained: %s\nResult worktree: %s\n' "$qsa_report" "$qsa_tree"
