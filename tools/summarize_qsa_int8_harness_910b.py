@@ -24,15 +24,17 @@ from tools.qsa_int8_ten_workloads_910b import cases
 
 OP_NAME = "qsa_select_paged_prefill_int8_910b"
 TOPK_SEGMENT = 4096
+TOPK_POLICIES = ("auto", "radix_3seg", "prefill_3seg")
+TOPK_ROUTES = ("auto", "radix", "prefill")
 
 
 def topk_route(case, policy):
-    if policy not in ("auto", "radix_3seg"):
+    if policy not in TOPK_POLICIES:
         raise ValueError(f"Unknown QSA harness TopK policy: {policy}")
     width = case["logits_width"]
     segments = (width + TOPK_SEGMENT - 1) // TOPK_SEGMENT
-    if policy == "radix_3seg" and case["k"] == 512 and segments == 3:
-        return "radix"
+    if policy != "auto" and case["k"] == 512 and segments == 3:
+        return policy.removesuffix("_3seg")
     return "auto"
 
 
@@ -54,7 +56,9 @@ def merge_case_reports(directory):
                 for detail in case_details
                 for row in detail["result"]
             ]
-            if shapes not in ([[name]], [[name, "auto"]], [[name, "radix"]]):
+            if shapes != [[name]] and not any(
+                shapes == [[name, route]] for route in TOPK_ROUTES
+            ):
                 outcome = "invalid_shape_record"
             else:
                 details.extend(case_details)
@@ -92,7 +96,7 @@ def summarize(report, pytest_exit_code):
             route = route_values[0] if route_values else "auto"
             if name not in expected or name in rows or result.get("error_msg"):
                 raise ValueError(f"Invalid or duplicate case: {name}")
-            if len(route_values) > 1 or route not in ("auto", "radix"):
+            if len(route_values) > 1 or route not in TOPK_ROUTES:
                 raise ValueError(f"Invalid TopK route record for {name}")
             baseline, candidate, ratio = (
                 result["latency_base"],
@@ -115,7 +119,7 @@ def summarize(report, pytest_exit_code):
             )
     if set(rows) != set(expected):
         raise ValueError(f"Missing kernel cases: {sorted(set(expected) - set(rows))}")
-    for policy in ("auto", "radix_3seg"):
+    for policy in TOPK_POLICIES:
         if all(
             rows[name]["topk_route"] == topk_route(case, policy)
             for name, case in expected.items()

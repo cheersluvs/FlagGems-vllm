@@ -20,6 +20,7 @@ import json
 import math
 import os
 from functools import partial
+from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -90,6 +91,8 @@ class _SynchronizedTopKKernel:
 
 def _preflight_select(name, arm, adapter, diagnose_only):
     print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} {arm}", flush=True)
+    adapter.output.fill_(-2 if arm == "control" else -3)
+    torch.npu.synchronize()
     if not diagnose_only:
         output = adapter()
         torch.npu.synchronize()
@@ -113,6 +116,53 @@ def _preflight_select(name, arm, adapter, diagnose_only):
             adapter.select_chunk(first + local, target[local:end])
             torch.npu.synchronize()
     return adapter.output.cpu()
+
+
+def _check_preflight_structure(name, arm, indices, lengths, verify_structure):
+    try:
+        verify_structure(indices, lengths)
+    except AssertionError as exc:
+        failure = dict(case=name, arm=arm, error=str(exc))
+        if indices.shape == (lengths.numel(), 512) and indices.dtype == torch.int32:
+            ordered = indices.sort(dim=1).values
+            duplicate = (
+                (ordered[:, 1:] == ordered[:, :-1]) & (ordered[:, 1:] >= 0)
+            ).any(1)
+            invalid = ((indices < -1) | (indices >= lengths[:, None])).any(1)
+            count = (indices >= 0).sum(1) != lengths.clamp(max=512)
+            bad = (duplicate | invalid | count).nonzero().flatten()[:8].tolist()
+            failure.update(
+                duplicate_rows=int(duplicate.sum()),
+                invalid_rows=int(invalid.sum()),
+                wrong_count_rows=int(count.sum()),
+                sentinel_entries=(
+                    int((indices == (-2 if arm == "control" else -3)).sum())
+                    if arm in ("control", "candidate")
+                    else None
+                ),
+                samples=[
+                    dict(
+                        row=row,
+                        visible=int(lengths[row]),
+                        first_indices=indices[row, :12].tolist(),
+                    )
+                    for row in bad
+                ],
+            )
+        print("QSA_INT8_HARNESS_INVALID_OUTPUT", json.dumps(failure), flush=True)
+        return f"{arm}: {exc}"
+    return None
+
+
+def _prefill_topk_adapter(prefill, row_starts):
+    def select(logits, lengths, output, workspace, *, k, max_seq_len, block):
+        rows = logits.shape[0]
+        assert max_seq_len == logits.shape[1] and rows <= row_starts.numel()
+        prefill.top_k_per_row_prefill(
+            logits, row_starts[:rows], lengths, output, rows, *logits.stride(), k
+        )
+
+    return select
 
 
 @pytest.mark.qsa_select_paged_prefill_int8_910b
@@ -154,7 +204,9 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
     policy = os.environ.get("QSA_HARNESS_TOPK_POLICY", "auto")
     assert topk._SEGMERGE_SEG == TOPK_SEGMENT
     route = topk_route(CASES[(case_name,)], policy)
-    monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", route)
+    monkeypatch.setenv(
+        "FLAGGEMS_ASCEND_PTK_PATH", "auto" if route == "prefill" else route
+    )
     if not topk.HAS_TLE_PTK:
         pytest.fail("Ascend persistent TopK TLE is required")
     if (
@@ -164,6 +216,27 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         ).resolve()
     ):
         pytest.fail(f"Unexpected persistent TopK source: {topk.__file__}")
+    prefill_identity = None
+    if route == "prefill":
+        prefill = import_module(
+            "flaggems_vllm.runtime.backend._ascend.ops.top_k_per_row_prefill"
+        )
+        if not prefill._TLE_IMPORT_OK:
+            pytest.fail("Ascend prefill TopK TLE is required")
+        prefill_path = Path(prefill.__file__).resolve()
+        expected_path = (
+            Path(topk.__file__).with_name("top_k_per_row_prefill.py").resolve()
+        )
+        if prefill_path != expected_path:
+            pytest.fail(f"Unexpected Ascend prefill TopK source: {prefill_path}")
+        prefill_identity = dict(
+            source=str(prefill_path),
+            sha256=hashlib.sha256(prefill_path.read_bytes()).hexdigest(),
+        )
+        starts = torch.zeros((32,), dtype=torch.int32, device=f"npu:{device_index}")
+        monkeypatch.setattr(
+            topk, "persistent_topk", _prefill_topk_adapter(prefill, starts)
+        )
     if diagnose_only:
         for name in (
             "_radix_hist_trivial_all",
@@ -194,6 +267,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 timer_signature=str(inspect.signature(do_bench_npu)),
                 topk_source=topk.__file__,
                 topk_identity=topk.probe_identity,
+                prefill_topk_identity=prefill_identity,
                 topk_policy=policy,
                 topk_route=route,
             )
@@ -260,14 +334,24 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         torch.npu.synchronize()
         original = _preflight_select(name, "control", control, diagnose_only)
         selected = _preflight_select(name, "candidate", candidate, diagnose_only)
-        assert torch.equal(original, selected), f"{name}: candidate indices differ"
         print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} cann_v1", flush=True)
         native_output = native_call()
         torch.npu.synchronize()
         assert native_output.shape == (rows, 1, 512)
         expected = native_output.cpu().squeeze(1)
-        for indices in (expected, selected):
-            verify_structure(indices, inputs["visible"])
+        failures = []
+        for label, indices in (
+            ("cann_v1", expected),
+            ("control", original),
+            ("candidate", selected),
+        ):
+            failure = _check_preflight_structure(
+                name, label, indices, inputs["visible"], verify_structure
+            )
+            if failure is not None:
+                failures.append(failure)
+        assert not failures, f"{name}: {', '.join(failures)}"
+        assert torch.equal(original, selected), f"{name}: candidate indices differ"
         samples = sample_rows(plan)
         refs = [cpu_score(inputs, row)[1] for row in samples]
         for label, indices in (("CANN V1", expected), ("candidate", selected)):
