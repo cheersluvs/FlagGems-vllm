@@ -20,7 +20,6 @@ import json
 import math
 import os
 from functools import partial
-from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -56,6 +55,33 @@ def _call_candidate(*, candidate, **kwargs):
     return candidate()
 
 
+def _preflight_select(name, arm, adapter, diagnose_only):
+    print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} {arm}", flush=True)
+    if not diagnose_only:
+        output = adapter()
+        torch.npu.synchronize()
+        return output.cpu()
+
+    for first, count in adapter.chunks:
+        target = adapter.scratch[:count]
+        print(
+            f"QSA_INT8_HARNESS_DIAG {name} {arm} score first={first} rows={count}",
+            flush=True,
+        )
+        adapter.score_into(first, count, target)
+        torch.npu.synchronize()
+        for local in range(0, count, 32):
+            end = min(local + 32, count)
+            print(
+                f"QSA_INT8_HARNESS_DIAG {name} {arm} topk "
+                f"first={first + local} rows={end - local}",
+                flush=True,
+            )
+            adapter.select_chunk(first + local, target[local:end])
+            torch.npu.synchronize()
+    return adapter.output.cpu()
+
+
 @pytest.mark.qsa_select_paged_prefill_int8_910b
 @pytest.mark.parametrize("case_name", [shape[0] for shape in CASES])
 @pytest.mark.skipif(
@@ -71,6 +97,9 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         pytest.skip("Ascend 910B required")
     if Config.mode != consts.BenchMode.KERNEL:
         pytest.skip("Run this comparison with --mode kernel")
+    diagnose_only = os.environ.get("QSA_INT8_HARNESS_PREFLIGHT_ONLY") == "1"
+    if not diagnose_only and os.environ.get("ASCEND_LAUNCH_BLOCKING") == "1":
+        pytest.fail("Unset ASCEND_LAUNCH_BLOCKING for kernel timing")
 
     native = getattr(torch_npu, "npu_quant_lightning_indexer", None)
     if native is None:
@@ -85,9 +114,10 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
     from probe_qsa_int8_score_sol_910b import build_direct_page_source
     from probe_qsa_int8_ten_shapes_910b import verify_structure
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+    from qsa_prefill_pipeline_910b_trial import load_topk
     from triton.backends.ascend.testing import do_bench_npu
 
-    topk = import_module("flaggems_vllm.runtime.backend._ascend.ops.persistent_topk")
+    topk = load_topk()
     if not topk.HAS_TLE_PTK:
         pytest.fail("Ascend persistent TopK TLE is required")
     if (
@@ -117,6 +147,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 timer_sha256=hashlib.sha256(timer.read_bytes()).hexdigest(),
                 timer_signature=str(inspect.signature(do_bench_npu)),
                 topk_source=topk.__file__,
+                topk_identity=topk.probe_identity,
                 topk_route=os.environ.get("FLAGGEMS_ASCEND_PTK_PATH", "auto"),
             )
         ),
@@ -180,14 +211,8 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             next_tokens=2**63 - 1,
         )
         torch.npu.synchronize()
-        print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} control", flush=True)
-        original = control()
-        torch.npu.synchronize()
-        original = original.cpu()
-        print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} candidate", flush=True)
-        selected = candidate()
-        torch.npu.synchronize()
-        selected = selected.cpu()
+        original = _preflight_select(name, "control", control, diagnose_only)
+        selected = _preflight_select(name, "candidate", candidate, diagnose_only)
         assert torch.equal(original, selected), f"{name}: candidate indices differ"
         print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} cann_v1", flush=True)
         native_output = native_call()
@@ -209,7 +234,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         )
         del original, selected, native_output, expected, control, refs, inputs
 
-        if name == "int8_budget_exact":
+        if not diagnose_only and name == "int8_budget_exact":
             first, count = candidate.chunks[0]
 
             def one_score():
@@ -241,4 +266,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         dtypes=[torch.int8],
         device=f"npu:{device_index}",
     )
-    benchmark.run()
+    if diagnose_only:
+        next(prepare_case((case_name,), torch.int8, benchmark.device))
+    else:
+        benchmark.run()

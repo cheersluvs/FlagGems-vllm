@@ -76,13 +76,24 @@ print("\n".join(names))
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do
             printf 'QSA INT8 harness worker: %s\n' "$qsa_case"
-            PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$qsa_python" -u -m pytest -q -s \
+            qsa_case_console="$qsa_report/harness-$qsa_case-console.txt"
+            QSA_INT8_HARNESS_PREFLIGHT_ONLY=0 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+                "$qsa_python" -u -m pytest -q -s \
                 "$qsa_test[$qsa_case]" --mode kernel "$@" \
-                --record json --output "$qsa_report/harness-$qsa_case.json"
-            qsa_pytest_status=$?
+                --record json --output "$qsa_report/harness-$qsa_case.json" \
+                2>&1 | tee "$qsa_case_console"
+            qsa_pytest_status=${PIPESTATUS[0]}
             if [[ "$qsa_pytest_status" != 0 ]]; then
                 printf 'QSA INT8 harness worker failed: %s (pytest exit %s)\n' \
                     "$qsa_case" "$qsa_pytest_status"
+                if grep -Eq '507035|current working operator name is _segmerge_seg_sort' "$qsa_case_console"; then
+                    printf 'QSA INT8 synchronized preflight diagnostic: %s\n' "$qsa_case"
+                    ASCEND_LAUNCH_BLOCKING=1 QSA_INT8_HARNESS_PREFLIGHT_ONLY=1 \
+                        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$qsa_python" -u -m pytest \
+                        -q -s --tb=short "$qsa_test[$qsa_case]" --mode kernel \
+                        2>&1 | tee "$qsa_report/harness-$qsa_case-diagnostic.txt"
+                    printf 'QSA INT8 preflight diagnostic exit: %s\n' "${PIPESTATUS[0]}"
+                fi
                 break
             fi
         done <<< "$qsa_cases"
