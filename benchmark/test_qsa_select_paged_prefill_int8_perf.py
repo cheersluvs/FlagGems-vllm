@@ -217,7 +217,8 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path):
             print(
                 f"QSA_INT8_HARNESS_TIMER one_ms={single} three_ms={triple} ratio={ratio}"
             )
-        yield dict(case_name=name, reference=native_call, candidate=candidate)
+        # The harness unpacks dictionaries nested in the input tuple as kwargs.
+        yield (dict(case_name=name, reference=native_call, candidate=candidate),)
 
     benchmark = QSAPrefillInt8Benchmark(
         op_name=OP_NAME,
