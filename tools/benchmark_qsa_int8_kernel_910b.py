@@ -1565,6 +1565,11 @@ def main():
         action="store_true",
         help="Compare cached and scanned direct-page guards; default to three focused inputs",
     )
+    parser.add_argument(
+        "--shared-direct-page-proof",
+        action="store_true",
+        help="Fold direct-page validation into the shared-map proof; default to budget_exact",
+    )
     request_probe.add_argument(
         "--group-visible-request-samples",
         type=int,
@@ -1610,6 +1615,8 @@ def main():
         parser.error(
             "Cached guard comparison requires wall samples in multiples of six"
         )
+    if args.shared_direct_page_proof and not args.cache_direct_page_guard:
+        parser.error("--shared-direct-page-proof requires --cache-direct-page-guard")
     if args.group_visible_request_samples and args.group_visible_request_samples < 2:
         parser.error("GroupVisible request wall timing requires at least two samples")
     if args.topk_workspace_samples and args.topk_workspace_samples < 2:
@@ -1708,6 +1715,8 @@ def main():
         default_cases = (*WORKSPACE_PLANS, "int8_short_tail")
     elif combined_probe:
         default_cases = ("int8_long100k",)
+    elif args.shared_direct_page_proof:
+        default_cases = ("int8_budget_exact",)
     elif args.group_visible_request_samples or args.cache_direct_page_guard:
         default_cases = ("int8_budget_exact", "int8_long100k", "int8_first_chunk")
     else:
@@ -1754,6 +1763,8 @@ def main():
             )
         if args.cache_direct_page_guard:
             command.append("--cache-direct-page-guard")
+        if args.shared_direct_page_proof:
+            command.append("--shared-direct-page-proof")
         if args.group_visible_request_samples:
             command.extend(
                 [
@@ -1848,24 +1859,50 @@ def summarize(report, entries, names, args):
             )
         )
         if args.direct_page_request_samples and passed:
+            cost_label = (
+                "query16 proof + guard ms"
+                if args.shared_direct_page_proof
+                else "guard ms"
+            )
             print(
                 "case | hits/total | score current ms | score direct ms | "
-                "score speedup | guard ms | fresh wall speedup",
+                f"score speedup | {cost_label} | fresh wall speedup",
                 flush=True,
             )
             for entry in passed:
                 route = entry["direct_page"]
                 score = entry["score_device_us"]
                 wall = entry["request_wall_us"]
+                proof_us = (
+                    wall["page_proof_medians_us"]["direct_page"]
+                    if args.shared_direct_page_proof
+                    else wall["median_direct_page_guard_us"]
+                )
                 print(
                     f"{entry['case']} | {route['hit_chunks']}/{len(route['routes'])} | "
                     f"{score['medians']['current'] / 1000:.3f} | "
                     f"{score['medians']['direct_page'] / 1000:.3f} | "
-                    f"{score['speedup']:.4f} | {wall['median_direct_page_guard_us'] / 1000:.3f} | "
+                    f"{score['speedup']:.4f} | {proof_us / 1000:.3f} | "
                     f"{wall['speedup']:.4f}",
                     flush=True,
                 )
-            if args.cache_direct_page_guard:
+            if args.shared_direct_page_proof:
+                print(
+                    "case | control | paired proof saved ms | paired preparation saved ms | "
+                    "paired wall saved ms | wall wins",
+                    flush=True,
+                )
+                for entry in passed:
+                    wall = entry["request_wall_us"]
+                    for control, comparison in wall["shared_proof_comparisons"].items():
+                        saved = comparison["paired_median_saved_us"]
+                        print(
+                            f"{entry['case']} | {control} | {saved['page_proof_us'] / 1000:.3f} | "
+                            f"{saved['preparation_us'] / 1000:.3f} | {saved['wall_us'] / 1000:.3f} | "
+                            f"{comparison['wall_wins']}/{len(wall['samples'])}",
+                            flush=True,
+                        )
+            elif args.cache_direct_page_guard:
                 print(
                     "case | unique maps | scanned guard ms | cached guard ms | "
                     "paired preparation saved ms | paired wall saved ms | wall wins",

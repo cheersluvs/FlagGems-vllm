@@ -60,8 +60,23 @@ def visibility_tile_policy(visible, width, policy, *, maxima_out=None):
     )
 
 
+def first_invalid_page(mapping, physical_pages):
+    return next(
+        (i for i, page in enumerate(mapping) if not 0 <= page < physical_pages),
+        len(mapping),
+    )
+
+
 def direct_page_route(
-    table, first, count, width, physical_pages, *, maxima, valid_prefixes=None
+    table,
+    first,
+    count,
+    width,
+    physical_pages,
+    *,
+    maxima,
+    valid_prefixes=None,
+    proven_prefixes=None,
 ):
     """Prove all scalar page reads, including those with no live keys."""
     if count % 16:
@@ -69,6 +84,18 @@ def direct_page_route(
     columns = len(table[first])
     # Full-dot loops round up to eight N64 tiles and clamp the table index.
     full_columns = min(columns, triton.cdiv(triton.cdiv(width, 512) * 512, 192))
+    if proven_prefixes is not None:
+        invalid = (
+            min(proven_prefixes) < full_columns
+            if maxima is None
+            else any(
+                min(width, maximum) > prefix * 192
+                for maximum, prefix in zip(maxima, proven_prefixes, strict=True)
+            )
+        )
+        if invalid:
+            return "invalid_page_id"
+        return "full" if maxima is None else "bounded"
     for group, row in enumerate(range(first, first + count, 16)):
         # The bounded loop stops at the last visible tile of each query group.
         required = (
@@ -84,14 +111,7 @@ def direct_page_route(
             mapping = tuple(table[row])
             prefix = valid_prefixes.get(mapping)
             if prefix is None:
-                prefix = next(
-                    (
-                        i
-                        for i, page in enumerate(mapping)
-                        if not 0 <= page < physical_pages
-                    ),
-                    columns,
-                )
+                prefix = first_invalid_page(mapping, physical_pages)
                 valid_prefixes[mapping] = prefix
             if required > prefix:
                 return "invalid_page_id"
@@ -124,6 +144,8 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         *,
         direct_page_kernels=None,
         cache_direct_page_guard=False,
+        shared_direct_page_proof=False,
+        time_page_proof=False,
         reuse_topk_scratch=False,
     ):
         started = time.perf_counter()
@@ -193,7 +215,13 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         self.direct_page_kernels = direct_page_kernels
         self.direct_page_routes = {}
         direct_page_guard_ns = 0
-        valid_prefixes = {} if cache_direct_page_guard else None
+        query16_proof_ns = 0
+        valid_prefixes = (
+            {} if cache_direct_page_guard or shared_direct_page_proof else None
+        )
+        if shared_direct_page_proof:
+            physical_pages = values["cache"].shape[0]
+            last_mapping, last_prefix = None, None
         packed = []
         metadata_pack_ns = 0
         groups_from_policy = 0
@@ -201,19 +229,48 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             first, count = (entry["first"], entry["count"])
             eligible = query16 and self.single_page64 and entry["shared"]
             reason = "Current route retained"
+            prefixes = (
+                []
+                if eligible
+                and shared_direct_page_proof
+                and direct_page_kernels is not None
+                and self.page_reuse
+                and count % 16 == 0
+                else None
+            )
             if eligible:
+                if time_page_proof:
+                    proof_start = time.perf_counter_ns()
                 for base in range(first, first + count, 16):
                     owner = bisect.bisect_right(starts, base) - 1
-                    if any(
-                        (
-                            table[row] != table[base]
-                            or bisect.bisect_right(starts, row) - 1 != owner
-                            for row in range(base, min(base + 16, first + count))
+                    end = min(base + 16, first + count)
+                    anchor = table[base]
+                    if shared_direct_page_proof:
+                        # The four-row proof already established equality within each block.
+                        mismatch = end > starts[owner + 1] or any(
+                            table[row] != anchor for row in range(base + 4, end, 4)
                         )
-                    ):
+                    else:
+                        mismatch = any(
+                            table[row] != anchor
+                            or bisect.bisect_right(starts, row) - 1 != owner
+                            for row in range(base, end)
+                        )
+                    if mismatch:
                         eligible = False
                         reason = "Sixteen-query group crosses request or page mapping"
                         break
+                    if prefixes is not None:
+                        if anchor != last_mapping:
+                            mapping = tuple(anchor)
+                            last_prefix = valid_prefixes.get(mapping)
+                            if last_prefix is None:
+                                last_prefix = first_invalid_page(anchor, physical_pages)
+                                valid_prefixes[mapping] = last_prefix
+                            last_mapping = anchor
+                        prefixes.append(last_prefix)
+                if time_page_proof:
+                    query16_proof_ns += time.perf_counter_ns() - proof_start
             self.query16_routes[first, count] = eligible
             selected = False
             want_metadata = (
@@ -255,9 +312,14 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                         first,
                         count,
                         self.width,
-                        values["cache"].shape[0],
+                        (
+                            physical_pages
+                            if shared_direct_page_proof
+                            else values["cache"].shape[0]
+                        ),
                         maxima=maxima if selected else None,
                         valid_prefixes=valid_prefixes,
+                        proven_prefixes=prefixes,
                     )
                     direct_page_guard_ns += time.perf_counter_ns() - guard_start
                 self.direct_page_routes[first, count] = route
@@ -294,6 +356,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             prepare_us=(metadata_pack_ns + copy_ns) / 1000,
         )
         self.direct_page_guard_us = direct_page_guard_ns / 1000
+        self.page_proof_us = (query16_proof_ns + direct_page_guard_ns) / 1000
         self.direct_page_unique_mappings = (
             None if valid_prefixes is None else len(valid_prefixes)
         )
