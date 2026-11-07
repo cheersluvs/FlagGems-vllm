@@ -1,0 +1,174 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "ba379c38f5421fd84bf768d5c86b566117e4b0219e9fcdc5695f5913b7acc6dc", "utility": "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_dominant_long
+QSA_INT8_HARNESS_PREFLIGHT_START int8_dominant_long control
+QSA_INT8_HARNESS_DIAG int8_dominant_long control score first=0 rows=128
+QSA_INT8_HARNESS_DIAG int8_dominant_long control topk first=0 rows=32
+QSA_INT8_HARNESS_DIAG_LAUNCH _radix_hist_trivial_all grid=(32,) meta={'TOPK': 512, 'BLOCK': 256}
+QSA_INT8_HARNESS_DIAG_BINARY _radix_hist_trivial_all compiled=_radix_hist_trivial_all sha256=ad08a373514568004a085d27d5195d0f2162aa2a4d46229decfed4641aa805bb
+QSA_INT8_HARNESS_DIAG_LAUNCH _segmerge_seg_sort grid=(96,) meta={'TOPK': 512, 'SEGS': 3, 'SEG': 4096, 'TMP_SZ': 12288, 'SORT_IMPL': 1}
+QSA_INT8_HARNESS_DIAG_BINARY _segmerge_seg_sort compiled=_segmerge_seg_sort sha256=5d20e8b04c84beefeb14e1163d0cf38580e3963448630ac5c40e9b2fd4a128a8
+QSA_INT8_HARNESS_DIAG_LAUNCH _segmerge_merge_unpack grid=(32,) meta={'TOPK': 512, 'SEGS': 3}
+terminate called after throwing an instance of 'c10::Error'
+  what():  Sync:../torch_npu/csrc/framework/OpCommand.cpp:340 NPU function error: c10_npu::acl::AclrtSynchronizeStreamWithTimeout(stream), error code is 507035
+[ERROR] 2026-11-07-10:31:21 (PID:997983, Device:1, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: The vector core execution is abnormal. 
+        Rectify the fault based on the error information in the ascend log.
+EZ9999: Inner Error!
+EZ9999[PID: 997983] 2026-11-07-10:31:21.071.136 (EZ9999):  The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 23, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000013, ifu error info: 0x5df861b280100, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x13, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:14, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+TraceBack (most recent call last):
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 24, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x30f7ae55a6940, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:15, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 25, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x4a2192f8056c0, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:16, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 26, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x37023ea00c900, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:17, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 27, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x56a18a89c140, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:18, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 32, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x71c7ef7500800, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:19, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 33, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x4fc030606c480, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:20, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 34, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x6a4612cfe3e00, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:21, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 35, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x18d9774b94400, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:22, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 36, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x76cc04c00f480, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:23, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 37, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0x1400000031, ifu error info: 0x1541e0a3f6040, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0x31, fixp_error1 info: 0x14, fsmId:0, tslot:6, thread:0, ctxid:0, blk:24, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 38, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0xe9000000fc, ifu error info: 0x5ae1e8082940, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0xfc, fixp_error1 info: 0xe9, fsmId:0, tslot:6, thread:0, ctxid:0, blk:25, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       The error from device(chipId:1, dieId:0), serial number is 167, there is an exception of aivec error, core id is 39, error code = 0, dump info: pc start: 0x124200009000, current: 0x12420000b678, vec error info: 0x2d00000295, mte error info: 0xe9000000fc, ifu error info: 0x72ffe12401080, ccu error info: 0x1f000026, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100601000, aic cond: 0.
+The extend info: errcode:(0, 0x1000, 0) errorStr: The VEC instruction parameter is invalid. fixp_error0 info: 0xfc, fixp_error1 info: 0xe9, fsmId:0, tslot:6, thread:0, ctxid:0, blk:26, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+       An error occurred in the kernel task, retCode=0x31, [vector core exception].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]
+       rtStreamSynchronizeWithTimeout execution failed, reason=vector core exception[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+
+Exception raised from Sync at ../torch_npu/csrc/framework/OpCommand.cpp:340 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xfffec7775978 in /flagos/lib/python3.11/site-packages/torch/lib/libc10.so)
+frame #1: c10::detail::torchCheckFail(char const*, char const*, unsigned int, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) + 0xc4 (0xfffec7719adc in /flagos/lib/python3.11/site-packages/torch/lib/libc10.so)
+frame #2: at_npu::native::OpCommand::Sync() + 0x918 (0xfffd1f9e76e8 in /flagos/lib/python3.11/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #3: at_npu::native::OpCommand::Run() + 0x23c (0xfffd1f9eaf6c in /flagos/lib/python3.11/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #4: <unknown function> + 0x25540 (0xfffc8c345540 in /root/.triton/cache/PDHWXAVDHUPFYZCQBI5EDE3P5ZRENNCS27V2CWRYA5GFXTU3QF3A/launcher_cxx11abi1.cpython-311-aarch64-linux-gnu.so)
+frame #5: <unknown function> + 0x25c74 (0xfffc8c345c74 in /root/.triton/cache/PDHWXAVDHUPFYZCQBI5EDE3P5ZRENNCS27V2CWRYA5GFXTU3QF3A/launcher_cxx11abi1.cpython-311-aarch64-linux-gnu.so)
+frame #6: <unknown function> + 0x3505e4 (0xaaabe98605e4 in /flagos/bin/python3)
+frame #7: _PyEval_EvalFrameDefault + 0x37160 (0xaaabe98e056c in /flagos/bin/python3)
+frame #8: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #9: _PyObject_Call_Prepend + 0x90 (0xaaabe98367a8 in /flagos/bin/python3)
+frame #10: <unknown function> + 0x492728 (0xaaabe99a2728 in /flagos/bin/python3)
+frame #11: _PyEval_EvalFrameDefault + 0x36bf8 (0xaaabe98e0004 in /flagos/bin/python3)
+frame #12: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #13: <unknown function> + 0x327870 (0xaaabe9837870 in /flagos/bin/python3)
+frame #14: _PyEval_EvalFrameDefault + 0x37314 (0xaaabe98e0720 in /flagos/bin/python3)
+frame #15: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #16: _PyEval_EvalFrameDefault + 0x37314 (0xaaabe98e0720 in /flagos/bin/python3)
+frame #17: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #18: _PyEval_EvalFrameDefault + 0x37314 (0xaaabe98e0720 in /flagos/bin/python3)
+frame #19: <unknown function> + 0x32f730 (0xaaabe983f730 in /flagos/bin/python3)
+frame #20: <unknown function> + 0x395a1c (0xaaabe98a5a1c in /flagos/bin/python3)
+frame #21: <unknown function> + 0x34fe78 (0xaaabe985fe78 in /flagos/bin/python3)
+frame #22: _PyEval_EvalFrameDefault + 0xcb40 (0xaaabe98b5f4c in /flagos/bin/python3)
+frame #23: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #24: _PyEval_EvalFrameDefault + 0x37314 (0xaaabe98e0720 in /flagos/bin/python3)
+frame #25: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #26: _PyEval_EvalFrameDefault + 0x369a8 (0xaaabe98dfdb4 in /flagos/bin/python3)
+frame #27: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #28: _PyObject_Call_Prepend + 0x414 (0xaaabe9836b2c in /flagos/bin/python3)
+frame #29: <unknown function> + 0x492728 (0xaaabe99a2728 in /flagos/bin/python3)
+frame #30: _PyEval_EvalFrameDefault + 0xce78 (0xaaabe98b6284 in /flagos/bin/python3)
+frame #31: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #32: _PyEval_EvalFrameDefault + 0x369a8 (0xaaabe98dfdb4 in /flagos/bin/python3)
+frame #33: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #34: _PyObject_Call_Prepend + 0x414 (0xaaabe9836b2c in /flagos/bin/python3)
+frame #35: <unknown function> + 0x492728 (0xaaabe99a2728 in /flagos/bin/python3)
+frame #36: _PyEval_EvalFrameDefault + 0x36bf8 (0xaaabe98e0004 in /flagos/bin/python3)
+frame #37: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #38: _PyEval_EvalFrameDefault + 0x369a8 (0xaaabe98dfdb4 in /flagos/bin/python3)
+frame #39: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #40: _PyObject_Call_Prepend + 0x414 (0xaaabe9836b2c in /flagos/bin/python3)
+frame #41: <unknown function> + 0x492728 (0xaaabe99a2728 in /flagos/bin/python3)
+frame #42: _PyEval_EvalFrameDefault + 0xce78 (0xaaabe98b6284 in /flagos/bin/python3)
+frame #43: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #44: _PyEval_EvalFrameDefault + 0x369a8 (0xaaabe98dfdb4 in /flagos/bin/python3)
+frame #45: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #46: _PyObject_Call_Prepend + 0x414 (0xaaabe9836b2c in /flagos/bin/python3)
+frame #47: <unknown function> + 0x492728 (0xaaabe99a2728 in /flagos/bin/python3)
+frame #48: _PyEval_EvalFrameDefault + 0xce78 (0xaaabe98b6284 in /flagos/bin/python3)
+frame #49: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #50: _PyEval_EvalFrameDefault + 0x369a8 (0xaaabe98dfdb4 in /flagos/bin/python3)
+frame #51: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #52: _PyObject_Call_Prepend + 0x414 (0xaaabe9836b2c in /flagos/bin/python3)
+frame #53: <unknown function> + 0x492728 (0xaaabe99a2728 in /flagos/bin/python3)
+frame #54: _PyEval_EvalFrameDefault + 0xce78 (0xaaabe98b6284 in /flagos/bin/python3)
+frame #55: <unknown function> + 0x397010 (0xaaabe98a7010 in /flagos/bin/python3)
+frame #56: <unknown function> + 0x4cad7c (0xaaabe99dad7c in /flagos/bin/python3)
+frame #57: <unknown function> + 0x34ff70 (0xaaabe985ff70 in /flagos/bin/python3)
+frame #58: _PyEval_EvalFrameDefault + 0xcb40 (0xaaabe98b5f4c in /flagos/bin/python3)
+frame #59: _PyFunction_Vectorcall + 0x1ac (0xaaabe9834344 in /flagos/bin/python3)
+frame #60: <unknown function> + 0x507cc8 (0xaaabe9a17cc8 in /flagos/bin/python3)
+frame #61: Py_RunMain + 0x11c (0xaaabe9a175cc in /flagos/bin/python3)
+frame #62: <unknown function> + 0x508174 (0xaaabe9a18174 in /flagos/bin/python3)
+
+Fatal Python error: Aborted
+
+Current thread 0x0000fffed4535bc0 (most recent call first):
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/driver.py", line 180 in __call__
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 760 in run
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 420 in <lambda>
+  File "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/benchmark/test_qsa_select_paged_prefill_int8_perf.py", line 74 in checked
+  File "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", line 683 in _persistent_topk_segmerge
+  File "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", line 1554 in persistent_topk
+  File "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/tools/qsa_int8_selection_910b_trial.py", line 147 in select_chunk
+  File "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/benchmark/test_qsa_select_paged_prefill_int8_perf.py", line 113 in _preflight_select
+  File "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/benchmark/test_qsa_select_paged_prefill_int8_perf.py", line 256 in prepare_case
+  File "/tmp/flaggems-qsa-topk-sync.y0CSC6yp/benchmark/test_qsa_select_paged_prefill_int8_perf.py", line 312 in test_qsa_select_paged_prefill_int8_kernel
+  File "/flagos/lib/python3.11/site-packages/_pytest/python.py", line 167 in pytest_pyfunc_call
+  File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/flagos/lib/python3.11/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/flagos/lib/python3.11/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/flagos/lib/python3.11/site-packages/_pytest/python.py", line 1707 in runtest
+  File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 184 in pytest_runtest_call
+  File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/flagos/lib/python3.11/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/flagos/lib/python3.11/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 250 in <lambda>
+  File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 361 in from_call
+  File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 249 in call_and_report
+  File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 139 in runtestprotocol
+  File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 118 in pytest_runtest_protocol
+  File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/flagos/lib/python3.11/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/flagos/lib/python3.11/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/flagos/lib/python3.11/site-packages/_pytest/main.py", line 408 in pytest_runtestloop
+  File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/flagos/lib/python3.11/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/flagos/lib/python3.11/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/flagos/lib/python3.11/site-packages/_pytest/main.py", line 384 in _main
+  File "/flagos/lib/python3.11/site-packages/_pytest/main.py", line 330 in wrap_session
+  File "/flagos/lib/python3.11/site-packages/_pytest/main.py", line 377 in pytest_cmdline_main
+  File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 121 in _multicall
+  File "/flagos/lib/python3.11/site-packages/pluggy/_manager.py", line 120 in _hookexec
+  File "/flagos/lib/python3.11/site-packages/pluggy/_hooks.py", line 512 in __call__
+  File "/flagos/lib/python3.11/site-packages/_pytest/config/__init__.py", line 229 in _main
+  File "/flagos/lib/python3.11/site-packages/_pytest/config/__init__.py", line 253 in _console_main
+  File "/flagos/lib/python3.11/site-packages/pytest/__main__.py", line 9 in <module>
+  File "<frozen runpy>", line 88 in _run_code
+  File "<frozen runpy>", line 198 in _run_module_as_main
+
+Extension modules: numpy.core._multiarray_umath, numpy.core._multiarray_tests, numpy.linalg._umath_linalg, numpy.fft._pocketfft_internal, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._mt19937, numpy.random.mtrand, numpy.random._philox, numpy.random._pcg64, numpy.random._sfc64, numpy.random._generator, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, torch_npu._C, mspti_C, markupsafe._speedups, yaml._yaml, sqlalchemy.cyextension.collections, sqlalchemy.cyextension.immutabledict, sqlalchemy.cyextension.processors, sqlalchemy.cyextension.resultproxy, sqlalchemy.cyextension.util, greenlet._greenlet, npu_utils, __triton_launcher (total: 36)
+/tmp/flaggems-qsa-topk-sync.y0CSC6yp/tools/run_qsa_int8_integrated_910b.sh: line 56: 997983 Aborted                 (core dumped) ( cd -- "$qsa_repo" || exit 1; ulimit -c 0 || exit 1; qsa_diagnostic_case=$1; shift; ASCEND_LAUNCH_BLOCKING=1 QSA_INT8_HARNESS_PREFLIGHT_ONLY=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$qsa_python" -u -m pytest -q -s --tb=short "$qsa_test[$qsa_diagnostic_case]" --mode kernel "$@" )
