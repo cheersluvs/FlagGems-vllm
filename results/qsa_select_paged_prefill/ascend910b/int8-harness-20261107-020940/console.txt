@@ -1,0 +1,402 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-int8-harness.Ex39D7RJ/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_first_chunk
+QSA_INT8_HARNESS_PREFLIGHT int8_first_chunk direct_chunks=0 total_chunks=128
+F
+=================================== FAILURES ===================================
+__________________ test_qsa_select_paged_prefill_int8_kernel ___________________
+
+self = <benchmark.test_qsa_select_paged_prefill_int8_perf.QSAPrefillInt8Benchmark object at 0xfff9b5f36a90>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+>                   metric.shape_detail = self.record_shapes(*args, **kwargs)
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   TypeError: QSAPrefillInt8Benchmark.record_shapes() missing 1 required keyword-only argument: 'case_name'
+
+benchmark/base.py:443: TypeError
+
+During handling of the above exception, another exception occurred:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfff9b5ed3890>
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_qsa_select_paged_prefill_0')
+
+    @pytest.mark.qsa_select_paged_prefill_int8_910b
+    @pytest.mark.skipif(
+        flaggems_vllm.vendor_name != "ascend", reason="Ascend 910B required"
+    )
+    def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path):
+        torch_npu = pytest.importorskip("torch_npu")
+        if not torch.npu.is_available():
+            pytest.skip("Ascend NPU unavailable")
+        device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+        torch.npu.set_device(device_index)
+        if "910B" not in torch.npu.get_device_name(device_index):
+            pytest.skip("Ascend 910B required")
+        if Config.mode != consts.BenchMode.KERNEL:
+            pytest.skip("Run this comparison with --mode kernel")
+    
+        native = getattr(torch_npu, "npu_quant_lightning_indexer", None)
+        if native is None:
+            pytest.fail("CANN V1 torch_npu.npu_quant_lightning_indexer is required")
+    
+        root = Path(__file__).resolve().parents[1]
+        monkeypatch.syspath_prepend(str(root / "tools"))
+    
+        from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
+        from probe_qsa_int8_pipeline_910b import check_selection
+        from probe_qsa_int8_score_910b import reference as cpu_score
+        from probe_qsa_int8_score_sol_910b import build_direct_page_source
+        from probe_qsa_int8_ten_shapes_910b import verify_structure
+        from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+        from triton.backends.ascend.testing import do_bench_npu
+    
+        topk = import_module("flaggems_vllm.runtime.backend._ascend.ops.persistent_topk")
+        if not topk.HAS_TLE_PTK:
+            pytest.fail("Ascend persistent TopK TLE is required")
+        if (
+            Path(topk.__file__).resolve()
+            != (
+                root / "src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py"
+            ).resolve()
+        ):
+            pytest.fail(f"Unexpected persistent TopK source: {topk.__file__}")
+        compiler = Path(triton.__file__).resolve()
+        env_root = os.environ.get("QSA_ENV_ROOT")
+        if env_root and not compiler.is_relative_to(Path(env_root).resolve() / "flagtree"):
+            pytest.fail(f"Unexpected FlagTree source: {compiler}")
+    
+        timer = Path(inspect.getfile(do_bench_npu)).resolve()
+        print(
+            "QSA_INT8_HARNESS_ENV",
+            json.dumps(
+                dict(
+                    device=torch.npu.get_device_name(device_index),
+                    torch=torch.__version__,
+                    torch_npu=torch_npu.__version__,
+                    triton=triton.__version__,
+                    triton_source=str(compiler),
+                    ascend_opp=os.environ.get("ASCEND_OPP_PATH"),
+                    timer_source=str(timer),
+                    timer_sha256=hashlib.sha256(timer.read_bytes()).hexdigest(),
+                    timer_signature=str(inspect.signature(do_bench_npu)),
+                    topk_source=topk.__file__,
+                    topk_route=os.environ.get("FLAGGEMS_ASCEND_PTK_PATH", "auto"),
+                )
+            ),
+            flush=True,
+        )
+        kernels = {}
+        for bounded in (True, False):
+            arm = "direct_page_bounded" if bounded else "direct_page_full"
+            kernels[bounded] = load_generated_prefix(
+                tmp_path,
+                "harness",
+                arm,
+                build_direct_page_source(bounded, arm, precomputed_visibility=False),
+            )
+    
+        def prepare_case(shape, dtype, device):
+            assert dtype == torch.int8
+            plan = CASES[shape]
+            name = plan["name"]
+            print(f"QSA_INT8_HARNESS_CASE {name}", flush=True)
+            inputs = make_inputs(plan)
+            values = {key: value.to(device) for key, value in inputs.items()}
+            rows, width, chunk = (
+                plan["q_shape"][0],
+                plan["logits_width"],
+                plan["chunk_rows"],
+            )
+            output = torch.empty((rows, 512), dtype=torch.int32, device=device)
+            scratch = torch.empty((chunk, width), dtype=torch.float32, device=device)
+            workspace = torch.empty(1024**2, dtype=torch.uint8, device=device)
+            adapter_args = (values, output, scratch, workspace, topk, plan["starts"])
+            adapter_kwargs = dict(key_group4=True, single_page64=True)
+            control = PreparedSharedMapInt8Selection(*adapter_args, **adapter_kwargs)
+            candidate = PreparedSharedMapInt8Selection(
+                *adapter_args,
+                **adapter_kwargs,
+                direct_page_kernels=kernels,
+                shared_direct_page_proof=True,
+            )
+            assert control.route_checks == candidate.route_checks
+    
+            native_call = partial(
+                native,
+                values["q"],
+                values["cache"],
+                values["weights"],
+                values["qs"],
+                values["ks"],
+                0,
+                0,
+                actual_seq_lengths_query=torch.arange(
+                    1, rows + 1, dtype=torch.int32, device=device
+                ),
+                actual_seq_lengths_key=values["visible"],
+                block_table=values["row_table"],
+                layout_query="TND",
+                layout_key="PA_BSND",
+                sparse_count=512,
+                sparse_mode=0,
+                pre_tokens=2**63 - 1,
+                next_tokens=2**63 - 1,
+            )
+            original = control().cpu()
+            selected = candidate().cpu()
+            assert torch.equal(original, selected), f"{name}: candidate indices differ"
+            native_output = native_call()
+            assert native_output.shape == (rows, 1, 512)
+            expected = native_output.cpu().squeeze(1)
+            for indices in (expected, selected):
+                verify_structure(indices, inputs["visible"])
+            samples = sample_rows(plan)
+            refs = [cpu_score(inputs, row)[1] for row in samples]
+            for label, indices in (("CANN V1", expected), ("candidate", selected)):
+                checks, _ = check_selection(indices[samples], refs)
+                assert checks["checks_passed"], (name, label, checks)
+            print(
+                f"QSA_INT8_HARNESS_PREFLIGHT {name} "
+                f"direct_chunks={sum(r in ('bounded', 'full') for r in candidate.direct_page_routes.values())} "
+                f"total_chunks={len(candidate.chunks)}",
+                flush=True,
+            )
+            del original, selected, native_output, expected, control, refs, inputs
+    
+            if name == "int8_budget_exact":
+                first, count = candidate.chunks[0]
+    
+                def one_score():
+                    candidate.score_into(first, count, scratch[:count])
+    
+                def three_scores():
+                    for _ in range(3):
+                        one_score()
+    
+                single = benchmark.get_latency(one_score)
+                triple = benchmark.get_latency(three_scores)
+                assert math.isfinite(single) and single > 0 and math.isfinite(triple)
+                ratio = triple / single
+                assert (
+                    2.25 <= ratio <= 3.75
+                ), f"Unexpected harness invocation scaling: {ratio}"
+                print(
+                    f"QSA_INT8_HARNESS_TIMER one_ms={single} three_ms={triple} ratio={ratio}"
+                )
+            yield dict(case_name=name, reference=native_call, candidate=candidate)
+    
+        benchmark = QSAPrefillInt8Benchmark(
+            op_name=OP_NAME,
+            torch_op=_call_reference,
+            gems_op=_call_candidate,
+            input_fn=prepare_case,
+            dtypes=[torch.int8],
+            device=f"npu:{device_index}",
+        )
+>       benchmark.run()
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py:230: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <benchmark.test_qsa_select_paged_prefill_int8_perf.QSAPrefillInt8Benchmark object at 0xfff9b5f36a90>
+
+    def run(self):
+        if Config.query:
+            self.init_default_config()
+            attri = OperationAttribute(
+                op_name=self.op_name,
+                recommended_core_shapes=self.shapes,
+                shape_desc=self.shape_desc,
+            )
+            print(attri)
+            emit_record_logger(attri.to_dict())
+            return
+    
+        self.init_user_config()
+        for dtype in self.to_bench_dtypes:
+            metrics = []
+            input_iter = self.get_input_iter(dtype)
+    
+            done = False
+            while not done:
+                try:
+                    input = next(input_iter)
+                except StopIteration:
+                    done = True
+                    continue
+                except (RuntimeError, Exception) as e:
+                    print(
+                        f"\033[31mFAILED\033[0m: Operator={self.op_name} "
+                        "dtype={dtype} err=<<<{e}>>>"
+                    )
+                    pytest.fail(str(e))
+    
+                metric = BenchmarkMetrics()
+                try:
+                    args, kwargs = self.unpack_to_args_kwargs(input)
+                    metric.shape_detail = self.record_shapes(*args, **kwargs)
+                    if (
+                        "latency_base" in self.to_bench_metrics
+                        and self.torch_op is not None
+                    ):
+                        metric.latency_base = self.get_latency(
+                            self.torch_op, *args, **kwargs
+                        )
+                    if "latency" in self.to_bench_metrics:
+                        if self.gems_op:
+                            metric.latency = self.get_latency(
+                                self.gems_op, *args, **kwargs
+                            )
+                        else:
+                            if self.op_name == "zero_":
+                                with flaggems_vllm.use_gems():
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                            else:
+                                # exclude flaggems' zero_ to avoid the overhead of zero_
+                                # in do_bench's clear_cache
+                                with flaggems_vllm.use_gems(exclude=["zero_"]):
+                                    metric.latency = self.get_latency(
+                                        self.torch_op, *args, **kwargs
+                                    )
+                    if (
+                        "speedup" in self.to_bench_metrics
+                        and metric.latency_base is not None
+                        and metric.latency
+                    ):
+                        metric.speedup = metric.latency_base / metric.latency
+                    if Config.base_data is not None and metric.latency:
+                        base_rec, miss_reason = lookup_base_record_ex(
+                            Config.base_data,
+                            self.op_name,
+                            dtype,
+                            metric.shape_detail,
+                            self.base_variant,
+                        )
+                        base_ms = base_rec.get("latency_ms") if base_rec else None
+                        if base_ms is not None:
+                            # Both baseline (latency_ms) and metric.latency are in
+                            # ms, so the raw ratio is dimensionless. Divide by this
+                            # chip's scaling factor for the baseline's bottleneck
+                            # resource to normalize away the hardware peak gap;
+                            # missing factor -> keep the raw ratio.
+                            speedup = base_ms / metric.latency
+                            factor = lookup_scaling_factor(
+                                Config.base_data,
+                                vendor_name,
+                                base_rec.get("bottle_neck_unit"),
+                                dtype,
+                            )
+                            if factor:
+                                speedup /= factor
+                            metric.compared_speedup = speedup
+                            print(
+                                f"[vs Base] {self.op_name} shape={metric.shape_detail} "
+                                f"base={base_ms:.6f}ms gems={metric.latency:.6f}ms "
+                                f"factor={factor} vs_base={speedup:.3f}"
+                            )
+                        else:
+                            # No baseline match: record and print the precise
+                            # reason (op / shape / dtype missing) so it can be
+                            # aggregated later.
+                            metric.base_miss_reason = miss_reason
+                            print(f"[vs Base][未匹配] {miss_reason}")
+                            # Method A hard error: when there is no on-machine
+                            # reference (torch_op is None, i.e. the vendor has no
+                            # native implementation) AND the NV baseline has no
+                            # matching record, there is no usable baseline at all
+                            # -> fail this case instead of silently yielding a
+                            # speedup/compared_speedup that are both None.
+                            if self.torch_op is None:
+                                raise RuntimeError(
+                                    f"no baseline available for '{self.op_name}'"
+                                    f" (dtype={dtype}): vendor-native missing and"
+                                    f" NV baseline unmatched ({miss_reason})"
+                                )
+    
+                    if "gbps" in self.to_bench_metrics:
+                        metric.gbps_base = self.get_gbps(
+                            args, latency=metric.latency_base
+                        )
+                        metric.gbps = self.get_gbps(args, latency=metric.latency)
+    
+                    if "tflops" in self.to_bench_metrics and self.torch_op is not None:
+                        metric.tflops = (
+                            self.get_tflops(self.torch_op, *args, **kwargs)
+                            / metric.latency
+                            / 1e12
+                            * 1e3
+                        )
+                        # utilization = metric.tflops / metric.latency / 1e12 * 1e3
+                except (RuntimeError, Exception) as e:
+                    metric.error_msg = str(e)
+>                   pytest.fail(str(e))  # raise exception again
+                    ^^^^^^^^^^^^^^^^^^^
+E                   Failed: QSAPrefillInt8Benchmark.record_shapes() missing 1 required keyword-only argument: 'case_name'
+
+benchmark/base.py:540: Failed
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-int8-harness.Ex39D7RJ/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel
+1 failed, 19 warnings in 6.48s
+QSA INT8 harness summary unavailable: pytest returned 1
