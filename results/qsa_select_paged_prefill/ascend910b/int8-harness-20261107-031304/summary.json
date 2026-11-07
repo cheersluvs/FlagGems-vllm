@@ -1,0 +1,81 @@
+{
+  "exit_code": 0,
+  "mode": "kernel",
+  "benchmark": "qsa_select_paged_prefill_int8_910b",
+  "baseline": "torch_npu.npu_quant_lightning_indexer (CANN V1)",
+  "candidate": "Prepared INT8 selection with shared page proof",
+  "topk_policy": "prefill_3seg",
+  "cases": [
+    {
+      "case": "int8_first_chunk",
+      "baseline_ms": 8.03924,
+      "candidate_ms": 44.91777733333333,
+      "speedup": 0.1789767988816781,
+      "topk_route": "auto"
+    },
+    {
+      "case": "int8_budget_exact",
+      "baseline_ms": 14.272002666666666,
+      "candidate_ms": 23.346382,
+      "speedup": 0.6113153921094355,
+      "topk_route": "auto"
+    },
+    {
+      "case": "int8_dominant_long",
+      "baseline_ms": 14.738542666666666,
+      "candidate_ms": 26.83052066666667,
+      "speedup": 0.5493200392856086,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_tail112",
+      "baseline_ms": 14.293327333333334,
+      "candidate_ms": 26.48946,
+      "speedup": 0.5395854552464766,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_tail113",
+      "baseline_ms": 14.29208,
+      "candidate_ms": 26.78389466666667,
+      "speedup": 0.5336072359105752,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_two_balanced",
+      "baseline_ms": 15.564572666666667,
+      "candidate_ms": 30.459648666666666,
+      "speedup": 0.5109898947619729,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_two_skewed",
+      "baseline_ms": 14.326422666666666,
+      "candidate_ms": 29.82683,
+      "speedup": 0.48031998930716624,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_short_tail",
+      "baseline_ms": 2.5294193333333337,
+      "candidate_ms": 4.072706666666667,
+      "speedup": 0.6210659250359303,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_compact",
+      "baseline_ms": 3.1595193333333333,
+      "candidate_ms": 12.093255333333333,
+      "speedup": 0.2612629309681876,
+      "topk_route": "auto"
+    },
+    {
+      "case": "int8_long100k",
+      "baseline_ms": 50.24585066666666,
+      "candidate_ms": 88.663716,
+      "speedup": 0.566701385115267,
+      "topk_route": "auto"
+    }
+  ],
+  "arithmetic_mean_speedup": 0.4853145046622298
+}
