@@ -45,7 +45,7 @@ CUBE_TILE = 64
 def _qsa_int8_mixed_ring(
     Q, K, QS, KS, Weight, Table, Visible, Workspace, Proposals,
     ROWS: tl.constexpr, WIDTH: tl.constexpr, SLOTS: tl.constexpr,
-    PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr,
+    PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr, SCORE_ONLY: tl.constexpr,
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
@@ -92,13 +92,16 @@ def _qsa_int8_mixed_ring(
             dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
             score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
             score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
-            pairs = tle.dsa.ascend.raw(
-                "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
-                True, TOP, tile * TOP, SORT_IMPL_BASE,
-                out=tl.zeros((2 * TOP,), tl.float32),
-            )
-            proposal = Proposals + (row * tl.cdiv(WIDTH, TOP) + tile) * 2 * TOP
-            tl.store(proposal + pair_lane, pairs)
+            offset = row * tl.cdiv(WIDTH, TOP) + tile
+            if SCORE_ONLY:
+                tl.store(Proposals + offset * TOP + lane, score)
+            else:
+                pairs = tle.dsa.ascend.raw(
+                    "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
+                    True, TOP, tile * TOP, SORT_IMPL_BASE,
+                    out=tl.zeros((2 * TOP,), tl.float32),
+                )
+                tl.store(Proposals + offset * 2 * TOP + pair_lane, pairs)
         al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
         al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -183,6 +186,54 @@ def check(cpu, indices, values):
     return {"rows": len(visible), "max_score_abs_error": max_error}
 
 
+
+def check_producer(cpu, raw, proposals):
+    q, k, qs, ks, weights, table, visible = cpu
+    keys = k[table.long()].reshape(-1, 128).int()
+    scales = ks[table.long()].flatten().float()
+    raw = raw.cpu()
+    proposals = proposals.cpu()
+    results = {"score": {"failures": 0}, "proposals": {"failures": 0}}
+    for row, count in enumerate(visible.tolist()):
+        for tile in range(raw.shape[1]):
+            begin = tile * TOPK
+            end = min(begin + TOPK, count)
+            take = max(end - begin, 0)
+            expected = torch.full((TOPK,), -float("inf"))
+            if take:
+                dot = keys[begin:end] @ q[row].int().T
+                expected[:take] = (
+                    (dot.float() * qs[row].float() * scales[begin:end, None]).relu()
+                    * weights[row].float()
+                ).sum(1)
+            actual = raw[row, tile]
+            pairs = proposals[row, tile]
+            values = pairs[0::2]
+            indices = pairs[1::2].contiguous().view(torch.int32).long()
+            valid = indices[:take] - begin
+            score_ok = torch.allclose(actual, expected, rtol=1e-3, atol=1e-3)
+            index_ok = bool(((valid >= 0) & (valid < take)).all()) and valid.unique().numel() == take
+            values_ok = index_ok and torch.allclose(
+                values[:take], expected[valid], rtol=1e-3, atol=1e-3
+            )
+            sorted_ok = torch.allclose(
+                values, expected.sort(descending=True).values, rtol=1e-3, atol=1e-3
+            )
+            for name, ok in (("score", score_ok), ("proposals", values_ok and sorted_ok)):
+                if ok:
+                    continue
+                entry = results[name]
+                entry["failures"] += 1
+                entry.setdefault("first_failure", {
+                    "row": row, "tile": tile, "visible_in_tile": take,
+                    "raw_head": [float(x) if torch.isfinite(x) else str(x.item()) for x in actual[:8]],
+                    "proposal_head": [float(x) if torch.isfinite(x) else str(x.item()) for x in values[:8]],
+                    "index_head": indices[:8].tolist(),
+                    "expected_head": [float(x) if torch.isfinite(x) else str(x.item()) for x in expected[:8]],
+                    "index_ok": index_ok, "values_ok": bool(values_ok), "sorted_ok": bool(sorted_ok),
+                })
+    return results
+
 def save_artifacts(kernel, report, label):
     files = []
     for key, value in kernel.asm.items():
@@ -247,6 +298,7 @@ def worker(args):
     workspace = torch.empty((cores, 2, 16, TOPK), device=device, dtype=torch.int32)
     lists = triton.cdiv(width, TOPK)
     state = torch.empty((rows, lists, 2 * TOPK), device=device, dtype=torch.float32)
+    raw = torch.empty((rows, lists, TOPK), device=device, dtype=torch.float32)
     levels = [state]
     while lists > 1:
         lists = triton.cdiv(lists, 4)
@@ -254,14 +306,14 @@ def worker(args):
     indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
     values = torch.empty_like(indices, dtype=torch.float32)
 
-    def launch(slots, compile_only=False):
+    def launch(slots, compile_only=False, score_only=False):
         if compile_only:
             invoke = lambda *a, **kw: _qsa_int8_mixed_ring.warmup(*a, grid=(cores,), **kw)
         else:
             invoke = _qsa_int8_mixed_ring[(cores,)]
         return invoke(
-            *inputs, workspace, state,
-            rows, width, slots, PAGE, TOPK, CUBE_TILE,
+            *inputs, workspace, raw if score_only else state,
+            rows, width, slots, PAGE, TOPK, CUBE_TILE, score_only,
             disable_auto_cv_work_space_manage=True,
             disable_auto_inject_block_sync=True,
             enable_auto_bind_sub_block=False,
@@ -314,22 +366,51 @@ def worker(args):
     proposal_functions = {"serial": lambda: launch(1), "double_buffer": lambda: launch(2)}
     result = {"case": args.worker, "rows": rows, "width": width,
               "rows_per_core": ROWS_PER_CORE, "merge": "separate_vector_tree", "arms": {}}
-    for name, fn in functions.items():
-        print(f"{args.worker}/{name}: validating proposals plus Vector merge", flush=True)
-        with patch.object(compiler, "subprocess", CompileCapture(report, f"{args.worker}-{name}-merge")):
-            kernels = fn()
-        artifacts = [
-            file for i, kernel in enumerate(kernels)
-            for file in save_artifacts(kernel, report, f"{args.worker}-{name}-merge{i}")
-        ]
-        torch.npu.synchronize()
-        result["arms"][name] = dict(artifacts=artifacts, correctness=check(cpu, indices, values))
-        for _ in range(3):
-            fn()
-        torch.npu.synchronize()
-        result["arms"][name]["repeat_correctness"] = check(cpu, indices, values)
+    summary = report / f"{args.worker}-summary.json"
+    for slots, name in ((1, "serial"), (2, "double_buffer")):
+        label = f"{args.worker}-{name}-producer"
+        print(f"{label}: checking raw scores and packed proposals independently", flush=True)
+        arm = {}
+        result["arms"][name] = arm
+        try:
+            with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+                kernel = launch(slots, score_only=True)
+                arm["score_artifacts"] = save_artifacts(kernel, report, f"{label}-score")
+                launch(slots)
+            torch.npu.synchronize()
+            arm["producer"] = check_producer(cpu, raw, state)
+        except Exception as exc:
+            arm["producer_error"] = str(exc)
+        print(json.dumps({name: arm}, indent=2), flush=True)
+        summary.write_text(json.dumps(result, indent=2))
 
-    for stage, funcs in (("proposals", proposal_functions), ("pipeline", functions)):
+    producer_ok = all(
+        "producer" in arm and not any(stage["failures"] for stage in arm["producer"].values())
+        for arm in result["arms"].values()
+    )
+    if not producer_ok:
+        raise SystemExit(1)
+
+    for name, fn in functions.items():
+        arm = result["arms"][name]
+        try:
+            with patch.object(compiler, "subprocess", CompileCapture(report, f"{args.worker}-{name}-merge")):
+                kernels = fn()
+            arm["merge_artifacts"] = [
+                file for i, kernel in enumerate(kernels)
+                for file in save_artifacts(kernel, report, f"{args.worker}-{name}-merge{i}")
+            ]
+            torch.npu.synchronize()
+            arm["correctness"] = check(cpu, indices, values)
+        except Exception as exc:
+            arm["merge_error"] = str(exc)
+            print(f"{args.worker}/{name} merge: {exc}", flush=True)
+
+    pipeline_ok = all("correctness" in arm for arm in result["arms"].values())
+    stages = [("proposals", proposal_functions)]
+    if pipeline_ok:
+        stages.append(("pipeline", functions))
+    for stage, funcs in stages:
         samples = {name: [] for name in funcs}
         for round_index in range(6):
             order = tuple(funcs) if round_index % 2 == 0 else tuple(reversed(funcs))
@@ -355,11 +436,14 @@ def worker(args):
         from qsa_timeline_910b import collect
 
         try:
-            collect(SimpleNamespace(report=report, worker=args.worker), functions, torch, result,
-                    selected=tuple(functions))
+            trace_functions = functions if pipeline_ok else proposal_functions
+            collect(SimpleNamespace(report=report, worker=args.worker), trace_functions, torch, result,
+                    selected=tuple(trace_functions))
         except Exception as exc:
             result["task_trace_error"] = str(exc)
         summary.write_text(json.dumps(result, indent=2))
+    if not pipeline_ok:
+        raise SystemExit(1)
 
 
 def main():
@@ -393,7 +477,9 @@ def main():
 
     timeline_status = "skipped_worker_failure" if args.instruction_timeline else "not_requested"
     result = {"cases": statuses, "instruction_timeline": {"status": timeline_status}}
-    if args.instruction_timeline and all(item["exit_code"] == 0 for item in statuses.values()):
+    long_summary = report / "long-summary.json"
+    long_producer_ok = long_summary.is_file() and "proposals" in json.loads(long_summary.read_text())
+    if args.instruction_timeline and long_producer_ok:
         profiler, checks = find_simulator(report)
         timeline = {"status": "unavailable", "discovery": checks}
         if profiler:
