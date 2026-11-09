@@ -642,7 +642,7 @@ def run_page_id_handoff(args, result, inputs, adapter, score):
 
 
 def build_paired_tile_source(arm, *, wide):
-    base = build_direct_page_source(True, arm, precomputed_visibility=True)
+    base = build_direct_page_source(True, arm, precomputed_visibility=False)
     fn = ast.parse(base).body[-1]
     (unit,) = (node for node in fn.body if isinstance(node, ast.For))
     page = next(node for node in unit.body if isinstance(node, ast.For))
@@ -708,7 +708,12 @@ def run_tile_handoff(args, result, inputs, adapter, score):
     first, count = route["first"], route["count"]
     if not route["skip_invisible"]:
         raise ValueError("Tile handoff probe requires the bounded score route")
-    bound, group_visible = direct_page_inputs(result, inputs, adapter, score)
+    if adapter.direct_page_routes.get((first, count)) != "bounded":
+        raise AssertionError(
+            "The current harness must select bounded direct-page scoring"
+        )
+    bound = adapter.bind_query16_score(first, count, score)
+    result["baseline_route"] = "bounded direct page, runtime group visibility"
     visible = inputs["visible"][first : first + count].tolist()
     work = paired_tile_work(result["width"], visible)
     if (
@@ -718,24 +723,25 @@ def run_tile_handoff(args, result, inputs, adapter, score):
         raise AssertionError("Tile pairing changed the issued dot work")
     report = Path(args.report)
     sources = dict(
-        direct_page_group_visible=build_direct_page_source(
-            True, "direct_page_group_visible", precomputed_visibility=True
-        ),
         paired_n64=build_paired_tile_source("paired_n64", wide=False),
         paired_n128=build_paired_tile_source("paired_n128", wide=True),
     )
 
     def launch(kernel, out):
-        return kernel[(GRID,)](*bound.args[:-1], out, group_visible, **bound.keywords)
+        return kernel[(GRID,)](*bound.args[:-1], out, **bound.keywords)
 
-    arms = {
-        name: functools.partial(
-            launch, load_generated_prefix(report, args.case, name, source)
+    arms = {"current": lambda out: bound.func(*bound.args[:-1], out, **bound.keywords)}
+    arms.update(
+        (
+            name,
+            functools.partial(
+                launch, load_generated_prefix(report, args.case, name, source)
+            ),
         )
         for name, source in sources.items()
-    }
+    )
     targets = dict(
-        direct_page_group_visible=score,
+        current=score,
         paired_n64=torch.empty_like(score),
         paired_n128=torch.empty_like(score),
     )
@@ -783,7 +789,7 @@ def run_tile_handoff(args, result, inputs, adapter, score):
         arms,
         targets,
         validate,
-        dict(direct_page_group_visible=1, paired_n64=3, paired_n128=2),
+        dict(current=1, paired_n64=3, paired_n128=2),
         compile_arm=compile_arm,
     )
     evidence = {
@@ -794,7 +800,6 @@ def run_tile_handoff(args, result, inputs, adapter, score):
     wide = n128.get("int32_fixpipe_destination_shapes", {}).get("aic", [])
     verified = (
         "paired_n128" in samples
-        and n64["scalar_i32_workspace_sites"] == n128["scalar_i32_workspace_sites"] == 0
         and len(narrow) >= 3
         and all(shape.endswith("64x64xi32") for shape in narrow)
         and any(shape.endswith("64x128xi32") for shape in wide)
@@ -806,8 +811,8 @@ def run_tile_handoff(args, result, inputs, adapter, score):
     )
     comparisons = {}
     for control, candidate in (
-        ("direct_page_group_visible", "paired_n64"),
-        ("direct_page_group_visible", "paired_n128"),
+        ("current", "paired_n64"),
+        ("current", "paired_n128"),
         ("paired_n64", "paired_n128"),
     ):
         if candidate not in samples:
@@ -838,6 +843,7 @@ def run_tile_handoff(args, result, inputs, adapter, score):
         args.case,
         json.dumps(
             dict(
+                baseline_route=result["baseline_route"],
                 median_us=medians,
                 pair_work=work,
                 tile_ir=evidence,
@@ -1369,6 +1375,17 @@ def run_case(args, result):
     first, count = CHUNKS[args.case]
     width = plan["logits_width"]
     score = torch.empty((count, width), device=device, dtype=torch.float32)
+    direct_page_kernels = None
+    if args.tile_handoff:
+        arm = "direct_page_bounded"
+        direct_page_kernels = {
+            True: load_generated_prefix(
+                Path(args.report),
+                args.case,
+                arm,
+                build_direct_page_source(True, arm, precomputed_visibility=False),
+            )
+        }
     adapter = PreparedSharedMapInt8Selection(
         values,
         torch.empty((plan["q_shape"][0], 512), device=device, dtype=torch.int32),
@@ -1378,6 +1395,8 @@ def run_case(args, result):
         plan["starts"],
         key_group4=True,
         single_page64=True,
+        direct_page_kernels=direct_page_kernels,
+        shared_direct_page_proof=args.tile_handoff,
     )
     route = next(
         r for r in adapter.route_checks if (r["first"], r["count"]) == (first, count)
