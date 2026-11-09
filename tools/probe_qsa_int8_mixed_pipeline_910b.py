@@ -19,9 +19,11 @@ import argparse
 import gzip
 import json
 import statistics
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import torch
 import torch_npu  # noqa: F401
@@ -43,7 +45,7 @@ CUBE_TILE = 64
 def _qsa_int8_mixed_ring(
     Q, K, QS, KS, Weight, Table, Visible, Workspace, State, Indices, Values,
     ROWS: tl.constexpr, WIDTH: tl.constexpr, SLOTS: tl.constexpr,
-    PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr,
+    PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr, CUT: tl.constexpr,
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
@@ -91,32 +93,38 @@ def _qsa_int8_mixed_ring(
             dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
             score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
             score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
-            pairs = tl.zeros((2 * TOP,), tl.float32)
-            pairs = tle.dsa.ascend.raw(
-                "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
-                True, TOP, tile * TOP, SORT_IMPL_BASE, out=pairs,
-            )
-            state = State + row * 4 * TOP
-            if tile > 0:
-                tl.store(state + 2 * TOP + pair_lane, pairs)
-                packed = tl.load(state + merge_lane, mask=merge_lane < 4 * TOP, other=0)
-                merged, _ = tle.dsa.ascend.raw(
-                    "merge_exhaust_sort4", packed, 2,
-                    0, TOP, 2 * TOP, 3 * TOP, TOP, TOP, 0, 0,
-                    out=[tl.zeros((8 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
+            if CUT == 0:
+                tl.store(State + row * 4 * TOP + lane, score)
+            else:
+                pairs = tl.zeros((2 * TOP,), tl.float32)
+                pairs = tle.dsa.ascend.raw(
+                    "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
+                    True, TOP, tile * TOP, SORT_IMPL_BASE, out=pairs,
                 )
-                # Each input has TOP entries including -inf padding. Exhausting
-                # either list therefore guarantees at least TOP merged entries.
-                pairs = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
-            tl.store(state + pair_lane, pairs)
-            if tile == tl.cdiv(WIDTH, TOP) - 1:
-                values, indices = tle.dsa.ascend.raw(
-                    "unpack_sort", pairs, TOP,
-                    out=[tl.zeros((TOP,), tl.float32), tl.zeros((TOP,), tl.int32)],
-                )
-                live = lane < tl.minimum(visible, TOP)
-                tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
-                tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
+                state = State + row * 4 * TOP
+                if CUT == 1:
+                    tl.store(state + pair_lane, pairs)
+                else:
+                    if tile > 0:
+                        tl.store(state + 2 * TOP + pair_lane, pairs)
+                        packed = tl.load(state + merge_lane, mask=merge_lane < 4 * TOP, other=0)
+                        merged, _ = tle.dsa.ascend.raw(
+                            "merge_exhaust_sort4", packed, 2,
+                            0, TOP, 2 * TOP, 3 * TOP, TOP, TOP, 0, 0,
+                            out=[tl.zeros((8 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
+                        )
+                        # Each input has TOP entries including -inf padding. Exhausting
+                        # either list therefore guarantees at least TOP merged entries.
+                        pairs = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
+                    tl.store(state + pair_lane, pairs)
+                    if tile == tl.cdiv(WIDTH, TOP) - 1:
+                        values, indices = tle.dsa.ascend.raw(
+                            "unpack_sort", pairs, TOP,
+                            out=[tl.zeros((TOP,), tl.float32), tl.zeros((TOP,), tl.int32)],
+                        )
+                        live = lane < tl.minimum(visible, TOP)
+                        tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
+                        tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
         al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
         al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -178,6 +186,44 @@ def save_artifacts(kernel, report, label):
     return files
 
 
+class CompileCapture:
+    def __init__(self, report, label):
+        self.report = report
+        self.label = label
+        self.attempt = 0
+
+    def __getattr__(self, name):
+        return getattr(subprocess, name)
+
+    def run(self, command, *args, **kwargs):
+        if not isinstance(command, (tuple, list)) or not command:
+            return subprocess.run(command, *args, **kwargs)
+        if Path(command[0]).name != "bishengir-compile":
+            return subprocess.run(command, *args, **kwargs)
+        self.attempt += 1
+        try:
+            return subprocess.run(command, *args, **kwargs)
+        except subprocess.CalledProcessError as exc:
+            stem = f"{self.label}-bisheng-{self.attempt}"
+            (self.report / f"{stem}-command.json").write_text(
+                json.dumps({"argv": list(map(str, command)), "exit_code": exc.returncode}, indent=2)
+            )
+            for arg in command[1:]:
+                path = Path(arg)
+                if path.suffix == ".mlir" and path.is_file():
+                    (self.report / f"{stem}-input.mlir.gz").write_bytes(
+                        gzip.compress(path.read_bytes(), compresslevel=3)
+                    )
+                    break
+            for name in ("stdout", "stderr"):
+                data = getattr(exc, name)
+                if data:
+                    if isinstance(data, str):
+                        data = data.encode()
+                    (self.report / f"{stem}-{name}.txt").write_bytes(data)
+            raise
+
+
 def worker(args):
     torch.npu.set_device(args.device)
     device = torch.device(f"npu:{args.device}")
@@ -191,10 +237,14 @@ def worker(args):
     indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
     values = torch.empty_like(indices, dtype=torch.float32)
 
-    def launch(slots):
-        return _qsa_int8_mixed_ring[(cores,)](
+    def launch(slots, cut=2, compile_only=False):
+        if compile_only:
+            invoke = lambda *a, **kw: _qsa_int8_mixed_ring.warmup(*a, grid=(cores,), **kw)
+        else:
+            invoke = _qsa_int8_mixed_ring[(cores,)]
+        return invoke(
             *inputs, workspace, state, indices, values,
-            rows, width, slots, PAGE, TOPK, CUBE_TILE,
+            rows, width, slots, PAGE, TOPK, CUBE_TILE, cut,
             disable_auto_cv_work_space_manage=True,
             disable_auto_inject_block_sync=True,
             enable_auto_bind_sub_block=False,
@@ -211,6 +261,28 @@ def worker(args):
         return
 
     report = Path(args.report)
+    from triton.backends.ascend import compiler
+
+    preflight = {}
+    for slots, arm in ((1, "serial"), (2, "double_buffer")):
+        outcomes = {}
+        preflight[arm] = outcomes
+        for cut, stage in ((2, "full"), (0, "score"), (1, "sort")):
+            if stage != "full" and outcomes["full"]["compiled"]:
+                break
+            label = f"{args.worker}-{arm}-{stage}"
+            print(f"{label}: compile only", flush=True)
+            with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+                try:
+                    kernel = launch(slots, cut, compile_only=True)
+                    outcomes[stage] = dict(compiled=True, artifacts=save_artifacts(kernel, report, label))
+                except Exception as exc:
+                    outcomes[stage] = dict(compiled=False, error=str(exc))
+                    print(f"{label}: {exc}", flush=True)
+    (report / f"{args.worker}-compile.json").write_text(json.dumps(preflight, indent=2))
+    if not all(outcomes["full"]["compiled"] for outcomes in preflight.values()):
+        raise SystemExit(1)
+
     functions = {"serial": lambda: launch(1), "double_buffer": lambda: launch(2)}
     result = {"case": args.worker, "rows": rows, "width": width, "rows_per_core": ROWS_PER_CORE, "arms": {}}
     for name, fn in functions.items():
