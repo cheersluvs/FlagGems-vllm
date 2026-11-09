@@ -180,6 +180,27 @@ def _qsa_int8_cube_tile_control(
         tl.store(KOut + (pid * CHUNK + n[:, None]) * 128 + d[None, :], k)
 
 
+@triton.jit
+def _qsa_int8_cube_flat_control(
+    Q, K, Table, DotOut,
+    SUBTILES: tl.constexpr, STORAGE: tl.constexpr,
+    PAGE_SIZE: tl.constexpr, CHUNK: tl.constexpr,
+):
+    pid = tl.program_id(0)
+    m = tl.arange(0, 16)
+    d = tl.arange(0, 128)
+    n = tl.arange(0, CHUNK)
+    q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
+    for sub in range(SUBTILES):
+        start = sub * CHUNK
+        page = tl.load(Table + start // PAGE_SIZE)
+        offset = page * PAGE_SIZE + start % PAGE_SIZE
+        k = tl.load(K + (offset + n[:, None]) * 128 + d[None, :])
+        dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
+        slot = sub % STORAGE
+        tl.store(DotOut + ((pid * STORAGE + slot) * 16 + m[:, None]) * CHUNK + n[None, :], dot)
+
+
 def fixture(case):
     rows, width = CASES[case]
     pages = triton.cdiv(width, PAGE)
@@ -359,7 +380,7 @@ class CompileCapture:
             raise
 
 
-def cube_controls(args, cpu, inputs, packed_q, workspace, launch):
+def cube_controls(args, cpu, inputs, packed_q, workspace):
     from triton.backends.ascend import compiler
 
     _, keys, _, _, _, table, _ = cpu
@@ -403,18 +424,44 @@ def cube_controls(args, cpu, inputs, packed_q, workspace, launch):
                 entry["error"] = str(exc)
             print(json.dumps({label: entry}, indent=2), flush=True)
 
-    for slots in (1, 2):
-        label = f"{args.worker}-cube-ring-{slots}"
+    subtiles = triton.cdiv(width, CUBE_TILE)
+    expected_q = packed_q.int()
+    for storage in (subtiles, TOPK // CUBE_TILE, 2 * TOPK // CUBE_TILE):
+        label = f"{args.worker}-cube-flat-storage{storage}"
+        entry = {}
+        result["controls"][label] = entry
         try:
-            workspace.fill_(-2147483647)
+            output = torch.full(
+                (packed_q.shape[0], storage, 16, CUBE_TILE),
+                -2147483647, dtype=torch.int32, device=device,
+            )
             with patch.object(compiler, "subprocess", CompileCapture(report, label)):
-                kernel = launch(slots, producer_only=True)
+                kernel = _qsa_int8_cube_flat_control[(packed_q.shape[0],)](
+                    inputs[0], inputs[1], inputs[5], output,
+                    subtiles, storage, PAGE, CUBE_TILE,
+                    enable_auto_bind_sub_block=False, multibuffer=False,
+                )
             torch.npu.synchronize()
-            result["controls"][label] = check_workspace(cpu, workspace, width, slots)
-            result["controls"][label]["artifacts"] = save_artifacts(kernel, report, label)
+            entry["artifacts"] = save_artifacts(kernel, report, label)
+            got = output.cpu()
+            checks = {}
+            for sub in range(max(0, subtiles - storage), subtiles):
+                start = sub * CUBE_TILE
+                tile = logical[start:start + CUBE_TILE].int()
+                expected = torch.stack([q @ tile.T for q in expected_q])
+                actual = got[:, sub % storage]
+                checks[str(start)] = bool(torch.equal(actual, expected))
+                if not checks[str(start)] and "first_mismatch" not in entry:
+                    first = (actual != expected).nonzero()[0].tolist()
+                    pos = tuple(first)
+                    entry["first_mismatch"] = dict(
+                        start=start, position=first,
+                        actual=int(actual[pos]), expected=int(expected[pos]),
+                    )
+            entry["dot_matches_by_start"] = checks
         except Exception as exc:
-            result["controls"][label] = {"error": str(exc)}
-        print(json.dumps({label: result["controls"][label]}, indent=2), flush=True)
+            entry["error"] = str(exc)
+        print(json.dumps({label: entry}, indent=2), flush=True)
     (report / f"{args.worker}-cube-controls.json").write_text(json.dumps(result, indent=2))
     if any(
         "error" in entry or entry.get("mismatches", 0)
@@ -469,7 +516,7 @@ def worker(args):
         )
 
     if args.cube_controls:
-        cube_controls(args, cpu, inputs, packed_q, workspace, launch)
+        cube_controls(args, cpu, inputs, packed_q, workspace)
         return
 
     if args.launch_only:
