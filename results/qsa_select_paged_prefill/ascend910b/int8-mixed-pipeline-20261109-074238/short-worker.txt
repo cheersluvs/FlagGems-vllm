@@ -1,0 +1,60 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+/tmp/flaggems-qsa-mixed-pipeline-omaMPa0i/tools/probe_qsa_int8_mixed_pipeline_910b.py:193: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  values = torch.empty_like(indices, dtype=torch.float32)
+short/serial: compiling and launching
+Traceback (most recent call last):
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 330, in compile
+    next_module = compile_ir(module, metadata)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 1137, in <lambda>
+    stages["npubin"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 651, in _compile_linalg_to_npu_bin
+    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 835, in linalg_to_bin_enable_npu_compile_A2_A3
+    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmpv43st89q/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=True', '--enable-ubuf-saving=True', '--enable-auto-bind-sub-block=False', '--enable-hivm-graph-sync-solver=False', '--enable-hivm-cross-core-gss=False', '--enable-hivm-unit-flag-sync=False', '--disable-auto-inject-block-sync=True', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--disable-auto-cv-work-space-manage=True', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmpv43st89q/kernel']' died with <Signals.SIGABRT: 6>.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-mixed-pipeline-omaMPa0i/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 319, in <module>
+    main()
+  File "/tmp/flaggems-qsa-mixed-pipeline-omaMPa0i/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 272, in main
+    worker(args)
+  File "/tmp/flaggems-qsa-mixed-pipeline-omaMPa0i/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 219, in worker
+    kernel = fn()
+             ^^^^
+  File "/tmp/flaggems-qsa-mixed-pipeline-omaMPa0i/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 215, in <lambda>
+    functions = {"serial": lambda: launch(1), "double_buffer": lambda: launch(2)}
+                                   ^^^^^^^^^
+  File "/tmp/flaggems-qsa-mixed-pipeline-omaMPa0i/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 196, in launch
+    return _qsa_int8_mixed_ring[(cores,)](
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 420, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 736, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 864, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py", line 83, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 351, in compile
+    raise MLIRCompilationError(stage_name, error_detail) from e
+triton.compiler.errors.MLIRCompilationError: 
+///------------------[ERROR][Triton][BEG]------------------
+[ConvertLinalgIRToBinary] encounters error:
+[NOTE] Ub overflow detected; automatically set enable-code-motion to false and retrying compilation.
+LLVM ERROR: InjectSync Traverse IR Failed! 
+PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
+///------------------[ERROR][Triton][END]------------------
+
+[ERROR] 2026-11-09-15:42:21 (PID:3649812, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception
