@@ -155,6 +155,31 @@ def _qsa_int8_vector_merge(
     else:
         tl.store(Out + task * 2 * TOP + tl.arange(0, 2 * TOP), pairs)
 
+@triton.jit
+def _qsa_int8_cube_tile_control(
+    Q, K, Table, Starts, DotOut, QOut, KOut,
+    PAGE_SIZE: tl.constexpr, CHUNK: tl.constexpr,
+    PAGED: tl.constexpr, TRACE: tl.constexpr,
+):
+    pid = tl.program_id(0)
+    start = tl.load(Starts + pid)
+    m = tl.arange(0, 16)
+    d = tl.arange(0, 128)
+    n = tl.arange(0, CHUNK)
+    q = tl.load(Q + m[:, None] * 128 + d[None, :])
+    if PAGED:
+        page = tl.load(Table + start // PAGE_SIZE)
+        offset = page * PAGE_SIZE + start % PAGE_SIZE
+    else:
+        offset = start
+    k = tl.load(K + (offset + n[:, None]) * 128 + d[None, :])
+    dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
+    tl.store(DotOut + (pid * 16 + m[:, None]) * CHUNK + n[None, :], dot)
+    if TRACE:
+        tl.store(QOut + (pid * 16 + m[:, None]) * 128 + d[None, :], q)
+        tl.store(KOut + (pid * CHUNK + n[:, None]) * 128 + d[None, :], k)
+
+
 def fixture(case):
     rows, width = CASES[case]
     pages = triton.cdiv(width, PAGE)
@@ -334,6 +359,72 @@ class CompileCapture:
             raise
 
 
+def cube_controls(args, cpu, inputs, packed_q, workspace, launch):
+    from triton.backends.ascend import compiler
+
+    _, keys, _, _, _, table, _ = cpu
+    logical = keys[table.long()].reshape(-1, 128).contiguous()
+    rows, width = CASES[args.worker]
+    device = workspace.device
+    starts = sorted({0, 64, 192, 512, (width - 1) // CUBE_TILE * CUBE_TILE})
+    starts_tensor = torch.tensor(starts, dtype=torch.int32, device=device)
+    dense = logical.to(device)
+    dots = torch.empty((len(starts), 16, CUBE_TILE), device=device, dtype=torch.int32)
+    q_out = torch.empty((len(starts), 16, 128), device=device, dtype=torch.int8)
+    k_out = torch.empty((len(starts), CUBE_TILE, 128), device=device, dtype=torch.int8)
+    report = Path(args.report)
+    result = {"case": args.worker, "rows": rows, "width": width, "controls": {}}
+    for paged in (False, True):
+        for trace in (False, True):
+            label = f"{args.worker}-cube-{'paged' if paged else 'dense'}-{'trace' if trace else 'dot'}"
+            entry = {}
+            result["controls"][label] = entry
+            try:
+                with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+                    kernel = _qsa_int8_cube_tile_control[(len(starts),)](
+                        inputs[0], inputs[1] if paged else dense, inputs[5], starts_tensor,
+                        dots, q_out, k_out, PAGE, CUBE_TILE, paged, trace,
+                        enable_auto_bind_sub_block=False, multibuffer=False,
+                    )
+                torch.npu.synchronize()
+                entry["artifacts"] = save_artifacts(kernel, report, label)
+                got = dots.cpu()
+                expected_k = torch.stack([logical[start:start + CUBE_TILE] for start in starts])
+                expected_q = packed_q[0]
+                expected = torch.stack([expected_q.int() @ tile.int().T for tile in expected_k])
+                entry["dot_matches_by_start"] = {
+                    str(start): bool(torch.equal(got[i], expected[i]))
+                    for i, start in enumerate(starts)
+                }
+                if trace:
+                    entry["q_matches"] = torch.equal(q_out.cpu(), expected_q.expand_as(q_out))
+                    entry["k_matches"] = torch.equal(k_out.cpu(), expected_k)
+            except Exception as exc:
+                entry["error"] = str(exc)
+            print(json.dumps({label: entry}, indent=2), flush=True)
+
+    for slots in (1, 2):
+        label = f"{args.worker}-cube-ring-{slots}"
+        try:
+            workspace.fill_(-2147483647)
+            with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+                kernel = launch(slots, producer_only=True)
+            torch.npu.synchronize()
+            result["controls"][label] = check_workspace(cpu, workspace, width, slots)
+            result["controls"][label]["artifacts"] = save_artifacts(kernel, report, label)
+        except Exception as exc:
+            result["controls"][label] = {"error": str(exc)}
+        print(json.dumps({label: result["controls"][label]}, indent=2), flush=True)
+    (report / f"{args.worker}-cube-controls.json").write_text(json.dumps(result, indent=2))
+    if any(
+        "error" in entry or entry.get("mismatches", 0)
+        or not all(entry.get("dot_matches_by_start", {}).values())
+        or entry.get("q_matches") is False or entry.get("k_matches") is False
+        for entry in result["controls"].values()
+    ):
+        raise SystemExit(1)
+
+
 def worker(args):
     torch.npu.set_device(args.device)
     device = torch.device(f"npu:{args.device}")
@@ -376,6 +467,10 @@ def worker(args):
             multibuffer=False,
             sync_solver=False,
         )
+
+    if args.cube_controls:
+        cube_controls(args, cpu, inputs, packed_q, workspace, launch)
+        return
 
     if args.launch_only:
         launch(args.slots)
@@ -519,6 +614,7 @@ def main():
     parser.add_argument("--worker", choices=CASES)
     parser.add_argument("--slots", type=int, choices=(1, 2), default=2)
     parser.add_argument("--launch-only", action="store_true")
+    parser.add_argument("--cube-controls", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
@@ -533,9 +629,11 @@ def main():
     report = Path(args.report).resolve()
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
-    for case in CASES:
+    for case in (("short",) if args.cube_controls else CASES):
         log = report / f"{case}-worker.txt"
         command = base + ["--worker", case]
+        if args.cube_controls:
+            command.append("--cube-controls")
         if args.task_trace:
             command.append("--task-trace")
         code, timed_out = run_child(command, log, args.timeout)
