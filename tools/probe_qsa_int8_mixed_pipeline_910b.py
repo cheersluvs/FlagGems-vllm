@@ -53,66 +53,63 @@ def _qsa_int8_mixed_ring(
     lane = tl.arange(0, TOP)
     pair_lane = tl.arange(0, TOP * 2)
     base_row = pid * 2
-    q_ptr = tl.make_block_ptr(
-        base=Q + pid * 16 * 128, shape=(16, 128), strides=(128, 1),
-        offsets=(0, 0), block_shape=(16, 128), order=(1, 0),
-    )
-    q = tl.load(q_ptr)
+    d = tl.arange(0, 128)
+    q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
     if not PRODUCER_ONLY:
         for ring_index in tl.static_range(SLOTS):
             al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
-    for tile in range(tl.cdiv(WIDTH, TOP)):
+    SUBTILES_PER_TILE: tl.constexpr = TOP // CHUNK
+    # Keep the final tile full in the workspace. Vector masks its logical tail.
+    for flat in range(tl.cdiv(WIDTH, TOP) * SUBTILES_PER_TILE):
+        tile = flat // SUBTILES_PER_TILE
+        sub = flat % SUBTILES_PER_TILE
         slot = tile % SLOTS
         work = Workspace + (pid * SLOTS + slot) * 16 * TOP
         if not PRODUCER_ONLY:
-            al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
-        for sub in range(TOP // CHUNK):
-            start = tile * TOP + sub * CHUNK
-            # A 64-key tile cannot cross a 192-key page. The final physical
-            # page is fully allocated even when its logical extent is shorter.
-            page = tl.load(Table + start // PAGE_SIZE, mask=start < WIDTH, other=0)
-            k_ptr = tl.make_block_ptr(
-                base=K + page * PAGE_SIZE * 128, shape=(PAGE_SIZE, 128),
-                strides=(128, 1), offsets=(start % PAGE_SIZE, 0),
-                block_shape=(CHUNK, 128), order=(1, 0),
-            )
-            k = tl.load(k_ptr)
-            dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
-            tl.store(work + sub * 16 * CHUNK + m[:, None] * CHUNK + n[None, :], dot)
-        if not PRODUCER_ONLY:
-            al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            if sub == 0:
+                al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        start = flat * CHUNK
+        page = tl.load(Table + start // PAGE_SIZE, mask=start < WIDTH, other=0)
+        offset = page * PAGE_SIZE + start % PAGE_SIZE
+        k = tl.load(K + (offset + n[:, None]) * 128 + d[None, :])
+        dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
+        tl.store(work + sub * 16 * CHUNK + m[:, None] * CHUNK + n[None, :], dot)
 
-            al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
-            column = tile * TOP + lane
-            page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
-            token = page * PAGE_SIZE + column % PAGE_SIZE
-            key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
-            row_in_core = al.sub_vec_id()
-            row = base_row + row_in_core
-            if row < ROWS:
-                visible = tl.load(Visible + row)
-                h = tl.arange(0, 4)
-                dot = tl.load(
-                    work + (lane[None, :] // CHUNK) * 16 * CHUNK
-                    + (row_in_core * 4 + h[:, None]) * CHUNK + lane[None, :] % CHUNK
-                )
-                qs = tl.load(QS + row * 4 + h).to(tl.float32)
-                weight = tl.load(Weight + row * 4 + h).to(tl.float32)
-                dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
-                score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
-                score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
-                offset = row * tl.cdiv(WIDTH, TOP) + tile
-                if SCORE_ONLY:
-                    tl.store(Proposals + offset * TOP + lane, score)
-                    tl.store(DebugDot + (offset * 4 + h[:, None]) * TOP + lane[None, :], dot)
-                else:
-                    pairs = tle.dsa.ascend.raw(
-                        "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
-                        True, TOP, tile * TOP, SORT_IMPL_BASE,
-                        out=tl.zeros((2 * TOP,), tl.float32),
+        if not PRODUCER_ONLY:
+            if sub == SUBTILES_PER_TILE - 1:
+                al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+
+                al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+                column = tile * TOP + lane
+                page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
+                token = page * PAGE_SIZE + column % PAGE_SIZE
+                key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
+                row_in_core = al.sub_vec_id()
+                row = base_row + row_in_core
+                if row < ROWS:
+                    visible = tl.load(Visible + row)
+                    h = tl.arange(0, 4)
+                    dot = tl.load(
+                        work + (lane[None, :] // CHUNK) * 16 * CHUNK
+                        + (row_in_core * 4 + h[:, None]) * CHUNK + lane[None, :] % CHUNK
                     )
-                    tl.store(Proposals + offset * 2 * TOP + pair_lane, pairs)
-            al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+                    qs = tl.load(QS + row * 4 + h).to(tl.float32)
+                    weight = tl.load(Weight + row * 4 + h).to(tl.float32)
+                    dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
+                    score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
+                    score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
+                    offset = row * tl.cdiv(WIDTH, TOP) + tile
+                    if SCORE_ONLY:
+                        tl.store(Proposals + offset * TOP + lane, score)
+                        tl.store(DebugDot + (offset * 4 + h[:, None]) * TOP + lane[None, :], dot)
+                    else:
+                        pairs = tle.dsa.ascend.raw(
+                            "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
+                            True, TOP, tile * TOP, SORT_IMPL_BASE,
+                            out=tl.zeros((2 * TOP,), tl.float32),
+                        )
+                        tl.store(Proposals + offset * 2 * TOP + pair_lane, pairs)
+                al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     if not PRODUCER_ONLY:
         for ring_index in tl.static_range(SLOTS):
             al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
