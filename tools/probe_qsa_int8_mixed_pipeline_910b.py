@@ -49,15 +49,15 @@ def _qsa_int8_mixed_ring(
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
-    d = tl.arange(0, 128)
     n = tl.arange(0, CHUNK)
     lane = tl.arange(0, TOP)
     pair_lane = tl.arange(0, TOP * 2)
     base_row = pid * 2
-    q = tl.load(
-        Q + (base_row * 4 + m[:, None]) * 128 + d[None, :],
-        mask=(m[:, None] < 8) & (base_row + m[:, None] // 4 < ROWS), other=0,
+    q_ptr = tl.make_block_ptr(
+        base=Q + pid * 16 * 128, shape=(16, 128), strides=(128, 1),
+        offsets=(0, 0), block_shape=(16, 128), order=(1, 0),
     )
+    q = tl.load(q_ptr)
     if not PRODUCER_ONLY:
         for ring_index in tl.static_range(SLOTS):
             al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -67,13 +67,16 @@ def _qsa_int8_mixed_ring(
         if not PRODUCER_ONLY:
             al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
         for sub in range(TOP // CHUNK):
-            column = tile * TOP + sub * CHUNK + n
-            page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
-            token = page * PAGE_SIZE + column % PAGE_SIZE
-            k = tl.load(
-                K + token[:, None] * 128 + d[None, :],
-                mask=column[:, None] < WIDTH, other=0,
+            start = tile * TOP + sub * CHUNK
+            # A 64-key tile cannot cross a 192-key page. The final physical
+            # page is fully allocated even when its logical extent is shorter.
+            page = tl.load(Table + start // PAGE_SIZE, mask=start < WIDTH, other=0)
+            k_ptr = tl.make_block_ptr(
+                base=K + page * PAGE_SIZE * 128, shape=(PAGE_SIZE, 128),
+                strides=(128, 1), offsets=(start % PAGE_SIZE, 0),
+                block_shape=(CHUNK, 128), order=(1, 0),
             )
+            k = tl.load(k_ptr)
             dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
             tl.store(work + sub * 16 * CHUNK + m[:, None] * CHUNK + n[None, :], dot)
         if not PRODUCER_ONLY:
@@ -201,7 +204,7 @@ def check_workspace(cpu, workspace, width, slots):
     tiles = triton.cdiv(width, TOPK)
     ring = workspace.cpu().flatten()[:workspace.shape[0] * slots * 16 * TOPK]
     ring = ring.reshape(-1, slots, TOPK // CUBE_TILE, 16, CUBE_TILE)
-    result = {"checked_subtiles": 0, "mismatches": 0, "sentinel_values": 0, "zero_values": 0}
+    result = {"checked_subtiles": 0, "mismatches": 0, "sentinel_values": 0, "zero_values": 0, "subtile_mismatches": {}}
     for tile in range(max(tiles - slots, 0), tiles):
         for sub in range(TOPK // CUBE_TILE):
             start = tile * TOPK + sub * CUBE_TILE
@@ -217,6 +220,9 @@ def check_workspace(cpu, workspace, width, slots):
                 result["zero_values"] += (got == 0).sum().item()
                 if not torch.equal(got, expected):
                     result["mismatches"] += 1
+                    key = str(sub)
+                    counts = result["subtile_mismatches"]
+                    counts[key] = counts.get(key, 0) + 1
                     result.setdefault("first_failure", {
                         "row": row, "tile": tile, "subtile": sub,
                         "got": got[:4].tolist(), "expected": expected[:4].tolist(),
@@ -335,7 +341,12 @@ def worker(args):
     rows, width = CASES[args.worker]
     cores = triton.cdiv(rows, ROWS_PER_CORE)
     cpu = fixture(args.worker)
-    inputs = tuple(t.to(device) for t in cpu)
+    q, *rest = cpu
+    padded_q = torch.zeros((cores * ROWS_PER_CORE, 4, 128), dtype=torch.int8)
+    padded_q[:rows].copy_(q)
+    packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8)
+    packed_q[:, :ROWS_PER_CORE * 4].copy_(padded_q.reshape(cores, ROWS_PER_CORE * 4, 128))
+    inputs = tuple(t.to(device) for t in (packed_q, *rest))
     workspace = torch.empty((cores, 2, 16, TOPK), device=device, dtype=torch.int32)
     lists = triton.cdiv(width, TOPK)
     state = torch.empty((rows, lists, 2 * TOPK), device=device, dtype=torch.float32)
