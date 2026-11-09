@@ -234,11 +234,23 @@ def _measure_tile_handoff(benchmark, current, wide_kernel, expected):
 
 
 def _measure_group_visible(
-    benchmark, name, current, make_adapter, expected, *, diagnose_wall=False
+    benchmark,
+    name,
+    current,
+    make_adapter,
+    expected,
+    *,
+    diagnose_wall=False,
+    compare_request_table=False,
 ):
     from probe_qsa_int8_group_visible_request_910b import measure_request_wall
 
     variant = make_adapter("group_visible")
+    if compare_request_table:
+        assert variant.group_visible_offsets == current.group_visible_offsets
+        assert torch.equal(
+            variant.group_visible_metadata, current.group_visible_metadata
+        )
     assert variant.direct_page_routes == current.direct_page_routes
     assert variant.query16_routes == current.query16_routes
     assert variant.skip_invisible_routes == current.skip_invisible_routes
@@ -292,6 +304,11 @@ def _measure_group_visible(
     )
     print(f"GroupVisible fresh wall {name}: {wall['speedup']:.3f}x", flush=True)
     host_phases = {}
+    if compare_request_table:
+        host_phases["metadata_sources"] = {
+            "current": "device row-table readback",
+            "group_visible": "trusted CPU request table",
+        }
     if diagnose_wall:
         assert routes
         host_phases["host_phases"] = measure_request_wall(
@@ -501,7 +518,18 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         plan = CASES[shape]
         name = plan["name"]
         print(f"QSA_INT8_HARNESS_CASE {name}", flush=True)
-        inputs = make_inputs(plan)
+        group_visible_mode = os.environ.get("QSA_HARNESS_GROUP_VISIBLE")
+        compare_request_table = (
+            os.environ.get("QSA_HARNESS_TRUSTED_REQUEST_TABLE") == "1"
+        )
+        if compare_request_table and (
+            group_visible_mode != "wall" or name not in GROUP_VISIBLE_WALL_CASES
+        ):
+            pytest.fail("Trusted request table trial requires GroupVisible wall mode")
+        inputs = make_inputs(plan, include_request_table=compare_request_table)
+        request_table = (
+            inputs.pop("request_table").tolist() if compare_request_table else None
+        )
         values = {key: value.to(device) for key, value in inputs.items()}
         rows, width, chunk = (
             plan["q_shape"][0],
@@ -622,7 +650,6 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             candidate = _measure_tile_handoff(
                 benchmark, candidate, wide_kernel, selected
             )
-        group_visible_mode = os.environ.get("QSA_HARNESS_GROUP_VISIBLE")
         if not diagnose_only and (
             group_visible_mode == "full"
             or (group_visible_mode == "1" and name in GROUP_VISIBLE_CASES)
@@ -648,19 +675,25 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                     direct_page_kernels=kernels,
                     shared_direct_page_proof=True,
                     group_visible_kernels=(
-                        group_kernels if arm == "group_visible" else None
+                        group_kernels
+                        if compare_request_table or arm == "group_visible"
+                        else None
                     ),
                     group_visible_direct_only=True,
                     time_page_proof=instrument,
+                    trusted_request_table=(
+                        request_table if arm == "group_visible" else None
+                    ),
                 )
 
             candidate = _measure_group_visible(
                 benchmark,
                 name,
-                candidate,
+                make_adapter("current") if compare_request_table else candidate,
                 make_adapter,
                 selected,
                 diagnose_wall=group_visible_mode == "wall",
+                compare_request_table=compare_request_table,
             )
         del original, selected, native_output, expected, control, refs, inputs
 

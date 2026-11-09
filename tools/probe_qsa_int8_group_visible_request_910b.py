@@ -226,6 +226,7 @@ def measure_request_wall(
     if record_host_phases:
         phases += (
             "row_table_to_host_us",
+            "request_table_expand_us",
             "shared_map_check_us",
             "visible_to_host_us",
             "query16_page_proof_us",

@@ -149,6 +149,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         shared_direct_page_proof=False,
         time_page_proof=False,
         reuse_topk_scratch=False,
+        trusted_request_table=None,
     ):
         started = time.perf_counter()
         super().__init__(
@@ -189,7 +190,21 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             raise ValueError("Invalid CPU request boundaries")
         if time_page_proof:
             read_start = time.perf_counter_ns()
-        table = values["row_table"].cpu().tolist()
+        if trusted_request_table is None:
+            table = values["row_table"].cpu().tolist()
+        else:
+            # The caller owns both immutable views of the same page mapping.
+            # Reuse references to request rows instead of copying device metadata.
+            columns = values["row_table"].shape[1]
+            if len(trusted_request_table) != len(starts) - 1 or any(
+                len(mapping) != columns for mapping in trusted_request_table
+            ):
+                raise ValueError("Invalid trusted CPU request page table shape")
+            table = []
+            for mapping, begin, end in zip(
+                trusted_request_table, starts[:-1], starts[1:], strict=True
+            ):
+                table.extend([mapping] * (end - begin))
         if time_page_proof:
             table_read_end = time.perf_counter_ns()
         self.shared_routes, self.route_checks = {}, []
@@ -230,8 +245,12 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             else None
         )
         if time_page_proof:
+            table_us = (table_read_end - read_start) / 1000
             self.metadata_host_us = dict(
-                row_table_to_host_us=(table_read_end - read_start) / 1000,
+                row_table_to_host_us=table_us if trusted_request_table is None else 0.0,
+                request_table_expand_us=(
+                    table_us if trusted_request_table is not None else 0.0
+                ),
                 shared_map_check_us=(visible_read_start - table_read_end) / 1000,
                 visible_to_host_us=(time.perf_counter_ns() - visible_read_start) / 1000,
             )

@@ -146,7 +146,7 @@ def sample_rows(case):
     return sorted(picks)
 
 
-def make_inputs(case):
+def make_inputs(case, *, include_request_table=False):
     import torch
 
     gen = torch.Generator().manual_seed(20261103)
@@ -179,7 +179,7 @@ def make_inputs(case):
         ],
         dtype=torch.int32,
     )
-    return dict(
+    inputs = dict(
         q=q,
         cache=cache,
         qs=qs,
@@ -188,3 +188,6 @@ def make_inputs(case):
         row_table=table[owners].contiguous(),
         visible=visible,
     )
+    if include_request_table:
+        inputs["request_table"] = table
+    return inputs
