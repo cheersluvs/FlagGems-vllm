@@ -1,0 +1,531 @@
+QSA INT8 trial: guarded N64 query16 scoring for widths (1024, 4096]
+QSA INT8 harness worker: int8_dominant_long
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py", "sha256": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8"}, "topk_policy": "prefill_3seg", "topk_route": "prefill"}
+QSA_INT8_HARNESS_CASE int8_dominant_long
+QSA_INT8_HARNESS_PREFLIGHT_START int8_dominant_long control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_dominant_long candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_dominant_long cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_dominant_long direct_chunks=127 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_dominant_long score_trial
+group_visible score: 10.839 → 9.334 ms, 1.161x
+group_visible topk: 16.120 → 16.124 ms, 1.000x
+group_visible combined: 27.360 → 25.818 ms, 1.060x
+GroupVisible fresh wall int8_dominant_long: 0.999x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 127, "bounded_chunks": 101, "total_chunks": 128, "metadata": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 137.061, "alloc_copy_us": 334.203, "prepare_us": 471.264}, "metrics": {"score": {"current_ms": 10.838962, "speedup": 1.161229435485599, "current_samples_ms": [10.8384, 10.839524], "group_visible_ms": 9.33404, "group_visible_samples_ms": [9.334761333333335, 9.333318666666665]}, "topk": {"current_ms": 16.120412, "speedup": 0.9997567651476337, "current_samples_ms": [16.122601333333336, 16.118222666666664], "group_visible_ms": 16.124333999999998, "group_visible_samples_ms": [16.123064, 16.125604]}, "combined": {"current_ms": 27.359980333333333, "speedup": 1.0597094274144934, "current_samples_ms": [27.360178, 27.359782666666668], "group_visible_ms": 25.81837966666667, "group_visible_samples_ms": [25.81954466666667, 25.81721466666667]}}, "fresh_wall": {"medians": {"current": 244477.1515, "group_visible": 244611.0385}, "phase_medians_us": {"preparation_us": {"current": 43022.145000000004, "group_visible": 43064.1605}, "submit_us": {"current": 200705.02000000002, "group_visible": 201571.5925}, "sync_us": {"current": 104.976, "group_visible": 106.991}, "wall_us": {"current": 244477.1515, "group_visible": 244611.0385}}, "phase_paired_median_saved_us": {"preparation_us": 690.1460000000006, "submit_us": -1013.2844999999943, "sync_us": -2.585000000000008, "wall_us": 72.8350000000064}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 243480.208, "preparation_us": 42705.447, "submit_us": 200669.04, "sync_us": 105.721, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 244430.837, "preparation_us": 40068.164, "submit_us": 204246.912, "sync_us": 115.761, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 104.991, "alloc_copy_us": 428.284, "prepare_us": 533.275}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 241967.944, "preparation_us": 40305.296, "submit_us": 201554.217, "sync_us": 108.431, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 100.521, "alloc_copy_us": 345.543, "prepare_us": 446.064}}, "current": {"wall_us": 241315.749, "preparation_us": 40805.17, "submit_us": 200390.127, "sync_us": 120.452, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 697452.614, "preparation_us": 497076.567, "submit_us": 200265.596, "sync_us": 110.451, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 245498.166, "preparation_us": 43795.167, "submit_us": 201588.968, "sync_us": 114.031, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 107.62, "alloc_copy_us": 430.134, "prepare_us": 537.754}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 242822.462, "preparation_us": 43179.522, "submit_us": 199537.879, "sync_us": 105.061, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 106.311, "alloc_copy_us": 395.103, "prepare_us": 501.414}}, "current": {"wall_us": 244415.866, "preparation_us": 42162.842, "submit_us": 202148.793, "sync_us": 104.231, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 245413.165, "preparation_us": 44570.794, "submit_us": 200741.0, "sync_us": 101.371, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 244791.24, "preparation_us": 43690.376, "submit_us": 200997.903, "sync_us": 102.961, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 100.96, "alloc_copy_us": 358.093, "prepare_us": 459.053}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 245014.692, "preparation_us": 42948.799, "submit_us": 201960.342, "sync_us": 105.551, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 100.931, "alloc_copy_us": 372.293, "prepare_us": 473.224}}, "current": {"wall_us": 244538.437, "preparation_us": 43338.843, "submit_us": 201097.863, "sync_us": 101.731, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 0.9994526534827659, "paired_saved_us": [-950.6289999999863, -652.1949999999779, 451954.448, 1593.4040000000095, 621.9250000000175, -476.25500000000466], "candidate_wins": 3}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.740748           25.815091               0.571          ('int8_dominant_long', 'prefill')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_dominant_long]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:176: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    target = torch.empty_like(current.scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 88.40s (0:01:28)
+QSA INT8 harness worker: int8_first_chunk
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "prefill_3seg", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_first_chunk
+QSA_INT8_HARNESS_SHORT_SCORE int8_first_chunk query16_chunks=128 bounded_chunks=112 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_first_chunk control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_first_chunk candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_first_chunk cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_first_chunk direct_chunks=0 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_first_chunk score_trial
+GroupVisible int8_first_chunk: zero eligible chunks, no metadata upload
+GroupVisible fresh wall int8_first_chunk: 1.010x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 0, "bounded_chunks": 0, "total_chunks": 128, "metadata": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}, "metrics": null, "fresh_wall": {"medians": {"current": 219988.5, "group_visible": 217892.7155}, "phase_medians_us": {"preparation_us": {"current": 33654.76, "group_visible": 34391.116500000004}, "submit_us": {"current": 185042.1275, "group_visible": 182612.2805}, "sync_us": {"current": 105.476, "group_visible": 104.596}, "wall_us": {"current": 219988.5, "group_visible": 217892.7155}}, "phase_paired_median_saved_us": {"preparation_us": 453.33400000000074, "submit_us": 1445.8530000000028, "sync_us": 3.0400000000000063, "wall_us": 3210.808999999994}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 218136.568, "preparation_us": 32432.694, "submit_us": 185596.273, "sync_us": 107.601, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 214327.163, "preparation_us": 31520.046, "submit_us": 182699.416, "sync_us": 107.701, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 214377.943, "preparation_us": 33044.109, "submit_us": 181248.194, "sync_us": 85.64, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "current": {"wall_us": 212886.41, "preparation_us": 31550.506, "submit_us": 181243.043, "sync_us": 92.861, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 217363.811, "preparation_us": 31943.84, "submit_us": 185318.84, "sync_us": 101.131, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 218732.803, "preparation_us": 31949.82, "submit_us": 186654.882, "sync_us": 128.101, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 231183.166, "preparation_us": 38320.367, "submit_us": 192748.478, "sync_us": 114.321, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "current": {"wall_us": 780969.191, "preparation_us": 599702.238, "submit_us": 181163.602, "sync_us": 103.351, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 223250.644, "preparation_us": 34876.826, "submit_us": 188266.147, "sync_us": 107.671, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 220638.431, "preparation_us": 38011.795, "submit_us": 182525.145, "sync_us": 101.491, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 217052.628, "preparation_us": 35738.124, "submit_us": 181213.663, "sync_us": 100.841, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "current": {"wall_us": 221840.432, "preparation_us": 36938.395, "submit_us": 184765.415, "sync_us": 136.622, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 1.0096184238889805, "paired_saved_us": [3809.404999999999, -1491.5329999999958, -1368.9920000000275, 549786.025, 2612.212999999989, 4787.804000000004], "candidate_wins": 4}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               8.055173           15.220568               0.529          ('int8_first_chunk', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_first_chunk]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:516: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    candidate_scores = torch.empty_like(scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 16.03s
+QSA INT8 harness worker: int8_budget_exact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "prefill_3seg", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_budget_exact
+QSA_INT8_HARNESS_PREFLIGHT_START int8_budget_exact control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_budget_exact candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_budget_exact cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_budget_exact direct_chunks=128 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_budget_exact score_trial
+group_visible score: 11.377 → 9.869 ms, 1.153x
+group_visible topk: 11.739 → 11.741 ms, 1.000x
+group_visible combined: 23.349 → 21.820 ms, 1.070x
+GroupVisible fresh wall int8_budget_exact: 0.994x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 128, "bounded_chunks": 96, "total_chunks": 128, "metadata": {"hit_chunks": 128, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 106.03, "alloc_copy_us": 372.864, "prepare_us": 478.894}, "metrics": {"score": {"current_ms": 11.376705333333334, "speedup": 1.152781656398062, "current_samples_ms": [11.377651333333334, 11.375759333333335], "group_visible_ms": 9.868915999999999, "group_visible_samples_ms": [9.870346, 9.867486]}, "topk": {"current_ms": 11.739396333333334, "speedup": 0.9998252628920501, "current_samples_ms": [11.740752, 11.738040666666667], "group_visible_ms": 11.741447999999998, "group_visible_samples_ms": [11.73979, 11.743106]}, "combined": {"current_ms": 23.349363333333336, "speedup": 1.0701111977441902, "current_samples_ms": [23.349414666666668, 23.349312], "group_visible_ms": 21.81956733333333, "group_visible_samples_ms": [21.819476666666667, 21.819658]}}, "fresh_wall": {"medians": {"current": 221259.24099999998, "group_visible": 222504.327}, "phase_medians_us": {"preparation_us": {"current": 40903.841, "group_visible": 41121.8125}, "submit_us": {"current": 180029.432, "group_visible": 176053.7665}, "sync_us": {"current": 77.3455, "group_visible": 77.096}, "wall_us": {"current": 221259.24099999998, "group_visible": 222504.327}}, "phase_paired_median_saved_us": {"preparation_us": -1086.920000000002, "submit_us": 1921.502999999997, "sync_us": -0.6304999999999978, "wall_us": -643.1354999999894}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 209650.181, "preparation_us": 42049.772, "submit_us": 167517.879, "sync_us": 82.53, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 210327.107, "preparation_us": 40886.59, "submit_us": 169358.346, "sync_us": 82.171, "group_visible": {"hit_chunks": 128, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 105.25, "alloc_copy_us": 328.963, "prepare_us": 434.213}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 224149.832, "preparation_us": 41357.035, "submit_us": 182714.526, "sync_us": 78.271, "group_visible": {"hit_chunks": 128, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 102.99, "alloc_copy_us": 324.813, "prepare_us": 427.803}}, "current": {"wall_us": 223540.487, "preparation_us": 40288.905, "submit_us": 183173.411, "sync_us": 78.171, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 214836.858, "preparation_us": 41518.777, "submit_us": 173245.301, "sync_us": 72.78, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 488112.116, "preparation_us": 318175.015, "submit_us": 169861.18, "sync_us": 75.921, "group_visible": {"hit_chunks": 128, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 131.252, "alloc_copy_us": 824.147, "prepare_us": 955.399}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 230882.473, "preparation_us": 39735.23, "submit_us": 191072.262, "sync_us": 74.981, "group_visible": {"hit_chunks": 128, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 103.661, "alloc_copy_us": 299.283, "prepare_us": 402.944}}, "current": {"wall_us": 228421.141, "preparation_us": 37611.631, "submit_us": 190735.69, "sync_us": 73.82, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 236723.616, "preparation_us": 39486.658, "submit_us": 197160.398, "sync_us": 76.56, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 220858.822, "preparation_us": 38536.999, "submit_us": 182246.353, "sync_us": 75.47, "group_visible": {"hit_chunks": 128, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 102.08, "alloc_copy_us": 301.982, "prepare_us": 404.062}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 212475.126, "preparation_us": 43120.121, "submit_us": 169271.485, "sync_us": 83.52, "group_visible": {"hit_chunks": 128, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 135.281, "alloc_copy_us": 328.593, "prepare_us": 463.874}}, "current": {"wall_us": 218977.995, "preparation_us": 42014.411, "submit_us": 176885.453, "sync_us": 78.131, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 0.9944042166874354, "paired_saved_us": [-676.9259999999776, -609.3450000000012, -273275.258, -2461.331999999995, 15864.794000000024, 6502.869000000006], "candidate_wins": 2}}
+QSA_INT8_HARNESS_TIMER one_ms=0.05602133333333333 three_ms=0.16813 ratio=3.0011781226199545
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.270619           21.806487               0.654          ('int8_budget_exact', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_budget_exact]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:176: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    target = torch.empty_like(current.scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 66.95s (0:01:06)
+QSA INT8 harness worker: int8_tail112
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py", "sha256": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8"}, "topk_policy": "prefill_3seg", "topk_route": "prefill"}
+QSA_INT8_HARNESS_CASE int8_tail112
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail112 control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail112 candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail112 cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_tail112 direct_chunks=128 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail112 score_trial
+group_visible score: 10.609 → 9.105 ms, 1.165x
+group_visible topk: 15.705 → 15.705 ms, 1.000x
+group_visible combined: 26.690 → 25.315 ms, 1.054x
+GroupVisible fresh wall int8_tail112: 1.007x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 128, "bounded_chunks": 109, "total_chunks": 128, "metadata": {"hit_chunks": 128, "bytes": 4092, "groups_from_policy": 1023, "copies": 1, "pack_us": 111.71, "alloc_copy_us": 326.903, "prepare_us": 438.613}, "metrics": {"score": {"current_ms": 10.609486333333333, "speedup": 1.165265534514105, "current_samples_ms": [10.607958666666667, 10.611014], "group_visible_ms": 9.10478, "group_visible_samples_ms": [9.106575333333334, 9.102984666666666]}, "topk": {"current_ms": 15.704788, "speedup": 0.9999638976642043, "current_samples_ms": [15.704321333333334, 15.705254666666667], "group_visible_ms": 15.705355, "group_visible_samples_ms": [15.706491333333334, 15.704218666666666]}, "combined": {"current_ms": 26.690132666666663, "speedup": 1.0543218494548858, "current_samples_ms": [26.689306, 26.690959333333332], "group_visible_ms": 25.314976333333334, "group_visible_samples_ms": [25.316072666666667, 25.31388]}}, "fresh_wall": {"medians": {"current": 232485.7455, "group_visible": 230804.385}, "phase_medians_us": {"preparation_us": {"current": 37987.065, "group_visible": 38995.5435}, "submit_us": {"current": 192703.674, "group_visible": 192021.20799999998}, "sync_us": {"current": 77.406, "group_visible": 79.156}, "wall_us": {"current": 232485.7455, "group_visible": 230804.385}}, "phase_paired_median_saved_us": {"preparation_us": -359.8380000000034, "submit_us": 1814.4760000000097, "sync_us": -1.8200000000000003, "wall_us": 1453.923999999999}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 232293.289, "preparation_us": 38846.618, "submit_us": 193367.92, "sync_us": 78.751, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 230827.955, "preparation_us": 39266.581, "submit_us": 191486.234, "sync_us": 75.14, "group_visible": {"hit_chunks": 128, "bytes": 4092, "groups_from_policy": 1023, "copies": 1, "pack_us": 97.94, "alloc_copy_us": 327.213, "prepare_us": 425.153}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 231341.62, "preparation_us": 38724.506, "submit_us": 192540.843, "sync_us": 76.271, "group_visible": {"hit_chunks": 128, "bytes": 4092, "groups_from_policy": 1023, "copies": 1, "pack_us": 97.632, "alloc_copy_us": 302.752, "prepare_us": 400.384}}, "current": {"wall_us": 232784.134, "preparation_us": 38412.884, "submit_us": 194288.109, "sync_us": 83.141, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 644498.976, "preparation_us": 452531.058, "submit_us": 191888.007, "sync_us": 79.911, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 232238.419, "preparation_us": 40127.5, "submit_us": 192030.358, "sync_us": 80.561, "group_visible": {"hit_chunks": 128, "bytes": 4092, "groups_from_policy": 1023, "copies": 1, "pack_us": 102.224, "alloc_copy_us": 311.863, "prepare_us": 414.087}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 230780.815, "preparation_us": 41321.03, "submit_us": 189380.734, "sync_us": 79.051, "group_visible": {"hit_chunks": 128, "bytes": 4092, "groups_from_policy": 1023, "copies": 1, "pack_us": 103.1, "alloc_copy_us": 305.323, "prepare_us": 408.423}}, "current": {"wall_us": 228830.967, "preparation_us": 36715.478, "submit_us": 192039.428, "sync_us": 76.061, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 228535.945, "preparation_us": 37561.246, "submit_us": 190902.328, "sync_us": 72.371, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 230064.479, "preparation_us": 37969.3, "submit_us": 192012.058, "sync_us": 83.121, "group_visible": {"hit_chunks": 128, "bytes": 4092, "groups_from_policy": 1023, "copies": 1, "pack_us": 104.122, "alloc_copy_us": 343.103, "prepare_us": 447.225}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 230326.532, "preparation_us": 37673.377, "submit_us": 192573.894, "sync_us": 79.261, "group_visible": {"hit_chunks": 128, "bytes": 4092, "groups_from_policy": 1023, "copies": 1, "pack_us": 123.791, "alloc_copy_us": 306.903, "prepare_us": 430.694}}, "current": {"wall_us": 232678.202, "preparation_us": 37500.935, "submit_us": 195101.897, "sync_us": 75.37, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 1.0072847857721594, "paired_saved_us": [1465.3340000000026, 1442.5139999999956, 412260.55700000003, -1949.8479999999981, -1528.533999999985, 2351.6699999999837], "candidate_wins": 4}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.304705           25.307649               0.565          ('int8_tail112', 'prefill')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_tail112]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:176: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    target = torch.empty_like(current.scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 92.94s (0:01:32)
+QSA INT8 harness worker: int8_tail113
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py", "sha256": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8"}, "topk_policy": "prefill_3seg", "topk_route": "prefill"}
+QSA_INT8_HARNESS_CASE int8_tail113
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail113 control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail113 candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail113 cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_tail113 direct_chunks=127 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail113 score_trial
+group_visible score: 10.712 → 9.219 ms, 1.162x
+group_visible topk: 15.714 → 15.713 ms, 1.000x
+group_visible combined: 27.059 → 25.446 ms, 1.063x
+GroupVisible fresh wall int8_tail113: 0.988x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 127, "bounded_chunks": 109, "total_chunks": 128, "metadata": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 123.482, "alloc_copy_us": 333.493, "prepare_us": 456.975}, "metrics": {"score": {"current_ms": 10.711636666666667, "speedup": 1.1618772315173869, "current_samples_ms": [10.710951333333334, 10.712322], "group_visible_ms": 9.219249999999999, "group_visible_samples_ms": [9.219438666666665, 9.219061333333334]}, "topk": {"current_ms": 15.713918666666666, "speedup": 1.0000418542444287, "current_samples_ms": [15.713486666666666, 15.714350666666666], "group_visible_ms": 15.713261, "group_visible_samples_ms": [15.715038, 15.711484]}, "combined": {"current_ms": 27.059257000000002, "speedup": 1.0634009370813269, "current_samples_ms": [27.058412, 27.060102], "group_visible_ms": 25.445959333333334, "group_visible_samples_ms": [25.446190666666666, 25.445728]}}, "fresh_wall": {"medians": {"current": 232038.207, "group_visible": 234829.5275}, "phase_medians_us": {"preparation_us": {"current": 40579.043000000005, "group_visible": 40406.332}, "submit_us": {"current": 190617.2805, "group_visible": 191960.6375}, "sync_us": {"current": 79.781, "group_visible": 79.811}, "wall_us": {"current": 232038.207, "group_visible": 234829.5275}}, "phase_paired_median_saved_us": {"preparation_us": -696.4609999999993, "submit_us": 2438.797500000015, "sync_us": 2.0054999999999907, "wall_us": 1491.4744999999966}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 228261.022, "preparation_us": 40336.281, "submit_us": 187844.55, "sync_us": 80.191, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 227342.343, "preparation_us": 40247.96, "submit_us": 187017.153, "sync_us": 77.23, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 114.28, "alloc_copy_us": 341.113, "prepare_us": 455.393}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 235096.175, "preparation_us": 40411.472, "submit_us": 194604.302, "sync_us": 80.401, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 102.261, "alloc_copy_us": 331.293, "prepare_us": 433.554}}, "current": {"wall_us": 230016.009, "preparation_us": 41236.3, "submit_us": 188703.198, "sync_us": 76.511, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 231847.735, "preparation_us": 40821.805, "submit_us": 190928.339, "sync_us": 97.591, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 514772.661, "preparation_us": 324829.702, "submit_us": 189862.248, "sync_us": 80.711, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 107.15, "alloc_copy_us": 342.184, "prepare_us": 449.334}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 230164.409, "preparation_us": 43591.541, "submit_us": 186494.718, "sync_us": 78.15, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 104.06, "alloc_copy_us": 364.533, "prepare_us": 468.593}}, "current": {"wall_us": 232228.679, "preparation_us": 41843.086, "submit_us": 190306.222, "sync_us": 79.371, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 247500.199, "preparation_us": 38922.578, "submit_us": 208495.61, "sync_us": 82.011, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 239583.556, "preparation_us": 38661.866, "submit_us": 200842.469, "sync_us": 79.221, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 103.3, "alloc_copy_us": 301.093, "prepare_us": 404.393}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 234562.88, "preparation_us": 40401.192, "submit_us": 194059.027, "sync_us": 102.661, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 106.534, "alloc_copy_us": 328.673, "prepare_us": 435.207}}, "current": {"wall_us": 238347.775, "preparation_us": 38919.949, "submit_us": 199351.535, "sync_us": 76.291, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 0.988113417721713, "paired_saved_us": [918.6790000000037, -5080.165999999997, -282924.92600000004, 2064.2699999999895, 7916.642999999982, 3784.8949999999895], "candidate_wins": 4}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.305979           25.461000               0.562          ('int8_tail113', 'prefill')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_tail113]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:176: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    target = torch.empty_like(current.scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 71.25s (0:01:11)
+QSA INT8 harness worker: int8_two_balanced
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py", "sha256": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8"}, "topk_policy": "prefill_3seg", "topk_route": "prefill"}
+QSA_INT8_HARNESS_CASE int8_two_balanced
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_balanced control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_balanced candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_balanced cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_two_balanced direct_chunks=126 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_balanced score_trial
+group_visible score: 14.049 → 12.460 ms, 1.127x
+group_visible topk: 16.281 → 16.281 ms, 1.000x
+group_visible combined: 30.844 → 29.102 ms, 1.060x
+GroupVisible fresh wall int8_two_balanced: 0.983x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 126, "bounded_chunks": 87, "total_chunks": 128, "metadata": {"hit_chunks": 126, "bytes": 4032, "groups_from_policy": 1008, "copies": 1, "pack_us": 108.2, "alloc_copy_us": 343.593, "prepare_us": 451.793}, "metrics": {"score": {"current_ms": 14.049034666666667, "speedup": 1.1274887948938237, "current_samples_ms": [14.048962, 14.049107333333334], "group_visible_ms": 12.460465, "group_visible_samples_ms": [12.461974666666666, 12.458955333333334]}, "topk": {"current_ms": 16.281134333333334, "speedup": 1.0000004504192699, "current_samples_ms": [16.28208, 16.280188666666668], "group_visible_ms": 16.281126999999998, "group_visible_samples_ms": [16.280232666666667, 16.282021333333333]}, "combined": {"current_ms": 30.844081, "speedup": 1.0598706084329934, "current_samples_ms": [30.843584, 30.844578], "group_visible_ms": 29.101742, "group_visible_samples_ms": [29.101296666666666, 29.102187333333333]}}, "fresh_wall": {"medians": {"current": 231721.064, "group_visible": 235753.6655}, "phase_medians_us": {"preparation_us": {"current": 40187.585, "group_visible": 39853.167}, "submit_us": {"current": 191451.20799999998, "group_visible": 192353.70150000002}, "sync_us": {"current": 84.2555, "group_visible": 81.4255}, "wall_us": {"current": 231721.064, "group_visible": 235753.6655}}, "phase_paired_median_saved_us": {"preparation_us": 246.09200000000055, "submit_us": -1979.5430000000051, "sync_us": -0.8149999999999977, "wall_us": -4928.220000000001}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 226588.917, "preparation_us": 40494.833, "submit_us": 186006.603, "sync_us": 87.481, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 237133.333, "preparation_us": 40005.608, "submit_us": 197036.905, "sync_us": 90.82, "group_visible": {"hit_chunks": 126, "bytes": 4032, "groups_from_policy": 1008, "copies": 1, "pack_us": 115.1, "alloc_copy_us": 446.694, "prepare_us": 561.794}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 227897.039, "preparation_us": 39700.726, "submit_us": 188113.842, "sync_us": 82.471, "group_visible": {"hit_chunks": 126, "bytes": 4032, "groups_from_policy": 1008, "copies": 1, "pack_us": 109.901, "alloc_copy_us": 363.513, "prepare_us": 473.414}}, "current": {"wall_us": 226681.217, "preparation_us": 39880.337, "submit_us": 186719.85, "sync_us": 81.03, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 228999.359, "preparation_us": 39400.613, "submit_us": 189506.565, "sync_us": 92.181, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 234373.998, "preparation_us": 42221.648, "submit_us": 192071.659, "sync_us": 80.691, "group_visible": {"hit_chunks": 126, "bytes": 4032, "groups_from_policy": 1008, "copies": 1, "pack_us": 116.772, "alloc_copy_us": 401.374, "prepare_us": 518.146}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 696395.233, "preparation_us": 508800.426, "submit_us": 187515.237, "sync_us": 79.57, "group_visible": {"hit_chunks": 126, "bytes": 4032, "groups_from_policy": 1008, "copies": 1, "pack_us": 127.341, "alloc_copy_us": 342.863, "prepare_us": 470.204}}, "current": {"wall_us": 240779.318, "preparation_us": 41129.999, "submit_us": 199569.938, "sync_us": 79.381, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 234442.769, "preparation_us": 40967.167, "submit_us": 193395.851, "sync_us": 79.751, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 238924.57, "preparation_us": 38985.499, "submit_us": 199857.431, "sync_us": 81.64, "group_visible": {"hit_chunks": 126, "bytes": 4032, "groups_from_policy": 1008, "copies": 1, "pack_us": 111.033, "alloc_copy_us": 315.583, "prepare_us": 426.616}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 231289.17, "preparation_us": 38572.215, "submit_us": 192635.744, "sync_us": 81.211, "group_visible": {"hit_chunks": 126, "bytes": 4032, "groups_from_policy": 1008, "copies": 1, "pack_us": 110.052, "alloc_copy_us": 341.553, "prepare_us": 451.605}}, "current": {"wall_us": 234478.99, "preparation_us": 38884.788, "submit_us": 195499.591, "sync_us": 94.611, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 0.9828948513209862, "paired_saved_us": [-10544.416000000027, -1215.8219999999856, -5374.638999999996, -455615.91500000004, -4481.801000000007, 3189.819999999978], "candidate_wins": 1}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              15.582179           29.107157               0.535          ('int8_two_balanced', 'prefill')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_two_balanced]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:176: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    target = torch.empty_like(current.scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 75.03s (0:01:15)
+QSA INT8 harness worker: int8_two_skewed
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py", "sha256": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8"}, "topk_policy": "prefill_3seg", "topk_route": "prefill"}
+QSA_INT8_HARNESS_CASE int8_two_skewed
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_skewed control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_skewed candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_skewed cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_two_skewed direct_chunks=127 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_skewed score_trial
+group_visible score: 13.490 → 11.983 ms, 1.126x
+group_visible topk: 15.537 → 15.536 ms, 1.000x
+group_visible combined: 29.435 → 28.098 ms, 1.048x
+GroupVisible fresh wall int8_two_skewed: 0.982x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 127, "bounded_chunks": 109, "total_chunks": 128, "metadata": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 123.7, "alloc_copy_us": 331.853, "prepare_us": 455.553}, "metrics": {"score": {"current_ms": 13.490101, "speedup": 1.1257823565494325, "current_samples_ms": [13.490329333333333, 13.489872666666667], "group_visible_ms": 11.982867666666667, "group_visible_samples_ms": [11.982474, 11.983261333333333]}, "topk": {"current_ms": 15.537004333333334, "speedup": 1.0000904589088153, "current_samples_ms": [15.536977333333335, 15.537031333333333], "group_visible_ms": 15.535599000000001, "group_visible_samples_ms": [15.536956666666667, 15.534241333333334]}, "combined": {"current_ms": 29.434781666666666, "speedup": 1.0475820131829632, "current_samples_ms": [29.434778, 29.43478533333333], "group_visible_ms": 28.097830333333334, "group_visible_samples_ms": [28.099079333333332, 28.096581333333333]}}, "fresh_wall": {"medians": {"current": 230325.5015, "group_visible": 234536.085}, "phase_medians_us": {"preparation_us": {"current": 41608.543000000005, "group_visible": 43563.460999999996}, "submit_us": {"current": 187334.3805, "group_visible": 189433.5245}, "sync_us": {"current": 1754.846, "group_visible": 1736.7710000000002}, "wall_us": {"current": 230325.5015, "group_visible": 234536.085}}, "phase_paired_median_saved_us": {"preparation_us": -2737.050500000001, "submit_us": -3720.599000000002, "sync_us": 16.809499999999957, "wall_us": -6463.895000000004}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 231455.081, "preparation_us": 41948.466, "submit_us": 187761.239, "sync_us": 1745.376, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 234901.813, "preparation_us": 40042.179, "submit_us": 193133.378, "sync_us": 1726.256, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 106.49, "alloc_copy_us": 404.624, "prepare_us": 511.114}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 232854.415, "preparation_us": 44489.8, "submit_us": 186617.609, "sync_us": 1747.006, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 108.492, "alloc_copy_us": 522.495, "prepare_us": 630.987}}, "current": {"wall_us": 225925.91, "preparation_us": 40166.759, "submit_us": 183994.835, "sync_us": 1764.316, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 230068.019, "preparation_us": 41268.62, "submit_us": 187034.443, "sync_us": 1764.956, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 514624.369, "preparation_us": 326383.915, "submit_us": 186467.538, "sync_us": 1772.916, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 107.441, "alloc_copy_us": 345.413, "prepare_us": 452.854}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 241581.635, "preparation_us": 43503.18, "submit_us": 196386.129, "sync_us": 1692.326, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 123.341, "alloc_copy_us": 341.413, "prepare_us": 464.754}}, "current": {"wall_us": 233112.056, "preparation_us": 42352.12, "submit_us": 189051.301, "sync_us": 1708.635, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 228171.072, "preparation_us": 38800.478, "submit_us": 187634.318, "sync_us": 1736.276, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 234170.357, "preparation_us": 43623.742, "submit_us": 188798.599, "sync_us": 1748.016, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 106.801, "alloc_copy_us": 349.103, "prepare_us": 455.904}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 231440.341, "preparation_us": 39645.355, "submit_us": 190068.45, "sync_us": 1726.536, "group_visible": {"hit_chunks": 127, "bytes": 4064, "groups_from_policy": 1016, "copies": 1, "pack_us": 111.67, "alloc_copy_us": 404.354, "prepare_us": 516.024}}, "current": {"wall_us": 230582.984, "preparation_us": 43550.951, "submit_us": 185250.026, "sync_us": 1782.007, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 0.9820471826328986, "paired_saved_us": [-3446.731999999989, -6928.505000000005, -284556.35, -8469.578999999998, -5999.2850000000035, -857.3569999999891], "candidate_wins": 0}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.324628           28.094704               0.510          ('int8_two_skewed', 'prefill')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_two_skewed]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:176: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    target = torch.empty_like(current.scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 73.08s (0:01:13)
+QSA INT8 harness worker: int8_short_tail
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/top_k_per_row_prefill.py", "sha256": "99bc2e5d80b1bd1ef4d0cdf2257c67bcf8e77d52f2a194321249238f157b86c8"}, "topk_policy": "prefill_3seg", "topk_route": "prefill"}
+QSA_INT8_HARNESS_CASE int8_short_tail
+QSA_INT8_HARNESS_PREFLIGHT_START int8_short_tail control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_short_tail candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_short_tail cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_short_tail direct_chunks=18 total_chunks=19
+QSA_INT8_HARNESS_PREFLIGHT_START int8_short_tail score_trial
+group_visible score: 1.715 → 1.514 ms, 1.133x
+group_visible topk: 2.176 → 2.176 ms, 1.000x
+group_visible combined: 4.002 → 3.824 ms, 1.047x
+GroupVisible fresh wall int8_short_tail: 0.979x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 18, "bounded_chunks": 0, "total_chunks": 19, "metadata": {"hit_chunks": 18, "bytes": 576, "groups_from_policy": 144, "copies": 1, "pack_us": 16.62, "alloc_copy_us": 164.092, "prepare_us": 180.712}, "metrics": {"score": {"current_ms": 1.7154873333333334, "speedup": 1.133087023883621, "current_samples_ms": [1.715054, 1.7159206666666666], "group_visible_ms": 1.5139943333333332, "group_visible_samples_ms": [1.5155053333333333, 1.5124833333333332]}, "topk": {"current_ms": 2.1761660000000003, "speedup": 1.0000827211204486, "current_samples_ms": [2.1757566666666666, 2.1765753333333335], "group_visible_ms": 2.175986, "group_visible_samples_ms": [2.175876, 2.176096]}, "combined": {"current_ms": 4.002291666666666, "speedup": 1.0465792314574989, "current_samples_ms": [4.0021553333333335, 4.002428], "group_visible_ms": 3.824165, "group_visible_samples_ms": [3.8242526666666663, 3.8240773333333333]}}, "fresh_wall": {"medians": {"current": 36062.502, "group_visible": 36818.329}, "phase_medians_us": {"preparation_us": {"current": 7100.91, "group_visible": 7899.503}, "submit_us": {"current": 29082.708, "group_visible": 28603.042999999998}, "sync_us": {"current": 69.75550000000001, "group_visible": 73.571}, "wall_us": {"current": 36062.502, "group_visible": 36818.329}}, "phase_paired_median_saved_us": {"preparation_us": -1012.4744999999998, "submit_us": 106.67649999999776, "sync_us": -3.3094999999999963, "wall_us": -1513.0445000000036}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 39956.398, "preparation_us": 10678.819, "submit_us": 29204.389, "sync_us": 73.19, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 36232.553, "preparation_us": 7588.33, "submit_us": 28577.103, "sync_us": 67.12, "group_visible": {"hit_chunks": 18, "bytes": 576, "groups_from_policy": 144, "copies": 1, "pack_us": 28.66, "alloc_copy_us": 381.463, "prepare_us": 410.123}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 40611.764, "preparation_us": 8210.676, "submit_us": 32331.288, "sync_us": 69.8, "group_visible": {"hit_chunks": 18, "bytes": 576, "groups_from_policy": 144, "copies": 1, "pack_us": 25.54, "alloc_copy_us": 421.964, "prepare_us": 447.504}}, "current": {"wall_us": 36425.875, "preparation_us": 7025.444, "submit_us": 29340.03, "sync_us": 60.401, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 38103.691, "preparation_us": 7967.183, "submit_us": 30034.477, "sync_us": 102.031, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 34088.644, "preparation_us": 7060.895, "submit_us": 26943.698, "sync_us": 84.051, "group_visible": {"hit_chunks": 18, "bytes": 576, "groups_from_policy": 144, "copies": 1, "pack_us": 21.251, "alloc_copy_us": 582.756, "prepare_us": 604.007}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 37938.049, "preparation_us": 9232.035, "submit_us": 28628.983, "sync_us": 77.031, "group_visible": {"hit_chunks": 18, "bytes": 576, "groups_from_policy": 144, "copies": 1, "pack_us": 20.93, "alloc_copy_us": 242.872, "prepare_us": 263.802}}, "current": {"wall_us": 35699.129, "preparation_us": 6671.482, "submit_us": 28961.027, "sync_us": 66.62, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 34445.587, "preparation_us": 6290.608, "submit_us": 28095.299, "sync_us": 59.68, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 35480.127, "preparation_us": 7186.656, "submit_us": 28213.99, "sync_us": 79.481, "group_visible": {"hit_chunks": 18, "bytes": 576, "groups_from_policy": 144, "copies": 1, "pack_us": 25.53, "alloc_copy_us": 409.634, "prepare_us": 435.164}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 37404.105, "preparation_us": 8305.277, "submit_us": 29028.717, "sync_us": 70.111, "group_visible": {"hit_chunks": 18, "bytes": 576, "groups_from_policy": 144, "copies": 1, "pack_us": 23.46, "alloc_copy_us": 338.243, "prepare_us": 361.703}}, "current": {"wall_us": 35412.556, "preparation_us": 7176.376, "submit_us": 28163.289, "sync_us": 72.891, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 0.9794714474956211, "paired_saved_us": [3723.845000000001, -4185.889000000003, 4015.0469999999987, -2238.9199999999983, -1034.5400000000009, -1991.5490000000063], "candidate_wins": 2}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               2.530795            3.811439               0.664          ('int8_short_tail', 'prefill')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_short_tail]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:176: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    target = torch.empty_like(current.scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 13.94s
+QSA INT8 harness worker: int8_compact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "prefill_3seg", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_compact
+QSA_INT8_HARNESS_SHORT_SCORE int8_compact query16_chunks=70 bounded_chunks=0 total_chunks=70
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_compact direct_chunks=0 total_chunks=70
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact score_trial
+GroupVisible int8_compact: zero eligible chunks, no metadata upload
+GroupVisible fresh wall int8_compact: 1.004x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 0, "bounded_chunks": 0, "total_chunks": 70, "metadata": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}, "metrics": null, "fresh_wall": {"medians": {"current": 116266.77549999999, "group_visible": 115842.312}, "phase_medians_us": {"preparation_us": {"current": 15240.231, "group_visible": 15336.491}, "submit_us": {"current": 101032.005, "group_visible": 100886.639}, "sync_us": {"current": 104.01050000000001, "group_visible": 100.761}, "wall_us": {"current": 116266.77549999999, "group_visible": 115842.312}}, "phase_paired_median_saved_us": {"preparation_us": -130.17600000000039, "submit_us": 145.7760000000053, "sync_us": 6.625, "wall_us": 424.463499999998}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 116257.271, "preparation_us": 15346.942, "submit_us": 100797.158, "sync_us": 113.171, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 115798.377, "preparation_us": 14808.347, "submit_us": 100883.499, "sync_us": 106.531, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 115886.247, "preparation_us": 14896.717, "submit_us": 100889.779, "sync_us": 99.751, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "current": {"wall_us": 116276.28, "preparation_us": 14903.067, "submit_us": 101266.852, "sync_us": 106.361, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 117197.14, "preparation_us": 14825.457, "submit_us": 102257.932, "sync_us": 113.751, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 118397.5, "preparation_us": 15946.996, "submit_us": 102343.453, "sync_us": 107.051, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 114179.141, "preparation_us": 19343.068, "submit_us": 94752.883, "sync_us": 83.19, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "current": {"wall_us": 114997.519, "preparation_us": 15850.266, "submit_us": 99046.362, "sync_us": 100.891, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 114379.843, "preparation_us": 15133.52, "submit_us": 99144.663, "sync_us": 101.66, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 119550.461, "preparation_us": 14812.116, "submit_us": 104636.574, "sync_us": 101.771, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 115764.036, "preparation_us": 15776.265, "submit_us": 99902.77, "sync_us": 85.001, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "current": {"wall_us": 119886.704, "preparation_us": 15509.563, "submit_us": 104285.94, "sync_us": 91.201, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 1.0036641490718865, "paired_saved_us": [458.89400000000023, 390.0329999999958, -1200.3600000000006, 818.377999999997, -5170.618000000002, 4122.668000000005], "candidate_wins": 4}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               3.155572            6.960519               0.453          ('int8_compact', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_compact]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:516: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    candidate_scores = torch.empty_like(scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 9.73s
+QSA INT8 harness worker: int8_long100k
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "prefill_3seg", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_long100k
+QSA_INT8_HARNESS_PREFLIGHT_START int8_long100k control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_long100k candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_long100k cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_long100k direct_chunks=147 total_chunks=147
+QSA_INT8_HARNESS_PREFLIGHT_START int8_long100k score_trial
+group_visible score: 38.284 → 34.023 ms, 1.125x
+group_visible topk: 51.435 → 51.440 ms, 1.000x
+group_visible combined: 89.627 → 85.762 ms, 1.045x
+GroupVisible fresh wall int8_long100k: 1.009x
+QSA_INT8_HARNESS_GROUP_VISIBLE {"hits": 147, "bounded_chunks": 13, "total_chunks": 147, "metadata": {"hit_chunks": 147, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 94.6, "alloc_copy_us": 389.634, "prepare_us": 484.234}, "metrics": {"score": {"current_ms": 38.283682666666664, "speedup": 1.1252385219370031, "current_samples_ms": [38.285763333333335, 38.281602], "group_visible_ms": 34.02272666666667, "group_visible_samples_ms": [34.022114, 34.02333933333333]}, "topk": {"current_ms": 51.435347333333326, "speedup": 0.999914787008475, "current_samples_ms": [51.43238866666666, 51.438306], "group_visible_ms": 51.43973066666667, "group_visible_samples_ms": [51.44357133333334, 51.43589]}, "combined": {"current_ms": 89.62657866666666, "speedup": 1.0450558299121304, "current_samples_ms": [89.62848333333334, 89.624674], "group_visible_ms": 85.762479, "group_visible_samples_ms": [85.76048866666667, 85.76446933333332]}}, "fresh_wall": {"medians": {"current": 418241.8365, "group_visible": 414702.6695}, "phase_medians_us": {"preparation_us": {"current": 121503.419, "group_visible": 119167.7075}, "submit_us": {"current": 296102.02150000003, "group_visible": 295661.8625}, "sync_us": {"current": 88.146, "group_visible": 85.271}, "wall_us": {"current": 418241.8365, "group_visible": 414702.6695}}, "phase_paired_median_saved_us": {"preparation_us": -1561.684500000003, "submit_us": 363.8280000000086, "sync_us": 2.770000000000003, "wall_us": -2260.5054999999993}, "samples": [{"order": ["current", "group_visible"], "current": {"wall_us": 549726.442, "preparation_us": 132777.212, "submit_us": 416767.198, "sync_us": 182.032, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 412375.248, "preparation_us": 116089.159, "submit_us": 296202.178, "sync_us": 83.911, "group_visible": {"hit_chunks": 147, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 92.164, "alloc_copy_us": 454.805, "prepare_us": 546.969}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 412338.637, "preparation_us": 116869.346, "submit_us": 295333.48, "sync_us": 135.811, "group_visible": {"hit_chunks": 147, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 93.431, "alloc_copy_us": 444.844, "prepare_us": 538.275}}, "current": {"wall_us": 406287.852, "preparation_us": 116619.294, "submit_us": 289589.467, "sync_us": 79.091, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 419401.642, "preparation_us": 119308.619, "submit_us": 300007.102, "sync_us": 85.921, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 417030.091, "preparation_us": 121466.069, "submit_us": 295478.741, "sync_us": 85.281, "group_visible": {"hit_chunks": 147, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 94.09, "alloc_copy_us": 398.284, "prepare_us": 492.374}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 876284.18, "preparation_us": 580353.935, "submit_us": 295844.984, "sync_us": 85.261, "group_visible": {"hit_chunks": 147, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 94.16, "alloc_copy_us": 439.374, "prepare_us": 533.534}}, "current": {"wall_us": 417082.031, "preparation_us": 123698.219, "submit_us": 293294.811, "sync_us": 89.001, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}, {"order": ["current", "group_visible"], "current": {"wall_us": 425658.53, "preparation_us": 129159.31, "submit_us": 296410.989, "sync_us": 88.231, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}, "group_visible": {"wall_us": 425660.9, "preparation_us": 130125.229, "submit_us": 295449.24, "sync_us": 86.431, "group_visible": {"hit_chunks": 147, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 93.941, "alloc_copy_us": 392.364, "prepare_us": 486.305}}}, {"order": ["group_visible", "current"], "group_visible": {"wall_us": 410408.429, "preparation_us": 114298.422, "submit_us": 296027.147, "sync_us": 82.86, "group_visible": {"hit_chunks": 147, "bytes": 4096, "groups_from_policy": 1024, "copies": 1, "pack_us": 93.24, "alloc_copy_us": 374.343, "prepare_us": 467.583}}, "current": {"wall_us": 405889.788, "preparation_us": 110008.673, "submit_us": 295793.054, "sync_us": 88.061, "group_visible": {"hit_chunks": 0, "bytes": 0, "groups_from_policy": 0, "copies": 0, "pack_us": 0.0, "alloc_copy_us": 0.0, "prepare_us": 0.0}}}], "speedup": 1.008534227677548, "paired_saved_us": [137351.19400000002, -6050.784999999974, 2371.5509999999776, -459202.14900000003, -2.3699999999953434, -4518.641000000003], "candidate_wins": 2}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              50.265539           85.761165               0.586          ('int8_long100k', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_long100k]
+  /tmp/flaggems-qsa-group-visible-full.Z6PRgWUY/benchmark/test_qsa_select_paged_prefill_int8_perf.py:176: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    target = torch.empty_like(current.scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 111.79s (0:01:51)
+QSA INT8 harness kernel arithmetic mean (10 cases): 0.563045x [TopK prefill_3seg]
