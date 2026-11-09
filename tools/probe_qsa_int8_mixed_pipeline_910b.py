@@ -32,10 +32,10 @@ import triton.language.extra.cann.extension as al
 from triton.experimental.tle.language.dsa.ascend.custom_ops import SORT_IMPL_BASE
 
 pipe = al.PIPE
-CASES = {"short": (35, 769), "long": (79, 8193)}
+CASES = {"short": (35, 769), "long": (39, 8193)}
 PAGE = 192
 TOPK = 512
-ROWS_PER_CORE = 4
+ROWS_PER_CORE = 2
 CUBE_TILE = 64
 
 
@@ -52,10 +52,10 @@ def _qsa_int8_mixed_ring(
     lane = tl.arange(0, TOP)
     pair_lane = tl.arange(0, TOP * 2)
     merge_lane = tl.arange(0, TOP * 8)
-    base_row = pid * 4
+    base_row = pid * 2
     q = tl.load(
         Q + (base_row * 4 + m[:, None]) * 128 + d[None, :],
-        mask=base_row + m[:, None] // 4 < ROWS, other=0,
+        mask=(m[:, None] < 8) & (base_row + m[:, None] // 4 < ROWS), other=0,
     )
     for ring_index in tl.static_range(SLOTS):
         al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -80,44 +80,43 @@ def _qsa_int8_mixed_ring(
         page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
         token = page * PAGE_SIZE + column % PAGE_SIZE
         key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
-        for local in tl.static_range(2):
-            row_in_core = al.sub_vec_id() * 2 + local
-            row = base_row + row_in_core
-            if row < ROWS:
-                visible = tl.load(Visible + row)
-                h = tl.arange(0, 4)
-                dot = tl.load(work + (row_in_core * 4 + h[:, None]) * TOP + lane[None, :])
-                qs = tl.load(QS + row * 4 + h).to(tl.float32)
-                weight = tl.load(Weight + row * 4 + h).to(tl.float32)
-                dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
-                score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
-                score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
-                pairs = tl.zeros((2 * TOP,), tl.float32)
-                pairs = tle.dsa.ascend.raw(
-                    "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
-                    True, TOP, tile * TOP, SORT_IMPL_BASE, out=pairs,
+        row_in_core = al.sub_vec_id()
+        row = base_row + row_in_core
+        if row < ROWS:
+            visible = tl.load(Visible + row)
+            h = tl.arange(0, 4)
+            dot = tl.load(work + (row_in_core * 4 + h[:, None]) * TOP + lane[None, :])
+            qs = tl.load(QS + row * 4 + h).to(tl.float32)
+            weight = tl.load(Weight + row * 4 + h).to(tl.float32)
+            dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
+            score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
+            score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
+            pairs = tl.zeros((2 * TOP,), tl.float32)
+            pairs = tle.dsa.ascend.raw(
+                "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
+                True, TOP, tile * TOP, SORT_IMPL_BASE, out=pairs,
+            )
+            state = State + row * 4 * TOP
+            if tile > 0:
+                tl.store(state + 2 * TOP + pair_lane, pairs)
+                packed = tl.load(state + merge_lane, mask=merge_lane < 4 * TOP, other=0)
+                merged, _ = tle.dsa.ascend.raw(
+                    "merge_exhaust_sort4", packed, 2,
+                    0, TOP, 2 * TOP, 3 * TOP, TOP, TOP, 0, 0,
+                    out=[tl.zeros((8 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
                 )
-                state = State + row * 4 * TOP
-                if tile > 0:
-                    tl.store(state + 2 * TOP + pair_lane, pairs)
-                    packed = tl.load(state + merge_lane, mask=merge_lane < 4 * TOP, other=0)
-                    merged, _ = tle.dsa.ascend.raw(
-                        "merge_exhaust_sort4", packed, 2,
-                        0, TOP, 2 * TOP, 3 * TOP, TOP, TOP, 0, 0,
-                        out=[tl.zeros((8 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
-                    )
-                    # Each input has TOP entries including -inf padding. Exhausting
-                    # either list therefore guarantees at least TOP merged entries.
-                    pairs = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
-                tl.store(state + pair_lane, pairs)
-                if tile == tl.cdiv(WIDTH, TOP) - 1:
-                    values, indices = tle.dsa.ascend.raw(
-                        "unpack_sort", pairs, TOP,
-                        out=[tl.zeros((TOP,), tl.float32), tl.zeros((TOP,), tl.int32)],
-                    )
-                    live = lane < tl.minimum(visible, TOP)
-                    tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
-                    tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
+                # Each input has TOP entries including -inf padding. Exhausting
+                # either list therefore guarantees at least TOP merged entries.
+                pairs = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
+            tl.store(state + pair_lane, pairs)
+            if tile == tl.cdiv(WIDTH, TOP) - 1:
+                values, indices = tle.dsa.ascend.raw(
+                    "unpack_sort", pairs, TOP,
+                    out=[tl.zeros((TOP,), tl.float32), tl.zeros((TOP,), tl.int32)],
+                )
+                live = lane < tl.minimum(visible, TOP)
+                tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
+                tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
         al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
         al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -202,7 +201,7 @@ def worker(args):
             use_bytecode=True,
             enable_ubuf_saving=True,
             unit_flag=False,
-            multibuffer=True,
+            multibuffer=False,
             sync_solver=False,
         )
 
@@ -213,7 +212,7 @@ def worker(args):
 
     report = Path(args.report)
     functions = {"serial": lambda: launch(1), "double_buffer": lambda: launch(2)}
-    result = {"case": args.worker, "rows": rows, "width": width, "arms": {}}
+    result = {"case": args.worker, "rows": rows, "width": width, "rows_per_core": ROWS_PER_CORE, "arms": {}}
     for name, fn in functions.items():
         print(f"{args.worker}/{name}: compiling and launching", flush=True)
         kernel = fn()
