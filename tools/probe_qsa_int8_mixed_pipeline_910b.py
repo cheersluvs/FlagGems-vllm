@@ -43,9 +43,9 @@ CUBE_TILE = 64
 
 @triton.jit
 def _qsa_int8_mixed_ring(
-    Q, K, QS, KS, Weight, Table, Visible, Workspace, State, Indices, Values,
+    Q, K, QS, KS, Weight, Table, Visible, Workspace, Proposals,
     ROWS: tl.constexpr, WIDTH: tl.constexpr, SLOTS: tl.constexpr,
-    PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr, CUT: tl.constexpr,
+    PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr,
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
@@ -53,7 +53,6 @@ def _qsa_int8_mixed_ring(
     n = tl.arange(0, CHUNK)
     lane = tl.arange(0, TOP)
     pair_lane = tl.arange(0, TOP * 2)
-    merge_lane = tl.arange(0, TOP * 8)
     base_row = pid * 2
     q = tl.load(
         Q + (base_row * 4 + m[:, None]) * 128 + d[None, :],
@@ -93,49 +92,55 @@ def _qsa_int8_mixed_ring(
             dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
             score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
             score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
-            if CUT == 0:
-                tl.store(State + row * 4 * TOP + lane, score)
-            else:
-                pairs = tl.zeros((2 * TOP,), tl.float32)
-                pairs = tle.dsa.ascend.raw(
-                    "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
-                    True, TOP, tile * TOP, SORT_IMPL_BASE, out=pairs,
-                )
-                state = State + row * 4 * TOP
-                if CUT == 1:
-                    tl.store(state + pair_lane, pairs)
-                else:
-                    if tile > 0:
-                        if CUT == 4 or CUT == 5:
-                            previous = tl.load(state + pair_lane)
-                            active = tl.join(previous, pairs)
-                            padded = tl.join(active, tl.zeros((2 * TOP, 2), tl.float32))
-                            packed = tl.reshape(tl.permute(padded, (2, 1, 0)), (8 * TOP,))
-                        else:
-                            tl.store(state + 2 * TOP + pair_lane, pairs)
-                            packed = tl.load(state + merge_lane, mask=merge_lane < 4 * TOP, other=0)
-                        merged, _ = tle.dsa.ascend.raw(
-                            "merge_exhaust_sort4", packed, 2,
-                            0, TOP, 2 * TOP, 3 * TOP, TOP, TOP, 0, 0,
-                            out=[tl.zeros((8 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
-                        )
-                        # Each input has TOP entries including -inf padding. Exhausting
-                        # either list therefore guarantees at least TOP merged entries.
-                        pairs = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
-                    tl.store(state + pair_lane, pairs)
-                    if CUT == 2 or CUT == 4:
-                        if tile == tl.cdiv(WIDTH, TOP) - 1:
-                            values, indices = tle.dsa.ascend.raw(
-                                "unpack_sort", pairs, TOP,
-                                out=[tl.zeros((TOP,), tl.float32), tl.zeros((TOP,), tl.int32)],
-                            )
-                            live = lane < tl.minimum(visible, TOP)
-                            tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
-                            tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
+            pairs = tle.dsa.ascend.raw(
+                "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
+                True, TOP, tile * TOP, SORT_IMPL_BASE,
+                out=tl.zeros((2 * TOP,), tl.float32),
+            )
+            proposal = Proposals + (row * tl.cdiv(WIDTH, TOP) + tile) * 2 * TOP
+            tl.store(proposal + pair_lane, pairs)
         al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
         al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
 
+
+
+@triton.jit
+def _qsa_int8_vector_merge(
+    Proposals, Out, Visible, Indices, Values,
+    INPUT_LISTS: tl.constexpr, OUTPUT_LISTS: tl.constexpr,
+    TOP: tl.constexpr, FINAL: tl.constexpr,
+):
+    task = tl.program_id(0)
+    row = task // OUTPUT_LISTS
+    group = task % OUTPUT_LISTS
+    first = group * 4
+    lanes = tl.arange(0, 8 * TOP)
+    ways = tl.minimum(4, INPUT_LISTS - first)
+    packed = tl.load(
+        Proposals + (row * INPUT_LISTS + first) * 2 * TOP + lanes,
+        mask=lanes < ways * 2 * TOP, other=0,
+    )
+    pairs = al.extract_slice(packed, (0,), (2 * TOP,), (1,))
+    if ways > 1:
+        merged, _ = tle.dsa.ascend.raw(
+            "merge_exhaust_sort4", packed, ways,
+            0, TOP, 2 * TOP, 3 * TOP, TOP, TOP,
+            tl.where(ways > 2, TOP, 0), tl.where(ways > 3, TOP, 0),
+            out=[tl.zeros((8 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
+        )
+        pairs = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
+    if FINAL:
+        values, indices = tle.dsa.ascend.raw(
+            "unpack_sort", pairs, TOP,
+            out=[tl.zeros((TOP,), tl.float32), tl.zeros((TOP,), tl.int32)],
+        )
+        lane = tl.arange(0, TOP)
+        live = lane < tl.minimum(tl.load(Visible + row), TOP)
+        tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
+        tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
+    else:
+        tl.store(Out + task * 2 * TOP + tl.arange(0, 2 * TOP), pairs)
 
 def fixture(case):
     rows, width = CASES[case]
@@ -240,18 +245,23 @@ def worker(args):
     cpu = fixture(args.worker)
     inputs = tuple(t.to(device) for t in cpu)
     workspace = torch.empty((cores, 2, 16, TOPK), device=device, dtype=torch.int32)
-    state = torch.empty((rows, 4 * TOPK), device=device, dtype=torch.float32)
+    lists = triton.cdiv(width, TOPK)
+    state = torch.empty((rows, lists, 2 * TOPK), device=device, dtype=torch.float32)
+    levels = [state]
+    while lists > 1:
+        lists = triton.cdiv(lists, 4)
+        levels.append(torch.empty((rows, lists, 2 * TOPK), device=device, dtype=torch.float32))
     indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
     values = torch.empty_like(indices, dtype=torch.float32)
 
-    def launch(slots, cut=4, compile_only=False):
+    def launch(slots, compile_only=False):
         if compile_only:
             invoke = lambda *a, **kw: _qsa_int8_mixed_ring.warmup(*a, grid=(cores,), **kw)
         else:
             invoke = _qsa_int8_mixed_ring[(cores,)]
         return invoke(
-            *inputs, workspace, state, indices, values,
-            rows, width, slots, PAGE, TOPK, CUBE_TILE, cut,
+            *inputs, workspace, state,
+            rows, width, slots, PAGE, TOPK, CUBE_TILE,
             disable_auto_cv_work_space_manage=True,
             disable_auto_inject_block_sync=True,
             enable_auto_bind_sub_block=False,
@@ -272,30 +282,46 @@ def worker(args):
 
     preflight = {}
     for slots, arm in ((1, "serial"), (2, "double_buffer")):
-        outcomes = {}
-        preflight[arm] = outcomes
-        for cut, stage in ((4, "full"), (3, "merge_gm_roundtrip"), (5, "merge_direct_pairs")):
-            if stage != "full" and outcomes["full"]["compiled"]:
-                break
-            label = f"{args.worker}-{arm}-{stage}"
-            print(f"{label}: compile only", flush=True)
-            with patch.object(compiler, "subprocess", CompileCapture(report, label)):
-                try:
-                    kernel = launch(slots, cut, compile_only=True)
-                    outcomes[stage] = dict(compiled=True, artifacts=save_artifacts(kernel, report, label))
-                except Exception as exc:
-                    outcomes[stage] = dict(compiled=False, error=str(exc))
-                    print(f"{label}: {exc}", flush=True)
+        label = f"{args.worker}-{arm}-proposals"
+        print(f"{label}: compile only", flush=True)
+        with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+            try:
+                kernel = launch(slots, compile_only=True)
+                preflight[arm] = dict(compiled=True, artifacts=save_artifacts(kernel, report, label))
+            except Exception as exc:
+                preflight[arm] = dict(compiled=False, error=str(exc))
+                print(f"{label}: {exc}", flush=True)
     (report / f"{args.worker}-compile.json").write_text(json.dumps(preflight, indent=2))
-    if not all(outcomes["full"]["compiled"] for outcomes in preflight.values()):
+    if not all(outcome["compiled"] for outcome in preflight.values()):
         raise SystemExit(1)
 
-    functions = {"serial": lambda: launch(1), "double_buffer": lambda: launch(2)}
-    result = {"case": args.worker, "rows": rows, "width": width, "rows_per_core": ROWS_PER_CORE, "merge_input": "direct_pairs", "arms": {}}
+    def merge():
+        kernels = []
+        for current, target in zip(levels, levels[1:]):
+            kernels.append(_qsa_int8_vector_merge[(rows * target.shape[1],)](
+                current, target, inputs[-1], indices, values,
+                current.shape[1], target.shape[1], TOPK, target.shape[1] == 1,
+                use_bytecode=True, enable_auto_bind_sub_block=False,
+                enable_ubuf_saving=True, multibuffer=False,
+            ))
+        return kernels
+
+    def pipeline(slots):
+        launch(slots)
+        return merge()
+
+    functions = {"serial": lambda: pipeline(1), "double_buffer": lambda: pipeline(2)}
+    proposal_functions = {"serial": lambda: launch(1), "double_buffer": lambda: launch(2)}
+    result = {"case": args.worker, "rows": rows, "width": width,
+              "rows_per_core": ROWS_PER_CORE, "merge": "separate_vector_tree", "arms": {}}
     for name, fn in functions.items():
-        print(f"{args.worker}/{name}: compiling and launching", flush=True)
-        kernel = fn()
-        artifacts = save_artifacts(kernel, report, f"{args.worker}-{name}")
+        print(f"{args.worker}/{name}: validating proposals plus Vector merge", flush=True)
+        with patch.object(compiler, "subprocess", CompileCapture(report, f"{args.worker}-{name}-merge")):
+            kernels = fn()
+        artifacts = [
+            file for i, kernel in enumerate(kernels)
+            for file in save_artifacts(kernel, report, f"{args.worker}-{name}-merge{i}")
+        ]
         torch.npu.synchronize()
         result["arms"][name] = dict(artifacts=artifacts, correctness=check(cpu, indices, values))
         for _ in range(3):
@@ -303,24 +329,25 @@ def worker(args):
         torch.npu.synchronize()
         result["arms"][name]["repeat_correctness"] = check(cpu, indices, values)
 
-    samples = {name: [] for name in functions}
-    for round_index in range(6):
-        order = tuple(functions) if round_index % 2 == 0 else tuple(reversed(functions))
-        for name in order:
-            start = torch.npu.Event(enable_timing=True)
-            stop = torch.npu.Event(enable_timing=True)
-            start.record()
-            for _ in range(8):
-                functions[name]()
-            stop.record()
-            stop.synchronize()
-            samples[name].append(start.elapsed_time(stop) * 1000 / 8)
-    medians = {name: statistics.median(times) for name, times in samples.items()}
-    result.update(
-        event_samples_us=samples, event_medians_us=medians,
-        serial_over_double=medians["serial"] / medians["double_buffer"],
-        hardware_overlap_verified=False,
-    )
+    for stage, funcs in (("proposals", proposal_functions), ("pipeline", functions)):
+        samples = {name: [] for name in funcs}
+        for round_index in range(6):
+            order = tuple(funcs) if round_index % 2 == 0 else tuple(reversed(funcs))
+            for name in order:
+                start = torch.npu.Event(enable_timing=True)
+                stop = torch.npu.Event(enable_timing=True)
+                start.record()
+                for _ in range(8):
+                    funcs[name]()
+                stop.record()
+                stop.synchronize()
+                samples[name].append(start.elapsed_time(stop) * 1000 / 8)
+        medians = {name: statistics.median(times) for name, times in samples.items()}
+        result[stage] = dict(
+            event_samples_us=samples, event_medians_us=medians,
+            serial_over_double=medians["serial"] / medians["double_buffer"],
+        )
+    result["hardware_overlap_verified"] = False
     summary = report / f"{args.worker}-summary.json"
     summary.write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2), flush=True)
