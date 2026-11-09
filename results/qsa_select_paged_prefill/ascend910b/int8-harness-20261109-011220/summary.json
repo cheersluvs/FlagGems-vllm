@@ -1,0 +1,82 @@
+{
+  "exit_code": 0,
+  "mode": "kernel",
+  "benchmark": "qsa_select_paged_prefill_int8_910b",
+  "baseline": "torch_npu.npu_quant_lightning_indexer (CANN V1)",
+  "candidate": "Prepared INT8 selection with shared page proof",
+  "topk_policy": "prefill_3seg",
+  "cases": [
+    {
+      "case": "int8_first_chunk",
+      "baseline_ms": 8.059555333333334,
+      "candidate_ms": 15.292263333333334,
+      "speedup": 0.527034825235157,
+      "topk_route": "auto"
+    },
+    {
+      "case": "int8_budget_exact",
+      "baseline_ms": 14.274407333333334,
+      "candidate_ms": 23.45581866666667,
+      "speedup": 0.6085657267473191,
+      "topk_route": "auto"
+    },
+    {
+      "case": "int8_dominant_long",
+      "baseline_ms": 14.743523333333334,
+      "candidate_ms": 27.329510666666668,
+      "speedup": 0.5394726423446635,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_tail112",
+      "baseline_ms": 14.295821333333334,
+      "candidate_ms": 27.071736666666666,
+      "speedup": 0.5280718229996574,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_tail113",
+      "baseline_ms": 14.29856,
+      "candidate_ms": 26.68738,
+      "speedup": 0.5357798330147058,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_two_balanced",
+      "baseline_ms": 15.554749333333334,
+      "candidate_ms": 30.47012733333333,
+      "speedup": 0.510491773243,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_two_skewed",
+      "baseline_ms": 14.33167,
+      "candidate_ms": 29.777198,
+      "speedup": 0.48129679629359357,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_short_tail",
+      "baseline_ms": 2.5268926666666665,
+      "candidate_ms": 4.073976,
+      "speedup": 0.6202522220716731,
+      "topk_route": "prefill"
+    },
+    {
+      "case": "int8_compact",
+      "baseline_ms": 3.1576426666666664,
+      "candidate_ms": 7.094242,
+      "speedup": 0.44509937307842984,
+      "topk_route": "auto"
+    },
+    {
+      "case": "int8_long100k",
+      "baseline_ms": 50.22775933333334,
+      "candidate_ms": 89.18742333333333,
+      "speedup": 0.5631708760730727,
+      "topk_route": "auto"
+    }
+  ],
+  "arithmetic_mean_speedup": 0.5359235891101272,
+  "short_score_trial": "N64 query16 versus the current N128 score on the same tensors; both arms use the current TopK route."
+}
