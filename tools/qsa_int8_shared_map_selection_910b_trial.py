@@ -170,7 +170,13 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         )
         self.key_group4 = bool(key_group4) and triton.cdiv(self.width, 128) >= 16
         self.single_page64 = bool(single_page64) and self.width >= 8192
-        query16_page64 = self.single_page64 or (single_page64 and allow_short_query16)
+        # Keep at least three eight-tile blocks per query group. Cap the
+        # trial at the largest width covered by the short-width comparison.
+        self.short_query16 = (
+            bool(allow_short_query16 and single_page64 and query16)
+            and 2 * 8 * 64 < self.width <= 4096
+        )
+        query16_page64 = self.single_page64 or self.short_query16
         starts = list(request_starts)
         if (
             len(starts) < 2
@@ -211,7 +217,11 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             )
         self.query16_routes = {}
         self.skip_invisible_routes = {}
-        visible = values["visible"].cpu().tolist() if self.skip_invisible else None
+        visible = (
+            values["visible"].cpu().tolist()
+            if self.skip_invisible or self.short_query16
+            else None
+        )
         self.group_visible_kernels = group_visible_kernels
         self.group_visible_offsets = {}
         self.direct_page_kernels = direct_page_kernels
@@ -219,7 +229,9 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         direct_page_guard_ns = 0
         query16_proof_ns = 0
         valid_prefixes = (
-            {} if cache_direct_page_guard or shared_direct_page_proof else None
+            {}
+            if cache_direct_page_guard or shared_direct_page_proof or self.short_query16
+            else None
         )
         if shared_direct_page_proof:
             physical_pages = values["cache"].shape[0]
@@ -234,6 +246,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             prefixes = (
                 []
                 if eligible
+                and not self.short_query16
                 and shared_direct_page_proof
                 and direct_page_kernels is not None
                 and self.page_reuse
@@ -273,6 +286,23 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                         prefixes.append(last_prefix)
                 if time_page_proof:
                     query16_proof_ns += time.perf_counter_ns() - proof_start
+            if eligible and self.short_query16:
+                maxima = [
+                    max(visible[row : min(row + 16, first + count)])
+                    for row in range(first, first + count, 16)
+                ]
+                proof = direct_page_route(
+                    table,
+                    first,
+                    count,
+                    self.width,
+                    values["cache"].shape[0],
+                    maxima=maxima,
+                    valid_prefixes=valid_prefixes,
+                )
+                eligible = proof == "bounded"
+                if not eligible:
+                    reason = proof
             self.query16_routes[first, count] = eligible
             selected = False
             want_metadata = (
@@ -282,7 +312,10 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                 and count % 16 == 0
             )
             want_page_check = (
-                direct_page_kernels is not None and eligible and self.page_reuse
+                direct_page_kernels is not None
+                and eligible
+                and self.page_reuse
+                and not self.short_query16
             )
             maxima = (
                 [] if want_metadata or (want_page_check and count % 16 == 0) else None

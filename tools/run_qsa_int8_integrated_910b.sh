@@ -100,7 +100,7 @@ print("\n".join(names))
         fi
         if [[ ${QSA_HARNESS_SHORT_SCORE:-0} == 1 ]]; then
             qsa_short_score_flag=--short-score
-            printf 'QSA INT8 trial: N64 query16 scoring on first_chunk and compact\n'
+            printf 'QSA INT8 trial: guarded N64 query16 scoring for widths (1024, 4096]\n'
         fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do

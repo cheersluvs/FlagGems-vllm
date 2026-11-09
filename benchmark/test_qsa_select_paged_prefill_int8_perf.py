@@ -31,7 +31,6 @@ import flaggems_vllm
 from tools.qsa_int8_ten_workloads_910b import cases, make_inputs, sample_rows
 from tools.summarize_qsa_int8_harness_910b import (
     OP_NAME,
-    SHORT_SCORE_CASES,
     TOPK_SEGMENT,
     topk_route,
 )
@@ -357,17 +356,14 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         adapter_kwargs = dict(key_group4=True, single_page64=True)
         control = PreparedSharedMapInt8Selection(*adapter_args, **adapter_kwargs)
         stages = os.environ.get("QSA_HARNESS_STAGES") == "1"
-        short_score = (
-            os.environ.get("QSA_HARNESS_SHORT_SCORE") == "1"
-            and name in SHORT_SCORE_CASES
-        )
         candidate = PreparedSharedMapInt8Selection(
             *adapter_args,
             **adapter_kwargs,
-            allow_short_query16=short_score,
-            direct_page_kernels=None if short_score else kernels,
+            allow_short_query16=os.environ.get("QSA_HARNESS_SHORT_SCORE") == "1",
+            direct_page_kernels=kernels,
             shared_direct_page_proof=True,
         )
+        short_score = candidate.short_query16
         if short_score:
             hits = sum(candidate.query16_routes.values())
             bounded = sum(candidate.skip_invisible_routes.values())
