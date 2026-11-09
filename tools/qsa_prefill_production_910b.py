@@ -93,13 +93,16 @@ def load_topk():
     return load_production()[2]
 
 
-def qsa_select_paged_prefill(*operands, chunk_rows=16, trace=None):
+def qsa_select_paged_prefill(
+    *operands, chunk_rows=16, trace=None, verify_scratch_reuse=False
+):
     public, module, topk, identity = load_production()
     original_score = module._score
     original_topk = module.persistent_topk
     original_owners = module._build_owners
     calls = []
     owner_checks = []
+    scratch_calls = []
 
     def owners(q, table, starts):
         result = original_owners(q, table, starts)
@@ -125,6 +128,8 @@ def qsa_select_paged_prefill(*operands, chunk_rows=16, trace=None):
 
     def select(*args, **kwargs):
         calls[-1]["topk_workspace_pointer"] = args[3].data_ptr()
+        if verify_scratch_reuse:
+            scratch_calls.append(kwargs.get("persistent_scratch"))
         return original_topk(*args, **kwargs)
 
     # Instrument only Python launch functions; the public API and kernels are intact.
@@ -133,6 +138,31 @@ def qsa_select_paged_prefill(*operands, chunk_rows=16, trace=None):
     ), patch.object(module, "_build_owners", owners):
         returned = public(*operands)
     assert len(owner_checks) == int(operands[0].shape[0] > 0)
+    if verify_scratch_reuse:
+        import torch
+
+        scratch = scratch_calls[0]
+        assert isinstance(scratch, topk._PersistentTopKScratch)
+        assert len(scratch_calls) == len(calls) > len(scratch.buffers) > 0
+        assert all(item is scratch for item in scratch_calls)
+        assert {key[0] for key in scratch.buffers} == {call["rows"] for call in calls}
+        output = operands[8]
+        expected = output.cpu()
+        output.fill_(-2)
+
+        def select_without_reuse(*args, **kwargs):
+            other = kwargs.pop("persistent_scratch")
+            assert other is not scratch and not other.buffers
+            return original_topk(*args, **kwargs)
+
+        with patch.object(module, "persistent_topk", select_without_reuse):
+            assert public(*operands) is None
+        assert torch.equal(output.cpu(), expected), "Scratch reuse changed TopK indices"
+        calls[0]["persistent_scratch"] = dict(
+            topk_calls=len(scratch_calls),
+            cached_row_counts=sorted(key[0] for key in scratch.buffers),
+            indices_bitwise_equal=True,
+        )
     if trace is not None:
         trace.extend(calls)
     return returned

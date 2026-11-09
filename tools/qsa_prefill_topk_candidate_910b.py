@@ -116,7 +116,15 @@ def candidate(diagnostics=None):
     original = topk.persistent_topk
 
     def select(
-        logits, lengths, output, workspace, k=512, max_seq_len=None, *, block=None
+        logits,
+        lengths,
+        output,
+        workspace,
+        k=512,
+        max_seq_len=None,
+        *,
+        block=None,
+        persistent_scratch=None,
     ):
         # Keep the production ABI; prefill owns its scratch buffers.
         rows = logits.shape[0]

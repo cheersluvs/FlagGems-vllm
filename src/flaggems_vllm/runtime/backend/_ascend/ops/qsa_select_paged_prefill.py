@@ -21,7 +21,11 @@ import torch
 import triton
 import triton.language as tl
 
-from flaggems_vllm.runtime.backend._ascend.ops.persistent_topk import persistent_topk
+from flaggems_vllm.runtime.backend._ascend.ops.persistent_topk import (
+    _PersistentTopKScratch,
+    _psegmerge_applicable,
+    persistent_topk,
+)
 
 _QSA_TOPK_BLOCK = 256
 
@@ -345,6 +349,17 @@ def qsa_select_paged_prefill(
         raise ValueError("Logits budget must be nonnegative")
     chunk_cap = _prefill_chunk_cap(q, k_cache, page_table, query_start_loc, width, k)
     chunk_rows = min(rows, chunk_cap, max(1, budget_mb * 1024 * 1024 // (width * 4)))
+    # The TopK backend allocates lazily when it actually selects persistent
+    # segment merge. Keep these buffers local to this call and NPU stream.
+    topk_kwargs = {}
+    if (
+        k == 512
+        and rows >= 2 * chunk_rows
+        and _psegmerge_applicable(chunk_rows, width, k)
+    ):
+        index = q.device.index
+        if _is_910b(torch.npu.current_device() if index is None else index):
+            topk_kwargs["persistent_scratch"] = _PersistentTopKScratch()
     with torch.npu.device(q.device):
         owners = _build_owners(q, page_table, query_start_loc)
         logits = torch.empty((chunk_rows, width), device=q.device, dtype=torch.float32)
@@ -370,6 +385,7 @@ def qsa_select_paged_prefill(
                 k=k,
                 max_seq_len=width,
                 block=_QSA_TOPK_BLOCK,
+                **topk_kwargs,
             )
 
 

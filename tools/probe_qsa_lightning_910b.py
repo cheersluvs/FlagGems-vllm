@@ -118,6 +118,7 @@ PIPELINE_CASES = {
     "radix_control": dict(lengths=[3], visible=[0, 513, 1537], page=192, route="radix"),
     "ties": dict(lengths=[3], visible=[0, 513, 1537], page=192, zero_query=True),
 }
+PRODUCTION_SCRATCH_CASE = "persistent_scratch_long"
 
 K, HEADS, DIM = 512, 4, 128
 RTOL, ATOL = 1e-3, 2e-3
@@ -511,6 +512,11 @@ def worker(args):
                         capacity * 4,
                         chunk_rows=config.get("chunk_rows", 16),
                         trace=trace,
+                        **(
+                            {"verify_scratch_reuse": True}
+                            if config.get("scratch_reuse") and not args.prefill_topk
+                            else {}
+                        ),
                     )
                 torch.npu.synchronize()
                 before_native = output.cpu()
@@ -857,6 +863,7 @@ def main():
         choices=(
             "environment",
             "zero_budget",
+            PRODUCTION_SCRATCH_CASE,
             "isolated_topk",
             "normal_topk",
             "isolated_after_import",
@@ -950,6 +957,12 @@ def main():
         CASES = dict(PIPELINE_CASES)
         if args.suite == "production":
             CASES["zero_budget"] = dict(ADAPTER_CASES["offset_ragged"], budget_mb=0)
+            CASES[PRODUCTION_SCRATCH_CASE] = dict(
+                lengths=[35],
+                visible=[16960 + i for i in range(35)],
+                page=192,
+                scratch_reuse=True,
+            )
     if args.chunk32_regression:
         CASES = CHUNK_REGRESSION_CASES
     if args.chunk32_production:
