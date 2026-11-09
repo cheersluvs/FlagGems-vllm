@@ -767,42 +767,66 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
         span = min(span * 2, TOPK)
         levels.append(torch.empty((rows, groups, 2 * span), device=device, dtype=torch.float32))
 
-    def merge(proposals):
-        kernels = []
+    def validate_stage(name, launch, shape, stages):
+        label = f"{name}-merge-{len(stages)}"
+        entry = {"stage": label, "shape": shape, "status": "launching"}
+        stages.append(entry)
+        summary.write_text(json.dumps(result, indent=2))
+        print(json.dumps(entry), flush=True)
+        with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+            kernel = launch()
+        entry.update(status="synchronizing", artifacts=save_artifacts(kernel, report, label))
+        summary.write_text(json.dumps(result, indent=2))
+        torch.npu.synchronize()
+        entry["status"] = "completed"
+        summary.write_text(json.dumps(result, indent=2))
+
+    def merge(proposals, name=None):
+        stages = None if name is None else result["validation_stages"][name]
         for target in levels:
-            kernels.append(_qsa_int8_merge_sorted_tiles[(rows * target.shape[1],)](
-                proposals, target, proposals.shape[1], target.shape[1],
-                proposals.shape[2] // 2, target.shape[2] // 2,
-                use_bytecode=True, enable_ubuf_saving=True,
-                enable_auto_bind_sub_block=False, multibuffer=False,
-            ))
+            def launch_level():
+                return _qsa_int8_merge_sorted_tiles[(rows * target.shape[1],)](
+                    proposals, target, proposals.shape[1], target.shape[1],
+                    proposals.shape[2] // 2, target.shape[2] // 2,
+                    use_bytecode=True, enable_ubuf_saving=True,
+                    enable_auto_bind_sub_block=False, multibuffer=False,
+                )
+            if stages is None:
+                launch_level()
+            else:
+                validate_stage(
+                    name, launch_level,
+                    {"input": list(proposals.shape), "output": list(target.shape)},
+                    stages,
+                )
             proposals = target
-        kernels.append(_qsa_int8_emit_topk[(rows,)](
-            proposals, visible, indices, scores, TOPK,
-        ))
-        return kernels
+
+        def emit():
+            return _qsa_int8_emit_topk[(rows,)](proposals, visible, indices, scores, TOPK)
+
+        if stages is None:
+            emit()
+        else:
+            validate_stage(name, emit, {"emit_topk": TOPK}, stages)
 
     def pipeline(arm):
         launch, proposals = arm
         launch()
-        return merge(proposals)
+        merge(proposals)
 
     result = {
         "case": args.worker, "producer": producer_result,
-        "merge_launches": len(levels) + 1, "correctness": {}, "passed": False,
+        "merge_launches": len(levels) + 1, "correctness": {},
+        "validation_stages": {}, "passed": False,
     }
     summary.write_text(json.dumps(result, indent=2))
     try:
-        for name, arm in arms.items():
-            with patch.object(compiler, "subprocess", CompileCapture(report, f"{name}-merge")):
-                kernels = pipeline(arm)
+        for name, (launch, proposals) in arms.items():
+            result["validation_stages"][name] = []
+            launch()
             torch.npu.synchronize()
+            merge(proposals, name=name)
             result["correctness"][name] = check(cpu, indices, scores)
-            if name == "serial":
-                result["artifacts"] = [
-                    file for i, kernel in enumerate(kernels)
-                    for file in save_artifacts(kernel, report, f"handoff-merge-stage{i}")
-                ]
         result["merge"] = paired_event_times(
             {name: lambda arm=arm: merge(arm[1]) for name, arm in arms.items()},
             rounds=6, launches=16,
