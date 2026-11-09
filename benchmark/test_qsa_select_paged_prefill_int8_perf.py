@@ -14,6 +14,7 @@
 
 """Ascend 910B QSA INT8 selection against the fused CANN V1 indexer."""
 
+import copy
 import hashlib
 import inspect
 import json
@@ -449,6 +450,58 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 score_control=control.score_all if short_score else None,
             )
         del original, selected, native_output, expected, control, refs, inputs
+
+        if (
+            not diagnose_only
+            and os.environ.get("QSA_HARNESS_REUSE_TOPK_SCRATCH") == "1"
+            and route == "auto"
+            and topk._psegmerge_applicable(1, width, 512)
+        ):
+            from probe_qsa_int8_group_visible_request_910b import measure_request_wall
+            from probe_qsa_int8_topk_workspace_910b import (
+                ARMS,
+                verify_workspace_request,
+            )
+
+            current = copy.copy(candidate)
+            candidate.reuse_topk_scratch = True
+            check_indices, audit = verify_workspace_request(
+                torch, current, candidate, True, values["visible"].cpu()
+            )
+            adapters = dict(zip(ARMS, (current, candidate), strict=True))
+            wall = measure_request_wall(
+                ARMS,
+                adapters.__getitem__,
+                torch.npu.synchronize,
+                check_indices,
+                6,
+                record_group_visible=False,
+            )
+            kernel_ms = {}
+            for arm, adapter in adapters.items():
+                kernel_ms[arm] = benchmark.get_latency(adapter)
+                check_indices(output)
+            assert all(math.isfinite(ms) and ms > 0 for ms in kernel_ms.values())
+            kernel_speedup = kernel_ms[ARMS[0]] / kernel_ms[ARMS[1]]
+            print(
+                f"TopK scratch {name}: prepared wall {wall['speedup']:.3f}x "
+                f"({wall['candidate_wins']}/6 pairs faster), "
+                f"whole-pipeline device kernels {kernel_speedup:.3f}x",
+                flush=True,
+            )
+            print(
+                "QSA_INT8_HARNESS_TOPK_SCRATCH",
+                json.dumps(
+                    dict(
+                        case=name,
+                        audit=audit,
+                        prepared_wall=wall,
+                        kernel_ms=kernel_ms,
+                        kernel_speedup=kernel_speedup,
+                    )
+                ),
+                flush=True,
+            )
 
         if not diagnose_only and name == "int8_budget_exact":
             first, count = candidate.chunks[0]

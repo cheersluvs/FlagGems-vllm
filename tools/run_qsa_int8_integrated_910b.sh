@@ -125,6 +125,13 @@ print("\n".join(names))
                 break
             fi
         done <<< "$qsa_cases"
+        if [[ ${QSA_HARNESS_REUSE_TOPK_SCRATCH:-0} == 1 && "$qsa_pytest_status" == 0 ]]; then
+            if ! grep -q '^QSA_INT8_HARNESS_TOPK_SCRATCH ' \
+                "$qsa_report/harness-int8_long100k-console.txt"; then
+                echo 'TopK scratch audit missing for long100k'
+                qsa_pytest_status=1
+            fi
+        fi
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
