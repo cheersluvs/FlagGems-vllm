@@ -69,11 +69,11 @@ def _qsa_int8_mixed_ring(
             if sub == 0:
                 al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
         start = flat * CHUNK
-        page = tl.load(Table + start // PAGE_SIZE, mask=start < WIDTH, other=0)
-        offset = page * PAGE_SIZE + start % PAGE_SIZE
-        k = tl.load(K + (offset + n[:, None]) * 128 + d[None, :])
-        dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
-        tl.store(work + sub * 16 * CHUNK + m[:, None] * CHUNK + n[None, :], dot)
+        cube_page = tl.load(Table + start // PAGE_SIZE, mask=start < WIDTH, other=0)
+        cube_offset = cube_page * PAGE_SIZE + start % PAGE_SIZE
+        k = tl.load(K + (cube_offset + n[:, None]) * 128 + d[None, :])
+        cube_dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
+        tl.store(work + sub * 16 * CHUNK + m[:, None] * CHUNK + n[None, :], cube_dot)
 
         if not PRODUCER_ONLY:
             if sub == SUBTILES_PER_TILE - 1:
