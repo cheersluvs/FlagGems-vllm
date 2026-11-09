@@ -106,8 +106,14 @@ def _qsa_int8_mixed_ring(
                     tl.store(state + pair_lane, pairs)
                 else:
                     if tile > 0:
-                        tl.store(state + 2 * TOP + pair_lane, pairs)
-                        packed = tl.load(state + merge_lane, mask=merge_lane < 4 * TOP, other=0)
+                        if CUT == 4 or CUT == 5:
+                            previous = tl.load(state + pair_lane)
+                            active = tl.join(previous, pairs)
+                            padded = tl.join(active, tl.zeros((2 * TOP, 2), tl.float32))
+                            packed = tl.reshape(tl.permute(padded, (2, 1, 0)), (8 * TOP,))
+                        else:
+                            tl.store(state + 2 * TOP + pair_lane, pairs)
+                            packed = tl.load(state + merge_lane, mask=merge_lane < 4 * TOP, other=0)
                         merged, _ = tle.dsa.ascend.raw(
                             "merge_exhaust_sort4", packed, 2,
                             0, TOP, 2 * TOP, 3 * TOP, TOP, TOP, 0, 0,
@@ -117,14 +123,15 @@ def _qsa_int8_mixed_ring(
                         # either list therefore guarantees at least TOP merged entries.
                         pairs = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
                     tl.store(state + pair_lane, pairs)
-                    if tile == tl.cdiv(WIDTH, TOP) - 1:
-                        values, indices = tle.dsa.ascend.raw(
-                            "unpack_sort", pairs, TOP,
-                            out=[tl.zeros((TOP,), tl.float32), tl.zeros((TOP,), tl.int32)],
-                        )
-                        live = lane < tl.minimum(visible, TOP)
-                        tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
-                        tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
+                    if CUT == 2 or CUT == 4:
+                        if tile == tl.cdiv(WIDTH, TOP) - 1:
+                            values, indices = tle.dsa.ascend.raw(
+                                "unpack_sort", pairs, TOP,
+                                out=[tl.zeros((TOP,), tl.float32), tl.zeros((TOP,), tl.int32)],
+                            )
+                            live = lane < tl.minimum(visible, TOP)
+                            tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
+                            tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
         al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
         al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -237,7 +244,7 @@ def worker(args):
     indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
     values = torch.empty_like(indices, dtype=torch.float32)
 
-    def launch(slots, cut=2, compile_only=False):
+    def launch(slots, cut=4, compile_only=False):
         if compile_only:
             invoke = lambda *a, **kw: _qsa_int8_mixed_ring.warmup(*a, grid=(cores,), **kw)
         else:
@@ -267,7 +274,7 @@ def worker(args):
     for slots, arm in ((1, "serial"), (2, "double_buffer")):
         outcomes = {}
         preflight[arm] = outcomes
-        for cut, stage in ((2, "full"), (0, "score"), (1, "sort")):
+        for cut, stage in ((4, "full"), (3, "merge_gm_roundtrip"), (5, "merge_direct_pairs")):
             if stage != "full" and outcomes["full"]["compiled"]:
                 break
             label = f"{args.worker}-{arm}-{stage}"
@@ -284,7 +291,7 @@ def worker(args):
         raise SystemExit(1)
 
     functions = {"serial": lambda: launch(1), "double_buffer": lambda: launch(2)}
-    result = {"case": args.worker, "rows": rows, "width": width, "rows_per_core": ROWS_PER_CORE, "arms": {}}
+    result = {"case": args.worker, "rows": rows, "width": width, "rows_per_core": ROWS_PER_CORE, "merge_input": "direct_pairs", "arms": {}}
     for name, fn in functions.items():
         print(f"{args.worker}/{name}: compiling and launching", flush=True)
         kernel = fn()
