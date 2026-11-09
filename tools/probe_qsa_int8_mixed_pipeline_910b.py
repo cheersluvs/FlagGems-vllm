@@ -66,7 +66,7 @@ def _qsa_int8_mixed_ring(
         slot = tile % SLOTS
         work = Workspace + (pid * SLOTS + slot) * 16 * TOP
         if not PRODUCER_ONLY:
-            if sub == 0:
+            if SUBTILES_PER_TILE == 1 or sub == 0:
                 al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
         start = flat * CHUNK
         cube_page = tl.load(Table + start // PAGE_SIZE, mask=start < WIDTH, other=0)
@@ -76,7 +76,7 @@ def _qsa_int8_mixed_ring(
         tl.store(work + sub * 16 * CHUNK + m[:, None] * CHUNK + n[None, :], cube_dot)
 
         if not PRODUCER_ONLY:
-            if sub == SUBTILES_PER_TILE - 1:
+            if SUBTILES_PER_TILE == 1 or sub == SUBTILES_PER_TILE - 1:
                 al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
 
                 al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
@@ -241,16 +241,16 @@ def check(cpu, indices, values):
 
 
 
-def check_workspace(cpu, workspace, width, slots):
+def check_workspace(cpu, workspace, width, slots, tile_width=TOPK):
     q, k, _, _, _, table, _ = cpu
     keys = k[table.long()].reshape(-1, 128).int()
-    tiles = triton.cdiv(width, TOPK)
-    ring = workspace.cpu().flatten()[:workspace.shape[0] * slots * 16 * TOPK]
-    ring = ring.reshape(-1, slots, TOPK // CUBE_TILE, 16, CUBE_TILE)
+    tiles = triton.cdiv(width, tile_width)
+    ring = workspace.cpu().flatten()[:workspace.shape[0] * slots * 16 * tile_width]
+    ring = ring.reshape(-1, slots, tile_width // CUBE_TILE, 16, CUBE_TILE)
     result = {"checked_subtiles": 0, "mismatches": 0, "sentinel_values": 0, "zero_values": 0, "subtile_mismatches": {}}
     for tile in range(max(tiles - slots, 0), tiles):
-        for sub in range(TOPK // CUBE_TILE):
-            start = tile * TOPK + sub * CUBE_TILE
+        for sub in range(tile_width // CUBE_TILE):
+            start = tile * tile_width + sub * CUBE_TILE
             count = min(CUBE_TILE, width - start)
             if count <= 0:
                 continue
@@ -279,13 +279,14 @@ def check_producer(cpu, raw, proposals, debug_dot):
     raw = raw.cpu()
     proposals = proposals.cpu()
     debug_dot = debug_dot.cpu()
+    tile_width = raw.shape[-1]
     results = {name: {"failures": 0} for name in ("dot_handoff", "score", "proposals")}
     for row, count in enumerate(visible.tolist()):
         for tile in range(raw.shape[1]):
-            begin = tile * TOPK
-            end = min(begin + TOPK, count)
+            begin = tile * tile_width
+            end = min(begin + tile_width, count)
             take = max(end - begin, 0)
-            expected = torch.full((TOPK,), -float("inf"))
+            expected = torch.full((tile_width,), -float("inf"))
             dot = keys[begin:begin + take] @ q[row].int().T
             received_dot = debug_dot[row, tile, :, :take].T
             dot_ok = torch.equal(received_dot, dot)
@@ -482,15 +483,16 @@ def worker(args):
     packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8)
     packed_q[:, :ROWS_PER_CORE * 4].copy_(padded_q.reshape(cores, ROWS_PER_CORE * 4, 128))
     inputs = tuple(t.to(device) for t in (packed_q, *rest))
-    workspace = torch.empty((cores, 2, 16, TOPK), device=device, dtype=torch.int32)
-    lists = triton.cdiv(width, TOPK)
-    state = torch.empty((rows, lists, 2 * TOPK), device=device, dtype=torch.float32)
-    raw = torch.empty((rows, lists, TOPK), device=device, dtype=torch.float32)
-    debug_dot = torch.empty((rows, lists, 4, TOPK), device=device, dtype=torch.int32)
+    tile_width = CUBE_TILE if args.handoff64 else TOPK
+    workspace = torch.empty((cores, 2, 16, tile_width), device=device, dtype=torch.int32)
+    lists = triton.cdiv(width, tile_width)
+    state = torch.empty((rows, lists, 2 * tile_width), device=device, dtype=torch.float32)
+    raw = torch.empty((rows, lists, tile_width), device=device, dtype=torch.float32)
+    debug_dot = torch.empty((rows, lists, 4, tile_width), device=device, dtype=torch.int32)
     levels = [state]
-    while lists > 1:
+    while lists > 1 and not args.handoff64:
         lists = triton.cdiv(lists, 4)
-        levels.append(torch.empty((rows, lists, 2 * TOPK), device=device, dtype=torch.float32))
+        levels.append(torch.empty((rows, lists, 2 * tile_width), device=device, dtype=torch.float32))
     indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
     values = torch.empty_like(indices, dtype=torch.float32)
 
@@ -501,7 +503,7 @@ def worker(args):
             invoke = _qsa_int8_mixed_ring[(cores,)]
         return invoke(
             *inputs, workspace, raw if score_only else state, debug_dot,
-            rows, width, slots, PAGE, TOPK, CUBE_TILE, score_only, producer_only,
+            rows, width, slots, PAGE, tile_width, CUBE_TILE, score_only, producer_only,
             disable_auto_cv_work_space_manage=True,
             disable_auto_inject_block_sync=True,
             enable_auto_bind_sub_block=False,
@@ -557,7 +559,8 @@ def worker(args):
     functions = {"serial": lambda: pipeline(1), "double_buffer": lambda: pipeline(2)}
     proposal_functions = {"serial": lambda: launch(1), "double_buffer": lambda: launch(2)}
     result = {"case": args.worker, "rows": rows, "width": width,
-              "rows_per_core": ROWS_PER_CORE, "merge": "separate_vector_tree", "arms": {}}
+              "rows_per_core": ROWS_PER_CORE, "tile_width": tile_width,
+              "merge": "omitted" if args.handoff64 else "separate_vector_tree", "arms": {}}
     summary = report / f"{args.worker}-summary.json"
     for slots, name in ((1, "serial"), (2, "double_buffer")):
         label = f"{args.worker}-{name}-producer"
@@ -570,7 +573,7 @@ def worker(args):
                 kernel = launch(slots, score_only=True)
                 arm["score_artifacts"] = save_artifacts(kernel, report, f"{label}-score")
                 torch.npu.synchronize()
-                arm["mixed_workspace"] = check_workspace(cpu, workspace, width, slots)
+                arm["mixed_workspace"] = check_workspace(cpu, workspace, width, slots, tile_width)
                 launch(slots)
             torch.npu.synchronize()
             arm["producer"] = check_producer(cpu, raw, state, debug_dot)
@@ -583,7 +586,7 @@ def worker(args):
                     kernel = launch(slots, producer_only=True)
                     arm["cube_artifacts"] = save_artifacts(kernel, report, f"{label}-cube")
                 torch.npu.synchronize()
-                arm["cube_only_workspace"] = check_workspace(cpu, workspace, width, slots)
+                arm["cube_only_workspace"] = check_workspace(cpu, workspace, width, slots, tile_width)
             except Exception as exc:
                 arm["cube_only_error"] = str(exc)
         print(json.dumps({name: arm}, indent=2), flush=True)
@@ -596,7 +599,7 @@ def worker(args):
     if not producer_ok:
         raise SystemExit(1)
 
-    for name, fn in functions.items():
+    for name, fn in (() if args.handoff64 else functions.items()):
         arm = result["arms"][name]
         try:
             with patch.object(compiler, "subprocess", CompileCapture(report, f"{args.worker}-{name}-merge")):
@@ -647,7 +650,7 @@ def worker(args):
         except Exception as exc:
             result["task_trace_error"] = str(exc)
         summary.write_text(json.dumps(result, indent=2))
-    if not pipeline_ok:
+    if not pipeline_ok and not args.handoff64:
         raise SystemExit(1)
 
 
@@ -659,6 +662,7 @@ def main():
     parser.add_argument("--slots", type=int, choices=(1, 2), default=2)
     parser.add_argument("--launch-only", action="store_true")
     parser.add_argument("--cube-controls", action="store_true")
+    parser.add_argument("--handoff64", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
@@ -673,11 +677,13 @@ def main():
     report = Path(args.report).resolve()
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
-    for case in (("short",) if args.cube_controls else CASES):
+    for case in (("short",) if args.cube_controls or args.handoff64 else CASES):
         log = report / f"{case}-worker.txt"
         command = base + ["--worker", case]
         if args.cube_controls:
             command.append("--cube-controls")
+        if args.handoff64:
+            command.append("--handoff64")
         if args.task_trace:
             command.append("--task-trace")
         code, timed_out = run_child(command, log, args.timeout)
