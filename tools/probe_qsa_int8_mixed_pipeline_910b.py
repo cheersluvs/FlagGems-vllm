@@ -198,6 +198,41 @@ def _qsa_int8_cube_flat_control(
         tl.store(DotOut + ((pid * STORAGE + slot) * 16 + m[:, None]) * CHUNK + n[None, :], dot)
 
 
+@triton.jit
+def _qsa_int8_handoff_copy(
+    Q, K, Table, Ring, Received,
+    SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
+    CHUNK: tl.constexpr,
+):
+    pid = tl.program_id(0)
+    m = tl.arange(0, 16)
+    d = tl.arange(0, 128)
+    n = tl.arange(0, CHUNK)
+    q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
+    for ring_index in tl.static_range(SLOTS):
+        al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    for subtile in range(SUBTILES):
+        slot = subtile % SLOTS
+        work = Ring + (pid * SLOTS + slot) * 16 * CHUNK
+        al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        start = subtile * CHUNK
+        page = tl.load(Table + start // PAGE_SIZE)
+        offset = page * PAGE_SIZE + start % PAGE_SIZE
+        k = tl.load(K + (offset + n[:, None]) * 128 + d[None, :])
+        dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
+        tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
+        al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+
+        al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        head = al.sub_vec_id() * 4 + tl.arange(0, 4)
+        received = tl.load(work + head[:, None] * CHUNK + n[None, :])
+        out = Received + (pid * SUBTILES + subtile) * 8 * CHUNK
+        tl.store(out + head[:, None] * CHUNK + n[None, :], received)
+        al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    for ring_index in tl.static_range(SLOTS):
+        al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+
+
 def fixture(case):
     rows, width = CASES[case]
     pages = triton.cdiv(width, PAGE)
@@ -470,6 +505,72 @@ def cube_controls(args, cpu, inputs, packed_q, workspace):
         raise SystemExit(1)
 
 
+def handoff_copy_control(args, cpu, inputs, packed_q, width):
+    from triton.backends.ascend import compiler
+
+    report = Path(args.report)
+    slots = args.slots
+    label = f"short-handoff-copy-slots{slots}"
+    sentinel = -2147483647
+    device = inputs[0].device
+    cores = packed_q.shape[0]
+    subtiles = triton.cdiv(width, CUBE_TILE)
+    ring = torch.full(
+        (cores, slots, 16, CUBE_TILE), sentinel, device=device, dtype=torch.int32
+    )
+    received = torch.full(
+        (cores, subtiles, 8, CUBE_TILE), sentinel, device=device, dtype=torch.int32
+    )
+    result = {"slots": slots, "subtiles": subtiles, "stage": "compiling_or_launching"}
+    summary = report / f"{label}.json"
+    summary.write_text(json.dumps(result, indent=2))
+    print(f"{label}: {subtiles} INT32 dot handoffs", flush=True)
+    try:
+        with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+            kernel = _qsa_int8_handoff_copy[(cores,)](
+                inputs[0], inputs[1], inputs[5], ring, received,
+                subtiles, slots, PAGE, CUBE_TILE,
+                disable_auto_cv_work_space_manage=True,
+                disable_auto_inject_block_sync=True,
+                enable_auto_bind_sub_block=False,
+                multibuffer=False, sync_solver=False, unit_flag=False,
+            )
+        result.update(stage="synchronizing", artifacts=save_artifacts(kernel, report, label))
+        summary.write_text(json.dumps(result, indent=2))
+        torch.npu.synchronize()
+        _, keys, _, _, _, table, _ = cpu
+        logical = keys[table.long()].reshape(-1, 128).int()
+        q = packed_q[:, :8].int()
+        expected = torch.stack([
+            torch.stack([block @ logical[start:start + CUBE_TILE].T for block in q])
+            for start in range(0, subtiles * CUBE_TILE, CUBE_TILE)
+        ], dim=1)
+        got = received.cpu()
+        mismatches = got != expected
+        result.update(
+            stage="checked",
+            vector_mismatches=mismatches.sum().item(),
+            vector_sentinel_values=(got == sentinel).sum().item(),
+            vector_mismatches_by_subtile=mismatches.sum(dim=(0, 2, 3)).tolist(),
+            final_cube_workspace=check_workspace(cpu, ring, width, slots, CUBE_TILE),
+        )
+        if result["vector_mismatches"]:
+            first = tuple(mismatches.nonzero()[0].tolist())
+            result["first_vector_mismatch"] = {
+                "position": first, "actual": int(got[first]), "expected": int(expected[first])
+            }
+        result["passed"] = (
+            result["vector_mismatches"] == 0
+            and result["final_cube_workspace"]["mismatches"] == 0
+        )
+    except Exception as exc:
+        result.update(passed=False, error=str(exc))
+    summary.write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2), flush=True)
+    if not result["passed"]:
+        raise SystemExit(1)
+
+
 def worker(args):
     torch.npu.set_device(args.device)
     device = torch.device(f"npu:{args.device}")
@@ -483,6 +584,9 @@ def worker(args):
     packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8)
     packed_q[:, :ROWS_PER_CORE * 4].copy_(padded_q.reshape(cores, ROWS_PER_CORE * 4, 128))
     inputs = tuple(t.to(device) for t in (packed_q, *rest))
+    if args.handoff_copy:
+        handoff_copy_control(args, cpu, inputs, packed_q, width)
+        return
     tile_width = CUBE_TILE if args.handoff64 else TOPK
     workspace = torch.empty((cores, 2, 16, tile_width), device=device, dtype=torch.int32)
     lists = triton.cdiv(width, tile_width)
@@ -663,6 +767,7 @@ def main():
     parser.add_argument("--launch-only", action="store_true")
     parser.add_argument("--cube-controls", action="store_true")
     parser.add_argument("--handoff64", action="store_true")
+    parser.add_argument("--handoff-copy", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
@@ -677,17 +782,24 @@ def main():
     report = Path(args.report).resolve()
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
-    for case in (("short",) if args.cube_controls or args.handoff64 else CASES):
-        log = report / f"{case}-worker.txt"
-        command = base + ["--worker", case]
-        if args.cube_controls:
-            command.append("--cube-controls")
-        if args.handoff64:
-            command.append("--handoff64")
-        if args.task_trace:
-            command.append("--task-trace")
-        code, timed_out = run_child(command, log, args.timeout)
-        statuses[case] = dict(exit_code=code, timed_out=timed_out)
+    if args.handoff_copy:
+        for slots in (1, 2):
+            label = f"short-handoff-copy-slots{slots}"
+            command = base + ["--worker", "short", "--handoff-copy", "--slots", str(slots)]
+            code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
+            statuses[label] = dict(exit_code=code, timed_out=timed_out)
+    else:
+        for case in (("short",) if args.cube_controls or args.handoff64 else CASES):
+            log = report / f"{case}-worker.txt"
+            command = base + ["--worker", case]
+            if args.cube_controls:
+                command.append("--cube-controls")
+            if args.handoff64:
+                command.append("--handoff64")
+            if args.task_trace:
+                command.append("--task-trace")
+            code, timed_out = run_child(command, log, args.timeout)
+            statuses[case] = dict(exit_code=code, timed_out=timed_out)
 
     timeline_status = "skipped_worker_failure" if args.instruction_timeline else "not_requested"
     result = {"cases": statuses, "instruction_timeline": {"status": timeline_status}}
