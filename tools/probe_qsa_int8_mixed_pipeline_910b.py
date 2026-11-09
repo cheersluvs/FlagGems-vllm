@@ -531,19 +531,18 @@ def cube_controls(args, cpu, inputs, packed_q, workspace):
 
 
 def handoff_operation(args):
-    if args.handoff_sort:
+    if args.handoff_sort or args.handoff_bench:
         return "sort"
     return "score" if args.handoff_score else "copy"
 
-def handoff_copy_control(args, cpu, inputs, packed_q, width):
+def handoff_copy_control(args, cpu, inputs, packed_q, width, slots):
     from triton.backends.ascend import compiler
 
     report = Path(args.report)
-    slots = args.slots
     operation = handoff_operation(args)
     sort_mode = operation == "sort"
     score_mode = operation != "copy"
-    label = f"short-handoff-{operation}-slots{slots}"
+    label = f"{args.worker}-handoff-{operation}-slots{slots}"
     sentinel = -2147483647
     device = inputs[0].device
     cores = packed_q.shape[0]
@@ -566,18 +565,21 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width):
     summary = report / f"{label}.json"
     summary.write_text(json.dumps(result, indent=2))
     print(f"{label}: {subtiles} INT32 dot handoffs", flush=True)
+    def launch():
+        return _qsa_int8_handoff_copy[(cores,)](
+            inputs[0], inputs[1], inputs[5], ring, received,
+            inputs[2], inputs[3], inputs[4], inputs[6],
+            subtiles, slots, PAGE, CUBE_TILE, rows, score_mode, sort_mode,
+            use_bytecode=sort_mode,
+            disable_auto_cv_work_space_manage=True,
+            disable_auto_inject_block_sync=True,
+            enable_auto_bind_sub_block=False,
+            multibuffer=False, sync_solver=False, unit_flag=False,
+        )
+
     try:
         with patch.object(compiler, "subprocess", CompileCapture(report, label)):
-            kernel = _qsa_int8_handoff_copy[(cores,)](
-                inputs[0], inputs[1], inputs[5], ring, received,
-                inputs[2], inputs[3], inputs[4], inputs[6],
-                subtiles, slots, PAGE, CUBE_TILE, rows, score_mode, sort_mode,
-                use_bytecode=sort_mode,
-                disable_auto_cv_work_space_manage=True,
-                disable_auto_inject_block_sync=True,
-                enable_auto_bind_sub_block=False,
-                multibuffer=False, sync_solver=False, unit_flag=False,
-            )
+            kernel = launch()
         result.update(stage="synchronizing", artifacts=save_artifacts(kernel, report, label))
         summary.write_text(json.dumps(result, indent=2))
         torch.npu.synchronize()
@@ -653,6 +655,49 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width):
     print(json.dumps(result, indent=2), flush=True)
     if not result["passed"]:
         raise SystemExit(1)
+    return launch
+
+
+def paired_event_times(functions, rounds, launches):
+    samples = {name: [] for name in functions}
+    for round_index in range(rounds):
+        order = tuple(functions) if round_index % 2 == 0 else tuple(reversed(functions))
+        for name in order:
+            start = torch.npu.Event(enable_timing=True)
+            stop = torch.npu.Event(enable_timing=True)
+            start.record()
+            for _ in range(launches):
+                functions[name]()
+            stop.record()
+            stop.synchronize()
+            samples[name].append(start.elapsed_time(stop) * 1000 / launches)
+    medians = {name: statistics.median(times) for name, times in samples.items()}
+    return dict(
+        event_samples_us=samples,
+        event_medians_us=medians,
+        serial_over_double=medians["serial"] / medians["double_buffer"],
+        paired_speedup=[a / b for a, b in zip(samples["serial"], samples["double_buffer"])],
+    )
+
+
+def handoff_benchmark(args, cpu, inputs, packed_q, width):
+    functions = {
+        name: handoff_copy_control(args, cpu, inputs, packed_q, width, slots)
+        for name, slots in (("serial", 1), ("double_buffer", 2))
+    }
+    for launch in functions.values():
+        for _ in range(8):
+            launch()
+    torch.npu.synchronize()
+    result = dict(
+        case=args.worker, rows=cpu[0].shape[0], width=width, tile_width=CUBE_TILE,
+        rounds=6, launches_per_sample=16, cross_tile_merge=False,
+        **paired_event_times(functions, rounds=6, launches=16),
+    )
+    report = Path(args.report)
+    (report / f"{args.worker}-handoff-benchmark.json").write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2), flush=True)
+
 
 
 def worker(args):
@@ -668,8 +713,11 @@ def worker(args):
     packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8)
     packed_q[:, :ROWS_PER_CORE * 4].copy_(padded_q.reshape(cores, ROWS_PER_CORE * 4, 128))
     inputs = tuple(t.to(device) for t in (packed_q, *rest))
+    if args.handoff_bench:
+        handoff_benchmark(args, cpu, inputs, packed_q, width)
+        return
     if args.handoff_copy or args.handoff_score or args.handoff_sort:
-        handoff_copy_control(args, cpu, inputs, packed_q, width)
+        handoff_copy_control(args, cpu, inputs, packed_q, width, args.slots)
         return
     tile_width = CUBE_TILE if args.handoff64 else TOPK
     workspace = torch.empty((cores, 2, 16, tile_width), device=device, dtype=torch.int32)
@@ -807,23 +855,7 @@ def worker(args):
     if pipeline_ok:
         stages.append(("pipeline", functions))
     for stage, funcs in stages:
-        samples = {name: [] for name in funcs}
-        for round_index in range(6):
-            order = tuple(funcs) if round_index % 2 == 0 else tuple(reversed(funcs))
-            for name in order:
-                start = torch.npu.Event(enable_timing=True)
-                stop = torch.npu.Event(enable_timing=True)
-                start.record()
-                for _ in range(8):
-                    funcs[name]()
-                stop.record()
-                stop.synchronize()
-                samples[name].append(start.elapsed_time(stop) * 1000 / 8)
-        medians = {name: statistics.median(times) for name, times in samples.items()}
-        result[stage] = dict(
-            event_samples_us=samples, event_medians_us=medians,
-            serial_over_double=medians["serial"] / medians["double_buffer"],
-        )
+        result[stage] = paired_event_times(funcs, rounds=6, launches=8)
     result["hardware_overlap_verified"] = False
     summary = report / f"{args.worker}-summary.json"
     summary.write_text(json.dumps(result, indent=2))
@@ -855,6 +887,7 @@ def main():
     handoff_modes.add_argument("--handoff-copy", action="store_true")
     handoff_modes.add_argument("--handoff-score", action="store_true")
     handoff_modes.add_argument("--handoff-sort", action="store_true")
+    handoff_modes.add_argument("--handoff-bench", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
@@ -880,6 +913,8 @@ def main():
         for case in (("short",) if args.cube_controls or args.handoff64 else CASES):
             log = report / f"{case}-worker.txt"
             command = base + ["--worker", case]
+            if args.handoff_bench:
+                command.append("--handoff-bench")
             if args.cube_controls:
                 command.append("--cube-controls")
             if args.handoff64:
