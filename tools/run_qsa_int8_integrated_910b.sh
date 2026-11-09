@@ -99,11 +99,8 @@ print("\n".join(names))
             printf 'QSA INT8 stage profile: four diagnostic cases; no acceptance mean\n'
         fi
         if [[ ${QSA_HARNESS_SHORT_SCORE:-0} == 1 ]]; then
-            if [[ -z "$qsa_stage_flag" ]]; then
-                echo 'QSA_HARNESS_SHORT_SCORE=1 requires QSA_HARNESS_STAGES=1'
-                exit 1
-            fi
             qsa_short_score_flag=--short-score
+            printf 'QSA INT8 trial: N64 query16 scoring on first_chunk and compact\n'
         fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do

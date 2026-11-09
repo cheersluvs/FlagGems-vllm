@@ -358,8 +358,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         control = PreparedSharedMapInt8Selection(*adapter_args, **adapter_kwargs)
         stages = os.environ.get("QSA_HARNESS_STAGES") == "1"
         short_score = (
-            stages
-            and os.environ.get("QSA_HARNESS_SHORT_SCORE") == "1"
+            os.environ.get("QSA_HARNESS_SHORT_SCORE") == "1"
             and name in SHORT_SCORE_CASES
         )
         candidate = PreparedSharedMapInt8Selection(

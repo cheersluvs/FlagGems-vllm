@@ -91,8 +91,6 @@ def merge_case_reports(directory, *, stages=False):
 
 
 def summarize(report, pytest_exit_code, *, stages=False, short_score=False):
-    if short_score and not stages:
-        raise ValueError("Short score comparison requires stage timings")
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
     entry = report[OP_NAME]
@@ -219,10 +217,11 @@ def summarize(report, pytest_exit_code, *, stages=False, short_score=False):
                 "Score and TopK measured separately with the stock harness. "
                 "TopK reads materialized scores. CANN V1 is measured as a fused operator."
             )
-            summary["short_score_trial"] = (
-                "N64 query16 versus the current N128 score on the same tensors; "
-                "both arms use the current TopK route."
-            )
+    if short_score:
+        summary["short_score_trial"] = (
+            "N64 query16 versus the current N128 score on the same tensors; "
+            "both arms use the current TopK route."
+        )
     return summary
 
 
