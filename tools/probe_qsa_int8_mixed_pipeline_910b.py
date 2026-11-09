@@ -43,7 +43,7 @@ CUBE_TILE = 64
 
 @triton.jit
 def _qsa_int8_mixed_ring(
-    Q, K, QS, KS, Weight, Table, Visible, Workspace, Proposals,
+    Q, K, QS, KS, Weight, Table, Visible, Workspace, Proposals, DebugDot,
     ROWS: tl.constexpr, WIDTH: tl.constexpr, SLOTS: tl.constexpr,
     PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr, SCORE_ONLY: tl.constexpr,
 ):
@@ -73,7 +73,7 @@ def _qsa_int8_mixed_ring(
                 mask=column[:, None] < WIDTH, other=0,
             )
             dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
-            tl.store(work + m[:, None] * TOP + sub * CHUNK + n[None, :], dot)
+            tl.store(work + sub * 16 * CHUNK + m[:, None] * CHUNK + n[None, :], dot)
         al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
 
         al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
@@ -86,7 +86,10 @@ def _qsa_int8_mixed_ring(
         if row < ROWS:
             visible = tl.load(Visible + row)
             h = tl.arange(0, 4)
-            dot = tl.load(work + (row_in_core * 4 + h[:, None]) * TOP + lane[None, :])
+            dot = tl.load(
+                work + (lane[None, :] // CHUNK) * 16 * CHUNK
+                + (row_in_core * 4 + h[:, None]) * CHUNK + lane[None, :] % CHUNK
+            )
             qs = tl.load(QS + row * 4 + h).to(tl.float32)
             weight = tl.load(Weight + row * 4 + h).to(tl.float32)
             dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
@@ -95,6 +98,7 @@ def _qsa_int8_mixed_ring(
             offset = row * tl.cdiv(WIDTH, TOP) + tile
             if SCORE_ONLY:
                 tl.store(Proposals + offset * TOP + lane, score)
+                tl.store(DebugDot + (offset * 4 + h[:, None]) * TOP + lane[None, :], dot)
             else:
                 pairs = tle.dsa.ascend.raw(
                     "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
@@ -187,21 +191,24 @@ def check(cpu, indices, values):
 
 
 
-def check_producer(cpu, raw, proposals):
+def check_producer(cpu, raw, proposals, debug_dot):
     q, k, qs, ks, weights, table, visible = cpu
     keys = k[table.long()].reshape(-1, 128).int()
     scales = ks[table.long()].flatten().float()
     raw = raw.cpu()
     proposals = proposals.cpu()
-    results = {"score": {"failures": 0}, "proposals": {"failures": 0}}
+    debug_dot = debug_dot.cpu()
+    results = {name: {"failures": 0} for name in ("dot_handoff", "score", "proposals")}
     for row, count in enumerate(visible.tolist()):
         for tile in range(raw.shape[1]):
             begin = tile * TOPK
             end = min(begin + TOPK, count)
             take = max(end - begin, 0)
             expected = torch.full((TOPK,), -float("inf"))
+            dot = keys[begin:begin + take] @ q[row].int().T
+            received_dot = debug_dot[row, tile, :, :take].T
+            dot_ok = torch.equal(received_dot, dot)
             if take:
-                dot = keys[begin:end] @ q[row].int().T
                 expected[:take] = (
                     (dot.float() * qs[row].float() * scales[begin:end, None]).relu()
                     * weights[row].float()
@@ -219,13 +226,15 @@ def check_producer(cpu, raw, proposals):
             sorted_ok = torch.allclose(
                 values, expected.sort(descending=True).values, rtol=1e-3, atol=1e-3
             )
-            for name, ok in (("score", score_ok), ("proposals", values_ok and sorted_ok)):
+            for name, ok in (("dot_handoff", dot_ok), ("score", score_ok), ("proposals", values_ok and sorted_ok)):
                 if ok:
                     continue
                 entry = results[name]
                 entry["failures"] += 1
                 entry.setdefault("first_failure", {
                     "row": row, "tile": tile, "visible_in_tile": take,
+                    "dot_head": received_dot[:4].tolist(),
+                    "expected_dot_head": dot[:4].tolist(),
                     "raw_head": [float(x) if torch.isfinite(x) else str(x.item()) for x in actual[:8]],
                     "proposal_head": [float(x) if torch.isfinite(x) else str(x.item()) for x in values[:8]],
                     "index_head": indices[:8].tolist(),
@@ -299,6 +308,7 @@ def worker(args):
     lists = triton.cdiv(width, TOPK)
     state = torch.empty((rows, lists, 2 * TOPK), device=device, dtype=torch.float32)
     raw = torch.empty((rows, lists, TOPK), device=device, dtype=torch.float32)
+    debug_dot = torch.empty((rows, lists, 4, TOPK), device=device, dtype=torch.int32)
     levels = [state]
     while lists > 1:
         lists = triton.cdiv(lists, 4)
@@ -312,7 +322,7 @@ def worker(args):
         else:
             invoke = _qsa_int8_mixed_ring[(cores,)]
         return invoke(
-            *inputs, workspace, raw if score_only else state,
+            *inputs, workspace, raw if score_only else state, debug_dot,
             rows, width, slots, PAGE, TOPK, CUBE_TILE, score_only,
             disable_auto_cv_work_space_manage=True,
             disable_auto_inject_block_sync=True,
@@ -378,7 +388,7 @@ def worker(args):
                 arm["score_artifacts"] = save_artifacts(kernel, report, f"{label}-score")
                 launch(slots)
             torch.npu.synchronize()
-            arm["producer"] = check_producer(cpu, raw, state)
+            arm["producer"] = check_producer(cpu, raw, state, debug_dot)
         except Exception as exc:
             arm["producer_error"] = str(exc)
         print(json.dumps({name: arm}, indent=2), flush=True)
