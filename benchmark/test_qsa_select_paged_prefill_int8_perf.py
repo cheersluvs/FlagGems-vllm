@@ -20,6 +20,7 @@ import inspect
 import json
 import math
 import os
+import statistics
 from functools import partial
 from importlib import import_module
 from pathlib import Path
@@ -170,6 +171,55 @@ def _prefill_topk_adapter(prefill, row_starts):
     return select
 
 
+def _measure_tile_handoff(benchmark, current, wide_kernel, expected):
+    variant = copy.copy(current)
+    variant.direct_page_kernels = {**current.direct_page_kernels, True: wide_kernel}
+    hits = sum(route == "bounded" for route in variant.direct_page_routes.values())
+    assert hits, "No guarded bounded chunks for N128"
+    target = torch.empty_like(current.scratch)
+    for first, count in variant.chunks:
+        target[:count].fill_(float("nan"))
+        current.score_into(first, count, current.scratch[:count])
+        variant.score_into(first, count, target[:count])
+        torch.testing.assert_close(
+            target[:count], current.scratch[:count], rtol=0, atol=0
+        )
+    del target
+    actual = _preflight_select("int8_budget_exact", "paired_n128", variant, False)
+    assert torch.equal(actual, expected), "N128 changed full TopK indices"
+    stages = {
+        "score": (current.score_all, variant.score_all),
+        "combined": (current, variant),
+    }
+    metrics = {}
+    for stage, arms in stages.items():
+        samples = [[], []]
+        for order in ((0, 1), (1, 0)):
+            for i in order:
+                ms = benchmark.get_latency(arms[i])
+                assert math.isfinite(ms) and ms > 0
+                samples[i].append(ms)
+                if stage == "combined":
+                    assert torch.equal(variant.output.cpu(), expected)
+        before, after = map(statistics.median, samples)
+        metrics[stage] = dict(
+            current_ms=before,
+            n128_ms=after,
+            speedup=before / after,
+            current_samples_ms=samples[0],
+            n128_samples_ms=samples[1],
+        )
+        print(
+            f"INT32 handoff {stage}: {before:.3f} → {after:.3f} ms, {before / after:.3f}x"
+        )
+    print(
+        "QSA_INT8_HARNESS_TILE_HANDOFF",
+        json.dumps(dict(hits=hits, total_chunks=len(variant.chunks), metrics=metrics)),
+        flush=True,
+    )
+    return variant
+
+
 def _measure_stages(
     name, route, adapter, expected_indices, device, *, score_control=None
 ):
@@ -248,7 +298,10 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
     from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
     from probe_qsa_int8_pipeline_910b import check_selection
     from probe_qsa_int8_score_910b import reference as cpu_score
-    from probe_qsa_int8_score_sol_910b import build_direct_page_source
+    from probe_qsa_int8_score_sol_910b import (
+        build_direct_page_source,
+        build_paired_tile_source,
+    )
     from probe_qsa_int8_ten_shapes_910b import verify_structure
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
     from qsa_prefill_pipeline_910b_trial import load_topk
@@ -448,6 +501,21 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 selected,
                 device,
                 score_control=control.score_all if short_score else None,
+            )
+        if (
+            not diagnose_only
+            and name == "int8_budget_exact"
+            and os.environ.get("QSA_HARNESS_TILE_HANDOFF") == "1"
+        ):
+            arm = "paired_n128"
+            wide_kernel = load_generated_prefix(
+                tmp_path,
+                "harness",
+                arm,
+                build_paired_tile_source(arm, wide=True),
+            )
+            candidate = _measure_tile_handoff(
+                benchmark, candidate, wide_kernel, selected
             )
         del original, selected, native_output, expected, control, refs, inputs
 

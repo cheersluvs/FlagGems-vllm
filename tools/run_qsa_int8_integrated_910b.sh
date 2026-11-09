@@ -84,8 +84,10 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
         qsa_cases=$("$qsa_python" -c '
 import os
 from tools.qsa_int8_ten_workloads_910b import cases
-from tools.summarize_qsa_int8_harness_910b import STAGE_CASES
-if os.environ.get("QSA_HARNESS_STAGES") == "1":
+from tools.summarize_qsa_int8_harness_910b import STAGE_CASES, TILE_HANDOFF_CASE
+if os.environ.get("QSA_HARNESS_TILE_HANDOFF") == "1":
+    names = (TILE_HANDOFF_CASE,)
+elif os.environ.get("QSA_HARNESS_STAGES") == "1":
     names = STAGE_CASES
 else:
     names = [case["name"] for case in cases()]
@@ -94,6 +96,14 @@ print("\n".join(names))
 ') || exit 1
         qsa_stage_flag=
         qsa_short_score_flag=
+        qsa_tile_handoff_flag=
+        if [[ ${QSA_HARNESS_TILE_HANDOFF:-0} == 1 ]]; then
+            if [[ ${QSA_HARNESS_STAGES:-0} == 1 || ${QSA_HARNESS_REUSE_TOPK_SCRATCH:-0} == 1 ]]; then
+                echo 'Tile handoff requires a standalone harness run'
+                exit 1
+            fi
+            qsa_tile_handoff_flag=--tile-handoff
+        fi
         if [[ ${QSA_HARNESS_STAGES:-0} == 1 ]]; then
             qsa_stage_flag=--stages
             printf 'QSA INT8 stage profile: four diagnostic cases; no acceptance mean\n'
@@ -135,7 +145,8 @@ print("\n".join(names))
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
-            ${qsa_short_score_flag:+"$qsa_short_score_flag"}
+            ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
+            ${qsa_tile_handoff_flag:+"$qsa_tile_handoff_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"
