@@ -143,6 +143,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         group_visible_kernels=None,
         *,
         allow_short_query16=False,
+        group_visible_direct_only=False,
         direct_page_kernels=None,
         cache_direct_page_guard=False,
         shared_direct_page_proof=False,
@@ -358,7 +359,15 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
                     )
                     direct_page_guard_ns += time.perf_counter_ns() - guard_start
                 self.direct_page_routes[first, count] = route
-            if want_metadata and entry["page_reuse"]:
+            if (
+                want_metadata
+                and entry["page_reuse"]
+                and (
+                    not group_visible_direct_only
+                    or self.direct_page_routes.get((first, count))
+                    in ("bounded", "full")
+                )
+            ):
                 metadata_start = time.perf_counter_ns()
                 self.group_visible_offsets[first, count] = len(packed)
                 if maxima:

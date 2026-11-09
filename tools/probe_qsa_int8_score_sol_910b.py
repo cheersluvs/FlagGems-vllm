@@ -458,10 +458,14 @@ def build_group_visible_source(bounded, arm="group_visible", *, request_offset=F
     return "import triton\nimport triton.language as tl\n\n" + ast.unparse(fn) + "\n"
 
 
-def build_direct_page_source(bounded, arm, *, precomputed_visibility):
+def build_direct_page_source(
+    bounded, arm, *, precomputed_visibility, request_offset=False
+):
     """Remove only the scalar page-table load mask on fully valid tables."""
     fn = (
-        ast.parse(build_group_visible_source(bounded, arm)).body[-1]
+        ast.parse(
+            build_group_visible_source(bounded, arm, request_offset=request_offset)
+        ).body[-1]
         if precomputed_visibility
         else page_reuse_function(bounded)
     )

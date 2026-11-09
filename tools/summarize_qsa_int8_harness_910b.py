@@ -29,6 +29,7 @@ TOPK_ROUTES = ("auto", "radix", "prefill")
 STAGE_CASES = ("int8_first_chunk", "int8_compact", "int8_budget_exact", "int8_long100k")
 SHORT_SCORE_CASES = ("int8_first_chunk", "int8_compact")
 TILE_HANDOFF_CASE = "int8_budget_exact"
+GROUP_VISIBLE_CASES = ("int8_budget_exact", "int8_long100k")
 
 
 def topk_route(case, policy):
@@ -41,14 +42,18 @@ def topk_route(case, policy):
     return "auto"
 
 
-def merge_case_reports(directory, *, stages=False, tile_handoff=False):
+def merge_case_reports(
+    directory, *, stages=False, tile_handoff=False, group_visible=False
+):
     """Preserve completed harness records when a later shape fails."""
     details, outcomes = [], {}
     stage_details = {f"{OP_NAME}_{stage}": [] for stage in ("score", "topk")}
     for case in cases():
         name = case["name"]
-        if (stages and name not in STAGE_CASES) or (
-            tile_handoff and name != TILE_HANDOFF_CASE
+        if (
+            (stages and name not in STAGE_CASES)
+            or (tile_handoff and name != TILE_HANDOFF_CASE)
+            or (group_visible and name not in GROUP_VISIBLE_CASES)
         ):
             continue
         path = directory / f"harness-{name}.json"
@@ -94,7 +99,13 @@ def merge_case_reports(directory, *, stages=False, tile_handoff=False):
 
 
 def summarize(
-    report, pytest_exit_code, *, stages=False, short_score=False, tile_handoff=False
+    report,
+    pytest_exit_code,
+    *,
+    stages=False,
+    short_score=False,
+    tile_handoff=False,
+    group_visible=False,
 ):
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
@@ -106,6 +117,7 @@ def summarize(
         for case in cases()
         if (not stages or case["name"] in STAGE_CASES)
         and (not tile_handoff or case["name"] == TILE_HANDOFF_CASE)
+        and (not group_visible or case["name"] in GROUP_VISIBLE_CASES)
     }
     rows = {}
     for detail in entry["details"]:
@@ -161,7 +173,7 @@ def summarize(
         cases=[rows[name] for name in expected],
         arithmetic_mean_speedup=(
             None
-            if stages or tile_handoff
+            if stages or tile_handoff or group_visible
             else statistics.mean(row["speedup"] for row in rows.values())
         ),
     )
@@ -241,12 +253,17 @@ def main():
     parser.add_argument("--merge-case-reports", action="store_true")
     parser.add_argument("--stages", action="store_true")
     parser.add_argument("--short-score", action="store_true")
-    parser.add_argument("--tile-handoff", action="store_true")
+    diagnostic = parser.add_mutually_exclusive_group()
+    diagnostic.add_argument("--tile-handoff", action="store_true")
+    diagnostic.add_argument("--group-visible", action="store_true")
     args = parser.parse_args()
     try:
         if args.merge_case_reports:
             report = merge_case_reports(
-                args.report.parent, stages=args.stages, tile_handoff=args.tile_handoff
+                args.report.parent,
+                stages=args.stages,
+                tile_handoff=args.tile_handoff,
+                group_visible=args.group_visible,
             )
             args.report.write_text(json.dumps(report, indent=2) + "\n")
         else:
@@ -257,6 +274,7 @@ def main():
             stages=args.stages,
             short_score=args.short_score,
             tile_handoff=args.tile_handoff,
+            group_visible=args.group_visible,
         )
         if args.tile_handoff:
             log = args.report.with_name(f"harness-{TILE_HANDOFF_CASE}-console.txt")
@@ -269,6 +287,19 @@ def main():
             if len(records) != 1 or records[0]["hits"] <= 0:
                 raise ValueError("Missing N128 handoff measurements")
             summary["tile_handoff"] = records[0]
+        if args.group_visible:
+            summary["group_visible"] = {}
+            prefix = "QSA_INT8_HARNESS_GROUP_VISIBLE "
+            for name in GROUP_VISIBLE_CASES:
+                log = args.report.with_name(f"harness-{name}-console.txt")
+                records = [
+                    json.loads(line[len(prefix) :])
+                    for line in log.read_text().splitlines()
+                    if line.startswith(prefix)
+                ]
+                if len(records) != 1 or records[0]["hits"] <= 0:
+                    raise ValueError(f"Missing GroupVisible measurements for {name}")
+                summary["group_visible"][name] = records[0]
     except (OSError, ValueError, KeyError, TypeError) as exc:
         summary = dict(
             exit_code=1,
@@ -303,6 +334,9 @@ def main():
     elif summary["exit_code"] == 0 and args.tile_handoff:
         row = summary["cases"][0]
         print(f"{TILE_HANDOFF_CASE}: N128 vs CANN V1 {row['speedup']:.6f}x")
+    elif summary["exit_code"] == 0 and args.group_visible:
+        for row in summary["cases"]:
+            print(f"{row['case']}: GroupVisible vs CANN V1 {row['speedup']:.6f}x")
     elif summary["exit_code"] == 0:
         print(
             f"QSA INT8 harness kernel arithmetic mean ({len(summary['cases'])} cases): "

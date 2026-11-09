@@ -32,6 +32,7 @@ import triton
 import flaggems_vllm
 from tools.qsa_int8_ten_workloads_910b import cases, make_inputs, sample_rows
 from tools.summarize_qsa_int8_harness_910b import (
+    GROUP_VISIBLE_CASES,
     OP_NAME,
     TOPK_SEGMENT,
     topk_route,
@@ -171,11 +172,7 @@ def _prefill_topk_adapter(prefill, row_starts):
     return select
 
 
-def _measure_tile_handoff(benchmark, current, wide_kernel, expected):
-    variant = copy.copy(current)
-    variant.direct_page_kernels = {**current.direct_page_kernels, True: wide_kernel}
-    hits = sum(route == "bounded" for route in variant.direct_page_routes.values())
-    assert hits, "No guarded bounded chunks for N128"
+def _check_score_pair(name, current, variant, expected):
     target = torch.empty_like(current.scratch)
     for first, count in variant.chunks:
         target[:count].fill_(float("nan"))
@@ -185,12 +182,11 @@ def _measure_tile_handoff(benchmark, current, wide_kernel, expected):
             target[:count], current.scratch[:count], rtol=0, atol=0
         )
     del target
-    actual = _preflight_select("int8_budget_exact", "paired_n128", variant, False)
-    assert torch.equal(actual, expected), "N128 changed full TopK indices"
-    stages = {
-        "score": (current.score_all, variant.score_all),
-        "combined": (current, variant),
-    }
+    actual = _preflight_select(name, "score_trial", variant, False)
+    assert torch.equal(actual, expected), "Score trial changed full TopK indices"
+
+
+def _measure_stage_pairs(benchmark, stages, output, expected, label):
     metrics = {}
     for stage, arms in stages.items():
         samples = [[], []]
@@ -199,22 +195,102 @@ def _measure_tile_handoff(benchmark, current, wide_kernel, expected):
                 ms = benchmark.get_latency(arms[i])
                 assert math.isfinite(ms) and ms > 0
                 samples[i].append(ms)
-                if stage == "combined":
-                    assert torch.equal(variant.output.cpu(), expected)
+                if stage != "score":
+                    assert torch.equal(output.cpu(), expected)
         before, after = map(statistics.median, samples)
         metrics[stage] = dict(
             current_ms=before,
-            n128_ms=after,
             speedup=before / after,
             current_samples_ms=samples[0],
-            n128_samples_ms=samples[1],
+            **{f"{label}_ms": after, f"{label}_samples_ms": samples[1]},
         )
-        print(
-            f"INT32 handoff {stage}: {before:.3f} → {after:.3f} ms, {before / after:.3f}x"
-        )
+        print(f"{label} {stage}: {before:.3f} → {after:.3f} ms, {before / after:.3f}x")
+    return metrics
+
+
+def _measure_tile_handoff(benchmark, current, wide_kernel, expected):
+    variant = copy.copy(current)
+    variant.direct_page_kernels = {**current.direct_page_kernels, True: wide_kernel}
+    hits = sum(route == "bounded" for route in variant.direct_page_routes.values())
+    assert hits, "No guarded bounded chunks for N128"
+    _check_score_pair("int8_budget_exact", current, variant, expected)
+    metrics = _measure_stage_pairs(
+        benchmark,
+        {
+            "score": (current.score_all, variant.score_all),
+            "combined": (current, variant),
+        },
+        variant.output,
+        expected,
+        "n128",
+    )
     print(
         "QSA_INT8_HARNESS_TILE_HANDOFF",
         json.dumps(dict(hits=hits, total_chunks=len(variant.chunks), metrics=metrics)),
+        flush=True,
+    )
+    return variant
+
+
+def _measure_group_visible(benchmark, name, current, make_adapter, expected):
+    from probe_qsa_int8_group_visible_request_910b import measure_request_wall
+
+    variant = make_adapter("group_visible")
+    assert variant.direct_page_routes == current.direct_page_routes
+    routes = {
+        key: route
+        for key, route in current.direct_page_routes.items()
+        if route in ("bounded", "full")
+    }
+    assert routes and variant.group_visible_offsets.keys() == routes.keys()
+    _check_score_pair(name, current, variant, expected)
+    scores = torch.empty(
+        (current.rows, current.width),
+        dtype=torch.float32,
+        device=current.scratch.device,
+    )
+    for first, count in current.chunks:
+        current.score_into(first, count, scores[first : first + count])
+    torch.npu.synchronize()
+    metrics = _measure_stage_pairs(
+        benchmark,
+        {
+            "score": (current.score_all, variant.score_all),
+            "topk": (
+                partial(current.topk_all, scores),
+                partial(variant.topk_all, scores),
+            ),
+            "combined": (current, variant),
+        },
+        variant.output,
+        expected,
+        "group_visible",
+    )
+    del scores
+
+    def check_indices(actual):
+        assert torch.equal(actual.cpu(), expected), "Fresh adapter changed TopK indices"
+
+    wall = measure_request_wall(
+        ("current", "group_visible"),
+        make_adapter,
+        torch.npu.synchronize,
+        check_indices,
+        6,
+    )
+    print(f"GroupVisible fresh wall {name}: {wall['speedup']:.3f}x", flush=True)
+    print(
+        "QSA_INT8_HARNESS_GROUP_VISIBLE",
+        json.dumps(
+            dict(
+                hits=len(routes),
+                bounded_chunks=list(routes.values()).count("bounded"),
+                total_chunks=len(variant.chunks),
+                metadata=variant.group_visible_stats,
+                metrics=metrics,
+                fresh_wall=wall,
+            )
+        ),
         flush=True,
     )
     return variant
@@ -516,6 +592,38 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             )
             candidate = _measure_tile_handoff(
                 benchmark, candidate, wide_kernel, selected
+            )
+        if (
+            not diagnose_only
+            and name in GROUP_VISIBLE_CASES
+            and os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "1"
+        ):
+            group_kernels = {}
+            for bounded in (True, False):
+                arm = "group_visible_bounded" if bounded else "group_visible_full"
+                group_kernels[bounded] = load_generated_prefix(
+                    tmp_path,
+                    "harness",
+                    arm,
+                    build_direct_page_source(
+                        bounded, arm, precomputed_visibility=True, request_offset=True
+                    ),
+                )
+
+            def make_adapter(arm):
+                return PreparedSharedMapInt8Selection(
+                    *adapter_args,
+                    **adapter_kwargs,
+                    direct_page_kernels=kernels,
+                    shared_direct_page_proof=True,
+                    group_visible_kernels=(
+                        group_kernels if arm == "group_visible" else None
+                    ),
+                    group_visible_direct_only=True,
+                )
+
+            candidate = _measure_group_visible(
+                benchmark, name, candidate, make_adapter, selected
             )
         del original, selected, native_output, expected, control, refs, inputs
 
