@@ -142,6 +142,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         page_reuse_full=True,
         group_visible_kernels=None,
         *,
+        allow_short_query16=False,
         direct_page_kernels=None,
         cache_direct_page_guard=False,
         shared_direct_page_proof=False,
@@ -169,6 +170,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         )
         self.key_group4 = bool(key_group4) and triton.cdiv(self.width, 128) >= 16
         self.single_page64 = bool(single_page64) and self.width >= 8192
+        query16_page64 = self.single_page64 or (single_page64 and allow_short_query16)
         starts = list(request_starts)
         if (
             len(starts) < 2
@@ -227,7 +229,7 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
         groups_from_policy = 0
         for entry in self.route_checks:
             first, count = (entry["first"], entry["count"])
-            eligible = query16 and self.single_page64 and entry["shared"]
+            eligible = query16 and query16_page64 and entry["shared"]
             reason = "Current route retained"
             prefixes = (
                 []

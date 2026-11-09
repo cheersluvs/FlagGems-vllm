@@ -93,9 +93,17 @@ else:
 print("\n".join(names))
 ') || exit 1
         qsa_stage_flag=
+        qsa_short_score_flag=
         if [[ ${QSA_HARNESS_STAGES:-0} == 1 ]]; then
             qsa_stage_flag=--stages
             printf 'QSA INT8 stage profile: four diagnostic cases; no acceptance mean\n'
+        fi
+        if [[ ${QSA_HARNESS_SHORT_SCORE:-0} == 1 ]]; then
+            if [[ -z "$qsa_stage_flag" ]]; then
+                echo 'QSA_HARNESS_SHORT_SCORE=1 requires QSA_HARNESS_STAGES=1'
+                exit 1
+            fi
+            qsa_short_score_flag=--short-score
         fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do
@@ -122,7 +130,8 @@ print("\n".join(names))
         done <<< "$qsa_cases"
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
-            --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"}
+            --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
+            ${qsa_short_score_flag:+"$qsa_short_score_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"

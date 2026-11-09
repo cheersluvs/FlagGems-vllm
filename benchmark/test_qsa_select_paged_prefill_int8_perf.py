@@ -29,7 +29,12 @@ import triton
 
 import flaggems_vllm
 from tools.qsa_int8_ten_workloads_910b import cases, make_inputs, sample_rows
-from tools.summarize_qsa_int8_harness_910b import OP_NAME, TOPK_SEGMENT, topk_route
+from tools.summarize_qsa_int8_harness_910b import (
+    OP_NAME,
+    SHORT_SCORE_CASES,
+    TOPK_SEGMENT,
+    topk_route,
+)
 
 from . import base, consts
 from .conftest import Config
@@ -165,7 +170,9 @@ def _prefill_topk_adapter(prefill, row_starts):
     return select
 
 
-def _measure_stages(name, route, adapter, expected_indices, device):
+def _measure_stages(
+    name, route, adapter, expected_indices, device, *, score_control=None
+):
     rows, width = adapter.rows, adapter.width
     print(
         f"QSA_INT8_HARNESS_STAGE_INPUT {name} score_bytes={rows * width * 4}",
@@ -189,14 +196,19 @@ def _measure_stages(name, route, adapter, expected_indices, device):
     torch.npu.synchronize()
     check_topk()
     for stage, execute in (("score", adapter.score_all), ("topk", topk_only)):
+        reference = score_control if stage == "score" else None
 
         def stage_inputs(shape, dtype, target_device):
-            yield (dict(case_name=name, route=route, candidate=execute),)
+            yield (
+                dict(
+                    case_name=name, route=route, reference=reference, candidate=execute
+                ),
+            )
 
         QSAPrefillInt8Benchmark(
             op_name=f"{OP_NAME}_{stage}",
             case_name=name,
-            torch_op=None,
+            torch_op=_call_reference if reference is not None else None,
             gems_op=_call_candidate,
             input_fn=stage_inputs,
             dtypes=[torch.int8],
@@ -344,13 +356,40 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         adapter_args = (values, output, scratch, workspace, topk, plan["starts"])
         adapter_kwargs = dict(key_group4=True, single_page64=True)
         control = PreparedSharedMapInt8Selection(*adapter_args, **adapter_kwargs)
+        stages = os.environ.get("QSA_HARNESS_STAGES") == "1"
+        short_score = (
+            stages
+            and os.environ.get("QSA_HARNESS_SHORT_SCORE") == "1"
+            and name in SHORT_SCORE_CASES
+        )
         candidate = PreparedSharedMapInt8Selection(
             *adapter_args,
             **adapter_kwargs,
-            direct_page_kernels=kernels,
+            allow_short_query16=short_score,
+            direct_page_kernels=None if short_score else kernels,
             shared_direct_page_proof=True,
         )
-        assert control.route_checks == candidate.route_checks
+        if short_score:
+            hits = sum(candidate.query16_routes.values())
+            bounded = sum(candidate.skip_invisible_routes.values())
+            assert hits and not any(control.query16_routes.values()), name
+            print(
+                f"QSA_INT8_HARNESS_SHORT_SCORE {name} query16_chunks={hits} "
+                f"bounded_chunks={bounded} total_chunks={len(candidate.chunks)}",
+                flush=True,
+            )
+            if not diagnose_only:
+                candidate_scores = torch.empty_like(scratch)
+                for first, count in candidate.chunks:
+                    candidate_scores[:count].fill_(float("nan"))
+                    control.score_into(first, count, scratch[:count])
+                    candidate.score_into(first, count, candidate_scores[:count])
+                    torch.testing.assert_close(
+                        candidate_scores[:count], scratch[:count], rtol=1e-3, atol=1e-3
+                    )
+                del candidate_scores
+        else:
+            assert control.route_checks == candidate.route_checks
 
         native_call = partial(
             native,
@@ -405,8 +444,15 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             f"total_chunks={len(candidate.chunks)}",
             flush=True,
         )
-        if not diagnose_only and os.environ.get("QSA_HARNESS_STAGES") == "1":
-            _measure_stages(name, route, candidate, selected, device)
+        if not diagnose_only and stages:
+            _measure_stages(
+                name,
+                route,
+                candidate,
+                selected,
+                device,
+                score_control=control.score_all if short_score else None,
+            )
         del original, selected, native_output, expected, control, refs, inputs
 
         if not diagnose_only and name == "int8_budget_exact":

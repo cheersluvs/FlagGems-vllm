@@ -27,6 +27,7 @@ TOPK_SEGMENT = 4096
 TOPK_POLICIES = ("auto", "radix_3seg", "prefill_3seg")
 TOPK_ROUTES = ("auto", "radix", "prefill")
 STAGE_CASES = ("int8_first_chunk", "int8_compact", "int8_budget_exact", "int8_long100k")
+SHORT_SCORE_CASES = ("int8_first_chunk", "int8_compact")
 
 
 def topk_route(case, policy):
@@ -89,7 +90,9 @@ def merge_case_reports(directory, *, stages=False):
     return report
 
 
-def summarize(report, pytest_exit_code, *, stages=False):
+def summarize(report, pytest_exit_code, *, stages=False, short_score=False):
+    if short_score and not stages:
+        raise ValueError("Short score comparison requires stage timings")
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
     entry = report[OP_NAME]
@@ -183,10 +186,17 @@ def summarize(report, pytest_exit_code, *, stages=False):
                         or latency <= 0
                     ):
                         raise ValueError(f"Invalid stage latency: {op} {name}")
-                    if (
-                        result.get("latency_base") is not None
-                        or result.get("speedup") is not None
-                    ):
+                    control, ratio = result.get("latency_base"), result.get("speedup")
+                    if short_score and stage == "score" and name in SHORT_SCORE_CASES:
+                        if not all(
+                            isinstance(value, (int, float))
+                            and math.isfinite(value)
+                            and value > 0
+                            for value in (control, ratio)
+                        ) or not math.isclose(ratio, control / latency, rel_tol=1e-9):
+                            raise ValueError(f"Invalid paired scorer timing: {name}")
+                        rows[name].update(score_control_ms=control, score_speedup=ratio)
+                    elif control is not None or ratio is not None:
                         raise ValueError(
                             f"Stage must report candidate latency only: {op}"
                         )
@@ -204,6 +214,15 @@ def summarize(report, pytest_exit_code, *, stages=False):
             "Candidate-only score and TopK measured separately with the stock harness; "
             "TopK reads materialized scores. CANN V1 is measured as a fused operator."
         )
+        if short_score:
+            summary["stage_scope"] = (
+                "Score and TopK measured separately with the stock harness. "
+                "TopK reads materialized scores. CANN V1 is measured as a fused operator."
+            )
+            summary["short_score_trial"] = (
+                "N64 query16 versus the current N128 score on the same tensors; "
+                "both arms use the current TopK route."
+            )
     return summary
 
 
@@ -214,6 +233,7 @@ def main():
     parser.add_argument("pytest_exit_code", type=int)
     parser.add_argument("--merge-case-reports", action="store_true")
     parser.add_argument("--stages", action="store_true")
+    parser.add_argument("--short-score", action="store_true")
     args = parser.parse_args()
     try:
         if args.merge_case_reports:
@@ -221,7 +241,12 @@ def main():
             args.report.write_text(json.dumps(report, indent=2) + "\n")
         else:
             report = json.loads(args.report.read_text())
-        summary = summarize(report, args.pytest_exit_code, stages=args.stages)
+        summary = summarize(
+            report,
+            args.pytest_exit_code,
+            stages=args.stages,
+            short_score=args.short_score,
+        )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         summary = dict(
             exit_code=1,
@@ -242,6 +267,14 @@ def main():
                 f"{row['score_fraction_of_isolated_sum']:.3%} | "
                 f"{row['isolated_sum_over_combined']:.3f}"
             )
+        if args.short_score:
+            print("case | current score ms | trial score ms | score speedup")
+            for row in summary["cases"]:
+                if row["case"] in SHORT_SCORE_CASES:
+                    print(
+                        f"{row['case']} | {row['score_control_ms']:.3f} | "
+                        f"{row['score_ms']:.3f} | {row['score_speedup']:.6f}x"
+                    )
         print(
             "QSA INT8 kernel stage profile complete; ten-case acceptance mean pending"
         )
