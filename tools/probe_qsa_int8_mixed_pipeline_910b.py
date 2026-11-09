@@ -57,8 +57,8 @@ def _qsa_int8_mixed_ring(
         Q + (base_row * 4 + m[:, None]) * 128 + d[None, :],
         mask=base_row + m[:, None] // 4 < ROWS, other=0,
     )
-    for slot in tl.static_range(SLOTS):
-        al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    for ring_index in tl.static_range(SLOTS):
+        al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for tile in range(tl.cdiv(WIDTH, TOP)):
         slot = tile % SLOTS
         work = Workspace + (pid * SLOTS + slot) * 16 * TOP
@@ -119,8 +119,8 @@ def _qsa_int8_mixed_ring(
                     tl.store(Indices + row * TOP + lane, tl.where(live, indices, -1))
                     tl.store(Values + row * TOP + lane, tl.where(live, values, -float("inf")))
         al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
-    for slot in tl.static_range(SLOTS):
-        al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    for ring_index in tl.static_range(SLOTS):
+        al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
 
 
 def fixture(case):
