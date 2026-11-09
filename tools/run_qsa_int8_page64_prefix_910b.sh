@@ -59,6 +59,12 @@ if [[ ${1:-} == --score-sol ]]; then
         qsa_subject="score INT32 tile handoff"
         qsa_label="INT8 score tile handoff"
     fi
+elif [[ ${1:-} == --mixed-pipeline ]]; then
+    shift
+    qsa_probe=probe_qsa_int8_mixed_pipeline_910b.py
+    qsa_kind=int8-mixed-pipeline
+    qsa_subject="mixed Cube Vector score and TopK pipeline"
+    qsa_label="INT8 mixed pipeline"
 elif [[ ${1:-} == --score-instructions ]]; then
     shift
     qsa_probe=probe_qsa_int8_score_instructions_910b.py
