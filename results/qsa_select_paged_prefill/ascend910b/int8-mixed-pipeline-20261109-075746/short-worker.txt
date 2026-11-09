@@ -1,0 +1,24 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+/tmp/flaggems-qsa-mixed-pipeline-3IqdOeqz/tools/probe_qsa_int8_mixed_pipeline_910b.py:255: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  values = torch.empty_like(indices, dtype=torch.float32)
+short-serial-proposals: compile only
+short-double_buffer-proposals: compile only
+short/serial: validating proposals plus Vector merge
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-mixed-pipeline-3IqdOeqz/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 424, in <module>
+    main()
+  File "/tmp/flaggems-qsa-mixed-pipeline-3IqdOeqz/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 377, in main
+    worker(args)
+  File "/tmp/flaggems-qsa-mixed-pipeline-3IqdOeqz/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 326, in worker
+    result["arms"][name] = dict(artifacts=artifacts, correctness=check(cpu, indices, values))
+                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-mixed-pipeline-3IqdOeqz/tools/probe_qsa_int8_mixed_pipeline_910b.py", line 180, in check
+    torch.testing.assert_close(got, score[selected], rtol=1e-3, atol=1e-3)
+  File "/flagos/lib/python3.11/site-packages/torch/testing/_comparison.py", line 1600, in assert_close
+    raise error_metas[0].to_error(msg)
+AssertionError: Tensor-likes are not close!
+
+Mismatched elements: 177 / 191 (92.7%)
+Greatest absolute difference: 20.02226448059082 at index (51,) (up to 0.001 allowed)
+Greatest relative difference: 1.0 at index (0,) (up to 0.001 allowed)
+[ERROR] 2026-11-09-15:57:13 (PID:3812870, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception
