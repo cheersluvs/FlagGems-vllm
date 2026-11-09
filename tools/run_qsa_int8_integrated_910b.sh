@@ -99,12 +99,15 @@ print("\n".join(names))
         qsa_stage_flag=
         qsa_short_score_flag=
         qsa_diagnostic_flag=
-        if [[ ${QSA_HARNESS_GROUP_VISIBLE:-0} == 1 ]]; then
+        if [[ ${QSA_HARNESS_GROUP_VISIBLE:-0} == 1 || ${QSA_HARNESS_GROUP_VISIBLE:-0} == full ]]; then
             if [[ ${QSA_HARNESS_TILE_HANDOFF:-0} == 1 || ${QSA_HARNESS_STAGES:-0} == 1 || ${QSA_HARNESS_REUSE_TOPK_SCRATCH:-0} == 1 ]]; then
                 echo 'GroupVisible requires a standalone harness run'
                 exit 1
             fi
             qsa_diagnostic_flag=--group-visible
+            if [[ ${QSA_HARNESS_GROUP_VISIBLE:-0} == full ]]; then
+                qsa_diagnostic_flag=--group-visible-full
+            fi
         fi
         if [[ ${QSA_HARNESS_TILE_HANDOFF:-0} == 1 ]]; then
             if [[ ${QSA_HARNESS_STAGES:-0} == 1 || ${QSA_HARNESS_REUSE_TOPK_SCRATCH:-0} == 1 ]]; then

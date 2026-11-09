@@ -256,6 +256,7 @@ def main():
     diagnostic = parser.add_mutually_exclusive_group()
     diagnostic.add_argument("--tile-handoff", action="store_true")
     diagnostic.add_argument("--group-visible", action="store_true")
+    diagnostic.add_argument("--group-visible-full", action="store_true")
     args = parser.parse_args()
     try:
         if args.merge_case_reports:
@@ -287,18 +288,23 @@ def main():
             if len(records) != 1 or records[0]["hits"] <= 0:
                 raise ValueError("Missing N128 handoff measurements")
             summary["tile_handoff"] = records[0]
-        if args.group_visible:
+        if args.group_visible or args.group_visible_full:
             summary["group_visible"] = {}
             prefix = "QSA_INT8_HARNESS_GROUP_VISIBLE "
-            for name in GROUP_VISIBLE_CASES:
+            for row in summary["cases"]:
+                name = row["case"]
                 log = args.report.with_name(f"harness-{name}-console.txt")
                 records = [
                     json.loads(line[len(prefix) :])
                     for line in log.read_text().splitlines()
                     if line.startswith(prefix)
                 ]
-                if len(records) != 1 or records[0]["hits"] <= 0:
+                if len(records) != 1 or (
+                    name in GROUP_VISIBLE_CASES and records[0]["hits"] <= 0
+                ):
                     raise ValueError(f"Missing GroupVisible measurements for {name}")
+                if not 0 <= records[0]["hits"] <= records[0]["total_chunks"]:
+                    raise ValueError(f"Invalid GroupVisible route counts for {name}")
                 summary["group_visible"][name] = records[0]
     except (OSError, ValueError, KeyError, TypeError) as exc:
         summary = dict(

@@ -237,36 +237,45 @@ def _measure_group_visible(benchmark, name, current, make_adapter, expected):
 
     variant = make_adapter("group_visible")
     assert variant.direct_page_routes == current.direct_page_routes
+    assert variant.query16_routes == current.query16_routes
+    assert variant.skip_invisible_routes == current.skip_invisible_routes
     routes = {
         key: route
         for key, route in current.direct_page_routes.items()
         if route in ("bounded", "full")
     }
-    assert routes and variant.group_visible_offsets.keys() == routes.keys()
+    assert variant.group_visible_offsets.keys() == routes.keys()
     _check_score_pair(name, current, variant, expected)
-    scores = torch.empty(
-        (current.rows, current.width),
-        dtype=torch.float32,
-        device=current.scratch.device,
-    )
-    for first, count in current.chunks:
-        current.score_into(first, count, scores[first : first + count])
-    torch.npu.synchronize()
-    metrics = _measure_stage_pairs(
-        benchmark,
-        {
-            "score": (current.score_all, variant.score_all),
-            "topk": (
-                partial(current.topk_all, scores),
-                partial(variant.topk_all, scores),
-            ),
-            "combined": (current, variant),
-        },
-        variant.output,
-        expected,
-        "group_visible",
-    )
-    del scores
+    metrics = None
+    if routes:
+        scores = torch.empty(
+            (current.rows, current.width),
+            dtype=torch.float32,
+            device=current.scratch.device,
+        )
+        for first, count in current.chunks:
+            current.score_into(first, count, scores[first : first + count])
+        torch.npu.synchronize()
+        metrics = _measure_stage_pairs(
+            benchmark,
+            {
+                "score": (current.score_all, variant.score_all),
+                "topk": (
+                    partial(current.topk_all, scores),
+                    partial(variant.topk_all, scores),
+                ),
+                "combined": (current, variant),
+            },
+            variant.output,
+            expected,
+            "group_visible",
+        )
+        del scores
+    else:
+        assert not variant.group_visible_stats["copies"]
+        print(
+            f"GroupVisible {name}: zero eligible chunks, no metadata upload", flush=True
+        )
 
     def check_indices(actual):
         assert torch.equal(actual.cpu(), expected), "Fresh adapter changed TopK indices"
@@ -593,10 +602,10 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             candidate = _measure_tile_handoff(
                 benchmark, candidate, wide_kernel, selected
             )
-        if (
-            not diagnose_only
-            and name in GROUP_VISIBLE_CASES
-            and os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "1"
+        group_visible_mode = os.environ.get("QSA_HARNESS_GROUP_VISIBLE")
+        if not diagnose_only and (
+            group_visible_mode == "full"
+            or (group_visible_mode == "1" and name in GROUP_VISIBLE_CASES)
         ):
             group_kernels = {}
             for bounded in (True, False):
@@ -614,6 +623,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 return PreparedSharedMapInt8Selection(
                     *adapter_args,
                     **adapter_kwargs,
+                    allow_short_query16=short_score,
                     direct_page_kernels=kernels,
                     shared_direct_page_proof=True,
                     group_visible_kernels=(
