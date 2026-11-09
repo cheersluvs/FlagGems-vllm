@@ -1,0 +1,86 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+/tmp/flaggems-qsa-mixed-pipeline-NtfiHzGJ/tools/probe_qsa_int8_mixed_pipeline_910b.py:495: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  values = torch.empty_like(indices, dtype=torch.float32)
+short-serial-proposals: compile only
+short-serial-proposals: at 45:16:
+        if not PRODUCER_ONLY:
+            if sub == SUBTILES_PER_TILE - 1:
+                al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+
+                al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+                column = tile * TOP + lane
+                page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
+                token = page * PAGE_SIZE + column % PAGE_SIZE
+                key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
+                row_in_core = al.sub_vec_id()
+                row = base_row + row_in_core
+                if row < ROWS:
+                ^
+AssertionError('initial value for `offset` is of type int32[], but the then block redefines it as int64[]')
+short-double_buffer-proposals: compile only
+short-double_buffer-proposals: at 45:16:
+        if not PRODUCER_ONLY:
+            if sub == SUBTILES_PER_TILE - 1:
+                al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+
+                al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+                column = tile * TOP + lane
+                page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
+                token = page * PAGE_SIZE + column % PAGE_SIZE
+                key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
+                row_in_core = al.sub_vec_id()
+                row = base_row + row_in_core
+                if row < ROWS:
+                ^
+AssertionError('initial value for `offset` is of type int32[], but the then block redefines it as int64[]')
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+/tmp/flaggems-qsa-mixed-pipeline-NtfiHzGJ/tools/probe_qsa_int8_mixed_pipeline_910b.py:495: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+  values = torch.empty_like(indices, dtype=torch.float32)
+long-serial-proposals: compile only
+long-serial-proposals: at 45:16:
+        if not PRODUCER_ONLY:
+            if sub == SUBTILES_PER_TILE - 1:
+                al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+
+                al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+                column = tile * TOP + lane
+                page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
+                token = page * PAGE_SIZE + column % PAGE_SIZE
+                key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
+                row_in_core = al.sub_vec_id()
+                row = base_row + row_in_core
+                if row < ROWS:
+                ^
+AssertionError('initial value for `offset` is of type int32[], but the then block redefines it as int64[]')
+long-double_buffer-proposals: compile only
+long-double_buffer-proposals: at 45:16:
+        if not PRODUCER_ONLY:
+            if sub == SUBTILES_PER_TILE - 1:
+                al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+
+                al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+                column = tile * TOP + lane
+                page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
+                token = page * PAGE_SIZE + column % PAGE_SIZE
+                key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
+                row_in_core = al.sub_vec_id()
+                row = base_row + row_in_core
+                if row < ROWS:
+                ^
+AssertionError('initial value for `offset` is of type int32[], but the then block redefines it as int64[]')
+{
+  "cases": {
+    "short": {
+      "exit_code": 1,
+      "timed_out": false
+    },
+    "long": {
+      "exit_code": 1,
+      "timed_out": false
+    }
+  },
+  "instruction_timeline": {
+    "status": "skipped_worker_failure"
+  }
+}
