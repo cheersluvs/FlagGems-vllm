@@ -45,7 +45,7 @@ CUBE_TILE = 64
 def _qsa_int8_mixed_ring(
     Q, K, QS, KS, Weight, Table, Visible, Workspace, Proposals, DebugDot,
     ROWS: tl.constexpr, WIDTH: tl.constexpr, SLOTS: tl.constexpr,
-    PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr, SCORE_ONLY: tl.constexpr,
+    PAGE_SIZE: tl.constexpr, TOP: tl.constexpr, CHUNK: tl.constexpr, SCORE_ONLY: tl.constexpr, PRODUCER_ONLY: tl.constexpr,
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
@@ -58,12 +58,14 @@ def _qsa_int8_mixed_ring(
         Q + (base_row * 4 + m[:, None]) * 128 + d[None, :],
         mask=(m[:, None] < 8) & (base_row + m[:, None] // 4 < ROWS), other=0,
     )
-    for ring_index in tl.static_range(SLOTS):
-        al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    if not PRODUCER_ONLY:
+        for ring_index in tl.static_range(SLOTS):
+            al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for tile in range(tl.cdiv(WIDTH, TOP)):
         slot = tile % SLOTS
         work = Workspace + (pid * SLOTS + slot) * 16 * TOP
-        al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        if not PRODUCER_ONLY:
+            al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
         for sub in range(TOP // CHUNK):
             column = tile * TOP + sub * CHUNK + n
             page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
@@ -74,42 +76,43 @@ def _qsa_int8_mixed_ring(
             )
             dot = tl.dot(q, tl.trans(k), out_dtype=tl.int32)
             tl.store(work + sub * 16 * CHUNK + m[:, None] * CHUNK + n[None, :], dot)
-        al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        if not PRODUCER_ONLY:
+            al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
 
-        al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
-        column = tile * TOP + lane
-        page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
-        token = page * PAGE_SIZE + column % PAGE_SIZE
-        key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
-        row_in_core = al.sub_vec_id()
-        row = base_row + row_in_core
-        if row < ROWS:
-            visible = tl.load(Visible + row)
-            h = tl.arange(0, 4)
-            dot = tl.load(
-                work + (lane[None, :] // CHUNK) * 16 * CHUNK
-                + (row_in_core * 4 + h[:, None]) * CHUNK + lane[None, :] % CHUNK
-            )
-            qs = tl.load(QS + row * 4 + h).to(tl.float32)
-            weight = tl.load(Weight + row * 4 + h).to(tl.float32)
-            dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
-            score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
-            score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
-            offset = row * tl.cdiv(WIDTH, TOP) + tile
-            if SCORE_ONLY:
-                tl.store(Proposals + offset * TOP + lane, score)
-                tl.store(DebugDot + (offset * 4 + h[:, None]) * TOP + lane[None, :], dot)
-            else:
-                pairs = tle.dsa.ascend.raw(
-                    "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
-                    True, TOP, tile * TOP, SORT_IMPL_BASE,
-                    out=tl.zeros((2 * TOP,), tl.float32),
+            al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            column = tile * TOP + lane
+            page = tl.load(Table + column // PAGE_SIZE, mask=column < WIDTH, other=0)
+            token = page * PAGE_SIZE + column % PAGE_SIZE
+            key_scale = tl.load(KS + token, mask=column < WIDTH, other=0).to(tl.float32)
+            row_in_core = al.sub_vec_id()
+            row = base_row + row_in_core
+            if row < ROWS:
+                visible = tl.load(Visible + row)
+                h = tl.arange(0, 4)
+                dot = tl.load(
+                    work + (lane[None, :] // CHUNK) * 16 * CHUNK
+                    + (row_in_core * 4 + h[:, None]) * CHUNK + lane[None, :] % CHUNK
                 )
-                tl.store(Proposals + offset * 2 * TOP + pair_lane, pairs)
-        al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
-    for ring_index in tl.static_range(SLOTS):
-        al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
-
+                qs = tl.load(QS + row * 4 + h).to(tl.float32)
+                weight = tl.load(Weight + row * 4 + h).to(tl.float32)
+                dequant = dot.to(tl.float32) * qs[:, None] * key_scale[None, :]
+                score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
+                score = tl.where((column < visible) & (column < WIDTH), score, -float("inf"))
+                offset = row * tl.cdiv(WIDTH, TOP) + tile
+                if SCORE_ONLY:
+                    tl.store(Proposals + offset * TOP + lane, score)
+                    tl.store(DebugDot + (offset * 4 + h[:, None]) * TOP + lane[None, :], dot)
+                else:
+                    pairs = tle.dsa.ascend.raw(
+                        "sort_1d_pack", score, tl.zeros((4 * TOP,), tl.float32),
+                        True, TOP, tile * TOP, SORT_IMPL_BASE,
+                        out=tl.zeros((2 * TOP,), tl.float32),
+                    )
+                    tl.store(Proposals + offset * 2 * TOP + pair_lane, pairs)
+            al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+    if not PRODUCER_ONLY:
+        for ring_index in tl.static_range(SLOTS):
+            al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
 
 
 @triton.jit
@@ -190,6 +193,35 @@ def check(cpu, indices, values):
     return {"rows": len(visible), "max_score_abs_error": max_error}
 
 
+
+
+def check_workspace(cpu, workspace, width, slots):
+    q, k, _, _, _, table, _ = cpu
+    keys = k[table.long()].reshape(-1, 128).int()
+    tiles = triton.cdiv(width, TOPK)
+    ring = workspace.cpu().flatten()[:workspace.shape[0] * slots * 16 * TOPK]
+    ring = ring.reshape(-1, slots, TOPK // CUBE_TILE, 16, CUBE_TILE)
+    result = {"checked_subtiles": 0, "mismatches": 0, "sentinel_values": 0, "zero_values": 0}
+    for tile in range(max(tiles - slots, 0), tiles):
+        for sub in range(TOPK // CUBE_TILE):
+            start = tile * TOPK + sub * CUBE_TILE
+            count = min(CUBE_TILE, width - start)
+            if count <= 0:
+                continue
+            for row in range(q.shape[0]):
+                core, local = divmod(row, ROWS_PER_CORE)
+                got = ring[core, tile % slots, sub, local * 4:local * 4 + 4, :count].T
+                expected = keys[start:start + count] @ q[row].int().T
+                result["checked_subtiles"] += 1
+                result["sentinel_values"] += (got == -2147483647).sum().item()
+                result["zero_values"] += (got == 0).sum().item()
+                if not torch.equal(got, expected):
+                    result["mismatches"] += 1
+                    result.setdefault("first_failure", {
+                        "row": row, "tile": tile, "subtile": sub,
+                        "got": got[:4].tolist(), "expected": expected[:4].tolist(),
+                    })
+    return result
 
 def check_producer(cpu, raw, proposals, debug_dot):
     q, k, qs, ks, weights, table, visible = cpu
@@ -316,14 +348,14 @@ def worker(args):
     indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
     values = torch.empty_like(indices, dtype=torch.float32)
 
-    def launch(slots, compile_only=False, score_only=False):
+    def launch(slots, compile_only=False, score_only=False, producer_only=False):
         if compile_only:
             invoke = lambda *a, **kw: _qsa_int8_mixed_ring.warmup(*a, grid=(cores,), **kw)
         else:
             invoke = _qsa_int8_mixed_ring[(cores,)]
         return invoke(
             *inputs, workspace, raw if score_only else state, debug_dot,
-            rows, width, slots, PAGE, TOPK, CUBE_TILE, score_only,
+            rows, width, slots, PAGE, TOPK, CUBE_TILE, score_only, producer_only,
             disable_auto_cv_work_space_manage=True,
             disable_auto_inject_block_sync=True,
             enable_auto_bind_sub_block=False,
@@ -384,13 +416,26 @@ def worker(args):
         result["arms"][name] = arm
         try:
             with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+                workspace.fill_(-2147483647)
                 kernel = launch(slots, score_only=True)
                 arm["score_artifacts"] = save_artifacts(kernel, report, f"{label}-score")
+                torch.npu.synchronize()
+                arm["mixed_workspace"] = check_workspace(cpu, workspace, width, slots)
                 launch(slots)
             torch.npu.synchronize()
             arm["producer"] = check_producer(cpu, raw, state, debug_dot)
         except Exception as exc:
             arm["producer_error"] = str(exc)
+        if "producer_error" in arm or arm["producer"]["dot_handoff"]["failures"]:
+            try:
+                with patch.object(compiler, "subprocess", CompileCapture(report, f"{label}-cube")):
+                    workspace.fill_(-2147483647)
+                    kernel = launch(slots, producer_only=True)
+                    arm["cube_artifacts"] = save_artifacts(kernel, report, f"{label}-cube")
+                torch.npu.synchronize()
+                arm["cube_only_workspace"] = check_workspace(cpu, workspace, width, slots)
+            except Exception as exc:
+                arm["cube_only_error"] = str(exc)
         print(json.dumps({name: arm}, indent=2), flush=True)
         summary.write_text(json.dumps(result, indent=2))
 
