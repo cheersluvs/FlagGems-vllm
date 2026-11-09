@@ -257,6 +257,55 @@ def _qsa_int8_handoff_copy(
         al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
 
 
+@triton.jit
+def _qsa_int8_merge_sorted_tiles(
+    Proposals, Output, LISTS: tl.constexpr, GROUPS: tl.constexpr,
+    IN: tl.constexpr, OUT: tl.constexpr,
+):
+    task = tl.program_id(0)
+    group = task % GROUPS
+    row = task // GROUPS
+    first = group * 2
+    source = Proposals + (row * LISTS + first) * (2 * IN)
+    words = tl.arange(0, 2 * OUT)
+    if first + 1 < LISTS:
+        lanes = tl.arange(0, 8 * IN)
+        packed = tl.load(source + lanes, mask=lanes < 4 * IN, other=0)
+        merged, consumed = tle.dsa.ascend.raw(
+            "merge_exhaust_sort4", packed, 2,
+            0, IN, 2 * IN, 3 * IN, IN, IN, 0, 0,
+            out=[tl.zeros((2 * OUT,), tl.float32), tl.zeros((4,), tl.int32)],
+        )
+        if OUT > IN:
+            # Exhausting either list leaves at most one sorted suffix.
+            left = al.get_element(consumed, (0,))
+            right = al.get_element(consumed, (1,))
+            written = 2 * (left + right)
+            remaining = tl.where(left == IN, 2 * (IN + right), 2 * left)
+            tail = tl.load(
+                source + remaining + words - written,
+                mask=words >= written, other=0,
+            )
+            merged = tl.where(words < written, merged, tail)
+    else:
+        merged = tl.load(source + words, mask=words < 2 * IN, other=-float("inf"))
+    tl.store(Output + task * 2 * OUT + words, merged)
+
+
+@triton.jit
+def _qsa_int8_emit_topk(
+    Pairs, Visible, Indices, Values, TOP: tl.constexpr,
+):
+    row = tl.program_id(0)
+    lane = tl.arange(0, TOP)
+    base = Pairs + (row * TOP + lane) * 2
+    live = lane < tl.minimum(tl.load(Visible + row), TOP)
+    scores = tl.load(base, mask=live, other=-float("inf"))
+    index_bits = tl.load(base + 1, mask=live, other=0).to(tl.int32, bitcast=True)
+    tl.store(Values + row * TOP + lane, scores)
+    tl.store(Indices + row * TOP + lane, tl.where(live, index_bits, -1))
+
+
 def fixture(case):
     rows, width = CASES[case]
     pages = triton.cdiv(width, PAGE)
@@ -531,7 +580,7 @@ def cube_controls(args, cpu, inputs, packed_q, workspace):
 
 
 def handoff_operation(args):
-    if args.handoff_sort or args.handoff_bench:
+    if args.handoff_sort or args.handoff_bench or args.handoff_merge:
         return "sort"
     return "score" if args.handoff_score else "copy"
 
@@ -655,7 +704,7 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width, slots):
     print(json.dumps(result, indent=2), flush=True)
     if not result["passed"]:
         raise SystemExit(1)
-    return launch
+    return launch, received
 
 
 def paired_event_times(functions, rounds, launches):
@@ -681,10 +730,11 @@ def paired_event_times(functions, rounds, launches):
 
 
 def handoff_benchmark(args, cpu, inputs, packed_q, width):
-    functions = {
+    arms = {
         name: handoff_copy_control(args, cpu, inputs, packed_q, width, slots)
         for name, slots in (("serial", 1), ("double_buffer", 2))
     }
+    functions = {name: arm[0] for name, arm in arms.items()}
     for launch in functions.values():
         for _ in range(8):
             launch()
@@ -697,6 +747,77 @@ def handoff_benchmark(args, cpu, inputs, packed_q, width):
     report = Path(args.report)
     (report / f"{args.worker}-handoff-benchmark.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2), flush=True)
+    if args.handoff_merge:
+        handoff_merge_benchmark(args, cpu, inputs[-1], arms, result)
+
+
+def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
+    from triton.backends.ascend import compiler
+
+    report = Path(args.report)
+    summary = report / f"{args.worker}-handoff-merge.json"
+    rows, groups, _ = arms["serial"][1].shape
+    device = visible.device
+    indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
+    scores = torch.empty((rows, TOPK), device=device, dtype=torch.float32)
+    levels = []
+    span = CUBE_TILE
+    while groups > 1:
+        groups = triton.cdiv(groups, 2)
+        span = min(span * 2, TOPK)
+        levels.append(torch.empty((rows, groups, 2 * span), device=device, dtype=torch.float32))
+
+    def merge(proposals):
+        kernels = []
+        for target in levels:
+            kernels.append(_qsa_int8_merge_sorted_tiles[(rows * target.shape[1],)](
+                proposals, target, proposals.shape[1], target.shape[1],
+                proposals.shape[2] // 2, target.shape[2] // 2,
+                use_bytecode=True, enable_ubuf_saving=True,
+                enable_auto_bind_sub_block=False, multibuffer=False,
+            ))
+            proposals = target
+        kernels.append(_qsa_int8_emit_topk[(rows,)](
+            proposals, visible, indices, scores, TOPK,
+        ))
+        return kernels
+
+    def pipeline(arm):
+        launch, proposals = arm
+        launch()
+        return merge(proposals)
+
+    result = {
+        "case": args.worker, "producer": producer_result,
+        "merge_launches": len(levels) + 1, "correctness": {}, "passed": False,
+    }
+    summary.write_text(json.dumps(result, indent=2))
+    try:
+        for name, arm in arms.items():
+            with patch.object(compiler, "subprocess", CompileCapture(report, f"{name}-merge")):
+                kernels = pipeline(arm)
+            torch.npu.synchronize()
+            result["correctness"][name] = check(cpu, indices, scores)
+            if name == "serial":
+                result["artifacts"] = [
+                    file for i, kernel in enumerate(kernels)
+                    for file in save_artifacts(kernel, report, f"handoff-merge-stage{i}")
+                ]
+        result["merge"] = paired_event_times(
+            {name: lambda arm=arm: merge(arm[1]) for name, arm in arms.items()},
+            rounds=6, launches=16,
+        )
+        result["total"] = paired_event_times(
+            {name: lambda arm=arm: pipeline(arm) for name, arm in arms.items()},
+            rounds=6, launches=16,
+        )
+        result["passed"] = True
+    except Exception as exc:
+        result["error"] = str(exc)
+    summary.write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2), flush=True)
+    if not result["passed"]:
+        raise SystemExit(1)
 
 
 
@@ -713,7 +834,7 @@ def worker(args):
     packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8)
     packed_q[:, :ROWS_PER_CORE * 4].copy_(padded_q.reshape(cores, ROWS_PER_CORE * 4, 128))
     inputs = tuple(t.to(device) for t in (packed_q, *rest))
-    if args.handoff_bench:
+    if args.handoff_bench or args.handoff_merge:
         handoff_benchmark(args, cpu, inputs, packed_q, width)
         return
     if args.handoff_copy or args.handoff_score or args.handoff_sort:
@@ -888,6 +1009,7 @@ def main():
     handoff_modes.add_argument("--handoff-score", action="store_true")
     handoff_modes.add_argument("--handoff-sort", action="store_true")
     handoff_modes.add_argument("--handoff-bench", action="store_true")
+    handoff_modes.add_argument("--handoff-merge", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
@@ -910,11 +1032,18 @@ def main():
             code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
             statuses[label] = dict(exit_code=code, timed_out=timed_out)
     else:
-        for case in (("short",) if args.cube_controls or args.handoff64 else CASES):
+        cases = CASES
+        if args.handoff_merge:
+            cases = ("long",)
+        elif args.cube_controls or args.handoff64:
+            cases = ("short",)
+        for case in cases:
             log = report / f"{case}-worker.txt"
             command = base + ["--worker", case]
             if args.handoff_bench:
                 command.append("--handoff-bench")
+            if args.handoff_merge:
+                command.append("--handoff-merge")
             if args.cube_controls:
                 command.append("--cube-controls")
             if args.handoff64:
