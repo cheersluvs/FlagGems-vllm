@@ -33,6 +33,7 @@ import flaggems_vllm
 from tools.qsa_int8_ten_workloads_910b import cases, make_inputs, sample_rows
 from tools.summarize_qsa_int8_harness_910b import (
     GROUP_VISIBLE_CASES,
+    GROUP_VISIBLE_WALL_CASES,
     OP_NAME,
     TOPK_SEGMENT,
     topk_route,
@@ -232,7 +233,9 @@ def _measure_tile_handoff(benchmark, current, wide_kernel, expected):
     return variant
 
 
-def _measure_group_visible(benchmark, name, current, make_adapter, expected):
+def _measure_group_visible(
+    benchmark, name, current, make_adapter, expected, *, diagnose_wall=False
+):
     from probe_qsa_int8_group_visible_request_910b import measure_request_wall
 
     variant = make_adapter("group_visible")
@@ -247,7 +250,7 @@ def _measure_group_visible(benchmark, name, current, make_adapter, expected):
     assert variant.group_visible_offsets.keys() == routes.keys()
     _check_score_pair(name, current, variant, expected)
     metrics = None
-    if routes:
+    if routes and not diagnose_wall:
         scores = torch.empty(
             (current.rows, current.width),
             dtype=torch.float32,
@@ -271,7 +274,7 @@ def _measure_group_visible(benchmark, name, current, make_adapter, expected):
             "group_visible",
         )
         del scores
-    else:
+    elif not routes:
         assert not variant.group_visible_stats["copies"]
         print(
             f"GroupVisible {name}: zero eligible chunks, no metadata upload", flush=True
@@ -285,9 +288,25 @@ def _measure_group_visible(benchmark, name, current, make_adapter, expected):
         make_adapter,
         torch.npu.synchronize,
         check_indices,
-        6,
+        12 if diagnose_wall else 6,
     )
     print(f"GroupVisible fresh wall {name}: {wall['speedup']:.3f}x", flush=True)
+    host_phases = {}
+    if diagnose_wall:
+        assert routes
+        host_phases["host_phases"] = measure_request_wall(
+            ("current", "group_visible"),
+            partial(make_adapter, instrument=True),
+            torch.npu.synchronize,
+            check_indices,
+            6,
+            record_host_phases=True,
+        )
+        print("GroupVisible host phase paired savings (ms, positive is faster)")
+        for phase, saved in host_phases["host_phases"][
+            "phase_paired_median_saved_us"
+        ].items():
+            print(f"  {phase.removesuffix('_us')}: {saved / 1000:+.3f}")
     print(
         "QSA_INT8_HARNESS_GROUP_VISIBLE",
         json.dumps(
@@ -298,6 +317,7 @@ def _measure_group_visible(benchmark, name, current, make_adapter, expected):
                 metadata=variant.group_visible_stats,
                 metrics=metrics,
                 fresh_wall=wall,
+                **host_phases,
             )
         ),
         flush=True,
@@ -606,6 +626,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         if not diagnose_only and (
             group_visible_mode == "full"
             or (group_visible_mode == "1" and name in GROUP_VISIBLE_CASES)
+            or (group_visible_mode == "wall" and name in GROUP_VISIBLE_WALL_CASES)
         ):
             group_kernels = {}
             for bounded in (True, False):
@@ -619,7 +640,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                     ),
                 )
 
-            def make_adapter(arm):
+            def make_adapter(arm, *, instrument=False):
                 return PreparedSharedMapInt8Selection(
                     *adapter_args,
                     **adapter_kwargs,
@@ -630,10 +651,16 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                         group_kernels if arm == "group_visible" else None
                     ),
                     group_visible_direct_only=True,
+                    time_page_proof=instrument,
                 )
 
             candidate = _measure_group_visible(
-                benchmark, name, candidate, make_adapter, selected
+                benchmark,
+                name,
+                candidate,
+                make_adapter,
+                selected,
+                diagnose_wall=group_visible_mode == "wall",
             )
         del original, selected, native_output, expected, control, refs, inputs
 

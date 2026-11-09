@@ -84,8 +84,10 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
         qsa_cases=$("$qsa_python" -c '
 import os
 from tools.qsa_int8_ten_workloads_910b import cases
-from tools.summarize_qsa_int8_harness_910b import GROUP_VISIBLE_CASES, STAGE_CASES, TILE_HANDOFF_CASE
-if os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "1":
+from tools.summarize_qsa_int8_harness_910b import GROUP_VISIBLE_CASES, GROUP_VISIBLE_WALL_CASES, STAGE_CASES, TILE_HANDOFF_CASE
+if os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "wall":
+    names = GROUP_VISIBLE_WALL_CASES
+elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "1":
     names = GROUP_VISIBLE_CASES
 elif os.environ.get("QSA_HARNESS_TILE_HANDOFF") == "1":
     names = (TILE_HANDOFF_CASE,)
@@ -99,7 +101,7 @@ print("\n".join(names))
         qsa_stage_flag=
         qsa_short_score_flag=
         qsa_diagnostic_flag=
-        if [[ ${QSA_HARNESS_GROUP_VISIBLE:-0} == 1 || ${QSA_HARNESS_GROUP_VISIBLE:-0} == full ]]; then
+        if [[ ${QSA_HARNESS_GROUP_VISIBLE:-0} == 1 || ${QSA_HARNESS_GROUP_VISIBLE:-0} == full || ${QSA_HARNESS_GROUP_VISIBLE:-0} == wall ]]; then
             if [[ ${QSA_HARNESS_TILE_HANDOFF:-0} == 1 || ${QSA_HARNESS_STAGES:-0} == 1 || ${QSA_HARNESS_REUSE_TOPK_SCRATCH:-0} == 1 ]]; then
                 echo 'GroupVisible requires a standalone harness run'
                 exit 1
@@ -107,6 +109,8 @@ print("\n".join(names))
             qsa_diagnostic_flag=--group-visible
             if [[ ${QSA_HARNESS_GROUP_VISIBLE:-0} == full ]]; then
                 qsa_diagnostic_flag=--group-visible-full
+            elif [[ ${QSA_HARNESS_GROUP_VISIBLE:-0} == wall ]]; then
+                qsa_diagnostic_flag=--group-visible-wall
             fi
         fi
         if [[ ${QSA_HARNESS_TILE_HANDOFF:-0} == 1 ]]; then

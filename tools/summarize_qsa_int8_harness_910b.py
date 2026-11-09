@@ -30,6 +30,7 @@ STAGE_CASES = ("int8_first_chunk", "int8_compact", "int8_budget_exact", "int8_lo
 SHORT_SCORE_CASES = ("int8_first_chunk", "int8_compact")
 TILE_HANDOFF_CASE = "int8_budget_exact"
 GROUP_VISIBLE_CASES = ("int8_budget_exact", "int8_long100k")
+GROUP_VISIBLE_WALL_CASES = ("int8_two_skewed", "int8_two_balanced")
 
 
 def topk_route(case, policy):
@@ -43,7 +44,12 @@ def topk_route(case, policy):
 
 
 def merge_case_reports(
-    directory, *, stages=False, tile_handoff=False, group_visible=False
+    directory,
+    *,
+    stages=False,
+    tile_handoff=False,
+    group_visible=False,
+    group_visible_wall=False,
 ):
     """Preserve completed harness records when a later shape fails."""
     details, outcomes = [], {}
@@ -54,6 +60,7 @@ def merge_case_reports(
             (stages and name not in STAGE_CASES)
             or (tile_handoff and name != TILE_HANDOFF_CASE)
             or (group_visible and name not in GROUP_VISIBLE_CASES)
+            or (group_visible_wall and name not in GROUP_VISIBLE_WALL_CASES)
         ):
             continue
         path = directory / f"harness-{name}.json"
@@ -106,6 +113,7 @@ def summarize(
     short_score=False,
     tile_handoff=False,
     group_visible=False,
+    group_visible_wall=False,
 ):
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
@@ -118,6 +126,7 @@ def summarize(
         if (not stages or case["name"] in STAGE_CASES)
         and (not tile_handoff or case["name"] == TILE_HANDOFF_CASE)
         and (not group_visible or case["name"] in GROUP_VISIBLE_CASES)
+        and (not group_visible_wall or case["name"] in GROUP_VISIBLE_WALL_CASES)
     }
     rows = {}
     for detail in entry["details"]:
@@ -173,7 +182,7 @@ def summarize(
         cases=[rows[name] for name in expected],
         arithmetic_mean_speedup=(
             None
-            if stages or tile_handoff or group_visible
+            if stages or tile_handoff or group_visible or group_visible_wall
             else statistics.mean(row["speedup"] for row in rows.values())
         ),
     )
@@ -257,6 +266,7 @@ def main():
     diagnostic.add_argument("--tile-handoff", action="store_true")
     diagnostic.add_argument("--group-visible", action="store_true")
     diagnostic.add_argument("--group-visible-full", action="store_true")
+    diagnostic.add_argument("--group-visible-wall", action="store_true")
     args = parser.parse_args()
     try:
         if args.merge_case_reports:
@@ -265,6 +275,7 @@ def main():
                 stages=args.stages,
                 tile_handoff=args.tile_handoff,
                 group_visible=args.group_visible,
+                group_visible_wall=args.group_visible_wall,
             )
             args.report.write_text(json.dumps(report, indent=2) + "\n")
         else:
@@ -276,6 +287,7 @@ def main():
             short_score=args.short_score,
             tile_handoff=args.tile_handoff,
             group_visible=args.group_visible,
+            group_visible_wall=args.group_visible_wall,
         )
         if args.tile_handoff:
             log = args.report.with_name(f"harness-{TILE_HANDOFF_CASE}-console.txt")
@@ -288,7 +300,7 @@ def main():
             if len(records) != 1 or records[0]["hits"] <= 0:
                 raise ValueError("Missing N128 handoff measurements")
             summary["tile_handoff"] = records[0]
-        if args.group_visible or args.group_visible_full:
+        if args.group_visible or args.group_visible_full or args.group_visible_wall:
             summary["group_visible"] = {}
             prefix = "QSA_INT8_HARNESS_GROUP_VISIBLE "
             for row in summary["cases"]:
@@ -305,6 +317,14 @@ def main():
                     raise ValueError(f"Missing GroupVisible measurements for {name}")
                 if not 0 <= records[0]["hits"] <= records[0]["total_chunks"]:
                     raise ValueError(f"Invalid GroupVisible route counts for {name}")
+                if args.group_visible_wall and (
+                    not records[0]["hits"]
+                    or len(records[0]["fresh_wall"]["samples"]) != 12
+                    or len(records[0]["host_phases"]["samples"]) != 6
+                ):
+                    raise ValueError(
+                        f"Incomplete GroupVisible wall diagnosis for {name}"
+                    )
                 summary["group_visible"][name] = records[0]
     except (OSError, ValueError, KeyError, TypeError) as exc:
         summary = dict(
@@ -340,7 +360,7 @@ def main():
     elif summary["exit_code"] == 0 and args.tile_handoff:
         row = summary["cases"][0]
         print(f"{TILE_HANDOFF_CASE}: N128 vs CANN V1 {row['speedup']:.6f}x")
-    elif summary["exit_code"] == 0 and args.group_visible:
+    elif summary["exit_code"] == 0 and (args.group_visible or args.group_visible_wall):
         for row in summary["cases"]:
             print(f"{row['case']}: GroupVisible vs CANN V1 {row['speedup']:.6f}x")
     elif summary["exit_code"] == 0:

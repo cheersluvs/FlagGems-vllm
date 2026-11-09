@@ -156,10 +156,12 @@ def measure_request_wall(
     *,
     record_group_visible=True,
     record_direct_page=False,
+    record_host_phases=False,
 ):
     """Measure host intervals around one ordinary asynchronous selection call."""
     pairs = []
     orders = tuple(permutations(names))
+    launch_phases = {"score_into": "score_submit_us", "select_chunk": "topk_submit_us"}
     for i in range(sample_count):
         order = orders[i % len(orders)]
         pair = {"order": order}
@@ -168,15 +170,36 @@ def measure_request_wall(
             start = time.perf_counter_ns()
             prepared = get_adapter(name)
             ready = time.perf_counter_ns()
-            actual = prepared()
-            submitted = time.perf_counter_ns()
+            if record_host_phases:
+                launch_ns = dict.fromkeys(launch_phases.values(), 0)
+
+                def timed(method, phase):
+                    def run(*args, **kwargs):
+                        began = time.perf_counter_ns()
+                        try:
+                            return method(*args, **kwargs)
+                        finally:
+                            launch_ns[phase] += time.perf_counter_ns() - began
+
+                    return run
+
+                for method, phase in launch_phases.items():
+                    setattr(prepared, method, timed(getattr(prepared, method), phase))
+            submit_start = time.perf_counter_ns() if record_host_phases else ready
+            try:
+                actual = prepared()
+                submitted = time.perf_counter_ns()
+            finally:
+                if record_host_phases:
+                    for method in launch_phases:
+                        delattr(prepared, method)
             synchronize()
             end = time.perf_counter_ns()
             check_indices(actual)
             pair[name] = dict(
                 wall_us=(end - start) / 1000,
                 preparation_us=(ready - start) / 1000,
-                submit_us=(submitted - ready) / 1000,
+                submit_us=(submitted - submit_start) / 1000,
                 sync_us=(end - submitted) / 1000,
             )
             if record_group_visible:
@@ -184,10 +207,33 @@ def measure_request_wall(
             if record_direct_page:
                 pair[name]["direct_page_guard_us"] = prepared.direct_page_guard_us
                 pair[name]["page_proof_us"] = prepared.page_proof_us
+            if record_host_phases:
+                pair[name].update(
+                    prepared.metadata_host_us,
+                    **{phase: ns / 1000 for phase, ns in launch_ns.items()},
+                    query16_page_proof_us=prepared.page_proof_us,
+                    group_metadata_pack_us=prepared.group_visible_stats["pack_us"],
+                    group_metadata_upload_us=prepared.group_visible_stats[
+                        "alloc_copy_us"
+                    ],
+                    other_submit_us=(submitted - submit_start - sum(launch_ns.values()))
+                    / 1000,
+                )
             del prepared
         pairs.append(pair)
 
     phases = ("preparation_us", "submit_us", "sync_us", "wall_us")
+    if record_host_phases:
+        phases += (
+            "row_table_to_host_us",
+            "shared_map_check_us",
+            "visible_to_host_us",
+            "query16_page_proof_us",
+            "group_metadata_pack_us",
+            "group_metadata_upload_us",
+            *launch_phases.values(),
+            "other_submit_us",
+        )
     medians = {
         phase: {
             name: statistics.median(p[name][phase] for p in pairs) for name in names

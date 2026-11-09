@@ -187,7 +187,11 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             or any(b < a for a, b in zip(starts, starts[1:]))
         ):
             raise ValueError("Invalid CPU request boundaries")
+        if time_page_proof:
+            read_start = time.perf_counter_ns()
         table = values["row_table"].cpu().tolist()
+        if time_page_proof:
+            table_read_end = time.perf_counter_ns()
         self.shared_routes, self.route_checks = {}, []
         for first, count in self.chunks:
             try:
@@ -218,11 +222,19 @@ class PreparedSharedMapInt8Selection(PreparedInt8Selection):
             )
         self.query16_routes = {}
         self.skip_invisible_routes = {}
+        if time_page_proof:
+            visible_read_start = time.perf_counter_ns()
         visible = (
             values["visible"].cpu().tolist()
             if self.skip_invisible or self.short_query16
             else None
         )
+        if time_page_proof:
+            self.metadata_host_us = dict(
+                row_table_to_host_us=(table_read_end - read_start) / 1000,
+                shared_map_check_us=(visible_read_start - table_read_end) / 1000,
+                visible_to_host_us=(time.perf_counter_ns() - visible_read_start) / 1000,
+            )
         self.group_visible_kernels = group_visible_kernels
         self.group_visible_offsets = {}
         self.direct_page_kernels = direct_page_kernels
