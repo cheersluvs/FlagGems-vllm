@@ -200,9 +200,9 @@ def _qsa_int8_cube_flat_control(
 
 @triton.jit
 def _qsa_int8_handoff_copy(
-    Q, K, Table, Ring, Received,
+    Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
     SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
-    CHUNK: tl.constexpr,
+    CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr,
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
@@ -226,8 +226,20 @@ def _qsa_int8_handoff_copy(
         al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
         head = al.sub_vec_id() * 4 + tl.arange(0, 4)
         received = tl.load(work + head[:, None] * CHUNK + n[None, :])
-        out = Received + (pid * SUBTILES + subtile) * 8 * CHUNK
-        tl.store(out + head[:, None] * CHUNK + n[None, :], received)
+        if SCORE:
+            row = pid * 2 + al.sub_vec_id()
+            h = tl.arange(0, 4)
+            query_scale = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+            weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+            key_scale = tl.load(KS + offset + n).to(tl.float32)
+            visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+            dequant = received.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+            score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
+            score = tl.where(start + n < visible, score, -float("inf"))
+            tl.store(Received + (row * SUBTILES + subtile) * CHUNK + n, score, mask=row < ROWS)
+        else:
+            out = Received + (pid * SUBTILES + subtile) * 8 * CHUNK
+            tl.store(out + head[:, None] * CHUNK + n[None, :], received)
         al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
         al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -510,7 +522,9 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width):
 
     report = Path(args.report)
     slots = args.slots
-    label = f"short-handoff-copy-slots{slots}"
+    score_mode = args.handoff_score
+    operation = "score" if score_mode else "copy"
+    label = f"short-handoff-{operation}-slots{slots}"
     sentinel = -2147483647
     device = inputs[0].device
     cores = packed_q.shape[0]
@@ -518,10 +532,17 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width):
     ring = torch.full(
         (cores, slots, 16, CUBE_TILE), sentinel, device=device, dtype=torch.int32
     )
-    received = torch.full(
-        (cores, subtiles, 8, CUBE_TILE), sentinel, device=device, dtype=torch.int32
-    )
-    result = {"slots": slots, "subtiles": subtiles, "stage": "compiling_or_launching"}
+    rows = cpu[0].shape[0]
+    if score_mode:
+        received = torch.full(
+            (rows, subtiles, CUBE_TILE), float("nan"), device=device, dtype=torch.float32
+        )
+    else:
+        received = torch.full(
+            (cores, subtiles, 8, CUBE_TILE), sentinel, device=device, dtype=torch.int32
+        )
+    result = {"operation": operation, "slots": slots, "subtiles": subtiles,
+              "stage": "compiling_or_launching"}
     summary = report / f"{label}.json"
     summary.write_text(json.dumps(result, indent=2))
     print(f"{label}: {subtiles} INT32 dot handoffs", flush=True)
@@ -529,7 +550,8 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width):
         with patch.object(compiler, "subprocess", CompileCapture(report, label)):
             kernel = _qsa_int8_handoff_copy[(cores,)](
                 inputs[0], inputs[1], inputs[5], ring, received,
-                subtiles, slots, PAGE, CUBE_TILE,
+                inputs[2], inputs[3], inputs[4], inputs[6],
+                subtiles, slots, PAGE, CUBE_TILE, rows, score_mode,
                 disable_auto_cv_work_space_manage=True,
                 disable_auto_inject_block_sync=True,
                 enable_auto_bind_sub_block=False,
@@ -538,7 +560,7 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width):
         result.update(stage="synchronizing", artifacts=save_artifacts(kernel, report, label))
         summary.write_text(json.dumps(result, indent=2))
         torch.npu.synchronize()
-        _, keys, _, _, _, table, _ = cpu
+        _, keys, qs, ks, weights, table, visible = cpu
         logical = keys[table.long()].reshape(-1, 128).int()
         q = packed_q[:, :8].int()
         expected = torch.stack([
@@ -546,18 +568,35 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width):
             for start in range(0, subtiles * CUBE_TILE, CUBE_TILE)
         ], dim=1)
         got = received.cpu()
-        mismatches = got != expected
+        if score_mode:
+            dot = expected.reshape(cores, subtiles, 2, 4, CUBE_TILE)
+            dot = dot.permute(0, 2, 1, 3, 4).reshape(cores * 2, subtiles, 4, CUBE_TILE)[:rows]
+            key_scale = ks[table.long()].flatten()[:subtiles * CUBE_TILE].float()
+            key_scale = key_scale.reshape(1, subtiles, 1, CUBE_TILE)
+            expected = ((dot.float() * qs[:, None, :, None].float() * key_scale).relu()
+                        * weights[:, None, :, None].float()).sum(2)
+            live = torch.arange(subtiles * CUBE_TILE).reshape(subtiles, CUBE_TILE) < visible[:, None, None]
+            expected = expected.masked_fill(~live, -float("inf"))
+            mismatches = ~torch.isclose(got, expected, rtol=1e-3, atol=1e-3)
+            unwritten = torch.isnan(got)
+            per_tile = mismatches.sum(dim=(0, 2))
+        else:
+            mismatches = got != expected
+            unwritten = got == sentinel
+            per_tile = mismatches.sum(dim=(0, 2, 3))
         result.update(
             stage="checked",
             vector_mismatches=mismatches.sum().item(),
-            vector_sentinel_values=(got == sentinel).sum().item(),
-            vector_mismatches_by_subtile=mismatches.sum(dim=(0, 2, 3)).tolist(),
+            vector_sentinel_values=unwritten.sum().item(),
+            vector_mismatches_by_subtile=per_tile.tolist(),
             final_cube_workspace=check_workspace(cpu, ring, width, slots, CUBE_TILE),
         )
         if result["vector_mismatches"]:
             first = tuple(mismatches.nonzero()[0].tolist())
             result["first_vector_mismatch"] = {
-                "position": first, "actual": int(got[first]), "expected": int(expected[first])
+                "position": first,
+                "actual": str(got[first].item()),
+                "expected": str(expected[first].item()),
             }
         result["passed"] = (
             result["vector_mismatches"] == 0
@@ -584,7 +623,7 @@ def worker(args):
     packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8)
     packed_q[:, :ROWS_PER_CORE * 4].copy_(padded_q.reshape(cores, ROWS_PER_CORE * 4, 128))
     inputs = tuple(t.to(device) for t in (packed_q, *rest))
-    if args.handoff_copy:
+    if args.handoff_copy or args.handoff_score:
         handoff_copy_control(args, cpu, inputs, packed_q, width)
         return
     tile_width = CUBE_TILE if args.handoff64 else TOPK
@@ -767,7 +806,9 @@ def main():
     parser.add_argument("--launch-only", action="store_true")
     parser.add_argument("--cube-controls", action="store_true")
     parser.add_argument("--handoff64", action="store_true")
-    parser.add_argument("--handoff-copy", action="store_true")
+    handoff_modes = parser.add_mutually_exclusive_group()
+    handoff_modes.add_argument("--handoff-copy", action="store_true")
+    handoff_modes.add_argument("--handoff-score", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
@@ -782,10 +823,11 @@ def main():
     report = Path(args.report).resolve()
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
-    if args.handoff_copy:
+    if args.handoff_copy or args.handoff_score:
+        operation = "score" if args.handoff_score else "copy"
         for slots in (1, 2):
-            label = f"short-handoff-copy-slots{slots}"
-            command = base + ["--worker", "short", "--handoff-copy", "--slots", str(slots)]
+            label = f"short-handoff-{operation}-slots{slots}"
+            command = base + ["--worker", "short", f"--handoff-{operation}", "--slots", str(slots)]
             code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
             statuses[label] = dict(exit_code=code, timed_out=timed_out)
     else:
