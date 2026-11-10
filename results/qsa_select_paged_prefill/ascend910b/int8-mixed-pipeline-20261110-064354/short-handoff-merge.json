@@ -1,0 +1,275 @@
+{
+  "case": "short",
+  "rows": 35,
+  "tile_lists": 13,
+  "producer": "double_buffer",
+  "final_selection": "torch_npu_topk",
+  "merge_levels": {
+    "binary": 3,
+    "four_way": 2
+  },
+  "correctness": {
+    "binary": {
+      "rows": 35,
+      "max_score_abs_error": 3.814697265625e-06
+    },
+    "four_way": {
+      "rows": 35,
+      "max_score_abs_error": 3.814697265625e-06
+    }
+  },
+  "validation_stages": {
+    "binary": [
+      {
+        "stage": "binary-merge-0",
+        "shape": {
+          "input": [
+            35,
+            13,
+            128
+          ],
+          "output": [
+            35,
+            7,
+            256
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-0-source.txt",
+          "binary-merge-0-ttir.txt",
+          "binary-merge-0-ttadapter.txt",
+          "binary-merge-0-bcmlir.txt",
+          "binary-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-1",
+        "shape": {
+          "input": [
+            35,
+            7,
+            256
+          ],
+          "output": [
+            35,
+            4,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-1-source.txt",
+          "binary-merge-1-ttir.txt",
+          "binary-merge-1-ttadapter.txt",
+          "binary-merge-1-bcmlir.txt",
+          "binary-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-2",
+        "shape": {
+          "input": [
+            35,
+            4,
+            512
+          ],
+          "output": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-2-source.txt",
+          "binary-merge-2-ttir.txt",
+          "binary-merge-2-ttadapter.txt",
+          "binary-merge-2-bcmlir.txt",
+          "binary-merge-2.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-3",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ],
+    "four_way": [
+      {
+        "stage": "four_way-merge-0",
+        "shape": {
+          "input": [
+            35,
+            13,
+            128
+          ],
+          "output": [
+            35,
+            4,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-0-source.txt",
+          "four_way-merge-0-ttir.txt",
+          "four_way-merge-0-ttadapter.txt",
+          "four_way-merge-0-bcmlir.txt",
+          "four_way-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-1",
+        "shape": {
+          "input": [
+            35,
+            4,
+            512
+          ],
+          "output": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-1-source.txt",
+          "four_way-merge-1-ttir.txt",
+          "four_way-merge-1-ttadapter.txt",
+          "four_way-merge-1-bcmlir.txt",
+          "four_way-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-2",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ]
+  },
+  "passed": true,
+  "merge_prefix": {
+    "event_samples_us": {
+      "binary": [
+        140.2437537908554,
+        130.0562471151352,
+        128.2549947500229,
+        127.92250514030457
+      ],
+      "four_way": [
+        520.4312205314636,
+        517.7537202835083,
+        517.8587436676025,
+        517.9075002670288
+      ]
+    },
+    "event_medians_us": {
+      "binary": 129.15562093257904,
+      "four_way": 517.8831219673157
+    },
+    "binary_over_four_way": 0.24939144655254902,
+    "paired_speedup": [
+      0.26947605804209573,
+      0.251193264326367,
+      0.24766405186420062,
+      0.24699874992030196
+    ]
+  },
+  "merge_tree": {
+    "event_samples_us": {
+      "binary": [
+        192.5400048494339,
+        189.3325001001358,
+        187.89124488830566,
+        190.4037445783615
+      ],
+      "four_way": [
+        523.0137705802917,
+        522.3575234413147,
+        522.8912234306335,
+        522.582471370697
+      ]
+    },
+    "event_medians_us": {
+      "binary": 189.86812233924866,
+      "four_way": 522.7368474006653
+    },
+    "binary_over_four_way": 0.3632193201672644,
+    "paired_speedup": [
+      0.3681356317555613,
+      0.36245768770171977,
+      0.3593314182165293,
+      0.3643515713011688
+    ]
+  },
+  "merge_and_select": {
+    "event_samples_us": {
+      "binary": [
+        442.5537586212158,
+        433.76249074935913,
+        434.14750695228577,
+        432.7774941921234
+      ],
+      "four_way": [
+        597.2787737846375,
+        596.896231174469,
+        597.8000164031982,
+        596.521258354187
+      ]
+    },
+    "event_medians_us": {
+      "binary": 433.95499885082245,
+      "four_way": 597.0875024795532
+    },
+    "binary_over_four_way": 0.7267862701006422,
+    "paired_speedup": [
+      0.7409500856978197,
+      0.7266966485881079,
+      0.7262420459009594,
+      0.7255022149355823
+    ]
+  },
+  "total": {
+    "event_samples_us": {
+      "binary": [
+        532.6012372970581,
+        530.0987362861633,
+        530.875027179718,
+        530.421257019043
+      ],
+      "four_way": [
+        638.9187574386597,
+        635.8312368392944,
+        636.3499760627747,
+        636.0937356948853
+      ]
+    },
+    "event_medians_us": {
+      "binary": 530.6481420993805,
+      "four_way": 636.22185587883
+    },
+    "binary_over_four_way": 0.8340614790203683,
+    "paired_speedup": [
+      0.8335977479080214,
+      0.8337098046979802,
+      0.8342500937367023,
+      0.833872788323559
+    ]
+  }
+}

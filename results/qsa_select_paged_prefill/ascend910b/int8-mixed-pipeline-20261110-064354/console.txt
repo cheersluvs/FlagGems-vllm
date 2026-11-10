@@ -1,0 +1,970 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+short-handoff-sort-slots2: 13 INT32 dot handoffs
+{
+  "operation": "sort",
+  "slots": 2,
+  "subtiles": 13,
+  "stage": "checked",
+  "artifacts": [
+    "short-handoff-sort-slots2-source.txt",
+    "short-handoff-sort-slots2-ttir.txt",
+    "short-handoff-sort-slots2-ttadapter.txt",
+    "short-handoff-sort-slots2-bcmlir.txt",
+    "short-handoff-sort-slots2.npubin.gz"
+  ],
+  "duplicate_indices": 0,
+  "vector_mismatches": 0,
+  "vector_sentinel_values": 0,
+  "vector_mismatches_by_subtile": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "final_cube_workspace": {
+    "checked_subtiles": 70,
+    "mismatches": 0,
+    "sentinel_values": 0,
+    "zero_values": 0,
+    "subtile_mismatches": {}
+  },
+  "passed": true
+}
+{"stage": "binary-merge-0", "shape": {"input": [35, 13, 128], "output": [35, 7, 256]}, "status": "launching"}
+{"stage": "binary-merge-1", "shape": {"input": [35, 7, 256], "output": [35, 4, 512]}, "status": "launching"}
+{"stage": "binary-merge-2", "shape": {"input": [35, 4, 512], "output": [35, 2, 1024]}, "status": "launching"}
+{"stage": "binary-merge-3", "shape": {"torch_npu_topk": 512, "input": [35, 2, 1024]}, "status": "launching"}
+{"stage": "four_way-merge-0", "shape": {"input": [35, 13, 128], "output": [35, 4, 512]}, "status": "launching"}
+{"stage": "four_way-merge-1", "shape": {"input": [35, 4, 512], "output": [35, 2, 1024]}, "status": "launching"}
+{"stage": "four_way-merge-2", "shape": {"torch_npu_topk": 512, "input": [35, 2, 1024]}, "status": "launching"}
+{
+  "case": "short",
+  "rows": 35,
+  "tile_lists": 13,
+  "producer": "double_buffer",
+  "final_selection": "torch_npu_topk",
+  "merge_levels": {
+    "binary": 3,
+    "four_way": 2
+  },
+  "correctness": {
+    "binary": {
+      "rows": 35,
+      "max_score_abs_error": 3.814697265625e-06
+    },
+    "four_way": {
+      "rows": 35,
+      "max_score_abs_error": 3.814697265625e-06
+    }
+  },
+  "validation_stages": {
+    "binary": [
+      {
+        "stage": "binary-merge-0",
+        "shape": {
+          "input": [
+            35,
+            13,
+            128
+          ],
+          "output": [
+            35,
+            7,
+            256
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-0-source.txt",
+          "binary-merge-0-ttir.txt",
+          "binary-merge-0-ttadapter.txt",
+          "binary-merge-0-bcmlir.txt",
+          "binary-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-1",
+        "shape": {
+          "input": [
+            35,
+            7,
+            256
+          ],
+          "output": [
+            35,
+            4,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-1-source.txt",
+          "binary-merge-1-ttir.txt",
+          "binary-merge-1-ttadapter.txt",
+          "binary-merge-1-bcmlir.txt",
+          "binary-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-2",
+        "shape": {
+          "input": [
+            35,
+            4,
+            512
+          ],
+          "output": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-2-source.txt",
+          "binary-merge-2-ttir.txt",
+          "binary-merge-2-ttadapter.txt",
+          "binary-merge-2-bcmlir.txt",
+          "binary-merge-2.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-3",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ],
+    "four_way": [
+      {
+        "stage": "four_way-merge-0",
+        "shape": {
+          "input": [
+            35,
+            13,
+            128
+          ],
+          "output": [
+            35,
+            4,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-0-source.txt",
+          "four_way-merge-0-ttir.txt",
+          "four_way-merge-0-ttadapter.txt",
+          "four_way-merge-0-bcmlir.txt",
+          "four_way-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-1",
+        "shape": {
+          "input": [
+            35,
+            4,
+            512
+          ],
+          "output": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-1-source.txt",
+          "four_way-merge-1-ttir.txt",
+          "four_way-merge-1-ttadapter.txt",
+          "four_way-merge-1-bcmlir.txt",
+          "four_way-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-2",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ]
+  },
+  "passed": true,
+  "merge_prefix": {
+    "event_samples_us": {
+      "binary": [
+        140.2437537908554,
+        130.0562471151352,
+        128.2549947500229,
+        127.92250514030457
+      ],
+      "four_way": [
+        520.4312205314636,
+        517.7537202835083,
+        517.8587436676025,
+        517.9075002670288
+      ]
+    },
+    "event_medians_us": {
+      "binary": 129.15562093257904,
+      "four_way": 517.8831219673157
+    },
+    "binary_over_four_way": 0.24939144655254902,
+    "paired_speedup": [
+      0.26947605804209573,
+      0.251193264326367,
+      0.24766405186420062,
+      0.24699874992030196
+    ]
+  },
+  "merge_tree": {
+    "event_samples_us": {
+      "binary": [
+        192.5400048494339,
+        189.3325001001358,
+        187.89124488830566,
+        190.4037445783615
+      ],
+      "four_way": [
+        523.0137705802917,
+        522.3575234413147,
+        522.8912234306335,
+        522.582471370697
+      ]
+    },
+    "event_medians_us": {
+      "binary": 189.86812233924866,
+      "four_way": 522.7368474006653
+    },
+    "binary_over_four_way": 0.3632193201672644,
+    "paired_speedup": [
+      0.3681356317555613,
+      0.36245768770171977,
+      0.3593314182165293,
+      0.3643515713011688
+    ]
+  },
+  "merge_and_select": {
+    "event_samples_us": {
+      "binary": [
+        442.5537586212158,
+        433.76249074935913,
+        434.14750695228577,
+        432.7774941921234
+      ],
+      "four_way": [
+        597.2787737846375,
+        596.896231174469,
+        597.8000164031982,
+        596.521258354187
+      ]
+    },
+    "event_medians_us": {
+      "binary": 433.95499885082245,
+      "four_way": 597.0875024795532
+    },
+    "binary_over_four_way": 0.7267862701006422,
+    "paired_speedup": [
+      0.7409500856978197,
+      0.7266966485881079,
+      0.7262420459009594,
+      0.7255022149355823
+    ]
+  },
+  "total": {
+    "event_samples_us": {
+      "binary": [
+        532.6012372970581,
+        530.0987362861633,
+        530.875027179718,
+        530.421257019043
+      ],
+      "four_way": [
+        638.9187574386597,
+        635.8312368392944,
+        636.3499760627747,
+        636.0937356948853
+      ]
+    },
+    "event_medians_us": {
+      "binary": 530.6481420993805,
+      "four_way": 636.22185587883
+    },
+    "binary_over_four_way": 0.8340614790203683,
+    "paired_speedup": [
+      0.8335977479080214,
+      0.8337098046979802,
+      0.8342500937367023,
+      0.833872788323559
+    ]
+  }
+}
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+long-handoff-sort-slots2: 129 INT32 dot handoffs
+{
+  "operation": "sort",
+  "slots": 2,
+  "subtiles": 129,
+  "stage": "checked",
+  "artifacts": [
+    "long-handoff-sort-slots2-source.txt",
+    "long-handoff-sort-slots2-ttir.txt",
+    "long-handoff-sort-slots2-ttadapter.txt",
+    "long-handoff-sort-slots2-bcmlir.txt",
+    "long-handoff-sort-slots2.npubin.gz"
+  ],
+  "duplicate_indices": 0,
+  "vector_mismatches": 0,
+  "vector_sentinel_values": 0,
+  "vector_mismatches_by_subtile": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "final_cube_workspace": {
+    "checked_subtiles": 78,
+    "mismatches": 0,
+    "sentinel_values": 0,
+    "zero_values": 0,
+    "subtile_mismatches": {}
+  },
+  "passed": true
+}
+{"stage": "binary-merge-0", "shape": {"input": [39, 129, 128], "output": [39, 65, 256]}, "status": "launching"}
+{"stage": "binary-merge-1", "shape": {"input": [39, 65, 256], "output": [39, 33, 512]}, "status": "launching"}
+{"stage": "binary-merge-2", "shape": {"input": [39, 33, 512], "output": [39, 17, 1024]}, "status": "launching"}
+{"stage": "binary-merge-3", "shape": {"input": [39, 17, 1024], "output": [39, 9, 1024]}, "status": "launching"}
+{"stage": "binary-merge-4", "shape": {"input": [39, 9, 1024], "output": [39, 5, 1024]}, "status": "launching"}
+{"stage": "binary-merge-5", "shape": {"input": [39, 5, 1024], "output": [39, 3, 1024]}, "status": "launching"}
+{"stage": "binary-merge-6", "shape": {"input": [39, 3, 1024], "output": [39, 2, 1024]}, "status": "launching"}
+{"stage": "binary-merge-7", "shape": {"torch_npu_topk": 512, "input": [39, 2, 1024]}, "status": "launching"}
+{"stage": "four_way-merge-0", "shape": {"input": [39, 129, 128], "output": [39, 33, 512]}, "status": "launching"}
+{"stage": "four_way-merge-1", "shape": {"input": [39, 33, 512], "output": [39, 17, 1024]}, "status": "launching"}
+{"stage": "four_way-merge-2", "shape": {"input": [39, 17, 1024], "output": [39, 9, 1024]}, "status": "launching"}
+{"stage": "four_way-merge-3", "shape": {"input": [39, 9, 1024], "output": [39, 5, 1024]}, "status": "launching"}
+{"stage": "four_way-merge-4", "shape": {"input": [39, 5, 1024], "output": [39, 3, 1024]}, "status": "launching"}
+{"stage": "four_way-merge-5", "shape": {"input": [39, 3, 1024], "output": [39, 2, 1024]}, "status": "launching"}
+{"stage": "four_way-merge-6", "shape": {"torch_npu_topk": 512, "input": [39, 2, 1024]}, "status": "launching"}
+{
+  "case": "long",
+  "rows": 39,
+  "tile_lists": 129,
+  "producer": "double_buffer",
+  "final_selection": "torch_npu_topk",
+  "merge_levels": {
+    "binary": 7,
+    "four_way": 6
+  },
+  "correctness": {
+    "binary": {
+      "rows": 39,
+      "max_score_abs_error": 3.814697265625e-06
+    },
+    "four_way": {
+      "rows": 39,
+      "max_score_abs_error": 3.814697265625e-06
+    }
+  },
+  "validation_stages": {
+    "binary": [
+      {
+        "stage": "binary-merge-0",
+        "shape": {
+          "input": [
+            39,
+            129,
+            128
+          ],
+          "output": [
+            39,
+            65,
+            256
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-0-source.txt",
+          "binary-merge-0-ttir.txt",
+          "binary-merge-0-ttadapter.txt",
+          "binary-merge-0-bcmlir.txt",
+          "binary-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-1",
+        "shape": {
+          "input": [
+            39,
+            65,
+            256
+          ],
+          "output": [
+            39,
+            33,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-1-source.txt",
+          "binary-merge-1-ttir.txt",
+          "binary-merge-1-ttadapter.txt",
+          "binary-merge-1-bcmlir.txt",
+          "binary-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-2",
+        "shape": {
+          "input": [
+            39,
+            33,
+            512
+          ],
+          "output": [
+            39,
+            17,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-2-source.txt",
+          "binary-merge-2-ttir.txt",
+          "binary-merge-2-ttadapter.txt",
+          "binary-merge-2-bcmlir.txt",
+          "binary-merge-2.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-3",
+        "shape": {
+          "input": [
+            39,
+            17,
+            1024
+          ],
+          "output": [
+            39,
+            9,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-3-source.txt",
+          "binary-merge-3-ttir.txt",
+          "binary-merge-3-ttadapter.txt",
+          "binary-merge-3-bcmlir.txt",
+          "binary-merge-3.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-4",
+        "shape": {
+          "input": [
+            39,
+            9,
+            1024
+          ],
+          "output": [
+            39,
+            5,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-4-source.txt",
+          "binary-merge-4-ttir.txt",
+          "binary-merge-4-ttadapter.txt",
+          "binary-merge-4-bcmlir.txt",
+          "binary-merge-4.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-5",
+        "shape": {
+          "input": [
+            39,
+            5,
+            1024
+          ],
+          "output": [
+            39,
+            3,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-5-source.txt",
+          "binary-merge-5-ttir.txt",
+          "binary-merge-5-ttadapter.txt",
+          "binary-merge-5-bcmlir.txt",
+          "binary-merge-5.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-6",
+        "shape": {
+          "input": [
+            39,
+            3,
+            1024
+          ],
+          "output": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-6-source.txt",
+          "binary-merge-6-ttir.txt",
+          "binary-merge-6-ttadapter.txt",
+          "binary-merge-6-bcmlir.txt",
+          "binary-merge-6.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-7",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ],
+    "four_way": [
+      {
+        "stage": "four_way-merge-0",
+        "shape": {
+          "input": [
+            39,
+            129,
+            128
+          ],
+          "output": [
+            39,
+            33,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-0-source.txt",
+          "four_way-merge-0-ttir.txt",
+          "four_way-merge-0-ttadapter.txt",
+          "four_way-merge-0-bcmlir.txt",
+          "four_way-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-1",
+        "shape": {
+          "input": [
+            39,
+            33,
+            512
+          ],
+          "output": [
+            39,
+            17,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-1-source.txt",
+          "four_way-merge-1-ttir.txt",
+          "four_way-merge-1-ttadapter.txt",
+          "four_way-merge-1-bcmlir.txt",
+          "four_way-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-2",
+        "shape": {
+          "input": [
+            39,
+            17,
+            1024
+          ],
+          "output": [
+            39,
+            9,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-2-source.txt",
+          "four_way-merge-2-ttir.txt",
+          "four_way-merge-2-ttadapter.txt",
+          "four_way-merge-2-bcmlir.txt",
+          "four_way-merge-2.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-3",
+        "shape": {
+          "input": [
+            39,
+            9,
+            1024
+          ],
+          "output": [
+            39,
+            5,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-3-source.txt",
+          "four_way-merge-3-ttir.txt",
+          "four_way-merge-3-ttadapter.txt",
+          "four_way-merge-3-bcmlir.txt",
+          "four_way-merge-3.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-4",
+        "shape": {
+          "input": [
+            39,
+            5,
+            1024
+          ],
+          "output": [
+            39,
+            3,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-4-source.txt",
+          "four_way-merge-4-ttir.txt",
+          "four_way-merge-4-ttadapter.txt",
+          "four_way-merge-4-bcmlir.txt",
+          "four_way-merge-4.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-5",
+        "shape": {
+          "input": [
+            39,
+            3,
+            1024
+          ],
+          "output": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "four_way-merge-5-source.txt",
+          "four_way-merge-5-ttir.txt",
+          "four_way-merge-5-ttadapter.txt",
+          "four_way-merge-5-bcmlir.txt",
+          "four_way-merge-5.npubin.gz"
+        ]
+      },
+      {
+        "stage": "four_way-merge-6",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ]
+  },
+  "passed": true,
+  "merge_prefix": {
+    "event_samples_us": {
+      "binary": [
+        154.18875217437744,
+        155.24500608444214,
+        146.0287570953369,
+        148.5549956560135
+      ],
+      "four_way": [
+        4233.687400817871,
+        4234.72261428833,
+        4233.343601226807,
+        4235.3386878967285
+      ]
+    },
+    "event_medians_us": {
+      "binary": 151.37187391519547,
+      "four_way": 4234.205007553101
+    },
+    "binary_over_four_way": 0.0357497744311326,
+    "paired_speedup": [
+      0.036419493830506,
+      0.03666001772126271,
+      0.03449489832410919,
+      0.03507511597137134
+    ]
+  },
+  "merge_tree": {
+    "event_samples_us": {
+      "binary": [
+        458.8499963283539,
+        454.369992017746,
+        450.93750953674316,
+        486.5112602710724
+      ],
+      "four_way": [
+        4314.068794250488,
+        4313.368797302246,
+        4312.852382659912,
+        4313.242435455322
+      ]
+    },
+    "event_medians_us": {
+      "binary": 456.6099941730499,
+      "four_way": 4313.305616378784
+    },
+    "binary_over_four_way": 0.10586080254530972,
+    "paired_speedup": [
+      0.1063613072049012,
+      0.10533993576017131,
+      0.10455667607585298,
+      0.1127947866486467
+    ]
+  },
+  "merge_and_select": {
+    "event_samples_us": {
+      "binary": [
+        791.7612791061401,
+        716.8487310409546,
+        719.7737693786621,
+        713.4199738502502
+      ],
+      "four_way": [
+        4386.77978515625,
+        4392.053604125977,
+        4386.326313018799,
+        4386.32869720459
+      ]
+    },
+    "event_medians_us": {
+      "binary": 718.3112502098083,
+      "four_way": 4386.55424118042
+    },
+    "binary_over_four_way": 0.16375296205536286,
+    "paired_speedup": [
+      0.18048803858020396,
+      0.1632149321601024,
+      0.16409489810239233,
+      0.16264626367488447
+    ]
+  },
+  "total": {
+    "event_samples_us": {
+      "binary": [
+        852.8375029563904,
+        831.3087224960327,
+        838.0237221717834,
+        839.5724892616272
+      ],
+      "four_way": [
+        4585.35623550415,
+        4588.129997253418,
+        4583.367347717285,
+        4591.700077056885
+      ]
+    },
+    "event_medians_us": {
+      "binary": 838.7981057167053,
+      "four_way": 4586.743116378784
+    },
+    "binary_over_four_way": 0.18287444586147505,
+    "paired_speedup": [
+      0.18599154769108636,
+      0.18118682840147887,
+      0.18284018246740694,
+      0.1828456726641787
+    ]
+  }
+}
+{
+  "cases": {
+    "short": {
+      "exit_code": 0,
+      "timed_out": false
+    },
+    "long": {
+      "exit_code": 0,
+      "timed_out": false
+    }
+  },
+  "instruction_timeline": {
+    "status": "not_requested"
+  }
+}
