@@ -20,7 +20,7 @@ import math
 import statistics
 from pathlib import Path
 
-from tools.qsa_int8_ten_workloads_910b import cases, compact_width_cases
+from tools.qsa_int8_ten_workloads_910b import cases, compact_layout_cases, compact_width_cases
 
 OP_NAME = "qsa_select_paged_prefill_int8_910b"
 TOPK_SEGMENT = 4096
@@ -40,7 +40,11 @@ def topk_route(case, policy):
     return "auto"
 
 
-def selected_cases(*, stages=False, sorted_topk_short=False, sorted_topk_compact=False):
+def selected_cases(
+    *, stages=False, sorted_topk_short=False, sorted_topk_compact=False, sorted_topk_layout=False,
+):
+    if sorted_topk_layout:
+        return compact_layout_cases()
     if sorted_topk_compact:
         return compact_width_cases()
     names = SHORT_SCORE_CASES if sorted_topk_short else STAGE_CASES if stages else None
@@ -97,7 +101,7 @@ def merge_case_reports(directory, **selection):
 
 def summarize(
     report, pytest_exit_code, *, stages=False, short_score=False,
-    sorted_topk_short=False, sorted_topk_compact=False,
+    sorted_topk_short=False, sorted_topk_compact=False, sorted_topk_layout=False,
 ):
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
@@ -105,7 +109,8 @@ def summarize(
     if entry.get("result") != "passed":
         raise ValueError(f"Benchmark outcome: {entry.get('result')}")
     expected = selected_cases(
-        stages=stages, sorted_topk_short=sorted_topk_short, sorted_topk_compact=sorted_topk_compact
+        stages=stages, sorted_topk_short=sorted_topk_short, sorted_topk_compact=sorted_topk_compact,
+        sorted_topk_layout=sorted_topk_layout
     )
     rows = {}
     for detail in entry["details"]:
@@ -244,14 +249,15 @@ def main():
     subsets.add_argument("--sorted-topk-short", action="store_true")
     subsets.add_argument("--sorted-topk-compact", action="store_true")
     args = parser.parse_args()
-    subset = args.sorted_topk_short or args.sorted_topk_compact
+    subsets.add_argument("--sorted-topk-layout", action="store_true")
+    subset = args.sorted_topk_short or args.sorted_topk_compact or args.sorted_topk_layout
     if subset and (not args.sorted_topk or args.stages or args.short_score):
         parser.error("Sorted TopK subsets require the sorted TopK comparison alone")
     try:
         if args.merge_case_reports:
             report = merge_case_reports(
                 args.report.parent, stages=args.stages, sorted_topk_short=args.sorted_topk_short,
-                sorted_topk_compact=args.sorted_topk_compact
+                sorted_topk_compact=args.sorted_topk_compact, sorted_topk_layout=args.sorted_topk_layout
             )
             args.report.write_text(json.dumps(report, indent=2) + "\n")
         else:
@@ -263,6 +269,7 @@ def main():
             short_score=args.short_score,
             sorted_topk_short=args.sorted_topk_short,
             sorted_topk_compact=args.sorted_topk_compact,
+            sorted_topk_layout=args.sorted_topk_layout,
         )
         if args.sorted_topk:
             prefix = "QSA_INT8_HARNESS_SORTED_TOPK "
@@ -291,8 +298,11 @@ def main():
         if subset:
             summary["cann_v1_subset_mean_speedup"] = summary["arithmetic_mean_speedup"]
             summary["arithmetic_mean_speedup"] = None
-            summary["scope"] = ("compact width sweep" if args.sorted_topk_compact
-                                else "first_chunk and compact only")
+            summary["scope"] = (
+                "compact batching sweep" if args.sorted_topk_layout
+                else "compact width sweep" if args.sorted_topk_compact
+                else "first_chunk and compact only"
+            )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         summary = dict(
             exit_code=1,

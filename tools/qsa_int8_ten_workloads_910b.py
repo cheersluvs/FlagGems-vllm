@@ -136,6 +136,40 @@ def compact_width_cases():
         )
     return result
 
+
+def compact_layout_cases():
+    """Hold final per-request visibility fixed while varying compact batching."""
+    compact = compact_width_cases()["int8_compact"]
+    lengths = compact["query_lengths"]
+    rows = sum(lengths)
+    max_len = compact["batch_max_seq_len"]
+
+    def balanced(requests):
+        base, extra = divmod(rows, requests)
+        return [base + (i < extra) for i in range(requests)]
+
+    result = {compact["name"]: compact}
+    for suffix, queries in (
+        ("half_rows", [length // 2 for length in lengths]),
+        ("balanced", balanced(len(lengths))),
+        ("half_requests", balanced(len(lengths) // 2)),
+    ):
+        starts = [0]
+        for length in queries:
+            starts.append(starts[-1] + length)
+        name = f"int8_compact_{suffix}"
+        pages = compact["table_columns"]
+        physical = pages * len(queries)
+        result[name] = dict(
+            compact, name=name, query_lengths=queries, starts=starts,
+            prefix_tokens=[max_len - length for length in queries],
+            pages_per_request=[pages] * len(queries), physical_pages=physical,
+            q_shape=[starts[-1], compact["heads"], compact["dim"]],
+            cache_shape=[physical, compact["page_size"], 1, compact["dim"]],
+            provenance="Synthetic compact batching at fixed final request length",
+        )
+    return result
+
 def sample_rows(case):
     rows, chunk = case["q_shape"][0], case["chunk_rows"]
     picks = {
