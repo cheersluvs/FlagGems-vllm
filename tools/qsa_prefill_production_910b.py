@@ -55,12 +55,15 @@ def load_production():
     assert flaggems_vllm.vendor_name == "ascend", flaggems_vllm.vendor_name
     assert flaggems_vllm.qsa_select_paged_prefill is module.qsa_select_paged_prefill
     assert backend.qsa_select_paged_prefill is module.qsa_select_paged_prefill
-    assert module.persistent_topk is topk.persistent_topk
+    sorted_topk = importlib.import_module(
+        "flaggems_vllm.runtime.backend._ascend.ops.topk"
+    )
+    assert module.topk is sorted_topk.topk
     assert len(inspect.signature(module.qsa_select_paged_prefill).parameters) == 10
     paths = {
         "package": flaggems_vllm.__file__,
         "operator": module.__file__,
-        "topk": topk.__file__,
+        "topk": sorted_topk.__file__,
     }
     for source in paths.values():
         assert Path(source).resolve().is_relative_to(root / "src"), source
@@ -75,14 +78,13 @@ def load_production():
     )
     identity["launch_policy"] = dict(
         programs=module._score_programs(torch.npu.current_device()),
-        topk_block=module._QSA_TOPK_BLOCK,
-        topk_default_block=topk._BLOCK,
+        topk_has_tle=sorted_topk.HAS_TLE,
     )
     if hasattr(module, "_qsa_prefill_topk_identity"):
         identity["topk_candidate"] = module._qsa_prefill_topk_identity
     topk.probe_identity = dict(
         source=topk.__file__,
-        sha256=identity["hashes"]["topk"],
+        sha256=hashlib.sha256(Path(topk.__file__).read_bytes()).hexdigest(),
         has_tle=topk.HAS_TLE_PTK,
         loader="normal package import",
     )
@@ -93,16 +95,13 @@ def load_topk():
     return load_production()[2]
 
 
-def qsa_select_paged_prefill(
-    *operands, chunk_rows=16, trace=None, verify_scratch_reuse=False
-):
-    public, module, topk, identity = load_production()
+def qsa_select_paged_prefill(*operands, chunk_rows=16, trace=None):
+    public, module, _, _ = load_production()
     original_score = module._score
-    original_topk = module.persistent_topk
+    original_topk = module.topk
     original_owners = module._build_owners
     calls = []
     owner_checks = []
-    scratch_calls = []
 
     def owners(q, table, starts):
         result = original_owners(q, table, starts)
@@ -126,43 +125,17 @@ def qsa_select_paged_prefill(
         )
         return original_score(*args, **kwargs)
 
-    def select(*args, **kwargs):
-        calls[-1]["topk_workspace_pointer"] = args[3].data_ptr()
-        if verify_scratch_reuse:
-            scratch_calls.append(kwargs.get("persistent_scratch"))
-        return original_topk(*args, **kwargs)
+    def select(logits, k):
+        calls[-1]["sorted_topk"] = True
+        return original_topk(logits, k)
 
-    # Instrument only Python launch functions; the public API and kernels are intact.
     with patch.object(module, "_score", score), patch.object(
-        module, "persistent_topk", select
+        module, "topk", select
     ), patch.object(module, "_build_owners", owners):
         returned = public(*operands)
     assert len(owner_checks) == int(operands[0].shape[0] > 0)
-    if verify_scratch_reuse:
-        import torch
-
-        scratch = scratch_calls[0]
-        assert isinstance(scratch, topk._PersistentTopKScratch)
-        assert len(scratch_calls) == len(calls) > len(scratch.buffers) > 0
-        assert all(item is scratch for item in scratch_calls)
-        assert {key[0] for key in scratch.buffers} == {call["rows"] for call in calls}
-        output = operands[8]
-        expected = output.cpu()
-        output.fill_(-2)
-
-        def select_without_reuse(*args, **kwargs):
-            other = kwargs.pop("persistent_scratch")
-            assert other is not scratch and not other.buffers
-            return original_topk(*args, **kwargs)
-
-        with patch.object(module, "persistent_topk", select_without_reuse):
-            assert public(*operands) is None
-        assert torch.equal(output.cpu(), expected), "Scratch reuse changed TopK indices"
-        calls[0]["persistent_scratch"] = dict(
-            topk_calls=len(scratch_calls),
-            cached_row_counts=sorted(key[0] for key in scratch.buffers),
-            indices_bitwise_equal=True,
-        )
+    k = operands[5] // operands[6]
+    assert all(call.get("sorted_topk", False) == (call["width"] > k) for call in calls)
     if trace is not None:
         trace.extend(calls)
     return returned

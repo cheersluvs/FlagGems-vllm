@@ -118,7 +118,7 @@ PIPELINE_CASES = {
     "radix_control": dict(lengths=[3], visible=[0, 513, 1537], page=192, route="radix"),
     "ties": dict(lengths=[3], visible=[0, 513, 1537], page=192, zero_query=True),
 }
-PRODUCTION_SCRATCH_CASE = "persistent_scratch_long"
+PRODUCTION_LONG_CASE = "production_topk_long"
 
 K, HEADS, DIM = 512, 4, 128
 RTOL, ATOL = 1e-3, 2e-3
@@ -512,11 +512,6 @@ def worker(args):
                         capacity * 4,
                         chunk_rows=config.get("chunk_rows", 16),
                         trace=trace,
-                        **(
-                            {"verify_scratch_reuse": True}
-                            if config.get("scratch_reuse") and not args.prefill_topk
-                            else {}
-                        ),
                     )
                 torch.npu.synchronize()
                 before_native = output.cpu()
@@ -564,7 +559,8 @@ def worker(args):
                     if args.suite == "production" and config.get("budget_mb") == 0:
                         assert len(trace) == rows and all(t["rows"] == 1 for t in trace)
                     assert len({t["logits_pointer"] for t in trace}) == 1
-                    assert len({t["topk_workspace_pointer"] for t in trace}) == 1
+                    if args.suite != "production":
+                        assert len({t["topk_workspace_pointer"] for t in trace}) == 1
                 baseline = baseline.cpu()
                 result["native_call_preserved_output"] = bool(
                     torch.equal(before_native, output.cpu())
@@ -863,7 +859,7 @@ def main():
         choices=(
             "environment",
             "zero_budget",
-            PRODUCTION_SCRATCH_CASE,
+            PRODUCTION_LONG_CASE,
             "isolated_topk",
             "normal_topk",
             "isolated_after_import",
@@ -957,11 +953,10 @@ def main():
         CASES = dict(PIPELINE_CASES)
         if args.suite == "production":
             CASES["zero_budget"] = dict(ADAPTER_CASES["offset_ragged"], budget_mb=0)
-            CASES[PRODUCTION_SCRATCH_CASE] = dict(
+            CASES[PRODUCTION_LONG_CASE] = dict(
                 lengths=[35],
                 visible=[16960 + i for i in range(35)],
                 page=192,
-                scratch_reuse=True,
             )
     if args.chunk32_regression:
         CASES = CHUNK_REGRESSION_CASES
