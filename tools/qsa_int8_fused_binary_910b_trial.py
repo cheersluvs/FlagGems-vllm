@@ -31,6 +31,7 @@ from probe_qsa_int8_mixed_pipeline_910b import (
     _qsa_int8_handoff_copy,
     _qsa_int8_merge_sorted_tiles,
     _qsa_int8_merge_two_levels,
+    _qsa_int8_probe_raw_pair512,
 )
 
 
@@ -112,6 +113,52 @@ def _check_merge_output(scores, ids, result, fan_in):
         assert torch.all(~valid | (values.gather(1, order.gather(1, found)) == actual))
         ordered = returned.masked_fill(~valid, -1).sort(dim=1).values
         assert not ((ordered[:, 1:] >= 0) & (ordered[:, 1:] == ordered[:, :-1])).any()
+
+
+def _probe_pair512(mode, device):
+    ids = torch.arange(1024, dtype=torch.int32).reshape(512, 2).T.contiguous()
+    scores = -ids.float()
+    live = (512, 512) if mode == "pair_full" else (320, 384)
+    for i, count in enumerate(live):
+        scores[i, count:] = -float("inf")
+    packed = torch.stack((scores, ids.view(torch.float32)), dim=-1).contiguous()
+    raw = torch.full((2048,), float("nan"), dtype=torch.float32, device=device)
+    prefix = torch.full((1024,), float("nan"), dtype=torch.float32, device=device)
+    counts = torch.full((4,), -1, dtype=torch.int32, device=device)
+    source = packed.to(device)
+    torch.npu.synchronize()
+    print(f"PAIR512 LAUNCH mode={mode} valid={live} raw_words=2048 grid=1", flush=True)
+    _qsa_int8_probe_raw_pair512[(1,)](
+        source, raw, prefix, counts, use_bytecode=True, enable_ubuf_saving=True,
+        enable_auto_bind_sub_block=False, multibuffer=False,
+    )
+    torch.npu.synchronize()
+    raw, prefix, counts = raw.cpu(), prefix.cpu(), counts.cpu()
+    raw_pairs, prefix_pairs = raw.view(-1, 2), prefix.view(-1, 2)
+    raw_ids = raw_pairs[:, 1].contiguous().view(torch.int32)
+    prefix_ids = prefix_pairs[:, 1].contiguous().view(torch.int32)
+    expected, order = scores.flatten().topk(512)
+    expected_ids = ids.flatten()[order]
+    raw_bad = (raw_pairs[:512, 0] != expected) | (raw_ids[:512] != expected_ids)
+    prefix_bad = (prefix_pairs[:, 0] != expected) | (prefix_ids != expected_ids)
+    slice_bad = (raw[:1024].view(torch.int32) != prefix.view(torch.int32)).sum()
+    print(
+        f"PAIR512 RESULT mode={mode} consumed={counts.tolist()} "
+        f"raw_bad={int(raw_bad.sum())} prefix_bad={int(prefix_bad.sum())} "
+        f"slice_word_diff={int(slice_bad)}",
+        flush=True,
+    )
+    for at in (0, 504, 512):
+        print(
+            f"PAIR512 RAW at={at} scores={raw_pairs[at:at+8, 0].tolist()} "
+            f"ids={raw_ids[at:at+8].tolist()}",
+            flush=True,
+        )
+    assert ((counts[:2] >= 0) & (counts[:2] <= 512)).all(), "invalid consumption"
+    assert int(counts[:2].sum()) >= 512, "raw merge produced fewer than 512 candidates"
+    assert not raw_bad.any(), "raw Top-512 differs from CPU reference"
+    assert not prefix_bad.any() and int(slice_bad) == 0, "Top-512 slice mismatch"
+    print(f"PAIR512 PASS mode={mode}", flush=True)
 
 
 def _replay_179(mode, merge, snapshot):
@@ -270,13 +317,16 @@ class PreparedFusedBinarySelection:
         if mode:
             assert synchronize and mode in (
                 "capture", "real", "synthetic", "trace",
-                "capture_179", "original_179", "full_179",
+                "capture_179", "original_179", "full_179", "pair_full", "pair_padded",
             )
-            if mode != "trace":
+            if mode not in ("trace", "pair_full", "pair_padded"):
                 snapshot = Path(os.environ["QSA_MERGE53_SNAPSHOT"])
         for first, count, lists, fused, producer, merges, pairs, scores, positions, padding, output in self.chunks:
             if mode:
                 assert (first, count, lists, fused) == (0, 128, 133, True)
+                if mode in ("pair_full", "pair_padded"):
+                    _probe_pair512(mode, output.device)
+                    return None
                 if mode == "trace":
                     _trace_prefix(producer, merges, self.visible[:count])
                     return None

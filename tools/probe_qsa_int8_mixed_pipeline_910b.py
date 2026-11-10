@@ -296,6 +296,21 @@ def _qsa_int8_merge_sorted_tiles(
 
 
 @triton.jit
+def _qsa_int8_probe_raw_pair512(Source, Raw, Prefix, Counts):
+    lanes = tl.arange(0, 4096)
+    packed = tl.load(Source + lanes, mask=lanes < 2048, other=0)
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 2,
+        0, 512, 1024, 1536, 512, 512, 0, 0,
+        out=[tl.zeros((2048,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    prefix = al.extract_slice(merged, (0,), (1024,), (1,))
+    tl.store(Raw + tl.arange(0, 2048), merged)
+    tl.store(Prefix + tl.arange(0, 1024), prefix)
+    tl.store(Counts + tl.arange(0, 4), consumed)
+
+
+@triton.jit
 def _merge_two_packed_full(packed, IN: tl.constexpr):
     merged, consumed = tle.dsa.ascend.raw(
         "merge_exhaust_sort4", packed, 2,
