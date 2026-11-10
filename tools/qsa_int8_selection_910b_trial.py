@@ -32,6 +32,7 @@ class PreparedInt8Selection:
         self.values, self.output, self.scratch = values, output, scratch
         self.workspace, self.topk = workspace, topk
         self.reuse_topk_scratch = reuse_topk_scratch
+        self._sorted_topk = None
         q, cache = values["q"], values["cache"]
         rows = q.shape[0]
         if q.ndim != 3 or q.shape[1:] != (4, 128) or q.dtype != torch.int8:
@@ -130,13 +131,37 @@ class PreparedInt8Selection:
             self.score_into(first, count, self.scratch[:count])
 
     def _new_topk_scratch(self):
-        if self.reuse_topk_scratch and self.topk._psegmerge_applicable(
+        if self._sorted_topk is None and self.reuse_topk_scratch and self.topk._psegmerge_applicable(
             1, self.width, 512
         ):
             return self.topk._PersistentTopKScratch()
         return None
 
+    def enable_sorted_topk(self, *, guarded=True):
+        """Enable the trial for eligible widths on the validated INT8 adapter."""
+        if guarded and not 1024 <= self.width <= 1152:
+            return False
+        from flaggems_vllm.runtime.backend._ascend.ops.qsa_select_paged_prefill import (
+            _store_topk_indices,
+        )
+        from flaggems_vllm.runtime.backend._ascend.ops.topk import HAS_TLE, topk
+
+        if not HAS_TLE:
+            return False
+        self._sorted_topk = (topk, _store_topk_indices)
+        return True
+
     def select_chunk(self, first, scores, persistent_scratch=None):
+        if self._sorted_topk is not None:
+            topk, store = self._sorted_topk
+            for local in range(0, scores.shape[0], 32):
+                end = min(local + 32, scores.shape[0])
+                output = self.output[first + local:first + end]
+                visible = self.values["visible"][first + local:first + end]
+                selected = topk(scores[local:end], 512)[1] if self.width > 512 else output
+                store[(end - local,)](selected, visible, output, 512, self.width)
+            return
+
         scratch_kwargs = (
             {}
             if persistent_scratch is None

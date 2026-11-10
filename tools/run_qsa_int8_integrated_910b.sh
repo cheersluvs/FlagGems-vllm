@@ -86,7 +86,7 @@ import os
 from tools.qsa_int8_ten_workloads_910b import cases, compact_layout_cases, compact_width_cases
 from tools.summarize_qsa_int8_harness_910b import SHORT_SCORE_CASES, STAGE_CASES
 if os.environ.get("QSA_HARNESS_SORTED_TOPK_LAYOUT") == "1":
-    names = compact_layout_cases()
+    names = compact_layout_cases(cross=os.environ.get("QSA_HARNESS_SORTED_TOPK_GUARDED") == "1")
 elif os.environ.get("QSA_HARNESS_SORTED_TOPK_COMPACT") == "1":
     names = compact_width_cases()
 elif os.environ.get("QSA_HARNESS_SORTED_TOPK_SHORT") == "1":
@@ -108,6 +108,11 @@ print("\n".join(names))
         elif [[ ${QSA_HARNESS_SORTED_TOPK_SHORT:-0} == 1 ]]; then
             export QSA_HARNESS_SORTED_TOPK=1
             qsa_sorted_topk_short_flag=--sorted-topk-short
+        fi
+        qsa_sorted_topk_guard_flag=
+        if [[ ${QSA_HARNESS_SORTED_TOPK_GUARDED:-0} == 1 ]]; then
+            export QSA_HARNESS_SORTED_TOPK=1
+            qsa_sorted_topk_guard_flag=--sorted-topk-guarded
         fi
         qsa_sorted_topk_flag=
         if [[ ${QSA_HARNESS_SORTED_TOPK:-0} == 1 ]]; then
@@ -158,7 +163,8 @@ print("\n".join(names))
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
             ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
             ${qsa_sorted_topk_flag:+"$qsa_sorted_topk_flag"} \
-            ${qsa_sorted_topk_short_flag:+"$qsa_sorted_topk_short_flag"}
+            ${qsa_sorted_topk_short_flag:+"$qsa_sorted_topk_short_flag"} \
+            ${qsa_sorted_topk_guard_flag:+"$qsa_sorted_topk_guard_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"

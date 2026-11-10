@@ -41,10 +41,10 @@ def topk_route(case, policy):
 
 
 def selected_cases(
-    *, stages=False, sorted_topk_short=False, sorted_topk_compact=False, sorted_topk_layout=False,
+    *, stages=False, sorted_topk_short=False, sorted_topk_compact=False, sorted_topk_layout=False, guarded=False,
 ):
     if sorted_topk_layout:
-        return compact_layout_cases()
+        return compact_layout_cases(cross=guarded)
     if sorted_topk_compact:
         return compact_width_cases()
     names = SHORT_SCORE_CASES if sorted_topk_short else STAGE_CASES if stages else None
@@ -101,7 +101,7 @@ def merge_case_reports(directory, **selection):
 
 def summarize(
     report, pytest_exit_code, *, stages=False, short_score=False,
-    sorted_topk_short=False, sorted_topk_compact=False, sorted_topk_layout=False,
+    sorted_topk_short=False, sorted_topk_compact=False, sorted_topk_layout=False, guarded=False,
 ):
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
@@ -110,7 +110,7 @@ def summarize(
         raise ValueError(f"Benchmark outcome: {entry.get('result')}")
     expected = selected_cases(
         stages=stages, sorted_topk_short=sorted_topk_short, sorted_topk_compact=sorted_topk_compact,
-        sorted_topk_layout=sorted_topk_layout
+        sorted_topk_layout=sorted_topk_layout, guarded=guarded
     )
     rows = {}
     for detail in entry["details"]:
@@ -245,6 +245,7 @@ def main():
     parser.add_argument("--stages", action="store_true")
     parser.add_argument("--short-score", action="store_true")
     parser.add_argument("--sorted-topk", action="store_true")
+    parser.add_argument("--sorted-topk-guarded", action="store_true")
     subsets = parser.add_mutually_exclusive_group()
     subsets.add_argument("--sorted-topk-short", action="store_true")
     subsets.add_argument("--sorted-topk-compact", action="store_true")
@@ -257,7 +258,8 @@ def main():
         if args.merge_case_reports:
             report = merge_case_reports(
                 args.report.parent, stages=args.stages, sorted_topk_short=args.sorted_topk_short,
-                sorted_topk_compact=args.sorted_topk_compact, sorted_topk_layout=args.sorted_topk_layout
+                sorted_topk_compact=args.sorted_topk_compact, sorted_topk_layout=args.sorted_topk_layout,
+                guarded=args.sorted_topk_guarded
             )
             args.report.write_text(json.dumps(report, indent=2) + "\n")
         else:
@@ -270,6 +272,7 @@ def main():
             sorted_topk_short=args.sorted_topk_short,
             sorted_topk_compact=args.sorted_topk_compact,
             sorted_topk_layout=args.sorted_topk_layout,
+            guarded=args.sorted_topk_guarded,
         )
         if args.sorted_topk:
             prefix = "QSA_INT8_HARNESS_SORTED_TOPK "
@@ -283,13 +286,23 @@ def main():
                 ]
                 if len(records) != 1 or records[0]["case"] != name:
                     raise ValueError(f"Missing or duplicate sorted TopK A/B for {name}")
-                pairs.append(records[0])
-            summary["candidate"] += " and sorted TLE TopK"
+                record = records[0]
+                if args.sorted_topk_guarded:
+                    expected_route = "sorted" if 1024 <= record["width"] <= 1152 else "previous"
+                    if record["selected"] != expected_route:
+                        raise ValueError(f"Unexpected guarded TopK route for {name}")
+                pairs.append(record)
+            timed = [pair for pair in pairs if "topk" in pair]
+            if not timed:
+                raise ValueError("No sorted TopK A/B timings")
+            summary["candidate"] += (
+                " and guarded sorted TLE TopK" if args.sorted_topk_guarded else " and sorted TLE TopK"
+            )
             summary["sorted_topk_ab"] = dict(
                 baseline="previous INT8 TopK dispatch", baseline_policy=summary["topk_policy"],
                 candidate="sorted TLE topk", cases=pairs,
                 arithmetic_mean_speedup={
-                    stage: statistics.mean(pair[stage]["speedup"] for pair in pairs)
+                    stage: statistics.mean(pair[stage]["speedup"] for pair in timed)
                     for stage in ("topk", "total")
                 },
             )

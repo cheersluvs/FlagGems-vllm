@@ -44,7 +44,8 @@ CASES = {(case["name"],): case for case in cases()}
 if os.environ.get("QSA_HARNESS_SORTED_TOPK_COMPACT") == "1":
     CASES.update({(name,): case for name, case in compact_width_cases().items()})
 if os.environ.get("QSA_HARNESS_SORTED_TOPK_LAYOUT") == "1":
-    CASES.update({(name,): case for name, case in compact_layout_cases().items()})
+    cross = os.environ.get("QSA_HARNESS_SORTED_TOPK_GUARDED") == "1"
+    CASES.update({(name,): case for name, case in compact_layout_cases(cross=cross).items()})
 
 
 class QSAPrefillInt8Benchmark(base.GenericBenchmark):
@@ -226,26 +227,18 @@ def _measure_stages(
 
 def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
                             verify_structure, check_selection):
-    from flaggems_vllm.runtime.backend._ascend.ops.qsa_select_paged_prefill import (
-        _store_topk_indices,
-    )
-    from flaggems_vllm.runtime.backend._ascend.ops.topk import HAS_TLE, topk
-
-    assert HAS_TLE, "Ascend sorted TLE TopK is required"
+    guarded = os.environ.get("QSA_HARNESS_SORTED_TOPK_GUARDED") == "1"
     candidate = copy.copy(control)
-    candidate.reuse_topk_scratch = False
-    k, width = 512, control.width
+    width = control.width
+    enabled = candidate.enable_sorted_topk(guarded=guarded)
+    expected = not guarded or 1024 <= width <= 1152
+    assert enabled == expected, (name, width, enabled)
+    if not enabled:
+        print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(
+            dict(case=name, width=width, rows=control.rows, selected="previous")
+        ), flush=True)
+        return candidate
 
-    def select(first, scores, persistent_scratch=None):
-        for local in range(0, scores.shape[0], 32):
-            end = min(local + 32, scores.shape[0])
-            count = end - local
-            output = candidate.output[first + local:first + end]
-            visible = candidate.values["visible"][first + local:first + end]
-            selected = topk(scores[local:end], k)[1] if width > k else output
-            _store_topk_indices[(count,)](selected, visible, output, k, width)
-
-    candidate.select_chunk = select
     scores = torch.empty((control.rows, width), device=control.scratch.device,
                          dtype=torch.float32)
     for first, count in control.chunks:
@@ -283,7 +276,7 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
         results[stage] = dict(samples_ms=timings, medians_ms=medians,
                               speedup=medians["previous"] / medians["sorted"],
                               paired_speedups=paired, sorted_wins=sum(ratio > 1 for ratio in paired))
-    print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(case=name, width=width, rows=control.rows, score_chunks=len(control.chunks), **results)), flush=True)
+    print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(case=name, width=width, rows=control.rows, score_chunks=len(control.chunks), selected="sorted", **results)), flush=True)
     return candidate
 
 

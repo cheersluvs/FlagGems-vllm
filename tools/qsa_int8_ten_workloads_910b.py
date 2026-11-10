@@ -137,7 +137,7 @@ def compact_width_cases():
     return result
 
 
-def compact_layout_cases():
+def compact_layout_cases(*, cross=False):
     """Hold final per-request visibility fixed while varying compact batching."""
     compact = compact_width_cases()["int8_compact"]
     lengths = compact["query_lengths"]
@@ -168,6 +168,19 @@ def compact_layout_cases():
             cache_shape=[physical, compact["page_size"], 1, compact["dim"]],
             provenance="Synthetic compact batching at fixed final request length",
         )
+    if cross:
+        cross_cases = {}
+        for suffix, width in (("balanced", 1024), ("half_rows", 1152)):
+            case = result[f"int8_compact_{suffix}"]
+            shift = (width - case["logits_width"]) * case["ratio"]
+            name = f"{case['name']}_w{width}"
+            cross_cases[name] = dict(
+                case, name=name, logits_width=width,
+                prefix_tokens=[prefix + shift for prefix in case["prefix_tokens"]],
+                batch_max_seq_len=case["batch_max_seq_len"] + shift,
+                score_and_dot_scratch_bytes=case["chunk_rows"] * width * 4 * 5,
+            )
+        return cross_cases
     return result
 
 def sample_rows(case):
