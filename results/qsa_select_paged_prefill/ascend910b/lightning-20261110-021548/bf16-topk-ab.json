@@ -1,0 +1,180 @@
+{
+  "mode": "kernel",
+  "new": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-bf16-topk-harness-w2wNme00/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-bf16-topk-harness-w2wNme00/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-bf16-topk-harness-w2wNme00/src/flaggems_vllm/runtime/backend/_ascend/ops/topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "c2e10fe798d93993904dcf5ab1037e4eabb416b97f046bc370d7a1f9124fd7c2",
+      "topk": "7fc56629255969d07e6df1a3ed729a56b0242595546b8cfe611d3d462bc8e5f5"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+    },
+    "launch_policy": {
+      "programs": 20,
+      "topk_has_tle": true
+    }
+  },
+  "old_source_sha256": "19d48cfafaa321599b932d89f89390c97ca43db640fac3704e6d880d734bc0a6",
+  "cases": {
+    "short16_g1024": {
+      "rows": 16,
+      "width": 1024,
+      "chunks": [
+        [
+          0,
+          16
+        ]
+      ],
+      "stages": {
+        "topk": {
+          "samples_us": {
+            "old": [
+              382.6200067996979,
+              287.4799966812134
+            ],
+            "new": [
+              331.5800130367279,
+              328.6300003528595
+            ]
+          },
+          "medians_us": {
+            "old": 335.0500017404556,
+            "new": 330.1050066947937
+          },
+          "speedup": 1.014980066782913
+        },
+        "public_total": {
+          "samples_us": {
+            "old": [
+              618.5399889945984,
+              628.9399862289429
+            ],
+            "new": [
+              671.9099879264832,
+              677.2199869155884
+            ]
+          },
+          "medians_us": {
+            "old": 623.7399876117706,
+            "new": 674.5649874210358
+          },
+          "speedup": 0.924655147010258
+        }
+      }
+    },
+    "medium32_g8192": {
+      "rows": 32,
+      "width": 8192,
+      "chunks": [
+        [
+          0,
+          32
+        ]
+      ],
+      "stages": {
+        "topk": {
+          "samples_us": {
+            "old": [
+              329.59000766277313,
+              325.38001239299774
+            ],
+            "new": [
+              396.40000462532043,
+              394.8200047016144
+            ]
+          },
+          "medians_us": {
+            "old": 327.48501002788544,
+            "new": 395.6100046634674
+          },
+          "speedup": 0.8277975940129884
+        },
+        "public_total": {
+          "samples_us": {
+            "old": [
+              706.2300145626068,
+              700.9599804878235
+            ],
+            "new": [
+              790.7900214195251,
+              785.5200171470642
+            ]
+          },
+          "medians_us": {
+            "old": 703.5949975252151,
+            "new": 788.1550192832947
+          },
+          "speedup": 0.8927114340590334
+        }
+      }
+    },
+    "long32_g25600": {
+      "rows": 32,
+      "width": 25600,
+      "chunks": [
+        [
+          0,
+          16
+        ],
+        [
+          16,
+          16
+        ]
+      ],
+      "stages": {
+        "topk": {
+          "samples_us": {
+            "old": [
+              818.9200162887573,
+              813.0699992179871
+            ],
+            "new": [
+              743.5200214385986,
+              748.9299774169922
+            ]
+          },
+          "medians_us": {
+            "old": 815.9950077533722,
+            "new": 746.2249994277954
+          },
+          "speedup": 1.0934972808188903
+        },
+        "public_total": {
+          "samples_us": {
+            "old": [
+              1625.8200407028198,
+              1625.819981098175
+            ],
+            "new": [
+              1593.6400294303894,
+              1593.6999917030334
+            ]
+          },
+          "medians_us": {
+            "old": 1625.8200109004974,
+            "new": 1593.6700105667114
+          },
+          "speedup": 1.0201735617289764
+        }
+      }
+    }
+  },
+  "timer": {
+    "entry": "benchmark.performance_utils.Benchmark.get_latency",
+    "backend_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/testing.py",
+    "warmup": 100,
+    "repetition": 30,
+    "unit": "microseconds"
+  },
+  "arithmetic_mean_speedup": {
+    "topk": 0.9787583138715972,
+    "public_total": 0.9458467142660892
+  }
+}
