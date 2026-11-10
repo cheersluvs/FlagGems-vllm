@@ -182,19 +182,50 @@ def _replay_179(mode, merge, snapshot):
     source.copy_(packed)
     target.fill_(float("nan"))
     torch.npu.synchronize()
-    full = mode in ("full_179", "locate_179")
+    full = mode in ("full_179", "locate_179", "grid_179")
     words = 2048 if full else 1024
+    grid = source.shape[0] * groups
+    if mode == "grid_179":
+        grid = int(os.environ["QSA_MERGE179_GRID"])
+        assert 1 <= grid <= source.shape[0] * groups
+        sentinel = target[0, 0, :1].cpu().view(torch.int32)
     print(
         f"MERGE179 LAUNCH mode={mode} input_sha256={digest} raw_words={words} "
-        "grid=1152 output_words=1024",
+        f"grid={grid} lists={lists} groups={groups} output_words=1024",
         flush=True,
     )
-    if full:
+    if mode == "grid_179":
+        compiled = _qsa_int8_merge_sorted_tiles[(grid,)](
+            *merge.args, FULL_RAW_OUTPUT=True, **merge.keywords
+        )
+    elif full:
         merge(FULL_RAW_OUTPUT=True)
     else:
         merge()
     torch.npu.synchronize()
     result = target.cpu()
+    if mode == "grid_179":
+        bad = _check_merge_output(scores, ids, result, fan_in=2, locate=True)
+        active = torch.arange(bad.numel()).view_as(bad) < grid
+        failed = bad & active
+        inactive = result[~active].view(torch.int32)
+        # Every inactive word should retain the same NaN bit pattern.
+        inactive_written = int((inactive != sentinel).any(dim=1).sum())
+        binary = None if compiled is None else compiled.asm.get("npubin")
+        binary_sha = "unavailable" if binary is None else hashlib.sha256(bytes(binary)).hexdigest()
+        print(
+            f"MERGE179 GRID RESULT grid={grid} failed={int(failed.sum())} "
+            f"launched_by_group={active.sum(0).tolist()} "
+            f"failed_by_group={failed.sum(0).tolist()} "
+            f"inactive_written={inactive_written} npubin_sha256={binary_sha}",
+            flush=True,
+        )
+        if failed.any():
+            row, group = failed.nonzero()[0].tolist()
+            print(f"MERGE179 GRID FIRST_BAD row={row} group={group}", flush=True)
+        assert not failed.any() and inactive_written == 0, f"grid={grid} replay failed"
+        print(f"MERGE179 GRID PASS grid={grid}", flush=True)
+        return
     if mode == "locate_179":
         bad = _check_merge_output(scores, ids, result, fan_in=2, locate=True)
         failures = bad.nonzero()
@@ -384,7 +415,7 @@ class PreparedFusedBinarySelection:
             assert synchronize and mode in (
                 "capture", "real", "synthetic", "trace",
                 "capture_179", "original_179", "full_179", "pair_full", "pair_padded",
-                "locate_179", "actual_pair_179",
+                "locate_179", "actual_pair_179", "grid_179",
             )
             if mode not in ("trace", "pair_full", "pair_padded", "actual_pair_179"):
                 snapshot = Path(os.environ["QSA_MERGE53_SNAPSHOT"])
@@ -400,7 +431,7 @@ class PreparedFusedBinarySelection:
                 if mode == "capture_179":
                     _trace_prefix(producer, merges, self.visible[:count], snapshot)
                     return None
-                if mode in ("original_179", "full_179", "locate_179"):
+                if mode in ("original_179", "full_179", "locate_179", "grid_179"):
                     _replay_179(mode, merges[2], snapshot)
                     return None
                 if mode == "actual_pair_179":
