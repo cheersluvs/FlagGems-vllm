@@ -16,6 +16,7 @@
 """Compare one- and two-slot Cube-to-Vector score and TopK scheduling."""
 """Prepared mixed Cube/Vector candidate for the full INT8 harness inputs."""
 
+import hashlib
 import os
 from functools import partial
 from pathlib import Path
@@ -113,7 +114,35 @@ def _check_merge_output(scores, ids, result, fan_in):
         assert not ((ordered[:, 1:] >= 0) & (ordered[:, 1:] == ordered[:, :-1])).any()
 
 
-def _trace_prefix(producer, merges, visible):
+def _replay_179(mode, merge, snapshot):
+    source, target, lists, groups, in_width, out_width = merge.args
+    assert (lists, groups, in_width, out_width) == (17, 9, 512, 512)
+    saved = torch.load(snapshot, map_location="cpu", weights_only=True)
+    packed = saved["packed"]
+    assert packed.shape == source.shape and packed.dtype == source.dtype
+    scores, ids = _check_packed(f"MERGE179 INPUT mode={mode}", packed, saved["visible"])
+    digest = hashlib.sha256(packed.numpy().tobytes()).hexdigest()
+    source.copy_(packed)
+    target.fill_(float("nan"))
+    torch.npu.synchronize()
+    words = 2048 if mode == "full_179" else 1024
+    print(
+        f"MERGE179 LAUNCH mode={mode} input_sha256={digest} raw_words={words} "
+        "grid=1152 output_words=1024",
+        flush=True,
+    )
+    if mode == "full_179":
+        merge(FULL_RAW_OUTPUT=True)
+    else:
+        merge()
+    torch.npu.synchronize()
+    result = target.cpu()
+    _check_packed(f"MERGE179 OUTPUT mode={mode}", result, saved["visible"])
+    _check_merge_output(scores, ids, result, fan_in=2)
+    print(f"MERGE179 PASS mode={mode}", flush=True)
+
+
+def _trace_prefix(producer, merges, visible, capture_179=None):
     limits = visible.cpu()
     print("MERGE53 TRACE LAUNCH producer", flush=True)
     producer()
@@ -134,6 +163,13 @@ def _trace_prefix(producer, merges, visible):
     ).any(), "producer repeated a live index"
     print("MERGE53 TRACE PASS producer", flush=True)
     for level, merge in enumerate(merges[:4]):
+        if capture_179 is not None and level == 2:
+            packed = merge.args[0].cpu()
+            temporary = capture_179.with_suffix(".tmp")
+            torch.save({"packed": packed, "visible": limits}, temporary)
+            temporary.replace(capture_179)
+            print(f"MERGE179 CAPTURED {capture_179}", flush=True)
+            return
         target = merge.args[1]
         label = f"MERGE53 TRACE merge={level}"
         print(f"{label} LAUNCH target={tuple(target.shape)}", flush=True)
@@ -232,7 +268,10 @@ class PreparedFusedBinarySelection:
     def __call__(self, *, synchronize=False):
         mode = os.environ.get("QSA_MERGE53_MODE")
         if mode:
-            assert synchronize and mode in ("capture", "real", "synthetic", "trace")
+            assert synchronize and mode in (
+                "capture", "real", "synthetic", "trace",
+                "capture_179", "original_179", "full_179",
+            )
             if mode != "trace":
                 snapshot = Path(os.environ["QSA_MERGE53_SNAPSHOT"])
         for first, count, lists, fused, producer, merges, pairs, scores, positions, padding, output in self.chunks:
@@ -240,6 +279,12 @@ class PreparedFusedBinarySelection:
                 assert (first, count, lists, fused) == (0, 128, 133, True)
                 if mode == "trace":
                     _trace_prefix(producer, merges, self.visible[:count])
+                    return None
+                if mode == "capture_179":
+                    _trace_prefix(producer, merges, self.visible[:count], snapshot)
+                    return None
+                if mode in ("original_179", "full_179"):
+                    _replay_179(mode, merges[2], snapshot)
                     return None
                 if mode != "capture":
                     _diagnose_merge(mode, merges[4], self.visible[:count], snapshot)

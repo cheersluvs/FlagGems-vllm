@@ -260,7 +260,7 @@ def _qsa_int8_handoff_copy(
 @triton.jit
 def _qsa_int8_merge_sorted_tiles(
     Proposals, Output, LISTS: tl.constexpr, GROUPS: tl.constexpr,
-    IN: tl.constexpr, OUT: tl.constexpr,
+    IN: tl.constexpr, OUT: tl.constexpr, FULL_RAW_OUTPUT: tl.constexpr = False,
 ):
     task = tl.program_id(0)
     group = task % GROUPS
@@ -271,11 +271,14 @@ def _qsa_int8_merge_sorted_tiles(
     if first + 1 < LISTS:
         lanes = tl.arange(0, 8 * IN)
         packed = tl.load(source + lanes, mask=lanes < 4 * IN, other=0)
+        RAW_WORDS: tl.constexpr = 4 * IN if FULL_RAW_OUTPUT else 2 * OUT
         merged, consumed = tle.dsa.ascend.raw(
             "merge_exhaust_sort4", packed, 2,
             0, IN, 2 * IN, 3 * IN, IN, IN, 0, 0,
-            out=[tl.zeros((2 * OUT,), tl.float32), tl.zeros((4,), tl.int32)],
+            out=[tl.zeros((RAW_WORDS,), tl.float32), tl.zeros((4,), tl.int32)],
         )
+        if FULL_RAW_OUTPUT:
+            merged = al.extract_slice(merged, (0,), (2 * OUT,), (1,))
         if OUT > IN:
             # Exhausting either list leaves at most one sorted suffix.
             left = al.get_element(consumed, (0,))
