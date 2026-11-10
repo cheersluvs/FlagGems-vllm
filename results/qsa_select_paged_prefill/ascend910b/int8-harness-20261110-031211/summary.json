@@ -1,0 +1,156 @@
+{
+  "exit_code": 0,
+  "mode": "kernel",
+  "benchmark": "qsa_select_paged_prefill_int8_910b",
+  "baseline": "torch_npu.npu_quant_lightning_indexer (CANN V1)",
+  "candidate": "Prepared INT8 selection with shared page proof and sorted TLE TopK",
+  "topk_policy": "auto",
+  "cases": [
+    {
+      "case": "int8_first_chunk",
+      "baseline_ms": 8.055530466666667,
+      "candidate_ms": 43.30429096666667,
+      "speedup": 0.18602153012659609,
+      "topk_route": "auto"
+    },
+    {
+      "case": "int8_compact",
+      "baseline_ms": 3.147864933333333,
+      "candidate_ms": 11.021235233333332,
+      "speedup": 0.2856181604592494,
+      "topk_route": "auto"
+    }
+  ],
+  "arithmetic_mean_speedup": null,
+  "sorted_topk_ab": {
+    "baseline": "previous INT8 TopK dispatch",
+    "baseline_policy": "auto",
+    "candidate": "sorted TLE topk",
+    "cases": [
+      {
+        "case": "int8_first_chunk",
+        "topk": {
+          "samples_ms": {
+            "previous": [
+              2640.278931266667,
+              7.607485466666667,
+              7.609467333333333,
+              754.6008939666667
+            ],
+            "sorted": [
+              104.28536593333334,
+              6.7581134333333335,
+              188.0468596,
+              2637.3192099333332
+            ]
+          },
+          "medians_ms": {
+            "previous": 381.10518065,
+            "sorted": 146.16611276666669
+          },
+          "speedup": 2.6073429294680635,
+          "paired_speedups": [
+            25.31782774732288,
+            1.1256818255141945,
+            0.04046580384016864,
+            0.286124217017227
+          ],
+          "sorted_wins": 2
+        },
+        "total": {
+          "samples_ms": {
+            "previous": [
+              46.16469673333334,
+              51.3555617,
+              45.136813133333334,
+              45.24880386666667
+            ],
+            "sorted": [
+              43.294852,
+              43.275887366666666,
+              186.5033544,
+              43.23815183333333
+            ]
+          },
+          "medians_ms": {
+            "previous": 45.7067503,
+            "sorted": 43.28536968333333
+          },
+          "speedup": 1.05593993153763,
+          "paired_speedups": [
+            1.0662860502059999,
+            1.1867015288415952,
+            0.2420160928394183,
+            1.0465018033398754
+          ],
+          "sorted_wins": 3
+        }
+      },
+      {
+        "case": "int8_compact",
+        "topk": {
+          "samples_ms": {
+            "previous": [
+              11.844475766666667,
+              1903.4031943333332,
+              4.036639833333333,
+              21.001899966666667
+            ],
+            "sorted": [
+              78.34529516666667,
+              3.557865,
+              2091.1923066333334,
+              74.09873606666666
+            ]
+          },
+          "medians_ms": {
+            "previous": 16.423187866666666,
+            "sorted": 76.22201561666667
+          },
+          "speedup": 0.21546514788144203,
+          "paired_speedups": [
+            0.15118298733152388,
+            534.9846591518602,
+            0.0019303054150156223,
+            0.2834312848166701
+          ],
+          "sorted_wins": 1
+        },
+        "total": {
+          "samples_ms": {
+            "previous": [
+              12.030422766666668,
+              12.0197045,
+              12.050487633333333,
+              12.029727933333334
+            ],
+            "sorted": [
+              11.012361533333333,
+              11.0078519,
+              11.029000366666667,
+              11.007154466666666
+            ]
+          },
+          "medians_ms": {
+            "previous": 12.03007535,
+            "sorted": 11.010106716666666
+          },
+          "speedup": 1.0926393049205732,
+          "paired_speedups": [
+            1.0924471313670336,
+            1.091920985964573,
+            1.0926183001819405,
+            1.0929008009984198
+          ],
+          "sorted_wins": 4
+        }
+      }
+    ],
+    "arithmetic_mean_speedup": {
+      "topk": 1.4114040386747528,
+      "total": 1.0742896182291015
+    }
+  },
+  "cann_v1_subset_mean_speedup": 0.23581984529292277,
+  "scope": "first_chunk and compact only"
+}
