@@ -1,0 +1,43 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-int8-topk-layout-hr25ZsRz/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-int8-topk-layout-hr25ZsRz/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-int8-topk-layout-hr25ZsRz/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "prefill_3seg", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_compact_half_rows
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact_half_rows control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact_half_rows candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact_half_rows cann_v1
+QSA_INT8_HARNESS_PREFLIGHT int8_compact_half_rows direct_chunks=0 total_chunks=35
+QSA_INT8_HARNESS_SORTED_TOPK {"case": "int8_compact_half_rows", "width": 1088, "rows": 4448, "score_chunks": 35, "topk": {"samples_ms": {"previous": [2.163284066666667, 2.162653433333333, 2.1631948999999997, 2.1629061333333333], "sorted": [1.7739493666666668, 1.7743921333333332, 1.7741604, 1.7741679333333333]}, "medians_ms": {"previous": 2.1630505166666665, "sorted": 1.7741641666666665}, "speedup": 1.21919411816926, "paired_speedups": [1.2194734006030725, 1.2188136955220945, 1.2192780878211462, 1.219110148873919], "sorted_wins": 4}, "total": {"samples_ms": {"previous": [6.338099966666666, 6.3384493, 6.336821866666666, 6.337386266666667], "sorted": [5.6287113, 5.628282966666667, 5.629418966666667, 5.629195366666666]}, "medians_ms": {"previous": 6.337743116666667, "sorted": 5.6289533333333335}, "speedup": 1.1259185751525151, "paired_speedups": [1.1260303875714262, 1.1261781501639614, 1.1256617963929716, 1.1258067723485954], "sorted_wins": 4}}
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               1.608901            5.628586               0.286          ('int8_compact_half_rows', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-int8-topk-layout-hr25ZsRz/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 46.59s
