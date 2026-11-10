@@ -20,12 +20,12 @@ import hashlib
 import importlib.util
 import inspect
 import json
+import math
 import os
 import statistics
 import sys
 from pathlib import Path
 
-from qsa_kernel_benchmark_910b import setup
 from qsa_prefill_production_910b import load_production
 
 CASES = {"short16_g1024": (16, 1024), "medium32_g8192": (32, 8192),
@@ -33,7 +33,7 @@ CASES = {"short16_g1024": (16, 1024), "medium32_g8192": (32, 8192),
 OLD_SHA256 = "19d48cfafaa321599b932d89f89390c97ca43db640fac3704e6d880d734bc0a6"
 
 
-def run(args, torch, old, new, public, name, result):
+def run(args, torch, old, new, public, name, result, measure):
     import triton
 
     rows, width = CASES[name]
@@ -105,12 +105,11 @@ def run(args, torch, old, new, public, name, result):
             selected = cpu_logits.gather(1, indices).sort(dim=1, descending=True).values
             torch.testing.assert_close(selected, expected, rtol=1e-3, atol=1e-3)
 
-    measure = setup(args, dict(chunks=chunks, score_into=score_into, logits=frozen), torch, result)
     for stage, arms in jobs.items():
         samples = {arm: [] for arm in arms}
         for round_index in range(args.rounds):
             for arm in (("old", "new") if round_index % 2 == 0 else ("new", "old")):
-                samples[arm].append(measure(arms[arm])["kernel_us"])
+                samples[arm].append(measure(arms[arm]))
         medians = {arm: statistics.median(values) for arm, values in samples.items()}
         result["stages"][stage] = dict(samples_us=samples, medians_us=medians,
                                        speedup=medians["old"] / medians["new"])
@@ -124,11 +123,11 @@ def main():
     parser.add_argument("--mode", required=True, choices=("kernel",))
     parser.add_argument("--device", default=0, type=int)
     parser.add_argument("--rounds", default=2, type=int)
-    parser.add_argument("--kernel-warmup", default=2, type=int)
-    parser.add_argument("--kernel-active", default=10, type=int)
+    parser.add_argument("--warmup", default=100, type=int)
+    parser.add_argument("--iter", default=30, type=int)
     args = parser.parse_args()
-    if min(args.rounds, args.kernel_active) < 1:
-        parser.error("rounds and kernel-active must be positive")
+    if min(args.rounds, args.warmup, args.iter) < 1:
+        parser.error("rounds, warmup and iter must be positive")
 
     import torch
     import torch_npu  # noqa: F401
@@ -148,12 +147,35 @@ def main():
     for name in ("_score", "_paged_score_910b", "_prefill_chunk_cap", "_build_owners"):
         a, b = getattr(old, name), getattr(new, name)
         assert inspect.getsource(getattr(a, "fn", a)) == inspect.getsource(getattr(b, "fn", b)), name
+    root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root))
+    from benchmark.attri_util import BenchMode
+    from benchmark.conftest import Config
+    from benchmark.performance_utils import Benchmark
+    from triton.testing import do_bench
+
+    Config.mode = BenchMode.KERNEL
+    Config.warm_up = args.warmup
+    Config.repetition = args.iter
+    benchmark = Benchmark(op_name="qsa_bf16_topk_ab", torch_op=old.qsa_select_paged_prefill)
+
+    def measure(fn):
+        milliseconds = float(benchmark.get_latency(fn))
+        if not math.isfinite(milliseconds) or milliseconds <= 0:
+            raise RuntimeError(f"Invalid harness kernel latency: {milliseconds}")
+        return milliseconds * 1000
+
     report = Path(args.report) / "bf16-topk-ab.json"
-    result = dict(mode=args.mode, new=identity, old_source_sha256=OLD_SHA256, cases={})
+    result = dict(
+        mode=args.mode, new=identity, old_source_sha256=OLD_SHA256, cases={},
+        timer=dict(entry="benchmark.performance_utils.Benchmark.get_latency",
+                   backend_source=inspect.getfile(do_bench),
+                   warmup=args.warmup, repetition=args.iter, unit="microseconds"),
+    )
     for name in CASES:
         entry = result["cases"][name] = {}
         try:
-            run(args, torch, old, new, public, name, entry)
+            run(args, torch, old, new, public, name, entry, measure)
         finally:
             report.write_text(json.dumps(result, indent=2))
     result["arithmetic_mean_speedup"] = {
