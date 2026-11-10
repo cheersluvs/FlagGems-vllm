@@ -1,0 +1,324 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+short-handoff-sort-slots2: 13 INT32 dot handoffs
+{
+  "operation": "sort",
+  "slots": 2,
+  "subtiles": 13,
+  "stage": "checked",
+  "artifacts": [
+    "short-handoff-sort-slots2-source.txt",
+    "short-handoff-sort-slots2-ttir.txt",
+    "short-handoff-sort-slots2-ttadapter.txt",
+    "short-handoff-sort-slots2-bcmlir.txt",
+    "short-handoff-sort-slots2.npubin.gz"
+  ],
+  "duplicate_indices": 0,
+  "vector_mismatches": 0,
+  "vector_sentinel_values": 0,
+  "vector_mismatches_by_subtile": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "final_cube_workspace": {
+    "checked_subtiles": 70,
+    "mismatches": 0,
+    "sentinel_values": 0,
+    "zero_values": 0,
+    "subtile_mismatches": {}
+  },
+  "passed": true
+}
+{"stage": "binary-merge-0", "shape": {"input": [35, 13, 128], "output": [35, 7, 256]}, "status": "launching"}
+{"stage": "binary-merge-1", "shape": {"input": [35, 7, 256], "output": [35, 4, 512]}, "status": "launching"}
+{"stage": "binary-merge-2", "shape": {"input": [35, 4, 512], "output": [35, 2, 1024]}, "status": "launching"}
+{"stage": "binary-merge-3", "shape": {"torch_npu_topk": 512, "input": [35, 2, 1024]}, "status": "launching"}
+{"stage": "fused_binary-merge-0", "shape": {"input": [35, 13, 128], "output": [35, 4, 512]}, "status": "launching"}
+{"stage": "fused_binary-merge-1", "shape": {"input": [35, 4, 512], "output": [35, 2, 1024]}, "status": "launching"}
+{"stage": "fused_binary-merge-2", "shape": {"torch_npu_topk": 512, "input": [35, 2, 1024]}, "status": "launching"}
+{
+  "case": "short",
+  "rows": 35,
+  "tile_lists": 13,
+  "producer": "double_buffer",
+  "final_selection": "torch_npu_topk",
+  "merge_levels": {
+    "binary": 3,
+    "fused_binary": 2
+  },
+  "correctness": {
+    "binary": {
+      "rows": 35,
+      "max_score_abs_error": 3.814697265625e-06
+    },
+    "fused_binary": {
+      "rows": 35,
+      "max_score_abs_error": 3.814697265625e-06
+    }
+  },
+  "validation_stages": {
+    "binary": [
+      {
+        "stage": "binary-merge-0",
+        "shape": {
+          "input": [
+            35,
+            13,
+            128
+          ],
+          "output": [
+            35,
+            7,
+            256
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-0-source.txt",
+          "binary-merge-0-ttir.txt",
+          "binary-merge-0-ttadapter.txt",
+          "binary-merge-0-bcmlir.txt",
+          "binary-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-1",
+        "shape": {
+          "input": [
+            35,
+            7,
+            256
+          ],
+          "output": [
+            35,
+            4,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-1-source.txt",
+          "binary-merge-1-ttir.txt",
+          "binary-merge-1-ttadapter.txt",
+          "binary-merge-1-bcmlir.txt",
+          "binary-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-2",
+        "shape": {
+          "input": [
+            35,
+            4,
+            512
+          ],
+          "output": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "binary-merge-2-source.txt",
+          "binary-merge-2-ttir.txt",
+          "binary-merge-2-ttadapter.txt",
+          "binary-merge-2-bcmlir.txt",
+          "binary-merge-2.npubin.gz"
+        ]
+      },
+      {
+        "stage": "binary-merge-3",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ],
+    "fused_binary": [
+      {
+        "stage": "fused_binary-merge-0",
+        "shape": {
+          "input": [
+            35,
+            13,
+            128
+          ],
+          "output": [
+            35,
+            4,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "fused_binary-merge-0-source.txt",
+          "fused_binary-merge-0-ttir.txt",
+          "fused_binary-merge-0-ttadapter.txt",
+          "fused_binary-merge-0-bcmlir.txt",
+          "fused_binary-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "fused_binary-merge-1",
+        "shape": {
+          "input": [
+            35,
+            4,
+            512
+          ],
+          "output": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "fused_binary-merge-1-source.txt",
+          "fused_binary-merge-1-ttir.txt",
+          "fused_binary-merge-1-ttadapter.txt",
+          "fused_binary-merge-1-bcmlir.txt",
+          "fused_binary-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "fused_binary-merge-2",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            35,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ]
+  },
+  "passed": true,
+  "prefix_packed_bits_match": true,
+  "merge_prefix": {
+    "event_samples_us": {
+      "binary": [
+        140.21874964237213,
+        130.90375065803528,
+        133.73875617980957,
+        133.4037482738495
+      ],
+      "fused_binary": [
+        70.82749903202057,
+        68.84875148534775,
+        67.7812471985817,
+        68.71374696493149
+      ]
+    },
+    "event_medians_us": {
+      "binary": 133.57125222682953,
+      "fused_binary": 68.78124922513962
+    },
+    "binary_over_fused_binary": 1.9419718852388783,
+    "paired_speedup": [
+      1.9797218814542683,
+      1.9013235219798277,
+      1.973093764238201,
+      1.9414419117899795
+    ]
+  },
+  "merge_tree": {
+    "event_samples_us": {
+      "binary": [
+        201.27250254154205,
+        195.8787441253662,
+        200.5012482404709,
+        196.48374617099762
+      ],
+      "fused_binary": [
+        140.01749455928802,
+        137.6887559890747,
+        138.0612552165985,
+        140.98499715328217
+      ]
+    },
+    "event_medians_us": {
+      "binary": 198.49249720573425,
+      "fused_binary": 139.03937488794327
+    },
+    "binary_over_fused_binary": 1.4275991773244547,
+    "paired_speedup": [
+      1.4374811031654093,
+      1.4226197536486476,
+      1.4522629678102874,
+      1.3936500346726675
+    ]
+  },
+  "merge_and_select": {
+    "event_samples_us": {
+      "binary": [
+        462.06751465797424,
+        456.55375719070435,
+        451.2749910354614,
+        452.412486076355
+      ],
+      "fused_binary": [
+        483.1950068473816,
+        389.653742313385,
+        386.2762451171875,
+        381.4924955368042
+      ]
+    },
+    "event_medians_us": {
+      "binary": 454.48312163352966,
+      "fused_binary": 387.96499371528625
+    },
+    "binary_over_fused_binary": 1.171453942999452,
+    "paired_speedup": [
+      0.9562754335413062,
+      1.1716909338022319,
+      1.1682701091250247,
+      1.1859014040099483
+    ]
+  },
+  "total": {
+    "event_samples_us": {
+      "binary": [
+        556.3087463378906,
+        552.542507648468,
+        553.1924962997437,
+        556.410014629364
+      ],
+      "fused_binary": [
+        493.0337369441986,
+        490.76250195503235,
+        487.4800145626068,
+        493.6150014400482
+      ]
+    },
+    "event_medians_us": {
+      "binary": 554.7506213188171,
+      "fused_binary": 491.8981194496155
+    },
+    "binary_over_fused_binary": 1.1277754465488246,
+    "paired_speedup": [
+      1.1283380926138395,
+      1.1258857501282697,
+      1.1348003605770334,
+      1.127214555890969
+    ]
+  }
+}
