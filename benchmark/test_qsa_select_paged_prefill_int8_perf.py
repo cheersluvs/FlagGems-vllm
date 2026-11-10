@@ -638,6 +638,8 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             mixed.output.fill_(-3)
             torch.npu.synchronize()
             mixed_output = mixed(synchronize=diagnose_only)
+            if mixed_output is None and diagnose_only and os.environ.get("QSA_MERGE53_MODE"):
+                pytest.skip("Single-merge diagnostic completed; full fused output not checked")
             torch.npu.synchronize()
             mixed_indices = mixed_output.cpu()
             failure = _check_preflight_structure(

@@ -16,7 +16,9 @@
 """Compare one- and two-slot Cube-to-Vector score and TopK scheduling."""
 """Prepared mixed Cube/Vector candidate for the full INT8 harness inputs."""
 
+import os
 from functools import partial
+from pathlib import Path
 
 import torch
 import triton
@@ -31,12 +33,80 @@ from probe_qsa_int8_mixed_pipeline_910b import (
 )
 
 
+def _diagnose_merge(mode, merge, visible, snapshot):
+    source, target, lists, groups, in_width, out_width = merge.args
+    assert (lists, groups, in_width, out_width) == (5, 3, 512, 512)
+    assert source.shape == (128, 5, 1024)
+    limits = visible.cpu()
+    if mode == "capture":
+        packed = source.cpu()
+        temporary = snapshot.with_suffix(".tmp")
+        torch.save({"packed": packed, "visible": limits}, temporary)
+        temporary.replace(snapshot)
+    elif mode == "real":
+        saved = torch.load(snapshot, map_location="cpu", weights_only=True)
+        packed = saved["packed"]
+        assert torch.equal(saved["visible"], limits)
+    else:
+        limits = torch.full_like(limits, 5 * 512)
+        ids = torch.arange(5 * 512, dtype=torch.int32).view(512, 5).T.contiguous()
+        pairs = torch.stack((-ids.float(), ids.view(torch.float32)), dim=-1)
+        packed = pairs.reshape(1, 5, 1024).expand_as(source).contiguous()
+
+    assert packed.shape == source.shape and packed.dtype == torch.float32
+    scores = packed[..., ::2].contiguous()
+    ids = packed[..., 1::2].contiguous().view(torch.int32)
+    finite = torch.isfinite(scores)
+    invalid = finite & ((ids < 0) | (ids >= limits[:, None, None]))
+    unsorted = scores[..., :-1] < scores[..., 1:]
+    nonfinite = torch.isnan(scores) | torch.isposinf(scores)
+    print(
+        f"MERGE53 INPUT mode={mode} invalid_ids={int(invalid.sum())} "
+        f"ascending_pairs={int(unsorted.sum())} nan_or_posinf={int(nonfinite.sum())}",
+        flush=True,
+    )
+    assert not (invalid.any() or unsorted.any() or nonfinite.any()), "invalid merge input"
+    if mode == "capture":
+        print(f"MERGE53 CAPTURED {snapshot}", flush=True)
+        return
+
+    source.copy_(packed)
+    target.fill_(float("nan"))
+    torch.npu.synchronize()
+    print(f"MERGE53 LAUNCH mode={mode} grid=384 IN=512 OUT=512", flush=True)
+    merge()
+    torch.npu.synchronize()
+    print(f"MERGE53 RETURNED mode={mode}", flush=True)
+
+    result = target.cpu()
+    out_scores = result[..., ::2].contiguous()
+    out_ids = result[..., 1::2].contiguous().view(torch.int32)
+    for group in range(groups):
+        start = group * 2
+        values = scores[:, start : start + 2].flatten(1)
+        indices = ids[:, start : start + 2].flatten(1)
+        expected = values.topk(out_width, dim=1).values
+        actual = out_scores[:, group]
+        torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+        valid = torch.isfinite(actual)
+        # Match each finite score/index pair to a source candidate, allowing ties.
+        keys, order = indices.masked_fill(~torch.isfinite(values), 2**31 - 1).sort(dim=1)
+        returned = out_ids[:, group].contiguous()
+        found = torch.searchsorted(keys, returned).clamp(max=keys.shape[1] - 1)
+        assert torch.all(~valid | (keys.gather(1, found) == returned))
+        assert torch.all(~valid | (values.gather(1, order.gather(1, found)) == actual))
+        ordered = returned.masked_fill(~valid, -1).sort(dim=1).values
+        assert not ((ordered[:, 1:] >= 0) & (ordered[:, 1:] == ordered[:, :-1])).any()
+    print(f"MERGE53 PASS mode={mode}", flush=True)
+
+
 class PreparedFusedBinarySelection:
     def __init__(self, values, host_visible, starts, chunk_rows):
         device = values["q"].device
         rows = values["q"].shape[0]
         self.output = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
         self.chunks = []
+        self.visible = host_visible
         rank = torch.arange(TOPK, device=device, dtype=torch.int32)
         key = values["cache"].view(-1, 128)
         key_scale = values["ks"].view(-1)
@@ -113,13 +183,25 @@ class PreparedFusedBinarySelection:
                 ))
 
     def __call__(self, *, synchronize=False):
+        mode = os.environ.get("QSA_MERGE53_MODE")
+        if mode:
+            assert synchronize and mode in ("capture", "real", "synthetic")
+            snapshot = Path(os.environ["QSA_MERGE53_SNAPSHOT"])
         for first, count, lists, fused, producer, merges, pairs, scores, positions, padding, output in self.chunks:
+            if mode:
+                assert (first, count, lists, fused) == (0, 128, 133, True)
+                if mode != "capture":
+                    _diagnose_merge(mode, merges[4], self.visible[:count], snapshot)
+                    return None
             if synchronize:
                 print(f"mixed first={first} rows={count} tiles={lists} fused={fused}", flush=True)
             producer()
             if synchronize:
                 torch.npu.synchronize()
             for level, merge in enumerate(merges):
+                if mode == "capture" and level == 4:
+                    _diagnose_merge(mode, merge, self.visible[:count], snapshot)
+                    return None
                 if synchronize:
                     print(f"mixed first={first} merge={level}", flush=True)
                 merge()
