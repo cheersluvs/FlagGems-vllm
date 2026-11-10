@@ -292,6 +292,37 @@ def _qsa_int8_merge_sorted_tiles(
     tl.store(Output + task * 2 * OUT + words, merged)
 
 
+@triton.jit
+def _qsa_int8_merge_four_tiles(
+    Proposals, Output, LISTS: tl.constexpr, GROUPS: tl.constexpr, IN: tl.constexpr,
+):
+    task = tl.program_id(0)
+    group = task % GROUPS
+    row = task // GROUPS
+    OUT: tl.constexpr = 4 * IN
+    lane = tl.arange(0, 8 * OUT)
+    way = lane // (2 * OUT)
+    word = lane % (2 * OUT)
+    source_list = group * 4 + way
+    valid = (source_list < LISTS) & (word < 2 * IN)
+    sentinel = tl.where(
+        word % 2 == 0, -float("inf"), tl.full((), -1, tl.int32).to(tl.float32, bitcast=True),
+    )
+    pairs = tl.load(
+        Proposals + (row * LISTS + source_list) * 2 * IN + word, mask=valid, other=0,
+    )
+    packed = tl.where(valid, pairs, sentinel)
+    # The primitive stops when a way is exhausted. Padding every way to OUT
+    # guarantees that it emits at least OUT pairs, including at a partial group.
+    merged, _ = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 4,
+        0, OUT, 2 * OUT, 3 * OUT, OUT, OUT, OUT, OUT,
+        out=[tl.zeros((8 * OUT,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    prefix = al.extract_slice(merged, (0,), (2 * OUT,), (1,))
+    tl.store(Output + task * 2 * OUT + tl.arange(0, 2 * OUT), prefix)
+
+
 def fixture(case):
     rows, width = CASES[case]
     pages = triton.cdiv(width, PAGE)
@@ -693,7 +724,7 @@ def handoff_copy_control(args, cpu, inputs, packed_q, width, slots):
     return launch, received
 
 
-def paired_event_times(functions, rounds, launches):
+def paired_event_times(functions, rounds, launches, speedup_key="serial_over_double"):
     samples = {name: [] for name in functions}
     for round_index in range(rounds):
         order = tuple(functions) if round_index % 2 == 0 else tuple(reversed(functions))
@@ -707,18 +738,24 @@ def paired_event_times(functions, rounds, launches):
             stop.synchronize()
             samples[name].append(start.elapsed_time(stop) * 1000 / launches)
     medians = {name: statistics.median(times) for name, times in samples.items()}
-    return dict(
-        event_samples_us=samples,
-        event_medians_us=medians,
-        serial_over_double=medians["serial"] / medians["double_buffer"],
-        paired_speedup=[a / b for a, b in zip(samples["serial"], samples["double_buffer"])],
-    )
+    baseline, candidate = functions
+    return {
+        "event_samples_us": samples,
+        "event_medians_us": medians,
+        speedup_key: medians[baseline] / medians[candidate],
+        "paired_speedup": [a / b for a, b in zip(samples[baseline], samples[candidate])],
+    }
 
 
 def handoff_benchmark(args, cpu, inputs, packed_q, width):
+    variants = (("serial", 1), ("double_buffer", 2))
+    if args.four_way_merge:
+        arms = {"double_buffer": handoff_copy_control(args, cpu, inputs, packed_q, width, 2)}
+        handoff_merge_benchmark(args, cpu, inputs[-1], arms, None)
+        return
     arms = {
         name: handoff_copy_control(args, cpu, inputs, packed_q, width, slots)
-        for name, slots in (("serial", 1), ("double_buffer", 2))
+        for name, slots in variants
     }
     functions = {name: arm[0] for name, arm in arms.items()}
     for launch in functions.values():
@@ -742,7 +779,7 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
 
     report = Path(args.report)
     summary = report / f"{args.worker}-handoff-merge.json"
-    rows, groups, _ = arms["serial"][1].shape
+    rows, groups, _ = arms["double_buffer"][1].shape
     device = visible.device
     indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
     scores = torch.empty((rows, TOPK), device=device, dtype=torch.float32)
@@ -771,21 +808,25 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
         entry["status"] = "completed"
         summary.write_text(json.dumps(result, indent=2))
 
-    def merge_level(proposals, target):
-        return _qsa_int8_merge_sorted_tiles[(rows * target.shape[1],)](
-            proposals, target, proposals.shape[1], target.shape[1],
-            proposals.shape[2] // 2, target.shape[2] // 2,
+    def merge_level(proposals, target, four_way=False):
+        kernel = _qsa_int8_merge_four_tiles if four_way else _qsa_int8_merge_sorted_tiles
+        widths = (proposals.shape[2] // 2,)
+        if not four_way:
+            widths += (target.shape[2] // 2,)
+        return kernel[(rows * target.shape[1],)](
+            proposals, target, proposals.shape[1], target.shape[1], *widths,
             use_bytecode=True, enable_ubuf_saving=True,
             enable_auto_bind_sub_block=False, multibuffer=False,
         )
 
-    def merge_levels(proposals, stages=None, name=None):
-        for target in levels:
+    def merge_levels(proposals, stages=None, name=None, four_way=False):
+        for i, target in enumerate(levels[1:] if four_way else levels):
+            wide = four_way and i == 0
             if stages is None:
-                merge_level(proposals, target)
+                merge_level(proposals, target, wide)
             else:
                 validate_stage(
-                    name, lambda: merge_level(proposals, target),
+                    name, lambda: merge_level(proposals, target, wide),
                     {"input": list(proposals.shape), "output": list(target.shape)},
                     stages,
                 )
@@ -809,9 +850,9 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
         select_scores(candidates)
         write_indices(key_indices)
 
-    def merge(proposals, name=None):
+    def merge(proposals, name=None, four_way=False):
         stages = None if name is None else result["validation_stages"][name]
-        proposals = merge_levels(proposals, stages, name)
+        proposals = merge_levels(proposals, stages, name, four_way)
         if stages is None:
             select_final(proposals)
         else:
@@ -871,6 +912,62 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
         launch, proposals = arm
         launch()
         merge(proposals)
+
+    if args.four_way_merge:
+        launch, proposals = arms["double_buffer"]
+
+        def full_pipeline(four_way):
+            launch()
+            merge(proposals, four_way=four_way)
+
+        result = {
+            "case": args.worker, "rows": rows, "tile_lists": proposals.shape[1],
+            "producer": "double_buffer", "final_selection": "torch_npu_topk",
+            "merge_levels": {"binary": len(levels), "four_way": len(levels) - 1},
+            "correctness": {}, "validation_stages": {}, "passed": False,
+        }
+        summary.write_text(json.dumps(result, indent=2))
+        try:
+            assert len(levels) >= 2 and levels[1].shape[2] == 8 * CUBE_TILE
+            launch()
+            torch.npu.synchronize()
+            reference_scores = None
+            for name, four_way in (("binary", False), ("four_way", True)):
+                result["validation_stages"][name] = []
+                merge(proposals, name=name, four_way=four_way)
+                result["correctness"][name] = check(cpu, indices, scores)
+                if reference_scores is None:
+                    reference_scores = scores.cpu()
+                else:
+                    torch.testing.assert_close(scores.cpu(), reference_scores, rtol=0, atol=0)
+
+            def merge_prefix(four_way):
+                if four_way:
+                    merge_level(proposals, levels[1], four_way=True)
+                else:
+                    merge_level(proposals, levels[0])
+                    merge_level(levels[0], levels[1])
+
+            timings = {
+                "merge_prefix": merge_prefix,
+                "merge_tree": lambda four_way: merge_levels(proposals, four_way=four_way),
+                "merge_and_select": lambda four_way: merge(proposals, four_way=four_way),
+                "total": full_pipeline,
+            }
+            for stage, operation in timings.items():
+                result[stage] = paired_event_times(
+                    {"binary": lambda: operation(False), "four_way": lambda: operation(True)},
+                    rounds=4, launches=16, speedup_key="binary_over_four_way",
+                )
+                summary.write_text(json.dumps(result, indent=2))
+            result["passed"] = True
+        except Exception as exc:
+            result["error"] = str(exc)
+        summary.write_text(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2), flush=True)
+        if not result["passed"]:
+            raise SystemExit(1)
+        return
 
     result = {
         "case": args.worker, "producer": producer_result,
@@ -1096,10 +1193,13 @@ def main():
     handoff_modes.add_argument("--handoff-sort", action="store_true")
     handoff_modes.add_argument("--handoff-bench", action="store_true")
     handoff_modes.add_argument("--handoff-merge", action="store_true")
+    parser.add_argument("--four-way-merge", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
+    if args.four_way_merge and not args.handoff_merge:
+        parser.error("--four-way-merge requires --handoff-merge")
     if args.worker:
         worker(args)
         return
@@ -1119,7 +1219,7 @@ def main():
             statuses[label] = dict(exit_code=code, timed_out=timed_out)
     else:
         cases = CASES
-        if args.handoff_merge:
+        if args.handoff_merge and not args.four_way_merge:
             cases = ("long",)
         elif args.cube_controls or args.handoff64:
             cases = ("short",)
@@ -1130,6 +1230,8 @@ def main():
                 command.append("--handoff-bench")
             if args.handoff_merge:
                 command.append("--handoff-merge")
+            if args.four_way_merge:
+                command.append("--four-way-merge")
             if args.cube_controls:
                 command.append("--cube-controls")
             if args.handoff64:
