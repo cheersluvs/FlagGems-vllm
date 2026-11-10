@@ -1,0 +1,55 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-heads64-ZHI5Givu/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+Production score: launching
+Production score: synchronizing
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-heads64-ZHI5Givu/tools/probe_qsa_lightning_910b.py", line 502, in worker
+    returned = pipeline(
+               ^^^^^^^^^
+  File "/tmp/flaggems-qsa-heads64-ZHI5Givu/tools/qsa_prefill_production_910b.py", line 148, in qsa_select_paged_prefill
+    returned = public(*operands)
+               ^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-heads64-ZHI5Givu/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py", line 364, in qsa_select_paged_prefill
+    _score(
+  File "/tmp/flaggems-qsa-heads64-ZHI5Givu/tools/qsa_prefill_production_910b.py", line 139, in score
+    return run_stage("score", original_score, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-heads64-ZHI5Givu/tools/qsa_prefill_production_910b.py", line 115, in run_stage
+    torch.npu.synchronize()
+  File "/flagos/lib/python3.11/site-packages/torch_npu/npu/utils.py", line 72, in synchronize
+    return torch_npu._C._npu_synchronize()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:576 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507014
+[ERROR] 2026-11-10-09:35:35 (PID:2619714, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: The aicore execution times out. 
+        Rectify the fault based on the error information in the ascend log.
+EZ9999: Inner Error!
+EZ9999[PID: 2619714] 2026-11-10-09:35:35.903.010 (EZ9999):  The error from device(chipId:0, dieId:0), serial number is 693, there is an exception of fftsplus aicore error, core id is 0, error code = 0, dump info: pc start: 0x124000042000, current: 0x124000042320, vec error info: 0, mte error info: 0xb800000063, ifu error info: 0x2d668020823c0, ccu error info: 0x600f122c64800057, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100000080, aic cond: 0.
+The extend info: errcode:(0, 0, 0) errorStr: timeout or trap error. fixp_error0 info: 0x63, fixp_error1 info: 0xb8, fsmId:0, tslot:4, thread:0, ctxid:0, blk:1, sublk:0, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+TraceBack (most recent call last):
+       An error occurred in the kernel task, retCode=0x25, [aicore timeout].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]
+       rtDeviceSynchronizeWithTimeout execution failed, reason=aicore timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+
+
+[W1110 09:35:35.363957575 NPUStream.cpp:596] Warning: NPU warning, error code is 507014[Error]: 
+[Error]: The aicore execution times out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 2619714] 2026-11-10-09:35:35.934.886 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=aicore timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+TraceBack (most recent call last):
+ (function npuSynchronizeUsedDevices)
+[W1110 09:35:35.365233277 NPUStream.cpp:578] Warning: NPU warning, error code is 507014[Error]: 
+[Error]: The aicore execution times out. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 2619714] 2026-11-10-09:35:35.936.453 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=aicore timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+TraceBack (most recent call last):
+ (function npuSynchronizeDevice)

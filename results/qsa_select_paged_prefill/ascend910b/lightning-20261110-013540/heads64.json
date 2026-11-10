@@ -1,0 +1,90 @@
+{
+  "status": "failed",
+  "case": "heads64",
+  "python": "/flagos/bin/python3",
+  "launch_environment": {
+    "QSA_ENV_ROOT": "/opt/qsa-topk-env.ojEsoQz5",
+    "QSA_FLAGTREE_PYTHONPATH": "/opt/qsa-topk-env.ojEsoQz5/flagtree",
+    "PYTHONPATH": "/tmp/flaggems-qsa-heads64-ZHI5Givu/src:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/opt/qsa-topk-env.ojEsoQz5/python-deps:/opt/qsa-topk-env.ojEsoQz5/flagtree:/tmp/flaggems-qsa-env-permissions.At9ir7Ub/src:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/python/site-packages:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/opt/flagtree:/usr/local/Ascend/cann-9.0.0/python/site-packages:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe:",
+    "ASCEND_HOME_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0",
+    "ASCEND_OPP_PATH": "/opt/qsa-opp-910b-qw4qRghU",
+    "LD_LIBRARY_PATH": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/opskernel:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/plugin/nnengine:/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/cann-9.0.0/lib64:/usr/local/Ascend/cann-9.0.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.0.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.0.0/devlib",
+    "BASH_ENV": null
+  },
+  "cache_directory": null,
+  "runtime": {
+    "torch": {
+      "version": "2.10.0+cpu",
+      "source": "/flagos/lib/python3.11/site-packages/torch/__init__.py"
+    },
+    "torch_npu": {
+      "version": "2.10.0",
+      "source": "/flagos/lib/python3.11/site-packages/torch_npu/__init__.py"
+    }
+  },
+  "device": {
+    "index": 0,
+    "name": "Ascend910B4-1"
+  },
+  "native_schema": "npu::npu_lightning_indexer(Tensor query, Tensor key, Tensor weights, *, Tensor? actual_seq_lengths_query=None, Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, str layout_query=\"BSND\", str layout_key=\"BSND\", int sparse_count=2048, int sparse_mode=3, int pre_tokens=9223372036854775807, int next_tokens=9223372036854775807, bool return_value=False) -> (Tensor, Tensor)",
+  "production_entry": {
+    "sources": {
+      "package": "/tmp/flaggems-qsa-heads64-ZHI5Givu/src/flaggems_vllm/__init__.py",
+      "operator": "/tmp/flaggems-qsa-heads64-ZHI5Givu/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py",
+      "topk": "/tmp/flaggems-qsa-heads64-ZHI5Givu/src/flaggems_vllm/runtime/backend/_ascend/ops/topk.py"
+    },
+    "hashes": {
+      "package": "5ec3ec674a29e82b6de1d8df8477df8a818f41afc2e7640f04f6322ab8918cff",
+      "operator": "c2e10fe798d93993904dcf5ab1037e4eabb416b97f046bc370d7a1f9124fd7c2",
+      "topk": "7fc56629255969d07e6df1a3ed729a56b0242595546b8cfe611d3d462bc8e5f5"
+    },
+    "import_mode": "normal package imports and public backend dispatch",
+    "triton": {
+      "version": "3.5.1",
+      "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py"
+    },
+    "launch_policy": {
+      "programs": 20,
+      "topk_has_tle": true
+    }
+  },
+  "existing_topk": {
+    "source": "/tmp/flaggems-qsa-heads64-ZHI5Givu/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+    "has_tle": true,
+    "loader": "normal package import"
+  },
+  "inputs": {
+    "query": [
+      4,
+      64,
+      128
+    ],
+    "key": [
+      9,
+      192,
+      1,
+      128
+    ],
+    "page_table": [
+      4,
+      9
+    ],
+    "request_lengths": [
+      4
+    ],
+    "visible": [
+      0,
+      511,
+      513,
+      1537
+    ],
+    "page_size": 192,
+    "dtype": "torch.bfloat16",
+    "sparse_count": 512,
+    "weights": 0.08838834764831843,
+    "rtol": 0.001,
+    "atol": 0.001
+  },
+  "error": "Traceback (most recent call last):\n  File \"/tmp/flaggems-qsa-heads64-ZHI5Givu/tools/probe_qsa_lightning_910b.py\", line 502, in worker\n    returned = pipeline(\n               ^^^^^^^^^\n  File \"/tmp/flaggems-qsa-heads64-ZHI5Givu/tools/qsa_prefill_production_910b.py\", line 148, in qsa_select_paged_prefill\n    returned = public(*operands)\n               ^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-heads64-ZHI5Givu/src/flaggems_vllm/runtime/backend/_ascend/ops/qsa_select_paged_prefill.py\", line 364, in qsa_select_paged_prefill\n    _score(\n  File \"/tmp/flaggems-qsa-heads64-ZHI5Givu/tools/qsa_prefill_production_910b.py\", line 139, in score\n    return run_stage(\"score\", original_score, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-heads64-ZHI5Givu/tools/qsa_prefill_production_910b.py\", line 115, in run_stage\n    torch.npu.synchronize()\n  File \"/flagos/lib/python3.11/site-packages/torch_npu/npu/utils.py\", line 72, in synchronize\n    return torch_npu._C._npu_synchronize()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:576 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507014\n[ERROR] 2026-11-10-09:35:35 (PID:2619714, Device:0, RankID:-1) ERR00100 PTA call acl api failed\n[Error]: The aicore execution times out. \n        Rectify the fault based on the error information in the ascend log.\nEZ9999: Inner Error!\nEZ9999[PID: 2619714] 2026-11-10-09:35:35.903.010 (EZ9999):  The error from device(chipId:0, dieId:0), serial number is 693, there is an exception of fftsplus aicore error, core id is 0, error code = 0, dump info: pc start: 0x124000042000, current: 0x124000042320, vec error info: 0, mte error info: 0xb800000063, ifu error info: 0x2d668020823c0, ccu error info: 0x600f122c64800057, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100000080, aic cond: 0.\nThe extend info: errcode:(0, 0, 0) errorStr: timeout or trap error. fixp_error0 info: 0x63, fixp_error1 info: 0xb8, fsmId:0, tslot:4, thread:0, ctxid:0, blk:1, sublk:0, subErrType:4.\nFor details, see the troubleshooting document on the Ascend official website. Search for the keyword \"AI Core Error\".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]\nTraceBack (most recent call last):\n       An error occurred in the kernel task, retCode=0x25, [aicore timeout].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]\n       rtDeviceSynchronizeWithTimeout execution failed, reason=aicore timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]\n\n"
+}
