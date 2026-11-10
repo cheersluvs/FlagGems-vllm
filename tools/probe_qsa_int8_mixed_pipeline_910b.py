@@ -292,20 +292,6 @@ def _qsa_int8_merge_sorted_tiles(
     tl.store(Output + task * 2 * OUT + words, merged)
 
 
-@triton.jit
-def _qsa_int8_emit_topk(
-    Pairs, Visible, Indices, Values, TOP: tl.constexpr,
-):
-    row = tl.program_id(0)
-    lane = tl.arange(0, TOP)
-    base = Pairs + (row * TOP + lane) * 2
-    live = lane < tl.minimum(tl.load(Visible + row), TOP)
-    scores = tl.load(base, mask=live, other=-float("inf"))
-    index_bits = tl.load(base + 1, mask=live, other=0).to(tl.int32, bitcast=True)
-    tl.store(Values + row * TOP + lane, scores)
-    tl.store(Indices + row * TOP + lane, tl.where(live, index_bits, -1))
-
-
 def fixture(case):
     rows, width = CASES[case]
     pages = triton.cdiv(width, PAGE)
@@ -760,9 +746,11 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
     device = visible.device
     indices = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
     scores = torch.empty((rows, TOPK), device=device, dtype=torch.float32)
+    positions = torch.empty((rows, TOPK), device=device, dtype=torch.int64)
+    padding = torch.arange(TOPK, device=device, dtype=torch.int32) >= visible[:, None]
     levels = []
     span = CUBE_TILE
-    while groups > 1:
+    while groups > 2:
         groups = triton.cdiv(groups, 2)
         span = min(span * 2, TOPK)
         levels.append(torch.empty((rows, groups, 2 * span), device=device, dtype=torch.float32))
@@ -775,7 +763,9 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
         print(json.dumps(entry), flush=True)
         with patch.object(compiler, "subprocess", CompileCapture(report, label)):
             kernel = launch()
-        entry.update(status="synchronizing", artifacts=save_artifacts(kernel, report, label))
+        entry["status"] = "synchronizing"
+        if kernel is not None:
+            entry["artifacts"] = save_artifacts(kernel, report, label)
         summary.write_text(json.dumps(result, indent=2))
         torch.npu.synchronize()
         entry["status"] = "completed"
@@ -801,13 +791,24 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
                 )
             proposals = target
 
-        def emit():
-            return _qsa_int8_emit_topk[(rows,)](proposals, visible, indices, scores, TOPK)
+        def select_final():
+            # The earlier levels preserve packed score/index words. Only the
+            # last two lists go through the common torch_npu control.
+            pairs = proposals.view(rows, -1, 2)
+            candidates = pairs[..., 0].contiguous()
+            key_indices = pairs[..., 1].contiguous().view(torch.int32)
+            torch.topk(candidates, TOPK, dim=-1, sorted=True, out=(scores, positions))
+            torch.gather(key_indices, 1, positions, out=indices)
+            scores.masked_fill_(padding, -float("inf"))
+            indices.masked_fill_(padding, -1)
 
         if stages is None:
-            emit()
+            select_final()
         else:
-            validate_stage(name, emit, {"emit_topk": TOPK}, stages)
+            validate_stage(
+                name, select_final,
+                {"torch_npu_topk": TOPK, "input": list(proposals.shape)}, stages,
+            )
 
     def pipeline(arm):
         launch, proposals = arm
@@ -816,7 +817,8 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
 
     result = {
         "case": args.worker, "producer": producer_result,
-        "merge_launches": len(levels) + 1, "correctness": {},
+        "tle_merge_levels": len(levels), "final_selection": "torch_npu_topk",
+        "correctness": {},
         "validation_stages": {}, "passed": False,
     }
     summary.write_text(json.dumps(result, indent=2))
