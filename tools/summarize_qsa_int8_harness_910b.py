@@ -244,9 +244,10 @@ def matched_guarded_means(rows, pairs):
     for row in rows:
         name = row["case"]
         pair = by_case[name]
-        query16_expected = name in SHORT_SCORE_CASES
-        if bool(pair["query16_chunks"]) != query16_expected:
-            raise ValueError(f"Unexpected query16 scoring route for {name}")
+        # The wide production scorer can also use query16. Only the short
+        # shapes need to prove that enabling the short-score policy took effect.
+        if name in SHORT_SCORE_CASES and not pair["query16_chunks"]:
+            raise ValueError(f"Missing short query16 scoring route for {name}")
         if pair["selected"] == "sorted":
             timings = pair["total"]["medians_ms"]
             disabled_ms, enabled_ms = timings["previous"], timings["sorted"]
