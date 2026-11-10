@@ -89,10 +89,11 @@ def _diagnose_merge(mode, merge, visible, snapshot):
     print(f"MERGE53 PASS mode={mode}", flush=True)
 
 
-def _check_merge_output(scores, ids, result, fan_in):
+def _check_merge_output(scores, ids, result, fan_in, *, locate=False):
     out_scores = result[..., ::2].contiguous()
     out_ids = result[..., 1::2].contiguous().view(torch.int32)
     groups, out_width = out_scores.shape[1:]
+    bad_groups = []
     for group in range(groups):
         start = group * fan_in
         values = scores[:, start : start + fan_in].flatten(1)
@@ -103,16 +104,25 @@ def _check_merge_output(scores, ids, result, fan_in):
                 expected, (0, out_width - expected.shape[1]), value=-float("inf")
             )
         actual = out_scores[:, group]
-        torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+        if not locate:
+            torch.testing.assert_close(actual, expected, rtol=0, atol=0)
         valid = torch.isfinite(actual)
         # Match each finite score/index pair to a source candidate, allowing ties.
         keys, order = indices.masked_fill(~torch.isfinite(values), 2**31 - 1).sort(dim=1)
         returned = out_ids[:, group].contiguous()
         found = torch.searchsorted(keys, returned).clamp(max=keys.shape[1] - 1)
-        assert torch.all(~valid | (keys.gather(1, found) == returned))
-        assert torch.all(~valid | (values.gather(1, order.gather(1, found)) == actual))
+        bad_id = valid & (keys.gather(1, found) != returned)
+        bad_pair = valid & (values.gather(1, order.gather(1, found)) != actual)
         ordered = returned.masked_fill(~valid, -1).sort(dim=1).values
-        assert not ((ordered[:, 1:] >= 0) & (ordered[:, 1:] == ordered[:, :-1])).any()
+        duplicate = (ordered[:, 1:] >= 0) & (ordered[:, 1:] == ordered[:, :-1])
+        if locate:
+            bad_groups.append(
+                ((actual != expected) | bad_id | bad_pair).any(1) | duplicate.any(1)
+            )
+        else:
+            assert not (bad_id.any() or bad_pair.any() or duplicate.any())
+    if locate:
+        return torch.stack(bad_groups, dim=1)
 
 
 def _probe_pair512(mode, device):
@@ -172,21 +182,77 @@ def _replay_179(mode, merge, snapshot):
     source.copy_(packed)
     target.fill_(float("nan"))
     torch.npu.synchronize()
-    words = 2048 if mode == "full_179" else 1024
+    full = mode in ("full_179", "locate_179")
+    words = 2048 if full else 1024
     print(
         f"MERGE179 LAUNCH mode={mode} input_sha256={digest} raw_words={words} "
         "grid=1152 output_words=1024",
         flush=True,
     )
-    if mode == "full_179":
+    if full:
         merge(FULL_RAW_OUTPUT=True)
     else:
         merge()
     torch.npu.synchronize()
     result = target.cpu()
+    if mode == "locate_179":
+        bad = _check_merge_output(scores, ids, result, fan_in=2, locate=True)
+        failures = bad.nonzero()
+        print(f"MERGE179 LOCATE failed_tasks={len(failures)}", flush=True)
+        assert len(failures), "batch replay did not reproduce a bad task"
+        row, group = failures[0].tolist()
+        pair = packed[row:row + 1, group * 2:group * 2 + 2].contiguous()
+        limit = saved["visible"][row:row + 1].clone()
+        path = Path(os.environ["QSA_MERGE179_PAIR"])
+        temporary = path.with_suffix(".tmp")
+        torch.save(
+            {"packed": pair, "visible": limit, "row": row, "group": group,
+             "batch_output": result[row:row + 1, group:group + 1].clone()},
+            temporary,
+        )
+        temporary.replace(path)
+        pair_sha = hashlib.sha256(pair.numpy().tobytes()).hexdigest()
+        print(
+            f"MERGE179 EXTRACT row={row} group={group} lists={pair.shape[1]} "
+            f"pair_sha256={pair_sha} path={path}",
+            flush=True,
+        )
+        return
     _check_packed(f"MERGE179 OUTPUT mode={mode}", result, saved["visible"])
     _check_merge_output(scores, ids, result, fan_in=2)
     print(f"MERGE179 PASS mode={mode}", flush=True)
+
+
+def _replay_actual_pair(device, launch_kwargs):
+    path = Path(os.environ["QSA_MERGE179_PAIR"])
+    saved = torch.load(path, map_location="cpu", weights_only=True)
+    packed, limits = saved["packed"], saved["visible"]
+    assert packed.dtype == torch.float32 and packed.shape in ((1, 1, 1024), (1, 2, 1024))
+    scores, ids = _check_packed("MERGE179 ACTUAL INPUT", packed, limits)
+    pair_sha = hashlib.sha256(packed.numpy().tobytes()).hexdigest()
+    print(
+        f"MERGE179 ACTUAL LAUNCH row={saved['row']} group={saved['group']} "
+        f"lists={packed.shape[1]} pair_sha256={pair_sha} grid=1",
+        flush=True,
+    )
+    source = packed.to(device)
+    target = torch.full((1, 1, 1024), float("nan"), dtype=torch.float32, device=device)
+    torch.npu.synchronize()
+    _qsa_int8_merge_sorted_tiles[(1,)](
+        source, target, packed.shape[1], 1, 512, 512,
+        FULL_RAW_OUTPUT=True, **launch_kwargs,
+    )
+    torch.npu.synchronize()
+    actual = target.cpu()
+    difference = (actual.view(torch.int32) != saved["batch_output"].view(torch.int32))
+    bad = _check_merge_output(scores, ids, actual, fan_in=2, locate=True)
+    print(
+        f"MERGE179 ACTUAL RESULT valid={not bool(bad.any())} "
+        f"words_differing_from_batch={int(difference.sum())}",
+        flush=True,
+    )
+    assert not bad.any(), "actual single-task output differs from CPU reference"
+    print("MERGE179 ACTUAL PASS", flush=True)
 
 
 def _trace_prefix(producer, merges, visible, capture_179=None):
@@ -318,8 +384,9 @@ class PreparedFusedBinarySelection:
             assert synchronize and mode in (
                 "capture", "real", "synthetic", "trace",
                 "capture_179", "original_179", "full_179", "pair_full", "pair_padded",
+                "locate_179", "actual_pair_179",
             )
-            if mode not in ("trace", "pair_full", "pair_padded"):
+            if mode not in ("trace", "pair_full", "pair_padded", "actual_pair_179"):
                 snapshot = Path(os.environ["QSA_MERGE53_SNAPSHOT"])
         for first, count, lists, fused, producer, merges, pairs, scores, positions, padding, output in self.chunks:
             if mode:
@@ -333,8 +400,11 @@ class PreparedFusedBinarySelection:
                 if mode == "capture_179":
                     _trace_prefix(producer, merges, self.visible[:count], snapshot)
                     return None
-                if mode in ("original_179", "full_179"):
+                if mode in ("original_179", "full_179", "locate_179"):
                     _replay_179(mode, merges[2], snapshot)
+                    return None
+                if mode == "actual_pair_179":
+                    _replay_actual_pair(output.device, merges[2].keywords)
                     return None
                 if mode != "capture":
                     _diagnose_merge(mode, merges[4], self.visible[:count], snapshot)
