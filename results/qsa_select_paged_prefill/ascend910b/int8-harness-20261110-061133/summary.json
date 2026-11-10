@@ -1,0 +1,164 @@
+{
+  "exit_code": 0,
+  "mode": "kernel",
+  "benchmark": "qsa_select_paged_prefill_int8_910b",
+  "baseline": "torch_npu.npu_quant_lightning_indexer (CANN V1)",
+  "candidate": "Prepared INT8 selection with shared page proof and guarded sorted TLE TopK",
+  "topk_policy": "auto",
+  "cases": [
+    {
+      "case": "int8_compact_balanced_w1024",
+      "baseline_ms": 3.1551371,
+      "candidate_ms": 18.6818376,
+      "speedup": 0.16888794173010047,
+      "topk_route": "auto"
+    },
+    {
+      "case": "int8_compact_half_rows_w1152",
+      "baseline_ms": 1.6149383,
+      "candidate_ms": 5.722368166666667,
+      "speedup": 0.2822150293312422,
+      "topk_route": "auto"
+    }
+  ],
+  "arithmetic_mean_speedup": null,
+  "sorted_topk_ab": {
+    "baseline": "previous INT8 TopK dispatch",
+    "baseline_policy": "auto",
+    "candidate": "sorted TLE topk",
+    "cases": [
+      {
+        "case": "int8_compact_balanced_w1024",
+        "width": 1024,
+        "rows": 8896,
+        "score_chunks": 70,
+        "selected": "sorted",
+        "topk": {
+          "samples_ms": {
+            "previous": [
+              4.330433466666666,
+              4.331219833333333,
+              4.3306943,
+              4.330508099999999
+            ],
+            "sorted": [
+              3.5483216666666664,
+              3.549101966666667,
+              3.5478061000000003,
+              3.5486382333333335
+            ]
+          },
+          "medians_ms": {
+            "previous": 4.3306012,
+            "sorted": 3.54847995
+          },
+          "speedup": 1.2204102210018124,
+          "paired_speedups": [
+            1.2204173898176274,
+            1.2203706385481041,
+            1.2206682603088144,
+            1.220329550451874
+          ],
+          "sorted_wins": 4
+        },
+        "total": {
+          "samples_ms": {
+            "previous": [
+              19.873383533333335,
+              19.8734496,
+              19.872824466666664,
+              19.872450466666663
+            ],
+            "sorted": [
+              18.683684266666667,
+              18.683444466666664,
+              18.685260366666668,
+              18.6838925
+            ]
+          },
+          "medians_ms": {
+            "previous": 19.873103999999998,
+            "sorted": 18.683788383333333
+          },
+          "speedup": 1.063654950070382,
+          "paired_speedups": [
+            1.0636758387524883,
+            1.063693027024885,
+            1.0635561975961831,
+            1.0636140443789572
+          ],
+          "sorted_wins": 4
+        }
+      },
+      {
+        "case": "int8_compact_half_rows_w1152",
+        "width": 1152,
+        "rows": 4448,
+        "score_chunks": 35,
+        "selected": "sorted",
+        "topk": {
+          "samples_ms": {
+            "previous": [
+              2.1717812000000003,
+              2.1710838333333333,
+              2.1710803666666667,
+              2.171320533333333
+            ],
+            "sorted": [
+              1.7773266333333333,
+              1.7776121,
+              1.7779988,
+              1.7776817666666667
+            ]
+          },
+          "medians_ms": {
+            "previous": 2.1712021833333335,
+            "sorted": 1.7776469333333333
+          },
+          "speedup": 1.221391122511617,
+          "paired_speedups": [
+            1.2219370144287305,
+            1.221348478294749,
+            1.2210808953676835,
+            1.221433765057274
+          ],
+          "sorted_wins": 4
+        },
+        "total": {
+          "samples_ms": {
+            "previous": [
+              6.4415785,
+              6.4402845,
+              6.440513466666666,
+              6.440888
+            ],
+            "sorted": [
+              5.722353166666667,
+              5.722644233333334,
+              5.722425933333334,
+              5.722626966666667
+            ]
+          },
+          "medians_ms": {
+            "previous": 6.440700733333333,
+            "sorted": 5.72252645
+          },
+          "speedup": 1.1254995131273413,
+          "paired_speedups": [
+            1.125686987920092,
+            1.1254036136802887,
+            1.1254865579212563,
+            1.1255124678783157
+          ],
+          "sorted_wins": 4
+        }
+      }
+    ],
+    "arithmetic_mean_speedup": {
+      "topk": 1.2209006717567146,
+      "total": 1.0945772315988616
+    }
+  },
+  "cann_v1_subset_mean_speedup": 0.22555148553067134,
+  "scope": "compact batching sweep"
+}
