@@ -248,8 +248,8 @@ def main():
     subsets = parser.add_mutually_exclusive_group()
     subsets.add_argument("--sorted-topk-short", action="store_true")
     subsets.add_argument("--sorted-topk-compact", action="store_true")
-    args = parser.parse_args()
     subsets.add_argument("--sorted-topk-layout", action="store_true")
+    args = parser.parse_args()
     subset = args.sorted_topk_short or args.sorted_topk_compact or args.sorted_topk_layout
     if subset and (not args.sorted_topk or args.stages or args.short_score):
         parser.error("Sorted TopK subsets require the sorted TopK comparison alone")
