@@ -262,7 +262,8 @@ def main():
                 pairs.append(records[0])
             summary["candidate"] += " and sorted TLE TopK"
             summary["sorted_topk_ab"] = dict(
-                baseline="persistent_topk", candidate="sorted TLE topk", cases=pairs,
+                baseline="persistent_topk", baseline_policy=summary["topk_policy"],
+                candidate="sorted TLE topk", cases=pairs,
                 arithmetic_mean_speedup={
                     stage: statistics.mean(pair[stage]["speedup"] for pair in pairs)
                     for stage in ("topk", "total")

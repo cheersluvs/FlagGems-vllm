@@ -505,7 +505,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 score_control=control.score_all if short_score else None,
             )
         if not diagnose_only and os.environ.get("QSA_HARNESS_SORTED_TOPK") == "1":
-            assert policy == "auto" and not stages and not short_score
+            assert policy in ("auto", "radix_3seg") and not stages and not short_score
             assert os.environ.get("QSA_HARNESS_REUSE_TOPK_SCRATCH") != "1"
             candidate = _measure_sorted_topk_ab(
                 name, benchmark, candidate, inputs["visible"], samples, refs,
