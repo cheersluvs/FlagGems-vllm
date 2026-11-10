@@ -648,6 +648,11 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             assert failure is None, failure
             checks, _ = check_selection(mixed_indices[samples], refs)
             assert checks["checks_passed"], (name, "fused_binary", checks)
+            print(
+                f"QSA INT8 MIXED FULL PASS {name} rows={rows} chunks={len(mixed.chunks)} "
+                f"sampled_topk_rows={len(samples)}",
+                flush=True,
+            )
             if not diagnose_only:
                 production_ms = benchmark.get_latency(candidate)
                 assert math.isfinite(production_ms) and production_ms > 0

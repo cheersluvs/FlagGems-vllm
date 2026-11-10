@@ -380,6 +380,19 @@ def _trace_prefix(producer, merges, visible, capture_179=None):
     print("MERGE53 TRACE COMPLETE (merge=4 not launched)", flush=True)
 
 
+def _run_top512_merge(merge):
+    source, target, lists, groups, in_width, out_width = merge.args
+    assert in_width == out_width == TOPK and groups == (lists + 1) // 2
+    pair_groups = lists // 2
+    if pair_groups:
+        _qsa_int8_merge_sorted_tiles[(source.shape[0] * pair_groups,)](
+            *merge.args, FULL_RAW_OUTPUT=True, FORCE_PAIR=True,
+            PAIR_GROUPS=pair_groups, **merge.keywords,
+        )
+    if lists % 2:
+        target.view(torch.int32)[:, -1].copy_(source.view(torch.int32)[:, -1])
+
+
 class PreparedFusedBinarySelection:
     def __init__(self, values, host_visible, starts, chunk_rows):
         device = values["q"].device
@@ -498,15 +511,34 @@ class PreparedFusedBinarySelection:
             producer()
             if synchronize:
                 torch.npu.synchronize()
+            check_levels = synchronize and mode is None
+            if check_levels:
+                limits = self.visible[first:first + count].cpu()
+                label = f"MIXED FULL first={first}"
+                level_scores, level_ids = _check_packed(
+                    f"{label} producer", merges[0].args[0].cpu(), limits,
+                )
             for level, merge in enumerate(merges):
                 if mode == "capture" and level == 4:
                     _diagnose_merge(mode, merge, self.visible[:count], snapshot)
                     return None
+                split = mode is None and len(merge.args) == 6 and merge.args[-2:] == (TOPK, TOPK)
                 if synchronize:
-                    print(f"mixed first={first} merge={level}", flush=True)
-                merge()
+                    print(f"mixed first={first} merge={level} split_top512={split}", flush=True)
+                if split:
+                    _run_top512_merge(merge)
+                else:
+                    merge()
                 if synchronize:
                     torch.npu.synchronize()
+                if check_levels:
+                    packed = merge.args[1].cpu()
+                    next_scores, next_ids = _check_packed(f"{label} merge={level}", packed, limits)
+                    _check_merge_output(
+                        level_scores, level_ids, packed, fan_in=4 if fused and level == 0 else 2,
+                    )
+                    level_scores, level_ids = next_scores, next_ids
+                    print(f"{label} merge={level} PASS", flush=True)
             candidates = pairs[..., 0].contiguous()
             indices = pairs[..., 1].contiguous().view(torch.int32)
             torch.topk(candidates, TOPK, dim=-1, sorted=True, out=(scores, positions))
