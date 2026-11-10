@@ -185,18 +185,21 @@ def _replay_179(mode, merge, snapshot):
     full = mode in ("full_179", "locate_179", "grid_179")
     words = 2048 if full else 1024
     grid = source.shape[0] * groups
+    force_pair = False
     if mode == "grid_179":
         grid = int(os.environ["QSA_MERGE179_GRID"])
         assert 1 <= grid <= source.shape[0] * groups
+        force_pair = os.environ.get("QSA_MERGE179_FORCE_PAIR") == "1"
+        assert not force_pair or grid == 1, "force-pair probe is only safe for task 0"
         sentinel = target[0, 0, :1].cpu().view(torch.int32)
     print(
         f"MERGE179 LAUNCH mode={mode} input_sha256={digest} raw_words={words} "
-        f"grid={grid} lists={lists} groups={groups} output_words=1024",
+        f"grid={grid} lists={lists} groups={groups} output_words=1024 force_pair={force_pair}",
         flush=True,
     )
     if mode == "grid_179":
         compiled = _qsa_int8_merge_sorted_tiles[(grid,)](
-            *merge.args, FULL_RAW_OUTPUT=True, **merge.keywords
+            *merge.args, FULL_RAW_OUTPUT=True, FORCE_PAIR=force_pair, **merge.keywords
         )
     elif full:
         merge(FULL_RAW_OUTPUT=True)
@@ -213,11 +216,26 @@ def _replay_179(mode, merge, snapshot):
         inactive_written = int((inactive != sentinel).any(dim=1).sum())
         binary = None if compiled is None else compiled.asm.get("npubin")
         binary_sha = "unavailable" if binary is None else hashlib.sha256(bytes(binary)).hexdigest()
+        ttir = None if compiled is None else compiled.asm.get("ttir")
+        if isinstance(ttir, str):
+            print(
+                f"MERGE179 TTIR sha256={hashlib.sha256(ttir.encode()).hexdigest()} "
+                f"scf_if_count={ttir.count('scf.if')}",
+                flush=True,
+            )
+        if grid == 1:
+            sample = result[0, 0, :16].view(8, 2)
+            print(
+                f"MERGE179 TASK0 scores={sample[:, 0].tolist()} "
+                f"ids={sample[:, 1].contiguous().view(torch.int32).tolist()}",
+                flush=True,
+            )
         print(
             f"MERGE179 GRID RESULT grid={grid} failed={int(failed.sum())} "
             f"launched_by_group={active.sum(0).tolist()} "
             f"failed_by_group={failed.sum(0).tolist()} "
-            f"inactive_written={inactive_written} npubin_sha256={binary_sha}",
+            f"inactive_written={inactive_written} force_pair={force_pair} "
+            f"npubin_sha256={binary_sha}",
             flush=True,
         )
         if failed.any():
