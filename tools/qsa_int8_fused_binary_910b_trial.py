@@ -182,7 +182,7 @@ def _replay_179(mode, merge, snapshot):
     source.copy_(packed)
     target.fill_(float("nan"))
     torch.npu.synchronize()
-    full = mode in ("full_179", "locate_179", "grid_179")
+    full = mode in ("full_179", "locate_179", "grid_179", "split_179")
     words = 2048 if full else 1024
     grid = source.shape[0] * groups
     force_pair = False
@@ -197,6 +197,41 @@ def _replay_179(mode, merge, snapshot):
         f"grid={grid} lists={lists} groups={groups} output_words=1024 force_pair={force_pair}",
         flush=True,
     )
+    if mode == "split_179":
+        pair_groups = lists // 2
+        pair_grid = source.shape[0] * pair_groups
+        print(f"MERGE179 SPLIT pair_grid={pair_grid} tail_rows={source.shape[0]}", flush=True)
+        compiled = _qsa_int8_merge_sorted_tiles[(pair_grid,)](
+            *merge.args, FULL_RAW_OUTPUT=True, FORCE_PAIR=True,
+            PAIR_GROUPS=pair_groups, **merge.keywords,
+        )
+        torch.npu.synchronize()
+        pair_result = target.cpu()
+        assert torch.isnan(pair_result[:, -1, ::2]).all(), "pair kernel wrote the tail"
+        target.view(torch.int32)[:, -1].copy_(source.view(torch.int32)[:, -1])
+        torch.npu.synchronize()
+        result = target.cpu()
+        tail_equal = torch.equal(result.view(torch.int32)[:, -1], packed.view(torch.int32)[:, -1])
+        pairs_equal = torch.equal(
+            result.view(torch.int32)[:, :-1], pair_result.view(torch.int32)[:, :-1],
+        )
+        ttir = None if compiled is None else compiled.asm.get("ttir")
+        branch_count = ttir.count("scf.if") if isinstance(ttir, str) else None
+        print(
+            f"MERGE179 SPLIT COPY tail_exact={tail_equal} pairs_unchanged={pairs_equal} "
+            f"pair_scf_if_count={branch_count}",
+            flush=True,
+        )
+        assert tail_equal and pairs_equal
+        bad = _check_merge_output(scores, ids, result, fan_in=2, locate=True)
+        print(
+            f"MERGE179 SPLIT RESULT failed={int(bad.sum())} failed_by_group={bad.sum(0).tolist()}",
+            flush=True,
+        )
+        assert not bad.any(), "split replay failed CPU comparison"
+        _check_packed("MERGE179 SPLIT OUTPUT", result, saved["visible"])
+        print("MERGE179 SPLIT PASS", flush=True)
+        return
     if mode == "grid_179":
         compiled = _qsa_int8_merge_sorted_tiles[(grid,)](
             *merge.args, FULL_RAW_OUTPUT=True, FORCE_PAIR=force_pair, **merge.keywords
@@ -433,7 +468,7 @@ class PreparedFusedBinarySelection:
             assert synchronize and mode in (
                 "capture", "real", "synthetic", "trace",
                 "capture_179", "original_179", "full_179", "pair_full", "pair_padded",
-                "locate_179", "actual_pair_179", "grid_179",
+                "locate_179", "actual_pair_179", "grid_179", "split_179",
             )
             if mode not in ("trace", "pair_full", "pair_padded", "actual_pair_179"):
                 snapshot = Path(os.environ["QSA_MERGE53_SNAPSHOT"])
@@ -449,7 +484,7 @@ class PreparedFusedBinarySelection:
                 if mode == "capture_179":
                     _trace_prefix(producer, merges, self.visible[:count], snapshot)
                     return None
-                if mode in ("original_179", "full_179", "locate_179", "grid_179"):
+                if mode in ("original_179", "full_179", "locate_179", "grid_179", "split_179"):
                     _replay_179(mode, merges[2], snapshot)
                     return None
                 if mode == "actual_pair_179":

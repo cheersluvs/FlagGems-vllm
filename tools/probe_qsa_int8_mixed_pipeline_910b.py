@@ -261,11 +261,16 @@ def _qsa_int8_handoff_copy(
 def _qsa_int8_merge_sorted_tiles(
     Proposals, Output, LISTS: tl.constexpr, GROUPS: tl.constexpr,
     IN: tl.constexpr, OUT: tl.constexpr, FULL_RAW_OUTPUT: tl.constexpr = False,
-    FORCE_PAIR: tl.constexpr = False,
+    FORCE_PAIR: tl.constexpr = False, PAIR_GROUPS: tl.constexpr = 0,
 ):
     task = tl.program_id(0)
-    group = task % GROUPS
-    row = task // GROUPS
+    if PAIR_GROUPS:
+        tl.static_assert(FORCE_PAIR)
+        group = task % PAIR_GROUPS
+        row = task // PAIR_GROUPS
+    else:
+        group = task % GROUPS
+        row = task // GROUPS
     first = group * 2
     source = Proposals + (row * LISTS + first) * (2 * IN)
     words = tl.arange(0, 2 * OUT)
@@ -297,7 +302,8 @@ def _qsa_int8_merge_sorted_tiles(
             merged = tl.where(words < written, merged, tail)
     else:
         merged = tl.load(source + words, mask=words < 2 * IN, other=-float("inf"))
-    tl.store(Output + task * 2 * OUT + words, merged)
+    output_task = row * GROUPS + group if PAIR_GROUPS else task
+    tl.store(Output + output_task * 2 * OUT + words, merged)
 
 
 @triton.jit
