@@ -20,6 +20,7 @@ import inspect
 import json
 import math
 import os
+import statistics
 from functools import partial
 from importlib import import_module
 from pathlib import Path
@@ -217,6 +218,60 @@ def _measure_stages(
         if stage == "topk":
             torch.npu.synchronize()
             check_topk()
+
+
+def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
+                            verify_structure, check_selection):
+    from flaggems_vllm.runtime.backend._ascend.ops.qsa_select_paged_prefill import (
+        _store_topk_indices,
+    )
+    from flaggems_vllm.runtime.backend._ascend.ops.topk import HAS_TLE, topk
+
+    assert HAS_TLE, "Ascend sorted TLE TopK is required"
+    candidate = copy.copy(control)
+    candidate.reuse_topk_scratch = False
+    k, width = 512, control.width
+
+    def select(first, scores, persistent_scratch=None):
+        for local in range(0, scores.shape[0], 32):
+            end = min(local + 32, scores.shape[0])
+            count = end - local
+            output = candidate.output[first + local:first + end]
+            visible = candidate.values["visible"][first + local:first + end]
+            selected = topk(scores[local:end], k)[1] if width > k else output
+            _store_topk_indices[(count,)](selected, visible, output, k, width)
+
+    candidate.select_chunk = select
+    scores = torch.empty((control.rows, width), device=control.scratch.device,
+                         dtype=torch.float32)
+    for first, count in control.chunks:
+        control.score_into(first, count, scores[first:first + count])
+
+    results = {}
+    for stage, jobs in (
+        ("topk", {"persistent": lambda: control.topk_all(scores),
+                  "sorted": lambda: candidate.topk_all(scores)}),
+        ("total", {"persistent": control, "sorted": candidate}),
+    ):
+        for arm, job in jobs.items():
+            control.output.fill_(-4)
+            job()
+            torch.npu.synchronize()
+            actual = control.output.cpu()
+            verify_structure(actual, lengths)
+            checks, _ = check_selection(actual[samples], refs)
+            assert checks["checks_passed"], (name, stage, arm, checks)
+        timings = {arm: [] for arm in jobs}
+        for order in (("persistent", "sorted"), ("sorted", "persistent")):
+            for arm in order:
+                elapsed = float(benchmark.get_latency(jobs[arm]))
+                assert math.isfinite(elapsed) and elapsed > 0, (name, stage, arm, elapsed)
+                timings[arm].append(elapsed)
+        medians = {arm: statistics.median(ms) for arm, ms in timings.items()}
+        results[stage] = dict(samples_ms=timings, medians_ms=medians,
+                              speedup=medians["persistent"] / medians["sorted"])
+    print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(case=name, **results)), flush=True)
+    return candidate
 
 
 @pytest.mark.qsa_select_paged_prefill_int8_910b
@@ -448,6 +503,13 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 selected,
                 device,
                 score_control=control.score_all if short_score else None,
+            )
+        if not diagnose_only and os.environ.get("QSA_HARNESS_SORTED_TOPK") == "1":
+            assert policy == "auto" and not stages and not short_score
+            assert os.environ.get("QSA_HARNESS_REUSE_TOPK_SCRATCH") != "1"
+            candidate = _measure_sorted_topk_ab(
+                name, benchmark, candidate, inputs["visible"], samples, refs,
+                verify_structure, check_selection,
             )
         del original, selected, native_output, expected, control, refs, inputs
 

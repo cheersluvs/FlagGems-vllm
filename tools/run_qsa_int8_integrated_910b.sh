@@ -92,6 +92,10 @@ else:
     names.sort(key=lambda name: name != "int8_dominant_long")
 print("\n".join(names))
 ') || exit 1
+        qsa_sorted_topk_flag=
+        if [[ ${QSA_HARNESS_SORTED_TOPK:-0} == 1 ]]; then
+            qsa_sorted_topk_flag=--sorted-topk
+        fi
         qsa_stage_flag=
         qsa_short_score_flag=
         if [[ ${QSA_HARNESS_STAGES:-0} == 1 ]]; then
@@ -135,7 +139,8 @@ print("\n".join(names))
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
-            ${qsa_short_score_flag:+"$qsa_short_score_flag"}
+            ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
+            ${qsa_sorted_topk_flag:+"$qsa_sorted_topk_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"

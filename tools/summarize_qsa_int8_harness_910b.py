@@ -233,6 +233,7 @@ def main():
     parser.add_argument("--merge-case-reports", action="store_true")
     parser.add_argument("--stages", action="store_true")
     parser.add_argument("--short-score", action="store_true")
+    parser.add_argument("--sorted-topk", action="store_true")
     args = parser.parse_args()
     try:
         if args.merge_case_reports:
@@ -246,6 +247,29 @@ def main():
             stages=args.stages,
             short_score=args.short_score,
         )
+        if args.sorted_topk:
+            prefix = "QSA_INT8_HARNESS_SORTED_TOPK "
+            pairs = []
+            for row in summary["cases"]:
+                name = row["case"]
+                log = args.report.parent / f"harness-{name}-console.txt"
+                records = [
+                    json.loads(line.removeprefix(prefix))
+                    for line in log.read_text().splitlines() if line.startswith(prefix)
+                ]
+                if len(records) != 1 or records[0]["case"] != name:
+                    raise ValueError(f"Missing or duplicate sorted TopK A/B for {name}")
+                pairs.append(records[0])
+            summary["candidate"] += " and sorted TLE TopK"
+            summary["sorted_topk_ab"] = dict(
+                baseline="persistent_topk", candidate="sorted TLE topk", cases=pairs,
+                arithmetic_mean_speedup={
+                    stage: statistics.mean(pair[stage]["speedup"] for pair in pairs)
+                    for stage in ("topk", "total")
+                },
+            )
+            print("QSA INT8 sorted TopK A/B mean:",
+                  summary["sorted_topk_ab"]["arithmetic_mean_speedup"])
     except (OSError, ValueError, KeyError, TypeError) as exc:
         summary = dict(
             exit_code=1,
