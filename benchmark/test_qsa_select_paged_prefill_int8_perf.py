@@ -249,9 +249,9 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
 
     results = {}
     for stage, jobs in (
-        ("topk", {"persistent": lambda: control.topk_all(scores),
+        ("topk", {"previous": lambda: control.topk_all(scores),
                   "sorted": lambda: candidate.topk_all(scores)}),
-        ("total", {"persistent": control, "sorted": candidate}),
+        ("total", {"previous": control, "sorted": candidate}),
     ):
         for arm, job in jobs.items():
             control.output.fill_(-4)
@@ -262,14 +262,14 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
             checks, _ = check_selection(actual[samples], refs)
             assert checks["checks_passed"], (name, stage, arm, checks)
         timings = {arm: [] for arm in jobs}
-        for order in (("persistent", "sorted"), ("sorted", "persistent")):
+        for order in (("previous", "sorted"), ("sorted", "previous")):
             for arm in order:
                 elapsed = float(benchmark.get_latency(jobs[arm]))
                 assert math.isfinite(elapsed) and elapsed > 0, (name, stage, arm, elapsed)
                 timings[arm].append(elapsed)
         medians = {arm: statistics.median(ms) for arm, ms in timings.items()}
         results[stage] = dict(samples_ms=timings, medians_ms=medians,
-                              speedup=medians["persistent"] / medians["sorted"])
+                              speedup=medians["previous"] / medians["sorted"])
     print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(case=name, **results)), flush=True)
     return candidate
 
@@ -505,7 +505,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 score_control=control.score_all if short_score else None,
             )
         if not diagnose_only and os.environ.get("QSA_HARNESS_SORTED_TOPK") == "1":
-            assert policy in ("auto", "radix_3seg") and not stages and not short_score
+            assert not stages and not short_score
             assert os.environ.get("QSA_HARNESS_REUSE_TOPK_SCRATCH") != "1"
             candidate = _measure_sorted_topk_ab(
                 name, benchmark, candidate, inputs["visible"], samples, refs,
