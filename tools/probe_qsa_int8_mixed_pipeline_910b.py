@@ -771,44 +771,101 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
         entry["status"] = "completed"
         summary.write_text(json.dumps(result, indent=2))
 
-    def merge(proposals, name=None):
-        stages = None if name is None else result["validation_stages"][name]
+    def merge_level(proposals, target):
+        return _qsa_int8_merge_sorted_tiles[(rows * target.shape[1],)](
+            proposals, target, proposals.shape[1], target.shape[1],
+            proposals.shape[2] // 2, target.shape[2] // 2,
+            use_bytecode=True, enable_ubuf_saving=True,
+            enable_auto_bind_sub_block=False, multibuffer=False,
+        )
+
+    def merge_levels(proposals, stages=None, name=None):
         for target in levels:
-            def launch_level():
-                return _qsa_int8_merge_sorted_tiles[(rows * target.shape[1],)](
-                    proposals, target, proposals.shape[1], target.shape[1],
-                    proposals.shape[2] // 2, target.shape[2] // 2,
-                    use_bytecode=True, enable_ubuf_saving=True,
-                    enable_auto_bind_sub_block=False, multibuffer=False,
-                )
             if stages is None:
-                launch_level()
+                merge_level(proposals, target)
             else:
                 validate_stage(
-                    name, launch_level,
+                    name, lambda: merge_level(proposals, target),
                     {"input": list(proposals.shape), "output": list(target.shape)},
                     stages,
                 )
             proposals = target
+        return proposals
 
-        def select_final():
-            # The earlier levels preserve packed score/index words. Only the
-            # last two lists go through the common torch_npu control.
-            pairs = proposals.view(rows, -1, 2)
-            candidates = pairs[..., 0].contiguous()
-            key_indices = pairs[..., 1].contiguous().view(torch.int32)
-            torch.topk(candidates, TOPK, dim=-1, sorted=True, out=(scores, positions))
-            torch.gather(key_indices, 1, positions, out=indices)
-            scores.masked_fill_(padding, -float("inf"))
-            indices.masked_fill_(padding, -1)
+    def unpack_candidates(proposals):
+        pairs = proposals.view(rows, -1, 2)
+        return pairs[..., 0].contiguous(), pairs[..., 1].contiguous().view(torch.int32)
 
+    def select_scores(candidates):
+        torch.topk(candidates, TOPK, dim=-1, sorted=True, out=(scores, positions))
+
+    def write_indices(key_indices):
+        torch.gather(key_indices, 1, positions, out=indices)
+        scores.masked_fill_(padding, -float("inf"))
+        indices.masked_fill_(padding, -1)
+
+    def select_final(proposals):
+        candidates, key_indices = unpack_candidates(proposals)
+        select_scores(candidates)
+        write_indices(key_indices)
+
+    def merge(proposals, name=None):
+        stages = None if name is None else result["validation_stages"][name]
+        proposals = merge_levels(proposals, stages, name)
         if stages is None:
-            select_final()
+            select_final(proposals)
         else:
             validate_stage(
-                name, select_final,
+                name, lambda: select_final(proposals),
                 {"torch_npu_topk": TOPK, "input": list(proposals.shape)}, stages,
             )
+
+    def measure_breakdown(proposals):
+        from functools import partial
+
+        # Stage buffers come from a completed invocation of the same path.
+        # They are reused during isolated timing so producers are excluded.
+        final_pairs = merge_levels(proposals)
+        candidates, key_indices = unpack_candidates(final_pairs)
+        select_scores(candidates)
+        torch.npu.synchronize()
+        level_inputs = [proposals, *levels[:-1]]
+        jobs = {
+            "tle_tree": partial(merge_levels, proposals),
+            "final_all": partial(select_final, final_pairs),
+            "unpack_candidates": partial(unpack_candidates, final_pairs),
+            "torch_npu_topk": partial(select_scores, candidates),
+            "gather_and_padding": partial(write_indices, key_indices),
+            **{
+                f"tle_level_{i}": partial(merge_level, source, target)
+                for i, (source, target) in enumerate(zip(level_inputs, levels, strict=True))
+            },
+        }
+        samples = {name: [] for name in jobs}
+        iterations = 16
+        for round_index in range(4):
+            order = tuple(jobs) if round_index % 2 == 0 else tuple(reversed(jobs))
+            for name in order:
+                fn = jobs[name]
+                fn()
+                torch.npu.synchronize()
+                start = torch.npu.Event(enable_timing=True)
+                stop = torch.npu.Event(enable_timing=True)
+                start.record()
+                for _ in range(iterations):
+                    fn()
+                stop.record()
+                stop.synchronize()
+                samples[name].append(start.elapsed_time(stop) * 1000 / iterations)
+        return {
+            "scope": "isolated NPU event windows; stage medians are not additive",
+            "source": "double-buffer proposals",
+            "launches_per_sample": iterations,
+            "stages": {
+                name: dict(samples_us=times, median_us=statistics.median(times))
+                for name, times in samples.items()
+            },
+        }
 
     def pipeline(arm):
         launch, proposals = arm
@@ -838,7 +895,10 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
             rounds=6, launches=16,
         )
         result["passed"] = True
+        summary.write_text(json.dumps(result, indent=2))
+        result["breakdown"] = measure_breakdown(arms["double_buffer"][1])
     except Exception as exc:
+        result["passed"] = False
         result["error"] = str(exc)
     summary.write_text(json.dumps(result, indent=2))
     print(json.dumps(result, indent=2), flush=True)
