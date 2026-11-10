@@ -28,7 +28,12 @@ qsa_report=$(mktemp -d /tmp/qsa-ascend910b-lightning.XXXXXXXX) || exit 1
 qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
 printf 'Code commit: %s\nReport: %s\n' "$qsa_commit" "$qsa_report"
 printf '%s\n' "$qsa_commit" > "$qsa_report/code-commit.txt"
-"$qsa_python" "$qsa_repo/tools/probe_qsa_lightning_910b.py" \
+qsa_entry=probe_qsa_lightning_910b.py
+if [[ ${1:-} == --bf16-topk-ab ]]; then
+    shift
+    qsa_entry=benchmark_qsa_bf16_topk_ab_910b.py
+fi
+"$qsa_python" "$qsa_repo/tools/$qsa_entry" \
     --report "$qsa_report" "$@" > "$qsa_report/console.txt" 2>&1
 qsa_status=$?
 cat "$qsa_report/console.txt"
