@@ -262,14 +262,19 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
             checks, _ = check_selection(actual[samples], refs)
             assert checks["checks_passed"], (name, stage, arm, checks)
         timings = {arm: [] for arm in jobs}
-        for order in (("previous", "sorted"), ("sorted", "previous")):
+        rounds = 4 if os.environ.get("QSA_HARNESS_SORTED_TOPK_SHORT") == "1" else 2
+        for round_index in range(rounds):
+            order = ("previous", "sorted") if round_index % 2 == 0 else ("sorted", "previous")
             for arm in order:
                 elapsed = float(benchmark.get_latency(jobs[arm]))
                 assert math.isfinite(elapsed) and elapsed > 0, (name, stage, arm, elapsed)
                 timings[arm].append(elapsed)
         medians = {arm: statistics.median(ms) for arm, ms in timings.items()}
+        paired = [previous / sorted_ms for previous, sorted_ms in
+                  zip(timings["previous"], timings["sorted"], strict=True)]
         results[stage] = dict(samples_ms=timings, medians_ms=medians,
-                              speedup=medians["previous"] / medians["sorted"])
+                              speedup=medians["previous"] / medians["sorted"],
+                              paired_speedups=paired, sorted_wins=sum(ratio > 1 for ratio in paired))
     print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(case=name, **results)), flush=True)
     return candidate
 

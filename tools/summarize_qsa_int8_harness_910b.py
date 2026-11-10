@@ -40,14 +40,16 @@ def topk_route(case, policy):
     return "auto"
 
 
-def merge_case_reports(directory, *, stages=False):
+def selected_cases(*, stages=False, sorted_topk_short=False):
+    names = SHORT_SCORE_CASES if sorted_topk_short else STAGE_CASES if stages else None
+    return {case["name"]: case for case in cases() if names is None or case["name"] in names}
+
+
+def merge_case_reports(directory, *, stages=False, sorted_topk_short=False):
     """Preserve completed harness records when a later shape fails."""
     details, outcomes = [], {}
     stage_details = {f"{OP_NAME}_{stage}": [] for stage in ("score", "topk")}
-    for case in cases():
-        name = case["name"]
-        if stages and name not in STAGE_CASES:
-            continue
+    for name in selected_cases(stages=stages, sorted_topk_short=sorted_topk_short):
         path = directory / f"harness-{name}.json"
         if not path.is_file():
             outcomes[name] = "missing"
@@ -90,17 +92,13 @@ def merge_case_reports(directory, *, stages=False):
     return report
 
 
-def summarize(report, pytest_exit_code, *, stages=False, short_score=False):
+def summarize(report, pytest_exit_code, *, stages=False, short_score=False, sorted_topk_short=False):
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
     entry = report[OP_NAME]
     if entry.get("result") != "passed":
         raise ValueError(f"Benchmark outcome: {entry.get('result')}")
-    expected = {
-        case["name"]: case
-        for case in cases()
-        if not stages or case["name"] in STAGE_CASES
-    }
+    expected = selected_cases(stages=stages, sorted_topk_short=sorted_topk_short)
     rows = {}
     for detail in entry["details"]:
         if (
@@ -234,10 +232,15 @@ def main():
     parser.add_argument("--stages", action="store_true")
     parser.add_argument("--short-score", action="store_true")
     parser.add_argument("--sorted-topk", action="store_true")
+    parser.add_argument("--sorted-topk-short", action="store_true")
     args = parser.parse_args()
+    if args.sorted_topk_short and (not args.sorted_topk or args.stages or args.short_score):
+        parser.error("--sorted-topk-short requires only the sorted TopK comparison")
     try:
         if args.merge_case_reports:
-            report = merge_case_reports(args.report.parent, stages=args.stages)
+            report = merge_case_reports(
+                args.report.parent, stages=args.stages, sorted_topk_short=args.sorted_topk_short
+            )
             args.report.write_text(json.dumps(report, indent=2) + "\n")
         else:
             report = json.loads(args.report.read_text())
@@ -246,6 +249,7 @@ def main():
             args.pytest_exit_code,
             stages=args.stages,
             short_score=args.short_score,
+            sorted_topk_short=args.sorted_topk_short,
         )
         if args.sorted_topk:
             prefix = "QSA_INT8_HARNESS_SORTED_TOPK "
@@ -271,6 +275,10 @@ def main():
             )
             print("QSA INT8 sorted TopK A/B mean:",
                   summary["sorted_topk_ab"]["arithmetic_mean_speedup"])
+        if args.sorted_topk_short:
+            summary["cann_v1_subset_mean_speedup"] = summary["arithmetic_mean_speedup"]
+            summary["arithmetic_mean_speedup"] = None
+            summary["scope"] = "first_chunk and compact only"
     except (OSError, ValueError, KeyError, TypeError) as exc:
         summary = dict(
             exit_code=1,
@@ -302,6 +310,8 @@ def main():
         print(
             "QSA INT8 kernel stage profile complete; ten-case acceptance mean pending"
         )
+    elif summary["exit_code"] == 0 and args.sorted_topk_short:
+        print(f"QSA INT8 two-case mean versus CANN V1: {summary['cann_v1_subset_mean_speedup']:.6f}x")
     elif summary["exit_code"] == 0:
         print(
             f"QSA INT8 harness kernel arithmetic mean ({len(summary['cases'])} cases): "

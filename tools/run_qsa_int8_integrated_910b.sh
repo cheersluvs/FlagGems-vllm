@@ -84,14 +84,21 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
         qsa_cases=$("$qsa_python" -c '
 import os
 from tools.qsa_int8_ten_workloads_910b import cases
-from tools.summarize_qsa_int8_harness_910b import STAGE_CASES
-if os.environ.get("QSA_HARNESS_STAGES") == "1":
+from tools.summarize_qsa_int8_harness_910b import SHORT_SCORE_CASES, STAGE_CASES
+if os.environ.get("QSA_HARNESS_SORTED_TOPK_SHORT") == "1":
+    names = SHORT_SCORE_CASES
+elif os.environ.get("QSA_HARNESS_STAGES") == "1":
     names = STAGE_CASES
 else:
     names = [case["name"] for case in cases()]
     names.sort(key=lambda name: name != "int8_dominant_long")
 print("\n".join(names))
 ') || exit 1
+        qsa_sorted_topk_short_flag=
+        if [[ ${QSA_HARNESS_SORTED_TOPK_SHORT:-0} == 1 ]]; then
+            export QSA_HARNESS_SORTED_TOPK=1
+            qsa_sorted_topk_short_flag=--sorted-topk-short
+        fi
         qsa_sorted_topk_flag=
         if [[ ${QSA_HARNESS_SORTED_TOPK:-0} == 1 ]]; then
             qsa_sorted_topk_flag=--sorted-topk
@@ -140,7 +147,8 @@ print("\n".join(names))
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
             ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
-            ${qsa_sorted_topk_flag:+"$qsa_sorted_topk_flag"}
+            ${qsa_sorted_topk_flag:+"$qsa_sorted_topk_flag"} \
+            ${qsa_sorted_topk_short_flag:+"$qsa_sorted_topk_short_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"
