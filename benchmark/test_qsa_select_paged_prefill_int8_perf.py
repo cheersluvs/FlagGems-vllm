@@ -233,9 +233,13 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
     enabled = candidate.enable_sorted_topk(guarded=guarded)
     expected = not guarded or 1024 <= width <= 1152
     assert enabled == expected, (name, width, enabled)
+    query16_chunks = sum(control.query16_routes.values())
+    record = dict(case=name, width=width, rows=control.rows,
+                  score_chunks=len(control.chunks), query16_chunks=query16_chunks,
+                  selected="sorted" if enabled else "previous")
     if not enabled:
         print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(
-            dict(case=name, width=width, rows=control.rows, selected="previous")
+            record
         ), flush=True)
         return candidate
 
@@ -259,7 +263,7 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
             checks, _ = check_selection(actual[samples], refs)
             assert checks["checks_passed"], (name, stage, arm, checks)
         timings = {arm: [] for arm in jobs}
-        rounds = 4 if any(
+        rounds = 4 if (guarded and query16_chunks) or any(
             os.environ.get(flag) == "1" for flag in
             ("QSA_HARNESS_SORTED_TOPK_SHORT", "QSA_HARNESS_SORTED_TOPK_COMPACT",
              "QSA_HARNESS_SORTED_TOPK_LAYOUT")
@@ -276,7 +280,7 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
         results[stage] = dict(samples_ms=timings, medians_ms=medians,
                               speedup=medians["previous"] / medians["sorted"],
                               paired_speedups=paired, sorted_wins=sum(ratio > 1 for ratio in paired))
-    print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(case=name, width=width, rows=control.rows, score_chunks=len(control.chunks), selected="sorted", **results)), flush=True)
+    print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(record, **results)), flush=True)
     return candidate
 
 
@@ -511,7 +515,7 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 score_control=control.score_all if short_score else None,
             )
         if not diagnose_only and os.environ.get("QSA_HARNESS_SORTED_TOPK") == "1":
-            assert not stages and not short_score
+            assert not stages
             assert os.environ.get("QSA_HARNESS_REUSE_TOPK_SCRATCH") != "1"
             candidate = _measure_sorted_topk_ab(
                 name, benchmark, candidate, inputs["visible"], samples, refs,

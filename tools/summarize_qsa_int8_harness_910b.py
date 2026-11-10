@@ -236,6 +236,40 @@ def summarize(
     return summary
 
 
+
+def matched_guarded_means(rows, pairs):
+    """Use a common CANN measurement and paired candidate timings on each hit."""
+    by_case = {pair["case"]: pair for pair in pairs}
+    records = []
+    for row in rows:
+        name = row["case"]
+        pair = by_case[name]
+        query16_expected = name in SHORT_SCORE_CASES
+        if bool(pair["query16_chunks"]) != query16_expected:
+            raise ValueError(f"Unexpected query16 scoring route for {name}")
+        if pair["selected"] == "sorted":
+            timings = pair["total"]["medians_ms"]
+            disabled_ms, enabled_ms = timings["previous"], timings["sorted"]
+        else:
+            # Both configurations execute the same callable on a guard miss.
+            disabled_ms = enabled_ms = row["candidate_ms"]
+        cann_ms = row["baseline_ms"]
+        records.append(dict(
+            case=name, query16_chunks=pair["query16_chunks"],
+            sorted_topk=pair["selected"] == "sorted", cann_ms=cann_ms,
+            disabled_ms=disabled_ms, enabled_ms=enabled_ms,
+            disabled_speedup=cann_ms / disabled_ms, enabled_speedup=cann_ms / enabled_ms,
+        ))
+    disabled = statistics.mean(record["disabled_speedup"] for record in records)
+    enabled = statistics.mean(record["enabled_speedup"] for record in records)
+    return dict(
+        scope="same-run CANN V1 numerator; paired timings on hits, shared timing on misses",
+        disabled_arithmetic_mean_speedup=disabled,
+        enabled_arithmetic_mean_speedup=enabled,
+        delta=enabled - disabled,
+        cases=records,
+    )
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("report", type=Path)
@@ -308,6 +342,14 @@ def main():
             )
             print("QSA INT8 sorted TopK A/B mean:",
                   summary["sorted_topk_ab"]["arithmetic_mean_speedup"])
+            if args.sorted_topk_guarded and args.short_score and not subset:
+                matched = matched_guarded_means(summary["cases"], pairs)
+                summary["matched_cann_v1_means"] = matched
+                print(
+                    "QSA INT8 matched CANN V1 mean: "
+                    f"{matched['disabled_arithmetic_mean_speedup']:.6f}x -> "
+                    f"{matched['enabled_arithmetic_mean_speedup']:.6f}x"
+                )
         if subset:
             summary["cann_v1_subset_mean_speedup"] = summary["arithmetic_mean_speedup"]
             summary["arithmetic_mean_speedup"] = None
