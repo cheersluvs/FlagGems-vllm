@@ -149,15 +149,20 @@ def main():
         assert inspect.getsource(getattr(a, "fn", a)) == inspect.getsource(getattr(b, "fn", b)), name
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root))
+    from benchmark import conftest, performance_utils
     from benchmark.attri_util import BenchMode
-    from benchmark.conftest import Config
-    from benchmark.performance_utils import Benchmark
     from triton.testing import do_bench
 
-    Config.mode = BenchMode.KERNEL
-    Config.warm_up = args.warmup
-    Config.repetition = args.iter
-    benchmark = Benchmark(op_name="qsa_bf16_topk_ab", torch_op=old.qsa_select_paged_prefill)
+    config = conftest.BenchConfig()
+    config.mode = BenchMode.KERNEL
+    config.warm_up = args.warmup
+    config.repetition = args.iter
+    # This standalone runner does not execute pytest_configure. Both modules
+    # must share the same config because performance_utils imports it by name.
+    conftest.Config = performance_utils.Config = config
+    benchmark = performance_utils.Benchmark(
+        op_name="qsa_bf16_topk_ab", torch_op=old.qsa_select_paged_prefill
+    )
 
     def measure(fn):
         milliseconds = float(benchmark.get_latency(fn))
