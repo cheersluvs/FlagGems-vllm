@@ -30,7 +30,7 @@ import torch
 import triton
 
 import flaggems_vllm
-from tools.qsa_int8_ten_workloads_910b import cases, make_inputs, sample_rows
+from tools.qsa_int8_ten_workloads_910b import cases, compact_width_cases, make_inputs, sample_rows
 from tools.summarize_qsa_int8_harness_910b import (
     OP_NAME,
     TOPK_SEGMENT,
@@ -41,6 +41,8 @@ from . import base, consts
 from .conftest import Config
 
 CASES = {(case["name"],): case for case in cases()}
+if os.environ.get("QSA_HARNESS_SORTED_TOPK_COMPACT") == "1":
+    CASES.update({(name,): case for name, case in compact_width_cases().items()})
 
 
 class QSAPrefillInt8Benchmark(base.GenericBenchmark):
@@ -262,7 +264,10 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
             checks, _ = check_selection(actual[samples], refs)
             assert checks["checks_passed"], (name, stage, arm, checks)
         timings = {arm: [] for arm in jobs}
-        rounds = 4 if os.environ.get("QSA_HARNESS_SORTED_TOPK_SHORT") == "1" else 2
+        rounds = 4 if any(
+            os.environ.get(flag) == "1" for flag in
+            ("QSA_HARNESS_SORTED_TOPK_SHORT", "QSA_HARNESS_SORTED_TOPK_COMPACT")
+        ) else 2
         for round_index in range(rounds):
             order = ("previous", "sorted") if round_index % 2 == 0 else ("sorted", "previous")
             for arm in order:
@@ -275,7 +280,7 @@ def _measure_sorted_topk_ab(name, benchmark, control, lengths, samples, refs,
         results[stage] = dict(samples_ms=timings, medians_ms=medians,
                               speedup=medians["previous"] / medians["sorted"],
                               paired_speedups=paired, sorted_wins=sum(ratio > 1 for ratio in paired))
-    print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(case=name, **results)), flush=True)
+    print("QSA_INT8_HARNESS_SORTED_TOPK " + json.dumps(dict(case=name, width=width, rows=control.rows, **results)), flush=True)
     return candidate
 
 

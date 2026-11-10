@@ -110,6 +110,32 @@ def topk_workspace_cases():
     return result
 
 
+
+def compact_width_cases():
+    """Shift compact visibility while preserving its page allocation and batching."""
+    compact = next(case for case in cases() if case["name"] == "int8_compact")
+    result = {}
+    for width in (1024, 1088, 1152):
+        shift = (width - compact["logits_width"]) * compact["ratio"]
+        name = compact["name"] if shift == 0 else f"int8_compact_w{width}"
+        prefixes = [prefix + shift for prefix in compact["prefix_tokens"]]
+        max_len = compact["batch_max_seq_len"] + shift
+        for prefix, length, pages in zip(
+            prefixes, compact["query_lengths"], compact["pages_per_request"]
+        ):
+            groups = (prefix + length + compact["ratio"] - 1) // compact["ratio"]
+            assert 0 <= prefix and groups <= pages * compact["page_size"]
+        result[name] = dict(
+            compact,
+            name=name,
+            prefix_tokens=prefixes,
+            batch_max_seq_len=max_len,
+            logits_width=width,
+            score_and_dot_scratch_bytes=compact["chunk_rows"] * width * 4 * 5,
+            provenance=compact["provenance"] if not shift else "Synthetic compact prefix shift",
+        )
+    return result
+
 def sample_rows(case):
     rows, chunk = case["q_shape"][0], case["chunk_rows"]
     picks = {

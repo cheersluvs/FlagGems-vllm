@@ -83,9 +83,11 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
         ulimit -c 0 || exit 1
         qsa_cases=$("$qsa_python" -c '
 import os
-from tools.qsa_int8_ten_workloads_910b import cases
+from tools.qsa_int8_ten_workloads_910b import cases, compact_width_cases
 from tools.summarize_qsa_int8_harness_910b import SHORT_SCORE_CASES, STAGE_CASES
-if os.environ.get("QSA_HARNESS_SORTED_TOPK_SHORT") == "1":
+if os.environ.get("QSA_HARNESS_SORTED_TOPK_COMPACT") == "1":
+    names = compact_width_cases()
+elif os.environ.get("QSA_HARNESS_SORTED_TOPK_SHORT") == "1":
     names = SHORT_SCORE_CASES
 elif os.environ.get("QSA_HARNESS_STAGES") == "1":
     names = STAGE_CASES
@@ -95,7 +97,10 @@ else:
 print("\n".join(names))
 ') || exit 1
         qsa_sorted_topk_short_flag=
-        if [[ ${QSA_HARNESS_SORTED_TOPK_SHORT:-0} == 1 ]]; then
+        if [[ ${QSA_HARNESS_SORTED_TOPK_COMPACT:-0} == 1 ]]; then
+            export QSA_HARNESS_SORTED_TOPK=1
+            qsa_sorted_topk_short_flag=--sorted-topk-compact
+        elif [[ ${QSA_HARNESS_SORTED_TOPK_SHORT:-0} == 1 ]]; then
             export QSA_HARNESS_SORTED_TOPK=1
             qsa_sorted_topk_short_flag=--sorted-topk-short
         fi
