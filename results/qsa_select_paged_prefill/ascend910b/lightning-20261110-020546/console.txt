@@ -1,0 +1,32 @@
+/flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+  warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+/tmp/flaggems-qsa-bf16-topk-ab-9C7baRMJ/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+  resolved_benchmark = resolve_benchmarker(
+/flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+  warnings.warn(
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[2026-11-10 10:05:37] [WARNING] [2955844] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-10 10:05:37] [INFO] [2968942] profiler.py: Start parsing profiling data in sync mode at: /root/.triton/profile_results/prof_20261110_020536_MainProcess-2955844/bm-ctyun-wq-zone1-d-910b4-64g-0-13_2955844_20261110100536995_ascend_pt
+|/[2026-11-10 10:05:39] [ERROR] [2968942] profiler.py: Failed to get acl to npu flow events. For details, please check the logs at: /root/.triton/profile_results/prof_20261110_020536_MainProcess-2955844/bm-ctyun-wq-zone1-d-910b4-64g-0-13_2955844_20261110100536995_ascend_pt/logs
+-[2026-11-10 10:05:39] [INFO] [2968971] profiler.py: CANN profiling data parsed in a total time of 0:00:02.042766
+[2026-11-10 10:05:40] [WARNING] [2968942] profiler.py: Failed to get task data from db.
+[2026-11-10 10:05:40] [ERROR] [2968942] profiler.py: SQLite Error: no such table: TASK
+\[2026-11-10 10:05:40] [INFO] [2968942] profiler.py: All profiling data parsed in a total time of 0:00:03.099813
+[Error] No profiling data found under /root/.triton/profile_results/prof_20261110_020536_MainProcess-2955844. The profiler may have failed to collect device tasks or stopped abnormally.
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-bf16-topk-ab-9C7baRMJ/tools/benchmark_qsa_bf16_topk_ab_910b.py", line 168, in <module>
+    main()
+  File "/tmp/flaggems-qsa-bf16-topk-ab-9C7baRMJ/tools/benchmark_qsa_bf16_topk_ab_910b.py", line 156, in main
+    run(args, torch, old, new, public, name, entry)
+  File "/tmp/flaggems-qsa-bf16-topk-ab-9C7baRMJ/tools/benchmark_qsa_bf16_topk_ab_910b.py", line 108, in run
+    measure = setup(args, dict(chunks=chunks, score_into=score_into, logits=frozen), torch, result)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-bf16-topk-ab-9C7baRMJ/tools/qsa_kernel_benchmark_910b.py", line 73, in setup
+    single = measure(one)["kernel_us"]
+             ^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-bf16-topk-ab-9C7baRMJ/tools/qsa_kernel_benchmark_910b.py", line 61, in measure
+    raise RuntimeError(f"Invalid kernel timer result: {milliseconds}")
+RuntimeError: Invalid kernel timer result: inf
+[ERROR] 2026-11-10-10:05:42 (PID:2955844, Device:0, RankID:-1) ERR99999 UNKNOWN applicaiton exception
