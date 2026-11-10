@@ -128,6 +128,14 @@ print("\n".join(names))
             qsa_short_score_flag=--short-score
             printf 'QSA INT8 trial: guarded N64 query16 scoring for widths (1024, 4096]\n'
         fi
+        qsa_mixed_flag=
+        if [[ ${QSA_HARNESS_FUSED_BINARY:-0} == 1 ]]; then
+            if [[ -n "$qsa_stage_flag$qsa_short_score_flag$qsa_diagnostic_flag" || ${QSA_HARNESS_REUSE_TOPK_SCRATCH:-0} == 1 ]]; then
+                echo 'Fused binary requires a standalone ten-case harness run'
+                exit 1
+            fi
+            qsa_mixed_flag=--fused-binary
+        fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do
             printf 'QSA INT8 harness worker: %s\n' "$qsa_case"
@@ -162,7 +170,8 @@ print("\n".join(names))
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
             ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
-            ${qsa_diagnostic_flag:+"$qsa_diagnostic_flag"}
+            ${qsa_diagnostic_flag:+"$qsa_diagnostic_flag"} \
+            ${qsa_mixed_flag:+"$qsa_mixed_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"

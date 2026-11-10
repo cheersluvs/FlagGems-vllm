@@ -626,6 +626,39 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             f"total_chunks={len(candidate.chunks)}",
             flush=True,
         )
+        if os.environ.get("QSA_HARNESS_FUSED_BINARY") == "1":
+            from qsa_int8_fused_binary_910b_trial import PreparedFusedBinarySelection
+
+            mixed = PreparedFusedBinarySelection(
+                values, inputs["visible"], plan["starts"], chunk,
+            )
+            fused_chunks = sum(item[3] for item in mixed.chunks)
+            assert fused_chunks, f"{name}: fused prefix did not run"
+            print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} fused_binary", flush=True)
+            mixed.output.fill_(-3)
+            torch.npu.synchronize()
+            mixed_output = mixed(synchronize=diagnose_only)
+            torch.npu.synchronize()
+            mixed_indices = mixed_output.cpu()
+            failure = _check_preflight_structure(
+                name, "fused_binary", mixed_indices, inputs["visible"], verify_structure,
+            )
+            assert failure is None, failure
+            checks, _ = check_selection(mixed_indices[samples], refs)
+            assert checks["checks_passed"], (name, "fused_binary", checks)
+            if not diagnose_only:
+                production_ms = benchmark.get_latency(candidate)
+                assert math.isfinite(production_ms) and production_ms > 0
+                print(
+                    "QSA_INT8_HARNESS_FUSED_BINARY",
+                    json.dumps(dict(
+                        case=name, production_ms=production_ms, fused_chunks=fused_chunks,
+                        total_chunks=len(mixed.chunks), sampled_rows=len(samples),
+                    )),
+                    flush=True,
+                )
+            yield (dict(case_name=name, route=route, reference=native_call, candidate=mixed),)
+            return
         if not diagnose_only and stages:
             _measure_stages(
                 name,
