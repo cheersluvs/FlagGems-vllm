@@ -33,6 +33,22 @@ from probe_qsa_int8_mixed_pipeline_910b import (
 )
 
 
+def _check_packed(label, packed, limits):
+    scores = packed[..., ::2].contiguous()
+    ids = packed[..., 1::2].contiguous().view(torch.int32)
+    finite = torch.isfinite(scores)
+    invalid = finite & ((ids < 0) | (ids >= limits[:, None, None]))
+    unsorted = scores[..., :-1] < scores[..., 1:]
+    nonfinite = torch.isnan(scores) | torch.isposinf(scores)
+    print(
+        f"{label} shape={tuple(packed.shape)} invalid_ids={int(invalid.sum())} "
+        f"ascending_pairs={int(unsorted.sum())} nan_or_posinf={int(nonfinite.sum())}",
+        flush=True,
+    )
+    assert not (invalid.any() or unsorted.any() or nonfinite.any()), label
+    return scores, ids
+
+
 def _diagnose_merge(mode, merge, visible, snapshot):
     source, target, lists, groups, in_width, out_width = merge.args
     assert (lists, groups, in_width, out_width) == (5, 3, 512, 512)
@@ -54,18 +70,7 @@ def _diagnose_merge(mode, merge, visible, snapshot):
         packed = pairs.reshape(1, 5, 1024).expand_as(source).contiguous()
 
     assert packed.shape == source.shape and packed.dtype == torch.float32
-    scores = packed[..., ::2].contiguous()
-    ids = packed[..., 1::2].contiguous().view(torch.int32)
-    finite = torch.isfinite(scores)
-    invalid = finite & ((ids < 0) | (ids >= limits[:, None, None]))
-    unsorted = scores[..., :-1] < scores[..., 1:]
-    nonfinite = torch.isnan(scores) | torch.isposinf(scores)
-    print(
-        f"MERGE53 INPUT mode={mode} invalid_ids={int(invalid.sum())} "
-        f"ascending_pairs={int(unsorted.sum())} nan_or_posinf={int(nonfinite.sum())}",
-        flush=True,
-    )
-    assert not (invalid.any() or unsorted.any() or nonfinite.any()), "invalid merge input"
+    scores, ids = _check_packed(f"MERGE53 INPUT mode={mode}", packed, limits)
     if mode == "capture":
         print(f"MERGE53 CAPTURED {snapshot}", flush=True)
         return
@@ -78,14 +83,23 @@ def _diagnose_merge(mode, merge, visible, snapshot):
     torch.npu.synchronize()
     print(f"MERGE53 RETURNED mode={mode}", flush=True)
 
-    result = target.cpu()
+    _check_merge_output(scores, ids, target.cpu(), fan_in=2)
+    print(f"MERGE53 PASS mode={mode}", flush=True)
+
+
+def _check_merge_output(scores, ids, result, fan_in):
     out_scores = result[..., ::2].contiguous()
     out_ids = result[..., 1::2].contiguous().view(torch.int32)
+    groups, out_width = out_scores.shape[1:]
     for group in range(groups):
-        start = group * 2
-        values = scores[:, start : start + 2].flatten(1)
-        indices = ids[:, start : start + 2].flatten(1)
-        expected = values.topk(out_width, dim=1).values
+        start = group * fan_in
+        values = scores[:, start : start + fan_in].flatten(1)
+        indices = ids[:, start : start + fan_in].flatten(1)
+        expected = values.topk(min(out_width, values.shape[1]), dim=1).values
+        if expected.shape[1] < out_width:
+            expected = torch.nn.functional.pad(
+                expected, (0, out_width - expected.shape[1]), value=-float("inf")
+            )
         actual = out_scores[:, group]
         torch.testing.assert_close(actual, expected, rtol=0, atol=0)
         valid = torch.isfinite(actual)
@@ -97,7 +111,40 @@ def _diagnose_merge(mode, merge, visible, snapshot):
         assert torch.all(~valid | (values.gather(1, order.gather(1, found)) == actual))
         ordered = returned.masked_fill(~valid, -1).sort(dim=1).values
         assert not ((ordered[:, 1:] >= 0) & (ordered[:, 1:] == ordered[:, :-1])).any()
-    print(f"MERGE53 PASS mode={mode}", flush=True)
+
+
+def _trace_prefix(producer, merges, visible):
+    limits = visible.cpu()
+    print("MERGE53 TRACE LAUNCH producer", flush=True)
+    producer()
+    torch.npu.synchronize()
+    scores, ids = _check_packed("MERGE53 TRACE producer", merges[0].args[0].cpu(), limits)
+    start = torch.arange(scores.shape[1]) * scores.shape[2]
+    width = scores.shape[2]
+    live = torch.isfinite(scores)
+    assert torch.equal(
+        live.sum(-1), (limits[:, None] - start[None, :]).clamp(0, width)
+    ), "producer finite count differs from visibility"
+    assert not (
+        live & ((ids < start[None, :, None]) | (ids >= start[None, :, None] + width))
+    ).any(), "producer candidate outside its tile"
+    ordered = ids.masked_fill(~live, -1).sort(dim=-1).values
+    assert not (
+        (ordered[..., 1:] >= 0) & (ordered[..., 1:] == ordered[..., :-1])
+    ).any(), "producer repeated a live index"
+    print("MERGE53 TRACE PASS producer", flush=True)
+    for level, merge in enumerate(merges[:4]):
+        target = merge.args[1]
+        label = f"MERGE53 TRACE merge={level}"
+        print(f"{label} LAUNCH target={tuple(target.shape)}", flush=True)
+        merge()
+        torch.npu.synchronize()
+        packed = target.cpu()
+        out_scores, out_ids = _check_packed(label, packed, limits)
+        _check_merge_output(scores, ids, packed, fan_in=4 if level == 0 else 2)
+        scores, ids = out_scores, out_ids
+        print(f"{label} PASS", flush=True)
+    print("MERGE53 TRACE COMPLETE (merge=4 not launched)", flush=True)
 
 
 class PreparedFusedBinarySelection:
@@ -185,11 +232,15 @@ class PreparedFusedBinarySelection:
     def __call__(self, *, synchronize=False):
         mode = os.environ.get("QSA_MERGE53_MODE")
         if mode:
-            assert synchronize and mode in ("capture", "real", "synthetic")
-            snapshot = Path(os.environ["QSA_MERGE53_SNAPSHOT"])
+            assert synchronize and mode in ("capture", "real", "synthetic", "trace")
+            if mode != "trace":
+                snapshot = Path(os.environ["QSA_MERGE53_SNAPSHOT"])
         for first, count, lists, fused, producer, merges, pairs, scores, positions, padding, output in self.chunks:
             if mode:
                 assert (first, count, lists, fused) == (0, 128, 133, True)
+                if mode == "trace":
+                    _trace_prefix(producer, merges, self.visible[:count])
+                    return None
                 if mode != "capture":
                     _diagnose_merge(mode, merges[4], self.visible[:count], snapshot)
                     return None
