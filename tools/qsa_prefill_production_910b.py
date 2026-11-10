@@ -102,6 +102,19 @@ def qsa_select_paged_prefill(*operands, chunk_rows=16, trace=None):
     original_owners = module._build_owners
     calls = []
     owner_checks = []
+    sync_stages = os.environ.get("QSA_SYNC_PRODUCTION_STAGES") == "1"
+
+    def run_stage(name, fn, *args, **kwargs):
+        if sync_stages:
+            import torch
+
+            print(f"Production {name}: launching", flush=True)
+        value = fn(*args, **kwargs)
+        if sync_stages:
+            print(f"Production {name}: synchronizing", flush=True)
+            torch.npu.synchronize()
+            print(f"Production {name}: completed", flush=True)
+        return value
 
     def owners(q, table, starts):
         result = original_owners(q, table, starts)
@@ -123,11 +136,11 @@ def qsa_select_paged_prefill(*operands, chunk_rows=16, trace=None):
                 logits_pointer=args[5].data_ptr(),
             )
         )
-        return original_score(*args, **kwargs)
+        return run_stage("score", original_score, *args, **kwargs)
 
     def select(logits, k):
         calls[-1]["sorted_topk"] = True
-        return original_topk(logits, k)
+        return run_stage("sorted TopK", original_topk, logits, k)
 
     with patch.object(module, "_score", score), patch.object(
         module, "topk", select
