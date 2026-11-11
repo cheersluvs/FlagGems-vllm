@@ -1,0 +1,292 @@
+{
+  "case": "int8_budget_exact",
+  "width": 8192,
+  "rows": 32,
+  "starts": [
+    0,
+    128,
+    256,
+    384,
+    8064
+  ],
+  "arms": {
+    "cube-dense-plain": {
+      "artifacts": [
+        "int8_budget_exact-cube-dense-plain-source.txt",
+        "int8_budget_exact-cube-dense-plain-ttir.txt",
+        "int8_budget_exact-cube-dense-plain-ttadapter.txt",
+        "int8_budget_exact-cube-dense-plain-bcmlir.txt"
+      ],
+      "dot_mismatches": 0,
+      "observed_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "expected_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "untouched": 0,
+      "passed": true
+    },
+    "cube-dense-trace": {
+      "artifacts": [
+        "int8_budget_exact-cube-dense-trace-source.txt",
+        "int8_budget_exact-cube-dense-trace-ttir.txt",
+        "int8_budget_exact-cube-dense-trace-ttadapter.txt",
+        "int8_budget_exact-cube-dense-trace-bcmlir.txt"
+      ],
+      "dot_mismatches": 0,
+      "observed_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "expected_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "untouched": 0,
+      "q_mismatches": 5065,
+      "k_mismatches": 81204,
+      "passed": false
+    },
+    "cube-paged-plain": {
+      "artifacts": [
+        "int8_budget_exact-cube-paged-plain-source.txt",
+        "int8_budget_exact-cube-paged-plain-ttir.txt",
+        "int8_budget_exact-cube-paged-plain-ttadapter.txt",
+        "int8_budget_exact-cube-paged-plain-bcmlir.txt"
+      ],
+      "dot_mismatches": 0,
+      "observed_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "expected_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "untouched": 0,
+      "passed": true
+    },
+    "cube-paged-trace": {
+      "artifacts": [
+        "int8_budget_exact-cube-paged-trace-source.txt",
+        "int8_budget_exact-cube-paged-trace-ttir.txt",
+        "int8_budget_exact-cube-paged-trace-ttadapter.txt",
+        "int8_budget_exact-cube-paged-trace-bcmlir.txt"
+      ],
+      "dot_mismatches": 0,
+      "observed_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "expected_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "untouched": 0,
+      "q_mismatches": 0,
+      "k_mismatches": 0,
+      "passed": true
+    },
+    "handoff-only-1": {
+      "passed": false,
+      "error": "Traceback (most recent call last):\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 330, in compile\n    next_module = compile_ir(module, metadata)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 1137, in <lambda>\n    stages[\"npubin\"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))\n                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 651, in _compile_linalg_to_npu_bin\n    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 835, in linalg_to_bin_enable_npu_compile_A2_A3\n    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py\", line 571, in run\n    raise CalledProcessError(retcode, process.args,\nsubprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmpgx1ks27f/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=False', '--enable-auto-bind-sub-block=False', '--enable-hivm-graph-sync-solver=False', '--enable-hivm-cross-core-gss=False', '--enable-hivm-unit-flag-sync=False', '--disable-auto-inject-block-sync=True', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--disable-auto-cv-work-space-manage=True', '--enable-auto-blockify-loop', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmpgx1ks27f/kernel']' died with <Signals.SIGABRT: 6>.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/flaggems-qsa-n128-controls.fcbz9pqy/code/tools/diagnose_qsa_n128_components_910b.py\", line 97, in run_controls\n    compiled = _qsa_n128_handoff_control[(cores,)](\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 420, in <lambda>\n    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 736, in run\n    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 864, in _do_compile\n    kernel = self.compile(src, target=target, options=options.__dict__)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py\", line 83, in tle_compile\n    compiled_kernel = original_compile_fn(src, target, options)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 351, in compile\n    raise MLIRCompilationError(stage_name, error_detail) from e\ntriton.compiler.errors.MLIRCompilationError: \n///------------------[ERROR][Triton][BEG]------------------\n[ConvertLinalgIRToBinary] encounters error:\nLLVM ERROR: InjectSync Traverse IR Failed! \nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\n///------------------[ERROR][Triton][END]------------------\n\n"
+    },
+    "handoff-only-2": {
+      "artifacts": [
+        "int8_budget_exact-handoff-only-2-source.txt",
+        "int8_budget_exact-handoff-only-2-ttir.txt",
+        "int8_budget_exact-handoff-only-2-ttadapter.txt",
+        "int8_budget_exact-handoff-only-2-bcmlir.txt"
+      ],
+      "dot_mismatches": 32768,
+      "untouched": 0,
+      "first_bad": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          0,
+          3
+        ],
+        [
+          0,
+          0,
+          4
+        ],
+        [
+          0,
+          0,
+          5
+        ],
+        [
+          0,
+          0,
+          6
+        ],
+        [
+          0,
+          0,
+          7
+        ]
+      ],
+      "observed_sample": [
+        45929,
+        -20198,
+        10430,
+        7103,
+        -8411,
+        20447,
+        -3976,
+        21392
+      ],
+      "expected_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "passed": false
+    },
+    "handoff-only-64": {
+      "artifacts": [
+        "int8_budget_exact-handoff-only-64-source.txt",
+        "int8_budget_exact-handoff-only-64-ttir.txt",
+        "int8_budget_exact-handoff-only-64-ttadapter.txt",
+        "int8_budget_exact-handoff-only-64-bcmlir.txt"
+      ],
+      "dot_mismatches": 1048566,
+      "untouched": 0,
+      "first_bad": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1
+        ],
+        [
+          0,
+          0,
+          2
+        ],
+        [
+          0,
+          0,
+          3
+        ],
+        [
+          0,
+          0,
+          4
+        ],
+        [
+          0,
+          0,
+          5
+        ],
+        [
+          0,
+          0,
+          6
+        ],
+        [
+          0,
+          0,
+          7
+        ]
+      ],
+      "observed_sample": [
+        47430,
+        9488,
+        -26450,
+        -8871,
+        -38074,
+        -11675,
+        11193,
+        13617
+      ],
+      "expected_sample": [
+        9699,
+        -31571,
+        11190,
+        13981,
+        -12047,
+        -12226,
+        11391,
+        111
+      ],
+      "passed": false
+    }
+  }
+}
