@@ -273,6 +273,8 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             stages += ("query4",)
         if "mixed_prefix" in profile:
             stages += ("prefix_score", "prefix_sort", "prefix_merge")
+        if "score_handoff_prefix" in profile:
+            stages += ("qk_only", "qk_handoff", "qk_score")
         for stage in stages:
             op = f"{OP_NAME}_chunk_{stage}"
             entry = report[op]
@@ -294,7 +296,7 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             current_query16_chunks=profile.get("current_query16_chunks"),
             serial_over_online=row["serial_ms"] / row["online_ms"],
         )
-        if any(key in profile for key in ("update_grains", "handoff_grains", "query_packs", "mixed_prefix")):
+        if any(key in profile for key in ("update_grains", "handoff_grains", "query_packs", "mixed_prefix", "score_handoff_prefix")):
             samples = profile["paired_kernel_samples_ms"]
             for stage in stages[3:]:
                 if len(samples[stage]) != 2 or not all(
@@ -328,6 +330,24 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
                     "All prefixes store identical-size per-tile diagnostic buffers and use MTE3 release; "
                     "deltas include compiler scheduling changes and are not additive stage costs. "
                     "The original online control uses MTE2 release without per-tile stores."
+                )
+            if "score_handoff_prefix" in profile:
+                medians = {stage: statistics.median(samples[stage]) for stage in profile["score_handoff_prefix"]}
+                row["handoff_prefix_medians_ms"] = medians
+                row["handoff_prefix_deltas_ms"] = {
+                    "ring_handoff": medians["qk_handoff"] - medians["qk_only"],
+                    "dequant_reduce": medians["qk_score"] - medians["qk_handoff"],
+                }
+                row["handoff_prefix_spread_pct"] = {
+                    stage: (max(samples[stage]) - min(samples[stage])) / statistics.median(samples[stage]) * 100
+                    for stage in ("online", *profile["score_handoff_prefix"])
+                }
+                row["handoff_prefix_unstable"] = any(value > 15 for value in row["handoff_prefix_spread_pct"].values())
+                row["handoff_prefix_caveat"] = (
+                    "All three arms store 4x64 words per query per tile. QK-only writes directly from Cube; "
+                    "mixed arms add GM ring traffic and MTE3 release. Scoring replicates its output across four lanes "
+                    "to keep diagnostic write bytes equal. Deltas include scheduling and output-path changes. "
+                    "A paired range/median above 15% is flagged as unstable, not an acceptance failure."
                 )
         if profile["profile_status"] == "completed":
             row["device_stages"] = profile["timeline"]["stages"]
@@ -410,6 +430,17 @@ def main():
                         f"{stage}={value * 1000:.3f}" for stage, value in row["prefix_deltas_ms"].items()
                     ))
                     print(row["prefix_caveat"])
+                if "handoff_prefix_medians_ms" in row:
+                    medians = row["handoff_prefix_medians_ms"]
+                    print(f"{row['case']} paired QK / handoff / score us: " + " / ".join(
+                        f"{medians[stage] * 1000:.3f}" for stage in ("qk_only", "qk_handoff", "qk_score")
+                    ))
+                    print(f"{row['case']} diagnostic deltas us: " + ", ".join(
+                        f"{stage}={value * 1000:.3f}" for stage, value in row["handoff_prefix_deltas_ms"].items()
+                    ))
+                    print(f"{row['case']} paired range/median %: {row['handoff_prefix_spread_pct']}; "
+                          f"unstable={row['handoff_prefix_unstable']}")
+                    print(row["handoff_prefix_caveat"])
         else:
             print(summary["error"])
         return summary["exit_code"]

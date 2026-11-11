@@ -21,7 +21,7 @@ import torch
 import triton
 
 from probe_qsa_int8_mixed_pipeline_910b import (
-    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4, _qsa_online_prefix,
+    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4, _qsa_online_prefix, _qsa_score_handoff_prefix,
 )
 from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 
@@ -29,7 +29,7 @@ from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 class PreparedOnlineTopKSelection:
     def __init__(
         self, values, host_visible, starts, chunk_rows, *,
-        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2, prefix_stage=0,
+        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2, prefix_stage=0, handoff_stage=None,
     ):
         if update_keys not in (64, 256, 512):
             raise ValueError("TopK update size must be 64, 256, or 512")
@@ -55,7 +55,15 @@ class PreparedOnlineTopKSelection:
                 raise ValueError("Prefix probe requires the two-query 64-key kernel")
             kernel = _qsa_online_prefix
             kernel_args = {"PREFIX_STAGE": prefix_stage}
+        if handoff_stage is not None:
+            if handoff_stage not in (0, 1, 2):
+                raise ValueError("Score handoff stage must be zero through two")
+            if prefix_stage or (update_keys, handoff_keys, queries_per_program) != (64, 64, 2):
+                raise ValueError("Score handoff probe requires the two-query 64-key kernel")
+            kernel = _qsa_score_handoff_prefix
+            kernel_args = {"HANDOFF_STAGE": handoff_stage}
         self.prefix_tiles = []
+        self.handoff_tiles = []
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
@@ -80,14 +88,19 @@ class PreparedOnlineTopKSelection:
                 count = last - first
                 cores = triton.cdiv(count, queries_per_program)
                 packed_q = pack_mixed_queries(values["q"][first:last], queries_per_program)
+                score_shape = (count, subtiles, 2 * CUBE_TILE) if prefix_stage else (count, TOPK)
+                if handoff_stage is not None:
+                    score_shape = (cores, subtiles, 8, CUBE_TILE)
                 if count not in buffers:
                     buffers[count] = (
                         torch.empty((cores, 2, 16, handoff_keys), device=device, dtype=torch.int32),
-                        torch.empty((count, subtiles, 2 * CUBE_TILE) if prefix_stage else (count, TOPK), device=device, dtype=torch.float32),
+                        torch.empty(score_shape, device=device, dtype=torch.float32),
                     )
                 ring, scores = buffers[count]
                 if prefix_stage:
                     self.prefix_tiles.append(scores)
+                if handoff_stage is not None:
+                    self.handoff_tiles.append(scores)
                 self.chunks.append((first, count))
                 self.launches.append(partial(
                     kernel[(cores,)],

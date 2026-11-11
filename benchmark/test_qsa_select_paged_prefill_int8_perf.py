@@ -947,6 +947,13 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
                 values, inputs["visible"], [0, rows], rows, scan_width=width,
                 prefix_stage=stage,
             )
+    handoff_labels = ("qk_only", "qk_handoff", "qk_score")
+    if os.environ.get("QSA_HARNESS_SCORE_HANDOFF_PREFIX") == "1":
+        for stage, label in enumerate(handoff_labels):
+            variants[label] = PreparedOnlineTopKSelection(
+                values, inputs["visible"], [0, rows], rows, scan_width=width,
+                handoff_stage=stage,
+            )
     serial()
     for label, adapter in variants.items():
         print(f"QSA INT8 CHUNK COMPILE {case_name} {label}", flush=True)
@@ -957,7 +964,7 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
     outputs = {"current": output.cpu()}
     outputs.update({
         label: adapter.output.cpu() for label, adapter in variants.items()
-        if label not in ("prefix_score", "prefix_sort")
+        if label not in ("prefix_score", "prefix_sort", *handoff_labels)
     })
     for label, indices in outputs.items():
         verify_structure(indices, inputs["visible"])
@@ -981,6 +988,29 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             torch.testing.assert_close(tile_scores[row], expected[indices], rtol=1e-3, atol=1e-3)
             if label != "prefix_score":
                 assert (tile_scores[row, :, :-1] >= tile_scores[row, :, 1:]).all()
+    if os.environ.get("QSA_HARNESS_SCORE_HANDOFF_PREFIX") == "1":
+        assert torch.equal(inputs["row_table"], inputs["row_table"][:1].expand_as(inputs["row_table"]))
+        tiles = (width + 63) // 64
+        logical_keys = inputs["cache"][inputs["row_table"][0].long(), :, 0].reshape(-1, 128)[:tiles * 64].int()
+        expected_dots = torch.stack([
+            inputs["q"][row].int() @ logical_keys.T for row in range(rows)
+        ]).reshape(rows, 4, tiles, 64).permute(0, 2, 1, 3)
+        for stage, label in enumerate(handoff_labels):
+            adapter = variants[label]
+            assert len(adapter.handoff_tiles) == 1
+            raw = adapter.handoff_tiles[0].cpu()
+            if stage < 2:
+                raw = raw.view(torch.int32)
+            observed = raw.reshape(rows // 2, tiles, 2, 4, 64).permute(0, 2, 1, 3, 4).reshape(rows, tiles, 4, 64)
+            if stage < 2:
+                assert torch.equal(observed, expected_dots), (case_name, label, "INT32 dots differ")
+            else:
+                for row, ref in enumerate(refs):
+                    expected = torch.full((tiles * 64,), -float("inf"))
+                    expected[:ref.numel()] = ref
+                    expected = expected.reshape(tiles, 1, 64).expand(tiles, 4, 64)
+                    torch.testing.assert_close(observed[row], expected, rtol=1e-3, atol=1e-3)
+        print(f"QSA SCORE HANDOFF CHECK {case_name}: all-row INT32 dots exact; FP32 scores passed", flush=True)
     staged = scratch.cpu()
     for row, ref in enumerate(refs):
         torch.testing.assert_close(staged[row, :ref.numel()], ref, rtol=1e-3, atol=1e-3)
@@ -1029,6 +1059,8 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             profile["query_packs"] = [2, 4]
         if os.environ.get("QSA_HARNESS_MIXED_PREFIX") == "1":
             profile["mixed_prefix"] = ["prefix_score", "prefix_sort", "prefix_merge"]
+        if os.environ.get("QSA_HARNESS_SCORE_HANDOFF_PREFIX") == "1":
+            profile["score_handoff_prefix"] = list(handoff_labels)
     try:
         collect(
             SimpleNamespace(report=report, worker=case_name), functions, torch, profile,
