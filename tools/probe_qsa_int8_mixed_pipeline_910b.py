@@ -1199,7 +1199,7 @@ def _qsa_n128_handoff_control(
     CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
     ONLINE_TOP: tl.constexpr, OnlineIndices,
     PACKED_OUTPUT: tl.constexpr, KEEP_TILE_STORE: tl.constexpr, UB_SNAPSHOT: tl.constexpr,
-    HANDOFF_STAGE: tl.constexpr, SCAN_WIDTH: tl.constexpr,
+    HANDOFF_STAGE: tl.constexpr, SCAN_WIDTH: tl.constexpr, FENCE_MODE: tl.constexpr = 0,
 ):
     tl.static_assert(HANDOFF_STAGE == 1 and CHUNK == 128)
     with al.scope(core_mode="cube"):
@@ -1219,7 +1219,11 @@ def _qsa_n128_handoff_control(
             offset = tl.where(n < 64, page_lo * PAGE_SIZE + start % PAGE_SIZE + n,
                               page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE + n - 64)
             key = tl.load(K + offset[:, None] * 128 + d[None, :], mask=valid[:, None], other=0)
+            if FENCE_MODE & 1:
+                tl.debug_barrier()
             dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
+            if FENCE_MODE & 2:
+                tl.debug_barrier()
             if HANDOFF_STAGE == 0:
                 out = Received + (pid * SUBTILES + cube_subtile) * 8 * CHUNK
                 tl.store(out + m[:, None] * CHUNK + n[None, :], dot,
@@ -1227,6 +1231,8 @@ def _qsa_n128_handoff_control(
             else:
                 work = Ring + (pid * SLOTS + cube_slot) * 16 * CHUNK
                 tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
+                if FENCE_MODE & 4:
+                    tl.debug_barrier()
                 al.sync_block_set("cube", "vector", cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
         if HANDOFF_STAGE > 0:
             for drain_slot in tl.static_range(SLOTS):

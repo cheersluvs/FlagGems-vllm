@@ -16,10 +16,12 @@
 """Isolate N128 K loading, Cube dot, and cross-core ring transport."""
 
 import json
+import os
+from functools import partial
 import traceback
 
 
-def run_controls(inputs, values, width, report, case):
+def run_controls(inputs, values, width, report, case, measure=None):
     import torch
     import triton
 
@@ -58,7 +60,8 @@ def run_controls(inputs, values, width, report, case):
         manifest_path.write_text(json.dumps(result, indent=2))
         print(f"QSA N128 COMPONENT {case} {label}: {json.dumps(entry)}", flush=True)
 
-    for is_dense in (True, False):
+    fence_probe = os.environ.get("QSA_N128_FENCE_PROBE") == "1"
+    for is_dense in (() if fence_probe else (True, False)):
         for trace in (False, True):
             label = f"cube-{'dense' if is_dense else 'paged'}-{'trace' if trace else 'plain'}"
             entry = {}
@@ -87,23 +90,26 @@ def run_controls(inputs, values, width, report, case):
                 entry.update(passed=False, error=traceback.format_exc())
             finish(label, entry)
 
-    for steps in sorted({1, 2, triton.cdiv(width, 128)}):
-        label = f"handoff-only-{steps}"
+    full_steps = triton.cdiv(width, 128)
+    arms = ([(2, mode) for mode in (0, 1, 2, 4, 7)] + [(full_steps, mode) for mode in (0, 7)]) if fence_probe else [(steps, 0) for steps in sorted({1, 2, full_steps})]
+    for steps, fence in dict.fromkeys(arms):
+        label = f"handoff-only-{steps}-fence{fence}"
         entry = {}
         try:
             cores = triton.cdiv(rows, 2)
             ring = torch.full((cores, 2, 16, 128), 0x13579BDF, device=device, dtype=torch.int32)
             out = torch.full((cores, steps, 8, 128), 0x13579BDF, device=device, dtype=torch.int32)
-            compiled = _qsa_n128_handoff_control[(cores,)](
+            launch = partial(_qsa_n128_handoff_control[(cores,)],
                 packed_q, values["cache"].view(-1, 128), values["row_table"][0], ring, out,
                 values["qs"], values["ks"].view(-1), values["weights"], values["visible"],
                 steps, 2, 192, 128, rows, True, True,
                 ONLINE_TOP=512, OnlineIndices=out, PACKED_OUTPUT=False,
-                KEEP_TILE_STORE=True, UB_SNAPSHOT=True, HANDOFF_STAGE=1, SCAN_WIDTH=width,
+                KEEP_TILE_STORE=True, UB_SNAPSHOT=True, HANDOFF_STAGE=1, SCAN_WIDTH=width, FENCE_MODE=fence,
                 use_bytecode=True, disable_auto_cv_work_space_manage=True,
                 disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
                 multibuffer=False, sync_solver=False, unit_flag=False,
             )
+            compiled = launch()
             torch.npu.synchronize()
             entry["artifacts"] = save(label, compiled)
             raw = out.cpu()
@@ -113,6 +119,24 @@ def run_controls(inputs, values, width, report, case):
             entry.update(dot_mismatches=int(bad.sum()), untouched=int((actual == 0x13579BDF).sum()),
                          first_bad=bad.nonzero()[:8].tolist(), observed_sample=actual[0, 0, :8].tolist(),
                          expected_sample=expected[0, 0, :8].tolist(), passed=not bool(bad.any()))
+            ring_cpu = ring.cpu()
+            ring_bad = 0
+            ring_samples = []
+            for slot in range(2):
+                final_tile = steps - 1 - ((steps - 1 - slot) % 2)
+                if final_tile < 0:
+                    continue
+                expected_ring = torch.zeros((cores, 16, 128), dtype=torch.int32)
+                tile_keys = logical[final_tile * 128:(final_tile + 1) * 128].int()
+                for pid in range(cores):
+                    expected_ring[pid, :8] = (inputs["q"][pid * 2:pid * 2 + 2].reshape(8, 128).int() @ tile_keys.T)
+                ring_bad += int((ring_cpu[:, slot] != expected_ring).sum())
+                ring_samples.append(dict(slot=slot, final_tile=final_tile,
+                                         observed=ring_cpu[0, slot, 0, :8].tolist(), expected=expected_ring[0, 0, :8].tolist()))
+            entry.update(ring_mismatches=ring_bad, ring_samples=ring_samples, fence_mode=fence)
+            entry["passed"] = entry["passed"] and ring_bad == 0
+            if entry["passed"] and measure is not None:
+                entry["kernel_samples_ms"] = [measure(launch), measure(launch)]
         except Exception:
             entry.update(passed=False, error=traceback.format_exc())
         finish(label, entry)

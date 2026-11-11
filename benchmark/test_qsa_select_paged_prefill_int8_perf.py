@@ -1044,7 +1044,12 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             print(f"QSA N128 {label} selection_pass={diagnostic[label]['selection']['checks_passed']} "
                   f"selected_value_mismatches={diagnostic[label]['selected_value_mismatches']}", flush=True)
         from diagnose_qsa_n128_components_910b import run_controls
-        run_controls(inputs, values, width, report_dir, case_name)
+        component_timer = QSAPrefillInt8Benchmark(
+            op_name=f"{OP_NAME}_chunk_n128_control", case_name=case_name,
+            torch_op=None, gems_op=_call_candidate, input_fn=lambda *args: iter(()),
+            dtypes=[torch.int8], device=device,
+        )
+        run_controls(inputs, values, width, report_dir, case_name, measure=component_timer.get_latency)
         assert all(diagnostic[key] == 0 for key in (
             "dot_mismatches", "score_mismatches", "local_sort_mismatches",
             "local_index_permutation_mismatches", "local_sort_order_mismatches",
