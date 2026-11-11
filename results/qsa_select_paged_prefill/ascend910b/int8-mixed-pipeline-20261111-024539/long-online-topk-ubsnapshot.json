@@ -1,0 +1,152 @@
+{
+  "case": "long",
+  "rows": 39,
+  "tile_lists": 129,
+  "slots": 2,
+  "packed_output": false,
+  "keep_tile_store_mte3": false,
+  "ub_snapshot": true,
+  "correctness": {
+    "materialized": {
+      "rows": 39,
+      "max_score_abs_error": 3.814697265625e-06
+    }
+  },
+  "validation_stages": {
+    "materialized": [
+      {
+        "stage": "materialized-merge-0",
+        "shape": {
+          "input": [
+            39,
+            129,
+            128
+          ],
+          "output": [
+            39,
+            33,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "materialized-merge-0-source.txt",
+          "materialized-merge-0-ttir.txt",
+          "materialized-merge-0-ttadapter.txt",
+          "materialized-merge-0-bcmlir.txt",
+          "materialized-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "materialized-merge-1",
+        "shape": {
+          "input": [
+            39,
+            33,
+            512
+          ],
+          "output": [
+            39,
+            17,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "materialized-merge-1-source.txt",
+          "materialized-merge-1-ttir.txt",
+          "materialized-merge-1-ttadapter.txt",
+          "materialized-merge-1-bcmlir.txt",
+          "materialized-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "materialized-merge-2",
+        "shape": {
+          "input": [
+            39,
+            17,
+            1024
+          ],
+          "output": [
+            39,
+            9,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-3",
+        "shape": {
+          "input": [
+            39,
+            9,
+            1024
+          ],
+          "output": [
+            39,
+            5,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-4",
+        "shape": {
+          "input": [
+            39,
+            5,
+            1024
+          ],
+          "output": [
+            39,
+            3,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-5",
+        "shape": {
+          "input": [
+            39,
+            3,
+            1024
+          ],
+          "output": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-6",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ],
+    "online": [
+      {
+        "stage": "online-merge-0",
+        "shape": {
+          "topk": 512
+        },
+        "status": "launching"
+      }
+    ]
+  },
+  "passed": false,
+  "error": "CompilationError('def _qsa_online_scoped(\\n    Q, K, Table, Ring, Received, QS, KS, Weight, Visible,\\n    SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,\\n    CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,\\n    ONLINE_TOP: tl.constexpr, OnlineIndices,\\n    PACKED_OUTPUT: tl.constexpr, KEEP_TILE_STORE: tl.constexpr, UB_SNAPSHOT: tl.constexpr,\\n):\\n    tl.static_assert(SCORE and SORT and UB_SNAPSHOT and ONLINE_TOP > 0)\\n    with al.scope(core_mode=\"cube\"):\\n        pid = tl.program_id(0)\\n        m = tl.arange(0, 16)\\n        d = tl.arange(0, 128)\\n        n = tl.arange(0, CHUNK)\\n        q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])\\n        for subtile in range(SUBTILES):\\n            slot = subtile % SLOTS\\n            if KEEP_TILE_STORE:\\n                al.sync_block_wait(\"vector\", \"cube\", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)\\n            else:\\n                al.sync_block_wait(\"vector\", \"cube\", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)\\n            start = subtile * CHUNK\\n            page = tl.load(Table + start // PAGE_SIZE)\\n            offset = page * PAGE_SIZE + start % PAGE_SIZE\\n            key = tl.load(K + (offset + n[:, None]) * 128 + d[None, :])\\n            dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)\\n            work = Ring + (pid * SLOTS + slot) * 16 * CHUNK\\n            tl.store(work + m[:, None] * CHUNK + n[None, :], dot)\\n            al.sync_block_set(\"cube\", \"vector\", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)\\n        for slot in tl.static_range(SLOTS):\\n            if KEEP_TILE_STORE:\\n                al.sync_block_wait(\"vector\", \"cube\", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)\\n            else:\\n                al.sync_block_wait(\"vector\", \"cube\", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)\\n\\n    with al.scope(core_mode=\"vector\"):\\n        pid = tl.program_id(0)\\n        row = pid * 2 + al.sub_vec_id()\\n        h = tl.arange(0, 4)\\n        n = tl.arange(0, CHUNK)\\n        word = tl.arange(0, 2 * ONLINE_TOP)\\n        state = tl.where(\\n            word % 2 == 0, -float(\"inf\"),\\n            tl.full((), -1, tl.int32).to(tl.float32, bitcast=True),\\n        )\\n        for slot in tl.static_range(SLOTS):\\n            if KEEP_TILE_STORE:\\n                al.sync_block_set(\"vector\", \"cube\", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)\\n            else:\\n                al.sync_block_set(\"vector\", \"cube\", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)\\n        for subtile in range(SUBTILES):\\n            slot = subtile % SLOTS\\n            al.sync_block_wait(\"cube\", \"vector\", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)\\n            work = Ring + (pid * SLOTS + slot) * 16 * CHUNK\\n            head = al.sub_vec_id() * 4 + h\\n            received = tl.load(work + head[:, None] * CHUNK + n[None, :])\\n            start = subtile * CHUNK\\n            page = tl.load(Table + start // PAGE_SIZE)\\n            offset = page * PAGE_SIZE + start % PAGE_SIZE\\n            query_scale = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)\\n            weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)\\n            key_scale = tl.load(KS + offset + n).to(tl.float32)\\n            visible = tl.load(Visible + row, mask=row < ROWS, other=0)\\n            dequant = received.to(tl.float32) * query_scale[:, None] * key_scale[None, :]\\n            score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)\\n            score = tl.where(start + n < visible, score, -float(\"inf\"))\\n            pairs = tle.dsa.ascend.raw(\\n                \"sort_1d_pack\", score, tl.zeros((4 * CHUNK,), tl.float32),\\n                True, CHUNK, start, SORT_IMPL_BASE,\\n                out=tl.zeros((2 * CHUNK,), tl.float32),\\n            )\\n            state = _update_online_topk_ub_snapshot(state, pairs, ONLINE_TOP, CHUNK)\\n            if KEEP_TILE_STORE:\\n                lane = tl.arange(0, 2 * CHUNK)\\n                tl.store(\\n                    OnlineIndices + (row * SUBTILES + subtile) * 2 * CHUNK + lane,\\n                    pairs.to(tl.int32, bitcast=True), mask=row < ROWS,\\n                )\\n                al.sync_block_set(\"vector\", \"cube\", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)\\n            else:\\n                al.sync_block_set(\"vector\", \"cube\", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)\\n        if PACKED_OUTPUT:\\n            tl.store(Received + row * 2 * ONLINE_TOP + word, state, mask=row < ROWS)\\n        else:\\n            values, indices = tle.dsa.ascend.raw(\\n                \"unpack_sort\", state, ONLINE_TOP,\\n                out=[tl.zeros((ONLINE_TOP,), tl.float32), tl.zeros((ONLINE_TOP,), tl.int32)],\\n            )\\n            rank = tl.arange(0, ONLINE_TOP)\\n            live = rank < tl.load(Visible + row, mask=row < ROWS, other=0)\\n            out = row * ONLINE_TOP + rank\\n            tl.store(Received + out, tl.where(live, values, -float(\"inf\")), mask=row < ROWS)\\n            tl.store(OnlineIndices + out, tl.where(live, indices, -1), mask=row < ROWS)\\n', <ast.For object at 0xfffab59667a0>, 'AssertionError(\"Loop carried variable slot changed type, was <class \\'triton.language.core.tensor\\'> but is now <class \\'triton.language.core.constexpr\\'>\")')"
+}
