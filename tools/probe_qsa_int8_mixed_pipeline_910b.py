@@ -677,9 +677,6 @@ def cube_controls(args, cpu, inputs, packed_q, workspace):
 
     _, keys, _, _, _, table, _ = cpu
     logical = keys[table.long()].reshape(-1, 128).contiguous()
-    if args.online_raw_length:
-        online_raw_length_probe(args, device)
-        return
     rows, width = CASES[args.worker]
     device = workspace.device
     starts = sorted({0, 64, 192, 512, (width - 1) // CUBE_TILE * CUBE_TILE})
@@ -1268,6 +1265,9 @@ def worker(args):
     torch.npu.set_device(args.device)
     device = torch.device(f"npu:{args.device}")
     assert "910B" in torch.npu.get_device_name(args.device)
+    if args.online_raw_length:
+        online_raw_length_probe(args, device)
+        return
     rows, width = CASES[args.worker]
     cores = triton.cdiv(rows, ROWS_PER_CORE)
     cpu = fixture(args.worker)
