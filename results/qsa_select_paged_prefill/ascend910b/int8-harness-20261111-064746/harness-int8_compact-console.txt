@@ -1,0 +1,133 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA INT8 CHUNK COMPILE int8_compact online
+QSA INT8 CHUNK EXECUTED int8_compact online
+QSA INT8 CHUNK COMPILE int8_compact qk_only
+QSA INT8 CHUNK EXECUTED int8_compact qk_only
+QSA INT8 CHUNK COMPILE int8_compact qk_handoff
+QSA INT8 CHUNK EXECUTED int8_compact qk_handoff
+QSA INT8 CHUNK COMPILE int8_compact qk_score
+QSA INT8 CHUNK EXECUTED int8_compact qk_score
+QSA SCORE HANDOFF CHECK int8_compact: {"stage": "qk_only", "dtype": "torch.int32", "mismatches": 0, "padding_mismatches": 0, "max_abs_error": 0, "nonzero": 139259, "observed_sample": [469, -17684, 359, 38032, 6115, -4417, 41837, 7184], "expected_sample": [469, -17684, 359, 38032, 6115, -4417, 41837, 7184]}
+QSA SCORE HANDOFF CHECK int8_compact: {"stage": "qk_handoff", "dtype": "torch.int32", "mismatches": 0, "padding_mismatches": 0, "max_abs_error": 0, "nonzero": 139259, "observed_sample": [469, -17684, 359, 38032, 6115, -4417, 41837, 7184], "expected_sample": [469, -17684, 359, 38032, 6115, -4417, 41837, 7184]}
+QSA SCORE HANDOFF CHECK int8_compact: {"stage": "qk_score", "dtype": "torch.float32", "mismatches": 0}
+QSA INT8 CHUNK PREFLIGHT PASS int8_compact rows=32 width=1088 online_tiles=17 short_query16=True query16_chunks=1 current_routes=[{'first': 0, 'count': 32, 'shared': True, 'proof': {'groups': 8, 'all_group_maps_equal': True, 'same_request_per_group': True}, 'route': 'qk', 'visibility_tiles': {'issued_tiles': 48, 'useful_tiles': 8, 'skipped_tiles': 40, 'skipped_fraction': 0.8333333333333334, 'selected': False, 'policy': 'conservative'}, 'skip_invisible': False, 'page_reuse': True, 'query_group': 16, 'query16_reason': 'Shared mapping and request owner proven'}]
+
+Operator: qsa_select_paged_prefill_int8_910b_chunk_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            0.017051                 N/A          ('int8_compact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_chunk_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            0.006703                 N/A          ('int8_compact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_chunk_serial  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            0.023864                 N/A          ('int8_compact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_chunk_online  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            0.049251                 N/A          ('int8_compact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_chunk_qk_only  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            0.007457                 N/A          ('int8_compact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_chunk_qk_handoff  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            0.021865                 N/A          ('int8_compact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_chunk_qk_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            0.029534                 N/A          ('int8_compact', 'auto')
+
+[2026-11-11 14:47:15] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:15] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:15] [WARNING] [503313] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-11 14:47:16] [INFO] [509413] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-pure-cube.yXaCE18W/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_503313_20261111144715383_ascend_pt
+|/-[2026-11-11 14:47:18] [INFO] [509459] profiler.py: CANN profiling data parsed in a total time of 0:00:02.042043
+[2026-11-11 14:47:18] [INFO] [509413] profiler.py: All profiling data parsed in a total time of 0:00:02.717484
+TIMELINE score: tasks=3 sum=52.324 us union=52.324 us envelope=445.670 us uncovered=393.346 us
+[2026-11-11 14:47:19] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:19] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:19] [WARNING] [503313] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-11 14:47:19] [INFO] [510533] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-pure-cube.yXaCE18W/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_503313_20261111144719166_ascend_pt
+|/-[2026-11-11 14:47:21] [INFO] [510566] profiler.py: CANN profiling data parsed in a total time of 0:00:02.042828
+[2026-11-11 14:47:22] [INFO] [510533] profiler.py: All profiling data parsed in a total time of 0:00:02.676008
+TIMELINE topk: tasks=9 sum=35.960 us union=35.960 us envelope=1207.744 us uncovered=1171.784 us
+[2026-11-11 14:47:22] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:22] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:22] [WARNING] [503313] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-11 14:47:23] [INFO] [511355] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-pure-cube.yXaCE18W/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_503313_20261111144722897_ascend_pt
+|/-[2026-11-11 14:47:25] [INFO] [511373] profiler.py: CANN profiling data parsed in a total time of 0:00:02.042190
+[2026-11-11 14:47:26] [INFO] [511355] profiler.py: All profiling data parsed in a total time of 0:00:02.695950
+TIMELINE serial: tasks=12 sum=85.362 us union=85.362 us envelope=1729.696 us uncovered=1644.334 us
+[2026-11-11 14:47:26] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:26] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:26] [WARNING] [503313] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-11 14:47:27] [INFO] [512287] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-pure-cube.yXaCE18W/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_503313_20261111144726652_ascend_pt
+|/-[2026-11-11 14:47:29] [INFO] [512320] profiler.py: CANN profiling data parsed in a total time of 0:00:02.042290
+[2026-11-11 14:47:29] [INFO] [512287] profiler.py: All profiling data parsed in a total time of 0:00:02.694628
+TIMELINE online: tasks=3 sum=147.362 us union=147.362 us envelope=318.144 us uncovered=170.782 us
+[2026-11-11 14:47:30] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:30] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:30] [WARNING] [503313] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-11 14:47:30] [INFO] [513237] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-pure-cube.yXaCE18W/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_503313_20261111144730397_ascend_pt
+|/-[2026-11-11 14:47:33] [INFO] [513260] profiler.py: CANN profiling data parsed in a total time of 0:00:02.043032
+[2026-11-11 14:47:33] [INFO] [513237] profiler.py: All profiling data parsed in a total time of 0:00:02.699610
+TIMELINE qk_only: tasks=3 sum=25.600 us union=25.600 us envelope=246.964 us uncovered=221.364 us
+[2026-11-11 14:47:34] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:34] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:34] [WARNING] [503313] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-11 14:47:34] [INFO] [514135] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-pure-cube.yXaCE18W/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_503313_20261111144734059_ascend_pt
+|/-[2026-11-11 14:47:36] [INFO] [514152] profiler.py: CANN profiling data parsed in a total time of 0:00:02.042693
+[2026-11-11 14:47:37] [INFO] [514135] profiler.py: All profiling data parsed in a total time of 0:00:02.676949
+TIMELINE qk_handoff: tasks=3 sum=60.622 us union=60.622 us envelope=312.268 us uncovered=251.646 us
+[2026-11-11 14:47:37] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:37] [WARNING] [503313] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-11 14:47:37] [WARNING] [503313] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-11 14:47:38] [INFO] [515050] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-pure-cube.yXaCE18W/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_503313_20261111144737791_ascend_pt
+|/-[2026-11-11 14:47:40] [INFO] [515158] profiler.py: CANN profiling data parsed in a total time of 0:00:02.045911
+[2026-11-11 14:47:41] [INFO] [515050] profiler.py: All profiling data parsed in a total time of 0:00:02.723166
+TIMELINE qk_score: tasks=3 sum=85.322 us union=85.322 us envelope=335.288 us uncovered=249.966 us
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-pure-cube.yXaCE18W/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 40.85s
