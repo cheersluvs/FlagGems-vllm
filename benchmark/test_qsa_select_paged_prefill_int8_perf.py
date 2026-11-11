@@ -543,10 +543,11 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         adapter_kwargs = dict(key_group4=True, single_page64=True)
         control = PreparedSharedMapInt8Selection(*adapter_args, **adapter_kwargs)
         stages = os.environ.get("QSA_HARNESS_STAGES") == "1"
+        allow_short_query16 = os.environ.get("QSA_HARNESS_SHORT_SCORE", "1") == "1"
         candidate = PreparedSharedMapInt8Selection(
             *adapter_args,
             **adapter_kwargs,
-            allow_short_query16=os.environ.get("QSA_HARNESS_SHORT_SCORE") == "1",
+            allow_short_query16=allow_short_query16,
             direct_page_kernels=kernels,
             shared_direct_page_proof=True,
         )
@@ -674,6 +675,9 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                         "online_chunks" if online_topk else "fused_chunks": hit_chunks,
                         "total_chunks": len(mixed.chunks), "sampled_rows": len(samples),
                         "chunk_rows": mixed.chunk_rows if online_topk else chunk,
+                        "control_short_query16_enabled": allow_short_query16,
+                        "control_short_query16_active": candidate.short_query16,
+                        "control_query16_chunks": sum(candidate.query16_routes.values()),
                     }),
                     flush=True,
                 )
@@ -686,7 +690,11 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 candidate,
                 selected,
                 device,
-                score_control=control.score_all if short_score else None,
+                score_control=(
+                    control.score_all
+                    if short_score and os.environ.get("QSA_HARNESS_SHORT_SCORE") == "1"
+                    else None
+                ),
             )
         if (
             not diagnose_only
@@ -898,12 +906,14 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
     current = PreparedSharedMapInt8Selection(
         values, output, scratch, workspace, topk, [0, rows],
         key_group4=True, single_page64=True, direct_page_kernels=kernels,
-        shared_direct_page_proof=True,
+        shared_direct_page_proof=True, allow_short_query16=True,
     )
     online = PreparedOnlineTopKSelection(
         values, inputs["visible"], [0, rows], rows, scan_width=width,
     )
     assert current.chunks == [(0, rows)] and online.chunks == [(0, rows)]
+    if case_name == "int8_compact":
+        assert current.short_query16 and current.query16_routes[(0, rows)]
 
     def score():
         current.score_into(0, rows, scratch)
@@ -931,6 +941,8 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
     print(
         f"QSA INT8 CHUNK PREFLIGHT PASS {case_name} rows={rows} width={width} "
         f"online_tiles={(width + 63) // 64} "
+        f"short_query16={current.short_query16} "
+        f"query16_chunks={sum(current.query16_routes.values())} "
         f"current_routes={current.route_checks}",
         flush=True,
     )
@@ -944,7 +956,11 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             dtypes=[torch.int8], device=device,
         ).run()
     report = Path(os.environ["QSA_HARNESS_REPORT"])
-    profile = {"case": case_name, "rows": rows, "width": width}
+    profile = {
+        "case": case_name, "rows": rows, "width": width,
+        "current_short_query16": current.short_query16,
+        "current_query16_chunks": sum(current.query16_routes.values()),
+    }
     try:
         collect(
             SimpleNamespace(report=report, worker=case_name), functions, torch, profile,

@@ -281,6 +281,8 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
         profile = json.loads((directory / f"{name}-chunk-profile.json").read_text())
         row.update(
             width=profile["width"], profile_status=profile["profile_status"],
+            current_short_query16=profile.get("current_short_query16"),
+            current_query16_chunks=profile.get("current_query16_chunks"),
             serial_over_online=row["serial_ms"] / row["online_ms"],
         )
         if profile["profile_status"] == "completed":
@@ -384,6 +386,12 @@ def main():
                     sampled_rows=record["sampled_rows"],
                 )
                 row[chunk_key] = record[chunk_key]
+                if "control_short_query16_enabled" in record:
+                    row.update(
+                        control_short_query16_enabled=record["control_short_query16_enabled"],
+                        control_short_query16_active=record["control_short_query16_active"],
+                        control_query16_chunks=record["control_query16_chunks"],
+                    )
                 if args.online_topk:
                     row["chunk_rows"] = record["chunk_rows"]
             summary["arithmetic_mean_speedup_vs_production"] = statistics.mean(
