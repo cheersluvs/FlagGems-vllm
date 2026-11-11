@@ -995,22 +995,34 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
         expected_dots = torch.stack([
             inputs["q"][row].int() @ logical_keys.T for row in range(rows)
         ]).reshape(rows, 4, tiles, 64).permute(0, 2, 1, 3)
+        handoff_checks = []
         for stage, label in enumerate(handoff_labels):
             adapter = variants[label]
             assert len(adapter.handoff_tiles) == 1
             raw = adapter.handoff_tiles[0].cpu()
-            if stage < 2:
-                raw = raw.view(torch.int32)
+            assert raw.dtype == (torch.int32 if stage < 2 else torch.float32), (label, raw.dtype)
             observed = raw.reshape(rows // 2, tiles, 2, 4, 64).permute(0, 2, 1, 3, 4).reshape(rows, tiles, 4, 64)
             if stage < 2:
-                assert torch.equal(observed, expected_dots), (case_name, label, "INT32 dots differ")
+                delta = (observed.long() - expected_dots.long()).abs()
+                check = dict(
+                    stage=label, dtype=str(raw.dtype), mismatches=int((delta != 0).sum()),
+                    max_abs_error=int(delta.max()), nonzero=int(torch.count_nonzero(observed)),
+                    observed_sample=observed.reshape(-1)[:8].tolist(),
+                    expected_sample=expected_dots.reshape(-1)[:8].tolist(),
+                )
             else:
+                mismatches = 0
                 for row, ref in enumerate(refs):
                     expected = torch.full((tiles * 64,), -float("inf"))
                     expected[:ref.numel()] = ref
                     expected = expected.reshape(tiles, 1, 64).expand(tiles, 4, 64)
-                    torch.testing.assert_close(observed[row], expected, rtol=1e-3, atol=1e-3)
-        print(f"QSA SCORE HANDOFF CHECK {case_name}: all-row INT32 dots exact; FP32 scores passed", flush=True)
+                    mismatches += int((~torch.isclose(observed[row], expected, rtol=1e-3, atol=1e-3)).sum())
+                check = dict(stage=label, dtype=str(raw.dtype), mismatches=mismatches)
+            handoff_checks.append(check)
+            print(f"QSA SCORE HANDOFF CHECK {case_name}: {json.dumps(check)}", flush=True)
+        check_path = Path(os.environ["QSA_HARNESS_REPORT"]) / f"{case_name}-handoff-checks.json"
+        check_path.write_text(json.dumps(handoff_checks, indent=2))
+        assert all(check["mismatches"] == 0 for check in handoff_checks), (case_name, handoff_checks)
     staged = scratch.cpu()
     for row, ref in enumerate(refs):
         torch.testing.assert_close(staged[row, :ref.numel()], ref, rtol=1e-3, atol=1e-3)

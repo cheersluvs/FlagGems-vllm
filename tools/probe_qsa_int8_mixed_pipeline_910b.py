@@ -1005,7 +1005,7 @@ def _qsa_score_handoff_prefix(
             dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
             if HANDOFF_STAGE == 0:
                 out = Received + (pid * SUBTILES + cube_subtile) * 8 * CHUNK
-                tl.store(out + m[:, None] * CHUNK + n[None, :], dot.to(tl.float32, bitcast=True),
+                tl.store(out + m[:, None] * CHUNK + n[None, :], dot,
                          mask=(m[:, None] < 8) & (pid * 2 + m[:, None] // 4 < ROWS))
             else:
                 work = Ring + (pid * SLOTS + cube_slot) * 16 * CHUNK
@@ -1042,7 +1042,7 @@ def _qsa_score_handoff_prefix(
                     score = tl.where(start + n < visible, score, -float("inf"))
                     diagnostic = tl.broadcast_to(score[None, :], (4, CHUNK))
                 else:
-                    diagnostic = received.to(tl.float32, bitcast=True)
+                    diagnostic = received
                 out = Received + (pid * SUBTILES + vector_subtile) * 8 * CHUNK
                 tl.store(out + head[:, None] * CHUNK + n[None, :], diagnostic, mask=row < ROWS)
                 al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)

@@ -91,10 +91,11 @@ class PreparedOnlineTopKSelection:
                 score_shape = (count, subtiles, 2 * CUBE_TILE) if prefix_stage else (count, TOPK)
                 if handoff_stage is not None:
                     score_shape = (cores, subtiles, 8, CUBE_TILE)
+                score_dtype = torch.int32 if handoff_stage in (0, 1) else torch.float32
                 if count not in buffers:
                     buffers[count] = (
                         torch.empty((cores, 2, 16, handoff_keys), device=device, dtype=torch.int32),
-                        torch.empty(score_shape, device=device, dtype=torch.float32),
+                        torch.empty(score_shape, device=device, dtype=score_dtype),
                     )
                 ring, scores = buffers[count]
                 if prefix_stage:
