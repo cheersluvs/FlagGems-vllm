@@ -20,14 +20,14 @@ import statistics
 from pathlib import Path
 
 
-def run_probe(inputs, values, width, full_scores, control, timer, report, case):
+def run_probe(inputs, values, width, full_scores, control, timer, report, case, *, validate_only=False):
     import torch
     from qsa_cann_serial_910b_trial import PreparedCANNSerial
     from probe_qsa_int8_score_910b import reference
     from probe_qsa_int8_pipeline_910b import check_selection
     from probe_qsa_int8_ten_shapes_910b import verify_structure
 
-    result = dict(case=case, status="failed", mode="kernel", scope="32-row serial structural probe",
+    result = dict(case=case, status="failed", mode="kernel", scope=f"{values['q'].shape[0]}-row serial structural probe",
                   outer_keys=2048, cube_n=64, state_capacity=2048, output_k=512,
                   score_dtype="FP32", state_storage="GM ping-pong, sequential kernel launches",
                   blocks=list(range(0, width, 2048)), checks=[])
@@ -98,11 +98,17 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case):
             torch.testing.assert_close(actual_values[row, valid], ref[indices[row, valid].long()], rtol=1e-3, atol=1e-3)
             assert torch.isneginf(actual_values[row, ~valid]).all()
         # Validate the independently timed TopK-only arm on frozen full scores too.
-        adapter.run(full_source=full_scores)
-        verify_structure(adapter.output.cpu(), inputs["visible"])
-        checks, _ = check_selection(adapter.output.cpu(), refs)
-        assert checks["checks_passed"], checks
+        if full_scores is not None:
+            adapter.run(full_source=full_scores)
+            verify_structure(adapter.output.cpu(), inputs["visible"])
+            checks, _ = check_selection(adapter.output.cpu(), refs)
+            assert checks["checks_passed"], checks
         result["correctness_status"] = "passed"
+        if validate_only:
+            result.update(status="passed", timing_status="not_requested")
+            return result
+        if case == "int8_budget_exact":
+            result["boundary_reports"] = run_boundaries(inputs, values, report)
         result["timing_status"] = "running"
         result["timing_attempts"] = []
         functions = dict(score=adapter.score_only, topk=lambda: adapter.run(full_source=full_scores),
@@ -142,3 +148,39 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case):
                     (Path(report) / f"{case}-cann-serial-{name}-{kind}.txt").write_text(text)
         path.write_text(json.dumps(result, indent=2, allow_nan=False))
     return result
+
+
+def run_boundaries(inputs, values, report):
+    import torch
+
+    specifications = (
+        ("serial_edges_unequal17", 4097,
+         [0, 1, 63, 64, 127, 128, 191, 192, 511, 512, 513, 2047, 2048, 2049, 4095, 4096, 4097],
+         [3, 5, 9], False),
+        ("serial_edges_ties3", 2049, [0, 512, 2049], [1, 2], True),
+        ("serial_edges_invisible1", 1, [0], [1], False),
+    )
+    completed = []
+    for name, width, visible, request_lengths, ties in specifications:
+        count = len(visible)
+        assert sum(request_lengths) == count
+        edge = dict(inputs)
+        for key in ("q", "qs", "weights"):
+            edge[key] = inputs[key][:count].clone()
+        if ties:
+            edge["weights"].zero_()
+        columns = (width + 191) // 192
+        mapping = inputs["row_table"][0, :columns]
+        tables = []
+        for request, length in enumerate(request_lengths):
+            tables.extend([torch.roll(mapping, request)] * length)
+        edge["row_table"] = torch.stack(tables).contiguous()
+        edge["visible"] = torch.tensor(visible, dtype=inputs["visible"].dtype)
+        target = dict(values)
+        for key in ("q", "qs", "weights", "row_table", "visible"):
+            target[key] = edge[key].to(values["q"].device)
+        entry = run_probe(edge, target, width, None, None, None, report, name, validate_only=True)
+        completed.append(dict(case=name, width=width, rows=count, request_lengths=request_lengths,
+                              tied_scores=ties, status=entry["status"]))
+        print("QSA SERIAL BOUNDARY PASS " + json.dumps(completed[-1]), flush=True)
+    return completed
