@@ -15,6 +15,7 @@
 """Validate and time the FP32 serial CANN-structure control."""
 
 import json
+import math
 import statistics
 from pathlib import Path
 
@@ -81,7 +82,7 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case):
                 bad += int((consumed[:, :2].sum(1) < 2048).sum())
         entry = dict(stage=stage, key_start=start, mismatches=bad)
         result["checks"].append(entry)
-        path.write_text(json.dumps(result, indent=2))
+        path.write_text(json.dumps(result, indent=2, allow_nan=False))
         print("QSA CANN SERIAL CHECK " + json.dumps(entry), flush=True)
         assert bad == 0, (case, entry)
 
@@ -101,22 +102,43 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case):
         verify_structure(adapter.output.cpu(), inputs["visible"])
         checks, _ = check_selection(adapter.output.cpu(), refs)
         assert checks["checks_passed"], checks
+        result["correctness_status"] = "passed"
+        result["timing_status"] = "running"
+        result["timing_attempts"] = []
         functions = dict(score=adapter.score_only, topk=lambda: adapter.run(full_source=full_scores),
                          serial=adapter, production_control=control)
         samples = {name: [] for name in functions}
+        result["samples_ms"] = samples
         for iteration in range(2):
             names = tuple(functions) if iteration == 0 else tuple(reversed(functions))
             for name in names:
-                samples[name].append(timer.get_latency(functions[name]))
+                for attempt in range(2):
+                    value = float(timer.get_latency(functions[name]))
+                    valid = math.isfinite(value) and value > 0
+                    result["timing_attempts"].append(dict(stage=name, round=iteration,
+                        attempt=attempt, valid=valid, value_ms=value if valid else None,
+                        invalid_value=None if valid else str(value)))
+                    if valid:
+                        samples[name].append(value)
+                        break
+                    print(f"QSA CANN SERIAL INVALID TIME {name}: {value}; attempt={attempt + 1}", flush=True)
+                else:
+                    result["timing_status"] = "invalid"
+                    raise RuntimeError(f"Harness returned invalid latency twice: {case} {name}")
         medians = {name: statistics.median(times) for name, times in samples.items()}
-        result.update(status="passed", samples_ms=samples, medians_ms=medians,
+        result.update(status="passed", timing_status="passed", samples_ms=samples, medians_ms=medians,
                       control_over_serial=medians["production_control"] / medians["serial"],
                       spread_pct={name: (max(times)-min(times))/statistics.median(times)*100 for name,times in samples.items()})
         print("QSA CANN SERIAL us " + json.dumps({name: time*1000 for name,time in medians.items()}), flush=True)
+    except Exception as exc:
+        result["error"] = repr(exc)
+        if result.get("timing_status") == "running":
+            result["timing_status"] = "failed"
+        raise
     finally:
         for name, compiled in adapter.compiled.items():
             for kind, text in getattr(compiled, "asm", {}).items():
                 if isinstance(text, str):
                     (Path(report) / f"{case}-cann-serial-{name}-{kind}.txt").write_text(text)
-        path.write_text(json.dumps(result, indent=2))
+        path.write_text(json.dumps(result, indent=2, allow_nan=False))
     return result

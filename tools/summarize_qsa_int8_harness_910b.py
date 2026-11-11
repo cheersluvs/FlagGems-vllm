@@ -401,13 +401,29 @@ def main():
                 rows.append(record)
                 if record["status"] != "passed":
                     raise ValueError(f"Serial control failed: {name}")
+                for stage in ("score", "topk", "serial", "production_control"):
+                    samples = record["samples_ms"][stage]
+                    if len(samples) != 2 or not all(
+                        isinstance(value, (int, float)) and math.isfinite(value) and value > 0
+                        for value in samples
+                    ):
+                        record["timing_status"] = "invalid"
+                        raise ValueError(f"Invalid serial kernel timing: {name} {stage}")
             if args.pytest_exit_code:
                 raise ValueError(f"pytest returned {args.pytest_exit_code}")
         except (OSError, ValueError, KeyError) as exc:
             error = str(exc)
         result = dict(exit_code=int(error is not None), mode="kernel", cases=rows,
                       error=error, arithmetic_mean_speedup=None, scope="Serial structural control, not acceptance")
-        args.output.write_text(json.dumps(result, indent=2))
+        def clean(value):
+            if isinstance(value, float) and not math.isfinite(value):
+                return None
+            if isinstance(value, dict):
+                return {key: clean(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [clean(item) for item in value]
+            return value
+        args.output.write_text(json.dumps(clean(result), indent=2, allow_nan=False))
         for row in rows:
             print(row["case"], row["status"], row.get("medians_ms"), row.get("spread_pct"))
         if error:
