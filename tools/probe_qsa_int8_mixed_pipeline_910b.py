@@ -787,6 +787,7 @@ def _qsa_int8_handoff_copy(
     CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
     ONLINE_TOP: tl.constexpr = 0, OnlineIndices=None,
     PACKED_OUTPUT: tl.constexpr = False, KEEP_TILE_STORE: tl.constexpr = False,
+    UB_SNAPSHOT: tl.constexpr = False,
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
@@ -840,7 +841,10 @@ def _qsa_int8_handoff_copy(
                     out=tl.zeros((2 * CHUNK,), tl.float32),
                 )
                 if ONLINE_TOP:
-                    state = _update_online_topk(state, pairs, ONLINE_TOP, CHUNK)
+                    if UB_SNAPSHOT:
+                        state = _update_online_topk_ub_snapshot(state, pairs, ONLINE_TOP, CHUNK)
+                    else:
+                        state = _update_online_topk(state, pairs, ONLINE_TOP, CHUNK)
                 if not ONLINE_TOP or KEEP_TILE_STORE:
                     pair_lane = tl.arange(0, 2 * CHUNK)
                     tile_out = (row * SUBTILES + subtile) * 2 * CHUNK + pair_lane
@@ -1429,7 +1433,7 @@ def handoff_benchmark(args, cpu, inputs, packed_q, width):
         if args.online_topk:
             online = online_topk_arm(
                 inputs, packed_q.shape[0], width, packed=args.online_packed_output,
-                keep_tile_store=args.online_mte3,
+                keep_tile_store=args.online_mte3, ub_snapshot=args.online_ub_snapshot,
             )
         handoff_merge_benchmark(args, cpu, inputs[-1], arms, None, online=online)
         return
@@ -1454,7 +1458,7 @@ def handoff_benchmark(args, cpu, inputs, packed_q, width):
         handoff_merge_benchmark(args, cpu, inputs[-1], arms, result)
 
 
-def online_topk_arm(inputs, cores, width, *, packed, keep_tile_store):
+def online_topk_arm(inputs, cores, width, *, packed, keep_tile_store, ub_snapshot):
     q, k, qs, ks, weights, table, visible = inputs
     rows = visible.numel()
     ring = torch.empty((cores, 2, 16, CUBE_TILE), device=q.device, dtype=torch.int32)
@@ -1469,7 +1473,7 @@ def online_topk_arm(inputs, cores, width, *, packed, keep_tile_store):
             q, k, table, ring, scores, qs, ks, weights, visible,
             subtiles, 2, PAGE, CUBE_TILE, rows, True, True,
             ONLINE_TOP=TOPK, OnlineIndices=indices, PACKED_OUTPUT=packed,
-            KEEP_TILE_STORE=keep_tile_store,
+            KEEP_TILE_STORE=keep_tile_store, UB_SNAPSHOT=ub_snapshot,
             use_bytecode=True, disable_auto_cv_work_space_manage=True,
             disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
             multibuffer=False, sync_solver=False, unit_flag=False,
@@ -1629,6 +1633,8 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result, *, online
 
     if online is not None:
         suffix = "-packed" if args.online_packed_output else ""
+        if args.online_ub_snapshot:
+            suffix += "-ubsnapshot"
         summary = report / f"{args.worker}-online-topk{suffix}.json"
         launch, proposals = arms["double_buffer"]
         online_launch, online_indices, online_scores = online
@@ -1641,7 +1647,7 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result, *, online
         result = {
             "case": args.worker, "rows": rows, "tile_lists": proposals.shape[1],
             "slots": 2, "packed_output": args.online_packed_output,
-            "keep_tile_store_mte3": args.online_mte3,
+            "keep_tile_store_mte3": args.online_mte3, "ub_snapshot": args.online_ub_snapshot,
             "correctness": {}, "validation_stages": {}, "passed": False,
         }
         summary.write_text(json.dumps(result, indent=2))
@@ -1664,6 +1670,10 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result, *, online
             result["correctness"]["online"] = check(cpu, online_indices, online_scores)
             torch.testing.assert_close(online_scores.cpu(), scores.cpu(), rtol=0, atol=0)
             if not args.online_packed_output:
+                for function in functions.values():
+                    for _ in range(8):
+                        function()
+                torch.npu.synchronize()
                 result["total"] = paired_event_times(
                     functions, rounds=4, launches=16, speedup_key="materialized_over_online",
                 )
@@ -2008,9 +2018,12 @@ def main():
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
-    if (args.online_integer_gather or args.online_ub_snapshot) and not (
-        args.online_two_step or (args.online_real_tiles and args.online_runtime_prefix)
-    ):
+    isolated_gather = args.online_two_step or (
+        args.online_real_tiles and args.online_runtime_prefix
+    )
+    if args.online_integer_gather and not isolated_gather:
+        parser.error("Integer gather requires two-step or real runtime-prefix replay")
+    if args.online_ub_snapshot and not (isolated_gather or args.online_topk):
         parser.error("Gather trials require two-step or real runtime-prefix replay")
     if (args.online_integer_gather or args.online_ub_snapshot) and args.online_export != "none":
         parser.error("Run gather trials with --online-export none")
@@ -2095,6 +2108,8 @@ def main():
                 command.append("--fused-binary-merge")
             if args.online_topk:
                 command.append("--online-topk")
+            if args.online_ub_snapshot:
+                command.append("--online-ub-snapshot")
             if args.online_packed_output:
                 command.append("--online-packed-output")
             if args.online_mte3:
