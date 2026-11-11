@@ -137,6 +137,11 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             result["peer_score_segments"] = peer.segments
         if os.environ.get("QSA_SERIAL_MIXED_CONTROL") == "1" and group == 4:
             from qsa_cann_mixed_910b_trial import PreparedMixedOuter
+            if os.environ.get("QSA_MIXED_COMPILE_DIAG") == "1":
+                from diagnose_qsa_structural_mixed_compile_910b import compile_matrix
+                matrix = compile_matrix(values, width, owners, report, case)
+                result["mixed_compile_matrix"] = matrix
+                assert all(entry["status"] == "compiled" for entry in matrix), "Mixed compile matrix incomplete; see compiler input IR and logs"
             result["mixed_checks"] = []
             for slots, label in ((1, "mixed_serial"), (2, "mixed_double")):
                 active_group = 4

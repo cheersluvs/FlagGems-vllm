@@ -216,3 +216,9 @@ query4 的更多 program 未带来收益；不能由 launch grid 直接推断硬
 gate：先验证单槽带诊断写回版本的每块点积、评分、排序与状态，再验证无诊断写回的最终索引/数值；单槽通过才进入双槽同样检查。三个边界fixture在query4策略下也运行两种混合版本。任一资源/编译/正确性失败则停止计时并保存现有IR/检查记录，不降低TopK容量来绕过问题。
 
 计时使用同一harness kernel方法，两轮交错。`fusion_speedup=query4分离kernel串行/mixed_serial`；`double_buffer_speedup=mixed_serial/mixed_double`。评分与TopK独立数据仍来自分离kernel控制，不伪称混合kernel内部阶段独立耗时。正式生产验收仍在第五步。
+
+### 第三步首轮编译阻塞及固定源码诊断
+
+报告 `2abaf1969937c1223a5201931f370a3b552a2c10`，代码 `a55a89b6c0af51bbdef2c48352087e08d16239dc`：分离kernel控制的query4/query16校验通过；混合单槽的TRACE=True版本在BiSheng `ConvertLinalgIRToBinary` 阶段以 `InjectSync Traverse IR Failed` 中止。未执行该混合kernel，尚无UB超限、设备正确性、混合性能或双缓冲收益的证据。
+
+下一轮使用 `QSA_MIXED_COMPILE_DIAG=1`，固定 `_mixed_outer2048` 源码与全部原编译选项，对 slots1/2 × TRACE False/True 做4项 warmup 编译。拦截仅保存原始编译器输入IR、原命令、stdout/stderr和错误信息，不添加优化/同步选项，不修改编译器。失败项不阻止后续编译项记录，4项均完成后统一判定。四项全编译成功才继续原来的正确性和计时流程；否则停止执行混合kernel并回传全部编译证据。独立TRITON_CACHE_DIR用于确保本轮能捕获编译输入，不改变计时器。

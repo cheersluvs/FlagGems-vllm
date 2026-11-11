@@ -175,6 +175,14 @@ class PreparedMixedOuter:
                 disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
                 multibuffer=False, sync_solver=False, unit_flag=False))
 
+    def compile_variant(self, trace):
+        compiled = []
+        for launch in self.launches:
+            options = dict(launch.keywords)
+            grid = (triton.cdiv(options["ROWS"], 4),)
+            compiled.append(_mixed_outer2048.warmup(*launch.args, grid=grid, TRACE=trace, **options))
+        return compiled
+
     def run(self, check=None):
         for index, launch in enumerate(self.launches):
             self.compiled[f"mixed{index}"] = launch(TRACE=check is not None)
