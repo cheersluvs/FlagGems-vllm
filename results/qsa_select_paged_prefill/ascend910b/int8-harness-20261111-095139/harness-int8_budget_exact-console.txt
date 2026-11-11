@@ -1,0 +1,512 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA MIXED COMPILE int8_budget_exact mixed_serial
+F
+=================================== FAILURES ===================================
+______ test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact] ______
+
+src = <triton.compiler.compiler.ASTSource object at 0xfffbbe64b110>
+target = GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0)
+options = NPUOptions(debug=False, instrumentation_mode='', sanitize_overflow=True, llvm_version=15, kernel_name='triton_', arch=...simd', mix_mode='', simt_stack_limit=None, use_bytecode=True, enable_simt_reorder_instruction=False, disable_fma=False)
+_env_vars = None
+
+    def compile(src, target=None, options=None, _env_vars=None):
+        compilation_listener = knobs.compilation.listener
+        if compilation_listener:
+            timer = CompileTimer()
+    
+        if target is None:
+            target = driver.active.get_current_target()
+        assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
+        backend = make_backend(target)
+        ir_source = not isinstance(src, ASTSource)
+        # create backend
+        if ir_source:
+            assert isinstance(src, str), "source must be either AST or a filepath"
+            context = ir.context()
+            src = IRSource(src, context, backend)
+    
+        extra_options = src.parse_options()
+        options = backend.parse_options(dict(options or dict(), **extra_options))
+        # create cache manager
+        env_vars = get_cache_invalidating_env_vars() if _env_vars is None else _env_vars
+        key = get_cache_key(src, backend, options, env_vars=env_vars)
+        hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
+        fn_cache_manager = get_cache_manager(hash)
+        # For dumping/overriding only hash the source as we want it to be independent of triton
+        # core changes to make it easier to track kernels by hash.
+        enable_override = knobs.compilation.override
+        enable_ir_dump = knobs.compilation.dump_ir
+        store_only_binary = knobs.compilation.store_binary_only
+        fn_override_manager = get_override_manager(src.hash()) if enable_override else None
+        fn_dump_manager = get_dump_manager(src.hash()) if enable_ir_dump else None
+        # Pre-truncate the file name here to avoid hitting the 255 character limit on common platforms.
+        # The final file name in the cache will have a format of f"{filename}.{ext}.tmp.pid_{pid}_{uuid}".
+        # A PID string can be 5-character long. A UUID string has typically 36 characters. Let's truncate
+        # the file name to 150 characters to be safe.
+        file_name = src.name[:150]
+        metadata_filename = f"{file_name}.json"
+        metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
+        metadata_path = metadata_group.get(metadata_filename)
+        always_compile = knobs.compilation.always_compile
+        if not always_compile and metadata_path is not None:
+            # cache hit!
+            res = CompiledKernel(src, metadata_group, hash)
+            if compilation_listener:
+                compilation_listener(
+                    src=src,
+                    metadata=res.metadata._asdict(),
+                    metadata_group=metadata_group,
+                    times=timer.end(),
+                    cache_hit=True,
+                )
+            return res
+    
+        # initialize metadata
+        metadata = {
+            "hash": hash,
+            "target": target,
+            **options.__dict__,
+            **env_vars,
+        }
+        metadata["triton_version"] = __version__
+        # run compilation pipeline  and populate metadata
+        stages = dict()
+        backend.add_stages(stages, options, src.language)
+        first_stage = list(stages.keys()).index(src.ext)
+        # when the source is an IR file, don't apply the passes related to this stage. This makes it easier to write IR level tests.
+        if ir_source:
+            first_stage += 1
+    
+        # For IRSource, we have already grabbed the context + called both
+        # ir.load_dialects and backend.load_dialects.
+        if not isinstance(src, IRSource):
+            context = ir.context()
+            ir.load_dialects(context)
+            buffer_ir.load_dialects(context)
+            ascend_ir.load_dialects(context)
+            backend.load_dialects(context)
+            # FlagPrism: register optional dialects in every fresh context.
+            _flagprism.load_dialects(context)
+    
+        codegen_fns = backend.get_codegen_implementation(options)
+        module_map = backend.get_module_map()
+        try:
+            module = src.make_ir(target, options, codegen_fns, module_map, context)
+        except Exception as e:
+            filter_traceback(e)
+            raise
+    
+        if ir_source:
+            ir_filename = f"{file_name}.{src.ext}"
+            metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
+        else:
+            ir_filename = f"{file_name}.source"
+            metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
+    
+        use_ir_loc = knobs.compilation.use_ir_loc
+        if ir_source and use_ir_loc:
+            module.create_location_snapshot(src.path)
+            print(f"Creating new locations for {src.path}")
+    
+        if compilation_listener:
+            timer.finished_ir_initialization()
+        for ext, compile_ir in list(stages.items())[first_stage:]:
+            try:
+>               next_module = compile_ir(module, metadata)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py:330: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py:1137: in <lambda>
+    stages["npubin"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py:651: in _compile_linalg_to_npu_bin
+    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py:835: in linalg_to_bin_enable_npu_compile_A2_A3
+    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+input = None, capture_output = False, timeout = None, check = True
+popenargs = (['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmppvfj2ci1/kernel.mlir', '--target=Ascend...-enable-auto-multi-buffer=False', '--enable-auto-bind-sub-block=False', '--enable-hivm-graph-sync-solver=False', ...],)
+kwargs = {'env': {'QSA_HARNESS_REPORT': '/tmp/qsa-ascend910b-int8-harness.QIu2yh3d', 'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1', 'QSA_INT8_HARNESS_PREFLIGHT_ONLY': '0', 'HOSTNAME': 'bm-ctyun-wq-zone1-d-910b4-64g-0-13', ...}, 'stdout': -1, 'stderr': -1}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+    
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+    
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+    
+        If timeout is given, and the process takes too long, a TimeoutExpired
+        exception will be raised.
+    
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+    
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+    
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+    
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+    
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmppvfj2ci1/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=False', '--enable-auto-bind-sub-block=False', '--enable-hivm-graph-sync-solver=False', '--enable-hivm-cross-core-gss=False', '--enable-hivm-unit-flag-sync=False', '--disable-auto-inject-block-sync=True', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--disable-auto-cv-work-space-manage=True', '--enable-auto-blockify-loop', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmppvfj2ci1/kernel']' died with <Signals.SIGABRT: 6>.
+
+/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py:571: CalledProcessError
+
+The above exception was the direct cause of the following exception:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfffbbe7f64d0>
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-206/test_qsa_select_paged_prefill_0')
+case_name = 'int8_budget_exact'
+
+    @pytest.mark.qsa_select_paged_prefill_int8_910b
+    @pytest.mark.parametrize("case_name", ("int8_budget_exact", "int8_compact"))
+    def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_name):
+        from types import SimpleNamespace
+    
+        pytest.importorskip("torch_npu")
+        if not torch.npu.is_available():
+            pytest.skip("Ascend NPU unavailable")
+        device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+        torch.npu.set_device(device_index)
+        if "910B" not in torch.npu.get_device_name(device_index):
+            pytest.skip("Ascend 910B required")
+        assert Config.mode == consts.BenchMode.KERNEL
+        assert os.environ.get("ASCEND_LAUNCH_BLOCKING") != "1"
+    
+        root = Path(__file__).resolve().parents[1]
+        monkeypatch.syspath_prepend(str(root / "tools"))
+        from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
+        from probe_qsa_int8_pipeline_910b import check_selection
+        from probe_qsa_int8_score_910b import reference as cpu_score
+        from probe_qsa_int8_score_sol_910b import build_direct_page_source
+        from probe_qsa_int8_ten_shapes_910b import verify_structure
+        from qsa_int8_online_topk_910b_trial import PreparedOnlineTopKSelection
+        from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+        from qsa_prefill_pipeline_910b_trial import load_topk
+        from qsa_timeline_910b import collect
+    
+        plan = CASES[(case_name,)]
+        rows = 32
+        assert plan["query_lengths"][0] >= rows
+        width = plan["logits_width"]
+        inputs = make_inputs(plan)
+        for key in ("q", "qs", "weights", "row_table", "visible"):
+            inputs[key] = inputs[key][:rows].contiguous()
+        device = f"npu:{device_index}"
+        values = {key: value.to(device) for key, value in inputs.items()}
+        topk = load_topk()
+        policy = os.environ.get("QSA_HARNESS_TOPK_POLICY", "prefill_3seg")
+        route = topk_route(plan, policy)
+        assert route == "auto", "The two chunk controls use the automatic TopK route"
+        monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", "auto")
+        kernels = {}
+        for bounded in (True, False):
+            arm = "chunk_bounded" if bounded else "chunk_full"
+            kernels[bounded] = load_generated_prefix(
+                tmp_path, "chunk", arm,
+                build_direct_page_source(bounded, arm, precomputed_visibility=False),
+            )
+        output = torch.empty((rows, 512), device=device, dtype=torch.int32)
+        scratch = torch.empty((rows, width), device=device, dtype=torch.float32)
+        workspace = torch.empty(1024**2, device=device, dtype=torch.uint8)
+        current = PreparedSharedMapInt8Selection(
+            values, output, scratch, workspace, topk, [0, rows],
+            key_group4=True, single_page64=True, direct_page_kernels=kernels,
+            shared_direct_page_proof=True, allow_short_query16=True,
+        )
+        online = PreparedOnlineTopKSelection(
+            values, inputs["visible"], [0, rows], rows, scan_width=width,
+        )
+        assert current.chunks == [(0, rows)] and online.chunks == [(0, rows)]
+        if case_name == "int8_compact":
+            assert current.short_query16 and current.query16_routes[(0, rows)]
+    
+        def score():
+            current.score_into(0, rows, scratch)
+    
+        def select():
+            current.topk_all(scratch)
+    
+        def serial():
+            score()
+            select()
+    
+        if os.environ.get("QSA_HARNESS_CANN_SERIAL") == "1":
+            from probe_qsa_cann_serial_910b import run_probe
+            serial()
+            timer = QSAPrefillInt8Benchmark(
+                op_name=f"{OP_NAME}_cann_serial", case_name=case_name,
+                torch_op=None, gems_op=_call_candidate, input_fn=lambda *args: iter(()),
+                dtypes=[torch.int8], device=device,
+            )
+>           result = run_probe(inputs, values, width, scratch, serial, timer,
+                               Path(os.environ["QSA_HARNESS_REPORT"]), case_name)
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py:936: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tools/probe_qsa_cann_serial_910b.py:147: in run_probe
+    mixed.run(check=check)
+tools/qsa_cann_mixed_910b_trial.py:180: in run
+    self.compiled[f"mixed{index}"] = launch(TRACE=check is not None)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py:420: in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py:736: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py:864: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py:83: in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+src = <triton.compiler.compiler.ASTSource object at 0xfffbbe64b110>
+target = GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0)
+options = NPUOptions(debug=False, instrumentation_mode='', sanitize_overflow=True, llvm_version=15, kernel_name='triton_', arch=...simd', mix_mode='', simt_stack_limit=None, use_bytecode=True, enable_simt_reorder_instruction=False, disable_fma=False)
+_env_vars = None
+
+    def compile(src, target=None, options=None, _env_vars=None):
+        compilation_listener = knobs.compilation.listener
+        if compilation_listener:
+            timer = CompileTimer()
+    
+        if target is None:
+            target = driver.active.get_current_target()
+        assert isinstance(target, GPUTarget), "target must be of GPUTarget type"
+        backend = make_backend(target)
+        ir_source = not isinstance(src, ASTSource)
+        # create backend
+        if ir_source:
+            assert isinstance(src, str), "source must be either AST or a filepath"
+            context = ir.context()
+            src = IRSource(src, context, backend)
+    
+        extra_options = src.parse_options()
+        options = backend.parse_options(dict(options or dict(), **extra_options))
+        # create cache manager
+        env_vars = get_cache_invalidating_env_vars() if _env_vars is None else _env_vars
+        key = get_cache_key(src, backend, options, env_vars=env_vars)
+        hash = hashlib.sha256(key.encode("utf-8")).hexdigest()
+        fn_cache_manager = get_cache_manager(hash)
+        # For dumping/overriding only hash the source as we want it to be independent of triton
+        # core changes to make it easier to track kernels by hash.
+        enable_override = knobs.compilation.override
+        enable_ir_dump = knobs.compilation.dump_ir
+        store_only_binary = knobs.compilation.store_binary_only
+        fn_override_manager = get_override_manager(src.hash()) if enable_override else None
+        fn_dump_manager = get_dump_manager(src.hash()) if enable_ir_dump else None
+        # Pre-truncate the file name here to avoid hitting the 255 character limit on common platforms.
+        # The final file name in the cache will have a format of f"{filename}.{ext}.tmp.pid_{pid}_{uuid}".
+        # A PID string can be 5-character long. A UUID string has typically 36 characters. Let's truncate
+        # the file name to 150 characters to be safe.
+        file_name = src.name[:150]
+        metadata_filename = f"{file_name}.json"
+        metadata_group = fn_cache_manager.get_group(metadata_filename) or {}
+        metadata_path = metadata_group.get(metadata_filename)
+        always_compile = knobs.compilation.always_compile
+        if not always_compile and metadata_path is not None:
+            # cache hit!
+            res = CompiledKernel(src, metadata_group, hash)
+            if compilation_listener:
+                compilation_listener(
+                    src=src,
+                    metadata=res.metadata._asdict(),
+                    metadata_group=metadata_group,
+                    times=timer.end(),
+                    cache_hit=True,
+                )
+            return res
+    
+        # initialize metadata
+        metadata = {
+            "hash": hash,
+            "target": target,
+            **options.__dict__,
+            **env_vars,
+        }
+        metadata["triton_version"] = __version__
+        # run compilation pipeline  and populate metadata
+        stages = dict()
+        backend.add_stages(stages, options, src.language)
+        first_stage = list(stages.keys()).index(src.ext)
+        # when the source is an IR file, don't apply the passes related to this stage. This makes it easier to write IR level tests.
+        if ir_source:
+            first_stage += 1
+    
+        # For IRSource, we have already grabbed the context + called both
+        # ir.load_dialects and backend.load_dialects.
+        if not isinstance(src, IRSource):
+            context = ir.context()
+            ir.load_dialects(context)
+            buffer_ir.load_dialects(context)
+            ascend_ir.load_dialects(context)
+            backend.load_dialects(context)
+            # FlagPrism: register optional dialects in every fresh context.
+            _flagprism.load_dialects(context)
+    
+        codegen_fns = backend.get_codegen_implementation(options)
+        module_map = backend.get_module_map()
+        try:
+            module = src.make_ir(target, options, codegen_fns, module_map, context)
+        except Exception as e:
+            filter_traceback(e)
+            raise
+    
+        if ir_source:
+            ir_filename = f"{file_name}.{src.ext}"
+            metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
+        else:
+            ir_filename = f"{file_name}.source"
+            metadata_group[ir_filename] = fn_cache_manager.put(module, ir_filename)
+    
+        use_ir_loc = knobs.compilation.use_ir_loc
+        if ir_source and use_ir_loc:
+            module.create_location_snapshot(src.path)
+            print(f"Creating new locations for {src.path}")
+    
+        if compilation_listener:
+            timer.finished_ir_initialization()
+        for ext, compile_ir in list(stages.items())[first_stage:]:
+            try:
+                next_module = compile_ir(module, metadata)
+            except Exception as e:
+                if (ext == "ttadapter"):
+                    stage_name = "ConvertTritonIRToLinalgIR"
+                elif (ext == "npubin"):
+                    stage_name = "ConvertLinalgIRToBinary"
+                elif (ext == "bcmlir"):
+                    stage_name = "BytecodeToLinalgIRByBishengirOpt"
+                elif (ext == "mlirbc"):
+                    stage_name = "LinalgIRToBytecodeByTritonMLIROpt"
+                else:
+                    stage_name = "MLIRCompile"
+                if hasattr(e, 'stderr') and e.stderr:
+                    error_detail = e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else e.stderr
+                else:
+                    error_detail = str(e)
+                from ..runtime.cache import FileCacheManager
+                if isinstance(fn_cache_manager, FileCacheManager):
+                    error_detail += f"\n\n[INFO]: The compiled kernel cache is in {fn_cache_manager.cache_dir}\n\n"
+                else:
+                    error_detail += f"\n\n[INFO]: The compiled kernel cache is {file_name}.{ext}\n\n"
+>               raise MLIRCompilationError(stage_name, error_detail) from e
+E               triton.compiler.errors.MLIRCompilationError: 
+E               ///------------------[ERROR][Triton][BEG]------------------
+E               [ConvertLinalgIRToBinary] encounters error:
+E               LLVM ERROR: InjectSync Traverse IR Failed! 
+E               PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
+E               ///------------------[ERROR][Triton][END]------------------
+
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py:351: MLIRCompilationError
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-structural-mixed.OVPOBNSj/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+  /tmp/flaggems-qsa-structural-mixed.OVPOBNSj/code/tools/qsa_cann_serial_910b_trial.py:257: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    self.local = torch.empty_like(self.states[0])
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+1 failed, 20 warnings in 11.43s
