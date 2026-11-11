@@ -1,0 +1,22 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+long-handoff-sort-slots2: 129 INT32 dot handoffs
+{
+  "operation": "sort",
+  "slots": 2,
+  "subtiles": 129,
+  "stage": "compiling_or_launching",
+  "passed": false,
+  "error": "at 15:8:\n    CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,\n    ONLINE_TOP: tl.constexpr = 0, OnlineIndices=None,\n):\n    pid = tl.program_id(0)\n    m = tl.arange(0, 16)\n    d = tl.arange(0, 128)\n    n = tl.arange(0, CHUNK)\n    q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])\n    # The online arm has no tile writeback. Release after the Vector has read the ring.\n    RELEASE_PIPE: tl.constexpr = pipe.PIPE_MTE2 if ONLINE_TOP else pipe.PIPE_MTE3\n    for ring_index in tl.static_range(SLOTS):\n        al.sync_block_set(\"vector\", \"cube\", ring_index, RELEASE_PIPE, pipe.PIPE_FIX)\n        ^\nTypeError('sender_pipe and receiver_pipe must be instances of PIPE enum')"
+}
+{
+  "cases": {
+    "long": {
+      "exit_code": 1,
+      "timed_out": false
+    }
+  },
+  "instruction_timeline": {
+    "status": "not_requested"
+  }
+}
