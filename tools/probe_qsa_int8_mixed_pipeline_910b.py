@@ -282,6 +282,62 @@ def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
 
 
 @triton.jit
+def _qsa_online_state_probe(Source, Tiles, Output, STEPS: tl.constexpr):
+    word = tl.arange(0, 1024)
+    lane = tl.arange(0, 128)
+    state = tl.load(Source + word)
+    for step in range(STEPS):
+        tile = tl.load(Tiles + step * 128 + lane)
+        state = _update_online_topk(state, tile, 512, 64)
+    tl.store(Output + word, state)
+
+
+def online_state_probe(args, device):
+    from triton.backends.ascend import compiler
+
+    steps = args.online_update_steps
+    report = Path(args.report)
+    label = f"online-state-{steps}"
+    summary = report / f"{label}.json"
+    result = {"steps": steps, "status": "launching"}
+    # Distinct scores make score/index pairing testable without a tie policy.
+    gen = torch.Generator().manual_seed(512)
+    scores = torch.randperm(512 + steps * 64, generator=gen).float()
+    ids = torch.arange(scores.numel(), dtype=torch.int32)
+
+    def pack(values, indices):
+        values, order = values.sort(dim=-1, descending=True)
+        return torch.stack((values, indices.gather(-1, order).view(torch.float32)), dim=-1)
+
+    state = pack(scores[:512], ids[:512]).to(device)
+    tiles = pack(scores[512:].view(steps, 64), ids[512:].view(steps, 64)).to(device)
+    output = torch.empty_like(state)
+    try:
+        summary.write_text(json.dumps(result, indent=2))
+        with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+            kernel = _qsa_online_state_probe[(1,)](
+                state, tiles, output, steps, use_bytecode=True,
+                enable_auto_bind_sub_block=False, multibuffer=False,
+            )
+        result.update(status="synchronizing", artifacts=save_artifacts(kernel, report, label))
+        summary.write_text(json.dumps(result, indent=2))
+        torch.npu.synchronize()
+        expected_scores, order = scores.topk(512)
+        actual = output.cpu()
+        torch.testing.assert_close(actual[:, 0], expected_scores, rtol=0, atol=0)
+        torch.testing.assert_close(
+            actual[:, 1].contiguous().view(torch.int32), ids[order], rtol=0, atol=0,
+        )
+        result.update(status="passed", checked_pairs=512)
+    except Exception as exc:
+        result["error"] = repr(exc)
+    summary.write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2), flush=True)
+    if result["status"] != "passed":
+        raise SystemExit(1)
+
+
+@triton.jit
 def _qsa_int8_handoff_copy(
     Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
     SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
@@ -1265,6 +1321,9 @@ def worker(args):
     torch.npu.set_device(args.device)
     device = torch.device(f"npu:{args.device}")
     assert "910B" in torch.npu.get_device_name(args.device)
+    if args.online_update_steps:
+        online_state_probe(args, device)
+        return
     if args.online_raw_length:
         online_raw_length_probe(args, device)
         return
@@ -1455,7 +1514,9 @@ def main():
     handoff_modes.add_argument("--handoff-merge", action="store_true")
     parser.add_argument("--fused-binary-merge", action="store_true")
     parser.add_argument("--online-topk", action="store_true")
-    parser.add_argument("--online-raw-length", type=int, choices=(64, 512))
+    isolated = parser.add_mutually_exclusive_group()
+    isolated.add_argument("--online-raw-length", type=int, choices=(64, 512))
+    isolated.add_argument("--online-update-steps", type=int, choices=(1, 129))
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
@@ -1474,7 +1535,12 @@ def main():
     report = Path(args.report).resolve()
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
-    if args.online_raw_length:
+    if args.online_update_steps:
+        label = f"online-state-{args.online_update_steps}"
+        command = base + ["--worker", "long", "--online-update-steps", str(args.online_update_steps)]
+        code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
+        statuses[label] = dict(exit_code=code, timed_out=timed_out)
+    elif args.online_raw_length:
         label = f"online-raw-512x{args.online_raw_length}"
         command = base + ["--worker", "long", "--online-raw-length", str(args.online_raw_length)]
         code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
