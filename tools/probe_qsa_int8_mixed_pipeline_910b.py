@@ -351,6 +351,111 @@ def _qsa_online_prefix_probe(Source, Tiles, Output, StepLimit, LISTS: tl.constex
     tl.store(Output + words, state)
 
 
+@triton.jit
+def _qsa_online_two_step_probe(Source, Tiles, Output, Control, LISTS: tl.constexpr):
+    row = tl.program_id(0)
+    word = row * 1024 + tl.arange(0, 1024)
+    lane = tl.arange(0, 128)
+    state = tl.load(Source + word)
+    start = tl.load(Control)
+    count = tl.load(Control + 1)
+    for step in range(count):
+        tile = tl.load(Tiles + (row * LISTS + start + step) * 128 + lane)
+        state = _update_online_topk(state, tile, 512, 64)
+    tl.store(Output + word, state)
+
+
+def online_two_step_probe(args, proposals):
+    import hashlib
+    from triton.backends.ascend import compiler
+
+    report = Path(args.report)
+    arm = args.online_two_step
+    label = f"online-two-step-{arm}"
+    summary = report / f"{label}.json"
+    rows, lists, _ = proposals.shape
+    initial = torch.full((rows, TOPK, 2), -float("inf"), dtype=torch.float32)
+    initial.view(torch.int32)[..., 1] = -1
+    state = initial.to(proposals.device)
+    intermediate = torch.full_like(state, float("nan"))
+    output = torch.full_like(state, float("nan"))
+    tiles_cpu = proposals[:, :2].cpu().reshape(rows, 128, 2)
+    snapshots = {"initial": initial.view(torch.int32).tolist(),
+                 "tiles": tiles_cpu.view(torch.int32).tolist()}
+    result = {"arm": arm, "rows": rows, "tile_stride": lists,
+              "stages": {}, "passed": False}
+    snapshot_path = report / f"{label}-snapshots.json.gz"
+
+    def persist():
+        with gzip.open(snapshot_path, "wt") as stream:
+            json.dump(snapshots, stream)
+        result["snapshot_file"] = snapshot_path.name
+        summary.write_text(json.dumps(result, indent=2))
+
+    def validate(actual, steps):
+        source = torch.cat((initial, tiles_cpu[:, :steps * CUBE_TILE]), dim=1)
+        expected = source[..., 0].topk(TOPK, dim=1).values
+        different = actual[..., 0] != expected
+        finite = torch.isfinite(expected)
+        pair_errors = 0
+        for row in range(rows):
+            live = torch.isfinite(actual[row, :, 0])
+            actual_ids = actual[row].view(torch.int32)[live, 1]
+            source_ids = source[row].view(torch.int32)[:, 1]
+            if live.any():
+                matches = (
+                    (actual_ids[:, None] == source_ids)
+                    & (actual[row, live, 0, None] == source[row, :, 0])
+                )
+                pair_errors += int((~matches.any(dim=1)).sum())
+                pair_errors += actual_ids.numel() - actual_ids.unique().numel()
+        return {
+            "score_mismatches": int(different.sum()), "pair_errors": pair_errors,
+            "expected_finite_pairs": int(finite.sum()),
+            "passed": not different.any().item() and pair_errors == 0,
+        }
+
+    def launch(name, source, target, start, count, expected_steps):
+        # Keep Control as a device tensor so both call patterns use the same binary.
+        control = torch.tensor([start, count], dtype=torch.int32, device=proposals.device)
+        entry = {"start": start, "count": count, "status": "launching"}
+        result["stages"][name] = entry
+        persist()
+        artifact_label = f"{label}-{name}"
+        with patch.object(compiler, "subprocess", CompileCapture(report, artifact_label)):
+            kernel = _qsa_online_two_step_probe[(rows,)](
+                source, proposals, target, control, lists, use_bytecode=True,
+                enable_auto_bind_sub_block=False, multibuffer=False,
+            )
+        entry.update(status="synchronizing", artifacts=save_artifacts(kernel, report, artifact_label))
+        if kernel is not None:
+            binary = kernel.asm.get("npubin")
+            if binary is not None:
+                entry["npubin_sha256"] = hashlib.sha256(bytes(binary)).hexdigest()
+        persist()
+        torch.npu.synchronize()
+        actual = target.cpu()
+        snapshots[name] = actual.view(torch.int32).tolist()
+        entry.update(status="checked", **validate(actual, expected_steps))
+        persist()
+        print(json.dumps({name: entry}, indent=2), flush=True)
+
+    try:
+        launch("first", state, intermediate, 0, 1, 1)
+        assert result["stages"]["first"]["passed"], "first update failed"
+        if arm == "combined":
+            launch("second", state, output, 0, 2, 2)
+        else:
+            launch("second", intermediate, output, 1, 1, 2)
+        result["passed"] = result["stages"]["second"]["passed"]
+    except Exception as exc:
+        result["error"] = repr(exc)
+    persist()
+    print(json.dumps(result, indent=2), flush=True)
+    if not result["passed"]:
+        raise SystemExit(1)
+
+
 def online_real_tile_probe(args, proposals):
     from triton.backends.ascend import compiler
 
@@ -906,7 +1011,7 @@ def cube_controls(args, cpu, inputs, packed_q, workspace):
 
 
 def handoff_operation(args):
-    if args.handoff_sort or args.handoff_bench or args.handoff_merge or args.online_real_tiles:
+    if args.handoff_sort or args.handoff_bench or args.handoff_merge or args.online_real_tiles or args.online_two_step:
         return "sort"
     return "score" if args.handoff_score else "copy"
 
@@ -1438,9 +1543,12 @@ def worker(args):
     packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8)
     packed_q[:, :ROWS_PER_CORE * 4].copy_(padded_q.reshape(cores, ROWS_PER_CORE * 4, 128))
     inputs = tuple(t.to(device) for t in (packed_q, *rest))
-    if args.online_real_tiles:
+    if args.online_real_tiles or args.online_two_step:
         _, proposals = handoff_copy_control(args, cpu, inputs, packed_q, width, 2)
-        online_real_tile_probe(args, proposals)
+        if args.online_two_step:
+            online_two_step_probe(args, proposals)
+        else:
+            online_real_tile_probe(args, proposals)
         return
     if args.handoff_bench or args.handoff_merge:
         handoff_benchmark(args, cpu, inputs, packed_q, width)
@@ -1623,6 +1731,7 @@ def main():
     parser.add_argument("--online-packed-output", action="store_true")
     parser.add_argument("--online-mte3", action="store_true")
     isolated = parser.add_mutually_exclusive_group()
+    isolated.add_argument("--online-two-step", choices=("combined", "split"))
     isolated.add_argument("--online-raw-length", type=int, choices=(64, 512))
     isolated.add_argument("--online-update-steps", type=int, choices=(1, 2, 8, 32, 129))
     parser.add_argument("--online-real-tiles", action="store_true")
@@ -1653,7 +1762,12 @@ def main():
     report = Path(args.report).resolve()
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
-    if args.online_update_steps:
+    if args.online_two_step:
+        label = f"online-two-step-{args.online_two_step}"
+        command = base + ["--worker", "long", "--online-two-step", args.online_two_step]
+        code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
+        statuses[label] = dict(exit_code=code, timed_out=timed_out)
+    elif args.online_update_steps:
         kind = "online-real-tiles" if args.online_real_tiles else "online-state"
         label = f"{kind}-{args.online_update_steps}"
         command = base + ["--worker", "long", "--online-update-steps", str(args.online_update_steps)]
