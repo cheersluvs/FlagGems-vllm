@@ -880,7 +880,7 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
     from qsa_timeline_910b import collect
 
     plan = CASES[(case_name,)]
-    rows = 40
+    rows = 32
     assert plan["query_lengths"][0] >= rows
     width = plan["logits_width"]
     inputs = make_inputs(plan)

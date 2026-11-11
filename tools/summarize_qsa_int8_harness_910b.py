@@ -262,7 +262,7 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
         report = json.loads((directory / f"harness-{name}.json").read_text())
         if report[OP_NAME].get("result") != "passed":
             raise ValueError(f"Chunk preflight failed: {name}")
-        row = {"case": name, "rows": 40}
+        row = {"case": name}
         for stage in ("score", "topk", "serial", "online"):
             op = f"{OP_NAME}_chunk_{stage}"
             entry = report[op]
@@ -280,7 +280,7 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             row[f"{stage}_ms"] = value
         profile = json.loads((directory / f"{name}-chunk-profile.json").read_text())
         row.update(
-            width=profile["width"], profile_status=profile["profile_status"],
+            rows=profile["rows"], width=profile["width"], profile_status=profile["profile_status"],
             current_short_query16=profile.get("current_short_query16"),
             current_query16_chunks=profile.get("current_query16_chunks"),
             serial_over_online=row["serial_ms"] / row["online_ms"],
@@ -291,7 +291,7 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             row["profile_error"] = profile.get("profile_error")
         rows.append(row)
     return dict(
-        exit_code=0, mode="kernel", scope="Two matched 40-row chunks",
+        exit_code=0, mode="kernel", scope="Two matched request-local chunks",
         arithmetic_mean_speedup=None, cases=rows,
     )
 
