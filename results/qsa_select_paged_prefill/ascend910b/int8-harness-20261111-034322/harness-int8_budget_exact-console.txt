@@ -1,0 +1,227 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+F
+=================================== FAILURES ===================================
+______ test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact] ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfffbece688d0>
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-175/test_qsa_select_paged_prefill_0')
+case_name = 'int8_budget_exact'
+
+    @pytest.mark.qsa_select_paged_prefill_int8_910b
+    @pytest.mark.parametrize("case_name", ("int8_budget_exact", "int8_compact"))
+    def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_name):
+        from types import SimpleNamespace
+    
+        pytest.importorskip("torch_npu")
+        if not torch.npu.is_available():
+            pytest.skip("Ascend NPU unavailable")
+        device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+        torch.npu.set_device(device_index)
+        if "910B" not in torch.npu.get_device_name(device_index):
+            pytest.skip("Ascend 910B required")
+        assert Config.mode == consts.BenchMode.KERNEL
+        assert os.environ.get("ASCEND_LAUNCH_BLOCKING") != "1"
+    
+        root = Path(__file__).resolve().parents[1]
+        monkeypatch.syspath_prepend(str(root / "tools"))
+        from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
+        from probe_qsa_int8_pipeline_910b import check_selection
+        from probe_qsa_int8_score_910b import reference as cpu_score
+        from probe_qsa_int8_score_sol_910b import build_direct_page_source
+        from probe_qsa_int8_ten_shapes_910b import verify_structure
+        from qsa_int8_online_topk_910b_trial import PreparedOnlineTopKSelection
+        from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+        from qsa_prefill_pipeline_910b_trial import load_topk
+        from qsa_timeline_910b import collect
+    
+        plan = CASES[(case_name,)]
+        rows = 32
+        assert plan["query_lengths"][0] >= rows
+        width = plan["logits_width"]
+        inputs = make_inputs(plan)
+        for key in ("q", "qs", "weights", "row_table", "visible"):
+            inputs[key] = inputs[key][:rows].contiguous()
+        device = f"npu:{device_index}"
+        values = {key: value.to(device) for key, value in inputs.items()}
+        topk = load_topk()
+        policy = os.environ.get("QSA_HARNESS_TOPK_POLICY", "prefill_3seg")
+        route = topk_route(plan, policy)
+        assert route == "auto", "The two chunk controls use the automatic TopK route"
+        monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", "auto")
+        kernels = {}
+        for bounded in (True, False):
+            arm = "chunk_bounded" if bounded else "chunk_full"
+            kernels[bounded] = load_generated_prefix(
+                tmp_path, "chunk", arm,
+                build_direct_page_source(bounded, arm, precomputed_visibility=False),
+            )
+        output = torch.empty((rows, 512), device=device, dtype=torch.int32)
+        scratch = torch.empty((rows, width), device=device, dtype=torch.float32)
+        workspace = torch.empty(1024**2, device=device, dtype=torch.uint8)
+        current = PreparedSharedMapInt8Selection(
+            values, output, scratch, workspace, topk, [0, rows],
+            key_group4=True, single_page64=True, direct_page_kernels=kernels,
+            shared_direct_page_proof=True, allow_short_query16=True,
+        )
+        online = PreparedOnlineTopKSelection(
+            values, inputs["visible"], [0, rows], rows, scan_width=width,
+        )
+        assert current.chunks == [(0, rows)] and online.chunks == [(0, rows)]
+        if case_name == "int8_compact":
+            assert current.short_query16 and current.query16_routes[(0, rows)]
+    
+        def score():
+            current.score_into(0, rows, scratch)
+    
+        def select():
+            current.topk_all(scratch)
+    
+        def serial():
+            score()
+            select()
+    
+        variants = {"online": online}
+        if os.environ.get("QSA_HARNESS_TOPK_GRAIN") == "1":
+            for size in (256, 512):
+                variants[f"online{size}"] = PreparedOnlineTopKSelection(
+                    values, inputs["visible"], [0, rows], rows, scan_width=width, update_keys=size,
+                )
+        serial()
+        for adapter in variants.values():
+>           adapter()
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py:936: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tools/qsa_int8_online_topk_910b_trial.py:83: in __call__
+    launch()
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py:420: in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py:736: in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py:864: in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py:83: in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py:309: in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py:83: in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1724: in ast_to_ttir
+    generator.visit(fn.parse())
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1628: in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:563: in visit_Module
+    ast.NodeVisitor.generic_visit(self, node)
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1628: in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:661: in visit_FunctionDef
+    self.visit_compound_statement(node.body)
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:555: in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1628: in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1584: in visit_Expr
+    value = self.visit(node.value)
+            ^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1628: in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1497: in visit_Call
+    return static_implementation(self, node)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1652: in execute_static_assert
+    passed = _unwrap_if_constexpr(self.visit(node.args[0]))
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1628: in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1526: in visit_BoolOp
+    value = self.visit(subnode)
+            ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <triton.experimental.tle.TleCodeGenerator object at 0xfffbecc1bf90>
+node = <ast.Compare object at 0xfffbecdd5ba0>
+
+    def visit(self, node):
+        if node is None:
+            return
+        with warnings.catch_warnings():
+            # The ast library added visit_Constant and deprecated some other
+            # methods but we can't move to that without breaking Python 3.6 and 3.7.
+            warnings.simplefilter("ignore", DeprecationWarning)  # python 3.9
+            warnings.simplefilter("ignore", PendingDeprecationWarning)  # python 3.8
+            last_node = self.cur_node
+            last_loc = self.builder.get_loc()
+            self.cur_node = node
+            if hasattr(node, 'lineno') and hasattr(node, 'col_offset'):
+                here_loc = self.builder.create_loc(self.file_name, self.begin_line + node.lineno, node.col_offset)
+                if self.name_loc_as_prefix is not None:
+                    self.builder.set_loc(self.builder.create_name_loc(self.name_loc_as_prefix, here_loc))
+                else:
+                    self.builder.set_loc(here_loc)
+                last_loc = self.builder.get_loc()
+            try:
+                ret = super().visit(node)
+            except CompilationError:
+                raise
+            except Exception as e:
+                if knobs.compilation.front_end_debugging:
+                    raise
+                # Wrap the error in a CompilationError which contains the source
+                # of the @jit function.
+>               raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from None
+E               triton.compiler.errors.CompilationError: at 10:21:
+E               def _qsa_online_grouped(
+E                   Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
+E                   SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
+E                   CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
+E                   ONLINE_TOP: tl.constexpr, OnlineIndices,
+E                   PACKED_OUTPUT: tl.constexpr, KEEP_TILE_STORE: tl.constexpr, UB_SNAPSHOT: tl.constexpr,
+E                   UPDATE_KEYS: tl.constexpr,
+E               ):
+E                   tl.static_assert(SCORE and SORT and UB_SNAPSHOT and ONLINE_TOP > 0)
+E                   tl.static_assert(UPDATE_KEYS in (256, 512) and UPDATE_KEYS % CHUNK == 0)
+E                                    ^
+E               AttributeError("'In' object has no attribute '__name__'")
+
+/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/code_generator.py:1636: CompilationError
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-topk-grain.ng6UgXYi/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+1 failed, 19 warnings in 2.65s
