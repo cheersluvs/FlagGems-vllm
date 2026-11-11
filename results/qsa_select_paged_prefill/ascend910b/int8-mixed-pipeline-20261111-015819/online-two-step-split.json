@@ -1,0 +1,17 @@
+{
+  "arm": "split",
+  "rows": 39,
+  "tile_stride": 129,
+  "export": "none",
+  "tiles_sha256": "5ad5caf9d86e9577833a6985d693802acce6727c58037a0c580555aabfda3e61",
+  "stages": {
+    "first": {
+      "start": 0,
+      "count": 1,
+      "status": "launching"
+    }
+  },
+  "passed": false,
+  "snapshot_file": "online-two-step-split-snapshots.json.gz",
+  "error": "CompilationError('def _qsa_online_two_step_probe(Source, Tiles, Output, Control, LISTS: tl.constexpr,\\n    Debug=None, EXPORT: tl.constexpr = \"none\",\\n):\\n    row = tl.program_id(0)\\n    word = row * 1024 + tl.arange(0, 1024)\\n    lane = tl.arange(0, 128)\\n    state = tl.load(Source + word)\\n    start = tl.load(Control)\\n    count = tl.load(Control + 1)\\n    for step in range(count):\\n        tile = tl.load(Tiles + (row * LISTS + start + step) * 128 + lane)\\n        if EXPORT == \"none\":\\n            state = _update_online_topk(state, tile, 512, 64)\\n        else:\\n            state = _update_online_topk(state, tile, 512, 64, Debug + row * 1024, EXPORT)\\n    tl.store(Output + word, state)\\n', <ast.Call object at 0xfffcdc13b100>, 'AttributeError(\"\\'str\\' object has no attribute \\'type\\'\")')"
+}
