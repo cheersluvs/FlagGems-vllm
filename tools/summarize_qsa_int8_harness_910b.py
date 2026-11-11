@@ -344,9 +344,11 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
                 }
                 row["handoff_prefix_unstable"] = any(value > 15 for value in row["handoff_prefix_spread_pct"].values())
                 row["handoff_prefix_caveat"] = (
-                    "All three arms store 4x64 words per query per tile. QK-only writes directly from Cube; "
-                    "mixed arms add GM ring traffic and MTE3 release. Scoring replicates its output across four lanes "
-                    "to keep diagnostic write bytes equal. Deltas include scheduling and output-path changes. "
+                    "QK-only uses the existing pure Cube control and stores all M16 rows, including eight padded rows; "
+                    "its diagnostic write bytes are twice those of mixed arms. Mixed arms store four heads per query "
+                    "and add GM ring traffic and MTE3 release. Scoring replicates its output across four lanes. "
+                    "Deltas include different Cube launch configuration, write volume, scheduling and output paths; "
+                    "they are diagnostic comparisons, not isolated synchronization costs. "
                     "A paired range/median above 15% is flagged as unstable, not an acceptance failure."
                 )
         if profile["profile_status"] == "completed":

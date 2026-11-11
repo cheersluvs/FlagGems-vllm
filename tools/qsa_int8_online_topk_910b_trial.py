@@ -21,7 +21,7 @@ import torch
 import triton
 
 from probe_qsa_int8_mixed_pipeline_910b import (
-    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4, _qsa_online_prefix, _qsa_score_handoff_prefix,
+    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4, _qsa_online_prefix, _qsa_score_handoff_prefix, _qsa_int8_cube_flat_control,
 )
 from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 
@@ -64,6 +64,7 @@ class PreparedOnlineTopKSelection:
             kernel_args = {"HANDOFF_STAGE": handoff_stage}
         self.prefix_tiles = []
         self.handoff_tiles = []
+        self.compiled_kernels = []
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
@@ -90,7 +91,7 @@ class PreparedOnlineTopKSelection:
                 packed_q = pack_mixed_queries(values["q"][first:last], queries_per_program)
                 score_shape = (count, subtiles, 2 * CUBE_TILE) if prefix_stage else (count, TOPK)
                 if handoff_stage is not None:
-                    score_shape = (cores, subtiles, 8, CUBE_TILE)
+                    score_shape = (cores, subtiles, 16 if handoff_stage == 0 else 8, CUBE_TILE)
                 score_dtype = torch.int32 if handoff_stage in (0, 1) else torch.float32
                 if count not in buffers:
                     buffers[count] = (
@@ -103,6 +104,14 @@ class PreparedOnlineTopKSelection:
                 if handoff_stage is not None:
                     self.handoff_tiles.append(scores)
                 self.chunks.append((first, count))
+                if handoff_stage == 0:
+                    self.launches.append(partial(
+                        _qsa_int8_cube_flat_control[(cores,)],
+                        packed_q, key, values["row_table"][begin], scores,
+                        subtiles, subtiles, PAGE, CUBE_TILE,
+                        enable_auto_bind_sub_block=False, multibuffer=False,
+                    ))
+                    continue
                 self.launches.append(partial(
                     kernel[(cores,)],
                     packed_q, key, values["row_table"][begin], ring, scores,
@@ -116,11 +125,13 @@ class PreparedOnlineTopKSelection:
                     multibuffer=False, sync_solver=False, unit_flag=False,
                 ))
 
-    def __call__(self, *, synchronize=False):
+    def __call__(self, *, synchronize=False, capture_compilation=False):
         for (first, count), launch in zip(self.chunks, self.launches, strict=True):
             if synchronize:
                 print(f"online TopK first={first} rows={count}", flush=True)
-            launch()
+            compiled = launch()
+            if capture_compilation:
+                self.compiled_kernels.append(compiled)
             if synchronize:
                 torch.npu.synchronize()
         return self.output

@@ -957,8 +957,21 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
     serial()
     for label, adapter in variants.items():
         print(f"QSA INT8 CHUNK COMPILE {case_name} {label}", flush=True)
-        adapter()
+        capture = os.environ.get("QSA_HARNESS_SCORE_HANDOFF_PREFIX") == "1"
+        adapter(capture_compilation=capture)
         torch.npu.synchronize()
+        if capture:
+            report_dir = Path(os.environ["QSA_HARNESS_REPORT"])
+            manifest = []
+            for launch_index, compiled in enumerate(adapter.compiled_kernels):
+                files = []
+                for asm_key, asm in getattr(compiled, "asm", {}).items():
+                    if isinstance(asm, str):
+                        filename = f"{case_name}-{label}-{launch_index}-{asm_key}.txt"
+                        (report_dir / filename).write_text(asm)
+                        files.append(filename)
+                manifest.append(dict(launch=launch_index, files=files, metadata=str(getattr(compiled, "metadata", None))))
+            (report_dir / f"{case_name}-{label}-compilation.json").write_text(json.dumps(manifest, indent=2))
         print(f"QSA INT8 CHUNK EXECUTED {case_name} {label}", flush=True)
     refs = [cpu_score(inputs, row)[1] for row in range(rows)]
     outputs = {"current": output.cpu()}
@@ -1001,11 +1014,16 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             assert len(adapter.handoff_tiles) == 1
             raw = adapter.handoff_tiles[0].cpu()
             assert raw.dtype == (torch.int32 if stage < 2 else torch.float32), (label, raw.dtype)
+            padding_mismatches = 0
+            if stage == 0:
+                padding_mismatches = int(torch.count_nonzero(raw[:, :, 8:, :]))
+                raw = raw[:, :, :8, :].contiguous()
             observed = raw.reshape(rows // 2, tiles, 2, 4, 64).permute(0, 2, 1, 3, 4).reshape(rows, tiles, 4, 64)
             if stage < 2:
                 delta = (observed.long() - expected_dots.long()).abs()
                 check = dict(
-                    stage=label, dtype=str(raw.dtype), mismatches=int((delta != 0).sum()),
+                    stage=label, dtype=str(raw.dtype), mismatches=int((delta != 0).sum()) + padding_mismatches,
+                    padding_mismatches=padding_mismatches,
                     max_abs_error=int(delta.max()), nonzero=int(torch.count_nonzero(observed)),
                     observed_sample=observed.reshape(-1)[:8].tolist(),
                     expected_sample=expected_dots.reshape(-1)[:8].tolist(),
