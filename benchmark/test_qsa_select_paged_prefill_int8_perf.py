@@ -925,6 +925,18 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
         score()
         select()
 
+    if os.environ.get("QSA_HARNESS_CANN_SERIAL") == "1":
+        from probe_qsa_cann_serial_910b import run_probe
+        serial()
+        timer = QSAPrefillInt8Benchmark(
+            op_name=f"{OP_NAME}_cann_serial", case_name=case_name,
+            torch_op=None, gems_op=_call_candidate, input_fn=lambda *args: iter(()),
+            dtypes=[torch.int8], device=device,
+        )
+        result = run_probe(inputs, values, width, scratch, serial, timer,
+                           Path(os.environ["QSA_HARNESS_REPORT"]), case_name)
+        assert result["status"] == "passed"
+        return
     variants = {"online": online}
     if os.environ.get("QSA_HARNESS_TOPK_GRAIN") == "1":
         for size in (256, 512):

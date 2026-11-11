@@ -385,12 +385,34 @@ def main():
     parser.add_argument("--fused-binary", action="store_true")
     parser.add_argument("--online-topk", action="store_true")
     parser.add_argument("--online-stages", action="store_true")
+    parser.add_argument("--cann-serial", action="store_true")
     diagnostic = parser.add_mutually_exclusive_group()
     diagnostic.add_argument("--tile-handoff", action="store_true")
     diagnostic.add_argument("--group-visible", action="store_true")
     diagnostic.add_argument("--group-visible-full", action="store_true")
     diagnostic.add_argument("--group-visible-wall", action="store_true")
     args = parser.parse_args()
+    if args.cann_serial:
+        rows = []
+        error = None
+        try:
+            for name in ("int8_budget_exact", "int8_compact"):
+                record = json.loads((args.report.parent / f"{name}-cann-serial.json").read_text())
+                rows.append(record)
+                if record["status"] != "passed":
+                    raise ValueError(f"Serial control failed: {name}")
+            if args.pytest_exit_code:
+                raise ValueError(f"pytest returned {args.pytest_exit_code}")
+        except (OSError, ValueError, KeyError) as exc:
+            error = str(exc)
+        result = dict(exit_code=int(error is not None), mode="kernel", cases=rows,
+                      error=error, arithmetic_mean_speedup=None, scope="Serial structural control, not acceptance")
+        args.output.write_text(json.dumps(result, indent=2))
+        for row in rows:
+            print(row["case"], row["status"], row.get("medians_ms"), row.get("spread_pct"))
+        if error:
+            print(error)
+        return result["exit_code"]
     if args.online_stages:
         try:
             summary = summarize_online_chunk_stages(args.report.parent, args.pytest_exit_code)

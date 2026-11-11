@@ -146,6 +146,9 @@ print("\n".join(names))
         fi
         if [[ ${QSA_HARNESS_ONLINE_STAGES:-0} == 1 ]]; then
             qsa_mixed_flag=--online-stages
+            if [[ ${QSA_HARNESS_CANN_SERIAL:-0} == 1 ]]; then
+                qsa_mixed_flag=--cann-serial
+            fi
         fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do
