@@ -199,6 +199,69 @@ def _qsa_int8_cube_flat_control(
 
 
 @triton.jit
+def _qsa_online_raw_length_probe(Source, Output, Counts, RIGHT: tl.constexpr):
+    lane = tl.arange(0, 4096)
+    packed = tl.load(Source + lane)
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 2,
+        0, 512, 1024, 1536, 512, RIGHT, 0, 0,
+        out=[tl.zeros((2048,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    tl.store(Output + tl.arange(0, 2048), merged)
+    tl.store(Counts + tl.arange(0, 4), consumed)
+
+
+def online_raw_length_probe(args, device):
+    from triton.backends.ascend import compiler
+
+    report = Path(args.report)
+    right = args.online_raw_length
+    label = f"online-raw-512x{right}"
+    summary = report / f"{label}.json"
+    result = {"right_length": right, "status": "launching"}
+    # Interleave 64 live candidates with the running 512. The 512-length
+    # control represents the same live scores with an extra -inf suffix.
+    ids = torch.arange(1024, dtype=torch.int32)
+    scores = -torch.stack((ids[:512] * 2, ids[:512] * 2 + 1)).float()
+    scores[1, 64:] = -float("inf")
+    pairs = torch.stack((scores, ids.view(2, 512).view(torch.float32)), dim=-1)
+    source = torch.zeros(4096, dtype=torch.float32)
+    source[:2048].copy_(pairs.flatten())
+    source = source.to(device)
+    output = torch.empty(2048, device=device, dtype=torch.float32)
+    counts = torch.empty(4, device=device, dtype=torch.int32)
+    try:
+        summary.write_text(json.dumps(result, indent=2))
+        with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+            kernel = _qsa_online_raw_length_probe[(1,)](
+                source, output, counts, right, use_bytecode=True,
+                enable_auto_bind_sub_block=False, multibuffer=False,
+            )
+        result.update(status="synchronizing", artifacts=save_artifacts(kernel, report, label))
+        summary.write_text(json.dumps(result, indent=2))
+        torch.npu.synchronize()
+        consumed = counts.cpu().tolist()
+        result["consumed"] = consumed
+        left_count, right_count = consumed[:2]
+        assert 0 <= left_count <= 512 and 0 <= right_count <= right
+        assert left_count == 512 or right_count == right
+        take = min(512, left_count + right_count)
+        actual = output.cpu().view(-1, 2)[:take]
+        expected_scores, order = scores.flatten().topk(take)
+        torch.testing.assert_close(actual[:, 0], expected_scores, rtol=0, atol=0)
+        torch.testing.assert_close(
+            actual[:, 1].contiguous().view(torch.int32), ids[order], rtol=0, atol=0,
+        )
+        result.update(status="passed", checked_pairs=take)
+    except Exception as exc:
+        result["error"] = repr(exc)
+    summary.write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2), flush=True)
+    if result["status"] != "passed":
+        raise SystemExit(1)
+
+
+@triton.jit
 def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
     packed = tl.zeros((8 * TOP,), tl.float32)
     packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))
@@ -614,6 +677,9 @@ def cube_controls(args, cpu, inputs, packed_q, workspace):
 
     _, keys, _, _, _, table, _ = cpu
     logical = keys[table.long()].reshape(-1, 128).contiguous()
+    if args.online_raw_length:
+        online_raw_length_probe(args, device)
+        return
     rows, width = CASES[args.worker]
     device = workspace.device
     starts = sorted({0, 64, 192, 512, (width - 1) // CUBE_TILE * CUBE_TILE})
@@ -1389,6 +1455,7 @@ def main():
     handoff_modes.add_argument("--handoff-merge", action="store_true")
     parser.add_argument("--fused-binary-merge", action="store_true")
     parser.add_argument("--online-topk", action="store_true")
+    parser.add_argument("--online-raw-length", type=int, choices=(64, 512))
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
@@ -1407,7 +1474,12 @@ def main():
     report = Path(args.report).resolve()
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
-    if args.handoff_copy or args.handoff_score or args.handoff_sort:
+    if args.online_raw_length:
+        label = f"online-raw-512x{args.online_raw_length}"
+        command = base + ["--worker", "long", "--online-raw-length", str(args.online_raw_length)]
+        code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
+        statuses[label] = dict(exit_code=code, timed_out=timed_out)
+    elif args.handoff_copy or args.handoff_score or args.handoff_sort:
         operation = handoff_operation(args)
         for slots in (1, 2):
             label = f"short-handoff-{operation}-slots{slots}"
