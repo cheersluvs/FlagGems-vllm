@@ -15,6 +15,7 @@
 """Capture the exact mixed-kernel compiler inputs for four fixed variants."""
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -65,15 +66,17 @@ def compile_matrix(values, width, owners, report, case):
 
     report = Path(report)
     records = []
-    for slots in (1, 2):
+    prefix_probe = os.environ.get("QSA_MIXED_COMPILE_PREFIX") == "1"
+    for slots in ((1,) if prefix_probe else (1, 2)):
         adapter = PreparedMixedOuter(values, width, slots=slots, request_ids=owners)
-        for trace in (False, True):
-            label = f"{case}-slots{slots}-trace{int(trace)}"
+        variants = [(True, stage) for stage in (-1, 0, 1, 2)] if prefix_probe else [(trace, 2) for trace in (False, True)]
+        for trace, stage in variants:
+            label = f"{case}-slots{slots}-trace{int(trace)}-stage{stage}"
             capture = CaptureCompiler(report, label)
-            entry = dict(slots=slots, trace=trace, kernel_source_changed=False, status="failed")
+            entry = dict(slots=slots, trace=trace, stage=stage, compile_only=True, status="failed")
             try:
                 with patch.object(compiler, "subprocess", capture):
-                    kernels = adapter.compile_variant(trace)
+                    kernels = adapter.compile_variant(trace, stage)
                 entry.update(status="compiled", metadata=[str(kernel.metadata) for kernel in kernels])
                 for index, kernel in enumerate(kernels):
                     for kind, text in kernel.asm.items():
@@ -84,5 +87,5 @@ def compile_matrix(values, width, owners, report, case):
             entry["compiler_calls"] = capture.calls
             records.append(entry)
             (report / f"{case}-mixed-compile-matrix.json").write_text(json.dumps(records, indent=2))
-            print(f"QSA MIXED COMPILE MATRIX slots={slots} trace={trace} status={entry['status']}", flush=True)
+            print(f"QSA MIXED COMPILE MATRIX slots={slots} trace={trace} stage={stage} status={entry['status']}", flush=True)
     return records
