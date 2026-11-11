@@ -1017,8 +1017,8 @@ def _qsa_online_n128(
                 K + (offset_hi + half_n[:, None]) * 128 + d[None, :],
                 mask=start + 64 + half_n[:, None] < SCAN_WIDTH, other=0,
             )
-            flat_key = tl.cat(tl.reshape(key_lo, (8192,)), tl.reshape(key_hi, (8192,)), False)
-            key = tl.reshape(flat_key, (128, 128))
+            joined_key = tl.join(key_lo, key_hi)
+            key = tl.reshape(tl.permute(joined_key, (2, 0, 1)), (128, 128))
             dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
             work = Ring + (pid * SLOTS + cube_slot) * 16 * CHUNK
             tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
@@ -1234,8 +1234,8 @@ def _qsa_n128_handoff_control(
                 K + (offset_hi + half_n[:, None]) * 128 + d[None, :],
                 mask=start + 64 + half_n[:, None] < SCAN_WIDTH, other=0,
             )
-            flat_key = tl.cat(tl.reshape(key_lo, (8192,)), tl.reshape(key_hi, (8192,)), False)
-            key = tl.reshape(flat_key, (128, 128))
+            joined_key = tl.join(key_lo, key_hi)
+            key = tl.reshape(tl.permute(joined_key, (2, 0, 1)), (128, 128))
             if FENCE_MODE & 1:
                 tl.debug_barrier()
             dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
