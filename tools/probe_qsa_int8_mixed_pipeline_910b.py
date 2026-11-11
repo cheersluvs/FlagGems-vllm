@@ -282,6 +282,32 @@ def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
 
 
 @triton.jit
+def _update_online_topk_ub_snapshot(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
+    saved_state = tle.dsa.alloc(
+        [2 * TOP], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB,
+    )
+    tle.dsa.to_buffer(state, space=tle.dsa.ascend.UB, bind_buffer=saved_state)
+    tl.debug_barrier()
+    packed = tl.zeros((8 * TOP,), tl.float32)
+    packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))
+    packed = tle.dsa.insert_slice(packed, tile, (2 * TOP,), (2 * CHUNK,), (1,))
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 2,
+        0, TOP, 2 * TOP, 3 * TOP, TOP, CHUNK, 0, 0,
+        out=[tl.zeros((4 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    prefix = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
+    # If the tile is exhausted before TOP entries, only the old state can remain.
+    old_count = al.get_element(consumed, (0,))
+    tile_count = al.get_element(consumed, (1,))
+    word = tl.arange(0, 2 * TOP)
+    tail_word = tl.maximum(word - 2 * tile_count, 0)
+    tl.debug_barrier()
+    tail = tl.gather(tle.dsa.to_tensor(saved_state), tail_word, axis=0)
+    return tl.where(word < 2 * (old_count + tile_count), prefix, tail)
+
+
+@triton.jit
 def _update_online_topk_int_gather(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
     packed = tl.zeros((8 * TOP,), tl.float32)
     packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))
@@ -527,7 +553,7 @@ def online_state_probe(args, device):
 @triton.jit
 def _qsa_online_prefix_probe(
     Source, Tiles, Output, StepLimit, LISTS: tl.constexpr,
-    INTEGER_GATHER: tl.constexpr = False,
+    INTEGER_GATHER: tl.constexpr = False, UB_SNAPSHOT: tl.constexpr = False,
 ):
     row = tl.program_id(0)
     words = row * 1024 + tl.arange(0, 1024)
@@ -536,7 +562,9 @@ def _qsa_online_prefix_probe(
     limit = tl.load(StepLimit)
     for step in range(limit):
         tile = tl.load(Tiles + (row * LISTS + step) * 128 + lane)
-        if INTEGER_GATHER:
+        if UB_SNAPSHOT:
+            state = _update_online_topk_ub_snapshot(state, tile, 512, 64)
+        elif INTEGER_GATHER:
             state = _update_online_topk_int_gather(state, tile, 512, 64)
         else:
             state = _update_online_topk(state, tile, 512, 64)
@@ -546,7 +574,7 @@ def _qsa_online_prefix_probe(
 @triton.jit
 def _qsa_online_two_step_probe(
     Source, Tiles, Output, Control, LISTS: tl.constexpr,
-    Debug=None, EXPORT: tl.constexpr = "none", INTEGER_GATHER: tl.constexpr = False,
+    Debug=None, EXPORT: tl.constexpr = "none", INTEGER_GATHER: tl.constexpr = False, UB_SNAPSHOT: tl.constexpr = False,
 ):
     row = tl.program_id(0)
     word = row * 1024 + tl.arange(0, 1024)
@@ -556,7 +584,9 @@ def _qsa_online_two_step_probe(
     count = tl.load(Control + 1)
     for step in range(count):
         tile = tl.load(Tiles + (row * LISTS + start + step) * 128 + lane)
-        if INTEGER_GATHER:
+        if UB_SNAPSHOT:
+            state = _update_online_topk_ub_snapshot(state, tile, 512, 64)
+        elif INTEGER_GATHER:
             state = _update_online_topk_int_gather(state, tile, 512, 64)
         elif EXPORT == "none":
             state = _update_online_topk(state, tile, 512, 64)
@@ -577,6 +607,8 @@ def online_two_step_probe(args, proposals):
         label += f"-{export}"
     if args.online_integer_gather:
         label += "-intgather"
+    if args.online_ub_snapshot:
+        label += "-ubsnapshot"
     summary = report / f"{label}.json"
     rows, lists, _ = proposals.shape
     initial = torch.full((rows, TOPK, 2), -float("inf"), dtype=torch.float32)
@@ -589,7 +621,7 @@ def online_two_step_probe(args, proposals):
     snapshots = {"initial": initial.view(torch.int32).tolist(),
                  "tiles": tiles_cpu.view(torch.int32).tolist()}
     result = {
-        "arm": arm, "rows": rows, "tile_stride": lists, "export": export, "integer_gather": args.online_integer_gather,
+        "arm": arm, "rows": rows, "tile_stride": lists, "export": export, "integer_gather": args.online_integer_gather, "ub_snapshot": args.online_ub_snapshot,
         "tiles_sha256": hashlib.sha256(tiles_cpu.numpy().tobytes()).hexdigest(),
         "stages": {}, "passed": False,
     }
@@ -634,6 +666,8 @@ def online_two_step_probe(args, proposals):
         diagnostic = {} if export == "none" else {"Debug": debug, "EXPORT": export}
         if args.online_integer_gather:
             diagnostic["INTEGER_GATHER"] = True
+        if args.online_ub_snapshot:
+            diagnostic["UB_SNAPSHOT"] = True
         with patch.object(compiler, "subprocess", CompileCapture(report, artifact_label)):
             kernel = _qsa_online_two_step_probe[(rows,)](
                 source, proposals, target, control, lists, **diagnostic, use_bytecode=True,
@@ -684,9 +718,11 @@ def online_real_tile_probe(args, proposals):
     label = f"online-real-tiles-runtime-{steps}" if args.online_runtime_prefix else f"online-real-tiles-{steps}"
     if args.online_integer_gather:
         label += "-intgather"
+    if args.online_ub_snapshot:
+        label += "-ubsnapshot"
     summary = report / f"{label}.json"
     result = {
-        "integer_gather": args.online_integer_gather,
+        "integer_gather": args.online_integer_gather, "ub_snapshot": args.online_ub_snapshot,
         "steps": steps, "rows": rows, "status": "launching",
         "runtime_prefix": args.online_runtime_prefix,
     }
@@ -706,6 +742,8 @@ def online_real_tile_probe(args, proposals):
     try:
         summary.write_text(json.dumps(result, indent=2))
         diagnostic = {"INTEGER_GATHER": True} if args.online_integer_gather else {}
+        if args.online_ub_snapshot:
+            diagnostic["UB_SNAPSHOT"] = True
         with patch.object(compiler, "subprocess", CompileCapture(report, label)):
             kernel = kernel_fn[(rows,)](
                 state, tiles, output, *launch_args, **diagnostic, use_bytecode=True,
@@ -1963,17 +2001,19 @@ def main():
     isolated.add_argument("--online-update-steps", type=int, choices=(1, 2, 8, 32, 129))
     parser.add_argument("--online-real-tiles", action="store_true")
     parser.add_argument("--online-runtime-prefix", action="store_true")
-    parser.add_argument("--online-integer-gather", action="store_true")
+    gather_trials = parser.add_mutually_exclusive_group()
+    gather_trials.add_argument("--online-integer-gather", action="store_true")
+    gather_trials.add_argument("--online-ub-snapshot", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
-    if args.online_integer_gather and not (
+    if (args.online_integer_gather or args.online_ub_snapshot) and not (
         args.online_two_step or (args.online_real_tiles and args.online_runtime_prefix)
     ):
-        parser.error("--online-integer-gather requires two-step or real runtime-prefix replay")
-    if args.online_integer_gather and args.online_export != "none":
-        parser.error("Run the integer gather replay with --online-export none")
+        parser.error("Gather trials require two-step or real runtime-prefix replay")
+    if (args.online_integer_gather or args.online_ub_snapshot) and args.online_export != "none":
+        parser.error("Run gather trials with --online-export none")
     if args.online_export != "none" and not args.online_two_step:
         parser.error("--online-export requires --online-two-step")
     if args.online_runtime_prefix and not args.online_real_tiles:
@@ -2008,6 +2048,8 @@ def main():
         command += ["--online-export", args.online_export]
         if args.online_integer_gather:
             command.append("--online-integer-gather")
+        if args.online_ub_snapshot:
+            command.append("--online-ub-snapshot")
         code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
         statuses[label] = dict(exit_code=code, timed_out=timed_out)
     elif args.online_update_steps:
@@ -2020,6 +2062,8 @@ def main():
             command.append("--online-runtime-prefix")
         if args.online_integer_gather:
             command.append("--online-integer-gather")
+        if args.online_ub_snapshot:
+            command.append("--online-ub-snapshot")
         code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
         statuses[label] = dict(exit_code=code, timed_out=timed_out)
     elif args.online_raw_length:
