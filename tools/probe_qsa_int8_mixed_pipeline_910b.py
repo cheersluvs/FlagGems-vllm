@@ -898,25 +898,25 @@ def _qsa_online_scoped(
         d = tl.arange(0, 128)
         n = tl.arange(0, CHUNK)
         q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
-        for subtile in range(SUBTILES):
-            slot = subtile % SLOTS
+        for cube_subtile in range(SUBTILES):
+            cube_slot = cube_subtile % SLOTS
             if KEEP_TILE_STORE:
-                al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+                al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
             else:
-                al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
-            start = subtile * CHUNK
+                al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+            start = cube_subtile * CHUNK
             page = tl.load(Table + start // PAGE_SIZE)
             offset = page * PAGE_SIZE + start % PAGE_SIZE
             key = tl.load(K + (offset + n[:, None]) * 128 + d[None, :])
             dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
-            work = Ring + (pid * SLOTS + slot) * 16 * CHUNK
+            work = Ring + (pid * SLOTS + cube_slot) * 16 * CHUNK
             tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
-            al.sync_block_set("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
-        for slot in tl.static_range(SLOTS):
+            al.sync_block_set("cube", "vector", cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
             if KEEP_TILE_STORE:
-                al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+                al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
             else:
-                al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+                al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
 
     with al.scope(core_mode="vector"):
         pid = tl.program_id(0)
@@ -928,18 +928,18 @@ def _qsa_online_scoped(
             word % 2 == 0, -float("inf"),
             tl.full((), -1, tl.int32).to(tl.float32, bitcast=True),
         )
-        for slot in tl.static_range(SLOTS):
+        for initial_slot in tl.static_range(SLOTS):
             if KEEP_TILE_STORE:
-                al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+                al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
             else:
-                al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
-        for subtile in range(SUBTILES):
-            slot = subtile % SLOTS
-            al.sync_block_wait("cube", "vector", slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
-            work = Ring + (pid * SLOTS + slot) * 16 * CHUNK
+                al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        for vector_subtile in range(SUBTILES):
+            vector_slot = vector_subtile % SLOTS
+            al.sync_block_wait("cube", "vector", vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            work = Ring + (pid * SLOTS + vector_slot) * 16 * CHUNK
             head = al.sub_vec_id() * 4 + h
             received = tl.load(work + head[:, None] * CHUNK + n[None, :])
-            start = subtile * CHUNK
+            start = vector_subtile * CHUNK
             page = tl.load(Table + start // PAGE_SIZE)
             offset = page * PAGE_SIZE + start % PAGE_SIZE
             query_scale = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
@@ -958,12 +958,12 @@ def _qsa_online_scoped(
             if KEEP_TILE_STORE:
                 lane = tl.arange(0, 2 * CHUNK)
                 tl.store(
-                    OnlineIndices + (row * SUBTILES + subtile) * 2 * CHUNK + lane,
+                    OnlineIndices + (row * SUBTILES + vector_subtile) * 2 * CHUNK + lane,
                     pairs.to(tl.int32, bitcast=True), mask=row < ROWS,
                 )
-                al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+                al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
             else:
-                al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+                al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
         if PACKED_OUTPUT:
             tl.store(Received + row * 2 * ONLINE_TOP + word, state, mask=row < ROWS)
         else:
