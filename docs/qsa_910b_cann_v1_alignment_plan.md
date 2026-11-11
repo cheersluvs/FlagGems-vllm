@@ -180,3 +180,9 @@ Q/weight 的回收另受 `syncC1V0` 等事件约束。GM 槽可回收、L1 输�
 这是评分实现替换收益，不能称为双缓冲收益。相对当前整合入口，新串行整段只有0.329x/0.674x，尚不适合进入生产；不是对CANN V1的正式验收值。
 
 第二步下一个受控对照：固定其余算法和公式，仅将 query16 改成 CANN S1_BASE_SIZE=4 的 query4 分组。R=32、外层2048、N64、KEY_TILES=8 时，query16 的 launch grid 为 min(20,2×4)=8；query4 为 min(20,8×4)=20。这里仅证明发射规模变化，不等同于已测得的硬件占用率或性能提升。该对照兼具 CANN 分组对齐与较小工作块并行度验证目的，完成后再冻结第三步的串行控制。
+
+### 第二步 query4/query16 配对（待设备验证）
+
+`QSA_SERIAL_QUERY_GROUP=4`、`QSA_SERIAL_COMPARE_GROUPS=1`，并启用已有 `QSA_SERIAL_FAST_SCORE=1`。不修改任何评分、排序、合并 kernel；仅选择既有共享评分 kernel 的 QUERY_GROUP 参数。query16 策略在请求不足4行时仍使用 query4，这是已有尾组策略；32行同请求基准的实际分组分别为4/16。
+
+两个控制均验证所有中间状态、最终值和索引；三个边界 fixture 各跑两种策略。计时项目为 query4 score/serial、query16 peer_score/peer_serial、共用 TopK-only 和当前整合入口，共两轮交错顺序；不再重复测已经建立的单行评分慢控制。摘要独立验证所有六项配对计时有限且为正，输出两种分组的 IR。

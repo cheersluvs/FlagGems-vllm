@@ -402,7 +402,9 @@ def main():
                 if record["status"] != "passed":
                     raise ValueError(f"Serial control failed: {name}")
                 required_stages = ("score", "topk", "serial", "production_control")
-                if record.get("score_variant") == "shared_n64":
+                if record.get("compared_query_groups") == [4, 16]:
+                    required_stages += ("peer_score", "peer_serial")
+                elif record.get("score_variant") == "shared_n64":
                     required_stages += ("reference_serial",)
                 for stage in required_stages:
                     samples = record["samples_ms"][stage]

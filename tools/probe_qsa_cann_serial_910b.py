@@ -21,7 +21,7 @@ import statistics
 from pathlib import Path
 
 
-def run_probe(inputs, values, width, full_scores, control, timer, report, case, *, validate_only=False):
+def run_probe(inputs, values, width, full_scores, control, timer, report, case, *, validate_only=False, query_group=None):
     import torch
     from qsa_cann_serial_910b_trial import PreparedCANNSerial
     from probe_qsa_int8_score_910b import reference
@@ -34,7 +34,16 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
                   blocks=list(range(0, width, 2048)), checks=[])
     fast_score = os.environ.get("QSA_SERIAL_FAST_SCORE") == "1"
     owners = values.get("_request_ids", [0] * values["q"].shape[0])
-    adapter = PreparedCANNSerial(values, width, query_group=16 if fast_score else 1, request_ids=owners)
+    group = int(os.environ.get("QSA_SERIAL_QUERY_GROUP", "16")) if query_group is None else query_group
+    if not fast_score:
+        group = 1
+    compare_groups = os.environ.get("QSA_SERIAL_COMPARE_GROUPS") == "1" and not validate_only
+    if compare_groups and (not fast_score or group != 4):
+        raise ValueError("Paired grouping probe requires shared N64 and query_group=4")
+    adapter = PreparedCANNSerial(values, width, query_group=group, request_ids=owners)
+    peer = None
+    active_group = group
+    result["query_group"] = group
     result["score_variant"] = "shared_n64" if fast_score else "row_n64"
     result["score_segments"] = adapter.segments
     refs = [reference(inputs, row)[1] for row in range(adapter.rows)]
@@ -85,7 +94,7 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             if raw is not None:
                 consumed = raw.cpu()
                 bad += int((consumed[:, :2].sum(1) < 2048).sum())
-        entry = dict(stage=stage, key_start=start, mismatches=bad)
+        entry = dict(stage=stage, key_start=start, mismatches=bad, query_group=active_group)
         result["checks"].append(entry)
         path.write_text(json.dumps(result, indent=2, allow_nan=False))
         print("QSA CANN SERIAL CHECK " + json.dumps(entry), flush=True)
@@ -108,6 +117,22 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             verify_structure(adapter.output.cpu(), inputs["visible"])
             checks, _ = check_selection(adapter.output.cpu(), refs)
             assert checks["checks_passed"], checks
+        if compare_groups:
+            peer = PreparedCANNSerial(values, width, query_group=16, request_ids=owners)
+            active_group = 16
+            peer.run(check=check)
+            peer_indices = peer.output.cpu()
+            verify_structure(peer_indices, inputs["visible"])
+            checks, _ = check_selection(peer_indices, refs)
+            assert checks["checks_passed"], checks
+            peer_values = peer.output_values.cpu()
+            for row, ref in enumerate(refs):
+                valid = peer_indices[row] >= 0
+                torch.testing.assert_close(peer_values[row, valid], ref[peer_indices[row, valid].long()], rtol=1e-3, atol=1e-3)
+                assert torch.isneginf(peer_values[row, ~valid]).all()
+            active_group = group
+            result["compared_query_groups"] = [4, 16]
+            result["peer_score_segments"] = peer.segments
         result["correctness_status"] = "passed"
         if validate_only:
             result.update(status="passed", timing_status="not_requested")
@@ -118,7 +143,9 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
         result["timing_attempts"] = []
         functions = dict(score=adapter.score_only, topk=lambda: adapter.run(full_source=full_scores),
                          serial=adapter, production_control=control)
-        if fast_score:
+        if compare_groups:
+            functions.update(peer_score=peer.score_only, peer_serial=peer)
+        elif fast_score:
             reference_adapter = PreparedCANNSerial(values, width)
             reference_adapter()
             checks, _ = check_selection(reference_adapter.output.cpu(), refs)
@@ -146,7 +173,12 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
         result.update(status="passed", timing_status="passed", samples_ms=samples, medians_ms=medians,
                       control_over_serial=medians["production_control"] / medians["serial"],
                       spread_pct={name: (max(times)-min(times))/statistics.median(times)*100 for name,times in samples.items()})
-        if fast_score:
+        if compare_groups:
+            result["query4_score_speedup"] = medians["peer_score"] / medians["score"]
+            result["query4_serial_speedup"] = medians["peer_serial"] / medians["serial"]
+            print(f"QSA QUERY4/16 {case}: score speedup={result['query4_score_speedup']:.4f}x; "
+                  f"serial speedup={result['query4_serial_speedup']:.4f}x", flush=True)
+        elif fast_score:
             result["score_replacement_serial_speedup"] = medians["reference_serial"] / medians["serial"]
         print("QSA CANN SERIAL us " + json.dumps({name: time*1000 for name,time in medians.items()}), flush=True)
     except Exception as exc:
@@ -159,6 +191,11 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             for kind, text in getattr(compiled, "asm", {}).items():
                 if isinstance(text, str):
                     (Path(report) / f"{case}-cann-serial-{name}-{kind}.txt").write_text(text)
+        if peer is not None:
+            for name, compiled in peer.compiled.items():
+                for kind, text in getattr(compiled, "asm", {}).items():
+                    if isinstance(text, str):
+                        (Path(report) / f"{case}-cann-serial-query16-{name}-{kind}.txt").write_text(text)
         path.write_text(json.dumps(result, indent=2, allow_nan=False))
     return result
 
@@ -195,8 +232,12 @@ def run_boundaries(inputs, values, report):
         for key in ("q", "qs", "weights", "row_table", "visible"):
             target[key] = edge[key].to(values["q"].device)
         target["_request_ids"] = request_ids
-        entry = run_probe(edge, target, width, None, None, None, report, name, validate_only=True)
-        completed.append(dict(case=name, width=width, rows=count, request_lengths=request_lengths,
-                              tied_scores=ties, status=entry["status"]))
-        print("QSA SERIAL BOUNDARY PASS " + json.dumps(completed[-1]), flush=True)
+        groups = (4, 16) if os.environ.get("QSA_SERIAL_COMPARE_GROUPS") == "1" else (None,)
+        for group in groups:
+            label = name if group is None else f"{name}_q{group}"
+            entry = run_probe(edge, target, width, None, None, None, report, label,
+                              validate_only=True, query_group=group)
+            completed.append(dict(case=label, width=width, rows=count, request_lengths=request_lengths,
+                                  query_group=entry["query_group"], tied_scores=ties, status=entry["status"]))
+            print("QSA SERIAL BOUNDARY PASS " + json.dumps(completed[-1]), flush=True)
     return completed
