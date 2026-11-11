@@ -21,7 +21,7 @@ import torch
 import triton
 
 from probe_qsa_int8_mixed_pipeline_910b import (
-    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4,
+    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4, _qsa_online_prefix,
 )
 from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 
@@ -29,7 +29,7 @@ from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 class PreparedOnlineTopKSelection:
     def __init__(
         self, values, host_visible, starts, chunk_rows, *,
-        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2,
+        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2, prefix_stage=0,
     ):
         if update_keys not in (64, 256, 512):
             raise ValueError("TopK update size must be 64, 256, or 512")
@@ -48,6 +48,14 @@ class PreparedOnlineTopKSelection:
             if update_keys != 64 or handoff_keys != 64:
                 raise ValueError("Four-query probe requires 64-key updates and handoffs")
             kernel = _qsa_online_query4
+        if prefix_stage not in (0, 1, 2, 3):
+            raise ValueError("Prefix stage must be zero through three")
+        if prefix_stage:
+            if (update_keys, handoff_keys, queries_per_program) != (64, 64, 2):
+                raise ValueError("Prefix probe requires the two-query 64-key kernel")
+            kernel = _qsa_online_prefix
+            kernel_args = {"PREFIX_STAGE": prefix_stage}
+        self.prefix_tiles = []
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
@@ -75,9 +83,11 @@ class PreparedOnlineTopKSelection:
                 if count not in buffers:
                     buffers[count] = (
                         torch.empty((cores, 2, 16, handoff_keys), device=device, dtype=torch.int32),
-                        torch.empty((count, TOPK), device=device, dtype=torch.float32),
+                        torch.empty((count, subtiles, 2 * CUBE_TILE) if prefix_stage else (count, TOPK), device=device, dtype=torch.float32),
                     )
                 ring, scores = buffers[count]
+                if prefix_stage:
+                    self.prefix_tiles.append(scores)
                 self.chunks.append((first, count))
                 self.launches.append(partial(
                     kernel[(cores,)],
@@ -86,7 +96,7 @@ class PreparedOnlineTopKSelection:
                     values["visible"][first:last],
                     subtiles, 2, PAGE, CUBE_TILE, count, True, True,
                     ONLINE_TOP=TOPK, OnlineIndices=self.output[first:last],
-                    PACKED_OUTPUT=False, KEEP_TILE_STORE=False, UB_SNAPSHOT=True, **kernel_args,
+                    PACKED_OUTPUT=False, KEEP_TILE_STORE=bool(prefix_stage), UB_SNAPSHOT=True, **kernel_args,
                     use_bytecode=True, disable_auto_cv_work_space_manage=True,
                     disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
                     multibuffer=False, sync_solver=False, unit_flag=False,

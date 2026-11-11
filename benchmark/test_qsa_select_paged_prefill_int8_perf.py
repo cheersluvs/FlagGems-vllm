@@ -941,6 +941,12 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             values, inputs["visible"], [0, rows], rows, scan_width=width,
             queries_per_program=4,
         )
+    if os.environ.get("QSA_HARNESS_MIXED_PREFIX") == "1":
+        for stage, label in enumerate(("prefix_score", "prefix_sort", "prefix_merge"), 1):
+            variants[label] = PreparedOnlineTopKSelection(
+                values, inputs["visible"], [0, rows], rows, scan_width=width,
+                prefix_stage=stage,
+            )
     serial()
     for label, adapter in variants.items():
         print(f"QSA INT8 CHUNK COMPILE {case_name} {label}", flush=True)
@@ -949,11 +955,32 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
         print(f"QSA INT8 CHUNK EXECUTED {case_name} {label}", flush=True)
     refs = [cpu_score(inputs, row)[1] for row in range(rows)]
     outputs = {"current": output.cpu()}
-    outputs.update({label: adapter.output.cpu() for label, adapter in variants.items()})
+    outputs.update({
+        label: adapter.output.cpu() for label, adapter in variants.items()
+        if label not in ("prefix_score", "prefix_sort")
+    })
     for label, indices in outputs.items():
         verify_structure(indices, inputs["visible"])
         checks, _ = check_selection(indices, refs)
         assert checks["checks_passed"], (case_name, label, checks)
+    for label in ("prefix_score", "prefix_sort", "prefix_merge"):
+        if label not in variants:
+            continue
+        adapter = variants[label]
+        assert len(adapter.prefix_tiles) == 1
+        pairs = adapter.prefix_tiles[0].cpu().reshape(rows, -1, 64, 2)
+        tile_scores = pairs[..., 0].contiguous()
+        tile_indices = pairs[..., 1].contiguous().view(torch.int32)
+        for row, ref in enumerate(refs):
+            expected = torch.full((pairs.shape[1] * 64,), -float("inf"))
+            expected[:ref.numel()] = ref
+            indices = tile_indices[row].to(torch.int64)
+            assert torch.equal(torch.sort(indices.reshape(-1)).values, torch.arange(expected.numel()))
+            tile_start = torch.arange(pairs.shape[1])[:, None] * 64
+            assert ((indices >= tile_start) & (indices < tile_start + 64)).all()
+            torch.testing.assert_close(tile_scores[row], expected[indices], rtol=1e-3, atol=1e-3)
+            if label != "prefix_score":
+                assert (tile_scores[row, :, :-1] >= tile_scores[row, :, 1:]).all()
     staged = scratch.cpu()
     for row, ref in enumerate(refs):
         torch.testing.assert_close(staged[row, :ref.numel()], ref, rtol=1e-3, atol=1e-3)
@@ -1000,6 +1027,8 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             profile["handoff_grains"] = [64, 256, 512]
         if os.environ.get("QSA_HARNESS_QUERY_PACK") == "1":
             profile["query_packs"] = [2, 4]
+        if os.environ.get("QSA_HARNESS_MIXED_PREFIX") == "1":
+            profile["mixed_prefix"] = ["prefix_score", "prefix_sort", "prefix_merge"]
     try:
         collect(
             SimpleNamespace(report=report, worker=case_name), functions, torch, profile,

@@ -271,6 +271,8 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             stages += ("handoff256", "handoff512")
         if "query_packs" in profile:
             stages += ("query4",)
+        if "mixed_prefix" in profile:
+            stages += ("prefix_score", "prefix_sort", "prefix_merge")
         for stage in stages:
             op = f"{OP_NAME}_chunk_{stage}"
             entry = report[op]
@@ -292,7 +294,7 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             current_query16_chunks=profile.get("current_query16_chunks"),
             serial_over_online=row["serial_ms"] / row["online_ms"],
         )
-        if any(key in profile for key in ("update_grains", "handoff_grains", "query_packs")):
+        if any(key in profile for key in ("update_grains", "handoff_grains", "query_packs", "mixed_prefix")):
             samples = profile["paired_kernel_samples_ms"]
             for stage in stages[3:]:
                 if len(samples[stage]) != 2 or not all(
@@ -314,6 +316,18 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             if "query_packs" in profile:
                 row["query_pack_speedup"] = (
                     statistics.median(samples["online"]) / statistics.median(samples["query4"])
+                )
+            if "mixed_prefix" in profile:
+                medians = {stage: statistics.median(samples[stage]) for stage in profile["mixed_prefix"]}
+                row["prefix_medians_ms"] = medians
+                row["prefix_deltas_ms"] = {
+                    "local_sort": medians["prefix_sort"] - medians["prefix_score"],
+                    "merge_and_final_output": medians["prefix_merge"] - medians["prefix_sort"],
+                }
+                row["prefix_caveat"] = (
+                    "All prefixes store identical-size per-tile diagnostic buffers and use MTE3 release; "
+                    "deltas include compiler scheduling changes and are not additive stage costs. "
+                    "The original online control uses MTE2 release without per-tile stores."
                 )
         if profile["profile_status"] == "completed":
             row["device_stages"] = profile["timeline"]["stages"]
@@ -385,6 +399,17 @@ def main():
                         f"{statistics.median(samples['query4']) * 1000:.3f}; "
                         f"speedup {row['query_pack_speedup']:.3f}x"
                     )
+                if "prefix_medians_ms" in row:
+                    medians = row["prefix_medians_ms"]
+                    print(
+                        f"{row['case']} paired prefix score/sort/merge us: "
+                        + " / ".join(f"{medians[stage] * 1000:.3f}" for stage in
+                                     ("prefix_score", "prefix_sort", "prefix_merge"))
+                    )
+                    print(f"{row['case']} prefix deltas us: " + ", ".join(
+                        f"{stage}={value * 1000:.3f}" for stage, value in row["prefix_deltas_ms"].items()
+                    ))
+                    print(row["prefix_caveat"])
         else:
             print(summary["error"])
         return summary["exit_code"]
