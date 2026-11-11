@@ -978,6 +978,67 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             (report_dir / f"{case_name}-{label}-compilation.json").write_text(json.dumps(manifest, indent=2))
         print(f"QSA INT8 CHUNK EXECUTED {case_name} {label}", flush=True)
     refs = [cpu_score(inputs, row)[1] for row in range(rows)]
+    if os.environ.get("QSA_HARNESS_CUBE_N128") == "1":
+        traced = PreparedOnlineTopKSelection(
+            values, inputs["visible"], [0, rows], rows, scan_width=width,
+            cube_tile=128, trace_n128=True,
+        )
+        print(f"QSA N128 DIAGNOSTIC COMPILE {case_name}", flush=True)
+        traced(capture_compilation=True)
+        torch.npu.synchronize()
+        report_dir = Path(os.environ["QSA_HARNESS_REPORT"])
+        for launch_index, compiled in enumerate(traced.compiled_kernels):
+            for asm_key, asm in getattr(compiled, "asm", {}).items():
+                if isinstance(asm, str):
+                    (report_dir / f"{case_name}-n128-trace-{launch_index}-{asm_key}.txt").write_text(asm)
+        assert len(traced.n128_traces) == 1
+        raw_dots, raw_scores, raw_pairs = (tensor.cpu() for tensor in traced.n128_traces[0])
+        padded_width = raw_scores.shape[1] * 128
+        logical_keys = inputs["cache"][inputs["row_table"][0].long(), :, 0].reshape(-1, 128)[:width].int()
+        expected_dots = torch.zeros((rows, 4, padded_width), dtype=torch.int32)
+        expected_dots[:, :, :width] = torch.stack([
+            inputs["q"][row].int() @ logical_keys.T for row in range(rows)
+        ])
+        dots = raw_dots.permute(0, 2, 1, 3).reshape(rows, 4, padded_width)
+        score_expected = torch.full((rows, padded_width), -float("inf"))
+        for row, ref in enumerate(refs):
+            score_expected[row, :ref.numel()] = ref
+        scores = raw_scores.reshape(rows, padded_width)
+        dot_bad = dots != expected_dots
+        score_bad = ~torch.isclose(scores, score_expected, rtol=1e-3, atol=1e-3)
+        pair_words = raw_pairs.reshape(rows, -1, 64, 2)
+        local_scores = pair_words[..., 0].contiguous().view(torch.float32)
+        local_indices = pair_words[..., 1].contiguous().long()
+        starts = torch.arange(pair_words.shape[1])[None, :, None] * 64
+        in_tile = (local_indices >= starts) & (local_indices < starts + 64)
+        local_expected = score_expected.gather(1, local_indices.reshape(rows, -1).clamp(0, padded_width - 1)).reshape_as(local_scores)
+        local_bad = ~torch.isclose(local_scores, local_expected, rtol=1e-3, atol=1e-3) | ~in_tile
+        permutations = torch.sort(local_indices, dim=2).values == starts + torch.arange(64)[None, None, :]
+        diagnostic = dict(
+            case=case_name, rows=rows, width=width, padded_width=padded_width,
+            dot_mismatches=int(dot_bad.sum()), score_mismatches=int(score_bad.sum()),
+            local_sort_mismatches=int(local_bad.sum()), local_index_permutation_mismatches=int((~permutations).sum()),
+            local_score_mismatches_by_half=[int(local_bad[:, half::2].sum()) for half in (0, 1)],
+            local_sort_order_mismatches=int((local_scores[..., :-1] < local_scores[..., 1:]).sum()),
+            first_bad_dot=dot_bad.nonzero()[:8].tolist(),
+            first_bad_score=score_bad.nonzero()[:8].tolist(),
+            first_bad_local=local_bad.nonzero()[:8].tolist(),
+        )
+        for label, adapter in (("fast", variants["n128"]), ("trace", traced)):
+            indices = adapter.output.cpu()
+            selected_values = adapter.topk_values[0].cpu()
+            checks, _ = check_selection(indices, refs)
+            value_mismatches = 0
+            for row, ref in enumerate(refs):
+                valid = (indices[row] >= 0) & (indices[row] < ref.numel())
+                value_mismatches += int((~torch.isclose(selected_values[row, valid], ref[indices[row, valid].long()], rtol=1e-3, atol=1e-3)).sum())
+            diagnostic[label] = dict(selection=checks, selected_value_mismatches=value_mismatches,
+                                     indices_row0=indices[0].tolist(), values_row0=selected_values[0].tolist())
+        (report_dir / f"{case_name}-n128-diagnostics.json").write_text(json.dumps(diagnostic, indent=2))
+        print("QSA N128 DIAGNOSTIC " + json.dumps({key: value for key, value in diagnostic.items() if key not in ("fast", "trace")}), flush=True)
+        for label in ("fast", "trace"):
+            print(f"QSA N128 {label} selection_pass={diagnostic[label]['selection']['checks_passed']} "
+                  f"selected_value_mismatches={diagnostic[label]['selected_value_mismatches']}", flush=True)
     outputs = {"current": output.cpu()}
     outputs.update({
         label: adapter.output.cpu() for label, adapter in variants.items()

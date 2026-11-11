@@ -29,7 +29,7 @@ from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 class PreparedOnlineTopKSelection:
     def __init__(
         self, values, host_visible, starts, chunk_rows, *,
-        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2, prefix_stage=0, handoff_stage=None, cube_tile=64,
+        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2, prefix_stage=0, handoff_stage=None, cube_tile=64, trace_n128=False,
     ):
         if update_keys not in (64, 256, 512):
             raise ValueError("TopK update size must be 64, 256, or 512")
@@ -72,6 +72,9 @@ class PreparedOnlineTopKSelection:
         self.handoff_tiles = []
         self.compiled_kernels = []
         self.topk_values = []
+        self.n128_traces = []
+        if trace_n128 and cube_tile != 128:
+            raise ValueError("N128 diagnostics require a 128-key Cube tile")
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
@@ -124,6 +127,17 @@ class PreparedOnlineTopKSelection:
                 launch_args = dict(kernel_args)
                 if cube_tile == 128:
                     launch_args["SCAN_WIDTH"] = request_width
+                    launch_args["TRACE_N128"] = trace_n128
+                    if trace_n128:
+                        traces = (
+                            torch.empty((count, subtiles, 4, 128), device=device, dtype=torch.int32),
+                            torch.empty((count, subtiles, 128), device=device, dtype=torch.float32),
+                            torch.empty((count, subtiles, 2, 128), device=device, dtype=torch.int32),
+                        )
+                        self.n128_traces.append(traces)
+                    else:
+                        traces = (self.output, self.output, self.output)
+                    launch_args.update(zip(("TraceDots", "TraceScores", "TracePairs"), traces, strict=True))
                 self.launches.append(partial(
                     kernel[(cores,)],
                     packed_q, key, values["row_table"][begin], ring, scores,

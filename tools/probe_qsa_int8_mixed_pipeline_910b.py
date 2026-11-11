@@ -985,7 +985,7 @@ def _qsa_online_n128(
     CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
     ONLINE_TOP: tl.constexpr, OnlineIndices,
     PACKED_OUTPUT: tl.constexpr, KEEP_TILE_STORE: tl.constexpr, UB_SNAPSHOT: tl.constexpr,
-    SCAN_WIDTH: tl.constexpr,
+    SCAN_WIDTH: tl.constexpr, TRACE_N128: tl.constexpr, TraceDots, TraceScores, TracePairs,
 ):
     tl.static_assert(SCORE and SORT and UB_SNAPSHOT and ONLINE_TOP > 0)
     tl.static_assert(CHUNK == 128 and not KEEP_TILE_STORE and not PACKED_OUTPUT)
@@ -997,7 +997,7 @@ def _qsa_online_n128(
         q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
         for cube_subtile in range(SUBTILES):
             cube_slot = cube_subtile % SLOTS
-            if KEEP_TILE_STORE:
+            if KEEP_TILE_STORE or TRACE_N128:
                 al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
             else:
                 al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
@@ -1012,7 +1012,7 @@ def _qsa_online_n128(
             tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
             al.sync_block_set("cube", "vector", cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
         for drain_slot in tl.static_range(SLOTS):
-            if KEEP_TILE_STORE:
+            if KEEP_TILE_STORE or TRACE_N128:
                 al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
             else:
                 al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
@@ -1028,7 +1028,7 @@ def _qsa_online_n128(
             tl.full((), -1, tl.int32).to(tl.float32, bitcast=True),
         )
         for initial_slot in tl.static_range(SLOTS):
-            if KEEP_TILE_STORE:
+            if KEEP_TILE_STORE or TRACE_N128:
                 al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
             else:
                 al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
@@ -1050,6 +1050,10 @@ def _qsa_online_n128(
             dequant = received.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
             score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
             score = tl.where(start + n < visible, score, -float("inf"))
+            if TRACE_N128:
+                tl.store(TraceDots + ((row * SUBTILES + vector_subtile) * 4 + h[:, None]) * CHUNK + n[None, :],
+                         received, mask=row < ROWS)
+                tl.store(TraceScores + (row * SUBTILES + vector_subtile) * CHUNK + n, score, mask=row < ROWS)
             for update_half in range(2):
                 lanes = update_half * 64 + tl.arange(0, 64)
                 half_score = tl.gather(score, lanes, axis=0)
@@ -1058,8 +1062,15 @@ def _qsa_online_n128(
                     True, 64, start + update_half * 64, SORT_IMPL_BASE,
                     out=tl.zeros((128,), tl.float32),
                 )
+                if TRACE_N128:
+                    pair_words = tl.arange(0, 128)
+                    tl.store(TracePairs + ((row * SUBTILES + vector_subtile) * 2 + update_half) * 128 + pair_words,
+                             pairs.to(tl.int32, bitcast=True), mask=row < ROWS)
                 state = _update_online_topk_ub_snapshot(state, pairs, ONLINE_TOP, 64)
-            al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+            if TRACE_N128:
+                al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            else:
+                al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
         if PACKED_OUTPUT:
             tl.store(Received + row * 2 * ONLINE_TOP + word, state, mask=row < ROWS)
         else:
