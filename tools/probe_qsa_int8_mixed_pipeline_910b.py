@@ -262,9 +262,29 @@ def online_raw_length_probe(args, device):
 
 
 @triton.jit
-def _update_online_topk(
+def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
+    packed = tl.zeros((8 * TOP,), tl.float32)
+    packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))
+    packed = tle.dsa.insert_slice(packed, tile, (2 * TOP,), (2 * CHUNK,), (1,))
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 2,
+        0, TOP, 2 * TOP, 3 * TOP, TOP, CHUNK, 0, 0,
+        out=[tl.zeros((4 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    prefix = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
+    # If the tile is exhausted before TOP entries, only the old state can remain.
+    old_count = al.get_element(consumed, (0,))
+    tile_count = al.get_element(consumed, (1,))
+    word = tl.arange(0, 2 * TOP)
+    tail_word = tl.maximum(word - 2 * tile_count, 0)
+    tail = tl.gather(state, tail_word, axis=0)
+    return tl.where(word < 2 * (old_count + tile_count), prefix, tail)
+
+
+@triton.jit
+def _update_online_topk_export(
     state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr,
-    Debug=None, EXPORT: tl.constexpr = "none",
+    Debug, EXPORT: tl.constexpr,
 ):
     packed = tl.zeros((8 * TOP,), tl.float32)
     packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))
@@ -510,7 +530,7 @@ def _qsa_online_two_step_probe(Source, Tiles, Output, Control, LISTS: tl.constex
         if EXPORT == "none":
             state = _update_online_topk(state, tile, 512, 64)
         else:
-            state = _update_online_topk(state, tile, 512, 64, Debug + row * 1024, EXPORT)
+            state = _update_online_topk_export(state, tile, 512, 64, Debug + row * 1024, EXPORT)
     tl.store(Output + word, state)
 
 
