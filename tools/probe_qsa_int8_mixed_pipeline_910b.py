@@ -1166,6 +1166,106 @@ def _qsa_score_handoff_prefix(
 
 
 @triton.jit
+def _qsa_n128_cube_control(
+    Q, K, Table, Starts, DotOut, QOut, KOut,
+    PAGE_SIZE: tl.constexpr, WIDTH: tl.constexpr, DENSE: tl.constexpr, TRACE: tl.constexpr,
+):
+    pid = tl.program_id(0)
+    start = tl.load(Starts + pid)
+    m = tl.arange(0, 16)
+    d = tl.arange(0, 128)
+    n = tl.arange(0, 128)
+    q = tl.load(Q + m[:, None] * 128 + d[None, :])
+    valid = start + n < WIDTH
+    if DENSE:
+        offset = start + n
+    else:
+        page_lo = tl.load(Table + start // PAGE_SIZE, mask=start < WIDTH, other=0)
+        page_hi = tl.load(Table + (start + 64) // PAGE_SIZE, mask=start + 64 < WIDTH, other=0)
+        offset = tl.where(n < 64, page_lo * PAGE_SIZE + start % PAGE_SIZE + n,
+                          page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE + n - 64)
+    key = tl.load(K + offset[:, None] * 128 + d[None, :], mask=valid[:, None], other=0)
+    dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
+    tl.store(DotOut + (pid * 16 + m[:, None]) * 128 + n[None, :], dot)
+    if TRACE:
+        tl.store(QOut + (pid * 16 + m[:, None]) * 128 + d[None, :], q)
+        tl.store(KOut + (pid * 128 + n[:, None]) * 128 + d[None, :], key)
+
+
+@triton.jit
+def _qsa_n128_handoff_control(
+    Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
+    SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
+    CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
+    ONLINE_TOP: tl.constexpr, OnlineIndices,
+    PACKED_OUTPUT: tl.constexpr, KEEP_TILE_STORE: tl.constexpr, UB_SNAPSHOT: tl.constexpr,
+    HANDOFF_STAGE: tl.constexpr, SCAN_WIDTH: tl.constexpr,
+):
+    tl.static_assert(HANDOFF_STAGE == 1 and CHUNK == 128)
+    with al.scope(core_mode="cube"):
+        pid = tl.program_id(0)
+        m = tl.arange(0, 16)
+        d = tl.arange(0, 128)
+        n = tl.arange(0, CHUNK)
+        q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
+        for cube_subtile in range(SUBTILES):
+            cube_slot = cube_subtile % SLOTS
+            if HANDOFF_STAGE > 0:
+                al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            start = cube_subtile * CHUNK
+            valid = start + n < SCAN_WIDTH
+            page_lo = tl.load(Table + start // PAGE_SIZE, mask=start < SCAN_WIDTH, other=0)
+            page_hi = tl.load(Table + (start + 64) // PAGE_SIZE, mask=start + 64 < SCAN_WIDTH, other=0)
+            offset = tl.where(n < 64, page_lo * PAGE_SIZE + start % PAGE_SIZE + n,
+                              page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE + n - 64)
+            key = tl.load(K + offset[:, None] * 128 + d[None, :], mask=valid[:, None], other=0)
+            dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
+            if HANDOFF_STAGE == 0:
+                out = Received + (pid * SUBTILES + cube_subtile) * 8 * CHUNK
+                tl.store(out + m[:, None] * CHUNK + n[None, :], dot,
+                         mask=(m[:, None] < 8) & (pid * 2 + m[:, None] // 4 < ROWS))
+            else:
+                work = Ring + (pid * SLOTS + cube_slot) * 16 * CHUNK
+                tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
+                al.sync_block_set("cube", "vector", cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        if HANDOFF_STAGE > 0:
+            for drain_slot in tl.static_range(SLOTS):
+                al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+
+    if HANDOFF_STAGE > 0:
+        with al.scope(core_mode="vector"):
+            pid = tl.program_id(0)
+            row = pid * 2 + al.sub_vec_id()
+            h = tl.arange(0, 4)
+            n = tl.arange(0, CHUNK)
+            for initial_slot in tl.static_range(SLOTS):
+                al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            for vector_subtile in range(SUBTILES):
+                vector_slot = vector_subtile % SLOTS
+                al.sync_block_wait("cube", "vector", vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+                work = Ring + (pid * SLOTS + vector_slot) * 16 * CHUNK
+                head = al.sub_vec_id() * 4 + h
+                received = tl.load(work + head[:, None] * CHUNK + n[None, :])
+                if HANDOFF_STAGE == 2:
+                    start = vector_subtile * CHUNK
+                    page = tl.load(Table + start // PAGE_SIZE)
+                    offset = page * PAGE_SIZE + start % PAGE_SIZE
+                    query_scale = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+                    weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+                    key_scale = tl.load(KS + offset + n).to(tl.float32)
+                    visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+                    dequant = received.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+                    score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
+                    score = tl.where(start + n < visible, score, -float("inf"))
+                    diagnostic = tl.broadcast_to(score[None, :], (4, CHUNK))
+                else:
+                    diagnostic = received
+                out = Received + (pid * SUBTILES + vector_subtile) * 8 * CHUNK
+                tl.store(out + head[:, None] * CHUNK + n[None, :], diagnostic, mask=row < ROWS)
+                al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+
+
+@triton.jit
 def _qsa_online_prefix(
     Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
     SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
