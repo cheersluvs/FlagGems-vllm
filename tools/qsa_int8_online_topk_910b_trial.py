@@ -21,7 +21,7 @@ import torch
 import triton
 
 from probe_qsa_int8_mixed_pipeline_910b import (
-    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4, _qsa_online_prefix, _qsa_score_handoff_prefix, _qsa_int8_cube_flat_control,
+    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4, _qsa_online_prefix, _qsa_score_handoff_prefix, _qsa_int8_cube_flat_control, _qsa_online_n128,
 )
 from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 
@@ -29,7 +29,7 @@ from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 class PreparedOnlineTopKSelection:
     def __init__(
         self, values, host_visible, starts, chunk_rows, *,
-        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2, prefix_stage=0, handoff_stage=None,
+        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2, prefix_stage=0, handoff_stage=None, cube_tile=64,
     ):
         if update_keys not in (64, 256, 512):
             raise ValueError("TopK update size must be 64, 256, or 512")
@@ -62,9 +62,16 @@ class PreparedOnlineTopKSelection:
                 raise ValueError("Score handoff probe requires the two-query 64-key kernel")
             kernel = _qsa_score_handoff_prefix
             kernel_args = {"HANDOFF_STAGE": handoff_stage}
+        if cube_tile not in (64, 128):
+            raise ValueError("Cube key tile must be 64 or 128")
+        if cube_tile == 128:
+            if prefix_stage or handoff_stage is not None or (update_keys, handoff_keys, queries_per_program) != (64, 64, 2):
+                raise ValueError("N128 probe requires two queries and 64-key TopK updates")
+            kernel = _qsa_online_n128
         self.prefix_tiles = []
         self.handoff_tiles = []
         self.compiled_kernels = []
+        self.topk_values = []
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
@@ -83,7 +90,7 @@ class PreparedOnlineTopKSelection:
             if scan_width is not None:
                 assert request_width <= scan_width <= values["row_table"].shape[1] * PAGE
                 request_width = scan_width
-            subtiles = max(1, triton.cdiv(request_width, CUBE_TILE))
+            subtiles = max(1, triton.cdiv(request_width, cube_tile))
             for first in range(begin, end, self.chunk_rows):
                 last = min(first + self.chunk_rows, end)
                 count = last - first
@@ -95,10 +102,12 @@ class PreparedOnlineTopKSelection:
                 score_dtype = torch.int32 if handoff_stage in (0, 1) else torch.float32
                 if count not in buffers:
                     buffers[count] = (
-                        torch.empty((cores, 2, 16, handoff_keys), device=device, dtype=torch.int32),
+                        torch.empty((cores, 2, 16, cube_tile if cube_tile == 128 else handoff_keys), device=device, dtype=torch.int32),
                         torch.empty(score_shape, device=device, dtype=score_dtype),
                     )
                 ring, scores = buffers[count]
+                if not prefix_stage and handoff_stage is None:
+                    self.topk_values.append(scores)
                 if prefix_stage:
                     self.prefix_tiles.append(scores)
                 if handoff_stage is not None:
@@ -112,14 +121,17 @@ class PreparedOnlineTopKSelection:
                         enable_auto_bind_sub_block=False, multibuffer=False,
                     ))
                     continue
+                launch_args = dict(kernel_args)
+                if cube_tile == 128:
+                    launch_args["SCAN_WIDTH"] = request_width
                 self.launches.append(partial(
                     kernel[(cores,)],
                     packed_q, key, values["row_table"][begin], ring, scores,
                     values["qs"][first:last], key_scale, values["weights"][first:last],
                     values["visible"][first:last],
-                    subtiles, 2, PAGE, CUBE_TILE, count, True, True,
+                    subtiles, 2, PAGE, cube_tile, count, True, True,
                     ONLINE_TOP=TOPK, OnlineIndices=self.output[first:last],
-                    PACKED_OUTPUT=False, KEEP_TILE_STORE=bool(prefix_stage), UB_SNAPSHOT=True, **kernel_args,
+                    PACKED_OUTPUT=False, KEEP_TILE_STORE=bool(prefix_stage), UB_SNAPSHOT=True, **launch_args,
                     use_bytecode=True, disable_auto_cv_work_space_manage=True,
                     disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
                     multibuffer=False, sync_solver=False, unit_flag=False,

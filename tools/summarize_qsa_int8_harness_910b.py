@@ -275,6 +275,8 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             stages += ("prefix_score", "prefix_sort", "prefix_merge")
         if "score_handoff_prefix" in profile:
             stages += ("qk_only", "qk_handoff", "qk_score")
+        if "cube_tiles" in profile:
+            stages += ("n128",)
         for stage in stages:
             op = f"{OP_NAME}_chunk_{stage}"
             entry = report[op]
@@ -296,7 +298,7 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             current_query16_chunks=profile.get("current_query16_chunks"),
             serial_over_online=row["serial_ms"] / row["online_ms"],
         )
-        if any(key in profile for key in ("update_grains", "handoff_grains", "query_packs", "mixed_prefix", "score_handoff_prefix")):
+        if any(key in profile for key in ("update_grains", "handoff_grains", "query_packs", "mixed_prefix", "score_handoff_prefix", "cube_tiles")):
             samples = profile["paired_kernel_samples_ms"]
             for stage in stages[3:]:
                 if len(samples[stage]) != 2 or not all(
@@ -351,6 +353,16 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
                     "they are diagnostic comparisons, not isolated synchronization costs. "
                     "A paired range/median above 15% is flagged as unstable, not an acceptance failure."
                 )
+            if "cube_tiles" in profile:
+                row["n128_speedup"] = statistics.median(samples["online"]) / statistics.median(samples["n128"])
+                row["n128_spread_pct"] = {
+                    stage: (max(samples[stage]) - min(samples[stage])) / statistics.median(samples[stage]) * 100
+                    for stage in ("online", "n128")
+                }
+                row["n128_unstable"] = any(value > 15 for value in row["n128_spread_pct"].values())
+                row["cube_tile_calls"] = profile["cube_tile_calls"]
+                row["topk_update_keys"] = profile["topk_update_keys"]
+                row["topk_update_counts"] = profile["topk_update_counts"]
         if profile["profile_status"] == "completed":
             row["device_stages"] = profile["timeline"]["stages"]
         else:
@@ -443,6 +455,14 @@ def main():
                     print(f"{row['case']} paired range/median %: {row['handoff_prefix_spread_pct']}; "
                           f"unstable={row['handoff_prefix_unstable']}")
                     print(row["handoff_prefix_caveat"])
+                if "n128_speedup" in row:
+                    samples = row["paired_kernel_samples_ms"]
+                    print(f"{row['case']} paired N64/N128 us: "
+                          f"{statistics.median(samples['online']) * 1000:.3f} / "
+                          f"{statistics.median(samples['n128']) * 1000:.3f}; speedup {row['n128_speedup']:.3f}x")
+                    print(f"{row['case']} paired range/median %: {row['n128_spread_pct']}; "
+                          f"unstable={row['n128_unstable']}; Cube calls={row['cube_tile_calls']}; "
+                          f"TopK update=64, counts={row['topk_update_counts']}")
         else:
             print(summary["error"])
         return summary["exit_code"]

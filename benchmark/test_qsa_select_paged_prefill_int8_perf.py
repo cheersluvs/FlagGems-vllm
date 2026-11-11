@@ -947,6 +947,10 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
                 values, inputs["visible"], [0, rows], rows, scan_width=width,
                 prefix_stage=stage,
             )
+    if os.environ.get("QSA_HARNESS_CUBE_N128") == "1":
+        variants["n128"] = PreparedOnlineTopKSelection(
+            values, inputs["visible"], [0, rows], rows, scan_width=width, cube_tile=128,
+        )
     handoff_labels = ("qk_only", "qk_handoff", "qk_score")
     if os.environ.get("QSA_HARNESS_SCORE_HANDOFF_PREFIX") == "1":
         for stage, label in enumerate(handoff_labels):
@@ -957,7 +961,7 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
     serial()
     for label, adapter in variants.items():
         print(f"QSA INT8 CHUNK COMPILE {case_name} {label}", flush=True)
-        capture = os.environ.get("QSA_HARNESS_SCORE_HANDOFF_PREFIX") == "1"
+        capture = any(os.environ.get(key) == "1" for key in ("QSA_HARNESS_SCORE_HANDOFF_PREFIX", "QSA_HARNESS_CUBE_N128"))
         adapter(capture_compilation=capture)
         torch.npu.synchronize()
         if capture:
@@ -983,6 +987,35 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
         verify_structure(indices, inputs["visible"])
         checks, _ = check_selection(indices, refs)
         assert checks["checks_passed"], (case_name, label, checks)
+    if os.environ.get("QSA_HARNESS_CUBE_N128") == "1":
+        def verify_topk_values(adapter, references, lengths):
+            assert len(adapter.topk_values) == 1
+            indices = adapter.output.cpu()
+            scores = adapter.topk_values[0].cpu()
+            verify_structure(indices, lengths)
+            checks, _ = check_selection(indices, references)
+            assert checks["checks_passed"], checks
+            for row, ref in enumerate(references):
+                valid = indices[row] >= 0
+                torch.testing.assert_close(scores[row, valid], ref[indices[row, valid].long()], rtol=1e-3, atol=1e-3)
+                assert torch.isneginf(scores[row, ~valid]).all()
+        for label in ("online", "n128"):
+            verify_topk_values(variants[label], refs, inputs["visible"])
+        if case_name == "int8_compact":
+            edge_inputs = dict(inputs)
+            edge_inputs["row_table"] = inputs["row_table"][:, :1].contiguous()
+            edge_inputs["visible"] = torch.tensor([0, 1, 63, 64, 127, 128, 191, 192] * 4, dtype=inputs["visible"].dtype)
+            edge_values = dict(values)
+            edge_values["row_table"] = edge_inputs["row_table"].to(device)
+            edge_values["visible"] = edge_inputs["visible"].to(device)
+            edge = PreparedOnlineTopKSelection(
+                edge_values, edge_inputs["visible"], [0, rows], rows, scan_width=192, cube_tile=128,
+            )
+            edge()
+            torch.npu.synchronize()
+            edge_refs = [cpu_score(edge_inputs, row)[1] for row in range(rows)]
+            verify_topk_values(edge, edge_refs, edge_inputs["visible"])
+            print("QSA N128 EDGE PASS: one page, width192, visible0/1/63/64/127/128/191/192", flush=True)
     for label in ("prefix_score", "prefix_sort", "prefix_merge"):
         if label not in variants:
             continue
@@ -1091,6 +1124,11 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             profile["mixed_prefix"] = ["prefix_score", "prefix_sort", "prefix_merge"]
         if os.environ.get("QSA_HARNESS_SCORE_HANDOFF_PREFIX") == "1":
             profile["score_handoff_prefix"] = list(handoff_labels)
+        if os.environ.get("QSA_HARNESS_CUBE_N128") == "1":
+            profile["cube_tiles"] = [64, 128]
+            profile["cube_tile_calls"] = {"online": (width + 63) // 64, "n128": (width + 127) // 128}
+            profile["topk_update_keys"] = 64
+            profile["topk_update_counts"] = {"online": (width + 63) // 64, "n128": 2 * ((width + 127) // 128)}
     try:
         collect(
             SimpleNamespace(report=report, worker=case_name), functions, torch, profile,

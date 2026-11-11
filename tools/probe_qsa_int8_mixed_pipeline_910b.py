@@ -979,6 +979,102 @@ def _qsa_online_scoped(
 
 
 @triton.jit
+def _qsa_online_n128(
+    Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
+    SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
+    CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
+    ONLINE_TOP: tl.constexpr, OnlineIndices,
+    PACKED_OUTPUT: tl.constexpr, KEEP_TILE_STORE: tl.constexpr, UB_SNAPSHOT: tl.constexpr,
+    SCAN_WIDTH: tl.constexpr,
+):
+    tl.static_assert(SCORE and SORT and UB_SNAPSHOT and ONLINE_TOP > 0)
+    tl.static_assert(CHUNK == 128 and not KEEP_TILE_STORE and not PACKED_OUTPUT)
+    with al.scope(core_mode="cube"):
+        pid = tl.program_id(0)
+        m = tl.arange(0, 16)
+        d = tl.arange(0, 128)
+        n = tl.arange(0, CHUNK)
+        q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
+        for cube_subtile in range(SUBTILES):
+            cube_slot = cube_subtile % SLOTS
+            if KEEP_TILE_STORE:
+                al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            else:
+                al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+            start = cube_subtile * CHUNK
+            logical = start + n
+            valid = logical < SCAN_WIDTH
+            page = tl.load(Table + logical // PAGE_SIZE, mask=valid, other=0)
+            offset = page * PAGE_SIZE + logical % PAGE_SIZE
+            key = tl.load(K + offset[:, None] * 128 + d[None, :], mask=valid[:, None], other=0)
+            dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
+            work = Ring + (pid * SLOTS + cube_slot) * 16 * CHUNK
+            tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
+            al.sync_block_set("cube", "vector", cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            if KEEP_TILE_STORE:
+                al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            else:
+                al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+
+    with al.scope(core_mode="vector"):
+        pid = tl.program_id(0)
+        row = pid * 2 + al.sub_vec_id()
+        h = tl.arange(0, 4)
+        n = tl.arange(0, CHUNK)
+        word = tl.arange(0, 2 * ONLINE_TOP)
+        state = tl.where(
+            word % 2 == 0, -float("inf"),
+            tl.full((), -1, tl.int32).to(tl.float32, bitcast=True),
+        )
+        for initial_slot in tl.static_range(SLOTS):
+            if KEEP_TILE_STORE:
+                al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            else:
+                al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        for vector_subtile in range(SUBTILES):
+            vector_slot = vector_subtile % SLOTS
+            al.sync_block_wait("cube", "vector", vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            work = Ring + (pid * SLOTS + vector_slot) * 16 * CHUNK
+            head = al.sub_vec_id() * 4 + h
+            received = tl.load(work + head[:, None] * CHUNK + n[None, :])
+            start = vector_subtile * CHUNK
+            logical = start + n
+            valid = logical < SCAN_WIDTH
+            page = tl.load(Table + logical // PAGE_SIZE, mask=valid, other=0)
+            offset = page * PAGE_SIZE + logical % PAGE_SIZE
+            query_scale = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+            weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+            key_scale = tl.load(KS + offset, mask=valid, other=0).to(tl.float32)
+            visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+            dequant = received.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+            score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
+            score = tl.where(start + n < visible, score, -float("inf"))
+            for update_half in range(2):
+                lanes = update_half * 64 + tl.arange(0, 64)
+                half_score = tl.gather(score, lanes, axis=0)
+                pairs = tle.dsa.ascend.raw(
+                    "sort_1d_pack", half_score, tl.zeros((256,), tl.float32),
+                    True, 64, start + update_half * 64, SORT_IMPL_BASE,
+                    out=tl.zeros((128,), tl.float32),
+                )
+                state = _update_online_topk_ub_snapshot(state, pairs, ONLINE_TOP, 64)
+            al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        if PACKED_OUTPUT:
+            tl.store(Received + row * 2 * ONLINE_TOP + word, state, mask=row < ROWS)
+        else:
+            values, indices = tle.dsa.ascend.raw(
+                "unpack_sort", state, ONLINE_TOP,
+                out=[tl.zeros((ONLINE_TOP,), tl.float32), tl.zeros((ONLINE_TOP,), tl.int32)],
+            )
+            rank = tl.arange(0, ONLINE_TOP)
+            live = rank < tl.load(Visible + row, mask=row < ROWS, other=0)
+            out = row * ONLINE_TOP + rank
+            tl.store(Received + out, tl.where(live, values, -float("inf")), mask=row < ROWS)
+            tl.store(OnlineIndices + out, tl.where(live, indices, -1), mask=row < ROWS)
+
+
+@triton.jit
 def _qsa_score_handoff_prefix(
     Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
     SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
