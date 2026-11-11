@@ -231,9 +231,11 @@ def _qsa_int8_handoff_copy(
     n = tl.arange(0, CHUNK)
     q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
     # The online arm has no tile writeback. Release after the Vector has read the ring.
-    RELEASE_PIPE: tl.constexpr = pipe.PIPE_MTE2 if ONLINE_TOP else pipe.PIPE_MTE3
     for ring_index in tl.static_range(SLOTS):
-        al.sync_block_set("vector", "cube", ring_index, RELEASE_PIPE, pipe.PIPE_FIX)
+        if ONLINE_TOP:
+            al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        else:
+            al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     if ONLINE_TOP:
         word = tl.arange(0, 2 * ONLINE_TOP)
         state = tl.where(
@@ -243,7 +245,10 @@ def _qsa_int8_handoff_copy(
     for subtile in range(SUBTILES):
         slot = subtile % SLOTS
         work = Ring + (pid * SLOTS + slot) * 16 * CHUNK
-        al.sync_block_wait("vector", "cube", slot, RELEASE_PIPE, pipe.PIPE_FIX)
+        if ONLINE_TOP:
+            al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        else:
+            al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
         start = subtile * CHUNK
         page = tl.load(Table + start // PAGE_SIZE)
         offset = page * PAGE_SIZE + start % PAGE_SIZE
@@ -284,9 +289,15 @@ def _qsa_int8_handoff_copy(
         else:
             out = Received + (pid * SUBTILES + subtile) * 8 * CHUNK
             tl.store(out + head[:, None] * CHUNK + n[None, :], received)
-        al.sync_block_set("vector", "cube", slot, RELEASE_PIPE, pipe.PIPE_FIX)
+        if ONLINE_TOP:
+            al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        else:
+            al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
-        al.sync_block_wait("vector", "cube", ring_index, RELEASE_PIPE, pipe.PIPE_FIX)
+        if ONLINE_TOP:
+            al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        else:
+            al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     if ONLINE_TOP:
         values, indices = tle.dsa.ascend.raw(
             "unpack_sort", state, ONLINE_TOP,
