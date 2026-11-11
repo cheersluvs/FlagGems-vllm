@@ -282,6 +282,141 @@ def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
 
 
 @triton.jit
+def _qsa_online_tail_detail(
+    Source, Tiles, Raw, Counts, TailWords, Gathered, StateAfter, Output,
+):
+    row = tl.program_id(0)
+    word = tl.arange(0, 1024)
+    state = tl.load(Source + row * 1024 + word)
+    tile = tl.load(Tiles + row * 128 + tl.arange(0, 128))
+    packed = tl.zeros((4096,), tl.float32)
+    packed = tle.dsa.insert_slice(packed, state, (0,), (1024,), (1,))
+    packed = tle.dsa.insert_slice(packed, tile, (1024,), (128,), (1,))
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 2,
+        0, 512, 1024, 1536, 512, 64, 0, 0,
+        out=[tl.zeros((2048,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    prefix = al.extract_slice(merged, (0,), (1024,), (1,))
+    old_count = al.get_element(consumed, (0,))
+    tile_count = al.get_element(consumed, (1,))
+    tail_word = tl.maximum(word - 2 * tile_count, 0)
+    tail = tl.gather(state, tail_word, axis=0)
+    result = tl.where(word < 2 * (old_count + tile_count), prefix, tail)
+    tl.store(Raw + row * 2048 + tl.arange(0, 2048), merged)
+    tl.store(Counts + row * 4 + tl.arange(0, 4), consumed)
+    tl.store(TailWords + row * 1024 + word, tail_word)
+    tl.store(Gathered + row * 1024 + word, tail)
+    tl.store(StateAfter + row * 1024 + word, state)
+    tl.store(Output + row * 1024 + word, result)
+
+
+def online_tail_detail_probe(args, device):
+    import hashlib
+    import os
+    from triton.backends.ascend import compiler
+
+    report = Path(args.report)
+    label = "online-tail-detail"
+    summary = report / f"{label}.json"
+    path = Path(os.environ["QSA_ONLINE_TWO_STEP_SNAPSHOT"])
+    payload = path.read_bytes()
+    saved = json.loads(gzip.decompress(payload))
+    state_bits = torch.tensor(saved["first"], dtype=torch.int32)
+    tile_bits = torch.tensor(saved["tiles"], dtype=torch.int32)[:, 64:128].contiguous()
+    assert state_bits.shape == (39, 512, 2) and tile_bits.shape == (39, 64, 2)
+    state_cpu = state_bits.view(torch.float32)
+    tile_cpu = tile_bits.view(torch.float32)
+    rows = state_bits.shape[0]
+    source = state_cpu.to(device)
+    tiles = tile_cpu.to(device)
+
+    def buffer(words, dtype):
+        return torch.empty((rows, words), device=device, dtype=dtype)
+
+    raw = buffer(2048, torch.float32)
+    counts = buffer(4, torch.int32)
+    tail_words = buffer(1024, torch.int32)
+    gathered = buffer(1024, torch.float32)
+    state_after = buffer(1024, torch.float32)
+    output = buffer(1024, torch.float32)
+    result = {"snapshot_sha256": hashlib.sha256(payload).hexdigest(),
+              "rows": rows, "status": "launching"}
+    summary.write_text(json.dumps(result, indent=2))
+    try:
+        with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+            kernel = _qsa_online_tail_detail[(rows,)](
+                source, tiles, raw, counts, tail_words, gathered, state_after, output,
+                use_bytecode=True, enable_auto_bind_sub_block=False, multibuffer=False,
+            )
+        result.update(status="synchronizing", artifacts=save_artifacts(kernel, report, label))
+        summary.write_text(json.dumps(result, indent=2))
+        torch.npu.synchronize()
+        raw, counts, tail_words, gathered, state_after, output = (
+            value.cpu() for value in (raw, counts, tail_words, gathered, state_after, output)
+        )
+        snapshots = {"source": state_bits.tolist(), "tile": tile_bits.tolist(),
+                     "raw": raw.view(torch.int32).tolist(), "counts": counts.tolist(),
+                     "tail_words": tail_words.tolist(), "gathered": gathered.view(torch.int32).tolist(),
+                     "state_after": state_after.view(torch.int32).tolist(),
+                     "output": output.view(torch.int32).tolist()}
+        with gzip.open(report / f"{label}-snapshots.json.gz", "wt") as stream:
+            json.dump(snapshots, stream)
+        source_pairs = torch.cat((state_cpu, tile_cpu), dim=1)
+        sorted_scores = source_pairs[..., 0].sort(dim=1, descending=True).values
+        checks = []
+        word = torch.arange(1024)
+        for row in range(rows):
+            left, right = counts[row, :2].tolist()
+            valid_counts = 0 <= left <= 512 and 0 <= right <= 64 and (left == 512 or right == 64)
+            entry = {"row": row, "consumed": [left, right], "valid_counts": valid_counts}
+            if valid_counts:
+                written = min(left + right, 512)
+                expected_words = (word - 2 * right).clamp_min(0)
+                expected_gather = state_bits[row].flatten()[expected_words]
+                tail_mask = word >= 2 * (left + right)
+                bad_words = (gathered[row].view(torch.int32) != expected_gather) & tail_mask
+                actual_pairs = output[row].view(512, 2)
+                finite = torch.isfinite(actual_pairs[:, 0])
+                actual_ids = actual_pairs.view(torch.int32)[:, 1]
+                source_ids = source_pairs[row].view(torch.int32)[:, 1]
+                matches = (
+                    (actual_ids[finite, None] == source_ids)
+                    & (actual_pairs[finite, 0, None] == source_pairs[row, :, 0])
+                )
+                pair_errors = int((~matches.any(dim=1)).sum())
+                pair_errors += int(finite.sum()) - actual_ids[finite].unique().numel()
+                entry.update(
+                    raw_score_mismatches=int((raw[row, :2 * written:2] != sorted_scores[row, :written]).sum()),
+                    tail_index_mismatches=int((tail_words[row] != expected_words).sum()),
+                    tail_gather_word_mismatches=int(bad_words.sum()),
+                    state_word_mismatches=int((state_after[row].view(torch.int32) != state_bits[row].flatten()).sum()),
+                    output_score_mismatches=int((actual_pairs[:, 0] != sorted_scores[row, :512]).sum()),
+                    output_pair_errors=pair_errors,
+                )
+                if bad_words.any():
+                    first = int(bad_words.nonzero()[0])
+                    entry["first_bad_tail"] = {
+                        "output_word": first, "source_word": int(expected_words[first]),
+                        "expected_bits": int(expected_gather[first]),
+                        "actual_bits": int(gathered[row].view(torch.int32)[first]),
+                    }
+            checks.append(entry)
+        result.update(status="checked", rows_detail=checks)
+        result["passed"] = all(
+            entry["valid_counts"] and not any(
+                value for key, value in entry.items() if key.endswith("mismatches") or key == "output_pair_errors"
+            ) for entry in checks
+        )
+    except Exception as exc:
+        result.update(passed=False, error=repr(exc))
+    summary.write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2), flush=True)
+    if not result.get("passed"):
+        raise SystemExit(1)
+
+
+@triton.jit
 def _qsa_online_state_probe(Source, Tiles, Output, STEPS: tl.constexpr):
     word = tl.arange(0, 1024)
     lane = tl.arange(0, 128)
@@ -1528,6 +1663,9 @@ def worker(args):
     torch.npu.set_device(args.device)
     device = torch.device(f"npu:{args.device}")
     assert "910B" in torch.npu.get_device_name(args.device)
+    if args.online_tail_detail:
+        online_tail_detail_probe(args, device)
+        return
     if args.online_update_steps and not args.online_real_tiles:
         online_state_probe(args, device)
         return
@@ -1731,6 +1869,7 @@ def main():
     parser.add_argument("--online-packed-output", action="store_true")
     parser.add_argument("--online-mte3", action="store_true")
     isolated = parser.add_mutually_exclusive_group()
+    isolated.add_argument("--online-tail-detail", action="store_true")
     isolated.add_argument("--online-two-step", choices=("combined", "split"))
     isolated.add_argument("--online-raw-length", type=int, choices=(64, 512))
     isolated.add_argument("--online-update-steps", type=int, choices=(1, 2, 8, 32, 129))
@@ -1762,7 +1901,11 @@ def main():
     report = Path(args.report).resolve()
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
-    if args.online_two_step:
+    if args.online_tail_detail:
+        command = base + ["--worker", "long", "--online-tail-detail"]
+        code, timed_out = run_child(command, report / "online-tail-detail-worker.txt", args.timeout)
+        statuses["online-tail-detail"] = dict(exit_code=code, timed_out=timed_out)
+    elif args.online_two_step:
         label = f"online-two-step-{args.online_two_step}"
         command = base + ["--worker", "long", "--online-two-step", args.online_two_step]
         code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
