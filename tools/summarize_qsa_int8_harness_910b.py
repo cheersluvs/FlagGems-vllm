@@ -254,6 +254,44 @@ def summarize(
     return summary
 
 
+def summarize_online_chunk_stages(directory, pytest_exit_code):
+    if pytest_exit_code != 0:
+        raise ValueError(f"pytest returned {pytest_exit_code}")
+    rows = []
+    for name in ("int8_budget_exact", "int8_compact"):
+        report = json.loads((directory / f"harness-{name}.json").read_text())
+        row = {"case": name, "rows": 40}
+        for stage in ("score", "topk", "serial", "online"):
+            op = f"{OP_NAME}_chunk_{stage}"
+            entry = report[op]
+            if entry.get("result") != "passed":
+                raise ValueError(f"Stage failed: {name} {stage}")
+            details = entry["details"]
+            if len(details) != 1 or details[0]["mode"] != "kernel":
+                raise ValueError(f"Unexpected stage records: {name} {stage}")
+            records = details[0]["result"]
+            if len(records) != 1 or records[0]["shape_detail"] != [name, "auto"]:
+                raise ValueError(f"Unexpected stage shape: {name} {stage}")
+            value = records[0]["latency"]
+            if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise ValueError(f"Invalid stage time: {name} {stage}")
+            row[f"{stage}_ms"] = value
+        profile = json.loads((directory / f"{name}-chunk-profile.json").read_text())
+        row.update(
+            width=profile["width"], profile_status=profile["profile_status"],
+            serial_over_online=row["serial_ms"] / row["online_ms"],
+        )
+        if profile["profile_status"] == "completed":
+            row["device_stages"] = profile["timeline"]["stages"]
+        else:
+            row["profile_error"] = profile.get("profile_error")
+        rows.append(row)
+    return dict(
+        exit_code=0, mode="kernel", scope="Two matched 40-row chunks",
+        arithmetic_mean_speedup=None, cases=rows,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("report", type=Path)
@@ -264,12 +302,30 @@ def main():
     parser.add_argument("--short-score", action="store_true")
     parser.add_argument("--fused-binary", action="store_true")
     parser.add_argument("--online-topk", action="store_true")
+    parser.add_argument("--online-stages", action="store_true")
     diagnostic = parser.add_mutually_exclusive_group()
     diagnostic.add_argument("--tile-handoff", action="store_true")
     diagnostic.add_argument("--group-visible", action="store_true")
     diagnostic.add_argument("--group-visible-full", action="store_true")
     diagnostic.add_argument("--group-visible-wall", action="store_true")
     args = parser.parse_args()
+    if args.online_stages:
+        try:
+            summary = summarize_online_chunk_stages(args.report.parent, args.pytest_exit_code)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            summary = dict(exit_code=1, error=str(exc), arithmetic_mean_speedup=None)
+        args.output.write_text(json.dumps(summary, indent=2) + "\n")
+        if summary["exit_code"] == 0:
+            print("case | score ms | TopK ms | serial ms | online ms | serial/online")
+            for row in summary["cases"]:
+                print(
+                    f"{row['case']} | {row['score_ms']:.6f} | {row['topk_ms']:.6f} | "
+                    f"{row['serial_ms']:.6f} | {row['online_ms']:.6f} | "
+                    f"{row['serial_over_online']:.6f}x [profile {row['profile_status']}]"
+                )
+        else:
+            print(summary["error"])
+        return summary["exit_code"]
     try:
         if args.merge_case_reports:
             report = merge_case_reports(

@@ -64,6 +64,9 @@ qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
 printf 'Code commit: %s\nReport: %s\n' "$qsa_commit" "$qsa_report"
 printf '%s\n' "$qsa_commit" > "$qsa_report/$qsa_commit_file"
 qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel
+if [[ ${QSA_HARNESS_ONLINE_STAGES:-0} == 1 ]]; then
+    qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages
+fi
 qsa_harness_diagnose() (
     cd -- "$qsa_repo" || exit 1
     ulimit -c 0 || exit 1
@@ -85,7 +88,9 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
 import os
 from tools.qsa_int8_ten_workloads_910b import cases
 from tools.summarize_qsa_int8_harness_910b import GROUP_VISIBLE_CASES, GROUP_VISIBLE_WALL_CASES, STAGE_CASES, TILE_HANDOFF_CASE
-if os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "wall":
+if os.environ.get("QSA_HARNESS_ONLINE_STAGES") == "1":
+    names = ("int8_budget_exact", "int8_compact")
+elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "wall":
     names = GROUP_VISIBLE_WALL_CASES
 elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "1":
     names = GROUP_VISIBLE_CASES
@@ -139,11 +144,14 @@ print("\n".join(names))
                 qsa_mixed_flag=--online-topk
             fi
         fi
+        if [[ ${QSA_HARNESS_ONLINE_STAGES:-0} == 1 ]]; then
+            qsa_mixed_flag=--online-stages
+        fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do
             printf 'QSA INT8 harness worker: %s\n' "$qsa_case"
             qsa_case_console="$qsa_report/harness-$qsa_case-console.txt"
-            QSA_INT8_HARNESS_PREFLIGHT_ONLY=0 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+            QSA_HARNESS_REPORT="$qsa_report" QSA_INT8_HARNESS_PREFLIGHT_ONLY=0 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
                 "$qsa_python" -u -m pytest -q -s \
                 "$qsa_test[$qsa_case]" --mode kernel "$@" \
                 --record json --output "$qsa_report/harness-$qsa_case.json" \

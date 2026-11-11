@@ -25,7 +25,7 @@ from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 
 
 class PreparedOnlineTopKSelection:
-    def __init__(self, values, host_visible, starts, chunk_rows):
+    def __init__(self, values, host_visible, starts, chunk_rows, *, scan_width=None):
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
@@ -40,7 +40,11 @@ class PreparedOnlineTopKSelection:
         buffers = {}
 
         for begin, end in zip(starts[:-1], starts[1:], strict=True):
-            subtiles = max(1, triton.cdiv(int(host_visible[end - 1]), CUBE_TILE))
+            request_width = int(host_visible[end - 1])
+            if scan_width is not None:
+                assert request_width <= scan_width <= values["row_table"].shape[1] * PAGE
+                request_width = scan_width
+            subtiles = max(1, triton.cdiv(request_width, CUBE_TILE))
             for first in range(begin, end, self.chunk_rows):
                 last = min(first + self.chunk_rows, end)
                 count = last - first

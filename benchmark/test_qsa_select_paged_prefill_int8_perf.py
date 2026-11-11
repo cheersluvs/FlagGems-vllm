@@ -842,3 +842,115 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         next(prepare_case((case_name,), torch.int8, benchmark.device))
     else:
         benchmark.run()
+
+
+@pytest.mark.qsa_select_paged_prefill_int8_910b
+@pytest.mark.parametrize("case_name", ("int8_budget_exact", "int8_compact"))
+def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_name):
+    from types import SimpleNamespace
+
+    pytest.importorskip("torch_npu")
+    if not torch.npu.is_available():
+        pytest.skip("Ascend NPU unavailable")
+    device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+    torch.npu.set_device(device_index)
+    if "910B" not in torch.npu.get_device_name(device_index):
+        pytest.skip("Ascend 910B required")
+    assert Config.mode == consts.BenchMode.KERNEL
+    assert os.environ.get("ASCEND_LAUNCH_BLOCKING") != "1"
+
+    root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(root / "tools"))
+    from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
+    from probe_qsa_int8_pipeline_910b import check_selection
+    from probe_qsa_int8_score_910b import reference as cpu_score
+    from probe_qsa_int8_score_sol_910b import build_direct_page_source
+    from probe_qsa_int8_ten_shapes_910b import verify_structure
+    from qsa_int8_online_topk_910b_trial import PreparedOnlineTopKSelection
+    from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+    from qsa_prefill_pipeline_910b_trial import load_topk
+    from qsa_timeline_910b import collect
+
+    plan = CASES[(case_name,)]
+    rows = 40
+    assert plan["query_lengths"][0] >= rows
+    width = plan["logits_width"]
+    inputs = make_inputs(plan)
+    for key in ("q", "qs", "weights", "row_table", "visible"):
+        inputs[key] = inputs[key][:rows].contiguous()
+    device = f"npu:{device_index}"
+    values = {key: value.to(device) for key, value in inputs.items()}
+    topk = load_topk()
+    policy = os.environ.get("QSA_HARNESS_TOPK_POLICY", "prefill_3seg")
+    route = topk_route(plan, policy)
+    assert route == "auto", "The two chunk controls use the automatic TopK route"
+    monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", "auto")
+    kernels = {}
+    for bounded in (True, False):
+        arm = "chunk_bounded" if bounded else "chunk_full"
+        kernels[bounded] = load_generated_prefix(
+            tmp_path, "chunk", arm,
+            build_direct_page_source(bounded, arm, precomputed_visibility=False),
+        )
+    output = torch.empty((rows, 512), device=device, dtype=torch.int32)
+    scratch = torch.empty((rows, width), device=device, dtype=torch.float32)
+    workspace = torch.empty(1024**2, device=device, dtype=torch.uint8)
+    current = PreparedSharedMapInt8Selection(
+        values, output, scratch, workspace, topk, [0, rows],
+        key_group4=True, single_page64=True, direct_page_kernels=kernels,
+        shared_direct_page_proof=True,
+    )
+    online = PreparedOnlineTopKSelection(
+        values, inputs["visible"], [0, rows], rows, scan_width=width,
+    )
+    assert current.chunks == [(0, rows)] and online.chunks == [(0, rows)]
+
+    def score():
+        current.score_into(0, rows, scratch)
+
+    def select():
+        current.topk_all(scratch)
+
+    def serial():
+        score()
+        select()
+
+    serial()
+    online()
+    torch.npu.synchronize()
+    refs = [cpu_score(inputs, row)[1] for row in range(rows)]
+    for label, indices in (("current", output.cpu()), ("online", online.output.cpu())):
+        verify_structure(indices, inputs["visible"])
+        checks, _ = check_selection(indices, refs)
+        assert checks["checks_passed"], (case_name, label, checks)
+    staged = scratch.cpu()
+    for row, ref in enumerate(refs):
+        torch.testing.assert_close(staged[row, :ref.numel()], ref, rtol=1e-3, atol=1e-3)
+        assert torch.isneginf(staged[row, ref.numel():]).all()
+    functions = {"score": score, "topk": select, "serial": serial, "online": online}
+    print(
+        f"QSA INT8 CHUNK PREFLIGHT PASS {case_name} rows={rows} width={width} "
+        f"online_tiles={(width + 63) // 64} "
+        f"current_routes={current.route_checks}",
+        flush=True,
+    )
+    for stage, execute in functions.items():
+        def stage_inputs(shape, dtype, target_device):
+            yield (dict(case_name=case_name, route=route, candidate=execute),)
+
+        QSAPrefillInt8Benchmark(
+            op_name=f"{OP_NAME}_chunk_{stage}", case_name=case_name,
+            torch_op=None, gems_op=_call_candidate, input_fn=stage_inputs,
+            dtypes=[torch.int8], device=device,
+        ).run()
+    report = Path(os.environ["QSA_HARNESS_REPORT"])
+    profile = {"case": case_name, "rows": rows, "width": width}
+    try:
+        collect(
+            SimpleNamespace(report=report, worker=case_name), functions, torch, profile,
+            selected=tuple(functions),
+        )
+        profile["profile_status"] = "completed"
+    except Exception as exc:
+        profile.update(profile_status="failed", profile_error=repr(exc))
+    (report / f"{case_name}-chunk-profile.json").write_text(json.dumps(profile, indent=2))
