@@ -61,7 +61,8 @@ def run_controls(inputs, values, width, report, case, measure=None):
         print(f"QSA N128 COMPONENT {case} {label}: {json.dumps(entry)}", flush=True)
 
     fence_probe = os.environ.get("QSA_N128_FENCE_PROBE") == "1"
-    for is_dense in (() if fence_probe else (True, False)):
+    rect_probe = os.environ.get("QSA_N128_RECT_PROBE") == "1"
+    for is_dense in ((False,) if rect_probe else (() if fence_probe else (True, False))):
         for trace in (False, True):
             label = f"cube-{'dense' if is_dense else 'paged'}-{'trace' if trace else 'plain'}"
             entry = {}
@@ -92,6 +93,8 @@ def run_controls(inputs, values, width, report, case, measure=None):
 
     full_steps = triton.cdiv(width, 128)
     arms = ([(2, mode) for mode in (0, 1, 2, 4, 7)] + [(full_steps, mode) for mode in (0, 7)]) if fence_probe else [(steps, 0) for steps in sorted({1, 2, full_steps})]
+    if rect_probe:
+        arms = [(2, 0), (full_steps, 0)]
     for steps, fence in dict.fromkeys(arms):
         label = f"handoff-only-{steps}-fence{fence}"
         entry = {}
@@ -112,6 +115,13 @@ def run_controls(inputs, values, width, report, case, measure=None):
             compiled = launch()
             torch.npu.synchronize()
             entry["artifacts"] = save(label, compiled)
+            bcmlir = getattr(compiled, "asm", {}).get("bcmlir", "")
+            if isinstance(bcmlir, str):
+                entry["ir_access_counts"] = dict(
+                    discrete=bcmlir.count("DiscreteMemAccess"),
+                    parallel_copy_loops=bcmlir.count("hivm.parallel_loop"),
+                    memref_copies=bcmlir.count("memref.copy"),
+                )
             raw = out.cpu()
             actual = raw.reshape(cores, steps, 2, 4, 128).permute(0, 2, 3, 1, 4).reshape(rows, 4, steps * 128)
             expected = torch.matmul(inputs["q"].int(), logical[:steps * 128].int().T)

@@ -1006,12 +1006,18 @@ def _qsa_online_n128(
             valid = logical < SCAN_WIDTH
             page_lo = tl.load(Table + start // PAGE_SIZE, mask=start < SCAN_WIDTH, other=0)
             page_hi = tl.load(Table + (start + 64) // PAGE_SIZE, mask=start + 64 < SCAN_WIDTH, other=0)
-            offset = tl.where(
-                n < 64,
-                page_lo * PAGE_SIZE + start % PAGE_SIZE + n,
-                page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE + n - 64,
+            half_n = tl.arange(0, 64)
+            offset_lo = page_lo * PAGE_SIZE + start % PAGE_SIZE
+            offset_hi = page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE
+            key_lo = tl.load(
+                K + (offset_lo + half_n[:, None]) * 128 + d[None, :],
+                mask=start + half_n[:, None] < SCAN_WIDTH, other=0,
             )
-            key = tl.load(K + offset[:, None] * 128 + d[None, :], mask=valid[:, None], other=0)
+            key_hi = tl.load(
+                K + (offset_hi + half_n[:, None]) * 128 + d[None, :],
+                mask=start + 64 + half_n[:, None] < SCAN_WIDTH, other=0,
+            )
+            key = tl.cat(key_lo, key_hi, axis=0, can_reorder=False)
             dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
             work = Ring + (pid * SLOTS + cube_slot) * 16 * CHUNK
             tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
@@ -1216,9 +1222,18 @@ def _qsa_n128_handoff_control(
             valid = start + n < SCAN_WIDTH
             page_lo = tl.load(Table + start // PAGE_SIZE, mask=start < SCAN_WIDTH, other=0)
             page_hi = tl.load(Table + (start + 64) // PAGE_SIZE, mask=start + 64 < SCAN_WIDTH, other=0)
-            offset = tl.where(n < 64, page_lo * PAGE_SIZE + start % PAGE_SIZE + n,
-                              page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE + n - 64)
-            key = tl.load(K + offset[:, None] * 128 + d[None, :], mask=valid[:, None], other=0)
+            half_n = tl.arange(0, 64)
+            offset_lo = page_lo * PAGE_SIZE + start % PAGE_SIZE
+            offset_hi = page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE
+            key_lo = tl.load(
+                K + (offset_lo + half_n[:, None]) * 128 + d[None, :],
+                mask=start + half_n[:, None] < SCAN_WIDTH, other=0,
+            )
+            key_hi = tl.load(
+                K + (offset_hi + half_n[:, None]) * 128 + d[None, :],
+                mask=start + 64 + half_n[:, None] < SCAN_WIDTH, other=0,
+            )
+            key = tl.cat(key_lo, key_hi, axis=0, can_reorder=False)
             if FENCE_MODE & 1:
                 tl.debug_barrier()
             dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
