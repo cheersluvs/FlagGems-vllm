@@ -199,22 +199,51 @@ def _qsa_int8_cube_flat_control(
 
 
 @triton.jit
+def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
+    packed = tl.zeros((8 * TOP,), tl.float32)
+    packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))
+    packed = tle.dsa.insert_slice(packed, tile, (2 * TOP,), (2 * CHUNK,), (1,))
+    merged, consumed = tle.dsa.ascend.raw(
+        "merge_exhaust_sort4", packed, 2,
+        0, TOP, 2 * TOP, 3 * TOP, TOP, CHUNK, 0, 0,
+        out=[tl.zeros((4 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],
+    )
+    prefix = al.extract_slice(merged, (0,), (2 * TOP,), (1,))
+    # If the tile is exhausted before TOP entries, only the old state can remain.
+    old_count = al.get_element(consumed, (0,))
+    tile_count = al.get_element(consumed, (1,))
+    word = tl.arange(0, 2 * TOP)
+    tail_word = tl.maximum(word - 2 * tile_count, 0)
+    tail = tl.gather(state, tail_word, axis=0)
+    return tl.where(word < 2 * (old_count + tile_count), prefix, tail)
+
+
+@triton.jit
 def _qsa_int8_handoff_copy(
     Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
     SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
     CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
+    ONLINE_TOP: tl.constexpr = 0, OnlineIndices=None,
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
     d = tl.arange(0, 128)
     n = tl.arange(0, CHUNK)
     q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
+    # The online arm has no tile writeback. Release after the Vector has read the ring.
+    RELEASE_PIPE: tl.constexpr = pipe.PIPE_MTE2 if ONLINE_TOP else pipe.PIPE_MTE3
     for ring_index in tl.static_range(SLOTS):
-        al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        al.sync_block_set("vector", "cube", ring_index, RELEASE_PIPE, pipe.PIPE_FIX)
+    if ONLINE_TOP:
+        word = tl.arange(0, 2 * ONLINE_TOP)
+        state = tl.where(
+            word % 2 == 0, -float("inf"),
+            tl.full((), -1, tl.int32).to(tl.float32, bitcast=True),
+        )
     for subtile in range(SUBTILES):
         slot = subtile % SLOTS
         work = Ring + (pid * SLOTS + slot) * 16 * CHUNK
-        al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        al.sync_block_wait("vector", "cube", slot, RELEASE_PIPE, pipe.PIPE_FIX)
         start = subtile * CHUNK
         page = tl.load(Table + start // PAGE_SIZE)
         offset = page * PAGE_SIZE + start % PAGE_SIZE
@@ -242,19 +271,33 @@ def _qsa_int8_handoff_copy(
                     True, CHUNK, start, SORT_IMPL_BASE,
                     out=tl.zeros((2 * CHUNK,), tl.float32),
                 )
-                pair_lane = tl.arange(0, 2 * CHUNK)
-                tl.store(
-                    Received + (row * SUBTILES + subtile) * 2 * CHUNK + pair_lane,
-                    pairs, mask=row < ROWS,
-                )
+                if ONLINE_TOP:
+                    state = _update_online_topk(state, pairs, ONLINE_TOP, CHUNK)
+                else:
+                    pair_lane = tl.arange(0, 2 * CHUNK)
+                    tl.store(
+                        Received + (row * SUBTILES + subtile) * 2 * CHUNK + pair_lane,
+                        pairs, mask=row < ROWS,
+                    )
             else:
                 tl.store(Received + (row * SUBTILES + subtile) * CHUNK + n, score, mask=row < ROWS)
         else:
             out = Received + (pid * SUBTILES + subtile) * 8 * CHUNK
             tl.store(out + head[:, None] * CHUNK + n[None, :], received)
-        al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        al.sync_block_set("vector", "cube", slot, RELEASE_PIPE, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
-        al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        al.sync_block_wait("vector", "cube", ring_index, RELEASE_PIPE, pipe.PIPE_FIX)
+    if ONLINE_TOP:
+        values, indices = tle.dsa.ascend.raw(
+            "unpack_sort", state, ONLINE_TOP,
+            out=[tl.zeros((ONLINE_TOP,), tl.float32), tl.zeros((ONLINE_TOP,), tl.int32)],
+        )
+        row = pid * 2 + al.sub_vec_id()
+        rank = tl.arange(0, ONLINE_TOP)
+        live = rank < tl.load(Visible + row, mask=row < ROWS, other=0)
+        out = row * ONLINE_TOP + rank
+        tl.store(Received + out, tl.where(live, values, -float("inf")), mask=row < ROWS)
+        tl.store(OnlineIndices + out, tl.where(live, indices, -1), mask=row < ROWS)
 
 
 @triton.jit
@@ -803,7 +846,10 @@ def handoff_benchmark(args, cpu, inputs, packed_q, width):
     variants = (("serial", 1), ("double_buffer", 2))
     if args.fused_binary_merge:
         arms = {"double_buffer": handoff_copy_control(args, cpu, inputs, packed_q, width, 2)}
-        handoff_merge_benchmark(args, cpu, inputs[-1], arms, None)
+        online = None
+        if args.online_topk:
+            online = online_topk_arm(inputs, packed_q.shape[0], width)
+        handoff_merge_benchmark(args, cpu, inputs[-1], arms, None, online=online)
         return
     arms = {
         name: handoff_copy_control(args, cpu, inputs, packed_q, width, slots)
@@ -826,7 +872,27 @@ def handoff_benchmark(args, cpu, inputs, packed_q, width):
         handoff_merge_benchmark(args, cpu, inputs[-1], arms, result)
 
 
-def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
+def online_topk_arm(inputs, cores, width):
+    q, k, qs, ks, weights, table, visible = inputs
+    rows = visible.numel()
+    ring = torch.empty((cores, 2, 16, CUBE_TILE), device=q.device, dtype=torch.int32)
+    scores = torch.empty((rows, TOPK), device=q.device, dtype=torch.float32)
+    indices = torch.empty((rows, TOPK), device=q.device, dtype=torch.int32)
+
+    def launch():
+        return _qsa_int8_handoff_copy[(cores,)](
+            q, k, table, ring, scores, qs, ks, weights, visible,
+            triton.cdiv(width, CUBE_TILE), 2, PAGE, CUBE_TILE, rows, True, True,
+            ONLINE_TOP=TOPK, OnlineIndices=indices,
+            use_bytecode=True, disable_auto_cv_work_space_manage=True,
+            disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
+            multibuffer=False, sync_solver=False, unit_flag=False,
+        )
+
+    return launch, indices, scores
+
+
+def handoff_merge_benchmark(args, cpu, visible, arms, producer_result, *, online=None):
     from triton.backends.ascend import compiler
 
     report = Path(args.report)
@@ -861,6 +927,16 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
         summary.write_text(json.dumps(result, indent=2))
 
     def merge_level(proposals, target, fused_binary=False):
+        if online is not None and proposals.shape[2] == target.shape[2] == 2 * TOPK:
+            from functools import partial
+            from qsa_int8_fused_binary_910b_trial import _run_top512_merge
+
+            return _run_top512_merge(partial(
+                _qsa_int8_merge_sorted_tiles[(rows * target.shape[1],)],
+                proposals, target, proposals.shape[1], target.shape[1], TOPK, TOPK,
+                use_bytecode=True, enable_ubuf_saving=True,
+                enable_auto_bind_sub_block=False, multibuffer=False,
+            ))
         kernel = _qsa_int8_merge_two_levels if fused_binary else _qsa_int8_merge_sorted_tiles
         widths = (proposals.shape[2] // 2,)
         if not fused_binary:
@@ -964,6 +1040,55 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result):
         launch, proposals = arm
         launch()
         merge(proposals)
+
+    if online is not None:
+        summary = report / f"{args.worker}-online-topk.json"
+        launch, proposals = arms["double_buffer"]
+        online_launch, online_indices, online_scores = online
+
+        def materialized():
+            launch()
+            merge(proposals, fused_binary=True)
+
+        functions = {"materialized": materialized, "online": online_launch}
+        result = {
+            "case": args.worker, "rows": rows, "tile_lists": proposals.shape[1],
+            "slots": 2, "correctness": {}, "validation_stages": {}, "passed": False,
+        }
+        summary.write_text(json.dumps(result, indent=2))
+        try:
+            result["validation_stages"]["materialized"] = []
+            launch()
+            torch.npu.synchronize()
+            merge(proposals, name="materialized", fused_binary=True)
+            result["correctness"]["materialized"] = check(cpu, indices, scores)
+            result["validation_stages"]["online"] = []
+            validate_stage("online", online_launch, {"topk": TOPK},
+                           result["validation_stages"]["online"])
+            result["correctness"]["online"] = check(cpu, online_indices, online_scores)
+            torch.testing.assert_close(online_scores.cpu(), scores.cpu(), rtol=0, atol=0)
+            result["total"] = paired_event_times(
+                functions, rounds=4, launches=16, speedup_key="materialized_over_online",
+            )
+            result["passed"] = True
+            summary.write_text(json.dumps(result, indent=2))
+        except Exception as exc:
+            result["error"] = repr(exc)
+        if result["passed"] and args.task_trace:
+            from qsa_timeline_910b import collect
+
+            try:
+                collect(
+                    SimpleNamespace(report=report, worker=args.worker), functions, torch, result,
+                    selected=tuple(functions),
+                )
+            except Exception as exc:
+                result["task_trace_error"] = repr(exc)
+        summary.write_text(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2), flush=True)
+        if not result["passed"]:
+            raise SystemExit(1)
+        return
 
     if args.fused_binary_merge:
         launch, proposals = arms["double_buffer"]
@@ -1252,10 +1377,13 @@ def main():
     handoff_modes.add_argument("--handoff-bench", action="store_true")
     handoff_modes.add_argument("--handoff-merge", action="store_true")
     parser.add_argument("--fused-binary-merge", action="store_true")
+    parser.add_argument("--online-topk", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
+    if args.online_topk and not args.fused_binary_merge:
+        parser.error("--online-topk requires --fused-binary-merge")
     if args.fused_binary_merge and not args.handoff_merge:
         parser.error("--fused-binary-merge requires --handoff-merge")
     if args.worker:
@@ -1277,7 +1405,7 @@ def main():
             statuses[label] = dict(exit_code=code, timed_out=timed_out)
     else:
         cases = CASES
-        if args.handoff_merge and not args.fused_binary_merge:
+        if args.online_topk or (args.handoff_merge and not args.fused_binary_merge):
             cases = ("long",)
         elif args.cube_controls or args.handoff64:
             cases = ("short",)
@@ -1290,6 +1418,8 @@ def main():
                 command.append("--handoff-merge")
             if args.fused_binary_merge:
                 command.append("--fused-binary-merge")
+            if args.online_topk:
+                command.append("--online-topk")
             if args.cube_controls:
                 command.append("--cube-controls")
             if args.handoff64:
