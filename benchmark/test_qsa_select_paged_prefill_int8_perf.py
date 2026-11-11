@@ -1017,6 +1017,10 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
         diagnostic = dict(
             case=case_name, rows=rows, width=width, padded_width=padded_width,
             dot_mismatches=int(dot_bad.sum()), score_mismatches=int(score_bad.sum()),
+            dot_max_abs_error=int((dots.long() - expected_dots.long()).abs().max()),
+            observed_dot_sample=dots[0, 0, :16].tolist(), expected_dot_sample=expected_dots[0, 0, :16].tolist(),
+            dot_nonzero=int(torch.count_nonzero(dots)),
+            dot_mismatches_by_page_phase=[int(dot_bad.reshape(rows, 4, -1, 128)[:, :, phase::3].sum()) for phase in range(3)],
             local_sort_mismatches=int(local_bad.sum()), local_index_permutation_mismatches=int((~permutations).sum()),
             local_score_mismatches_by_half=[int(local_bad[:, half::2].sum()) for half in (0, 1)],
             local_sort_order_mismatches=int((local_scores[..., :-1] < local_scores[..., 1:]).sum()),
@@ -1039,6 +1043,11 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
         for label in ("fast", "trace"):
             print(f"QSA N128 {label} selection_pass={diagnostic[label]['selection']['checks_passed']} "
                   f"selected_value_mismatches={diagnostic[label]['selected_value_mismatches']}", flush=True)
+        assert all(diagnostic[key] == 0 for key in (
+            "dot_mismatches", "score_mismatches", "local_sort_mismatches",
+            "local_index_permutation_mismatches", "local_sort_order_mismatches",
+        )), (case_name, "N128 traced intermediate checks failed; see n128-diagnostics.json")
+        assert diagnostic["trace"]["selection"]["checks_passed"] and diagnostic["trace"]["selected_value_mismatches"] == 0
     outputs = {"current": output.cpu()}
     outputs.update({
         label: adapter.output.cpu() for label, adapter in variants.items()

@@ -1004,8 +1004,13 @@ def _qsa_online_n128(
             start = cube_subtile * CHUNK
             logical = start + n
             valid = logical < SCAN_WIDTH
-            page = tl.load(Table + logical // PAGE_SIZE, mask=valid, other=0)
-            offset = page * PAGE_SIZE + logical % PAGE_SIZE
+            page_lo = tl.load(Table + start // PAGE_SIZE, mask=start < SCAN_WIDTH, other=0)
+            page_hi = tl.load(Table + (start + 64) // PAGE_SIZE, mask=start + 64 < SCAN_WIDTH, other=0)
+            offset = tl.where(
+                n < 64,
+                page_lo * PAGE_SIZE + start % PAGE_SIZE + n,
+                page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE + n - 64,
+            )
             key = tl.load(K + offset[:, None] * 128 + d[None, :], mask=valid[:, None], other=0)
             dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
             work = Ring + (pid * SLOTS + cube_slot) * 16 * CHUNK
@@ -1041,8 +1046,13 @@ def _qsa_online_n128(
             start = vector_subtile * CHUNK
             logical = start + n
             valid = logical < SCAN_WIDTH
-            page = tl.load(Table + logical // PAGE_SIZE, mask=valid, other=0)
-            offset = page * PAGE_SIZE + logical % PAGE_SIZE
+            page_lo = tl.load(Table + start // PAGE_SIZE, mask=start < SCAN_WIDTH, other=0)
+            page_hi = tl.load(Table + (start + 64) // PAGE_SIZE, mask=start + 64 < SCAN_WIDTH, other=0)
+            offset = tl.where(
+                n < 64,
+                page_lo * PAGE_SIZE + start % PAGE_SIZE + n,
+                page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE + n - 64,
+            )
             query_scale = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
             weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
             key_scale = tl.load(KS + offset, mask=valid, other=0).to(tl.float32)
