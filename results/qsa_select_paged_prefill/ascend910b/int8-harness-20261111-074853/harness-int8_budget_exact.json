@@ -1,0 +1,7 @@
+{
+  "qsa_select_paged_prefill_int8_910b": {
+    "result": "failed",
+    "test_case": "benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]",
+    "reason": "triton.compiler.errors.CompilationError: at 39:18:\n            half_n = tl.arange(0, 64)\n            offset_lo = page_lo * PAGE_SIZE + start % PAGE_SIZE\n            offset_hi = page_hi * PAGE_SIZE + (start + 64) % PAGE_SIZE\n            key_lo = tl.load(\n                K + (offset_lo + half_n[:, None]) * 128 + d[None, :],\n                mask=start + half_n[:, None] < SCAN_WIDTH, other=0,\n            )\n            key_hi = tl.load(\n                K + (offset_hi + half_n[:, None]) * 128 + d[None, :],\n                mask=start + 64 + half_n[:, None] < SCAN_WIDTH, other=0,\n            )\n            key = tl.cat(key_lo, key_hi, axis=0, can_reorder=False)\n                  ^\nTypeError(\"cat() got an unexpected keyword argument 'axis'\")"
+  }
+}
