@@ -262,7 +262,10 @@ def online_raw_length_probe(args, device):
 
 
 @triton.jit
-def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
+def _update_online_topk(
+    state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr,
+    Debug=None, EXPORT: tl.constexpr = "none",
+):
     packed = tl.zeros((8 * TOP,), tl.float32)
     packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))
     packed = tle.dsa.insert_slice(packed, tile, (2 * TOP,), (2 * CHUNK,), (1,))
@@ -278,6 +281,12 @@ def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
     word = tl.arange(0, 2 * TOP)
     tail_word = tl.maximum(word - 2 * tile_count, 0)
     tail = tl.gather(state, tail_word, axis=0)
+    if EXPORT == "consumed":
+        tl.store(Debug + tl.arange(0, 4), consumed)
+    elif EXPORT == "gather":
+        tl.store(Debug + word, tail.to(tl.int32, bitcast=True))
+    elif EXPORT == "state":
+        tl.store(Debug + word, state.to(tl.int32, bitcast=True))
     return tl.where(word < 2 * (old_count + tile_count), prefix, tail)
 
 
@@ -487,7 +496,9 @@ def _qsa_online_prefix_probe(Source, Tiles, Output, StepLimit, LISTS: tl.constex
 
 
 @triton.jit
-def _qsa_online_two_step_probe(Source, Tiles, Output, Control, LISTS: tl.constexpr):
+def _qsa_online_two_step_probe(Source, Tiles, Output, Control, LISTS: tl.constexpr,
+    Debug=None, EXPORT: tl.constexpr = "none",
+):
     row = tl.program_id(0)
     word = row * 1024 + tl.arange(0, 1024)
     lane = tl.arange(0, 128)
@@ -496,7 +507,10 @@ def _qsa_online_two_step_probe(Source, Tiles, Output, Control, LISTS: tl.constex
     count = tl.load(Control + 1)
     for step in range(count):
         tile = tl.load(Tiles + (row * LISTS + start + step) * 128 + lane)
-        state = _update_online_topk(state, tile, 512, 64)
+        if EXPORT == "none":
+            state = _update_online_topk(state, tile, 512, 64)
+        else:
+            state = _update_online_topk(state, tile, 512, 64, Debug + row * 1024, EXPORT)
     tl.store(Output + word, state)
 
 
@@ -506,7 +520,10 @@ def online_two_step_probe(args, proposals):
 
     report = Path(args.report)
     arm = args.online_two_step
+    export = args.online_export
     label = f"online-two-step-{arm}"
+    if export != "none":
+        label += f"-{export}"
     summary = report / f"{label}.json"
     rows, lists, _ = proposals.shape
     initial = torch.full((rows, TOPK, 2), -float("inf"), dtype=torch.float32)
@@ -514,11 +531,15 @@ def online_two_step_probe(args, proposals):
     state = initial.to(proposals.device)
     intermediate = torch.full_like(state, float("nan"))
     output = torch.full_like(state, float("nan"))
+    debug = torch.empty((rows, 1024), device=proposals.device, dtype=torch.int32)
     tiles_cpu = proposals[:, :2].cpu().reshape(rows, 128, 2)
     snapshots = {"initial": initial.view(torch.int32).tolist(),
                  "tiles": tiles_cpu.view(torch.int32).tolist()}
-    result = {"arm": arm, "rows": rows, "tile_stride": lists,
-              "stages": {}, "passed": False}
+    result = {
+        "arm": arm, "rows": rows, "tile_stride": lists, "export": export,
+        "tiles_sha256": hashlib.sha256(tiles_cpu.numpy().tobytes()).hexdigest(),
+        "stages": {}, "passed": False,
+    }
     snapshot_path = report / f"{label}-snapshots.json.gz"
 
     def persist():
@@ -557,9 +578,10 @@ def online_two_step_probe(args, proposals):
         result["stages"][name] = entry
         persist()
         artifact_label = f"{label}-{name}"
+        diagnostic = {} if export == "none" else {"Debug": debug, "EXPORT": export}
         with patch.object(compiler, "subprocess", CompileCapture(report, artifact_label)):
             kernel = _qsa_online_two_step_probe[(rows,)](
-                source, proposals, target, control, lists, use_bytecode=True,
+                source, proposals, target, control, lists, **diagnostic, use_bytecode=True,
                 enable_auto_bind_sub_block=False, multibuffer=False,
             )
         entry.update(status="synchronizing", artifacts=save_artifacts(kernel, report, artifact_label))
@@ -571,6 +593,12 @@ def online_two_step_probe(args, proposals):
         torch.npu.synchronize()
         actual = target.cpu()
         snapshots[name] = actual.view(torch.int32).tolist()
+        if export != "none":
+            exported = debug.cpu()
+            if export == "consumed":
+                exported = exported[:, :4]
+                entry["consumed"] = exported.tolist()
+            snapshots[f"{name}_{export}"] = exported.tolist()
         entry.update(status="checked", **validate(actual, expected_steps))
         persist()
         print(json.dumps({name: entry}, indent=2), flush=True)
@@ -1871,6 +1899,7 @@ def main():
     isolated = parser.add_mutually_exclusive_group()
     isolated.add_argument("--online-tail-detail", action="store_true")
     isolated.add_argument("--online-two-step", choices=("combined", "split"))
+    parser.add_argument("--online-export", choices=("none", "consumed", "gather", "state"), default="none")
     isolated.add_argument("--online-raw-length", type=int, choices=(64, 512))
     isolated.add_argument("--online-update-steps", type=int, choices=(1, 2, 8, 32, 129))
     parser.add_argument("--online-real-tiles", action="store_true")
@@ -1879,6 +1908,8 @@ def main():
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
+    if args.online_export != "none" and not args.online_two_step:
+        parser.error("--online-export requires --online-two-step")
     if args.online_runtime_prefix and not args.online_real_tiles:
         parser.error("--online-runtime-prefix requires --online-real-tiles")
     if args.online_real_tiles and not args.online_update_steps:
@@ -1908,6 +1939,7 @@ def main():
     elif args.online_two_step:
         label = f"online-two-step-{args.online_two_step}"
         command = base + ["--worker", "long", "--online-two-step", args.online_two_step]
+        command += ["--online-export", args.online_export]
         code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
         statuses[label] = dict(exit_code=code, timed_out=timed_out)
     elif args.online_update_steps:
