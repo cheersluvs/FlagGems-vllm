@@ -1,0 +1,317 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+long-handoff-sort-slots2: 129 INT32 dot handoffs
+{
+  "operation": "sort",
+  "slots": 2,
+  "subtiles": 129,
+  "stage": "checked",
+  "artifacts": [
+    "long-handoff-sort-slots2-source.txt",
+    "long-handoff-sort-slots2-ttir.txt",
+    "long-handoff-sort-slots2-ttadapter.txt",
+    "long-handoff-sort-slots2-bcmlir.txt",
+    "long-handoff-sort-slots2.npubin.gz"
+  ],
+  "duplicate_indices": 0,
+  "vector_mismatches": 0,
+  "vector_sentinel_values": 0,
+  "vector_mismatches_by_subtile": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "final_cube_workspace": {
+    "checked_subtiles": 78,
+    "mismatches": 0,
+    "sentinel_values": 0,
+    "zero_values": 0,
+    "subtile_mismatches": {}
+  },
+  "passed": true
+}
+{"stage": "materialized-merge-0", "shape": {"input": [39, 129, 128], "output": [39, 33, 512]}, "status": "launching"}
+{"stage": "materialized-merge-1", "shape": {"input": [39, 33, 512], "output": [39, 17, 1024]}, "status": "launching"}
+{"stage": "materialized-merge-2", "shape": {"input": [39, 17, 1024], "output": [39, 9, 1024]}, "status": "launching"}
+{"stage": "materialized-merge-3", "shape": {"input": [39, 9, 1024], "output": [39, 5, 1024]}, "status": "launching"}
+{"stage": "materialized-merge-4", "shape": {"input": [39, 5, 1024], "output": [39, 3, 1024]}, "status": "launching"}
+{"stage": "materialized-merge-5", "shape": {"input": [39, 3, 1024], "output": [39, 2, 1024]}, "status": "launching"}
+{"stage": "materialized-merge-6", "shape": {"torch_npu_topk": 512, "input": [39, 2, 1024]}, "status": "launching"}
+{"stage": "online-merge-0", "shape": {"topk": 512}, "status": "launching"}
+{
+  "case": "long",
+  "rows": 39,
+  "tile_lists": 129,
+  "slots": 2,
+  "packed_output": false,
+  "keep_tile_store_mte3": false,
+  "ub_snapshot": true,
+  "correctness": {
+    "materialized": {
+      "rows": 39,
+      "max_score_abs_error": 3.814697265625e-06
+    }
+  },
+  "validation_stages": {
+    "materialized": [
+      {
+        "stage": "materialized-merge-0",
+        "shape": {
+          "input": [
+            39,
+            129,
+            128
+          ],
+          "output": [
+            39,
+            33,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "materialized-merge-0-source.txt",
+          "materialized-merge-0-ttir.txt",
+          "materialized-merge-0-ttadapter.txt",
+          "materialized-merge-0-bcmlir.txt",
+          "materialized-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "materialized-merge-1",
+        "shape": {
+          "input": [
+            39,
+            33,
+            512
+          ],
+          "output": [
+            39,
+            17,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "materialized-merge-1-source.txt",
+          "materialized-merge-1-ttir.txt",
+          "materialized-merge-1-ttadapter.txt",
+          "materialized-merge-1-bcmlir.txt",
+          "materialized-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "materialized-merge-2",
+        "shape": {
+          "input": [
+            39,
+            17,
+            1024
+          ],
+          "output": [
+            39,
+            9,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-3",
+        "shape": {
+          "input": [
+            39,
+            9,
+            1024
+          ],
+          "output": [
+            39,
+            5,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-4",
+        "shape": {
+          "input": [
+            39,
+            5,
+            1024
+          ],
+          "output": [
+            39,
+            3,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-5",
+        "shape": {
+          "input": [
+            39,
+            3,
+            1024
+          ],
+          "output": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-6",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ],
+    "online": [
+      {
+        "stage": "online-merge-0",
+        "shape": {
+          "topk": 512
+        },
+        "status": "launching"
+      }
+    ]
+  },
+  "passed": false,
+  "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'loc(\"/tmp/flaggems-qsa-mixed-ub.wcZMUZzi/code/tools/probe_qsa_int8_mixed_pipeline_910b.py\":784:0): error: Failed to run BiShengHIR pipeline\\n\\nloc(callsite(\"/tmp/flaggems-qsa-mixed-ub.wcZMUZzi/code/tools/probe_qsa_int8_mixed_pipeline_910b.py\":289:22 at \"state\"(\"/tmp/flaggems-qsa-mixed-ub.wcZMUZzi/code/tools/probe_qsa_int8_mixed_pipeline_910b.py\":845:90))): error: \\'hivm.hir.copy\\' op Unsupported copy from cbuf to ub!\\n[ERROR] Failed to run BiShengIR pipeline\\n\\n\\n[INFO]: The compiled kernel cache is in /root/.triton/cache/YBQPOEFO3HYESKWZOAPKXI6UFDE7YJ2W44U2SEO252Q46VTPHQBA\\n\\n')"
+}
