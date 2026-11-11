@@ -39,6 +39,69 @@ def _merge_equal2048(old, local):
 
 
 @triton.jit
+def _consume_outer2048(
+    QS, KS, Weight, Table, Visible, Ring, TDots, TScores, TLocal, TState, TCounts,
+    score_storage, state_storage, outer,
+    ROWS: tl.constexpr, COLUMNS: tl.constexpr, WIDTH: tl.constexpr,
+    BLOCKS: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, FIRST: tl.constexpr,
+):
+    pid = tl.program_id(0)
+    h = tl.arange(0, 4)
+    n = tl.arange(0, 64)
+    vector_slot = outer % SLOTS
+    al.sync_block_wait("cube", "vector", vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+    for inner in range(32):
+        start = outer * 2048 + inner * 64
+        page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1), mask=start < WIDTH, other=0)
+        token = page * 192 + start % 192 + n
+        key_scale = tl.load(KS + token, mask=start + n < WIDTH, other=0).to(tl.float32)
+        for local_query in range(2):
+            row = pid * 4 + al.sub_vec_id() * 2 + local_query
+            head = al.sub_vec_id() * 8 + local_query * 4 + h
+            src = Ring + (pid * SLOTS + vector_slot) * 16 * 2048 + inner * 64
+            dots = tl.load(src + head[:, None] * 2048 + n[None, :])
+            qs = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+            weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+            visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+            live = (start + n < WIDTH) & (start + n < visible)
+            dequant = dots.to(tl.float32) * qs[:, None] * key_scale[None, :]
+            scores = tl.where(live, tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0), -float("inf"))
+            score_slot = tle.dsa.subview(score_storage, [local_query * 2048 + inner * 64], [64], [1])
+            tle.dsa.to_buffer(scores, space=tle.dsa.ascend.UB, bind_buffer=score_slot)
+            if TRACE:
+                base = (row * BLOCKS + outer) * 2048 + inner * 64
+                tl.store(TScores + base + n, scores, mask=row < ROWS)
+                tl.store(TDots + (base + n[None, :]) * 4 + h[:, None],
+                         tl.where(live[None, :], dots, 0), mask=row < ROWS)
+    tl.debug_barrier()
+    for local_query in range(2):
+        row = pid * 4 + al.sub_vec_id() * 2 + local_query
+        score_slot = tle.dsa.subview(score_storage, [local_query * 2048], [2048], [1])
+        scores = tle.dsa.to_tensor(score_slot)
+        pairs = tle.dsa.ascend.raw(
+            "sort_1d_pack", scores, tl.zeros((8192,), tl.float32), True,
+            2048, outer * 2048, SORT_IMPL_BASE, out=tl.zeros((4096,), tl.float32),
+        )
+        if TRACE:
+            tl.store(TLocal + (row * BLOCKS + outer) * 4096 + tl.arange(0, 4096), pairs, mask=row < ROWS)
+            tl.debug_barrier()
+        state_slot = tle.dsa.subview(state_storage, [local_query * 4096], [4096], [1])
+        if not FIRST:
+            old = tle.dsa.to_tensor(state_slot)
+            new_state, counts = _merge_equal2048(old, pairs)
+        else:
+            new_state = pairs
+            counts = tl.zeros((4,), tl.int32)
+        tle.dsa.to_buffer(new_state, space=tle.dsa.ascend.UB, bind_buffer=state_slot)
+        tl.debug_barrier()
+        if TRACE:
+            tl.store(TState + (row * BLOCKS + outer) * 4096 + tl.arange(0, 4096), new_state, mask=row < ROWS)
+            tl.store(TCounts + (row * BLOCKS + outer) * 4 + tl.arange(0, 4), counts, mask=row < ROWS)
+    tl.debug_barrier()
+    al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+
+
+@triton.jit
 def _mixed_outer2048(
     Q, K, QS, KS, Weight, Table, Visible, Ring, OutValues, OutIndices,
     TDots, TScores, TLocal, TState, TCounts,
@@ -74,58 +137,17 @@ def _mixed_outer2048(
         state_storage = tle.dsa.alloc([8192], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
         for initial in tl.static_range(SLOTS):
             al.sync_block_set("vector", "cube", initial, pipe.PIPE_MTE3, pipe.PIPE_FIX)
-        for outer in range(BLOCKS):
-            vector_slot = outer % SLOTS
-            al.sync_block_wait("cube", "vector", vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
-            for inner in range(32):
-                start = outer * 2048 + inner * 64
-                page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1), mask=start < WIDTH, other=0)
-                token = page * 192 + start % 192 + n
-                key_scale = tl.load(KS + token, mask=start + n < WIDTH, other=0).to(tl.float32)
-                for local_query in range(2):
-                    row = pid * 4 + al.sub_vec_id() * 2 + local_query
-                    head = al.sub_vec_id() * 8 + local_query * 4 + h
-                    src = Ring + (pid * SLOTS + vector_slot) * 16 * 2048 + inner * 64
-                    dots = tl.load(src + head[:, None] * 2048 + n[None, :])
-                    qs = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
-                    weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
-                    visible = tl.load(Visible + row, mask=row < ROWS, other=0)
-                    live = (start + n < WIDTH) & (start + n < visible)
-                    dequant = dots.to(tl.float32) * qs[:, None] * key_scale[None, :]
-                    scores = tl.where(live, tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0), -float("inf"))
-                    score_slot = tle.dsa.subview(score_storage, [local_query * 2048 + inner * 64], [64], [1])
-                    tle.dsa.to_buffer(scores, space=tle.dsa.ascend.UB, bind_buffer=score_slot)
-                    if TRACE:
-                        base = (row * BLOCKS + outer) * 2048 + inner * 64
-                        tl.store(TScores + base + n, scores, mask=row < ROWS)
-                        tl.store(TDots + (base + n[None, :]) * 4 + h[:, None],
-                                 tl.where(live[None, :], dots, 0), mask=row < ROWS)
-            tl.debug_barrier()
-            for local_query in range(2):
-                row = pid * 4 + al.sub_vec_id() * 2 + local_query
-                score_slot = tle.dsa.subview(score_storage, [local_query * 2048], [2048], [1])
-                scores = tle.dsa.to_tensor(score_slot)
-                pairs = tle.dsa.ascend.raw(
-                    "sort_1d_pack", scores, tl.zeros((8192,), tl.float32), True,
-                    2048, outer * 2048, SORT_IMPL_BASE, out=tl.zeros((4096,), tl.float32),
-                )
-                if TRACE:
-                    tl.store(TLocal + (row * BLOCKS + outer) * 4096 + tl.arange(0, 4096), pairs, mask=row < ROWS)
-                    tl.debug_barrier()
-                state_slot = tle.dsa.subview(state_storage, [local_query * 4096], [4096], [1])
-                if outer > 0:
-                    old = tle.dsa.to_tensor(state_slot)
-                    new_state, counts = _merge_equal2048(old, pairs)
-                else:
-                    new_state = pairs
-                    counts = tl.zeros((4,), tl.int32)
-                tle.dsa.to_buffer(new_state, space=tle.dsa.ascend.UB, bind_buffer=state_slot)
-                tl.debug_barrier()
-                if TRACE:
-                    tl.store(TState + (row * BLOCKS + outer) * 4096 + tl.arange(0, 4096), new_state, mask=row < ROWS)
-                    tl.store(TCounts + (row * BLOCKS + outer) * 4 + tl.arange(0, 4), counts, mask=row < ROWS)
-            tl.debug_barrier()
-            al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+        _consume_outer2048(
+            QS, KS, Weight, Table, Visible, Ring, TDots, TScores, TLocal, TState, TCounts,
+            score_storage, state_storage, 0,
+            ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, True,
+        )
+        for outer in range(1, BLOCKS):
+            _consume_outer2048(
+                QS, KS, Weight, Table, Visible, Ring, TDots, TScores, TLocal, TState, TCounts,
+                score_storage, state_storage, outer,
+                ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, False,
+            )
         for local_query in range(2):
             row = pid * 4 + al.sub_vec_id() * 2 + local_query
             state_slot = tle.dsa.subview(state_storage, [local_query * 4096], [4096], [1])
