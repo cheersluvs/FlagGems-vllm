@@ -260,11 +260,13 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
     rows = []
     for name in ("int8_budget_exact", "int8_compact"):
         report = json.loads((directory / f"harness-{name}.json").read_text())
+        if report[OP_NAME].get("result") != "passed":
+            raise ValueError(f"Chunk preflight failed: {name}")
         row = {"case": name, "rows": 40}
         for stage in ("score", "topk", "serial", "online"):
             op = f"{OP_NAME}_chunk_{stage}"
             entry = report[op]
-            if entry.get("result") != "passed":
+            if entry.get("result", "passed") != "passed":
                 raise ValueError(f"Stage failed: {name} {stage}")
             details = entry["details"]
             if len(details) != 1 or details[0]["mode"] != "kernel":
