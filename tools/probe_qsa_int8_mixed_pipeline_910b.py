@@ -343,7 +343,7 @@ def _qsa_int8_handoff_copy(
     SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
     CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
     ONLINE_TOP: tl.constexpr = 0, OnlineIndices=None,
-    PACKED_OUTPUT: tl.constexpr = False,
+    PACKED_OUTPUT: tl.constexpr = False, KEEP_TILE_STORE: tl.constexpr = False,
 ):
     pid = tl.program_id(0)
     m = tl.arange(0, 16)
@@ -352,7 +352,7 @@ def _qsa_int8_handoff_copy(
     q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
     # The online arm has no tile writeback. Release after the Vector has read the ring.
     for ring_index in tl.static_range(SLOTS):
-        if ONLINE_TOP:
+        if ONLINE_TOP and not KEEP_TILE_STORE:
             al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE2, pipe.PIPE_FIX)
         else:
             al.sync_block_set("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -365,7 +365,7 @@ def _qsa_int8_handoff_copy(
     for subtile in range(SUBTILES):
         slot = subtile % SLOTS
         work = Ring + (pid * SLOTS + slot) * 16 * CHUNK
-        if ONLINE_TOP:
+        if ONLINE_TOP and not KEEP_TILE_STORE:
             al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
         else:
             al.sync_block_wait("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -398,23 +398,24 @@ def _qsa_int8_handoff_copy(
                 )
                 if ONLINE_TOP:
                     state = _update_online_topk(state, pairs, ONLINE_TOP, CHUNK)
-                else:
+                if not ONLINE_TOP or KEEP_TILE_STORE:
                     pair_lane = tl.arange(0, 2 * CHUNK)
-                    tl.store(
-                        Received + (row * SUBTILES + subtile) * 2 * CHUNK + pair_lane,
-                        pairs, mask=row < ROWS,
-                    )
+                    tile_out = (row * SUBTILES + subtile) * 2 * CHUNK + pair_lane
+                    if KEEP_TILE_STORE:
+                        tl.store(OnlineIndices + tile_out, pairs.to(tl.int32, bitcast=True), mask=row < ROWS)
+                    else:
+                        tl.store(Received + tile_out, pairs, mask=row < ROWS)
             else:
                 tl.store(Received + (row * SUBTILES + subtile) * CHUNK + n, score, mask=row < ROWS)
         else:
             out = Received + (pid * SUBTILES + subtile) * 8 * CHUNK
             tl.store(out + head[:, None] * CHUNK + n[None, :], received)
-        if ONLINE_TOP:
+        if ONLINE_TOP and not KEEP_TILE_STORE:
             al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
         else:
             al.sync_block_set("vector", "cube", slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
     for ring_index in tl.static_range(SLOTS):
-        if ONLINE_TOP:
+        if ONLINE_TOP and not KEEP_TILE_STORE:
             al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE2, pipe.PIPE_FIX)
         else:
             al.sync_block_wait("vector", "cube", ring_index, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -983,7 +984,10 @@ def handoff_benchmark(args, cpu, inputs, packed_q, width):
         arms = {"double_buffer": handoff_copy_control(args, cpu, inputs, packed_q, width, 2)}
         online = None
         if args.online_topk:
-            online = online_topk_arm(inputs, packed_q.shape[0], width, packed=args.online_packed_output)
+            online = online_topk_arm(
+                inputs, packed_q.shape[0], width, packed=args.online_packed_output,
+                keep_tile_store=args.online_mte3,
+            )
         handoff_merge_benchmark(args, cpu, inputs[-1], arms, None, online=online)
         return
     arms = {
@@ -1007,19 +1011,22 @@ def handoff_benchmark(args, cpu, inputs, packed_q, width):
         handoff_merge_benchmark(args, cpu, inputs[-1], arms, result)
 
 
-def online_topk_arm(inputs, cores, width, *, packed):
+def online_topk_arm(inputs, cores, width, *, packed, keep_tile_store):
     q, k, qs, ks, weights, table, visible = inputs
     rows = visible.numel()
     ring = torch.empty((cores, 2, 16, CUBE_TILE), device=q.device, dtype=torch.int32)
+    subtiles = triton.cdiv(width, CUBE_TILE)
     shape = (rows, TOPK, 2) if packed else (rows, TOPK)
     scores = torch.empty(shape, device=q.device, dtype=torch.float32)
-    indices = torch.empty((rows, TOPK), device=q.device, dtype=torch.int32)
+    index_shape = (rows, subtiles, 2 * CUBE_TILE) if keep_tile_store else (rows, TOPK)
+    indices = torch.empty(index_shape, device=q.device, dtype=torch.int32)
 
     def launch():
         return _qsa_int8_handoff_copy[(cores,)](
             q, k, table, ring, scores, qs, ks, weights, visible,
-            triton.cdiv(width, CUBE_TILE), 2, PAGE, CUBE_TILE, rows, True, True,
+            subtiles, 2, PAGE, CUBE_TILE, rows, True, True,
             ONLINE_TOP=TOPK, OnlineIndices=indices, PACKED_OUTPUT=packed,
+            KEEP_TILE_STORE=keep_tile_store,
             use_bytecode=True, disable_auto_cv_work_space_manage=True,
             disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
             multibuffer=False, sync_solver=False, unit_flag=False,
@@ -1191,6 +1198,7 @@ def handoff_merge_benchmark(args, cpu, visible, arms, producer_result, *, online
         result = {
             "case": args.worker, "rows": rows, "tile_lists": proposals.shape[1],
             "slots": 2, "packed_output": args.online_packed_output,
+            "keep_tile_store_mte3": args.online_mte3,
             "correctness": {}, "validation_stages": {}, "passed": False,
         }
         summary.write_text(json.dumps(result, indent=2))
@@ -1531,6 +1539,7 @@ def main():
     parser.add_argument("--fused-binary-merge", action="store_true")
     parser.add_argument("--online-topk", action="store_true")
     parser.add_argument("--online-packed-output", action="store_true")
+    parser.add_argument("--online-mte3", action="store_true")
     isolated = parser.add_mutually_exclusive_group()
     isolated.add_argument("--online-raw-length", type=int, choices=(64, 512))
     isolated.add_argument("--online-update-steps", type=int, choices=(1, 129))
@@ -1538,6 +1547,8 @@ def main():
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
+    if args.online_mte3 and not args.online_packed_output:
+        parser.error("--online-mte3 requires --online-packed-output")
     if args.online_packed_output and not args.online_topk:
         parser.error("--online-packed-output requires --online-topk")
     if args.online_topk and not args.fused_binary_merge:
@@ -1590,6 +1601,8 @@ def main():
                 command.append("--online-topk")
             if args.online_packed_output:
                 command.append("--online-packed-output")
+            if args.online_mte3:
+                command.append("--online-mte3")
             if args.cube_controls:
                 command.append("--cube-controls")
             if args.handoff64:
