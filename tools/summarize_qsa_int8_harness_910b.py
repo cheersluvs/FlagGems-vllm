@@ -267,6 +267,8 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
         stages = ("score", "topk", "serial", "online")
         if "update_grains" in profile:
             stages += ("online256", "online512")
+        if "handoff_grains" in profile:
+            stages += ("handoff256", "handoff512")
         for stage in stages:
             op = f"{OP_NAME}_chunk_{stage}"
             entry = report[op]
@@ -288,19 +290,25 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             current_query16_chunks=profile.get("current_query16_chunks"),
             serial_over_online=row["serial_ms"] / row["online_ms"],
         )
-        if "update_grains" in profile:
+        if "update_grains" in profile or "handoff_grains" in profile:
             samples = profile["paired_kernel_samples_ms"]
-            for stage in ("online", "online256", "online512"):
+            for stage in stages[3:]:
                 if len(samples[stage]) != 2 or not all(
                     isinstance(value, (int, float)) and math.isfinite(value) and value > 0
                     for value in samples[stage]
                 ):
-                    raise ValueError(f"Invalid paired update-grain times: {name} {stage}")
+                    raise ValueError(f"Invalid paired grain times: {name} {stage}")
             row["paired_kernel_samples_ms"] = samples
-            row["grain_speedups"] = {
-                stage: statistics.median(samples["online"]) / statistics.median(samples[stage])
-                for stage in ("online256", "online512")
-            }
+            if "update_grains" in profile:
+                row["grain_speedups"] = {
+                    stage: statistics.median(samples["online"]) / statistics.median(samples[stage])
+                    for stage in ("online256", "online512")
+                }
+            if "handoff_grains" in profile:
+                row["handoff_speedups"] = {
+                    stage: statistics.median(samples["online"]) / statistics.median(samples[stage])
+                    for stage in ("handoff256", "handoff512")
+                }
         if profile["profile_status"] == "completed":
             row["device_stages"] = profile["timeline"]["stages"]
         else:
@@ -352,6 +360,16 @@ def main():
                         f"{statistics.median(samples['online512']) * 1000:.3f}; "
                         f"speedup {row['grain_speedups']['online256']:.3f}x / "
                         f"{row['grain_speedups']['online512']:.3f}x"
+                    )
+                if "handoff_speedups" in row:
+                    samples = row["paired_kernel_samples_ms"]
+                    print(
+                        f"{row['case']} paired handoff 64/256/512 us: "
+                        f"{statistics.median(samples['online']) * 1000:.3f} / "
+                        f"{statistics.median(samples['handoff256']) * 1000:.3f} / "
+                        f"{statistics.median(samples['handoff512']) * 1000:.3f}, "
+                        f"speedup {row['handoff_speedups']['handoff256']:.3f}x / "
+                        f"{row['handoff_speedups']['handoff512']:.3f}x"
                     )
         else:
             print(summary["error"])

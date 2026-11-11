@@ -979,6 +979,100 @@ def _qsa_online_scoped(
 
 
 @triton.jit
+def _qsa_online_handoff_grouped(
+    Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
+    SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,
+    CHUNK: tl.constexpr, ROWS: tl.constexpr, SCORE: tl.constexpr, SORT: tl.constexpr,
+    ONLINE_TOP: tl.constexpr, OnlineIndices,
+    PACKED_OUTPUT: tl.constexpr, KEEP_TILE_STORE: tl.constexpr, UB_SNAPSHOT: tl.constexpr,
+    HANDOFF_KEYS: tl.constexpr,
+):
+    tl.static_assert(SCORE and SORT and UB_SNAPSHOT and ONLINE_TOP > 0)
+    tl.static_assert(HANDOFF_KEYS == 256 or HANDOFF_KEYS == 512)
+    tl.static_assert(HANDOFF_KEYS % CHUNK == 0 and not KEEP_TILE_STORE)
+    HANDOFF_TILES: tl.constexpr = HANDOFF_KEYS // CHUNK
+    with al.scope(core_mode="cube"):
+        pid = tl.program_id(0)
+        m = tl.arange(0, 16)
+        d = tl.arange(0, 128)
+        n = tl.arange(0, CHUNK)
+        q = tl.load(Q + (pid * 16 + m[:, None]) * 128 + d[None, :])
+        for cube_group in range(tl.cdiv(SUBTILES, HANDOFF_TILES)):
+            cube_slot = cube_group % SLOTS
+            al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+            for cube_inner in tl.static_range(HANDOFF_TILES):
+                cube_subtile = cube_group * HANDOFF_TILES + cube_inner
+                if cube_subtile < SUBTILES:
+                    start = cube_subtile * CHUNK
+                    page = tl.load(Table + start // PAGE_SIZE)
+                    offset = page * PAGE_SIZE + start % PAGE_SIZE
+                    key = tl.load(K + (offset + n[:, None]) * 128 + d[None, :])
+                    dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
+                    work = Ring + (pid * SLOTS + cube_slot) * 16 * HANDOFF_KEYS + cube_inner * 16 * CHUNK
+                    tl.store(work + m[:, None] * CHUNK + n[None, :], dot)
+            al.sync_block_set("cube", "vector", cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+        for drain_slot in tl.static_range(SLOTS):
+            if KEEP_TILE_STORE:
+                al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            else:
+                al.sync_block_wait("vector", "cube", drain_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+
+    with al.scope(core_mode="vector"):
+        pid = tl.program_id(0)
+        row = pid * 2 + al.sub_vec_id()
+        h = tl.arange(0, 4)
+        n = tl.arange(0, CHUNK)
+        word = tl.arange(0, 2 * ONLINE_TOP)
+        state = tl.where(
+            word % 2 == 0, -float("inf"),
+            tl.full((), -1, tl.int32).to(tl.float32, bitcast=True),
+        )
+        for initial_slot in tl.static_range(SLOTS):
+            if KEEP_TILE_STORE:
+                al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
+            else:
+                al.sync_block_set("vector", "cube", initial_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        for vector_group in range(tl.cdiv(SUBTILES, HANDOFF_TILES)):
+            vector_slot = vector_group % SLOTS
+            al.sync_block_wait("cube", "vector", vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
+            for vector_inner in tl.static_range(HANDOFF_TILES):
+                vector_subtile = vector_group * HANDOFF_TILES + vector_inner
+                if vector_subtile < SUBTILES:
+                    work = Ring + (pid * SLOTS + vector_slot) * 16 * HANDOFF_KEYS + vector_inner * 16 * CHUNK
+                    head = al.sub_vec_id() * 4 + h
+                    received = tl.load(work + head[:, None] * CHUNK + n[None, :])
+                    start = vector_subtile * CHUNK
+                    page = tl.load(Table + start // PAGE_SIZE)
+                    offset = page * PAGE_SIZE + start % PAGE_SIZE
+                    query_scale = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+                    weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+                    key_scale = tl.load(KS + offset + n).to(tl.float32)
+                    visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+                    dequant = received.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+                    score = tl.sum(tl.maximum(dequant, 0.0) * weight[:, None], 0)
+                    score = tl.where(start + n < visible, score, -float("inf"))
+                    pairs = tle.dsa.ascend.raw(
+                        "sort_1d_pack", score, tl.zeros((4 * CHUNK,), tl.float32),
+                        True, CHUNK, start, SORT_IMPL_BASE,
+                        out=tl.zeros((2 * CHUNK,), tl.float32),
+                    )
+                    state = _update_online_topk_ub_snapshot(state, pairs, ONLINE_TOP, CHUNK)
+            al.sync_block_set("vector", "cube", vector_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
+        if PACKED_OUTPUT:
+            tl.store(Received + row * 2 * ONLINE_TOP + word, state, mask=row < ROWS)
+        else:
+            values, indices = tle.dsa.ascend.raw(
+                "unpack_sort", state, ONLINE_TOP,
+                out=[tl.zeros((ONLINE_TOP,), tl.float32), tl.zeros((ONLINE_TOP,), tl.int32)],
+            )
+            rank = tl.arange(0, ONLINE_TOP)
+            live = rank < tl.load(Visible + row, mask=row < ROWS, other=0)
+            out = row * ONLINE_TOP + rank
+            tl.store(Received + out, tl.where(live, values, -float("inf")), mask=row < ROWS)
+            tl.store(OnlineIndices + out, tl.where(live, indices, -1), mask=row < ROWS)
+
+
+@triton.jit
 def _qsa_online_grouped(
     Q, K, Table, Ring, Received, QS, KS, Weight, Visible,
     SUBTILES: tl.constexpr, SLOTS: tl.constexpr, PAGE_SIZE: tl.constexpr,

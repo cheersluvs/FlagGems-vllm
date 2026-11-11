@@ -21,17 +21,27 @@ import torch
 import triton
 
 from probe_qsa_int8_mixed_pipeline_910b import (
-    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped,
+    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped,
 )
 from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 
 
 class PreparedOnlineTopKSelection:
-    def __init__(self, values, host_visible, starts, chunk_rows, *, scan_width=None, update_keys=64):
+    def __init__(
+        self, values, host_visible, starts, chunk_rows, *,
+        scan_width=None, update_keys=64, handoff_keys=64,
+    ):
         if update_keys not in (64, 256, 512):
             raise ValueError("TopK update size must be 64, 256, or 512")
         kernel = _qsa_online_scoped if update_keys == 64 else _qsa_online_grouped
         kernel_args = {} if update_keys == 64 else {"UPDATE_KEYS": update_keys}
+        if handoff_keys not in (64, 256, 512):
+            raise ValueError("Cube/Vector handoff size must be 64, 256, or 512")
+        if handoff_keys != 64:
+            if update_keys != 64:
+                raise ValueError("Grouped handoff requires 64-key TopK updates")
+            kernel = _qsa_online_handoff_grouped
+            kernel_args = {"HANDOFF_KEYS": handoff_keys}
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
@@ -58,7 +68,7 @@ class PreparedOnlineTopKSelection:
                 packed_q = pack_mixed_queries(values["q"][first:last])
                 if count not in buffers:
                     buffers[count] = (
-                        torch.empty((cores, 2, 16, CUBE_TILE), device=device, dtype=torch.int32),
+                        torch.empty((cores, 2, 16, handoff_keys), device=device, dtype=torch.int32),
                         torch.empty((count, TOPK), device=device, dtype=torch.float32),
                     )
                 ring, scores = buffers[count]
