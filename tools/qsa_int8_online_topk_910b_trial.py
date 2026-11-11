@@ -20,12 +20,18 @@ from functools import partial
 import torch
 import triton
 
-from probe_qsa_int8_mixed_pipeline_910b import CUBE_TILE, PAGE, TOPK, _qsa_online_scoped
+from probe_qsa_int8_mixed_pipeline_910b import (
+    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped,
+)
 from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 
 
 class PreparedOnlineTopKSelection:
-    def __init__(self, values, host_visible, starts, chunk_rows, *, scan_width=None):
+    def __init__(self, values, host_visible, starts, chunk_rows, *, scan_width=None, update_keys=64):
+        if update_keys not in (64, 256, 512):
+            raise ValueError("TopK update size must be 64, 256, or 512")
+        kernel = _qsa_online_scoped if update_keys == 64 else _qsa_online_grouped
+        kernel_args = {} if update_keys == 64 else {"UPDATE_KEYS": update_keys}
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
@@ -58,13 +64,13 @@ class PreparedOnlineTopKSelection:
                 ring, scores = buffers[count]
                 self.chunks.append((first, count))
                 self.launches.append(partial(
-                    _qsa_online_scoped[(cores,)],
+                    kernel[(cores,)],
                     packed_q, key, values["row_table"][begin], ring, scores,
                     values["qs"][first:last], key_scale, values["weights"][first:last],
                     values["visible"][first:last],
                     subtiles, 2, PAGE, CUBE_TILE, count, True, True,
                     ONLINE_TOP=TOPK, OnlineIndices=self.output[first:last],
-                    PACKED_OUTPUT=False, KEEP_TILE_STORE=False, UB_SNAPSHOT=True,
+                    PACKED_OUTPUT=False, KEEP_TILE_STORE=False, UB_SNAPSHOT=True, **kernel_args,
                     use_bytecode=True, disable_auto_cv_work_space_manage=True,
                     disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
                     multibuffer=False, sync_solver=False, unit_flag=False,

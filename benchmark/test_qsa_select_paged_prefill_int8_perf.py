@@ -925,11 +925,20 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
         score()
         select()
 
+    variants = {"online": online}
+    if os.environ.get("QSA_HARNESS_TOPK_GRAIN") == "1":
+        for size in (256, 512):
+            variants[f"online{size}"] = PreparedOnlineTopKSelection(
+                values, inputs["visible"], [0, rows], rows, scan_width=width, update_keys=size,
+            )
     serial()
-    online()
+    for adapter in variants.values():
+        adapter()
     torch.npu.synchronize()
     refs = [cpu_score(inputs, row)[1] for row in range(rows)]
-    for label, indices in (("current", output.cpu()), ("online", online.output.cpu())):
+    outputs = {"current": output.cpu()}
+    outputs.update({label: adapter.output.cpu() for label, adapter in variants.items()})
+    for label, indices in outputs.items():
         verify_structure(indices, inputs["visible"])
         checks, _ = check_selection(indices, refs)
         assert checks["checks_passed"], (case_name, label, checks)
@@ -937,7 +946,7 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
     for row, ref in enumerate(refs):
         torch.testing.assert_close(staged[row, :ref.numel()], ref, rtol=1e-3, atol=1e-3)
         assert torch.isneginf(staged[row, ref.numel():]).all()
-    functions = {"score": score, "topk": select, "serial": serial, "online": online}
+    functions = {"score": score, "topk": select, "serial": serial, **variants}
     print(
         f"QSA INT8 CHUNK PREFLIGHT PASS {case_name} rows={rows} width={width} "
         f"online_tiles={(width + 63) // 64} "
@@ -961,6 +970,19 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
         "current_short_query16": current.short_query16,
         "current_query16_chunks": sum(current.query16_routes.values()),
     }
+    if len(variants) > 1:
+        samples = {name: [] for name in variants}
+        timer = QSAPrefillInt8Benchmark(
+            op_name=f"{OP_NAME}_chunk_online", case_name=case_name,
+            torch_op=None, gems_op=_call_candidate, input_fn=stage_inputs,
+            dtypes=[torch.int8], device=device,
+        )
+        for round_index in range(2):
+            names = tuple(variants) if round_index == 0 else tuple(reversed(variants))
+            for name in names:
+                samples[name].append(timer.get_latency(variants[name]))
+        profile["paired_kernel_samples_ms"] = samples
+        profile["update_grains"] = [64, 256, 512]
     try:
         collect(
             SimpleNamespace(report=report, worker=case_name), functions, torch, profile,
