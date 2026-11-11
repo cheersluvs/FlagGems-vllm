@@ -263,6 +263,7 @@ def main():
     parser.add_argument("--stages", action="store_true")
     parser.add_argument("--short-score", action="store_true")
     parser.add_argument("--fused-binary", action="store_true")
+    parser.add_argument("--online-topk", action="store_true")
     diagnostic = parser.add_mutually_exclusive_group()
     diagnostic.add_argument("--tile-handoff", action="store_true")
     diagnostic.add_argument("--group-visible", action="store_true")
@@ -290,9 +291,14 @@ def main():
             group_visible=args.group_visible,
             group_visible_wall=args.group_visible_wall,
         )
-        if args.fused_binary:
+        if args.fused_binary or args.online_topk:
             prefix = "QSA_INT8_HARNESS_FUSED_BINARY "
+            chunk_key = "fused_chunks"
             summary["candidate"] = "Double-buffered INT8 scoring, fused binary prefix and Torch NPU TopK"
+            if args.online_topk:
+                prefix = "QSA_INT8_HARNESS_ONLINE_TOPK "
+                chunk_key = "online_chunks"
+                summary["candidate"] = "Scoped double-buffered INT8 scoring with online Top512 and explicit UB state"
             summary["production_control"] = "Prepared INT8 selection with shared page proof"
             for row in summary["cases"]:
                 name = row["case"]
@@ -303,23 +309,25 @@ def main():
                     if line.startswith(prefix)
                 ]
                 if len(records) != 1 or records[0]["case"] != name:
-                    raise ValueError(f"Missing fused binary control for {name}")
+                    raise ValueError(f"Missing mixed candidate control for {name}")
                 record = records[0]
                 production_ms = record["production_ms"]
                 if (
                     not math.isfinite(production_ms)
                     or production_ms <= 0
-                    or not 0 < record["fused_chunks"] <= record["total_chunks"]
+                    or not 0 < record[chunk_key] <= record["total_chunks"]
                 ):
-                    raise ValueError(f"Invalid fused binary control for {name}")
+                    raise ValueError(f"Invalid mixed candidate control for {name}")
                 row.update(
                     production_ms=production_ms,
                     production_vs_cann_speedup=row["baseline_ms"] / production_ms,
                     speedup_vs_production=production_ms / row["candidate_ms"],
-                    fused_chunks=record["fused_chunks"],
                     total_chunks=record["total_chunks"],
                     sampled_rows=record["sampled_rows"],
                 )
+                row[chunk_key] = record[chunk_key]
+                if args.online_topk:
+                    row["chunk_rows"] = record["chunk_rows"]
             summary["arithmetic_mean_speedup_vs_production"] = statistics.mean(
                 row["speedup_vs_production"] for row in summary["cases"]
             )
@@ -394,8 +402,8 @@ def main():
         print(
             "QSA INT8 kernel stage profile complete; ten-case acceptance mean pending"
         )
-    elif summary["exit_code"] == 0 and args.fused_binary:
-        print("case | CANN V1 ms | current INT8 ms | fused ms | vs CANN V1 | vs current")
+    elif summary["exit_code"] == 0 and (args.fused_binary or args.online_topk):
+        print("case | CANN V1 ms | current INT8 ms | candidate ms | vs CANN V1 | vs current")
         for row in summary["cases"]:
             print(
                 f"{row['case']} | {row['baseline_ms']:.3f} | {row['production_ms']:.3f} | "
@@ -403,8 +411,8 @@ def main():
                 f"{row['speedup_vs_production']:.6f}x"
             )
         print(
-            f"Arithmetic mean: fused vs CANN V1 {summary['arithmetic_mean_speedup']:.6f}x, "
-            f"fused vs current {summary['arithmetic_mean_speedup_vs_production']:.6f}x, "
+            f"Arithmetic mean: candidate vs CANN V1 {summary['arithmetic_mean_speedup']:.6f}x, "
+            f"candidate vs current {summary['arithmetic_mean_speedup_vs_production']:.6f}x, "
             f"current vs CANN V1 {summary['production_arithmetic_mean_speedup_vs_cann']:.6f}x"
         )
     elif summary["exit_code"] == 0 and args.tile_handoff:

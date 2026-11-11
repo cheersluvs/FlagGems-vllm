@@ -129,12 +129,15 @@ print("\n".join(names))
             printf 'QSA INT8 trial: guarded N64 query16 scoring for widths (1024, 4096]\n'
         fi
         qsa_mixed_flag=
-        if [[ ${QSA_HARNESS_FUSED_BINARY:-0} == 1 ]]; then
+        if [[ ${QSA_HARNESS_FUSED_BINARY:-0} == 1 || ${QSA_HARNESS_ONLINE_TOPK:-0} == 1 ]]; then
             if [[ -n "$qsa_stage_flag$qsa_short_score_flag$qsa_diagnostic_flag" || ${QSA_HARNESS_REUSE_TOPK_SCRATCH:-0} == 1 ]]; then
                 echo 'Fused binary requires a standalone ten-case harness run'
                 exit 1
             fi
             qsa_mixed_flag=--fused-binary
+            if [[ ${QSA_HARNESS_ONLINE_TOPK:-0} == 1 ]]; then
+                qsa_mixed_flag=--online-topk
+            fi
         fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do

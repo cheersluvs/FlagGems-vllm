@@ -393,6 +393,18 @@ def _run_top512_merge(merge):
         target.view(torch.int32)[:, -1].copy_(source.view(torch.int32)[:, -1])
 
 
+def pack_mixed_queries(query):
+    count = query.shape[0]
+    cores = triton.cdiv(count, 2)
+    packed = torch.zeros((cores, 16, 128), dtype=torch.int8, device=query.device)
+    pair_count = count // 2
+    if pair_count:
+        packed[:pair_count, :8].copy_(query[:2 * pair_count].view(pair_count, 8, 128))
+    if count % 2:
+        packed[-1, :4].copy_(query[-1])
+    return packed
+
+
 class PreparedFusedBinarySelection:
     def __init__(self, values, host_visible, starts, chunk_rows):
         device = values["q"].device
@@ -416,14 +428,7 @@ class PreparedFusedBinarySelection:
                 last = min(first + chunk_rows, end)
                 count = last - first
                 cores = triton.cdiv(count, 2)
-                packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8, device=device)
-                # Use a padded row dimension so an odd final row never reads the next request.
-                q = values["q"][first:last]
-                pair_count = count // 2
-                if pair_count:
-                    packed_q[:pair_count, :8].copy_(q[:2 * pair_count].view(pair_count, 8, 128))
-                if count % 2:
-                    packed_q[-1, :4].copy_(q[-1])
+                packed_q = pack_mixed_queries(values["q"][first:last])
 
                 layout = count, lists
                 if layout not in scratch:

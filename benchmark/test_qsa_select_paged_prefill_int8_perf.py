@@ -626,15 +626,26 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             f"total_chunks={len(candidate.chunks)}",
             flush=True,
         )
-        if os.environ.get("QSA_HARNESS_FUSED_BINARY") == "1":
-            from qsa_int8_fused_binary_910b_trial import PreparedFusedBinarySelection
+        online_topk = os.environ.get("QSA_HARNESS_ONLINE_TOPK") == "1"
+        if os.environ.get("QSA_HARNESS_FUSED_BINARY") == "1" or online_topk:
+            if online_topk:
+                from qsa_int8_online_topk_910b_trial import PreparedOnlineTopKSelection
 
-            mixed = PreparedFusedBinarySelection(
-                values, inputs["visible"], plan["starts"], chunk,
-            )
-            fused_chunks = sum(item[3] for item in mixed.chunks)
-            assert fused_chunks, f"{name}: fused prefix did not run"
-            print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} fused_binary", flush=True)
+                mixed = PreparedOnlineTopKSelection(
+                    values, inputs["visible"], plan["starts"], chunk,
+                )
+                trial = "online_topk"
+                hit_chunks = len(mixed.chunks)
+            else:
+                from qsa_int8_fused_binary_910b_trial import PreparedFusedBinarySelection
+
+                mixed = PreparedFusedBinarySelection(
+                    values, inputs["visible"], plan["starts"], chunk,
+                )
+                trial = "fused_binary"
+                hit_chunks = sum(item[3] for item in mixed.chunks)
+            assert hit_chunks, f"{name}: mixed candidate did not run"
+            print(f"QSA_INT8_HARNESS_PREFLIGHT_START {name} {trial}", flush=True)
             mixed.output.fill_(-3)
             torch.npu.synchronize()
             mixed_output = mixed(synchronize=diagnose_only)
@@ -643,11 +654,11 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
             torch.npu.synchronize()
             mixed_indices = mixed_output.cpu()
             failure = _check_preflight_structure(
-                name, "fused_binary", mixed_indices, inputs["visible"], verify_structure,
+                name, trial, mixed_indices, inputs["visible"], verify_structure,
             )
             assert failure is None, failure
             checks, _ = check_selection(mixed_indices[samples], refs)
-            assert checks["checks_passed"], (name, "fused_binary", checks)
+            assert checks["checks_passed"], (name, trial, checks)
             print(
                 f"QSA INT8 MIXED FULL PASS {name} rows={rows} chunks={len(mixed.chunks)} "
                 f"sampled_topk_rows={len(samples)}",
@@ -657,11 +668,13 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
                 production_ms = benchmark.get_latency(candidate)
                 assert math.isfinite(production_ms) and production_ms > 0
                 print(
-                    "QSA_INT8_HARNESS_FUSED_BINARY",
-                    json.dumps(dict(
-                        case=name, production_ms=production_ms, fused_chunks=fused_chunks,
-                        total_chunks=len(mixed.chunks), sampled_rows=len(samples),
-                    )),
+                    "QSA_INT8_HARNESS_ONLINE_TOPK" if online_topk else "QSA_INT8_HARNESS_FUSED_BINARY",
+                    json.dumps({
+                        "case": name, "production_ms": production_ms,
+                        "online_chunks" if online_topk else "fused_chunks": hit_chunks,
+                        "total_chunks": len(mixed.chunks), "sampled_rows": len(samples),
+                        "chunk_rows": mixed.chunk_rows if online_topk else chunk,
+                    }),
                     flush=True,
                 )
             yield (dict(case_name=name, route=route, reference=native_call, candidate=mixed),)
