@@ -1,0 +1,868 @@
+{
+  "exit_code": 0,
+  "mode": "kernel",
+  "scope": "Two matched request-local chunks",
+  "arithmetic_mean_speedup": null,
+  "cases": [
+    {
+      "case": "int8_budget_exact",
+      "score_ms": 0.03164396666666667,
+      "topk_ms": 0.022390133333333336,
+      "serial_ms": 0.05888193333333334,
+      "online_ms": 0.17579883333333335,
+      "prefix_score_ms": 0.15310706666666668,
+      "prefix_sort_ms": 0.15605713333333332,
+      "prefix_merge_ms": 0.18402163333333332,
+      "rows": 32,
+      "width": 8192,
+      "profile_status": "completed",
+      "current_short_query16": false,
+      "current_query16_chunks": 1,
+      "serial_over_online": 0.3349392724449252,
+      "paired_kernel_samples_ms": {
+        "online": [
+          0.17571416666666664,
+          0.17571416666666664
+        ],
+        "prefix_score": [
+          0.15329573333333335,
+          0.1533124
+        ],
+        "prefix_sort": [
+          0.1565198,
+          0.1565724666666667
+        ],
+        "prefix_merge": [
+          0.18419703333333332,
+          0.18386566666666665
+        ]
+      },
+      "prefix_medians_ms": {
+        "prefix_score": 0.15330406666666668,
+        "prefix_sort": 0.15654613333333334,
+        "prefix_merge": 0.18403134999999998
+      },
+      "prefix_deltas_ms": {
+        "local_sort": 0.0032420666666666542,
+        "merge_and_final_output": 0.027485216666666645
+      },
+      "prefix_caveat": "All prefixes store identical-size per-tile diagnostic buffers and use MTE3 release; deltas include compiler scheduling changes and are not additive stage costs. The original online control uses MTE2 release without per-tile stores.",
+      "device_stages": {
+        "score": {
+          "trace_file": "int8_budget_exact-score-trace.json.gz",
+          "compressed_bytes": 1629,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378323271563.022",
+          "hardware_pids": [
+            286380480
+          ],
+          "device_task_duration_sum_us": 98.702,
+          "device_task_union_us": 98.70200000000001,
+          "device_task_envelope_us": 555.0120000000001,
+          "uncovered_envelope_us": 456.31000000000006,
+          "uncovered_fraction": 0.822162403695776,
+          "categories": {
+            "cpu_op": 42,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 281.246,
+              "end_us": 526.172,
+              "duration_us": 244.92600000000004
+            },
+            {
+              "start_us": 40.282,
+              "end_us": 251.666,
+              "duration_us": 211.38400000000001
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 98.702
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "topk": {
+          "trace_file": "int8_budget_exact-topk-trace.json.gz",
+          "compressed_bytes": 2556,
+          "task_count": 9,
+          "timestamp_origin_us": "1794378326914803.874",
+          "hardware_pids": [
+            286380480
+          ],
+          "device_task_duration_sum_us": 585.308,
+          "device_task_union_us": 585.308,
+          "device_task_envelope_us": 1237.444,
+          "uncovered_envelope_us": 652.136,
+          "uncovered_fraction": 0.5270024340495408,
+          "categories": {
+            "cpu_op": 42,
+            "dequeue": 9,
+            "async_task_queue": 18,
+            "enqueue": 9,
+            "": 65,
+            "HostToDevice": 18,
+            "async_npu": 18
+          },
+          "largest_gaps": [
+            {
+              "start_us": 984.9200000000001,
+              "end_us": 1138.784,
+              "duration_us": 153.86400000000003
+            },
+            {
+              "start_us": 7.22,
+              "end_us": 147.444,
+              "duration_us": 140.224
+            },
+            {
+              "start_us": 441.20799999999997,
+              "end_us": 542.392,
+              "duration_us": 101.18400000000008
+            },
+            {
+              "start_us": 897.558,
+              "end_us": 981.1,
+              "duration_us": 83.54200000000003
+            },
+            {
+              "start_us": 170.784,
+              "end_us": 249.004,
+              "duration_us": 78.22
+            },
+            {
+              "start_us": 1168.644,
+              "end_us": 1230.264,
+              "duration_us": 61.61999999999989
+            },
+            {
+              "start_us": 647.272,
+              "end_us": 680.734,
+              "duration_us": 33.46199999999999
+            },
+            {
+              "start_us": 889.278,
+              "end_us": 889.298,
+              "duration_us": 0.01999999999998181
+            }
+          ],
+          "kernels": {
+            "_radix_hist_trivial_all": {
+              "count": 3,
+              "sum_us": 115.91999999999999
+            },
+            "_segmerge_seg_sort": {
+              "count": 3,
+              "sum_us": 261.744
+            },
+            "_segmerge_merge_unpack": {
+              "count": 3,
+              "sum_us": 207.644
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "serial": {
+          "trace_file": "int8_budget_exact-serial-trace.json.gz",
+          "compressed_bytes": 3274,
+          "task_count": 12,
+          "timestamp_origin_us": "1794378330666900.356",
+          "hardware_pids": [
+            286380480
+          ],
+          "device_task_duration_sum_us": 1428.1880000000006,
+          "device_task_union_us": 1428.1880000000006,
+          "device_task_envelope_us": 1825.4160000000002,
+          "uncovered_envelope_us": 397.2279999999996,
+          "uncovered_fraction": 0.21760957502289865,
+          "categories": {
+            "cpu_op": 81,
+            "dequeue": 12,
+            "async_task_queue": 24,
+            "enqueue": 12,
+            "": 74,
+            "HostToDevice": 21,
+            "async_npu": 18
+          },
+          "largest_gaps": [
+            {
+              "start_us": 1604.7520000000002,
+              "end_us": 1728.652,
+              "duration_us": 123.89999999999986
+            },
+            {
+              "start_us": 1478.548,
+              "end_us": 1601.592,
+              "duration_us": 123.0440000000001
+            },
+            {
+              "start_us": 1374.786,
+              "end_us": 1449.108,
+              "duration_us": 74.32199999999989
+            },
+            {
+              "start_us": 1745.854,
+              "end_us": 1818.476,
+              "duration_us": 72.62200000000007
+            },
+            {
+              "start_us": 1315.684,
+              "end_us": 1316.884,
+              "duration_us": 1.2000000000000455
+            },
+            {
+              "start_us": 1275.784,
+              "end_us": 1276.964,
+              "duration_us": 1.1799999999998363
+            },
+            {
+              "start_us": 1347.106,
+              "end_us": 1347.966,
+              "duration_us": 0.8599999999999
+            },
+            {
+              "start_us": 1306.144,
+              "end_us": 1306.184,
+              "duration_us": 0.03999999999996362
+            },
+            {
+              "start_us": 1283.464,
+              "end_us": 1283.484,
+              "duration_us": 0.01999999999998181
+            },
+            {
+              "start_us": 1350.126,
+              "end_us": 1350.146,
+              "duration_us": 0.01999999999998181
+            },
+            {
+              "start_us": 1368.346,
+              "end_us": 1368.366,
+              "duration_us": 0.01999999999998181
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 1335.4460000000001
+            },
+            "_radix_hist_trivial_all": {
+              "count": 3,
+              "sum_us": 11.82
+            },
+            "_segmerge_seg_sort": {
+              "count": 3,
+              "sum_us": 58.062
+            },
+            "_segmerge_merge_unpack": {
+              "count": 3,
+              "sum_us": 22.86
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "online": {
+          "trace_file": "int8_budget_exact-online-trace.json.gz",
+          "compressed_bytes": 1202,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378334406857.064",
+          "hardware_pids": [
+            286380480
+          ],
+          "device_task_duration_sum_us": 528.552,
+          "device_task_union_us": 528.5519999999999,
+          "device_task_envelope_us": 534.372,
+          "uncovered_envelope_us": 5.82000000000005,
+          "uncovered_fraction": 0.010891289214255332,
+          "categories": {
+            "cpu_op": 6,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 180.104,
+              "end_us": 183.164,
+              "duration_us": 3.059999999999974
+            },
+            {
+              "start_us": 357.508,
+              "end_us": 360.268,
+              "duration_us": 2.759999999999991
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 528.552
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "prefix_score": {
+          "trace_file": "int8_budget_exact-prefix_score-trace.json.gz",
+          "compressed_bytes": 1228,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378337940355.514",
+          "hardware_pids": [
+            286380480
+          ],
+          "device_task_duration_sum_us": 711.374,
+          "device_task_union_us": 711.374,
+          "device_task_envelope_us": 716.994,
+          "uncovered_envelope_us": 5.6200000000000045,
+          "uncovered_fraction": 0.007838280376125887,
+          "categories": {
+            "cpu_op": 6,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 230.424,
+              "end_us": 233.444,
+              "duration_us": 3.019999999999982
+            },
+            {
+              "start_us": 475.28999999999996,
+              "end_us": 477.89,
+              "duration_us": 2.6000000000000227
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 711.374
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "prefix_sort": {
+          "trace_file": "int8_budget_exact-prefix_sort-trace.json.gz",
+          "compressed_bytes": 1224,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378341695003.346",
+          "hardware_pids": [
+            286380480
+          ],
+          "device_task_duration_sum_us": 613.8919999999999,
+          "device_task_union_us": 613.892,
+          "device_task_envelope_us": 620.172,
+          "uncovered_envelope_us": 6.279999999999973,
+          "uncovered_fraction": 0.010126223047799598,
+          "categories": {
+            "cpu_op": 6,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 192.164,
+              "end_us": 195.324,
+              "duration_us": 3.160000000000025
+            },
+            {
+              "start_us": 418.168,
+              "end_us": 421.288,
+              "duration_us": 3.1200000000000045
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 613.8919999999999
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "prefix_merge": {
+          "trace_file": "int8_budget_exact-prefix_merge-trace.json.gz",
+          "compressed_bytes": 1239,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378345435760.764",
+          "hardware_pids": [
+            286380480
+          ],
+          "device_task_duration_sum_us": 544.39,
+          "device_task_union_us": 544.3899999999999,
+          "device_task_envelope_us": 549.5899999999999,
+          "uncovered_envelope_us": 5.2000000000000455,
+          "uncovered_fraction": 0.009461598646263662,
+          "categories": {
+            "cpu_op": 6,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 366.946,
+              "end_us": 369.566,
+              "duration_us": 2.6199999999999477
+            },
+            {
+              "start_us": 185.564,
+              "end_us": 188.144,
+              "duration_us": 2.5800000000000125
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 544.39
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        }
+      }
+    },
+    {
+      "case": "int8_compact",
+      "score_ms": 0.017270233333333333,
+      "topk_ms": 0.0065868,
+      "serial_ms": 0.0251992,
+      "online_ms": 0.08535636666666667,
+      "prefix_score_ms": 0.04137476666666667,
+      "prefix_sort_ms": 0.04356286666666667,
+      "prefix_merge_ms": 0.11402693333333333,
+      "rows": 32,
+      "width": 1088,
+      "profile_status": "completed",
+      "current_short_query16": true,
+      "current_query16_chunks": 1,
+      "serial_over_online": 0.29522343773614235,
+      "paired_kernel_samples_ms": {
+        "online": [
+          0.09852796666666666,
+          0.08489503333333334
+        ],
+        "prefix_score": [
+          0.041145466666666665,
+          0.028307266666666667
+        ],
+        "prefix_sort": [
+          0.056683166666666666,
+          0.051662400000000004
+        ],
+        "prefix_merge": [
+          0.13482003333333334,
+          0.08688573333333334
+        ]
+      },
+      "prefix_medians_ms": {
+        "prefix_score": 0.03472636666666667,
+        "prefix_sort": 0.054172783333333335,
+        "prefix_merge": 0.11085288333333335
+      },
+      "prefix_deltas_ms": {
+        "local_sort": 0.019446416666666667,
+        "merge_and_final_output": 0.05668010000000001
+      },
+      "prefix_caveat": "All prefixes store identical-size per-tile diagnostic buffers and use MTE3 release; deltas include compiler scheduling changes and are not additive stage costs. The original online control uses MTE2 release without per-tile stores.",
+      "device_stages": {
+        "score": {
+          "trace_file": "int8_compact-score-trace.json.gz",
+          "compressed_bytes": 1605,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378396059676.342",
+          "hardware_pids": [
+            300953024
+          ],
+          "device_task_duration_sum_us": 730.894,
+          "device_task_union_us": 730.894,
+          "device_task_envelope_us": 736.434,
+          "uncovered_envelope_us": 5.539999999999964,
+          "uncovered_fraction": 0.007522737950719228,
+          "categories": {
+            "cpu_op": 42,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 716.874,
+              "end_us": 719.694,
+              "duration_us": 2.8199999999999363
+            },
+            {
+              "start_us": 696.334,
+              "end_us": 699.054,
+              "duration_us": 2.7200000000000273
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 730.894
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "topk": {
+          "trace_file": "int8_compact-topk-trace.json.gz",
+          "compressed_bytes": 2481,
+          "task_count": 9,
+          "timestamp_origin_us": "1794378399686329.352",
+          "hardware_pids": [
+            300953024
+          ],
+          "device_task_duration_sum_us": 1012.3800000000001,
+          "device_task_union_us": 1012.3800000000002,
+          "device_task_envelope_us": 1177.104,
+          "uncovered_envelope_us": 164.72399999999982,
+          "uncovered_fraction": 0.13994005627370207,
+          "categories": {
+            "cpu_op": 42,
+            "dequeue": 9,
+            "async_task_queue": 18,
+            "enqueue": 9,
+            "": 65,
+            "HostToDevice": 18,
+            "async_npu": 18
+          },
+          "largest_gaps": [
+            {
+              "start_us": 1008.7,
+              "end_us": 1092.522,
+              "duration_us": 83.82199999999989
+            },
+            {
+              "start_us": 1094.422,
+              "end_us": 1175.144,
+              "duration_us": 80.72199999999998
+            },
+            {
+              "start_us": 981.34,
+              "end_us": 981.38,
+              "duration_us": 0.03999999999996362
+            },
+            {
+              "start_us": 1003.4200000000001,
+              "end_us": 1003.46,
+              "duration_us": 0.03999999999996362
+            },
+            {
+              "start_us": 1005.94,
+              "end_us": 1005.98,
+              "duration_us": 0.03999999999996362
+            },
+            {
+              "start_us": 986.18,
+              "end_us": 986.2,
+              "duration_us": 0.020000000000095497
+            },
+            {
+              "start_us": 993.34,
+              "end_us": 993.36,
+              "duration_us": 0.01999999999998181
+            },
+            {
+              "start_us": 999.58,
+              "end_us": 999.6,
+              "duration_us": 0.01999999999998181
+            }
+          ],
+          "kernels": {
+            "_radix_hist_trivial_all": {
+              "count": 3,
+              "sum_us": 990.2800000000001
+            },
+            "_segmerge_seg_sort": {
+              "count": 3,
+              "sum_us": 10.52
+            },
+            "_segmerge_merge_unpack": {
+              "count": 3,
+              "sum_us": 11.579999999999998
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "serial": {
+          "trace_file": "int8_compact-serial-trace.json.gz",
+          "compressed_bytes": 3289,
+          "task_count": 12,
+          "timestamp_origin_us": "1794378403402409.318",
+          "hardware_pids": [
+            300953024
+          ],
+          "device_task_duration_sum_us": 92.12399999999998,
+          "device_task_union_us": 92.12400000000018,
+          "device_task_envelope_us": 1752.536,
+          "uncovered_envelope_us": 1660.4119999999998,
+          "uncovered_fraction": 0.9474338900884203,
+          "categories": {
+            "cpu_op": 81,
+            "dequeue": 12,
+            "async_task_queue": 24,
+            "enqueue": 12,
+            "": 74,
+            "HostToDevice": 21,
+            "async_npu": 18
+          },
+          "largest_gaps": [
+            {
+              "start_us": 412.048,
+              "end_us": 750.274,
+              "duration_us": 338.226
+            },
+            {
+              "start_us": 1109.102,
+              "end_us": 1380.188,
+              "duration_us": 271.086
+            },
+            {
+              "start_us": 129.782,
+              "end_us": 302.086,
+              "duration_us": 172.304
+            },
+            {
+              "start_us": 1397.8280000000002,
+              "end_us": 1547.07,
+              "duration_us": 149.24199999999973
+            },
+            {
+              "start_us": 767.616,
+              "end_us": 900.958,
+              "duration_us": 133.34199999999998
+            },
+            {
+              "start_us": 1550.09,
+              "end_us": 1673.432,
+              "duration_us": 123.3420000000001
+            },
+            {
+              "start_us": 904.198,
+              "end_us": 1026.76,
+              "duration_us": 122.56200000000001
+            },
+            {
+              "start_us": 18.74,
+              "end_us": 121.982,
+              "duration_us": 103.242
+            },
+            {
+              "start_us": 309.046,
+              "end_us": 403.968,
+              "duration_us": 94.92200000000003
+            },
+            {
+              "start_us": 1029.18,
+              "end_us": 1106.102,
+              "duration_us": 76.92200000000003
+            },
+            {
+              "start_us": 1675.372,
+              "end_us": 1750.594,
+              "duration_us": 75.22199999999998
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 53.721999999999994
+            },
+            "_radix_hist_trivial_all": {
+              "count": 3,
+              "sum_us": 14.059999999999999
+            },
+            "_segmerge_seg_sort": {
+              "count": 3,
+              "sum_us": 11.319999999999999
+            },
+            "_segmerge_merge_unpack": {
+              "count": 3,
+              "sum_us": 13.022
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "online": {
+          "trace_file": "int8_compact-online-trace.json.gz",
+          "compressed_bytes": 1217,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378407154403.310",
+          "hardware_pids": [
+            300953024
+          ],
+          "device_task_duration_sum_us": 146.504,
+          "device_task_union_us": 146.50400000000002,
+          "device_task_envelope_us": 363.866,
+          "uncovered_envelope_us": 217.36199999999997,
+          "uncovered_fraction": 0.5973682619425832,
+          "categories": {
+            "cpu_op": 6,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 185.484,
+              "end_us": 315.486,
+              "duration_us": 130.00199999999998
+            },
+            {
+              "start_us": 49.902,
+              "end_us": 137.262,
+              "duration_us": 87.36
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 146.504
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "prefix_score": {
+          "trace_file": "int8_compact-prefix_score-trace.json.gz",
+          "compressed_bytes": 1230,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378410746378.354",
+          "hardware_pids": [
+            300953024
+          ],
+          "device_task_duration_sum_us": 87.682,
+          "device_task_union_us": 87.68200000000002,
+          "device_task_envelope_us": 336.166,
+          "uncovered_envelope_us": 248.48399999999998,
+          "uncovered_fraction": 0.7391705288458678,
+          "categories": {
+            "cpu_op": 6,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 158.004,
+              "end_us": 310.686,
+              "duration_us": 152.682
+            },
+            {
+              "start_us": 36.96,
+              "end_us": 132.762,
+              "duration_us": 95.80199999999999
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 87.682
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "prefix_sort": {
+          "trace_file": "int8_compact-prefix_sort-trace.json.gz",
+          "compressed_bytes": 1241,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378414499695.996",
+          "hardware_pids": [
+            300953024
+          ],
+          "device_task_duration_sum_us": 92.24000000000001,
+          "device_task_union_us": 92.24000000000004,
+          "device_task_envelope_us": 406.968,
+          "uncovered_envelope_us": 314.72799999999995,
+          "uncovered_fraction": 0.7733482730828958,
+          "categories": {
+            "cpu_op": 6,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 201.88400000000001,
+              "end_us": 378.868,
+              "duration_us": 176.98399999999998
+            },
+            {
+              "start_us": 36.02,
+              "end_us": 173.764,
+              "duration_us": 137.744
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 92.24000000000001
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        },
+        "prefix_merge": {
+          "trace_file": "int8_compact-prefix_merge-trace.json.gz",
+          "compressed_bytes": 1242,
+          "task_count": 3,
+          "timestamp_origin_us": "1794378418120482.552",
+          "hardware_pids": [
+            300953024
+          ],
+          "device_task_duration_sum_us": 146.82399999999998,
+          "device_task_union_us": 146.824,
+          "device_task_envelope_us": 355.906,
+          "uncovered_envelope_us": 209.082,
+          "uncovered_fraction": 0.5874641056908284,
+          "categories": {
+            "cpu_op": 6,
+            "dequeue": 3,
+            "async_task_queue": 6,
+            "enqueue": 3,
+            "": 47,
+            "HostToDevice": 3
+          },
+          "largest_gaps": [
+            {
+              "start_us": 182.184,
+              "end_us": 307.164,
+              "duration_us": 124.97999999999999
+            },
+            {
+              "start_us": 50.76,
+              "end_us": 134.862,
+              "duration_us": 84.102
+            }
+          ],
+          "kernels": {
+            "MIX_AIC": {
+              "count": 3,
+              "sum_us": 146.82399999999998
+            }
+          },
+          "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+        }
+      }
+    }
+  ]
+}
