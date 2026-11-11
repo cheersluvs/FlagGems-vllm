@@ -204,3 +204,15 @@ query4 的更多 program 未带来收益；不能由 launch grid 直接推断硬
 冻结版本：上述代码提交，`QSA_SERIAL_FAST_SCORE=1`、`QSA_SERIAL_QUERY_GROUP=16`、`QSA_SERIAL_COMPARE_GROUPS=0`；N64、FP32、2048-key 外层块、sort2048、持续Top2048、输出Top512，短请求回落query4，按请求所有者和页表一致性分段。冻结的是当前诊断范围内的串行算法控制，不是完整CANN数值路径、全部shape验收或可投产优化。其余CANN差异仍按第一步表保留，第二次Cube与内部tile在第四步考察。
 
 第三步的首个交付应是同一算法的混合kernel串行版，先与冻结的分离kernel串行控制核对全部中间值和最终结果；然后仅改变缓冲槽/排程，做同kernel串行与双缓冲配对。融合/减少发射的收益单独记录，不归入双缓冲收益。两种版本的query分组、评分精度、sort块、内部状态、截断和结束处理必须一致；若因资源约束调整这些参数，则两侧同时调整并重新验证，不单独改变一侧。最终仍须与当前整合入口和CANN V1做完整验收。
+
+## 第三步首轮：同 kernel 的外层块单槽/双槽对照（待设备验证）
+
+`QSA_SERIAL_MIXED_CONTROL=1`，同时选择 query4 并保留 query16 peer 参考。实现为 `tools/qsa_cann_mixed_910b_trial.py::_mixed_outer2048`。当前 query16 的每个 Vector 核若驻留8份 Top2048，状态需要128 KiB，加现有合并输入64 KiB及输出32 KiB已超过192 KiB，尚不含评分与排序缓冲。因此首版两种混合版本都采用 query4，每个 Vector 核驻留两份 Top2048；同轮保留匹配的 query4 分离kernel控制和最佳 query16 参考。query4 实际资源占用仍须由编译结果验证。
+
+固定：N64、INT32 QK、FP32反量化/ReLU/加权归约、2048-key 外层块、sort2048、内部Top2048和输出Top512；首块直接初始化，后续两条等长列表合并。N64 QK逐小块产生，GM ring 存完整的 M16×2048 INT32 外层结果；每个Vector核归约两行，评分和两行Top2048状态驻留UB。交接对象仍与CANN归约后FP32分数不同，第二次Cube归约留到第四步，不宣称已完全复刻CANN。
+
+单槽：Cube产生整个外层块→通知Vector→Vector完成评分/排序/状态合并→归还槽→Cube进入下一外层块。双槽只把SLOTS从1改成2，允许Cube产生下一外层块时Vector处理上一块；槽归还、首尾排空及尾块都计入。GM ring 本身有槽，不代表实际发生重叠；性能收益和后续设备时间线需另外证实。compact只有一个外层块，不具备跨外层块重叠机会。
+
+gate：先验证单槽带诊断写回版本的每块点积、评分、排序与状态，再验证无诊断写回的最终索引/数值；单槽通过才进入双槽同样检查。三个边界fixture在query4策略下也运行两种混合版本。任一资源/编译/正确性失败则停止计时并保存现有IR/检查记录，不降低TopK容量来绕过问题。
+
+计时使用同一harness kernel方法，两轮交错。`fusion_speedup=query4分离kernel串行/mixed_serial`；`double_buffer_speedup=mixed_serial/mixed_double`。评分与TopK独立数据仍来自分离kernel控制，不伪称混合kernel内部阶段独立耗时。正式生产验收仍在第五步。

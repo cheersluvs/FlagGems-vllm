@@ -406,6 +406,8 @@ def main():
                     required_stages += ("peer_score", "peer_serial")
                 elif record.get("score_variant") == "shared_n64":
                     required_stages += ("reference_serial",)
+                if record.get("mixed_checks"):
+                    required_stages += ("mixed_serial", "mixed_double")
                 for stage in required_stages:
                     samples = record["samples_ms"][stage]
                     if len(samples) != 2 or not all(

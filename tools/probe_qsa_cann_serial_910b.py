@@ -42,7 +42,9 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
         raise ValueError("Paired grouping probe requires shared N64 and query_group=4")
     adapter = PreparedCANNSerial(values, width, query_group=group, request_ids=owners)
     peer = None
+    mixed_controls = {}
     active_group = group
+    active_implementation = "separated"
     result["query_group"] = group
     result["score_variant"] = "shared_n64" if fast_score else "row_n64"
     result["score_segments"] = adapter.segments
@@ -94,7 +96,7 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             if raw is not None:
                 consumed = raw.cpu()
                 bad += int((consumed[:, :2].sum(1) < 2048).sum())
-        entry = dict(stage=stage, key_start=start, mismatches=bad, query_group=active_group)
+        entry = dict(stage=stage, key_start=start, mismatches=bad, query_group=active_group, implementation=active_implementation)
         result["checks"].append(entry)
         path.write_text(json.dumps(result, indent=2, allow_nan=False))
         print("QSA CANN SERIAL CHECK " + json.dumps(entry), flush=True)
@@ -133,6 +135,30 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             active_group = group
             result["compared_query_groups"] = [4, 16]
             result["peer_score_segments"] = peer.segments
+        if os.environ.get("QSA_SERIAL_MIXED_CONTROL") == "1" and group == 4:
+            from qsa_cann_mixed_910b_trial import PreparedMixedOuter
+            result["mixed_checks"] = []
+            for slots, label in ((1, "mixed_serial"), (2, "mixed_double")):
+                active_group = 4
+                active_implementation = label
+                mixed = PreparedMixedOuter(values, width, slots=slots, request_ids=owners)
+                mixed_controls[label] = mixed
+                print(f"QSA MIXED COMPILE {case} {label}", flush=True)
+                mixed.run(check=check)
+                # Validate the exact non-instrumented version used for timing.
+                mixed()
+                indices = mixed.output.cpu()
+                verify_structure(indices, inputs["visible"])
+                checks, _ = check_selection(indices, refs)
+                assert checks["checks_passed"], (label, checks)
+                actual_values = mixed.output_values.cpu()
+                for row, ref in enumerate(refs):
+                    valid = indices[row] >= 0
+                    torch.testing.assert_close(actual_values[row, valid], ref[indices[row, valid].long()], rtol=1e-3, atol=1e-3)
+                    assert torch.isneginf(actual_values[row, ~valid]).all()
+                result["mixed_checks"].append(dict(arm=label, slots=slots, status="passed"))
+                print(f"QSA MIXED PASS {case} {label}", flush=True)
+            active_implementation = "separated"
         result["correctness_status"] = "passed"
         if validate_only:
             result.update(status="passed", timing_status="not_requested")
@@ -151,6 +177,7 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             checks, _ = check_selection(reference_adapter.output.cpu(), refs)
             assert checks["checks_passed"], checks
             functions["reference_serial"] = reference_adapter
+        functions.update(mixed_controls)
         samples = {name: [] for name in functions}
         result["samples_ms"] = samples
         for iteration in range(2):
@@ -173,6 +200,11 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
         result.update(status="passed", timing_status="passed", samples_ms=samples, medians_ms=medians,
                       control_over_serial=medians["production_control"] / medians["serial"],
                       spread_pct={name: (max(times)-min(times))/statistics.median(times)*100 for name,times in samples.items()})
+        if mixed_controls:
+            result["fusion_speedup"] = medians["serial"] / medians["mixed_serial"]
+            result["double_buffer_speedup"] = medians["mixed_serial"] / medians["mixed_double"]
+            print(f"QSA MIXED RATIOS {case}: fusion={result['fusion_speedup']:.4f}x; "
+                  f"double_buffer={result['double_buffer_speedup']:.4f}x", flush=True)
         if compare_groups:
             result["query4_score_speedup"] = medians["peer_score"] / medians["score"]
             result["query4_serial_speedup"] = medians["peer_serial"] / medians["serial"]
@@ -196,6 +228,11 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
                 for kind, text in getattr(compiled, "asm", {}).items():
                     if isinstance(text, str):
                         (Path(report) / f"{case}-cann-serial-query16-{name}-{kind}.txt").write_text(text)
+        for label, mixed in mixed_controls.items():
+            for name, compiled in mixed.compiled.items():
+                for kind, text in getattr(compiled, "asm", {}).items():
+                    if isinstance(text, str):
+                        (Path(report) / f"{case}-{label}-{name}-{kind}.txt").write_text(text)
         path.write_text(json.dumps(result, indent=2, allow_nan=False))
     return result
 
