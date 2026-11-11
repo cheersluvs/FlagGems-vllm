@@ -1,0 +1,105 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+F
+=================================== FAILURES ===================================
+________ test_qsa_select_paged_prefill_int8_chunk_stages[int8_compact] _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfffac336ec10>
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-172/test_qsa_select_paged_prefill_0')
+case_name = 'int8_compact'
+
+    @pytest.mark.qsa_select_paged_prefill_int8_910b
+    @pytest.mark.parametrize("case_name", ("int8_budget_exact", "int8_compact"))
+    def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_name):
+        from types import SimpleNamespace
+    
+        pytest.importorskip("torch_npu")
+        if not torch.npu.is_available():
+            pytest.skip("Ascend NPU unavailable")
+        device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+        torch.npu.set_device(device_index)
+        if "910B" not in torch.npu.get_device_name(device_index):
+            pytest.skip("Ascend 910B required")
+        assert Config.mode == consts.BenchMode.KERNEL
+        assert os.environ.get("ASCEND_LAUNCH_BLOCKING") != "1"
+    
+        root = Path(__file__).resolve().parents[1]
+        monkeypatch.syspath_prepend(str(root / "tools"))
+        from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
+        from probe_qsa_int8_pipeline_910b import check_selection
+        from probe_qsa_int8_score_910b import reference as cpu_score
+        from probe_qsa_int8_score_sol_910b import build_direct_page_source
+        from probe_qsa_int8_ten_shapes_910b import verify_structure
+        from qsa_int8_online_topk_910b_trial import PreparedOnlineTopKSelection
+        from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+        from qsa_prefill_pipeline_910b_trial import load_topk
+        from qsa_timeline_910b import collect
+    
+        plan = CASES[(case_name,)]
+        rows = 40
+        assert plan["query_lengths"][0] >= rows
+        width = plan["logits_width"]
+        inputs = make_inputs(plan)
+        for key in ("q", "qs", "weights", "row_table", "visible"):
+            inputs[key] = inputs[key][:rows].contiguous()
+        device = f"npu:{device_index}"
+        values = {key: value.to(device) for key, value in inputs.items()}
+        topk = load_topk()
+        policy = os.environ.get("QSA_HARNESS_TOPK_POLICY", "prefill_3seg")
+        route = topk_route(plan, policy)
+        assert route == "auto", "The two chunk controls use the automatic TopK route"
+        monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", "auto")
+        kernels = {}
+        for bounded in (True, False):
+            arm = "chunk_bounded" if bounded else "chunk_full"
+            kernels[bounded] = load_generated_prefix(
+                tmp_path, "chunk", arm,
+                build_direct_page_source(bounded, arm, precomputed_visibility=False),
+            )
+        output = torch.empty((rows, 512), device=device, dtype=torch.int32)
+        scratch = torch.empty((rows, width), device=device, dtype=torch.float32)
+        workspace = torch.empty(1024**2, device=device, dtype=torch.uint8)
+        current = PreparedSharedMapInt8Selection(
+            values, output, scratch, workspace, topk, [0, rows],
+            key_group4=True, single_page64=True, direct_page_kernels=kernels,
+            shared_direct_page_proof=True, allow_short_query16=True,
+        )
+        online = PreparedOnlineTopKSelection(
+            values, inputs["visible"], [0, rows], rows, scan_width=width,
+        )
+        assert current.chunks == [(0, rows)] and online.chunks == [(0, rows)]
+        if case_name == "int8_compact":
+>           assert current.short_query16 and current.query16_routes[(0, rows)]
+E           assert (True and False)
+E            +  where True = <qsa_int8_shared_map_selection_910b_trial.PreparedSharedMapInt8Selection object at 0xfffac3d48b50>.short_query16
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py:916: AssertionError
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-query16-control.c8kwhKRw/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_compact]
+1 failed, 19 warnings in 1.88s
