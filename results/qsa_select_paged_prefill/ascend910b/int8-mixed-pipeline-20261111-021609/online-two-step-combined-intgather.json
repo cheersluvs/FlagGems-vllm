@@ -1,0 +1,18 @@
+{
+  "arm": "combined",
+  "rows": 39,
+  "tile_stride": 129,
+  "export": "none",
+  "integer_gather": true,
+  "tiles_sha256": "5ad5caf9d86e9577833a6985d693802acce6727c58037a0c580555aabfda3e61",
+  "stages": {
+    "first": {
+      "start": 0,
+      "count": 1,
+      "status": "launching"
+    }
+  },
+  "passed": false,
+  "snapshot_file": "online-two-step-combined-intgather-snapshots.json.gz",
+  "error": "CompilationError('def _qsa_online_two_step_probe(\\n    Source, Tiles, Output, Control, LISTS: tl.constexpr,\\n    Debug=None, EXPORT: tl.constexpr = \"none\", INTEGER_GATHER: tl.constexpr = False,\\n):\\n    row = tl.program_id(0)\\n    word = row * 1024 + tl.arange(0, 1024)\\n    lane = tl.arange(0, 128)\\n    state = tl.load(Source + word)\\n    start = tl.load(Control)\\n    count = tl.load(Control + 1)\\n    for step in range(count):\\n        tile = tl.load(Tiles + (row * LISTS + start + step) * 128 + lane)\\n        if INTEGER_GATHER:\\n            state = _update_online_topk_int_gather(state, tile, 512, 64)\\n        elif EXPORT == \"none\":\\n            state = _update_online_topk(state, tile, 512, 64)\\n        else:\\n            state = _update_online_topk_export(state, tile, 512, 64, Debug + row * 1024, EXPORT)\\n    tl.store(Output + word, state)\\n', <ast.Call object at 0xfff9b6a91fc0>, 'CompilationError(\\'def _update_online_topk_int_gather(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):\\\\n    packed = tl.zeros((8 * TOP,), tl.float32)\\\\n    packed = tle.dsa.insert_slice(packed, state, (0,), (2 * TOP,), (1,))\\\\n    packed = tle.dsa.insert_slice(packed, tile, (2 * TOP,), (2 * CHUNK,), (1,))\\\\n    merged, consumed = tle.dsa.ascend.raw(\\\\n        \"merge_exhaust_sort4\", packed, 2,\\\\n        0, TOP, 2 * TOP, 3 * TOP, TOP, CHUNK, 0, 0,\\\\n        out=[tl.zeros((4 * TOP,), tl.float32), tl.zeros((4,), tl.int32)],\\\\n    )\\\\n    prefix = al.extract_slice(merged, (0,), (2 * TOP,), (1,))\\\\n    # If the tile is exhausted before TOP entries, only the old state can remain.\\\\n    old_count = al.get_element(consumed, (0,))\\\\n    tile_count = al.get_element(consumed, (1,))\\\\n    word = tl.arange(0, 2 * TOP)\\\\n    tail_word = tl.maximum(word - 2 * tile_count, 0)\\\\n    state_bits = state.to(tl.int32, bitcast=True)\\\\n    tail_bits = tl.gather(state_bits, tail_word, axis=0)\\\\n    tail = tail_bits.to(tl.float32, bitcast=True)\\\\n    return tl.where(word < 2 * (old_count + tile_count), prefix, tail)\\\\n\\', <ast.Call object at 0xfff9b68b97e0>, \"ValueError(\\'Expected dtype fp16/fp32/bf16/f8E5M2/f8E4M3FN/int8, but got int32\\')\")')"
+}
