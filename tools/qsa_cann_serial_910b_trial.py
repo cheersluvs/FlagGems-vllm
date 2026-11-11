@@ -96,6 +96,89 @@ def _score_outer_n64(
 
 
 @triton.jit
+def _score_outer_shared_n64(
+    Q,
+    K,
+    QS,
+    KS,
+    Weights,
+    Table,
+    Visible,
+    Out,
+    ROWS: tl.constexpr,
+    COLUMNS: tl.constexpr,
+    WIDTH: tl.constexpr,
+    PAGE: tl.constexpr,
+    BLOCK_N: tl.constexpr,
+    KEY_TILES: tl.constexpr,
+    QUERY_GROUP: tl.constexpr, KEY_START: tl.constexpr, SCAN_WIDTH: tl.constexpr,
+    WRITE_RAW_DOT: tl.constexpr, RawDot,
+):
+    tl.static_assert(BLOCK_N == 64 and PAGE == 192)
+    groups: tl.constexpr = triton.cdiv(ROWS, QUERY_GROUP)
+    tiles: tl.constexpr = triton.cdiv(WIDTH, BLOCK_N)
+    dims = tl.arange(0, 128)
+    lanes = tl.arange(0, QUERY_GROUP * 4)
+    queries = tl.arange(0, QUERY_GROUP)
+    blocks: tl.constexpr = triton.cdiv(tiles, KEY_TILES)
+    for unit in range(tl.program_id(0), groups * blocks, tl.num_programs(0)):
+        group = unit // blocks
+        first_tile = unit % blocks * KEY_TILES
+        base = group * QUERY_GROUP
+        rows = base + queries
+        flat_heads = base * 4 + lanes
+        query = tl.load(
+            Q + flat_heads[:, None] * 128 + dims[None, :],
+            mask=flat_heads[:, None] < ROWS * 4,
+            other=0,
+        )
+        query_scale = tl.load(QS + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(
+            tl.float32
+        )
+        weights = tl.load(Weights + flat_heads, mask=flat_heads < ROWS * 4, other=0).to(
+            tl.float32
+        )
+        visible = tl.load(Visible + rows, mask=rows < ROWS, other=0)
+        max_visible = tl.max(visible, axis=0)
+        for local_tile in range(KEY_TILES):
+            tile = first_tile + local_tile
+            local_columns = tile * BLOCK_N + tl.arange(0, BLOCK_N)
+            columns = KEY_START + local_columns
+            key_live = (columns < SCAN_WIDTH) & (columns < max_visible)
+            start = KEY_START + tile * BLOCK_N
+            page = start // PAGE
+            offset = start % PAGE
+            physical = tl.load(
+                Table + base * COLUMNS + tl.minimum(page, COLUMNS - 1),
+                mask=(start < SCAN_WIDTH) & (start < max_visible) & (page < COLUMNS),
+                other=0,
+            )
+            token = physical.to(tl.int64) * PAGE + offset + tl.arange(0, BLOCK_N)
+            keys = tl.load(
+                K + token[:, None] * 128 + dims[None, :],
+                mask=key_live[:, None],
+                other=0,
+            )
+            key_scale = tl.load(KS + token, mask=key_live, other=0).to(tl.float32)
+            dot = tl.dot(query, tl.trans(keys), out_dtype=tl.int32)
+            dequant = dot.to(tl.float32) * query_scale[:, None] * key_scale[None, :]
+            weighted = tl.maximum(dequant, 0.0) * weights[:, None]
+            scores = tl.sum(tl.reshape(weighted, (QUERY_GROUP, 4, BLOCK_N)), axis=1)
+            live = (columns[None, :] < SCAN_WIDTH) & (columns[None, :] < visible[:, None])
+            if WRITE_RAW_DOT:
+                raw = tl.reshape(dot, (QUERY_GROUP, 4, BLOCK_N))
+                heads = tl.arange(0, 4)
+                raw_out = RawDot + ((rows[:, None, None] * WIDTH + local_columns[None, None, :]) * 4 + heads[None, :, None])
+                tl.store(raw_out, tl.where(live[:, None, :], raw, 0),
+                         mask=(rows[:, None, None] < ROWS) & (local_columns[None, None, :] < WIDTH))
+            tl.store(
+                Out + rows[:, None] * WIDTH + local_columns[None, :],
+                tl.where(live, scores, -float("inf")),
+                mask=(local_columns[None, :] < WIDTH) & (rows[:, None] < ROWS),
+            )
+
+
+@triton.jit
 def _sort_outer(Source, Pairs, Visible, STRIDE: tl.constexpr, START: tl.constexpr,
                 WIDTH: tl.constexpr, FULL_SOURCE: tl.constexpr):
     row = tl.program_id(0)
@@ -147,9 +230,25 @@ def _finish_outer(State, Visible, Values, Indices):
 class PreparedCANNSerial:
     """Kernel-separated serial control; buffers and launch sequence are explicit."""
 
-    def __init__(self, values, width):
+    def __init__(self, values, width, *, query_group=1, request_ids=None):
         self.values, self.width = values, width
         self.rows = values["q"].shape[0]
+        if query_group not in (1, 4, 16):
+            raise ValueError("Query group must be 1, 4, or 16")
+        self.query_group = query_group
+        self.segments = []
+        if query_group != 1:
+            if request_ids is None or len(request_ids) != self.rows:
+                raise ValueError("Explicit request ownership is required for shared K")
+            mapping = values["row_table"].cpu()
+            begin = 0
+            while begin < self.rows:
+                end = begin + 1
+                while end < self.rows and request_ids[end] == request_ids[begin] and torch.equal(mapping[end], mapping[begin]):
+                    end += 1
+                group = 4 if query_group == 4 or end - begin <= 4 else 16
+                self.segments.append((begin, end - begin, group))
+                begin = end
         self.starts = tuple(range(0, width, 2048))
         device = values["q"].device
         self.score_buffer = torch.empty((self.rows, 2048), device=device, dtype=torch.float32)
@@ -163,6 +262,18 @@ class PreparedCANNSerial:
 
     def score_block(self, start, debug=False):
         v = self.values
+        if self.query_group != 1:
+            compiled = None
+            for first, count, group in self.segments:
+                compiled = _score_outer_shared_n64[(min(20, triton.cdiv(count, group) * 4),)](
+                    v["q"][first:first + count], v["cache"], v["qs"][first:first + count], v["ks"],
+                    v["weights"][first:first + count], v["row_table"][first:first + count], v["visible"][first:first + count],
+                    self.score_buffer[first:first + count], ROWS=count, COLUMNS=v["row_table"].shape[1],
+                    WIDTH=2048, PAGE=192, BLOCK_N=64, KEY_TILES=8,
+                    QUERY_GROUP=group, KEY_START=start, SCAN_WIDTH=self.width,
+                    WRITE_RAW_DOT=debug, RawDot=self.raw_dot[first:first + count], num_warps=4,
+                )
+            return compiled
         return _score_outer_n64[(min(20, self.rows * 32),)](
             v["q"], v["cache"], v["qs"], v["ks"], v["weights"],
             v["row_table"], v["visible"], self.score_buffer, self.raw_dot,

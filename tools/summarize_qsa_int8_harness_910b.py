@@ -401,7 +401,10 @@ def main():
                 rows.append(record)
                 if record["status"] != "passed":
                     raise ValueError(f"Serial control failed: {name}")
-                for stage in ("score", "topk", "serial", "production_control"):
+                required_stages = ("score", "topk", "serial", "production_control")
+                if record.get("score_variant") == "shared_n64":
+                    required_stages += ("reference_serial",)
+                for stage in required_stages:
                     samples = record["samples_ms"][stage]
                     if len(samples) != 2 or not all(
                         isinstance(value, (int, float)) and math.isfinite(value) and value > 0

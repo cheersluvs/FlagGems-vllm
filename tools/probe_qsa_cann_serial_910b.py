@@ -16,6 +16,7 @@
 
 import json
 import math
+import os
 import statistics
 from pathlib import Path
 
@@ -31,7 +32,11 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
                   outer_keys=2048, cube_n=64, state_capacity=2048, output_k=512,
                   score_dtype="FP32", state_storage="GM ping-pong, sequential kernel launches",
                   blocks=list(range(0, width, 2048)), checks=[])
-    adapter = PreparedCANNSerial(values, width)
+    fast_score = os.environ.get("QSA_SERIAL_FAST_SCORE") == "1"
+    owners = values.get("_request_ids", [0] * values["q"].shape[0])
+    adapter = PreparedCANNSerial(values, width, query_group=16 if fast_score else 1, request_ids=owners)
+    result["score_variant"] = "shared_n64" if fast_score else "row_n64"
+    result["score_segments"] = adapter.segments
     refs = [reference(inputs, row)[1] for row in range(adapter.rows)]
     path = Path(report) / f"{case}-cann-serial.json"
 
@@ -113,6 +118,12 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
         result["timing_attempts"] = []
         functions = dict(score=adapter.score_only, topk=lambda: adapter.run(full_source=full_scores),
                          serial=adapter, production_control=control)
+        if fast_score:
+            reference_adapter = PreparedCANNSerial(values, width)
+            reference_adapter()
+            checks, _ = check_selection(reference_adapter.output.cpu(), refs)
+            assert checks["checks_passed"], checks
+            functions["reference_serial"] = reference_adapter
         samples = {name: [] for name in functions}
         result["samples_ms"] = samples
         for iteration in range(2):
@@ -135,6 +146,8 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
         result.update(status="passed", timing_status="passed", samples_ms=samples, medians_ms=medians,
                       control_over_serial=medians["production_control"] / medians["serial"],
                       spread_pct={name: (max(times)-min(times))/statistics.median(times)*100 for name,times in samples.items()})
+        if fast_score:
+            result["score_replacement_serial_speedup"] = medians["reference_serial"] / medians["serial"]
         print("QSA CANN SERIAL us " + json.dumps({name: time*1000 for name,time in medians.items()}), flush=True)
     except Exception as exc:
         result["error"] = repr(exc)
@@ -172,13 +185,16 @@ def run_boundaries(inputs, values, report):
         columns = (width + 191) // 192
         mapping = inputs["row_table"][0, :columns]
         tables = []
+        request_ids = []
         for request, length in enumerate(request_lengths):
             tables.extend([torch.roll(mapping, request)] * length)
+            request_ids.extend([request] * length)
         edge["row_table"] = torch.stack(tables).contiguous()
         edge["visible"] = torch.tensor(visible, dtype=inputs["visible"].dtype)
         target = dict(values)
         for key in ("q", "qs", "weights", "row_table", "visible"):
             target[key] = edge[key].to(values["q"].device)
+        target["_request_ids"] = request_ids
         entry = run_probe(edge, target, width, None, None, None, report, name, validate_only=True)
         completed.append(dict(case=name, width=width, rows=count, request_lengths=request_lengths,
                               tied_scores=ties, status=entry["status"]))
