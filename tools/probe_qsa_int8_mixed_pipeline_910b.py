@@ -1000,7 +1000,7 @@ def _qsa_online_handoff_grouped(
         for cube_group in range(tl.cdiv(SUBTILES, HANDOFF_TILES)):
             cube_slot = cube_group % SLOTS
             al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE2, pipe.PIPE_FIX)
-            for cube_inner in tl.static_range(HANDOFF_TILES):
+            for cube_inner in range(HANDOFF_TILES):
                 cube_subtile = cube_group * HANDOFF_TILES + cube_inner
                 if cube_subtile < SUBTILES:
                     start = cube_subtile * CHUNK
@@ -1035,7 +1035,7 @@ def _qsa_online_handoff_grouped(
         for vector_group in range(tl.cdiv(SUBTILES, HANDOFF_TILES)):
             vector_slot = vector_group % SLOTS
             al.sync_block_wait("cube", "vector", vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
-            for vector_inner in tl.static_range(HANDOFF_TILES):
+            for vector_inner in range(HANDOFF_TILES):
                 vector_subtile = vector_group * HANDOFF_TILES + vector_inner
                 if vector_subtile < SUBTILES:
                     work = Ring + (pid * SLOTS + vector_slot) * 16 * HANDOFF_KEYS + vector_inner * 16 * CHUNK

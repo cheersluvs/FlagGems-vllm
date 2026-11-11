@@ -937,9 +937,11 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
                 values, inputs["visible"], [0, rows], rows, scan_width=width, handoff_keys=size,
             )
     serial()
-    for adapter in variants.values():
+    for label, adapter in variants.items():
+        print(f"QSA INT8 CHUNK COMPILE {case_name} {label}", flush=True)
         adapter()
-    torch.npu.synchronize()
+        torch.npu.synchronize()
+        print(f"QSA INT8 CHUNK EXECUTED {case_name} {label}", flush=True)
     refs = [cpu_score(inputs, row)[1] for row in range(rows)]
     outputs = {"current": output.cpu()}
     outputs.update({label: adapter.output.cpu() for label, adapter in variants.items()})
