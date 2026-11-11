@@ -1,0 +1,409 @@
+{
+  "case": "long",
+  "rows": 39,
+  "tile_lists": 129,
+  "slots": 2,
+  "packed_output": false,
+  "keep_tile_store_mte3": false,
+  "ub_snapshot": true,
+  "correctness": {
+    "materialized": {
+      "rows": 39,
+      "max_score_abs_error": 3.814697265625e-06
+    },
+    "online": {
+      "rows": 39,
+      "max_score_abs_error": 3.814697265625e-06
+    }
+  },
+  "validation_stages": {
+    "materialized": [
+      {
+        "stage": "materialized-merge-0",
+        "shape": {
+          "input": [
+            39,
+            129,
+            128
+          ],
+          "output": [
+            39,
+            33,
+            512
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "materialized-merge-0-source.txt",
+          "materialized-merge-0-ttir.txt",
+          "materialized-merge-0-ttadapter.txt",
+          "materialized-merge-0-bcmlir.txt",
+          "materialized-merge-0.npubin.gz"
+        ]
+      },
+      {
+        "stage": "materialized-merge-1",
+        "shape": {
+          "input": [
+            39,
+            33,
+            512
+          ],
+          "output": [
+            39,
+            17,
+            1024
+          ]
+        },
+        "status": "completed",
+        "artifacts": [
+          "materialized-merge-1-source.txt",
+          "materialized-merge-1-ttir.txt",
+          "materialized-merge-1-ttadapter.txt",
+          "materialized-merge-1-bcmlir.txt",
+          "materialized-merge-1.npubin.gz"
+        ]
+      },
+      {
+        "stage": "materialized-merge-2",
+        "shape": {
+          "input": [
+            39,
+            17,
+            1024
+          ],
+          "output": [
+            39,
+            9,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-3",
+        "shape": {
+          "input": [
+            39,
+            9,
+            1024
+          ],
+          "output": [
+            39,
+            5,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-4",
+        "shape": {
+          "input": [
+            39,
+            5,
+            1024
+          ],
+          "output": [
+            39,
+            3,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-5",
+        "shape": {
+          "input": [
+            39,
+            3,
+            1024
+          ],
+          "output": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      },
+      {
+        "stage": "materialized-merge-6",
+        "shape": {
+          "torch_npu_topk": 512,
+          "input": [
+            39,
+            2,
+            1024
+          ]
+        },
+        "status": "completed"
+      }
+    ],
+    "online": [
+      {
+        "stage": "online-merge-0",
+        "shape": {
+          "topk": 512
+        },
+        "status": "completed",
+        "artifacts": [
+          "online-merge-0-source.txt",
+          "online-merge-0-ttir.txt",
+          "online-merge-0-ttadapter.txt",
+          "online-merge-0-bcmlir.txt",
+          "online-merge-0.npubin.gz"
+        ]
+      }
+    ]
+  },
+  "passed": true,
+  "total": {
+    "event_samples_us": {
+      "materialized": [
+        1059.8162412643433,
+        1059.6888065338135,
+        1051.9812107086182,
+        1056.093692779541
+      ],
+      "online": [
+        252.84624099731445,
+        251.7249882221222,
+        253.12873721122742,
+        251.12751126289368
+      ]
+    },
+    "event_medians_us": {
+      "materialized": 1057.8912496566772,
+      "online": 252.28561460971832
+    },
+    "materialized_over_online": 4.193228580603843,
+    "paired_speedup": [
+      4.1915443831953185,
+      4.20970843625085,
+      4.155913794295016,
+      4.205408190717765
+    ]
+  },
+  "timeline": {
+    "iterations": 3,
+    "stages": {
+      "materialized": {
+        "trace_file": "long-materialized-trace.json.gz",
+        "compressed_bytes": 11003,
+        "task_count": 69,
+        "timestamp_origin_us": "1794365337923641.774",
+        "hardware_pids": [
+          2565445056
+        ],
+        "device_task_duration_sum_us": 1453.604,
+        "device_task_union_us": 1453.6040000000007,
+        "device_task_envelope_us": 3989.498,
+        "uncovered_envelope_us": 2535.8939999999993,
+        "uncovered_fraction": 0.6356423790662382,
+        "categories": {
+          "cpu_op": 192,
+          "dequeue": 51,
+          "async_task_queue": 102,
+          "enqueue": 51,
+          "": 245,
+          "HostToDevice": 135,
+          "async_npu": 132
+        },
+        "largest_gaps": [
+          {
+            "start_us": 1372.446,
+            "end_us": 1629.532,
+            "duration_us": 257.086
+          },
+          {
+            "start_us": 2715.3120000000004,
+            "end_us": 2906.476,
+            "duration_us": 191.16399999999976
+          },
+          {
+            "start_us": 416.50800000000004,
+            "end_us": 537.85,
+            "duration_us": 121.34199999999998
+          },
+          {
+            "start_us": 1052.3600000000001,
+            "end_us": 1155.462,
+            "duration_us": 103.10199999999986
+          },
+          {
+            "start_us": 874.9559999999999,
+            "end_us": 966.198,
+            "duration_us": 91.24200000000008
+          },
+          {
+            "start_us": 699.132,
+            "end_us": 787.714,
+            "duration_us": 88.58200000000011
+          },
+          {
+            "start_us": 1989.178,
+            "end_us": 2075.12,
+            "duration_us": 85.94199999999978
+          },
+          {
+            "start_us": 3429.928,
+            "end_us": 3515.608,
+            "duration_us": 85.68000000000029
+          },
+          {
+            "start_us": 2161.302,
+            "end_us": 2246.864,
+            "duration_us": 85.5619999999999
+          },
+          {
+            "start_us": 2330.0840000000003,
+            "end_us": 2414.268,
+            "duration_us": 84.18399999999974
+          },
+          {
+            "start_us": 3600.792,
+            "end_us": 3684.032,
+            "duration_us": 83.24000000000024
+          },
+          {
+            "start_us": 321.60400000000004,
+            "end_us": 399.148,
+            "duration_us": 77.54399999999998
+          },
+          {
+            "start_us": 3267.9840000000004,
+            "end_us": 3342.206,
+            "duration_us": 74.22199999999975
+          },
+          {
+            "start_us": 974.198,
+            "end_us": 1043.22,
+            "duration_us": 69.02200000000005
+          },
+          {
+            "start_us": 796.3960000000001,
+            "end_us": 864.956,
+            "duration_us": 68.55999999999995
+          },
+          {
+            "start_us": 3352.4860000000003,
+            "end_us": 3420.568,
+            "duration_us": 68.08199999999988
+          },
+          {
+            "start_us": 621.052,
+            "end_us": 688.552,
+            "duration_us": 67.5
+          },
+          {
+            "start_us": 3524.308,
+            "end_us": 3590.83,
+            "duration_us": 66.52199999999993
+          },
+          {
+            "start_us": 2494.328,
+            "end_us": 2560.31,
+            "duration_us": 65.98199999999997
+          },
+          {
+            "start_us": 2085.04,
+            "end_us": 2150.842,
+            "duration_us": 65.80200000000013
+          }
+        ],
+        "kernels": {
+          "MIX_AIC": {
+            "count": 3,
+            "sum_us": 700.774
+          },
+          "_qsa_int8_merge_two_levels": {
+            "count": 3,
+            "sum_us": 186.502
+          },
+          "_qsa_int8_merge_sorted_tiles": {
+            "count": 15,
+            "sum_us": 213.22400000000002
+          },
+          "aclnnInplaceCopy_SliceAiCore_Slice": {
+            "count": 12,
+            "sum_us": 31.942
+          },
+          "aclnnInplaceCopy_ViewCopyAiCore_ViewCopy": {
+            "count": 12,
+            "sum_us": 97.74000000000001
+          },
+          "aclnnInplaceCopy_StridedSliceAiCore_StridedSlice": {
+            "count": 6,
+            "sum_us": 58.99999999999999
+          },
+          "aclnnTopk_TopkV2AiCore_TopKV2": {
+            "count": 3,
+            "sum_us": 58.56
+          },
+          "aclnnTopk_CastAiCore_Cast": {
+            "count": 3,
+            "sum_us": 22.561999999999998
+          },
+          "aclnnGather_CastAiCore_Cast": {
+            "count": 3,
+            "sum_us": 19.22
+          },
+          "aclnnGather_GatherElementsV2_GatherElementsV2": {
+            "count": 3,
+            "sum_us": 31.379999999999995
+          },
+          "aclnnInplaceMaskedFillScalar_MaskedFillAiCore_MaskedFill": {
+            "count": 6,
+            "sum_us": 32.7
+          }
+        },
+        "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+      },
+      "online": {
+        "trace_file": "long-online-trace.json.gz",
+        "compressed_bytes": 1208,
+        "task_count": 3,
+        "timestamp_origin_us": "1794365341696045.758",
+        "hardware_pids": [
+          2565445056
+        ],
+        "device_task_duration_sum_us": 730.436,
+        "device_task_union_us": 730.4360000000001,
+        "device_task_envelope_us": 736.0160000000001,
+        "uncovered_envelope_us": 5.579999999999927,
+        "uncovered_fraction": 0.007581356927023226,
+        "categories": {
+          "cpu_op": 6,
+          "dequeue": 3,
+          "async_task_queue": 6,
+          "enqueue": 3,
+          "": 47,
+          "HostToDevice": 3
+        },
+        "largest_gaps": [
+          {
+            "start_us": 492.35,
+            "end_us": 495.29,
+            "duration_us": 2.9399999999999977
+          },
+          {
+            "start_us": 247.124,
+            "end_us": 249.764,
+            "duration_us": 2.640000000000015
+          }
+        ],
+        "kernels": {
+          "MIX_AIC": {
+            "count": 3,
+            "sum_us": 730.436
+          }
+        },
+        "caveat": "Uncovered intervals are not proof of host starvation: dependencies, unselected activity and other processes can contribute. Use CPU launch events/flows in the raw trace."
+      }
+    },
+    "units": "microseconds",
+    "source": "torch_npu.profiler CPU+NPU, Chrome trace"
+  }
+}
