@@ -285,11 +285,12 @@ def _update_online_topk(state, tile, TOP: tl.constexpr, CHUNK: tl.constexpr):
 def _qsa_online_state_probe(Source, Tiles, Output, STEPS: tl.constexpr):
     word = tl.arange(0, 1024)
     lane = tl.arange(0, 128)
-    state = tl.load(Source + word)
+    row = tl.program_id(0)
+    state = tl.load(Source + row * 1024 + word)
     for step in range(STEPS):
-        tile = tl.load(Tiles + step * 128 + lane)
+        tile = tl.load(Tiles + (row * STEPS + step) * 128 + lane)
         state = _update_online_topk(state, tile, 512, 64)
-    tl.store(Output + word, state)
+    tl.store(Output + row * 1024 + word, state)
 
 
 def online_state_probe(args, device):
@@ -329,6 +330,60 @@ def online_state_probe(args, device):
             actual[:, 1].contiguous().view(torch.int32), ids[order], rtol=0, atol=0,
         )
         result.update(status="passed", checked_pairs=512)
+    except Exception as exc:
+        result["error"] = repr(exc)
+    summary.write_text(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2), flush=True)
+    if result["status"] != "passed":
+        raise SystemExit(1)
+
+
+def online_real_tile_probe(args, proposals):
+    from triton.backends.ascend import compiler
+
+    steps = args.online_update_steps
+    rows, lists, words = proposals.shape
+    assert steps <= lists and words == 2 * CUBE_TILE
+    report = Path(args.report)
+    label = f"online-real-tiles-{steps}"
+    summary = report / f"{label}.json"
+    result = {"steps": steps, "rows": rows, "status": "launching"}
+    tiles = proposals[:, :steps].contiguous()
+    tiles_cpu = tiles.cpu().view(rows, -1, 2)
+    initial = torch.full((rows, TOPK, 2), -float("inf"), dtype=torch.float32)
+    initial.view(torch.int32)[..., 1] = -1
+    state = initial.to(proposals.device)
+    output = torch.full_like(state, float("nan"))
+    try:
+        summary.write_text(json.dumps(result, indent=2))
+        with patch.object(compiler, "subprocess", CompileCapture(report, label)):
+            kernel = _qsa_online_state_probe[(rows,)](
+                state, tiles, output, steps, use_bytecode=True,
+                enable_auto_bind_sub_block=False, multibuffer=False,
+            )
+        result.update(status="synchronizing", artifacts=save_artifacts(kernel, report, label))
+        summary.write_text(json.dumps(result, indent=2))
+        torch.npu.synchronize()
+        actual = output.cpu()
+        source = torch.cat((tiles_cpu, initial), dim=1)
+        expected = source[..., 0].topk(TOPK, dim=1).values
+        torch.testing.assert_close(actual[..., 0], expected, rtol=0, atol=0)
+        source_ids = source.view(torch.int32)[..., 1]
+        actual_ids = actual.view(torch.int32)[..., 1]
+        finite_counts = torch.isfinite(expected).sum(dim=1).tolist()
+        for row, count in enumerate(finite_counts):
+            live_ids = actual_ids[row, :count]
+            assert live_ids.unique().numel() == count, f"row {row}: duplicate index"
+            if count:
+                matches = (
+                    (live_ids[:, None] == source_ids[row])
+                    & (actual[row, :count, 0, None] == source[row, :, 0])
+                )
+                assert matches.any(dim=1).all(), f"row {row}: score/index mismatch"
+        result.update(
+            status="passed", checked_finite_pairs=sum(finite_counts),
+            checked_scores=rows * TOPK, empty_rows=finite_counts.count(0),
+        )
     except Exception as exc:
         result["error"] = repr(exc)
     summary.write_text(json.dumps(result, indent=2))
@@ -828,7 +883,7 @@ def cube_controls(args, cpu, inputs, packed_q, workspace):
 
 
 def handoff_operation(args):
-    if args.handoff_sort or args.handoff_bench or args.handoff_merge:
+    if args.handoff_sort or args.handoff_bench or args.handoff_merge or args.online_real_tiles:
         return "sort"
     return "score" if args.handoff_score else "copy"
 
@@ -1345,7 +1400,7 @@ def worker(args):
     torch.npu.set_device(args.device)
     device = torch.device(f"npu:{args.device}")
     assert "910B" in torch.npu.get_device_name(args.device)
-    if args.online_update_steps:
+    if args.online_update_steps and not args.online_real_tiles:
         online_state_probe(args, device)
         return
     if args.online_raw_length:
@@ -1360,6 +1415,10 @@ def worker(args):
     packed_q = torch.zeros((cores, 16, 128), dtype=torch.int8)
     packed_q[:, :ROWS_PER_CORE * 4].copy_(padded_q.reshape(cores, ROWS_PER_CORE * 4, 128))
     inputs = tuple(t.to(device) for t in (packed_q, *rest))
+    if args.online_real_tiles:
+        _, proposals = handoff_copy_control(args, cpu, inputs, packed_q, width, 2)
+        online_real_tile_probe(args, proposals)
+        return
     if args.handoff_bench or args.handoff_merge:
         handoff_benchmark(args, cpu, inputs, packed_q, width)
         return
@@ -1543,10 +1602,13 @@ def main():
     isolated = parser.add_mutually_exclusive_group()
     isolated.add_argument("--online-raw-length", type=int, choices=(64, 512))
     isolated.add_argument("--online-update-steps", type=int, choices=(1, 129))
+    parser.add_argument("--online-real-tiles", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
+    if args.online_real_tiles and not args.online_update_steps:
+        parser.error("--online-real-tiles requires --online-update-steps")
     if args.online_mte3 and not args.online_packed_output:
         parser.error("--online-mte3 requires --online-packed-output")
     if args.online_packed_output and not args.online_topk:
@@ -1566,8 +1628,11 @@ def main():
     base = [sys.executable, "-u", __file__, "--report", str(report), "--device", str(args.device)]
     statuses = {}
     if args.online_update_steps:
-        label = f"online-state-{args.online_update_steps}"
+        kind = "online-real-tiles" if args.online_real_tiles else "online-state"
+        label = f"{kind}-{args.online_update_steps}"
         command = base + ["--worker", "long", "--online-update-steps", str(args.online_update_steps)]
+        if args.online_real_tiles:
+            command.append("--online-real-tiles")
         code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
         statuses[label] = dict(exit_code=code, timed_out=timed_out)
     elif args.online_raw_length:
