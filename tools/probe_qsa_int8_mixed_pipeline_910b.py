@@ -988,7 +988,7 @@ def _qsa_online_grouped(
     UPDATE_KEYS: tl.constexpr,
 ):
     tl.static_assert(SCORE and SORT and UB_SNAPSHOT and ONLINE_TOP > 0)
-    tl.static_assert(UPDATE_KEYS in (256, 512) and UPDATE_KEYS % CHUNK == 0)
+    tl.static_assert((UPDATE_KEYS == 256 or UPDATE_KEYS == 512) and UPDATE_KEYS % CHUNK == 0)
     tl.static_assert(not KEEP_TILE_STORE)
     with al.scope(core_mode="cube"):
         pid = tl.program_id(0)
