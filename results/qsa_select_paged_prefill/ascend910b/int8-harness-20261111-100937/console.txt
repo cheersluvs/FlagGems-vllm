@@ -1,0 +1,313 @@
+QSA INT8 harness worker: int8_budget_exact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA MIXED COMPILE MATRIX slots=1 trace=False status=failed
+QSA MIXED COMPILE MATRIX slots=1 trace=True status=failed
+QSA MIXED COMPILE MATRIX slots=2 trace=False status=failed
+QSA MIXED COMPILE MATRIX slots=2 trace=True status=failed
+[W1111 18:09:32.915182248 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+F
+=================================== FAILURES ===================================
+______ test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact] ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfff9ac8e3710>
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-208/test_qsa_select_paged_prefill_0')
+case_name = 'int8_budget_exact'
+
+    @pytest.mark.qsa_select_paged_prefill_int8_910b
+    @pytest.mark.parametrize("case_name", ("int8_budget_exact", "int8_compact"))
+    def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_name):
+        from types import SimpleNamespace
+    
+        pytest.importorskip("torch_npu")
+        if not torch.npu.is_available():
+            pytest.skip("Ascend NPU unavailable")
+        device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+        torch.npu.set_device(device_index)
+        if "910B" not in torch.npu.get_device_name(device_index):
+            pytest.skip("Ascend 910B required")
+        assert Config.mode == consts.BenchMode.KERNEL
+        assert os.environ.get("ASCEND_LAUNCH_BLOCKING") != "1"
+    
+        root = Path(__file__).resolve().parents[1]
+        monkeypatch.syspath_prepend(str(root / "tools"))
+        from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
+        from probe_qsa_int8_pipeline_910b import check_selection
+        from probe_qsa_int8_score_910b import reference as cpu_score
+        from probe_qsa_int8_score_sol_910b import build_direct_page_source
+        from probe_qsa_int8_ten_shapes_910b import verify_structure
+        from qsa_int8_online_topk_910b_trial import PreparedOnlineTopKSelection
+        from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+        from qsa_prefill_pipeline_910b_trial import load_topk
+        from qsa_timeline_910b import collect
+    
+        plan = CASES[(case_name,)]
+        rows = 32
+        assert plan["query_lengths"][0] >= rows
+        width = plan["logits_width"]
+        inputs = make_inputs(plan)
+        for key in ("q", "qs", "weights", "row_table", "visible"):
+            inputs[key] = inputs[key][:rows].contiguous()
+        device = f"npu:{device_index}"
+        values = {key: value.to(device) for key, value in inputs.items()}
+        topk = load_topk()
+        policy = os.environ.get("QSA_HARNESS_TOPK_POLICY", "prefill_3seg")
+        route = topk_route(plan, policy)
+        assert route == "auto", "The two chunk controls use the automatic TopK route"
+        monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", "auto")
+        kernels = {}
+        for bounded in (True, False):
+            arm = "chunk_bounded" if bounded else "chunk_full"
+            kernels[bounded] = load_generated_prefix(
+                tmp_path, "chunk", arm,
+                build_direct_page_source(bounded, arm, precomputed_visibility=False),
+            )
+        output = torch.empty((rows, 512), device=device, dtype=torch.int32)
+        scratch = torch.empty((rows, width), device=device, dtype=torch.float32)
+        workspace = torch.empty(1024**2, device=device, dtype=torch.uint8)
+        current = PreparedSharedMapInt8Selection(
+            values, output, scratch, workspace, topk, [0, rows],
+            key_group4=True, single_page64=True, direct_page_kernels=kernels,
+            shared_direct_page_proof=True, allow_short_query16=True,
+        )
+        online = PreparedOnlineTopKSelection(
+            values, inputs["visible"], [0, rows], rows, scan_width=width,
+        )
+        assert current.chunks == [(0, rows)] and online.chunks == [(0, rows)]
+        if case_name == "int8_compact":
+            assert current.short_query16 and current.query16_routes[(0, rows)]
+    
+        def score():
+            current.score_into(0, rows, scratch)
+    
+        def select():
+            current.topk_all(scratch)
+    
+        def serial():
+            score()
+            select()
+    
+        if os.environ.get("QSA_HARNESS_CANN_SERIAL") == "1":
+            from probe_qsa_cann_serial_910b import run_probe
+            serial()
+            timer = QSAPrefillInt8Benchmark(
+                op_name=f"{OP_NAME}_cann_serial", case_name=case_name,
+                torch_op=None, gems_op=_call_candidate, input_fn=lambda *args: iter(()),
+                dtypes=[torch.int8], device=device,
+            )
+>           result = run_probe(inputs, values, width, scratch, serial, timer,
+                               Path(os.environ["QSA_HARNESS_REPORT"]), case_name)
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py:936: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+inputs = {'q': tensor([[[ -77,  -14,   33,  ...,    5,  127,  -53],
+         [ -40,  -68,  -31,  ...,  -49,   21,   22],
+      ...
+         [0.0203],
+         ...,
+         [0.0181],
+         [0.0240],
+         [0.0206]]], dtype=torch.float16), ...}
+values = {'q': tensor([[[ -77,  -14,   33,  ...,    5,  127,  -53],
+         [ -40,  -68,  -31,  ...,  -49,   21,   22],
+      ...3],
+         ...,
+         [0.0181],
+         [0.0240],
+         [0.0206]]], device='npu:0', dtype=torch.float16), ...}
+width = 8192
+full_scores = tensor([[ 4.4039, 36.1819, 41.5323,  ...,    -inf,    -inf,    -inf],
+        [30.1264, 14.3431, 13.7545,  ...,    -in... -inf,    -inf,    -inf],
+        [13.5228, 47.2784, 14.8908,  ...,    -inf,    -inf,    -inf]],
+       device='npu:0')
+control = <function test_qsa_select_paged_prefill_int8_chunk_stages.<locals>.serial at 0xfff9acc53560>
+timer = <benchmark.test_qsa_select_paged_prefill_int8_perf.QSAPrefillInt8Benchmark object at 0xfff9b5fd8d10>
+report = PosixPath('/tmp/qsa-ascend910b-int8-harness.oXIgrkCQ')
+case = 'int8_budget_exact', validate_only = False, query_group = None
+
+    def run_probe(inputs, values, width, full_scores, control, timer, report, case, *, validate_only=False, query_group=None):
+        import torch
+        from qsa_cann_serial_910b_trial import PreparedCANNSerial
+        from probe_qsa_int8_score_910b import reference
+        from probe_qsa_int8_pipeline_910b import check_selection
+        from probe_qsa_int8_ten_shapes_910b import verify_structure
+    
+        result = dict(case=case, status="failed", mode="kernel", scope=f"{values['q'].shape[0]}-row serial structural probe",
+                      outer_keys=2048, cube_n=64, state_capacity=2048, output_k=512,
+                      score_dtype="FP32", state_storage="GM ping-pong, sequential kernel launches",
+                      blocks=list(range(0, width, 2048)), checks=[])
+        fast_score = os.environ.get("QSA_SERIAL_FAST_SCORE") == "1"
+        owners = values.get("_request_ids", [0] * values["q"].shape[0])
+        group = int(os.environ.get("QSA_SERIAL_QUERY_GROUP", "16")) if query_group is None else query_group
+        if not fast_score:
+            group = 1
+        compare_groups = os.environ.get("QSA_SERIAL_COMPARE_GROUPS") == "1" and not validate_only
+        if compare_groups and (not fast_score or group != 4):
+            raise ValueError("Paired grouping probe requires shared N64 and query_group=4")
+        adapter = PreparedCANNSerial(values, width, query_group=group, request_ids=owners)
+        peer = None
+        mixed_controls = {}
+        active_group = group
+        active_implementation = "separated"
+        result["query_group"] = group
+        result["score_variant"] = "shared_n64" if fast_score else "row_n64"
+        result["score_segments"] = adapter.segments
+        refs = [reference(inputs, row)[1] for row in range(adapter.rows)]
+        path = Path(report) / f"{case}-cann-serial.json"
+    
+        def check(stage, start, tensor, raw):
+            actual = tensor.cpu()
+            bad = 0
+            if stage == "score":
+                dots = raw.cpu()
+                for row, ref in enumerate(refs):
+                    expected = torch.full((2048,), -float("inf"))
+                    end = min(start + 2048, ref.numel(), width)
+                    count = max(0, end - start)
+                    if count:
+                        expected[:count] = ref[start:end]
+                    bad += int((~torch.isclose(actual[row], expected, rtol=1e-3, atol=1e-3)).sum())
+                    expected_dot = torch.zeros((2048, 4), dtype=torch.int32)
+                    if count:
+                        physical = inputs["row_table"][row].long()
+                        keys = inputs["cache"][physical, :, 0].reshape(-1, 128)[start:end].int()
+                        expected_dot[:count] = keys @ inputs["q"][row].int().T
+                    bad += int((dots[row] != expected_dot).sum())
+            else:
+                scores = actual[:, 0::2]
+                indices = actual.view(torch.int32)[:, 1::2].long()
+                bad += int((scores[:, :-1] < scores[:, 1:]).sum())
+                for row, ref in enumerate(refs):
+                    if stage == "sort":
+                        expected_indices = torch.arange(start, start + 2048)
+                        bad += int((torch.sort(indices[row]).values != expected_indices).sum())
+                        expected = torch.full((2048,), -float("inf"))
+                        valid = (indices[row] >= 0) & (indices[row] < min(ref.numel(), width))
+                        expected[valid] = ref[indices[row, valid]]
+                        bad += int((~torch.isclose(scores[row], expected, rtol=1e-3, atol=1e-3)).sum())
+                    else:
+                        ref = ref[:min(start + 2048, width)]
+                        finite = torch.isfinite(scores[row])
+                        count = min(2048, ref.numel())
+                        bad += abs(int(finite.sum()) - count)
+                        idx = indices[row, finite]
+                        in_range = (idx >= 0) & (idx < ref.numel())
+                        bad += int((~in_range).sum()) + idx.numel() - idx.unique().numel()
+                        if bool(in_range.all()) and idx.numel():
+                            bad += int((~torch.isclose(scores[row, finite], ref[idx], rtol=1e-3, atol=1e-3)).sum())
+                        if int(finite.sum()) == count:
+                            bad += int((~torch.isclose(scores[row, finite], ref.topk(count).values, rtol=1e-3, atol=1e-3)).sum())
+                if raw is not None:
+                    consumed = raw.cpu()
+                    bad += int((consumed[:, :2].sum(1) < 2048).sum())
+            entry = dict(stage=stage, key_start=start, mismatches=bad, query_group=active_group, implementation=active_implementation)
+            result["checks"].append(entry)
+            path.write_text(json.dumps(result, indent=2, allow_nan=False))
+            print("QSA CANN SERIAL CHECK " + json.dumps(entry), flush=True)
+            assert bad == 0, (case, entry)
+    
+        try:
+            adapter.run(check=check)
+            indices = adapter.output.cpu()
+            verify_structure(indices, inputs["visible"])
+            selected, _ = check_selection(indices, refs)
+            assert selected["checks_passed"], selected
+            actual_values = adapter.output_values.cpu()
+            for row, ref in enumerate(refs):
+                valid = indices[row] >= 0
+                torch.testing.assert_close(actual_values[row, valid], ref[indices[row, valid].long()], rtol=1e-3, atol=1e-3)
+                assert torch.isneginf(actual_values[row, ~valid]).all()
+            # Validate the independently timed TopK-only arm on frozen full scores too.
+            if full_scores is not None:
+                adapter.run(full_source=full_scores)
+                verify_structure(adapter.output.cpu(), inputs["visible"])
+                checks, _ = check_selection(adapter.output.cpu(), refs)
+                assert checks["checks_passed"], checks
+            if compare_groups:
+                peer = PreparedCANNSerial(values, width, query_group=16, request_ids=owners)
+                active_group = 16
+                peer.run(check=check)
+                peer_indices = peer.output.cpu()
+                verify_structure(peer_indices, inputs["visible"])
+                checks, _ = check_selection(peer_indices, refs)
+                assert checks["checks_passed"], checks
+                peer_values = peer.output_values.cpu()
+                for row, ref in enumerate(refs):
+                    valid = peer_indices[row] >= 0
+                    torch.testing.assert_close(peer_values[row, valid], ref[peer_indices[row, valid].long()], rtol=1e-3, atol=1e-3)
+                    assert torch.isneginf(peer_values[row, ~valid]).all()
+                active_group = group
+                result["compared_query_groups"] = [4, 16]
+                result["peer_score_segments"] = peer.segments
+            if os.environ.get("QSA_SERIAL_MIXED_CONTROL") == "1" and group == 4:
+                from qsa_cann_mixed_910b_trial import PreparedMixedOuter
+                if os.environ.get("QSA_MIXED_COMPILE_DIAG") == "1":
+                    from diagnose_qsa_structural_mixed_compile_910b import compile_matrix
+                    matrix = compile_matrix(values, width, owners, report, case)
+                    result["mixed_compile_matrix"] = matrix
+>                   assert all(entry["status"] == "compiled" for entry in matrix), "Mixed compile matrix incomplete; see compiler input IR and logs"
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                   AssertionError: Mixed compile matrix incomplete; see compiler input IR and logs
+
+tools/probe_qsa_cann_serial_910b.py:144: AssertionError
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-mixed-peel.rIEmNn15/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+  /tmp/flaggems-qsa-mixed-peel.rIEmNn15/code/tools/qsa_cann_serial_910b_trial.py:257: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    self.local = torch.empty_like(self.states[0])
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+1 failed, 20 warnings in 177.50s (0:02:57)
+QSA INT8 harness worker failed: int8_budget_exact (pytest exit 1)
+int8_budget_exact failed None None
+Serial control failed: int8_budget_exact
