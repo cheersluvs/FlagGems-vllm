@@ -338,6 +338,19 @@ def online_state_probe(args, device):
         raise SystemExit(1)
 
 
+@triton.jit
+def _qsa_online_prefix_probe(Source, Tiles, Output, StepLimit, LISTS: tl.constexpr):
+    row = tl.program_id(0)
+    words = row * 1024 + tl.arange(0, 1024)
+    lane = tl.arange(0, 128)
+    state = tl.load(Source + words)
+    limit = tl.load(StepLimit)
+    for step in range(limit):
+        tile = tl.load(Tiles + (row * LISTS + step) * 128 + lane)
+        state = _update_online_topk(state, tile, 512, 64)
+    tl.store(Output + words, state)
+
+
 def online_real_tile_probe(args, proposals):
     from triton.backends.ascend import compiler
 
@@ -345,20 +358,30 @@ def online_real_tile_probe(args, proposals):
     rows, lists, words = proposals.shape
     assert steps <= lists and words == 2 * CUBE_TILE
     report = Path(args.report)
-    label = f"online-real-tiles-{steps}"
+    label = f"online-real-tiles-runtime-{steps}" if args.online_runtime_prefix else f"online-real-tiles-{steps}"
     summary = report / f"{label}.json"
-    result = {"steps": steps, "rows": rows, "status": "launching"}
-    tiles = proposals[:, :steps].contiguous()
-    tiles_cpu = tiles.cpu().view(rows, -1, 2)
+    result = {
+        "steps": steps, "rows": rows, "status": "launching",
+        "runtime_prefix": args.online_runtime_prefix,
+    }
+    tiles = proposals if args.online_runtime_prefix else proposals[:, :steps].contiguous()
+    tiles_cpu = tiles[:, :steps].cpu().reshape(rows, -1, 2)
     initial = torch.full((rows, TOPK, 2), -float("inf"), dtype=torch.float32)
     initial.view(torch.int32)[..., 1] = -1
     state = initial.to(proposals.device)
     output = torch.full_like(state, float("nan"))
+    if args.online_runtime_prefix:
+        limit = torch.full((), steps, device=proposals.device, dtype=torch.int32)
+        kernel_fn = _qsa_online_prefix_probe
+        launch_args = (limit, lists)
+    else:
+        kernel_fn = _qsa_online_state_probe
+        launch_args = (steps,)
     try:
         summary.write_text(json.dumps(result, indent=2))
         with patch.object(compiler, "subprocess", CompileCapture(report, label)):
-            kernel = _qsa_online_state_probe[(rows,)](
-                state, tiles, output, steps, use_bytecode=True,
+            kernel = kernel_fn[(rows,)](
+                state, tiles, output, *launch_args, use_bytecode=True,
                 enable_auto_bind_sub_block=False, multibuffer=False,
             )
         result.update(status="synchronizing", artifacts=save_artifacts(kernel, report, label))
@@ -1601,12 +1624,15 @@ def main():
     parser.add_argument("--online-mte3", action="store_true")
     isolated = parser.add_mutually_exclusive_group()
     isolated.add_argument("--online-raw-length", type=int, choices=(64, 512))
-    isolated.add_argument("--online-update-steps", type=int, choices=(1, 129))
+    isolated.add_argument("--online-update-steps", type=int, choices=(1, 2, 8, 32, 129))
     parser.add_argument("--online-real-tiles", action="store_true")
+    parser.add_argument("--online-runtime-prefix", action="store_true")
     parser.add_argument("--instruction-timeline", action="store_true")
     parser.add_argument("--task-trace", action="store_true")
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
+    if args.online_runtime_prefix and not args.online_real_tiles:
+        parser.error("--online-runtime-prefix requires --online-real-tiles")
     if args.online_real_tiles and not args.online_update_steps:
         parser.error("--online-real-tiles requires --online-update-steps")
     if args.online_mte3 and not args.online_packed_output:
@@ -1633,6 +1659,8 @@ def main():
         command = base + ["--worker", "long", "--online-update-steps", str(args.online_update_steps)]
         if args.online_real_tiles:
             command.append("--online-real-tiles")
+        if args.online_runtime_prefix:
+            command.append("--online-runtime-prefix")
         code, timed_out = run_child(command, report / f"{label}-worker.txt", args.timeout)
         statuses[label] = dict(exit_code=code, timed_out=timed_out)
     elif args.online_raw_length:
