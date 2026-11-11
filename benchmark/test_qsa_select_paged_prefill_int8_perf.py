@@ -936,6 +936,11 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             variants[f"handoff{size}"] = PreparedOnlineTopKSelection(
                 values, inputs["visible"], [0, rows], rows, scan_width=width, handoff_keys=size,
             )
+    if os.environ.get("QSA_HARNESS_QUERY_PACK") == "1":
+        variants["query4"] = PreparedOnlineTopKSelection(
+            values, inputs["visible"], [0, rows], rows, scan_width=width,
+            queries_per_program=4,
+        )
     serial()
     for label, adapter in variants.items():
         print(f"QSA INT8 CHUNK COMPILE {case_name} {label}", flush=True)
@@ -993,6 +998,8 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
             profile["update_grains"] = [64, 256, 512]
         if os.environ.get("QSA_HARNESS_HANDOFF_GRAIN") == "1":
             profile["handoff_grains"] = [64, 256, 512]
+        if os.environ.get("QSA_HARNESS_QUERY_PACK") == "1":
+            profile["query_packs"] = [2, 4]
     try:
         collect(
             SimpleNamespace(report=report, worker=case_name), functions, torch, profile,

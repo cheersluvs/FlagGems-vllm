@@ -393,15 +393,19 @@ def _run_top512_merge(merge):
         target.view(torch.int32)[:, -1].copy_(source.view(torch.int32)[:, -1])
 
 
-def pack_mixed_queries(query):
+def pack_mixed_queries(query, queries_per_program=2):
     count = query.shape[0]
-    cores = triton.cdiv(count, 2)
+    cores = triton.cdiv(count, queries_per_program)
     packed = torch.zeros((cores, 16, 128), dtype=torch.int8, device=query.device)
-    pair_count = count // 2
-    if pair_count:
-        packed[:pair_count, :8].copy_(query[:2 * pair_count].view(pair_count, 8, 128))
-    if count % 2:
-        packed[-1, :4].copy_(query[-1])
+    complete = count // queries_per_program
+    active_heads = queries_per_program * 4
+    if complete:
+        packed[:complete, :active_heads].copy_(
+            query[:complete * queries_per_program].view(complete, active_heads, 128)
+        )
+    tail = count % queries_per_program
+    if tail:
+        packed[-1, :tail * 4].copy_(query[-tail:].reshape(tail * 4, 128))
     return packed
 
 

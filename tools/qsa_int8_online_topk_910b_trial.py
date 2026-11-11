@@ -21,7 +21,7 @@ import torch
 import triton
 
 from probe_qsa_int8_mixed_pipeline_910b import (
-    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped,
+    CUBE_TILE, PAGE, TOPK, _qsa_online_scoped, _qsa_online_grouped, _qsa_online_handoff_grouped, _qsa_online_query4,
 )
 from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 
@@ -29,7 +29,7 @@ from qsa_int8_fused_binary_910b_trial import pack_mixed_queries
 class PreparedOnlineTopKSelection:
     def __init__(
         self, values, host_visible, starts, chunk_rows, *,
-        scan_width=None, update_keys=64, handoff_keys=64,
+        scan_width=None, update_keys=64, handoff_keys=64, queries_per_program=2,
     ):
         if update_keys not in (64, 256, 512):
             raise ValueError("TopK update size must be 64, 256, or 512")
@@ -42,11 +42,17 @@ class PreparedOnlineTopKSelection:
                 raise ValueError("Grouped handoff requires 64-key TopK updates")
             kernel = _qsa_online_handoff_grouped
             kernel_args = {"HANDOFF_KEYS": handoff_keys}
+        if queries_per_program not in (2, 4):
+            raise ValueError("Queries per Cube program must be two or four")
+        if queries_per_program == 4:
+            if update_keys != 64 or handoff_keys != 64:
+                raise ValueError("Four-query probe requires 64-key updates and handoffs")
+            kernel = _qsa_online_query4
         device = values["q"].device
         properties = triton.runtime.driver.active.utils.get_device_properties(device.index)
         cube_cores = int(properties["num_aicore"])
         assert cube_cores > 0
-        self.chunk_rows = min(chunk_rows, 2 * cube_cores)
+        self.chunk_rows = min(chunk_rows, queries_per_program * cube_cores)
         rows = values["q"].shape[0]
         self.output = torch.empty((rows, TOPK), device=device, dtype=torch.int32)
         self.chunks = []
@@ -64,8 +70,8 @@ class PreparedOnlineTopKSelection:
             for first in range(begin, end, self.chunk_rows):
                 last = min(first + self.chunk_rows, end)
                 count = last - first
-                cores = triton.cdiv(count, 2)
-                packed_q = pack_mixed_queries(values["q"][first:last])
+                cores = triton.cdiv(count, queries_per_program)
+                packed_q = pack_mixed_queries(values["q"][first:last], queries_per_program)
                 if count not in buffers:
                     buffers[count] = (
                         torch.empty((cores, 2, 16, handoff_keys), device=device, dtype=torch.int32),

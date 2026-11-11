@@ -269,6 +269,8 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             stages += ("online256", "online512")
         if "handoff_grains" in profile:
             stages += ("handoff256", "handoff512")
+        if "query_packs" in profile:
+            stages += ("query4",)
         for stage in stages:
             op = f"{OP_NAME}_chunk_{stage}"
             entry = report[op]
@@ -290,7 +292,7 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
             current_query16_chunks=profile.get("current_query16_chunks"),
             serial_over_online=row["serial_ms"] / row["online_ms"],
         )
-        if "update_grains" in profile or "handoff_grains" in profile:
+        if any(key in profile for key in ("update_grains", "handoff_grains", "query_packs")):
             samples = profile["paired_kernel_samples_ms"]
             for stage in stages[3:]:
                 if len(samples[stage]) != 2 or not all(
@@ -309,6 +311,10 @@ def summarize_online_chunk_stages(directory, pytest_exit_code):
                     stage: statistics.median(samples["online"]) / statistics.median(samples[stage])
                     for stage in ("handoff256", "handoff512")
                 }
+            if "query_packs" in profile:
+                row["query_pack_speedup"] = (
+                    statistics.median(samples["online"]) / statistics.median(samples["query4"])
+                )
         if profile["profile_status"] == "completed":
             row["device_stages"] = profile["timeline"]["stages"]
         else:
@@ -370,6 +376,14 @@ def main():
                         f"{statistics.median(samples['handoff512']) * 1000:.3f}, "
                         f"speedup {row['handoff_speedups']['handoff256']:.3f}x / "
                         f"{row['handoff_speedups']['handoff512']:.3f}x"
+                    )
+                if "query_pack_speedup" in row:
+                    samples = row["paired_kernel_samples_ms"]
+                    print(
+                        f"{row['case']} paired query pack 2/4 us: "
+                        f"{statistics.median(samples['online']) * 1000:.3f} / "
+                        f"{statistics.median(samples['query4']) * 1000:.3f}; "
+                        f"speedup {row['query_pack_speedup']:.3f}x"
                     )
         else:
             print(summary["error"])
