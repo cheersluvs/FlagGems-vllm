@@ -1,0 +1,666 @@
+{
+  "status": "completed",
+  "scope": "single-launch scorer QK plus reduction; no TopK or full-shape acceptance",
+  "query_group": 4,
+  "cube_n": 64,
+  "common_gm_qk_input": false,
+  "q_load_layout": "linear head index",
+  "raw_store_layout": "linear head index",
+  "compiler_gm_intermediate_status": "unverified; inspect captured artifacts",
+  "arms": {
+    "qk_vector_fp32": {
+      "status": "passed",
+      "checks": [
+        {
+          "fixture": "full",
+          "rows": 32,
+          "width": 8512,
+          "mismatches": 0,
+          "max_abs_error": 7.62939453125e-06,
+          "invalid_output": 0,
+          "compiler_calls": [
+            {
+              "command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmp8c3n20b4/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-auto-blockify-loop",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmp8c3n20b4/kernel"
+              ],
+              "input_ir": "int8_dominant_long-qk_vector_fp32-full-compiler-1-input.mlir.txt",
+              "returncode": 0,
+              "output_artifacts": [
+                {
+                  "path": "kernel.mix_aic.o",
+                  "bytes": 3640,
+                  "sha256": "3d29231df3add29e208961911088ba448cbbec89ef5c25dac2004ca4a1f5456a"
+                },
+                {
+                  "path": "kernel.mix_aiv.o",
+                  "bytes": 13464,
+                  "sha256": "3896c356a3a4e3c4335c83ad5d727e26605e95218e03bc65e60557d2fdcf81f7"
+                },
+                {
+                  "path": "kernel.o",
+                  "bytes": 11880,
+                  "sha256": "70595cd069ac3c8e2951a747c8723ecd5185ee943b5e60c950380d33eaa905a7"
+                },
+                {
+                  "path": "libkernel.so",
+                  "bytes": 5048,
+                  "sha256": "0b5a0c2a46fc26e27b426ddb668081f17e596828d198d225614c96f949d15c5e"
+                }
+              ],
+              "output_capture_limit_bytes": 2097152,
+              "stderr": {
+                "file": "int8_dominant_long-qk_vector_fp32-full-compiler-1-stderr.txt",
+                "bytes": 1458,
+                "truncated": false
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "tail_visible",
+          "rows": 3,
+          "width": 193,
+          "mismatches": 0,
+          "max_abs_error": 3.814697265625e-06,
+          "invalid_output": 0,
+          "compiler_calls": [
+            {
+              "command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmpa34bbi_q/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-auto-blockify-loop",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmpa34bbi_q/kernel"
+              ],
+              "input_ir": "int8_dominant_long-qk_vector_fp32-tail_visible-compiler-1-input.mlir.txt",
+              "returncode": 0,
+              "output_artifacts": [
+                {
+                  "path": "kernel.mix_aic.o",
+                  "bytes": 3640,
+                  "sha256": "4251ce0b5c35e3a5c301fda11b3a7278e8c8e2fa3ef08fcbbadaaa32fe3a78f0"
+                },
+                {
+                  "path": "kernel.mix_aiv.o",
+                  "bytes": 13472,
+                  "sha256": "9d6fb78ee61f31f8317b764d904bde3245666d144d0189a9ae45dc8d2db39b49"
+                },
+                {
+                  "path": "kernel.o",
+                  "bytes": 11888,
+                  "sha256": "7f872f2209af14499897fe65263ea4c121d05b7a53dd610eab3459bab73a59fc"
+                },
+                {
+                  "path": "libkernel.so",
+                  "bytes": 5048,
+                  "sha256": "0b5a0c2a46fc26e27b426ddb668081f17e596828d198d225614c96f949d15c5e"
+                }
+              ],
+              "output_capture_limit_bytes": 2097152,
+              "stderr": {
+                "file": "int8_dominant_long-qk_vector_fp32-tail_visible-compiler-1-stderr.txt",
+                "bytes": 1458,
+                "truncated": false
+              }
+            }
+          ]
+        }
+      ],
+      "samples_ms": [
+        0.3859490666666667,
+        0.3859637
+      ],
+      "phase": "device_execution",
+      "compiler_calls": {
+        "full": [
+          {
+            "command": [
+              "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+              "/tmp/tmp8c3n20b4/kernel.mlir",
+              "--target=Ascend910B4-1",
+              "--enable-auto-multi-buffer=True",
+              "--enable-auto-bind-sub-block=True",
+              "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+              "--enable-auto-blockify-loop",
+              "--enable-hfusion-compile=true",
+              "--enable-hivm-compile=true",
+              "--enable-triton-kernel-compile=true",
+              "-o",
+              "/tmp/tmp8c3n20b4/kernel"
+            ],
+            "input_ir": "int8_dominant_long-qk_vector_fp32-full-compiler-1-input.mlir.txt",
+            "returncode": 0,
+            "output_artifacts": [
+              {
+                "path": "kernel.mix_aic.o",
+                "bytes": 3640,
+                "sha256": "3d29231df3add29e208961911088ba448cbbec89ef5c25dac2004ca4a1f5456a"
+              },
+              {
+                "path": "kernel.mix_aiv.o",
+                "bytes": 13464,
+                "sha256": "3896c356a3a4e3c4335c83ad5d727e26605e95218e03bc65e60557d2fdcf81f7"
+              },
+              {
+                "path": "kernel.o",
+                "bytes": 11880,
+                "sha256": "70595cd069ac3c8e2951a747c8723ecd5185ee943b5e60c950380d33eaa905a7"
+              },
+              {
+                "path": "libkernel.so",
+                "bytes": 5048,
+                "sha256": "0b5a0c2a46fc26e27b426ddb668081f17e596828d198d225614c96f949d15c5e"
+              }
+            ],
+            "output_capture_limit_bytes": 2097152,
+            "stderr": {
+              "file": "int8_dominant_long-qk_vector_fp32-full-compiler-1-stderr.txt",
+              "bytes": 1458,
+              "truncated": false
+            }
+          }
+        ],
+        "tail_visible": [
+          {
+            "command": [
+              "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+              "/tmp/tmpa34bbi_q/kernel.mlir",
+              "--target=Ascend910B4-1",
+              "--enable-auto-multi-buffer=True",
+              "--enable-auto-bind-sub-block=True",
+              "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+              "--enable-auto-blockify-loop",
+              "--enable-hfusion-compile=true",
+              "--enable-hivm-compile=true",
+              "--enable-triton-kernel-compile=true",
+              "-o",
+              "/tmp/tmpa34bbi_q/kernel"
+            ],
+            "input_ir": "int8_dominant_long-qk_vector_fp32-tail_visible-compiler-1-input.mlir.txt",
+            "returncode": 0,
+            "output_artifacts": [
+              {
+                "path": "kernel.mix_aic.o",
+                "bytes": 3640,
+                "sha256": "4251ce0b5c35e3a5c301fda11b3a7278e8c8e2fa3ef08fcbbadaaa32fe3a78f0"
+              },
+              {
+                "path": "kernel.mix_aiv.o",
+                "bytes": 13472,
+                "sha256": "9d6fb78ee61f31f8317b764d904bde3245666d144d0189a9ae45dc8d2db39b49"
+              },
+              {
+                "path": "kernel.o",
+                "bytes": 11888,
+                "sha256": "7f872f2209af14499897fe65263ea4c121d05b7a53dd610eab3459bab73a59fc"
+              },
+              {
+                "path": "libkernel.so",
+                "bytes": 5048,
+                "sha256": "0b5a0c2a46fc26e27b426ddb668081f17e596828d198d225614c96f949d15c5e"
+              }
+            ],
+            "output_capture_limit_bytes": 2097152,
+            "stderr": {
+              "file": "int8_dominant_long-qk_vector_fp32-tail_visible-compiler-1-stderr.txt",
+              "bytes": 1458,
+              "truncated": false
+            }
+          }
+        ]
+      },
+      "artifacts": {
+        "full": {
+          "source": {
+            "file": "int8_dominant_long-qk_vector_fp32-full-source.txt",
+            "linalg_matmul_count": 0,
+            "triton_dot_count": 1
+          },
+          "ttir": {
+            "file": "int8_dominant_long-qk_vector_fp32-full-ttir.txt",
+            "linalg_matmul_count": 0,
+            "triton_dot_count": 1
+          },
+          "ttadapter": {
+            "file": "int8_dominant_long-qk_vector_fp32-full-ttadapter.txt",
+            "linalg_matmul_count": 1,
+            "triton_dot_count": 0
+          },
+          "mlirbc": {
+            "sha256": "ae70dc9c99b8043eb9ca298fe1e7887c6bca69a437bab705d4d32b352e742044"
+          },
+          "bcmlir": {
+            "file": "int8_dominant_long-qk_vector_fp32-full-bcmlir.txt",
+            "linalg_matmul_count": 1,
+            "triton_dot_count": 0
+          },
+          "npubin": {
+            "sha256": "70595cd069ac3c8e2951a747c8723ecd5185ee943b5e60c950380d33eaa905a7"
+          }
+        },
+        "tail_visible": {
+          "source": {
+            "file": "int8_dominant_long-qk_vector_fp32-tail_visible-source.txt",
+            "linalg_matmul_count": 0,
+            "triton_dot_count": 1
+          },
+          "ttir": {
+            "file": "int8_dominant_long-qk_vector_fp32-tail_visible-ttir.txt",
+            "linalg_matmul_count": 0,
+            "triton_dot_count": 1
+          },
+          "ttadapter": {
+            "file": "int8_dominant_long-qk_vector_fp32-tail_visible-ttadapter.txt",
+            "linalg_matmul_count": 1,
+            "triton_dot_count": 0
+          },
+          "mlirbc": {
+            "sha256": "83fd7ec917b13d83357a143ecac228068e94b2bcb65095b701609d06a5673690"
+          },
+          "bcmlir": {
+            "file": "int8_dominant_long-qk_vector_fp32-tail_visible-bcmlir.txt",
+            "linalg_matmul_count": 1,
+            "triton_dot_count": 0
+          },
+          "npubin": {
+            "sha256": "7f872f2209af14499897fe65263ea4c121d05b7a53dd610eab3459bab73a59fc"
+          }
+        }
+      },
+      "selection": {
+        "checked_all_rows": true,
+        "rows": 32,
+        "checks_passed": true,
+        "failures": [],
+        "selected_score_max_abs_error": 0.0,
+        "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "ordering_and_tied_index_identity_required": false
+      },
+      "median_us": 385.95638333333335,
+      "speedup_over_fused_vector": 1.0,
+      "component_samples_ms": {
+        "topk": [
+          0.029055433333333335,
+          0.029063266666666667
+        ],
+        "score_plus_topk": [
+          0.4256598333333333,
+          0.4255945333333333
+        ]
+      },
+      "component_median_us": {
+        "topk": 29.059350000000002,
+        "score_plus_topk": 425.6271833333333
+      }
+    },
+    "qk_second_cube": {
+      "status": "passed",
+      "checks": [
+        {
+          "fixture": "full",
+          "rows": 32,
+          "width": 8512,
+          "mismatches": 0,
+          "max_abs_error": 0.02501678466796875,
+          "invalid_output": 0,
+          "compiler_calls": [
+            {
+              "command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmpqr6vjh2y/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-auto-blockify-loop",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmpqr6vjh2y/kernel"
+              ],
+              "input_ir": "int8_dominant_long-qk_second_cube-full-compiler-1-input.mlir.txt",
+              "returncode": 0,
+              "output_artifacts": [
+                {
+                  "path": "kernel.mix_aic.o",
+                  "bytes": 4416,
+                  "sha256": "2a069bb52de2b2123d7acc81254e5e7ef3e5d79cedeeb6fd538cd028a95a6c8e"
+                },
+                {
+                  "path": "kernel.mix_aiv.o",
+                  "bytes": 10848,
+                  "sha256": "b74fe6636b47b750f6369f23cb0cd9f8e596380304fbb238d37e33ffc50b16fb"
+                },
+                {
+                  "path": "kernel.o",
+                  "bytes": 10040,
+                  "sha256": "1999c1016ee4b55af57bfb0ba863fe1cafaf6df4d7bbd4735a84fa315d41caad"
+                },
+                {
+                  "path": "libkernel.so",
+                  "bytes": 5048,
+                  "sha256": "767703d618802e065cff3b93bf834a0d0ec56129c71e7a684d3f8336fef7ac14"
+                }
+              ],
+              "output_capture_limit_bytes": 2097152,
+              "stderr": {
+                "file": "int8_dominant_long-qk_second_cube-full-compiler-1-stderr.txt",
+                "bytes": 1458,
+                "truncated": false
+              }
+            }
+          ]
+        },
+        {
+          "fixture": "tail_visible",
+          "rows": 3,
+          "width": 193,
+          "mismatches": 0,
+          "max_abs_error": 0.01183319091796875,
+          "invalid_output": 0,
+          "compiler_calls": [
+            {
+              "command": [
+                "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+                "/tmp/tmpp017u6kf/kernel.mlir",
+                "--target=Ascend910B4-1",
+                "--enable-auto-multi-buffer=True",
+                "--enable-auto-bind-sub-block=True",
+                "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+                "--enable-auto-blockify-loop",
+                "--enable-hfusion-compile=true",
+                "--enable-hivm-compile=true",
+                "--enable-triton-kernel-compile=true",
+                "-o",
+                "/tmp/tmpp017u6kf/kernel"
+              ],
+              "input_ir": "int8_dominant_long-qk_second_cube-tail_visible-compiler-1-input.mlir.txt",
+              "returncode": 0,
+              "output_artifacts": [
+                {
+                  "path": "kernel.mix_aic.o",
+                  "bytes": 4416,
+                  "sha256": "21b0c3714b38fbe79fa75ec1d0aebe43bbacb142121cba00240dec0be02b07a2"
+                },
+                {
+                  "path": "kernel.mix_aiv.o",
+                  "bytes": 10888,
+                  "sha256": "d5f1f46ed0f47ab1992ce4386910370c44e6d110ff2a0420588b63b2e8d06634"
+                },
+                {
+                  "path": "kernel.o",
+                  "bytes": 10080,
+                  "sha256": "3ceb2490f11d0ec96134dc97acee2aad8c474ba2f74d0dee1c1d091ae662bfd1"
+                },
+                {
+                  "path": "libkernel.so",
+                  "bytes": 5048,
+                  "sha256": "767703d618802e065cff3b93bf834a0d0ec56129c71e7a684d3f8336fef7ac14"
+                }
+              ],
+              "output_capture_limit_bytes": 2097152,
+              "stderr": {
+                "file": "int8_dominant_long-qk_second_cube-tail_visible-compiler-1-stderr.txt",
+                "bytes": 1458,
+                "truncated": false
+              }
+            }
+          ]
+        }
+      ],
+      "samples_ms": [
+        0.18734506666666667,
+        0.18755976666666666
+      ],
+      "phase": "device_execution",
+      "compiler_calls": {
+        "full": [
+          {
+            "command": [
+              "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+              "/tmp/tmpqr6vjh2y/kernel.mlir",
+              "--target=Ascend910B4-1",
+              "--enable-auto-multi-buffer=True",
+              "--enable-auto-bind-sub-block=True",
+              "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+              "--enable-auto-blockify-loop",
+              "--enable-hfusion-compile=true",
+              "--enable-hivm-compile=true",
+              "--enable-triton-kernel-compile=true",
+              "-o",
+              "/tmp/tmpqr6vjh2y/kernel"
+            ],
+            "input_ir": "int8_dominant_long-qk_second_cube-full-compiler-1-input.mlir.txt",
+            "returncode": 0,
+            "output_artifacts": [
+              {
+                "path": "kernel.mix_aic.o",
+                "bytes": 4416,
+                "sha256": "2a069bb52de2b2123d7acc81254e5e7ef3e5d79cedeeb6fd538cd028a95a6c8e"
+              },
+              {
+                "path": "kernel.mix_aiv.o",
+                "bytes": 10848,
+                "sha256": "b74fe6636b47b750f6369f23cb0cd9f8e596380304fbb238d37e33ffc50b16fb"
+              },
+              {
+                "path": "kernel.o",
+                "bytes": 10040,
+                "sha256": "1999c1016ee4b55af57bfb0ba863fe1cafaf6df4d7bbd4735a84fa315d41caad"
+              },
+              {
+                "path": "libkernel.so",
+                "bytes": 5048,
+                "sha256": "767703d618802e065cff3b93bf834a0d0ec56129c71e7a684d3f8336fef7ac14"
+              }
+            ],
+            "output_capture_limit_bytes": 2097152,
+            "stderr": {
+              "file": "int8_dominant_long-qk_second_cube-full-compiler-1-stderr.txt",
+              "bytes": 1458,
+              "truncated": false
+            }
+          }
+        ],
+        "tail_visible": [
+          {
+            "command": [
+              "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+              "/tmp/tmpp017u6kf/kernel.mlir",
+              "--target=Ascend910B4-1",
+              "--enable-auto-multi-buffer=True",
+              "--enable-auto-bind-sub-block=True",
+              "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+              "--enable-auto-blockify-loop",
+              "--enable-hfusion-compile=true",
+              "--enable-hivm-compile=true",
+              "--enable-triton-kernel-compile=true",
+              "-o",
+              "/tmp/tmpp017u6kf/kernel"
+            ],
+            "input_ir": "int8_dominant_long-qk_second_cube-tail_visible-compiler-1-input.mlir.txt",
+            "returncode": 0,
+            "output_artifacts": [
+              {
+                "path": "kernel.mix_aic.o",
+                "bytes": 4416,
+                "sha256": "21b0c3714b38fbe79fa75ec1d0aebe43bbacb142121cba00240dec0be02b07a2"
+              },
+              {
+                "path": "kernel.mix_aiv.o",
+                "bytes": 10888,
+                "sha256": "d5f1f46ed0f47ab1992ce4386910370c44e6d110ff2a0420588b63b2e8d06634"
+              },
+              {
+                "path": "kernel.o",
+                "bytes": 10080,
+                "sha256": "3ceb2490f11d0ec96134dc97acee2aad8c474ba2f74d0dee1c1d091ae662bfd1"
+              },
+              {
+                "path": "libkernel.so",
+                "bytes": 5048,
+                "sha256": "767703d618802e065cff3b93bf834a0d0ec56129c71e7a684d3f8336fef7ac14"
+              }
+            ],
+            "output_capture_limit_bytes": 2097152,
+            "stderr": {
+              "file": "int8_dominant_long-qk_second_cube-tail_visible-compiler-1-stderr.txt",
+              "bytes": 1458,
+              "truncated": false
+            }
+          }
+        ]
+      },
+      "artifacts": {
+        "full": {
+          "source": {
+            "file": "int8_dominant_long-qk_second_cube-full-source.txt",
+            "linalg_matmul_count": 0,
+            "triton_dot_count": 2
+          },
+          "ttir": {
+            "file": "int8_dominant_long-qk_second_cube-full-ttir.txt",
+            "linalg_matmul_count": 0,
+            "triton_dot_count": 2
+          },
+          "ttadapter": {
+            "file": "int8_dominant_long-qk_second_cube-full-ttadapter.txt",
+            "linalg_matmul_count": 2,
+            "triton_dot_count": 0
+          },
+          "mlirbc": {
+            "sha256": "bb66140cf3eba1ce93aad909eb59d29fa33370fcef9975b375d26e9f9f1e4122"
+          },
+          "bcmlir": {
+            "file": "int8_dominant_long-qk_second_cube-full-bcmlir.txt",
+            "linalg_matmul_count": 2,
+            "triton_dot_count": 0
+          },
+          "npubin": {
+            "sha256": "1999c1016ee4b55af57bfb0ba863fe1cafaf6df4d7bbd4735a84fa315d41caad"
+          }
+        },
+        "tail_visible": {
+          "source": {
+            "file": "int8_dominant_long-qk_second_cube-tail_visible-source.txt",
+            "linalg_matmul_count": 0,
+            "triton_dot_count": 2
+          },
+          "ttir": {
+            "file": "int8_dominant_long-qk_second_cube-tail_visible-ttir.txt",
+            "linalg_matmul_count": 0,
+            "triton_dot_count": 2
+          },
+          "ttadapter": {
+            "file": "int8_dominant_long-qk_second_cube-tail_visible-ttadapter.txt",
+            "linalg_matmul_count": 2,
+            "triton_dot_count": 0
+          },
+          "mlirbc": {
+            "sha256": "05b2fadeb40ed286780e1422b68889e7d6c2297b441c50eaf945a1fa9e286180"
+          },
+          "bcmlir": {
+            "file": "int8_dominant_long-qk_second_cube-tail_visible-bcmlir.txt",
+            "linalg_matmul_count": 2,
+            "triton_dot_count": 0
+          },
+          "npubin": {
+            "sha256": "3ceb2490f11d0ec96134dc97acee2aad8c474ba2f74d0dee1c1d091ae662bfd1"
+          }
+        }
+      },
+      "selection": {
+        "checked_all_rows": true,
+        "rows": 32,
+        "checks_passed": true,
+        "failures": [],
+        "selected_score_max_abs_error": 0.018665313720703125,
+        "selected_score_max_rel_error_with_1e_minus3_floor": 0.0004415322619024664,
+        "rtol": 0.001,
+        "atol": 0.001,
+        "ordering_and_tied_index_identity_required": false
+      },
+      "exact_index_overlap_counts": [
+        510,
+        512,
+        512,
+        511,
+        512,
+        512,
+        512,
+        511,
+        512,
+        512,
+        512,
+        512,
+        512,
+        512,
+        511,
+        512,
+        512,
+        512,
+        511,
+        512,
+        512,
+        512,
+        511,
+        512,
+        512,
+        512,
+        512,
+        512,
+        511,
+        512,
+        512,
+        512
+      ],
+      "median_us": 187.45241666666666,
+      "speedup_over_fused_vector": 2.058956561865256,
+      "component_samples_ms": {
+        "topk": [
+          0.029501133333333335,
+          0.029544233333333333
+        ],
+        "score_plus_topk": [
+          0.21891103333333334,
+          0.21900286666666666
+        ]
+      },
+      "component_median_us": {
+        "topk": 29.522683333333333,
+        "score_plus_topk": 218.95694999999998
+      }
+    }
+  },
+  "topk_identity": {
+    "source": "/tmp/flaggems-qsa-ten-chunks.QoxXqid0/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+    "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+    "utility": "/tmp/flaggems-qsa-ten-chunks.QoxXqid0/code/src/flaggems_vllm/utils/triton_version_utils.py",
+    "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+    "has_tle": true,
+    "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+  },
+  "selection_contract": "existing selected-score tolerance 1e-3; exact index overlap reported separately",
+  "component_timing_scope": "representative chunk only; no full-input or CANN acceptance ratio"
+}
