@@ -1,0 +1,66 @@
+INFO 11-12 16:49:03 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 11-12 16:49:03 [__init__.py:54] - metax -> vllm_metax:register
+INFO 11-12 16:49:03 [__init__.py:66] Loading plugin metax
+INFO 11-12 16:49:03 [__init__.py:272] Platform plugin metax is activated
+INFO 11-12 16:49:03 [envs.py:135] vllm-metax would try to sets VLLM_USE_FLASHINFER_SAMPLER default to False. Reason: controlled by VLLM_METAX_USE_FLASHINFER_SAMPLER; disabled by default
+INFO 11-12 16:49:03 [envs.py:135] vllm-metax would try to sets VLLM_ENGINE_READY_TIMEOUT_S default to 7200. Reason: set timeout to 7200s for model loading
+INFO 11-12 16:49:03 [envs.py:135] vllm-metax would try to sets VLLM_FLOAT32_MATMUL_PRECISION default to high. Reason: set float32 matmul precision to high for better performance on Maca platform
+INFO 11-12 16:49:03 [envs.py:135] vllm-metax would try to sets VLLM_USE_DEEP_GEMM_E8M0 default to False. Reason: USE_DEEP_GEMM_E8M0 default to false on Maca platform
+INFO 11-12 16:49:03 [envs.py:135] vllm-metax would try to sets VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS default to False. Reason: disable CUDA graph memory estimate in the KV cache budget on Maca platform
+INFO 11-12 16:49:03 [envs.py:135] vllm-metax would try to sets VLLM_DISABLE_SHARED_EXPERTS_STREAM default to True. Reason: Disabling MoE shared_experts cuda stream on Maca
+Traceback (most recent call last):
+  File "/tmp/qsa-metax-native.VcAEV97b/probe.py", line 91, in worker
+    logits = module._prefill_logits(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/vllm_metax/models/qwen4_exp/metax/ops/qsa_indexer.py", line 404, in _prefill_logits
+    _qsa_mqa_paged_prefill_kernel[grid](
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 400, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py", line 790, in run
+    launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 536, in launch_metadata
+    self._init_handles()
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 510, in _init_handles
+    raise_(OutOfResources(self.metadata.shared, max_shared, "shared memory"))
+  File "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py", line 501, in raise_
+    raise err
+triton.runtime.errors.OutOfResources: out of resource: shared memory, Required: 102400, Hardware limit: 65536. Reducing block sizes or `num_stages` may help.
+Version info:Mcoplib_Version = '0.4.14'
+Build_Maca_Version = '3.9.0.31'
+Build_Torch_Version = '2.10.0+metax3.9.0.8'
+Min_Compatibility_Maca_Version = '3.7.0'
+GIT_BRANCH = 'HEAD'
+GIT_COMMIT = 'f3794c4'
+Vllm Op Version = 0.29.0
+SGlang Op Version  = 0.5.19 
+
+INFO mcoplib version: None
+
+INFO: Torch version compatibility check passed: build=2.10.0+metax3.9.0.8, runtime=2.10.0+metax3.9.0.8.
+
+INFO: Release major.minor matching,  successful:3.9. 
+
+INFO: MACA minimum compatibility check passed: 3.9.0 >= 3.7.0.
+
+{
+  "case": "bf16_4",
+  "status": "failed",
+  "python": "/opt/conda/bin/python",
+  "torch": "2.10.0+metax3.9.0.8",
+  "triton_version": "3.6.0",
+  "triton_source": "/opt/conda/lib/python3.12/site-packages/triton/__init__.py",
+  "source": "/opt/conda/lib/python3.12/site-packages/vllm_metax/models/qwen4_exp/metax/ops/qsa_indexer.py",
+  "source_sha256": "5b8bb9de8e5f7f122453811bd055ce752b6aab4f362551678196343a6cea6684",
+  "compiler": {
+    "source": "/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py",
+    "sha256": "f9646f23963160af7856e6f725df7af01c2bf0fc0ee98afeb7987f552507e5fd"
+  },
+  "device": "MetaX C550",
+  "capability": [
+    8,
+    0
+  ],
+  "error": "Traceback (most recent call last):\n  File \"/tmp/qsa-metax-native.VcAEV97b/probe.py\", line 91, in worker\n    logits = module._prefill_logits(\n             ^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/conda/lib/python3.12/site-packages/vllm_metax/models/qwen4_exp/metax/ops/qsa_indexer.py\", line 404, in _prefill_logits\n    _qsa_mqa_paged_prefill_kernel[grid](\n  File \"/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py\", line 400, in <lambda>\n    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/conda/lib/python3.12/site-packages/triton/runtime/jit.py\", line 790, in run\n    launch_metadata = kernel.launch_metadata(grid, stream, *bound_args.values())\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py\", line 536, in launch_metadata\n    self._init_handles()\n  File \"/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py\", line 510, in _init_handles\n    raise_(OutOfResources(self.metadata.shared, max_shared, \"shared memory\"))\n  File \"/opt/conda/lib/python3.12/site-packages/triton/compiler/compiler.py\", line 501, in raise_\n    raise err\ntriton.runtime.errors.OutOfResources: out of resource: shared memory, Required: 102400, Hardware limit: 65536. Reducing block sizes or `num_stages` may help.\n"
+}
