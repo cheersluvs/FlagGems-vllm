@@ -337,3 +337,14 @@ gate：先验证单槽带诊断写回版本的每块点积、评分、排序与�
 计时结束后，使用同一已验证adapter分别采集单槽、双槽CPU/NPU任务时间线（各3次调用），再分别采集PipeUtilization计数（各3次调用），禁止把profile耗时当benchmark耗时。两个arm分开profile，避免同名kernel聚合混在一起；保存已加载kernel metadata、可取得的二进制内容SHA256、压缩原始trace及硬件表。原runner自动回传顶层json/txt/json.gz文件。
 
 任务级trace及利用率不单独证明混合kernel内部引擎重叠，报告overlap_status固定为unproven，待原始证据进一步分析；硬件采集失败/无CSV在mixed_profiling中标partial_hardware，不能把计时通过理解成全部硬件指标可用。timeline导出失败仍导致脚本失败，但保留已完成的benchmark数据。精度、TopK容量、编译器/编译选项和生产src均不变。本轮是第三步的复测/证据采集，不是全shape验收；不做跨shape算术均值。
+
+
+### 第四步首轮：独立第二次Cube归约probe
+
+独立复测0f793a41b852c233a65e5be15595334beb99724d中，budget_exact单槽221.664us、双槽195.284us，配对1.1344/1.1358x。PipeUtilization：MAC均6.128us、Vector99.864→101.810us、Scalar49.124→47.630us、MTE2 75.563→77.939us；各时间不能相加。原始trace仅MIX_AIC任务，无内部引擎区间，重叠仍未直接证明。冻结此版为第三步对照，不整合生产。
+
+CANN快照vector::Preprocess中half weights与half qScale相乘、Cube::FixpSToL1中DEQF16+reluPre及SetFixpipePreQuantFlag(0x3a800000)，第二次Mmad的操作数为half、累加输出float。现有快照不是已证明匹配当前运行二进制的源码，也不能直接把其舍入结果当作当前FP32语义。
+
+QSA_SECOND_CUBE_PROBE=1仅对budget_exact前32行，在原正确性/分阶段计时之后执行独立后处理实验。公共INT32 QK由CPU参考预备，GM布局[rows,4,width]，要求共享实际页表且qs/ks为正且有限。三臂：原FP32 Vector；FP32合并qs*weight、key scale后移；FP16 Cube（relu(dot)/1024转half、qs*weight构造块对角half权重、FP32矩阵乘累加后乘1024*key_scale）。4query打包、M16/K16/N64，保留尾部/visible掩码和-inf。不是复刻CANN Fixpipe指令，也不是完整评分性能对照。
+
+转换、块对角权重构造、额外零填充计算和输出均在候选kernel内，计入harness kernel计时；公共QK的CPU计算/搬运和GPU resolved-key-scale准备在计时前完成，不计入，故不得用此速度比声称整算子收益。三臂先与原CPU评分参考按rtol/atol=1e-3逐元素比较，记录mismatch/max_abs_error/非有限输出；精度不通过则记录rejected_precision且不计时，不放宽阈值。编译或设备失败保存错误并停止。通过的臂两轮交错计时，原评分/TopK/生产控制及mixed单槽/双槽数据仍保留。生产kernel、TopK及原基线不变；无需NVIDIA autotune更新。Mac仅语法、地址分组和gate检查，卡上编译与精度待验证。

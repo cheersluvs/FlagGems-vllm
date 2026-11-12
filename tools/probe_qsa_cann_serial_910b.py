@@ -247,6 +247,9 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             result["double_buffer_speedup"] = medians["mixed_serial"] / medians["mixed_double"]
             print(f"QSA MIXED RATIOS {case}: fusion={result['fusion_speedup']:.4f}x; "
                   f"double_buffer={result['double_buffer_speedup']:.4f}x", flush=True)
+        if os.environ.get("QSA_SECOND_CUBE_PROBE") == "1" and case == "int8_budget_exact":
+            from probe_qsa_second_cube_910b import run_reduction_probe
+            result["second_cube_probe"] = run_reduction_probe(inputs, values, refs, width, timer, report, case)
         if os.environ.get("QSA_MIXED_RECHECK_PROFILE") == "1" and case == "int8_budget_exact":
             if set(mixed_controls) != {"mixed_serial", "mixed_double"}:
                 raise RuntimeError("Mixed recheck requires both validated mixed kernels")
