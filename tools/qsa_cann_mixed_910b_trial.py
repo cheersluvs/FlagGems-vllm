@@ -27,19 +27,40 @@ pipe = al.PIPE
 
 
 @triton.jit
-def _merge_equal2048(old, local, packed_storage):
-    # Two active lists occupy 8192 words; inactive lists consume no storage.
-    old_slot = tle.dsa.subview(packed_storage, [0], [4096], [1])
-    local_slot = tle.dsa.subview(packed_storage, [4096], [4096], [1])
-    tle.dsa.to_buffer(old, space=tle.dsa.ascend.UB, bind_buffer=old_slot)
-    tle.dsa.to_buffer(local, space=tle.dsa.ascend.UB, bind_buffer=local_slot)
-    tl.debug_barrier()
+def _merge_equal2048(old, local, packed_storage, MERGE_KIND: tl.constexpr):
+    if MERGE_KIND == 1:
+        old_slot = tle.dsa.subview(packed_storage, [0], [4096], [1])
+        local_slot = tle.dsa.subview(packed_storage, [4096], [4096], [1])
+        tle.dsa.to_buffer(old, space=tle.dsa.ascend.UB, bind_buffer=old_slot)
+        tle.dsa.to_buffer(local, space=tle.dsa.ascend.UB, bind_buffer=local_slot)
+        tl.debug_barrier()
+        packed = tle.dsa.to_tensor(packed_storage)
+    else:
+        WORDS: tl.constexpr = 16384 if MERGE_KIND == 2 else 8192
+        packed = tl.zeros((WORDS,), tl.float32)
+        packed = tle.dsa.insert_slice(packed, old, (0,), (4096,), (1,))
+        packed = tle.dsa.insert_slice(packed, local, (4096,), (4096,), (1,))
+    THIRD: tl.constexpr = 4096 if MERGE_KIND == 2 else 0
+    FOURTH: tl.constexpr = 6144 if MERGE_KIND == 2 else 0
     merged, consumed = tle.dsa.ascend.raw(
-        "merge_exhaust_sort4", tle.dsa.to_tensor(packed_storage),
-        2, 0, 2048, 0, 0, 2048, 2048, 0, 0,
+        "merge_exhaust_sort4", packed, 2, 0, 2048, THIRD, FOURTH, 2048, 2048, 0, 0,
         out=[tl.zeros((8192,), tl.float32), tl.zeros((4,), tl.int32)],
     )
     return al.extract_slice(merged, (0,), (4096,), (1,)), consumed
+
+
+@triton.jit
+def _merge_representation_probe(Old, Local, Output, Counts, MERGE_KIND: tl.constexpr):
+    word = tl.arange(0, 4096)
+    old = tl.load(Old + word)
+    local = tl.load(Local + word)
+    if MERGE_KIND == 1:
+        scratch = tle.dsa.alloc([8192], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+    else:
+        scratch: tl.constexpr = None
+    state, consumed = _merge_equal2048(old, local, scratch, MERGE_KIND)
+    tl.store(Output + word, state)
+    tl.store(Counts + tl.arange(0, 4), consumed)
 
 
 @triton.jit
@@ -48,7 +69,7 @@ def _consume_outer2048(
     score_storage, state_storage, packed_storage, outer,
     ROWS: tl.constexpr, COLUMNS: tl.constexpr, WIDTH: tl.constexpr,
     BLOCKS: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, FIRST: tl.constexpr, STAGE: tl.constexpr,
-    TABLE_PLAIN: tl.constexpr, RING_TILE_MAJOR: tl.constexpr,
+    TABLE_PLAIN: tl.constexpr, RING_TILE_MAJOR: tl.constexpr, MERGE_KIND: tl.constexpr,
 ):
     pid = tl.program_id(0)
     h = tl.arange(0, 4)
@@ -63,7 +84,7 @@ def _consume_outer2048(
             page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1), mask=start < WIDTH, other=0)
         token = page * 192 + start % 192 + n
         key_scale = tl.load(KS + token, mask=start + n < WIDTH, other=0).to(tl.float32)
-        for local_query in tl.static_range(2):
+        for local_query in range(2):
             row = pid * 4 + al.sub_vec_id() * 2 + local_query
             head = al.sub_vec_id() * 8 + local_query * 4 + h
             if RING_TILE_MAJOR:
@@ -91,7 +112,7 @@ def _consume_outer2048(
                 tl.store(TDots + (base + n[None, :]) * 4 + h[:, None], dots, mask=row < ROWS)
     tl.debug_barrier()
     if STAGE >= 1:
-        for local_query in tl.static_range(2):
+        for local_query in range(2):
             row = pid * 4 + al.sub_vec_id() * 2 + local_query
             score_slot = tle.dsa.subview(score_storage, [local_query * 2048], [2048], [1])
             scores = tle.dsa.to_tensor(score_slot)
@@ -105,7 +126,7 @@ def _consume_outer2048(
             state_slot = tle.dsa.subview(state_storage, [local_query * 4096], [4096], [1])
             if not FIRST and STAGE >= 2:
                 old = tle.dsa.to_tensor(state_slot)
-                new_state, counts = _merge_equal2048(old, pairs, packed_storage)
+                new_state, counts = _merge_equal2048(old, pairs, packed_storage, MERGE_KIND)
             else:
                 new_state = pairs
                 counts = tl.zeros((4,), tl.int32)
@@ -124,7 +145,7 @@ def _mixed_outer2048(
     TDots, TScores, TLocal, TState, TCounts,
     ROWS: tl.constexpr, COLUMNS: tl.constexpr, WIDTH: tl.constexpr,
     BLOCKS: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, STAGE: tl.constexpr = 2,
-    TABLE_PLAIN: tl.constexpr = False, RING_TILE_MAJOR: tl.constexpr = False,
+    TABLE_PLAIN: tl.constexpr = False, RING_TILE_MAJOR: tl.constexpr = False, MERGE_KIND: tl.constexpr = 0,
 ):
     with al.scope(core_mode="cube"):
         pid = tl.program_id(0)
@@ -160,22 +181,25 @@ def _mixed_outer2048(
         n = tl.arange(0, 64)
         score_storage = tle.dsa.alloc([4096], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
         state_storage = tle.dsa.alloc([8192], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
-        packed_storage = tle.dsa.alloc([8192], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        if MERGE_KIND == 1 and STAGE >= 2:
+            packed_storage = tle.dsa.alloc([8192], dtype=tl.float32, mem_addr_space=tle.dsa.ascend.UB)
+        else:
+            packed_storage: tl.constexpr = None
         for initial in tl.static_range(SLOTS):
             al.sync_block_set("vector", "cube", initial, pipe.PIPE_MTE3, pipe.PIPE_FIX)
         _consume_outer2048(
             QS, KS, Weight, Table, Visible, Ring, TDots, TScores, TLocal, TState, TCounts,
             score_storage, state_storage, packed_storage, 0,
-            ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, True, STAGE, TABLE_PLAIN, RING_TILE_MAJOR,
+            ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, True, STAGE, TABLE_PLAIN, RING_TILE_MAJOR, MERGE_KIND,
         )
         for outer in range(1, BLOCKS):
             _consume_outer2048(
                 QS, KS, Weight, Table, Visible, Ring, TDots, TScores, TLocal, TState, TCounts,
                 score_storage, state_storage, packed_storage, outer,
-                ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, False, STAGE, TABLE_PLAIN, RING_TILE_MAJOR,
+                ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, False, STAGE, TABLE_PLAIN, RING_TILE_MAJOR, MERGE_KIND,
             )
         if STAGE >= 1:
-            for local_query in tl.static_range(2):
+            for local_query in range(2):
                 row = pid * 4 + al.sub_vec_id() * 2 + local_query
                 state_slot = tle.dsa.subview(state_storage, [local_query * 4096], [4096], [1])
                 final = al.extract_slice(tle.dsa.to_tensor(state_slot), (0,), (1024,), (1,))

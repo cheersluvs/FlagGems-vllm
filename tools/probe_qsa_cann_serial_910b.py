@@ -137,7 +137,14 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             result["peer_score_segments"] = peer.segments
         if os.environ.get("QSA_SERIAL_MIXED_CONTROL") == "1" and group == 4:
             from qsa_cann_mixed_910b_trial import PreparedMixedOuter
-            if os.environ.get("QSA_MIXED_WORKSPACE_DIAG") == "1":
+            if os.environ.get("QSA_MIXED_MERGE_DIAG") == "1":
+                if mixed_structure is None:
+                    from diagnose_qsa_structural_mixed_compile_910b import compile_representation_matrix
+                    matrix = compile_representation_matrix(values, width, owners, report, case)
+                    result["mixed_representation_matrix"] = matrix
+                    mixed_structure = matrix["structure"]
+                result["mixed_structure"] = mixed_structure
+            elif os.environ.get("QSA_MIXED_WORKSPACE_DIAG") == "1":
                 if mixed_structure is None:
                     from diagnose_qsa_structural_mixed_compile_910b import compile_workspace_matrix
                     matrix = compile_workspace_matrix(values, width, owners, report, case)

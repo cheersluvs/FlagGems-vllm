@@ -291,3 +291,21 @@ gate：先验证单槽带诊断写回版本的每块点积、评分、排序与�
 | scratch跨query和外层块复用 | raw结果复制回独立状态后barrier，再处理下一query；workspace不与状态/score发生别名。真实峰值以新编译器资源检查为准 |
 
 `QSA_MIXED_WORKSPACE_DIAG=1` 固定此配置先编译完整slots1/2×TRACE0/1四项。任一失败则在同一次运行补编译评分/局部排序两个前缀并保存IR/日志，禁止删减版本执行和计时；四项全通过才继续已有中间值、最终索引及三组边界验证，两轮交错计时和报告回传。分离kernel的评分与TopK时间保留，融合收益与双缓冲收益分开。没有完整10shape结果前仍不是生产验收。
+
+
+### 合并输入表示隔离：2026-11-12 下一轮
+
+上一轮报告 `276fcb5942b2f86e736dd0d9fe78af3c05356373`（代码3374c817）：完整四项均在CommonIRToHIVM触发BufferLikeType cast断言，尚未进入完整版本的UB资源检查；评分TRACE前缀需要1671168 bits=204 KiB，排序TRACE前缀仍报静态形状错误。不能把评分前缀204 KiB与更早完整版本283 KiB直接相减。
+
+本轮仍是第三步诊断，生产src、基线、计时器、精度和TopK容量均冻结。Autotune豁免沿用固定Ascend编译实验，不适用NVIDIA生产配置。
+
+| 隔离项 | 固定设计与gate |
+| --- | --- |
+| 最小合并probe | 同一merge helper，2048+2048等长有序输入，FP32值/INT32索引交错，输出前2048项，consumed计数。MERGE_KIND=0为8192-word tensor、1为8192-word显式UB、2为原16384-word tensor |
+| 表示对照 | 三种表示依次独立编译，编译失败记录后继续；编译成功才验证随机/并列/513有效值/全不可见四种fixture。检查输出值、索引范围/唯一性及输入配对一致性、consumed范围与总数。设备错误或数值失败立即终止，不吞掉后继续执行其他kernel |
+| 完整候选 | 只使用MERGE_KIND=0，不自动切回较大workspace；显式UB分配仅在kind1时保留，kind0走tensor insert_slice；query循环恢复range(2) |
+| 评分/排序前缀 | 单槽stage0/1各TRACE=False/True，编译采集但不执行。分开资源/诊断写回证据，不用前缀时间推算整算子收益 |
+| 完整编译与执行 | 固定TABLE_PLAIN=True、原ring。slots1/2×TRACE0/1完整编译均通过且kind0最小probe正确，才执行原中间值/最终索引/边界验证，并进行原两轮交错harness kernel计时 |
+| 结果解释 | miniprobe可识别某种表示本身是否触发类型断言，但通过不代表混合kernel的别名/生命周期/UB问题已解决。完整编译仍可能超限，保留资源与IR证据；本轮不降低内部Top2048容量 |
+
+`QSA_MIXED_MERGE_DIAG=1`启用，优先于旧workspace/structure开关。一条runner命令完成全部gate及自动回传，无需用户在编译后另启计时。timing仍报告分离评分/TopK、query4/query16串行、当前生产control、mixed单槽/双槽，融合与双缓冲比值分开。该诊断不是10shape正式验收。

@@ -174,3 +174,112 @@ def compile_workspace_matrix(values, width, owners, report, case):
     result["status"] = "compiled"
     path.write_text(json.dumps(result, indent=2))
     return result
+
+
+def probe_merge_representations(values, report, case):
+    """Compile and validate the same two-list merge with three input forms."""
+    import torch
+    from triton.backends.ascend import compiler
+    from qsa_cann_mixed_910b_trial import _merge_representation_probe
+
+    report = Path(report)
+    records = []
+    path = report / f"{case}-merge-representations.json"
+    device = values["q"].device
+    generator = torch.Generator().manual_seed(113)
+    fixtures = []
+    for name, finite, tied in (("random", 4096, False), ("ties", 4096, True),
+                                ("padded", 513, False), ("invisible", 0, False)):
+        scores = torch.randn(4096, generator=generator)
+        if tied:
+            scores = scores.round()
+        scores[finite:] = -float("inf")
+        pairs = []
+        for start in (0, 2048):
+            order = scores[start:start + 2048].argsort(descending=True) + start
+            packed = torch.empty(4096, dtype=torch.float32)
+            packed[0::2] = scores[order]
+            packed.view(torch.int32)[1::2] = order.int()
+            pairs.append(packed.to(device))
+        fixtures.append((name, scores, pairs))
+    output = torch.empty(4096, device=device, dtype=torch.float32)
+    counts = torch.empty(4, device=device, dtype=torch.int32)
+    for kind, name in ((0, "tensor8192"), (1, "buffer8192"), (2, "tensor16384")):
+        label = f"{case}-merge-{name}"
+        capture = CaptureCompiler(report, label)
+        entry = dict(kind=kind, representation=name, status="failed", checks=[])
+        # A device failure must stop the run; only compile failures are isolated.
+        try:
+            with patch.object(compiler, "subprocess", capture):
+                kernel = _merge_representation_probe.warmup(
+                    *fixtures[0][2], output, counts, MERGE_KIND=kind,
+                    grid=(1,), use_bytecode=True,
+                )
+            entry["compile_status"] = "compiled"
+            for asm_kind, text in kernel.asm.items():
+                if isinstance(text, str):
+                    (report / f"{label}-{asm_kind}.txt").write_text(text)
+        except Exception as exc:
+            entry.update(compile_status="failed", error=repr(exc), compiler_calls=capture.calls)
+            records.append(entry)
+            path.write_text(json.dumps(records, indent=2))
+            print(f"QSA MERGE REPRESENTATION {name}: compile failed", flush=True)
+            continue
+        entry["compiler_calls"] = capture.calls
+        records.append(entry)
+        path.write_text(json.dumps(records, indent=2))
+        try:
+            for fixture, scores, pairs in fixtures:
+                _merge_representation_probe[(1,)](*pairs, output, counts, MERGE_KIND=kind, use_bytecode=True)
+                actual = output.cpu()
+                consumed = counts.cpu()
+                indices = actual.view(torch.int32)[1::2].long()
+                assert bool(((indices >= 0) & (indices < 4096)).all())
+                assert indices.unique().numel() == 2048
+                torch.testing.assert_close(actual[0::2], scores[indices], rtol=0, atol=0)
+                torch.testing.assert_close(actual[0::2], scores.topk(2048).values, rtol=0, atol=0)
+                assert bool(((consumed[:2] >= 0) & (consumed[:2] <= 2048)).all())
+                assert int(consumed[:2].sum()) >= 2048 and bool((consumed[2:] == 0).all())
+                entry["checks"].append(dict(fixture=fixture, status="passed", consumed=consumed.tolist()))
+                path.write_text(json.dumps(records, indent=2))
+            entry["status"] = "passed"
+            print(f"QSA MERGE REPRESENTATION {name}: four fixtures passed", flush=True)
+        except Exception as exc:
+            entry["error"] = repr(exc)
+            raise
+        finally:
+            path.write_text(json.dumps(records, indent=2))
+    return records
+
+
+def compile_representation_matrix(values, width, owners, report, case):
+    """Gate full execution on isolated tensor merge and complete compilation."""
+    from qsa_cann_mixed_910b_trial import PreparedMixedOuter
+
+    report = Path(report)
+    result = dict(status="running", merge_input="tensor8192", query_loop="range(2)",
+                  structure=dict(TABLE_PLAIN=True, RING_TILE_MAJOR=False), prefixes=[], full=[])
+    path = report / f"{case}-mixed-representation-matrix.json"
+    result["merge_checks"] = probe_merge_representations(values, report, case)
+    path.write_text(json.dumps(result, indent=2))
+    if result["merge_checks"][0]["status"] != "passed":
+        result["status"] = "failed"
+        path.write_text(json.dumps(result, indent=2))
+        raise RuntimeError("Compact tensor merge did not pass isolated checks; refusing full execution")
+    adapter = PreparedMixedOuter(values, width, slots=1, request_ids=owners, structure=result["structure"])
+    for stage in (0, 1):
+        for trace in (False, True):
+            label = f"{case}-representation-slots1-trace{int(trace)}-stage{stage}"
+            result["prefixes"].append(_capture_variant(adapter, report, label, trace, stage))
+            path.write_text(json.dumps(result, indent=2))
+    for slots in (1, 2):
+        adapter = PreparedMixedOuter(values, width, slots=slots, request_ids=owners, structure=result["structure"])
+        for trace in (False, True):
+            label = f"{case}-representation-slots{slots}-trace{int(trace)}-full"
+            result["full"].append(_capture_variant(adapter, report, label, trace, 2))
+            path.write_text(json.dumps(result, indent=2))
+    result["status"] = "compiled" if all(e["status"] == "compiled" for e in result["full"]) else "failed"
+    path.write_text(json.dumps(result, indent=2))
+    if result["status"] != "compiled":
+        raise RuntimeError("Full mixed representation matrix incomplete; see separate scoring/sort/full IR and errors")
+    return result
