@@ -137,7 +137,16 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             result["peer_score_segments"] = peer.segments
         if os.environ.get("QSA_SERIAL_MIXED_CONTROL") == "1" and group == 4:
             from qsa_cann_mixed_910b_trial import PreparedMixedOuter
-            if os.environ.get("QSA_MIXED_MERGE_DIAG") == "1":
+            final_validation = os.environ.get("QSA_MIXED_FINAL_VALIDATE") == "1"
+            if final_validation:
+                if mixed_structure is None:
+                    from diagnose_qsa_structural_mixed_compile_910b import compile_final_matrix
+                    matrix = compile_final_matrix(values, width, owners, report, case)
+                    result["mixed_final_matrix"] = matrix
+                    mixed_structure = matrix["structure"]
+                result["mixed_structure"] = mixed_structure
+                result["mixed_validation_scope"] = "noninstrumented final/prefix Top512; internal Top2048 snapshots unavailable"
+            elif os.environ.get("QSA_MIXED_MERGE_DIAG") == "1":
                 if mixed_structure is None:
                     from diagnose_qsa_structural_mixed_compile_910b import compile_representation_matrix
                     matrix = compile_representation_matrix(values, width, owners, report, case)
@@ -170,7 +179,14 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
                 mixed = PreparedMixedOuter(values, width, slots=slots, request_ids=owners, structure=mixed_structure)
                 mixed_controls[label] = mixed
                 print(f"QSA MIXED COMPILE {case} {label}", flush=True)
-                mixed.run(check=check)
+                if final_validation:
+                    from diagnose_qsa_structural_mixed_compile_910b import verify_final_prefixes
+                    result.setdefault("mixed_final_prefix_checks", {})[label] = verify_final_prefixes(
+                        values, inputs, refs, width, owners, slots, mixed_structure,
+                        boundaries_only=validate_only,
+                    )
+                else:
+                    mixed.run(check=check)
                 # Validate the exact non-instrumented version used for timing.
                 mixed()
                 indices = mixed.output.cpu()

@@ -283,3 +283,57 @@ def compile_representation_matrix(values, width, owners, report, case):
     if result["status"] != "compiled":
         raise RuntimeError("Full mixed representation matrix incomplete; see separate scoring/sort/full IR and errors")
     return result
+
+
+def compile_final_matrix(values, width, owners, report, case):
+    """Require both exact timing kernels to compile; no diagnostic stores."""
+    from qsa_cann_mixed_910b_trial import PreparedMixedOuter
+
+    report = Path(report)
+    result = dict(status="running", structure=dict(TABLE_PLAIN=True, RING_TILE_MAJOR=False),
+                  validation_scope="noninstrumented final/prefix Top512; no internal Top2048 snapshots",
+                  merge_checks=probe_merge_representations(values, report, case), full=[])
+    path = report / f"{case}-mixed-final-matrix.json"
+    path.write_text(json.dumps(result, indent=2))
+    if result["merge_checks"][0]["status"] != "passed":
+        raise RuntimeError("Compact merge check failed; refusing mixed execution")
+    for slots in (1, 2):
+        adapter = PreparedMixedOuter(values, width, slots=slots, request_ids=owners, structure=result["structure"])
+        result["full"].append(_capture_variant(adapter, report, f"{case}-final-slots{slots}", False, 2))
+        path.write_text(json.dumps(result, indent=2))
+    result["status"] = "compiled" if all(e["status"] == "compiled" for e in result["full"]) else "failed"
+    path.write_text(json.dumps(result, indent=2))
+    if result["status"] != "compiled":
+        raise RuntimeError("Noninstrumented mixed compilation incomplete")
+    return result
+
+
+def verify_final_prefixes(values, inputs, refs, width, owners, slots, structure, *, boundaries_only=False):
+    """Check the exact noninstrumented kernel over page and outer-block tails."""
+    import torch
+    from qsa_cann_mixed_910b_trial import PreparedMixedOuter
+    from probe_qsa_int8_pipeline_910b import check_selection
+    from probe_qsa_int8_ten_shapes_910b import verify_structure
+
+    widths = [width] if boundaries_only else sorted({min(width, w) for w in (1, 191, 192, 193, 2047, 2048, 2049, width)})
+    checks = []
+    for prefix_width in widths:
+        visible = inputs["visible"].clamp(max=prefix_width)
+        target = dict(values)
+        target["visible"] = visible.to(values["q"].device)
+        adapter = PreparedMixedOuter(target, prefix_width, slots=slots, request_ids=owners, structure=structure)
+        adapter()
+        indices = adapter.output.cpu()
+        scores = adapter.output_values.cpu()
+        prefix_refs = [ref[:prefix_width] for ref in refs]
+        verify_structure(indices, visible)
+        selected, _ = check_selection(indices, prefix_refs)
+        assert selected["checks_passed"], (prefix_width, slots, selected)
+        for row, ref in enumerate(prefix_refs):
+            valid = indices[row] >= 0
+            torch.testing.assert_close(scores[row, valid], ref[indices[row, valid].long()], rtol=1e-3, atol=1e-3)
+            assert bool(torch.isneginf(scores[row, ~valid]).all())
+        entry = dict(width=prefix_width, slots=slots, status="passed", trace=False, output_k=512)
+        checks.append(entry)
+        print("QSA MIXED FINAL PREFIX " + json.dumps(entry), flush=True)
+    return checks

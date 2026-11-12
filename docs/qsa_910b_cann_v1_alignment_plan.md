@@ -309,3 +309,20 @@ gate：先验证单槽带诊断写回版本的每块点积、评分、排序与�
 | 结果解释 | miniprobe可识别某种表示本身是否触发类型断言，但通过不代表混合kernel的别名/生命周期/UB问题已解决。完整编译仍可能超限，保留资源与IR证据；本轮不降低内部Top2048容量 |
 
 `QSA_MIXED_MERGE_DIAG=1`启用，优先于旧workspace/structure开关。一条runner命令完成全部gate及自动回传，无需用户在编译后另启计时。timing仍报告分离评分/TopK、query4/query16串行、当前生产control、mixed单槽/双槽，融合与双缓冲比值分开。该诊断不是10shape正式验收。
+
+
+### 2026-11-12：完整计时版本已编译，验证路径改为无诊断写回
+
+报告0a606fa4837261a74e782a96637c4192ce0d1a12：tensor8192和tensor16384最小合并probe的随机、并列、尾填充和全不可见四类fixture均通过；buffer8192在CommonIRToHIVM触发同类BufferLikeType断言。评分/排序及完整单槽、双槽的TRACE=False版本全部编译成功；TRACE=True评分版本UB仍需204 KiB，排序/完整版本仍报形状错误。尚未执行完整混合候选，不能宣布正确性或加速收益。
+
+本轮只新增诊断gate及验证工具，kernel、编译选项、生产入口、基线与计时方法不再变动。QSA_MIXED_FINAL_VALIDATE=1优先于其他诊断开关。仍先执行独立合并probe和两种完整TRACE=False编译；两者通过后直接验证用于计时的同一非插桩kernel。不得将TRACE=True失败当作通过，也不得把以下验证称为内部Top2048快照验证。
+
+| 检查范围 | 内容 |
+| --- | --- |
+| 输出前缀 | key扫描范围依次为min(WIDTH, 1/191/192/193/2047/2048/2049/WIDTH)，visible同步截断；与原CPU参考的相同前缀比较Top512索引、配对分数和padding |
+| 首尾与交接 | 覆盖页前/页整齐/页尾、单外层块/外层块尾、完整扫描；单槽与双槽采用同样输入及数值标准 |
+| 原边界fixture | 保留非均匀请求、部分query group、visible=0、分数并列及WIDTH=1/2049/4097；边界fixture仅运行自身WIDTH，不再重复8个前缀 |
+| 计时 | 全部输出/边界通过后沿用两轮交错harness kernel。分离评分/TopK与query4/query16参考时间保留，单槽/双槽融合和重叠比值分开 |
+| 证明限制 | 可验证输出Top512以及独立合并primitive，无法直接验证内部Top2048的每块快照或证明发生硬件重叠；不是完整10shape生产验收 |
+
+无诊断写回路径验证失败或出现设备错误时立即停止计时并回传，不能选择其他输入表示绕过失败。Mac仅做语法及gate控制流检查，设备正确性和性能待用户运行。
