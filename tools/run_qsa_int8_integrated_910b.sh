@@ -89,7 +89,7 @@ import os
 from tools.qsa_int8_ten_workloads_910b import cases
 from tools.summarize_qsa_int8_harness_910b import GROUP_VISIBLE_CASES, GROUP_VISIBLE_WALL_CASES, STAGE_CASES, TILE_HANDOFF_CASE
 if os.environ.get("QSA_HARNESS_ONLINE_STAGES") == "1":
-    names = ("int8_budget_exact", "int8_compact")
+    names = ("int8_budget_exact",) if os.environ.get("QSA_MIXED_RECHECK_PROFILE") == "1" else ("int8_budget_exact", "int8_compact")
 elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "wall":
     names = GROUP_VISIBLE_WALL_CASES
 elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "1":
@@ -180,12 +180,16 @@ print("\n".join(names))
                 qsa_pytest_status=1
             fi
         fi
+        qsa_recheck_flag=
+        if [[ ${QSA_MIXED_RECHECK_PROFILE:-0} == 1 ]]; then
+            qsa_recheck_flag=--cann-mixed-recheck
+        fi
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
             ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
             ${qsa_diagnostic_flag:+"$qsa_diagnostic_flag"} \
-            ${qsa_mixed_flag:+"$qsa_mixed_flag"}
+            ${qsa_mixed_flag:+"$qsa_mixed_flag"} ${qsa_recheck_flag:+"$qsa_recheck_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"

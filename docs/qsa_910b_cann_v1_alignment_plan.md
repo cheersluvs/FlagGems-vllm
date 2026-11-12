@@ -326,3 +326,14 @@ gate：先验证单槽带诊断写回版本的每块点积、评分、排序与�
 | 证明限制 | 可验证输出Top512以及独立合并primitive，无法直接验证内部Top2048的每块快照或证明发生硬件重叠；不是完整10shape生产验收 |
 
 无诊断写回路径验证失败或出现设备错误时立即停止计时并回传，不能选择其他输入表示绕过失败。Mac仅做语法及gate控制流检查，设备正确性和性能待用户运行。
+
+
+### 独立复测与profiling：budget_exact 单场景
+
+已通过报告a9125c5522f2ad44fad300e8533e4e2271486082：budget_exact混合单槽215.868 us，双槽189.733 us，单槽/双槽1.13775x；compact单槽61.377 us，双槽61.268 us，无明显收益。页与2048-key前缀、原三个边界fixture输出通过，但内部Top2048快照尚未验证。当前生产分块对照budget_exact57.215 us，候选仍不适合生产整合。
+
+本轮kernel保持不变，QSA_MIXED_RECHECK_PROFILE=1仅选择budget_exact并明确传给summarizer。沿用完整独立合并、输出前缀和边界检查，两轮交错harness kernel计时，记录两轮各自的单槽/双槽比值。评分、TopK及query4/query16控制数据保留。
+
+计时结束后，使用同一已验证adapter分别采集单槽、双槽CPU/NPU任务时间线（各3次调用），再分别采集PipeUtilization计数（各3次调用），禁止把profile耗时当benchmark耗时。两个arm分开profile，避免同名kernel聚合混在一起；保存已加载kernel metadata、可取得的二进制内容SHA256、压缩原始trace及硬件表。原runner自动回传顶层json/txt/json.gz文件。
+
+任务级trace及利用率不单独证明混合kernel内部引擎重叠，报告overlap_status固定为unproven，待原始证据进一步分析；硬件采集失败/无CSV在mixed_profiling中标partial_hardware，不能把计时通过理解成全部硬件指标可用。timeline导出失败仍导致脚本失败，但保留已完成的benchmark数据。精度、TopK容量、编译器/编译选项和生产src均不变。本轮是第三步的复测/证据采集，不是全shape验收；不做跨shape算术均值。

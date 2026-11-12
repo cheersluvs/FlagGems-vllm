@@ -386,6 +386,7 @@ def main():
     parser.add_argument("--online-topk", action="store_true")
     parser.add_argument("--online-stages", action="store_true")
     parser.add_argument("--cann-serial", action="store_true")
+    parser.add_argument("--cann-mixed-recheck", action="store_true")
     diagnostic = parser.add_mutually_exclusive_group()
     diagnostic.add_argument("--tile-handoff", action="store_true")
     diagnostic.add_argument("--group-visible", action="store_true")
@@ -396,7 +397,8 @@ def main():
         rows = []
         error = None
         try:
-            for name in ("int8_budget_exact", "int8_compact"):
+            names = ("int8_budget_exact",) if args.cann_mixed_recheck else ("int8_budget_exact", "int8_compact")
+            for name in names:
                 record = json.loads((args.report.parent / f"{name}-cann-serial.json").read_text())
                 rows.append(record)
                 if record["status"] != "passed":

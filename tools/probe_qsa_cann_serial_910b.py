@@ -247,6 +247,14 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             result["double_buffer_speedup"] = medians["mixed_serial"] / medians["mixed_double"]
             print(f"QSA MIXED RATIOS {case}: fusion={result['fusion_speedup']:.4f}x; "
                   f"double_buffer={result['double_buffer_speedup']:.4f}x", flush=True)
+        if os.environ.get("QSA_MIXED_RECHECK_PROFILE") == "1" and case == "int8_budget_exact":
+            if set(mixed_controls) != {"mixed_serial", "mixed_double"}:
+                raise RuntimeError("Mixed recheck requires both validated mixed kernels")
+            result["paired_double_buffer_speedups"] = [
+                a / b for a, b in zip(samples["mixed_serial"], samples["mixed_double"])
+            ]
+            from profile_qsa_cann_mixed_910b import collect_mixed_profiles
+            collect_mixed_profiles(mixed_controls, report, case, result)
         if compare_groups:
             result["query4_score_speedup"] = medians["peer_score"] / medians["score"]
             result["query4_serial_speedup"] = medians["peer_serial"] / medians["serial"]
