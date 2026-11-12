@@ -47,7 +47,17 @@ fi
 qsa_python=${QSA_PYTHON:-python3}
 qsa_summary_flag=
 qsa_console=console.txt
-if [[ -n "${QSA_SUMMARIZE_REPORT:-}" ]]; then
+if [[ -n "${QSA_RESUME_REPORT:-}" ]]; then
+    if [[ "$qsa_kind" != int8-harness || ${QSA_HARNESS_ACCEPTANCE:-0} != 1 || -n ${QSA_SUMMARIZE_REPORT:-} ]]; then
+        echo 'Resume requires --harness and QSA_HARNESS_ACCEPTANCE=1'
+        exit 1
+    fi
+    qsa_report=$(mktemp -d "/tmp/qsa-ascend910b-$qsa_kind.XXXXXXXX") || exit 1
+    (cd -- "$qsa_repo" && "$qsa_python" -m tools.qsa_int8_acceptance_resume \
+        --repo "$qsa_repo" --source "$QSA_RESUME_REPORT" --destination "$qsa_report") || exit 1
+    qsa_console=resume-console.txt
+    qsa_commit_file=resume-code-commit.txt
+elif [[ -n "${QSA_SUMMARIZE_REPORT:-}" ]]; then
     qsa_report=$(realpath -- "$QSA_SUMMARIZE_REPORT") || exit 1
     test -f "$qsa_report/summary.json" || exit 1
     qsa_summary_flag=--summarize-only
@@ -104,6 +114,7 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
     (
         cd -- "$qsa_repo" || exit 1
         ulimit -c 0 || exit 1
+        export QSA_ACTIVE_RESUME_REPORT="$qsa_report"
         qsa_cases=$("$qsa_python" -c '
 import os
 from tools.qsa_int8_ten_workloads_910b import cases
@@ -129,6 +140,12 @@ elif os.environ.get("QSA_HARNESS_STAGES") == "1":
 else:
     names = [case["name"] for case in cases()]
     names.sort(key=lambda name: name != "int8_dominant_long")
+if os.environ.get("QSA_RESUME_REPORT"):
+    import json
+    from pathlib import Path
+    from tools.qsa_int8_acceptance_resume import completed
+    reused = completed(Path(os.environ["QSA_ACTIVE_RESUME_REPORT"]), Path.cwd())
+    names = [name for name in names if name not in reused]
 print("\n".join(names))
 ') || exit 1
         qsa_stage_flag=
@@ -184,6 +201,7 @@ print("\n".join(names))
         fi
         qsa_pytest_status=0
         while IFS= read -r qsa_case; do
+            [[ -n "$qsa_case" ]] || continue
             printf 'QSA INT8 harness worker: %s\n' "$qsa_case"
             qsa_case_console="$qsa_report/harness-$qsa_case-console.txt"
             QSA_HARNESS_REPORT="$qsa_report" QSA_INT8_HARNESS_PREFLIGHT_ONLY=0 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
