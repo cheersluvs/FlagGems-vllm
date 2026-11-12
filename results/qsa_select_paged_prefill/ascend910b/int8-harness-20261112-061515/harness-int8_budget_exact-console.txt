@@ -1,0 +1,81 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+LOCAL_BUFFER_REJECTED_COMPILE Traceback (most recent call last):
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 330, in compile
+    next_module = compile_ir(module, metadata)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 1137, in <lambda>
+    stages["npubin"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 651, in _compile_linalg_to_npu_bin
+    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py", line 835, in linalg_to_bin_enable_npu_compile_A2_A3
+    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-generic-local.sw2uCbfa/code/tools/probe_qsa_generic_local_buffer_910b.py", line 92, in run
+    return super().run(command, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-generic-local.sw2uCbfa/code/tools/diagnose_qsa_structural_mixed_compile_910b.py", line 45, in run
+    result = subprocess.run(command, *args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmpja0d22uu/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=True', '--enable-auto-bind-sub-block=True', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--enable-auto-blockify-loop', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmpja0d22uu/kernel', '--bishengir-print-ir-after=hivm-graph-sync-solver']' died with <Signals.SIGSEGV: 11>.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-generic-local.sw2uCbfa/code/tools/probe_qsa_generic_local_buffer_910b.py", line 147, in run_probe
+    compiled = candidate.qsa_warmup()
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 804, in warmup
+    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 736, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py", line 864, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py", line 83, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py", line 351, in compile
+    raise MLIRCompilationError(stage_name, error_detail) from e
+triton.compiler.errors.MLIRCompilationError: 
+///------------------[ERROR][Triton][BEG]------------------
+[ConvertLinalgIRToBinary] encounters error:
+PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
+///------------------[ERROR][Triton][END]------------------
+
+
+LOCAL_BUFFER_RESULT {"status": "completed_with_candidate_rejection", "candidate_status": "rejected_compile"}
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-generic-local.sw2uCbfa/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 9.46s

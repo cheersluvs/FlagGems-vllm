@@ -1,0 +1,102 @@
+{
+  "exit_code": 0,
+  "error": null,
+  "probe": {
+    "status": "completed_with_candidate_rejection",
+    "candidate_status": "rejected_compile",
+    "checks": [
+      {
+        "fixture": "full",
+        "rows": 32,
+        "width": 8192,
+        "identity": {
+          "entry": "PreparedSharedMapInt8Selection.score_into",
+          "registration": "unregistered INT8 integrated trial; public Ascend src entry is BF16",
+          "flags": {
+            "key_group4": true,
+            "single_page64": true,
+            "allow_short_query16": true,
+            "shared_direct_page_proof": true
+          },
+          "routes": {
+            "query16_routes": "{(0, 32): True}",
+            "shared_routes": "{(0, 32): True}",
+            "skip_invisible_routes": "{(0, 32): False}",
+            "direct_page_routes": "{(0, 32): 'full'}"
+          },
+          "source_sha256": {
+            "qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+            "qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+            "qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962"
+          },
+          "cube_reduction_applied": false,
+          "reduction_mode": "local_l1",
+          "rewrite": {
+            "original_kernel": "_qsa_page64_prefix_chunk_full",
+            "original_source_sha256": "204eaa5d3341461d8bdd4f0f1a95108f93099c1522d9f12204b4e706ffb31943",
+            "candidate_source_sha256": "fec0f85b0d7e3478d80d5296e6dfd1553ddfb5cd6763d34f63d7c96de58a7655",
+            "mode": "local_l1",
+            "rewrite": "only dequant/weighted/scores assignments; query16/page loops/QK/store preserved"
+          },
+          "grid": [
+            20
+          ],
+          "launch_kwargs": {
+            "ROWS": 32,
+            "COLUMNS": 43,
+            "WIDTH": 8192,
+            "PAGE": 192,
+            "BLOCK_N": 64,
+            "KEY_TILES": 8,
+            "num_warps": 4
+          }
+        },
+        "phase": "compilation",
+        "compiler_calls": [
+          {
+            "command": [
+              "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+              "/tmp/tmpja0d22uu/kernel.mlir",
+              "--target=Ascend910B4-1",
+              "--enable-auto-multi-buffer=True",
+              "--enable-auto-bind-sub-block=True",
+              "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+              "--enable-auto-blockify-loop",
+              "--enable-hfusion-compile=true",
+              "--enable-hivm-compile=true",
+              "--enable-triton-kernel-compile=true",
+              "-o",
+              "/tmp/tmpja0d22uu/kernel",
+              "--bishengir-print-ir-after=hivm-graph-sync-solver"
+            ],
+            "input_ir": "int8_budget_exact-local-full-compiler-1-input.mlir.txt",
+            "returncode": -11,
+            "output_artifacts": [],
+            "output_capture_limit_bytes": 2097152,
+            "stderr": {
+              "file": "int8_budget_exact-local-full-compiler-1-stderr.txt",
+              "bytes": 1239,
+              "truncated": false
+            }
+          }
+        ],
+        "error": "Traceback (most recent call last):\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 330, in compile\n    next_module = compile_ir(module, metadata)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 1137, in <lambda>\n    stages[\"npubin\"] = (lambda src, metadata: _compile_linalg_to_npu_bin(src, metadata, options))\n                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 651, in _compile_linalg_to_npu_bin\n    return linalg_to_bin_enable_npu_compile_A2_A3(linalg, metadata, opt)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 835, in linalg_to_bin_enable_npu_compile_A2_A3\n    ret = subprocess.run(cmd_list, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-generic-local.sw2uCbfa/code/tools/probe_qsa_generic_local_buffer_910b.py\", line 92, in run\n    return super().run(command, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/flaggems-qsa-generic-local.sw2uCbfa/code/tools/diagnose_qsa_structural_mixed_compile_910b.py\", line 45, in run\n    result = subprocess.run(command, *args, **kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/root/.local/share/uv/python/cpython-3.11.15-linux-aarch64-gnu/lib/python3.11/subprocess.py\", line 571, in run\n    raise CalledProcessError(retcode, process.args,\nsubprocess.CalledProcessError: Command '['/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile', '/tmp/tmpja0d22uu/kernel.mlir', '--target=Ascend910B4-1', '--enable-auto-multi-buffer=True', '--enable-auto-bind-sub-block=True', '--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', '--enable-auto-blockify-loop', '--enable-hfusion-compile=true', '--enable-hivm-compile=true', '--enable-triton-kernel-compile=true', '-o', '/tmp/tmpja0d22uu/kernel', '--bishengir-print-ir-after=hivm-graph-sync-solver']' died with <Signals.SIGSEGV: 11>.\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/flaggems-qsa-generic-local.sw2uCbfa/code/tools/probe_qsa_generic_local_buffer_910b.py\", line 147, in run_probe\n    compiled = candidate.qsa_warmup()\n               ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 804, in warmup\n    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 736, in run\n    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 864, in _do_compile\n    kernel = self.compile(src, target=target, options=options.__dict__)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py\", line 83, in tle_compile\n    compiled_kernel = original_compile_fn(src, target, options)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 351, in compile\n    raise MLIRCompilationError(stage_name, error_detail) from e\ntriton.compiler.errors.MLIRCompilationError: \n///------------------[ERROR][Triton][BEG]------------------\n[ConvertLinalgIRToBinary] encounters error:\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\n///------------------[ERROR][Triton][END]------------------\n\n"
+      }
+    ],
+    "arms": {},
+    "scope": "budget_exact shared-map tail32 diagnostic, not acceptance",
+    "hypothesis": "Generic to_buffer(L1)/to_tensor can avoid FP16 GM staging before second Cube",
+    "compiler_change": "Print-only option; time the exact kernels compiled in this process",
+    "topk_identity": {
+      "source": "/tmp/flaggems-qsa-generic-local.sw2uCbfa/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+      "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+      "utility": "/tmp/flaggems-qsa-generic-local.sw2uCbfa/code/src/flaggems_vllm/utils/triton_version_utils.py",
+      "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+      "has_tle": true,
+      "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+    }
+  },
+  "candidate_passed": false,
+  "arithmetic_mean_speedup": null,
+  "scope": "single diagnostic chunk; no acceptance mean"
+}
