@@ -1,0 +1,226 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA MERGE REPRESENTATION tensor8192: four fixtures passed
+python3: /data/zhengyang/git/flag-llvm-project/llvm/include/llvm/Support/Casting.h:566: decltype(auto) llvm::cast(const From&) [with To = mlir::detail::TypedValue<mlir::bufferization::BufferLikeType>; From = mlir::Value]: Assertion `isa<To>(Val) && "cast<Ty>() argument of incompatible type!"' failed.
+module attributes {hacc.target = #hacc.target<"Ascend910B4-1">} {
+  tt.func public @_merge_representation_probe(%arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg2: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg3: !tt.ptr<i32> {tt.divisibility = 16 : i32}) attributes {noinline = false} {
+    %0 = tt.make_range {end = 4096 : i32, start = 0 : i32} : tensor<4096xi32>
+    %1 = tt.splat %arg0 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %2 = tt.addptr %1, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    %3 = tt.load %2 : tensor<4096x!tt.ptr<f32>>
+    %4 = tt.splat %arg1 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %5 = tt.addptr %4, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    %6 = tt.load %5 : tensor<4096x!tt.ptr<f32>>
+    %7 = tile.alloc {space = 5 : i64} : <[8192], f32, ub>
+    %8:2 = tt.call @"qsa_cann_mixed_910b_trial._merge_equal2048__fp32S4096S_fp32S4096S_Bfp32S8192S__(3,)cconstexpr_1_"(%3, %6, %7) : (tensor<4096xf32>, tensor<4096xf32>, !tile.buf<[8192], f32, ub>) -> (tensor<4096xf32>, tensor<4xi32>)
+    %9 = tt.splat %arg2 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %10 = tt.addptr %9, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    tt.store %10, %8#0 : tensor<4096x!tt.ptr<f32>>
+    %11 = tt.make_range {end = 4 : i32, start = 0 : i32} : tensor<4xi32>
+    %12 = tt.splat %arg3 : !tt.ptr<i32> -> tensor<4x!tt.ptr<i32>>
+    %13 = tt.addptr %12, %11 : tensor<4x!tt.ptr<i32>>, tensor<4xi32>
+    tt.store %13, %8#1 : tensor<4x!tt.ptr<i32>>
+    tt.return
+  }
+  tt.func private @"qsa_cann_mixed_910b_trial._merge_equal2048__fp32S4096S_fp32S4096S_Bfp32S8192S__(3,)cconstexpr_1_"(%arg0: tensor<4096xf32>, %arg1: tensor<4096xf32>, %arg2: !tile.buf<[8192], f32, ub>) -> (tensor<4096xf32>, tensor<4xi32>) attributes {noinline = false} {
+    %cst = arith.constant dense<0> : tensor<4xi32>
+    %cst_0 = arith.constant dense<0.000000e+00> : tensor<8192xf32>
+    %c4096 = arith.constant 4096 : index
+    %c2048_i32 = arith.constant 2048 : i32
+    %c2_i32 = arith.constant 2 : i32
+    %c0_i32 = arith.constant 0 : i32
+    %c0 = arith.constant 0 : index
+    %0 = tile.subview %arg2[%c0] [[4096]] [[1]] : <[8192], f32, ub> -> <[4096], f32, ub>
+    %1 = tile.subview %arg2[%c4096] [[4096]] [[1]] : <[8192], f32, ub> -> <[4096], f32, ub>
+    tile.store_tensor %arg0 -> %0 : tensor<4096xf32>, <[4096], f32, ub>
+    tile.store_tensor %arg1 -> %1 : tensor<4096xf32>, <[4096], f32, ub>
+    gpu.barrier
+    %2 = tile.to_tensor %arg2 {writable} : <[8192], f32, ub> -> tensor<8192xf32>
+    %3:2 = hivm.hir.custom {arg_attrs = [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}], bitcode = "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc", extra_buffers_sizes = [0], extra_buffers_types = [f16], hivm.pipe = #hivm.pipe<PIPE_V>, hivm.tcore_type = #hivm.tcore_type<VECTOR>, hivm.vf_mode = #hivm.vf_mode<SIMD>, symbol = "custom_merge_exhaust_sort4_float"} "merge_exhaust_sort4" ins(%2, %c2_i32, %c0_i32, %c2048_i32, %c0_i32, %c0_i32, %c2048_i32, %c2048_i32, %c0_i32, %c0_i32 : tensor<8192xf32>, i32, i32, i32, i32, i32, i32, i32, i32, i32) outs(%cst_0, %cst : tensor<8192xf32>, tensor<4xi32>) -> (tensor<8192xf32>, tensor<4xi32>)
+    %extracted_slice = tensor.extract_slice %3#0[0] [4096] [1] : tensor<8192xf32> to tensor<4096xf32>
+    tt.return %extracted_slice, %3#1 : tensor<4096xf32>, tensor<4xi32>
+  }
+}
+
+{-#
+  external_resources: {
+    mlir_reproducer: {
+      pipeline: "builtin.module(auto-blockify{auto-blockify-size=1}, commonir-to-hivm, inline{default-pipeline=canonicalize inlining-threshold=4294967295 max-iterations=4 }, canonicalize{  max-iterations=10 max-num-rewrites=-1 region-simplify=normal test-convergence=false top-down=true}, triton-to-structured-incubated{enable-mask-fallback-conversion=false optimize-dynamic-offset=false}, discrete-mask-access-conversion{compile-on-910-95=false enable-sync-block-lock=false force-simt-template=false}, triton-to-annotation, triton-to-unstructure-incubated{compile-on-910-95=false force-scalarize-mode=false force-simt-template=false}, triton-to-hivm, triton-to-hfusion, triton-to-llvm, bubble-up-operation{enable-aggressive-mode=true}, triton-to-structured-incubated{enable-mask-fallback-conversion=false optimize-dynamic-offset=false}, reduce-sum-strength{enable=false split-factor=2}, triton-to-linalg-incubated{compile-on-910-95=false enable-nd2nz-on-vector=false enable-select-analysis=true global-kernel=false named-ops=true}, commonir-to-hivm, canonicalize{  max-iterations=10 max-num-rewrites=-1 region-simplify=normal test-convergence=false top-down=true}, cse, symbol-dce)",
+      disable_threading: false,
+      verify_each: true
+    }
+  }
+#-}
+/tmp/flaggems-qsa-mixed-recheck.ySoYmXJl/code/tools/qsa_cann_mixed_910b_trial.py:53:0: error: Failures have been detected while processing an MLIR pass pipeline
+/tmp/flaggems-qsa-mixed-recheck.ySoYmXJl/code/tools/qsa_cann_mixed_910b_trial.py:53:0: note: Pipeline failed while executing [`CommonIRToHIVM` on 'builtin.module' operation]: reproducer generated at `std::errs, please share the reproducer above with Triton project.`
+QSA MERGE REPRESENTATION buffer8192: compile failed
+QSA MERGE REPRESENTATION tensor16384: four fixtures passed
+QSA MIXED COMPILE int8_budget_exact-final-slots1 status=compiled
+QSA MIXED COMPILE int8_budget_exact-final-slots2 status=compiled
+QSA MIXED COMPILE int8_budget_exact mixed_serial
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 191, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 192, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 193, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2047, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2048, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 8192, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS int8_budget_exact mixed_serial
+QSA MIXED COMPILE int8_budget_exact mixed_double
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 191, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 192, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 193, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2047, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2048, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 8192, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS int8_budget_exact mixed_double
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_unequal17_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 4097, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_unequal17_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_unequal17_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 4097, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_unequal17_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_unequal17_q4", "width": 4097, "rows": 17, "request_lengths": [3, 5, 9], "query_group": 4, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_unequal17_q16", "width": 4097, "rows": 17, "request_lengths": [3, 5, 9], "query_group": 16, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_ties3_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_ties3_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_ties3_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_ties3_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_ties3_q4", "width": 2049, "rows": 3, "request_lengths": [1, 2], "query_group": 4, "tied_scores": true, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_ties3_q16", "width": 2049, "rows": 3, "request_lengths": [1, 2], "query_group": 16, "tied_scores": true, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_invisible1_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_invisible1_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_invisible1_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_invisible1_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_invisible1_q4", "width": 1, "rows": 1, "request_lengths": [1], "query_group": 4, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_invisible1_q16", "width": 1, "rows": 1, "request_lengths": [1], "query_group": 16, "tied_scores": false, "status": "passed"}
+QSA MIXED RATIOS int8_budget_exact: fusion=1.2132x; double_buffer=1.1351x
+[2026-11-12 09:37:37] [WARNING] [3968793] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-12 09:37:37] [WARNING] [3968793] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-12 09:37:37] [WARNING] [3968793] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-12 09:37:38] [INFO] [4067522] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-mixed-recheck.ySoYmXJl/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093737375_ascend_pt
+|/-[2026-11-12 09:37:40] [INFO] [4067534] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041560
+[2026-11-12 09:37:40] [INFO] [4067522] profiler.py: All profiling data parsed in a total time of 0:00:02.679606
+TIMELINE mixed_serial: tasks=3 sum=664.654 us union=664.654 us envelope=725.994 us uncovered=61.340 us
+[2026-11-12 09:37:41] [WARNING] [3968793] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-12 09:37:41] [INFO] [4068282] profiler.py: Start parsing profiling data in sync mode at: /tmp/qsa-ascend910b-int8-harness.kT3bRaQW/int8_budget_exact-mixed_serial-score-metrics/bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093741125_ascend_pt
+|/-[2026-11-12 09:37:43] [INFO] [4068304] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041497
+\[2026-11-12 09:37:44] [INFO] [4068282] profiler.py: All profiling data parsed in a total time of 0:00:03.146888
+SCORE_HARDWARE {"status": "exported", "metric": "PipeUtilization", "iterations": 3, "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency", "score_rows_preview": [{"Name": "_mixed_outer2048", "Duration(us)": "221.544", "aicore_time(us)": "218.817", "aic_total_cycles": "2888380", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.028", "aic_scalar_time(us)": "12.793", "aic_scalar_ratio": "0.058", "aic_mte1_time(us)": "7.686", "aic_mte1_ratio": "0.035", "aic_mte2_time(us)": "19.77", "aic_mte2_ratio": "0.09", "aic_fixpipe_time(us)": "22.348", "aic_fixpipe_ratio": "0.102", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "219.104", "aiv_total_cycles": "5784357", "aiv_vec_time(us)": "99.802", "aiv_vec_ratio": "0.455", "aiv_scalar_time(us)": "50.313", "aiv_scalar_ratio": "0.23", "aiv_mte2_time(us)": "75.627", "aiv_mte2_ratio": "0.345", "aiv_mte3_time(us)": "0.448", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.003", "cube_utilization(%)": "39.508"}, {"Name": "_mixed_outer2048", "Duration(us)": "217.904", "aicore_time(us)": "214.239", "aic_total_cycles": "2827952", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.029", "aic_scalar_time(us)": "12.235", "aic_scalar_ratio": "0.057", "aic_mte1_time(us)": "7.696", "aic_mte1_ratio": "0.036", "aic_mte2_time(us)": "19.381", "aic_mte2_ratio": "0.09", "aic_fixpipe_time(us)": "21.908", "aic_fixpipe_ratio": "0.102", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "214.537", "aiv_total_cycles": "5663771", "aiv_vec_time(us)": "99.904", "aiv_vec_ratio": "0.466", "aiv_scalar_time(us)": "48.683", "aiv_scalar_ratio": "0.227", "aiv_mte2_time(us)": "73.591", "aiv_mte2_ratio": "0.343", "aiv_mte3_time(us)": "0.461", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.003", "cube_utilization(%)": "39.327"}, {"Name": "_mixed_outer2048", "Duration(us)": "220.746", "aicore_time(us)": "218.354", "aic_total_cycles": "2882279", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.028", "aic_scalar_time(us)": "11.38", "aic_scalar_ratio": "0.052", "aic_mte1_time(us)": "7.651", "aic_mte1_ratio": "0.035", "aic_mte2_time(us)": "19.347", "aic_mte2_ratio": "0.089", "aic_fixpipe_time(us)": "22.224", "aic_fixpipe_ratio": "0.102", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "218.762", "aiv_total_cycles": "5775329", "aiv_vec_time(us)": "99.887", "aiv_vec_ratio": "0.457", "aiv_scalar_time(us)": "48.375", "aiv_scalar_ratio": "0.221", "aiv_mte2_time(us)": "77.47", "aiv_mte2_ratio": "0.354", "aiv_mte3_time(us)": "0.395", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.003", "cube_utilization(%)": "39.567"}, {}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "46.47", "Host Total Duration(us)": "46.47", "Device Self Duration(us)": "221.544", "Device Total Duration(us)": "221.544", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "29.75", "Host Total Duration(us)": "29.75", "Device Self Duration(us)": "217.904", "Device Total Duration(us)": "217.904", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "22.43", "Host Total Duration(us)": "22.43", "Device Self Duration(us)": "220.746", "Device Total Duration(us)": "220.746", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}], "metric_columns": ["aic_fixpipe_ratio", "aic_fixpipe_time(us)", "aic_icache_miss_rate", "aic_mac_ratio", "aic_mac_time(us)", "aic_mte1_ratio", "aic_mte1_time(us)", "aic_mte2_ratio", "aic_mte2_time(us)", "aic_scalar_ratio", "aic_scalar_time(us)", "aic_total_cycles", "aiv_icache_miss_rate", "aiv_mte2_ratio", "aiv_mte2_time(us)", "aiv_mte3_ratio", "aiv_mte3_time(us)", "aiv_scalar_ratio", "aiv_scalar_time(us)", "aiv_time(us)", "aiv_total_cycles", "aiv_vec_ratio", "aiv_vec_time(us)", "cube_utilization(%)"], "artifact": "int8_budget_exact-mixed_serial-score-hardware-tables.json.gz", "tables": [{"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093741125_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv", "columns": ["Device_id", "Level", "API Name", "Time(us)", "Count", "Avg(us)", "Min(us)", "Max(us)", "Variance"], "truncated": false}, {"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093741125_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv", "columns": ["Device_id", "Model ID", "Task ID", "Stream ID", "Name", "Type", "OP State", "Accelerator Core", "Start Time(us)", "Duration(us)", "Wait Time(us)", "Block Num", "Mix Block Num", "HF32 Eligible", "Input Shapes", "Input Data Types", "Input Formats", "Output Shapes", "Output Data Types", "Output Formats", "Context ID", "aicore_time(us)", "aic_total_cycles", "aic_mac_time(us)", "aic_mac_ratio", "aic_scalar_time(us)", "aic_scalar_ratio", "aic_mte1_time(us)", "aic_mte1_ratio", "aic_mte2_time(us)", "aic_mte2_ratio", "aic_fixpipe_time(us)", "aic_fixpipe_ratio", "aic_icache_miss_rate", "aiv_time(us)", "aiv_total_cycles", "aiv_vec_time(us)", "aiv_vec_ratio", "aiv_scalar_time(us)", "aiv_scalar_ratio", "aiv_mte2_time(us)", "aiv_mte2_ratio", "aiv_mte3_time(us)", "aiv_mte3_ratio", "aiv_icache_miss_rate", "cube_utilization(%)"], "truncated": false}, {"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093741125_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv", "columns": ["Device_id", "OP Type", "Core Type", "Count", "Total Time(us)", "Min Time(us)", "Avg Time(us)", "Max Time(us)", "Ratio(%)"], "truncated": false}, {"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093741125_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv", "columns": ["Name", "Input Shapes", "Call Stack", "Host Self Duration(us)", "Host Total Duration(us)", "Device Self Duration(us)", "Device Total Duration(us)", "Device Self Duration With AICore(us)", "Device Total Duration With AICore(us)"], "truncated": false}, {"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093741125_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv", "columns": ["Device_id", "Step", "Computing", "Communication(Not Overlapped)", "Overlapped", "Communication", "Free", "Stage", "Bubble", "Communication(Not Overlapped and Exclude Receive)", "Preparing"], "truncated": false}]}
+QSA MIXED PROFILE {"arm": "mixed_serial", "hardware_status": "exported", "metric_columns": ["aic_fixpipe_ratio", "aic_fixpipe_time(us)", "aic_icache_miss_rate", "aic_mac_ratio", "aic_mac_time(us)", "aic_mte1_ratio", "aic_mte1_time(us)", "aic_mte2_ratio", "aic_mte2_time(us)", "aic_scalar_ratio", "aic_scalar_time(us)", "aic_total_cycles", "aiv_icache_miss_rate", "aiv_mte2_ratio", "aiv_mte2_time(us)", "aiv_mte3_ratio", "aiv_mte3_time(us)", "aiv_scalar_ratio", "aiv_scalar_time(us)", "aiv_time(us)", "aiv_total_cycles", "aiv_vec_ratio", "aiv_vec_time(us)", "cube_utilization(%)"], "rows": [{"Name": "_mixed_outer2048", "Duration(us)": "221.544", "aicore_time(us)": "218.817", "aic_total_cycles": "2888380", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.028", "aic_scalar_time(us)": "12.793", "aic_scalar_ratio": "0.058", "aic_mte1_time(us)": "7.686", "aic_mte1_ratio": "0.035", "aic_mte2_time(us)": "19.77", "aic_mte2_ratio": "0.09", "aic_fixpipe_time(us)": "22.348", "aic_fixpipe_ratio": "0.102", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "219.104", "aiv_total_cycles": "5784357", "aiv_vec_time(us)": "99.802", "aiv_vec_ratio": "0.455", "aiv_scalar_time(us)": "50.313", "aiv_scalar_ratio": "0.23", "aiv_mte2_time(us)": "75.627", "aiv_mte2_ratio": "0.345", "aiv_mte3_time(us)": "0.448", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.003", "cube_utilization(%)": "39.508"}, {"Name": "_mixed_outer2048", "Duration(us)": "217.904", "aicore_time(us)": "214.239", "aic_total_cycles": "2827952", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.029", "aic_scalar_time(us)": "12.235", "aic_scalar_ratio": "0.057", "aic_mte1_time(us)": "7.696", "aic_mte1_ratio": "0.036", "aic_mte2_time(us)": "19.381", "aic_mte2_ratio": "0.09", "aic_fixpipe_time(us)": "21.908", "aic_fixpipe_ratio": "0.102", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "214.537", "aiv_total_cycles": "5663771", "aiv_vec_time(us)": "99.904", "aiv_vec_ratio": "0.466", "aiv_scalar_time(us)": "48.683", "aiv_scalar_ratio": "0.227", "aiv_mte2_time(us)": "73.591", "aiv_mte2_ratio": "0.343", "aiv_mte3_time(us)": "0.461", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.003", "cube_utilization(%)": "39.327"}, {"Name": "_mixed_outer2048", "Duration(us)": "220.746", "aicore_time(us)": "218.354", "aic_total_cycles": "2882279", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.028", "aic_scalar_time(us)": "11.38", "aic_scalar_ratio": "0.052", "aic_mte1_time(us)": "7.651", "aic_mte1_ratio": "0.035", "aic_mte2_time(us)": "19.347", "aic_mte2_ratio": "0.089", "aic_fixpipe_time(us)": "22.224", "aic_fixpipe_ratio": "0.102", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "218.762", "aiv_total_cycles": "5775329", "aiv_vec_time(us)": "99.887", "aiv_vec_ratio": "0.457", "aiv_scalar_time(us)": "48.375", "aiv_scalar_ratio": "0.221", "aiv_mte2_time(us)": "77.47", "aiv_mte2_ratio": "0.354", "aiv_mte3_time(us)": "0.395", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.003", "cube_utilization(%)": "39.567"}, {}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "46.47", "Host Total Duration(us)": "46.47", "Device Self Duration(us)": "221.544", "Device Total Duration(us)": "221.544", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "29.75", "Host Total Duration(us)": "29.75", "Device Self Duration(us)": "217.904", "Device Total Duration(us)": "217.904", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "22.43", "Host Total Duration(us)": "22.43", "Device Self Duration(us)": "220.746", "Device Total Duration(us)": "220.746", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}]}
+[2026-11-12 09:37:45] [WARNING] [3968793] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-12 09:37:45] [WARNING] [3968793] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-11-12 09:37:45] [WARNING] [3968793] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-12 09:37:46] [INFO] [4069235] profiler.py: Start parsing profiling data in sync mode at: /tmp/flaggems-qsa-mixed-recheck.ySoYmXJl/code/export_only_prof_dir/bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093745774_ascend_pt
+|/-[2026-11-12 09:37:48] [INFO] [4069247] profiler.py: CANN profiling data parsed in a total time of 0:00:02.104161
+[2026-11-12 09:37:49] [INFO] [4069235] profiler.py: All profiling data parsed in a total time of 0:00:02.770868
+TIMELINE mixed_double: tasks=3 sum=582.492 us union=582.492 us envelope=632.592 us uncovered=50.100 us
+[2026-11-12 09:37:49] [WARNING] [3968793] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-11-12 09:37:50] [INFO] [4070082] profiler.py: Start parsing profiling data in sync mode at: /tmp/qsa-ascend910b-int8-harness.kT3bRaQW/int8_budget_exact-mixed_double-score-metrics/bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093749438_ascend_pt
+|/-[2026-11-12 09:37:52] [INFO] [4070100] profiler.py: CANN profiling data parsed in a total time of 0:00:02.041393
+\[2026-11-12 09:37:53] [INFO] [4070082] profiler.py: All profiling data parsed in a total time of 0:00:03.135617
+SCORE_HARDWARE {"status": "exported", "metric": "PipeUtilization", "iterations": 3, "scope": "Separate hardware-counter pass; profiler overhead is not benchmark latency", "score_rows_preview": [{"Name": "_mixed_outer2048", "Duration(us)": "192.024", "aicore_time(us)": "190.302", "aic_total_cycles": "2511989", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.032", "aic_scalar_time(us)": "11.335", "aic_scalar_ratio": "0.06", "aic_mte1_time(us)": "7.695", "aic_mte1_ratio": "0.04", "aic_mte2_time(us)": "20.941", "aic_mte2_ratio": "0.11", "aic_fixpipe_time(us)": "21.71", "aic_fixpipe_ratio": "0.114", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "190.421", "aiv_total_cycles": "5027122", "aiv_vec_time(us)": "101.815", "aiv_vec_ratio": "0.535", "aiv_scalar_time(us)": "47.684", "aiv_scalar_ratio": "0.25", "aiv_mte2_time(us)": "77.349", "aiv_mte2_ratio": "0.406", "aiv_mte3_time(us)": "0.403", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.002", "cube_utilization(%)": "39.641"}, {"Name": "_mixed_outer2048", "Duration(us)": "193.584", "aicore_time(us)": "191.753", "aic_total_cycles": "2531142", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.032", "aic_scalar_time(us)": "11.293", "aic_scalar_ratio": "0.059", "aic_mte1_time(us)": "7.62", "aic_mte1_ratio": "0.04", "aic_mte2_time(us)": "21.954", "aic_mte2_ratio": "0.114", "aic_fixpipe_time(us)": "22.279", "aic_fixpipe_ratio": "0.116", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "192.082", "aiv_total_cycles": "5070970", "aiv_vec_time(us)": "101.811", "aiv_vec_ratio": "0.53", "aiv_scalar_time(us)": "47.712", "aiv_scalar_ratio": "0.248", "aiv_mte2_time(us)": "78.523", "aiv_mte2_ratio": "0.409", "aiv_mte3_time(us)": "0.408", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.002", "cube_utilization(%)": "39.622"}, {"Name": "_mixed_outer2048", "Duration(us)": "192.724", "aicore_time(us)": "190.767", "aic_total_cycles": "2518122", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.032", "aic_scalar_time(us)": "11.071", "aic_scalar_ratio": "0.058", "aic_mte1_time(us)": "7.692", "aic_mte1_ratio": "0.04", "aic_mte2_time(us)": "20.933", "aic_mte2_ratio": "0.11", "aic_fixpipe_time(us)": "21.796", "aic_fixpipe_ratio": "0.114", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "190.972", "aiv_total_cycles": "5041673", "aiv_vec_time(us)": "101.804", "aiv_vec_ratio": "0.533", "aiv_scalar_time(us)": "47.493", "aiv_scalar_ratio": "0.249", "aiv_mte2_time(us)": "77.945", "aiv_mte2_ratio": "0.408", "aiv_mte3_time(us)": "0.38", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.002", "cube_utilization(%)": "39.594"}, {}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "47.19", "Host Total Duration(us)": "47.19", "Device Self Duration(us)": "192.024", "Device Total Duration(us)": "192.024", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "25.3", "Host Total Duration(us)": "25.3", "Device Self Duration(us)": "193.584", "Device Total Duration(us)": "193.584", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "24.5", "Host Total Duration(us)": "24.5", "Device Self Duration(us)": "192.724", "Device Total Duration(us)": "192.724", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}], "metric_columns": ["aic_fixpipe_ratio", "aic_fixpipe_time(us)", "aic_icache_miss_rate", "aic_mac_ratio", "aic_mac_time(us)", "aic_mte1_ratio", "aic_mte1_time(us)", "aic_mte2_ratio", "aic_mte2_time(us)", "aic_scalar_ratio", "aic_scalar_time(us)", "aic_total_cycles", "aiv_icache_miss_rate", "aiv_mte2_ratio", "aiv_mte2_time(us)", "aiv_mte3_ratio", "aiv_mte3_time(us)", "aiv_scalar_ratio", "aiv_scalar_time(us)", "aiv_time(us)", "aiv_total_cycles", "aiv_vec_ratio", "aiv_vec_time(us)", "cube_utilization(%)"], "artifact": "int8_budget_exact-mixed_double-score-hardware-tables.json.gz", "tables": [{"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093749438_ascend_pt/ASCEND_PROFILER_OUTPUT/api_statistic.csv", "columns": ["Device_id", "Level", "API Name", "Time(us)", "Count", "Avg(us)", "Min(us)", "Max(us)", "Variance"], "truncated": false}, {"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093749438_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv", "columns": ["Device_id", "Model ID", "Task ID", "Stream ID", "Name", "Type", "OP State", "Accelerator Core", "Start Time(us)", "Duration(us)", "Wait Time(us)", "Block Num", "Mix Block Num", "HF32 Eligible", "Input Shapes", "Input Data Types", "Input Formats", "Output Shapes", "Output Data Types", "Output Formats", "Context ID", "aicore_time(us)", "aic_total_cycles", "aic_mac_time(us)", "aic_mac_ratio", "aic_scalar_time(us)", "aic_scalar_ratio", "aic_mte1_time(us)", "aic_mte1_ratio", "aic_mte2_time(us)", "aic_mte2_ratio", "aic_fixpipe_time(us)", "aic_fixpipe_ratio", "aic_icache_miss_rate", "aiv_time(us)", "aiv_total_cycles", "aiv_vec_time(us)", "aiv_vec_ratio", "aiv_scalar_time(us)", "aiv_scalar_ratio", "aiv_mte2_time(us)", "aiv_mte2_ratio", "aiv_mte3_time(us)", "aiv_mte3_ratio", "aiv_icache_miss_rate", "cube_utilization(%)"], "truncated": false}, {"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093749438_ascend_pt/ASCEND_PROFILER_OUTPUT/op_statistic.csv", "columns": ["Device_id", "OP Type", "Core Type", "Count", "Total Time(us)", "Min Time(us)", "Avg Time(us)", "Max Time(us)", "Ratio(%)"], "truncated": false}, {"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093749438_ascend_pt/ASCEND_PROFILER_OUTPUT/operator_details.csv", "columns": ["Name", "Input Shapes", "Call Stack", "Host Self Duration(us)", "Host Total Duration(us)", "Device Self Duration(us)", "Device Total Duration(us)", "Device Self Duration With AICore(us)", "Device Total Duration With AICore(us)"], "truncated": false}, {"path": "bm-ctyun-wq-zone1-d-910b4-64g-0-13_3968793_20261112093749438_ascend_pt/ASCEND_PROFILER_OUTPUT/step_trace_time.csv", "columns": ["Device_id", "Step", "Computing", "Communication(Not Overlapped)", "Overlapped", "Communication", "Free", "Stage", "Bubble", "Communication(Not Overlapped and Exclude Receive)", "Preparing"], "truncated": false}]}
+QSA MIXED PROFILE {"arm": "mixed_double", "hardware_status": "exported", "metric_columns": ["aic_fixpipe_ratio", "aic_fixpipe_time(us)", "aic_icache_miss_rate", "aic_mac_ratio", "aic_mac_time(us)", "aic_mte1_ratio", "aic_mte1_time(us)", "aic_mte2_ratio", "aic_mte2_time(us)", "aic_scalar_ratio", "aic_scalar_time(us)", "aic_total_cycles", "aiv_icache_miss_rate", "aiv_mte2_ratio", "aiv_mte2_time(us)", "aiv_mte3_ratio", "aiv_mte3_time(us)", "aiv_scalar_ratio", "aiv_scalar_time(us)", "aiv_time(us)", "aiv_total_cycles", "aiv_vec_ratio", "aiv_vec_time(us)", "cube_utilization(%)"], "rows": [{"Name": "_mixed_outer2048", "Duration(us)": "192.024", "aicore_time(us)": "190.302", "aic_total_cycles": "2511989", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.032", "aic_scalar_time(us)": "11.335", "aic_scalar_ratio": "0.06", "aic_mte1_time(us)": "7.695", "aic_mte1_ratio": "0.04", "aic_mte2_time(us)": "20.941", "aic_mte2_ratio": "0.11", "aic_fixpipe_time(us)": "21.71", "aic_fixpipe_ratio": "0.114", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "190.421", "aiv_total_cycles": "5027122", "aiv_vec_time(us)": "101.815", "aiv_vec_ratio": "0.535", "aiv_scalar_time(us)": "47.684", "aiv_scalar_ratio": "0.25", "aiv_mte2_time(us)": "77.349", "aiv_mte2_ratio": "0.406", "aiv_mte3_time(us)": "0.403", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.002", "cube_utilization(%)": "39.641"}, {"Name": "_mixed_outer2048", "Duration(us)": "193.584", "aicore_time(us)": "191.753", "aic_total_cycles": "2531142", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.032", "aic_scalar_time(us)": "11.293", "aic_scalar_ratio": "0.059", "aic_mte1_time(us)": "7.62", "aic_mte1_ratio": "0.04", "aic_mte2_time(us)": "21.954", "aic_mte2_ratio": "0.114", "aic_fixpipe_time(us)": "22.279", "aic_fixpipe_ratio": "0.116", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "192.082", "aiv_total_cycles": "5070970", "aiv_vec_time(us)": "101.811", "aiv_vec_ratio": "0.53", "aiv_scalar_time(us)": "47.712", "aiv_scalar_ratio": "0.248", "aiv_mte2_time(us)": "78.523", "aiv_mte2_ratio": "0.409", "aiv_mte3_time(us)": "0.408", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.002", "cube_utilization(%)": "39.622"}, {"Name": "_mixed_outer2048", "Duration(us)": "192.724", "aicore_time(us)": "190.767", "aic_total_cycles": "2518122", "aic_mac_time(us)": "6.128", "aic_mac_ratio": "0.032", "aic_scalar_time(us)": "11.071", "aic_scalar_ratio": "0.058", "aic_mte1_time(us)": "7.692", "aic_mte1_ratio": "0.04", "aic_mte2_time(us)": "20.933", "aic_mte2_ratio": "0.11", "aic_fixpipe_time(us)": "21.796", "aic_fixpipe_ratio": "0.114", "aic_icache_miss_rate": "0.0", "aiv_time(us)": "190.972", "aiv_total_cycles": "5041673", "aiv_vec_time(us)": "101.804", "aiv_vec_ratio": "0.533", "aiv_scalar_time(us)": "47.493", "aiv_scalar_ratio": "0.249", "aiv_mte2_time(us)": "77.945", "aiv_mte2_ratio": "0.408", "aiv_mte3_time(us)": "0.38", "aiv_mte3_ratio": "0.002", "aiv_icache_miss_rate": "0.002", "cube_utilization(%)": "39.594"}, {}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "47.19", "Host Total Duration(us)": "47.19", "Device Self Duration(us)": "192.024", "Device Total Duration(us)": "192.024", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "25.3", "Host Total Duration(us)": "25.3", "Device Self Duration(us)": "193.584", "Device Total Duration(us)": "193.584", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}, {"Name": "_mixed_outer2048", "Host Self Duration(us)": "24.5", "Host Total Duration(us)": "24.5", "Device Self Duration(us)": "192.724", "Device Total Duration(us)": "192.724", "Device Self Duration With AICore(us)": "0", "Device Total Duration With AICore(us)": "0"}]}
+QSA MIXED RECHECK paired speedups: [1.1343810433070562, 1.1357880916870662]
+QSA MIXED OVERLAP: unproven; inspect exported timelines and counters
+QSA QUERY4/16 int8_budget_exact: score speedup=0.5536x; serial speedup=0.6670x
+QSA CANN SERIAL us {"score": 197.9899, "topk": 58.91988333333334, "serial": 268.91625, "production_control": 57.99816666666666, "peer_score": 109.60806666666667, "peer_serial": 179.36741666666666, "mixed_serial": 221.66376666666665, "mixed_double": 195.28391666666667}
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-mixed-recheck.ySoYmXJl/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+  /tmp/flaggems-qsa-mixed-recheck.ySoYmXJl/code/tools/qsa_cann_serial_910b_trial.py:257: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    self.local = torch.empty_like(self.states[0])
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 712.46s (0:11:52)
