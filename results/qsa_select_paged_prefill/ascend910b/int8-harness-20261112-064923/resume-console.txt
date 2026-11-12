@@ -1,0 +1,189 @@
+QSA INT8 acceptance: all ten full cases, candidate stages and CANN V1 fused baseline
+QSA INT8 harness worker: int8_short_tail
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_short_tail
+QSA_INT8_HARNESS_PREFLIGHT_START int8_short_tail control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_short_tail candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_short_tail cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_short_tail", "geometry": {"name": "int8_short_tail", "nv_case": "fp8_short_tail_float8_e4m3fn", "origin": "recorded_envelope", "query_lengths": [2316], "prefix_tokens": [31527], "starts": [0, 2316], "batch_max_seq_len": 33843, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [45], "physical_pages": 45, "table_columns": 45, "q_shape": [2316, 4, 128], "cache_shape": [45, 192, 1, 128], "logits_width": 8512, "chunk_rows": 128, "score_and_dot_scratch_bytes": 21790720, "nv_original_page_size": 196, "nv_original_physical_pages": 2712, "nv_original_table_columns": 88, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 2316, "width": 8512, "sampled_rows": [0, 127, 128, 1158, 2304, 2315], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.009777069091796875, "selected_score_max_rel_error_with_1e_minus3_floor": 0.00023591994249727577, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 19, "direct_page_chunks": 18, "total_chunks": 19, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_short_tail direct_chunks=18 total_chunks=19
+QSA_INT8_HARNESS_STAGE_INPUT int8_short_tail score_bytes=78855168
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            1.705929                 N/A          ('int8_short_tail', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            2.123668                 N/A          ('int8_short_tail', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               2.527643            3.846259               0.657          ('int8_short_tail', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 75.89s (0:01:15)
+QSA INT8 harness worker: int8_compact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_compact
+QSA_INT8_HARNESS_SHORT_SCORE int8_compact query16_chunks=70 bounded_chunks=0 total_chunks=70
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_compact cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_compact", "geometry": {"name": "int8_compact", "nv_case": "fp8_compact_float8_e4m3fn", "origin": "dtype_variant", "query_lengths": [3200, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96, 96], "prefix_tokens": [900, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 3988, 4004, 4004, 4004, 4004, 4004, 4004, 4004, 4004, 4004, 4004, 4004, 4004, 4004, 4004, 4004], "starts": [0, 3200, 3312, 3424, 3536, 3648, 3760, 3872, 3984, 4096, 4208, 4320, 4432, 4544, 4656, 4768, 4880, 4992, 5104, 5216, 5328, 5440, 5552, 5664, 5776, 5888, 6000, 6112, 6224, 6336, 6448, 6560, 6672, 6784, 6896, 7008, 7120, 7232, 7344, 7456, 7552, 7648, 7744, 7840, 7936, 8032, 8128, 8224, 8320, 8416, 8512, 8608, 8704, 8800, 8896], "batch_max_seq_len": 4100, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], "physical_pages": 324, "table_columns": 6, "q_shape": [8896, 4, 128], "cache_shape": [324, 192, 1, 128], "logits_width": 1088, "chunk_rows": 128, "score_and_dot_scratch_bytes": 2785280, "nv_original_page_size": 196, "nv_original_physical_pages": null, "nv_original_table_columns": null, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": true}, "rows": 8896, "width": 1088, "sampled_rows": [0, 127, 128, 1146, 1147, 1148, 3199, 4320, 4431, 4448, 5440, 5551, 6672, 6783, 7744, 7839, 8800, 8832, 8895], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 19, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0020599365234375, "selected_score_max_rel_error_with_1e_minus3_floor": 0.00012891001824755222, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 19, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 70, "direct_page_chunks": 0, "total_chunks": 70, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_compact direct_chunks=0 total_chunks=70
+QSA_INT8_HARNESS_STAGE_INPUT int8_compact score_bytes=38715392
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            2.502948                 N/A          ('int8_compact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            4.021520                 N/A          ('int8_compact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               3.166371            6.850653               0.462          ('int8_compact', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_compact]
+  /tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/benchmark/test_qsa_select_paged_prefill_int8_perf.py:565: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    candidate_scores = torch.empty_like(scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 59.49s
+QSA INT8 harness worker: int8_long100k
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_long100k
+QSA_INT8_HARNESS_PREFLIGHT_START int8_long100k control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_long100k candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_long100k cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_long100k", "geometry": {"name": "int8_long100k", "nv_case": "fp8_long100k_float8_e4m3fn", "origin": "dtype_variant", "query_lengths": [16384], "prefix_tokens": [102400], "starts": [0, 16384], "batch_max_seq_len": 118784, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [155], "physical_pages": 155, "table_columns": 155, "q_shape": [16384, 4, 128], "cache_shape": [155, 192, 1, 128], "logits_width": 29696, "chunk_rows": 112, "score_and_dot_scratch_bytes": 66519040, "nv_original_page_size": 196, "nv_original_physical_pages": null, "nv_original_table_columns": null, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 16384, "width": 29696, "sampled_rows": [0, 111, 112, 8192, 16352, 16383], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.00598907470703125, "selected_score_max_rel_error_with_1e_minus3_floor": 0.00011186485789949074, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 147, "direct_page_chunks": 147, "total_chunks": 147, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_long100k direct_chunks=147 total_chunks=147
+QSA_INT8_HARNESS_STAGE_INPUT int8_long100k score_bytes=1946157056
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           37.892897                 N/A          ('int8_long100k', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           50.650956                 N/A          ('int8_long100k', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              50.233213           89.025406               0.564          ('int8_long100k', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 125.91s (0:02:05)
+case | score ms | TopK ms | combined ms | CANN V1 ms | full speedup | score fraction | stage sum/combined
+int8_first_chunk | 7.027 | 7.653 | 15.539 | 8.041 | 0.517498 | 47.869% | 0.945
+int8_budget_exact | 11.355 | 11.715 | 23.311 | 14.284 | 0.612741 | 49.220% | 0.990
+int8_dominant_long | 10.936 | 14.907 | 25.706 | 14.727 | 0.572914 | 42.318% | 1.005
+int8_tail112 | 10.557 | 15.092 | 25.983 | 14.295 | 0.550182 | 41.159% | 0.987
+int8_tail113 | 10.698 | 14.905 | 25.468 | 14.301 | 0.561546 | 41.784% | 1.005
+int8_two_balanced | 13.980 | 14.979 | 28.810 | 15.570 | 0.540435 | 48.275% | 1.005
+int8_two_skewed | 13.419 | 15.419 | 28.541 | 14.533 | 0.509202 | 46.533% | 1.010
+int8_short_tail | 1.706 | 2.124 | 3.846 | 2.528 | 0.657169 | 44.546% | 0.996
+int8_compact | 2.503 | 4.022 | 6.851 | 3.166 | 0.462200 | 38.362% | 0.952
+int8_long100k | 37.893 | 50.651 | 89.025 | 50.233 | 0.564257 | 42.796% | 0.995
+QSA INT8 harness kernel arithmetic mean (10 full cases): 0.554814x [TopK auto]

@@ -1,0 +1,1438 @@
+{
+  "exit_code": 0,
+  "mode": "kernel",
+  "benchmark": "qsa_select_paged_prefill_int8_910b",
+  "baseline": "torch_npu.npu_quant_lightning_indexer (CANN V1)",
+  "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+  "topk_policy": "auto",
+  "cases": [
+    {
+      "case": "int8_first_chunk",
+      "baseline_ms": 8.041386166666667,
+      "candidate_ms": 15.538964966666667,
+      "speedup": 0.517498184976709,
+      "topk_route": "auto",
+      "score_ms": 7.027456433333334,
+      "topk_ms": 7.653179033333333,
+      "score_fraction_of_isolated_sum": 0.47868884485890467,
+      "isolated_sum_over_combined": 0.9447627623949703
+    },
+    {
+      "case": "int8_budget_exact",
+      "baseline_ms": 14.283603666666666,
+      "candidate_ms": 23.3110068,
+      "speedup": 0.6127407447140664,
+      "topk_route": "auto",
+      "score_ms": 11.355305099999999,
+      "topk_ms": 11.715438,
+      "score_fraction_of_isolated_sum": 0.49219503033692913,
+      "isolated_sum_over_combined": 0.989693122134905
+    },
+    {
+      "case": "int8_dominant_long",
+      "baseline_ms": 14.727141866666667,
+      "candidate_ms": 25.705682366666668,
+      "speedup": 0.5729138661482799,
+      "topk_route": "auto",
+      "score_ms": 10.93641,
+      "topk_ms": 14.906696433333334,
+      "score_fraction_of_isolated_sum": 0.4231848066799679,
+      "isolated_sum_over_combined": 1.0053460579146059
+    },
+    {
+      "case": "int8_tail112",
+      "baseline_ms": 14.295452566666667,
+      "candidate_ms": 25.9831352,
+      "speedup": 0.5501819721380916,
+      "topk_route": "auto",
+      "score_ms": 10.556601800000001,
+      "topk_ms": 15.0916324,
+      "score_fraction_of_isolated_sum": 0.41159175784506835,
+      "isolated_sum_over_combined": 0.987110831798312
+    },
+    {
+      "case": "int8_tail113",
+      "baseline_ms": 14.301214033333332,
+      "candidate_ms": 25.467577966666664,
+      "speedup": 0.5615459016971119,
+      "topk_route": "auto",
+      "score_ms": 10.697864599999999,
+      "topk_ms": 14.904904466666666,
+      "score_fraction_of_isolated_sum": 0.41784013956240396,
+      "isolated_sum_over_combined": 1.0053083610925604
+    },
+    {
+      "case": "int8_two_balanced",
+      "baseline_ms": 15.570124733333332,
+      "candidate_ms": 28.8103778,
+      "speedup": 0.5404345906679964,
+      "topk_route": "auto",
+      "score_ms": 13.979743266666668,
+      "topk_ms": 14.978868866666668,
+      "score_fraction_of_isolated_sum": 0.48274907658903415,
+      "isolated_sum_over_combined": 1.0051451714504533
+    },
+    {
+      "case": "int8_two_skewed",
+      "baseline_ms": 14.532934,
+      "candidate_ms": 28.540583633333334,
+      "speedup": 0.5092024110896802,
+      "topk_route": "auto",
+      "score_ms": 13.4193476,
+      "topk_ms": 15.419033933333333,
+      "score_fraction_of_isolated_sum": 0.4653294285772944,
+      "isolated_sum_over_combined": 1.0104341909691081
+    },
+    {
+      "case": "int8_short_tail",
+      "baseline_ms": 2.527642566666667,
+      "candidate_ms": 3.8462585333333332,
+      "speedup": 0.6571691800644777,
+      "topk_route": "auto",
+      "score_ms": 1.7059287666666667,
+      "topk_ms": 2.1236682333333334,
+      "score_fraction_of_isolated_sum": 0.4454590826832867,
+      "isolated_sum_over_combined": 0.9956681192413518
+    },
+    {
+      "case": "int8_compact",
+      "baseline_ms": 3.1663713333333336,
+      "candidate_ms": 6.850653366666666,
+      "speedup": 0.46219990471857725,
+      "topk_route": "auto",
+      "score_ms": 2.5029480333333334,
+      "topk_ms": 4.021519533333334,
+      "score_fraction_of_isolated_sum": 0.3836248717245265,
+      "isolated_sum_over_combined": 0.9523861765379742
+    },
+    {
+      "case": "int8_long100k",
+      "baseline_ms": 50.23321266666667,
+      "candidate_ms": 89.02540606666666,
+      "speedup": 0.5642570462307078,
+      "topk_route": "auto",
+      "score_ms": 37.8928972,
+      "topk_ms": 50.650955833333335,
+      "score_fraction_of_isolated_sum": 0.4279562714052526,
+      "isolated_sum_over_combined": 0.9945908358679912
+    }
+  ],
+  "arithmetic_mean_speedup": 0.5548143802445699,
+  "stage_profile": true,
+  "stage_scope": "Candidate-only score and TopK measured separately with the stock harness; TopK reads materialized scores. CANN V1 is measured as a fused operator.",
+  "acceptance_stages": true,
+  "acceptance_scope": "All ten full inputs; arithmetic mean of stock harness kernel fused-call speedups",
+  "correctness_scope": "All-row output structure; CPU selected-score reference on recorded sample rows; all-chunk scorer control comparison where query16 is active",
+  "correctness_records": {
+    "int8_first_chunk": {
+      "case": "int8_first_chunk",
+      "geometry": {
+        "name": "int8_first_chunk",
+        "nv_case": "fp8_first_chunk_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          0
+        ],
+        "starts": [
+          0,
+          16384
+        ],
+        "batch_max_seq_len": 16384,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          22
+        ],
+        "physical_pages": 22,
+        "table_columns": 22,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          22,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 4096,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 10485760,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 16384,
+      "width": 4096,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        2046,
+        2047,
+        2048,
+        8192,
+        16256,
+        16383
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 9,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 9,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 128,
+      "direct_page_chunks": 0,
+      "total_chunks": 128,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_budget_exact": {
+      "case": "int8_budget_exact",
+      "geometry": {
+        "name": "int8_budget_exact",
+        "nv_case": "fp8_budget_exact_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          16384
+        ],
+        "starts": [
+          0,
+          16384
+        ],
+        "batch_max_seq_len": 32768,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          43
+        ],
+        "physical_pages": 43,
+        "table_columns": 43,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          43,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8192,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 20971520,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 16384,
+      "width": 8192,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8192,
+        16256,
+        16383
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.003814697265625,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.00010177588410442695,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 128,
+      "direct_page_chunks": 128,
+      "total_chunks": 128,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_dominant_long": {
+      "case": "int8_dominant_long",
+      "geometry": {
+        "name": "int8_dominant_long",
+        "nv_case": "fp8_dominant_long_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16331
+        ],
+        "prefix_tokens": [
+          17511
+        ],
+        "starts": [
+          0,
+          16331
+        ],
+        "batch_max_seq_len": 33842,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          45
+        ],
+        "physical_pages": 45,
+        "table_columns": 45,
+        "q_shape": [
+          16331,
+          4,
+          128
+        ],
+        "cache_shape": [
+          45,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8512,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 21790720,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 16331,
+      "width": 8512,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8165,
+        16256,
+        16330
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 128,
+      "direct_page_chunks": 127,
+      "total_chunks": 128,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_tail112": {
+      "case": "int8_tail112",
+      "geometry": {
+        "name": "int8_tail112",
+        "nv_case": "fp8_tail112_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16368
+        ],
+        "prefix_tokens": [
+          16485
+        ],
+        "starts": [
+          0,
+          16368
+        ],
+        "batch_max_seq_len": 32853,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          43
+        ],
+        "physical_pages": 43,
+        "table_columns": 43,
+        "q_shape": [
+          16368,
+          4,
+          128
+        ],
+        "cache_shape": [
+          43,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8256,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 21135360,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 16368,
+      "width": 8256,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8184,
+        16256,
+        16367
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0064849853515625,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.00018945903866551816,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 128,
+      "direct_page_chunks": 128,
+      "total_chunks": 128,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_tail113": {
+      "case": "int8_tail113",
+      "geometry": {
+        "name": "int8_tail113",
+        "nv_case": "fp8_tail113_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16369
+        ],
+        "prefix_tokens": [
+          16482
+        ],
+        "starts": [
+          0,
+          16369
+        ],
+        "batch_max_seq_len": 32851,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          43
+        ],
+        "physical_pages": 43,
+        "table_columns": 43,
+        "q_shape": [
+          16369,
+          4,
+          128
+        ],
+        "cache_shape": [
+          43,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8256,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 21135360,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 16369,
+      "width": 8256,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8184,
+        16256,
+        16368
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 128,
+      "direct_page_chunks": 127,
+      "total_chunks": 128,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_two_balanced": {
+      "case": "int8_two_balanced",
+      "geometry": {
+        "name": "int8_two_balanced",
+        "nv_case": "fp8_two_balanced_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          10371,
+          5958
+        ],
+        "prefix_tokens": [
+          22561,
+          26974
+        ],
+        "starts": [
+          0,
+          10371,
+          16329
+        ],
+        "batch_max_seq_len": 32932,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          43,
+          43
+        ],
+        "physical_pages": 86,
+        "table_columns": 43,
+        "q_shape": [
+          16329,
+          4,
+          128
+        ],
+        "cache_shape": [
+          86,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8256,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 21135360,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 16329,
+      "width": 8256,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8164,
+        10370,
+        10371,
+        16256,
+        16328
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 8,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 8,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 127,
+      "direct_page_chunks": 126,
+      "total_chunks": 128,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_two_skewed": {
+      "case": "int8_two_skewed",
+      "geometry": {
+        "name": "int8_two_skewed",
+        "nv_case": "fp8_two_skewed_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          16330,
+          54
+        ],
+        "prefix_tokens": [
+          16492,
+          32768
+        ],
+        "starts": [
+          0,
+          16330,
+          16384
+        ],
+        "batch_max_seq_len": 32822,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          43,
+          43
+        ],
+        "physical_pages": 86,
+        "table_columns": 43,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          86,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8256,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 21135360,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 16384,
+      "width": 8256,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        8192,
+        16256,
+        16329,
+        16330,
+        16383
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 8,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.000148773193359375,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 3.5525642942957347e-06,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 8,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 127,
+      "direct_page_chunks": 127,
+      "total_chunks": 128,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_short_tail": {
+      "case": "int8_short_tail",
+      "geometry": {
+        "name": "int8_short_tail",
+        "nv_case": "fp8_short_tail_float8_e4m3fn",
+        "origin": "recorded_envelope",
+        "query_lengths": [
+          2316
+        ],
+        "prefix_tokens": [
+          31527
+        ],
+        "starts": [
+          0,
+          2316
+        ],
+        "batch_max_seq_len": 33843,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          45
+        ],
+        "physical_pages": 45,
+        "table_columns": 45,
+        "q_shape": [
+          2316,
+          4,
+          128
+        ],
+        "cache_shape": [
+          45,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 8512,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 21790720,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": 2712,
+        "nv_original_table_columns": 88,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 2316,
+      "width": 8512,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        1158,
+        2304,
+        2315
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.009777069091796875,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.00023591994249727577,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 19,
+      "direct_page_chunks": 18,
+      "total_chunks": 19,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_compact": {
+      "case": "int8_compact",
+      "geometry": {
+        "name": "int8_compact",
+        "nv_case": "fp8_compact_float8_e4m3fn",
+        "origin": "dtype_variant",
+        "query_lengths": [
+          3200,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          112,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96,
+          96
+        ],
+        "prefix_tokens": [
+          900,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          3988,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004,
+          4004
+        ],
+        "starts": [
+          0,
+          3200,
+          3312,
+          3424,
+          3536,
+          3648,
+          3760,
+          3872,
+          3984,
+          4096,
+          4208,
+          4320,
+          4432,
+          4544,
+          4656,
+          4768,
+          4880,
+          4992,
+          5104,
+          5216,
+          5328,
+          5440,
+          5552,
+          5664,
+          5776,
+          5888,
+          6000,
+          6112,
+          6224,
+          6336,
+          6448,
+          6560,
+          6672,
+          6784,
+          6896,
+          7008,
+          7120,
+          7232,
+          7344,
+          7456,
+          7552,
+          7648,
+          7744,
+          7840,
+          7936,
+          8032,
+          8128,
+          8224,
+          8320,
+          8416,
+          8512,
+          8608,
+          8704,
+          8800,
+          8896
+        ],
+        "batch_max_seq_len": 4100,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "physical_pages": 324,
+        "table_columns": 6,
+        "q_shape": [
+          8896,
+          4,
+          128
+        ],
+        "cache_shape": [
+          324,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 1088,
+        "chunk_rows": 128,
+        "score_and_dot_scratch_bytes": 2785280,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": null,
+        "nv_original_table_columns": null,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": true
+      },
+      "rows": 8896,
+      "width": 1088,
+      "sampled_rows": [
+        0,
+        127,
+        128,
+        1146,
+        1147,
+        1148,
+        3199,
+        4320,
+        4431,
+        4448,
+        5440,
+        5551,
+        6672,
+        6783,
+        7744,
+        7839,
+        8800,
+        8832,
+        8895
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 19,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0020599365234375,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.00012891001824755222,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 19,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 70,
+      "direct_page_chunks": 0,
+      "total_chunks": 70,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    },
+    "int8_long100k": {
+      "case": "int8_long100k",
+      "geometry": {
+        "name": "int8_long100k",
+        "nv_case": "fp8_long100k_float8_e4m3fn",
+        "origin": "dtype_variant",
+        "query_lengths": [
+          16384
+        ],
+        "prefix_tokens": [
+          102400
+        ],
+        "starts": [
+          0,
+          16384
+        ],
+        "batch_max_seq_len": 118784,
+        "heads": 4,
+        "dim": 128,
+        "ratio": 4,
+        "k": 512,
+        "dtype": "int8",
+        "page_size": 192,
+        "pages_per_request": [
+          155
+        ],
+        "physical_pages": 155,
+        "table_columns": 155,
+        "q_shape": [
+          16384,
+          4,
+          128
+        ],
+        "cache_shape": [
+          155,
+          192,
+          1,
+          128
+        ],
+        "logits_width": 29696,
+        "chunk_rows": 112,
+        "score_and_dot_scratch_bytes": 66519040,
+        "nv_original_page_size": 196,
+        "nv_original_physical_pages": null,
+        "nv_original_table_columns": null,
+        "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage",
+        "query_lengths_synthetic": false
+      },
+      "rows": 16384,
+      "width": 29696,
+      "sampled_rows": [
+        0,
+        111,
+        112,
+        8192,
+        16352,
+        16383
+      ],
+      "accuracy": {
+        "CANN V1": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.00598907470703125,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.00011186485789949074,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        },
+        "candidate": {
+          "checked_all_rows": true,
+          "rows": 6,
+          "checks_passed": true,
+          "failures": [],
+          "selected_score_max_abs_error": 0.0,
+          "selected_score_max_rel_error_with_1e_minus3_floor": 0.0,
+          "rtol": 0.001,
+          "atol": 0.001,
+          "ordering_and_tied_index_identity_required": false
+        }
+      },
+      "structure": "CANN V1/control/candidate checked on every output row",
+      "scoring": "Every chunk compared to frozen scorer when query16 is active",
+      "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+      "topk_policy": "auto",
+      "topk_route": "auto",
+      "topk_identity": {
+        "source": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py",
+        "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211",
+        "utility": "/tmp/flaggems-qsa-acceptance-resume.PvRQ486p/code/src/flaggems_vllm/utils/triton_version_utils.py",
+        "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d",
+        "has_tle": true,
+        "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"
+      },
+      "query16_chunks": 147,
+      "direct_page_chunks": 147,
+      "total_chunks": 147,
+      "source_sha256": {
+        "tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7",
+        "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962",
+        "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656",
+        "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f",
+        "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0",
+        "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"
+      }
+    }
+  }
+}
