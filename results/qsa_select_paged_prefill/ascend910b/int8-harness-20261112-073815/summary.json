@@ -1,0 +1,63 @@
+{
+  "exit_code": 0,
+  "error": null,
+  "probe": {
+    "status": "completed",
+    "outcome": "blocked_launch_control",
+    "stages": [
+      {
+        "mode": 0,
+        "label": "launch_control",
+        "phase": "compilation",
+        "status": "compile_failed",
+        "error": "Traceback (most recent call last):\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 330, in compile\n    next_module = compile_ir(module, metadata)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 1130, in <lambda>\n    stages[\"ttadapter\"] = lambda src, metadata: ttir_to_linalg(src, metadata, options, named_ops=True)\n                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 191, in ttir_to_linalg\n    pm.run(mod)\nRuntimeError: PassManager::run failed\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/flaggems-qsa-explicit-output.rhZRlR2k/code/tools/probe_qsa_explicit_cube_handoff_910b.py\", line 254, in run_probe\n    kernel = module.explicit.warmup(*args, grid=(1,), **kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 804, in warmup\n    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 736, in run\n    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 864, in _do_compile\n    kernel = self.compile(src, target=target, options=options.__dict__)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py\", line 83, in tle_compile\n    compiled_kernel = original_compile_fn(src, target, options)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 351, in compile\n    raise MLIRCompilationError(stage_name, error_detail) from e\ntriton.compiler.errors.MLIRCompilationError: \n///------------------[ERROR][Triton][BEG]------------------\n[ConvertTritonIRToLinalgIR] encounters error:\nPassManager::run failed\n\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-explicit-output.rhZRlR2k/cache/QTFZJKLKBUQY6NOIWQUL2HNIKUMUIJCDJ3WWXAY2SCIM6WHBK2YQ\n\n///------------------[ERROR][Triton][END]------------------\n\n",
+        "compiler_calls": []
+      }
+    ],
+    "timings": {},
+    "scope": "One program M16/K128/N64; explicit low-level API feasibility, no full operator acceptance",
+    "numerical_contract": "Small signed INT8 values; QK exact INT32; FP16 cast/ReLU then half weights with FP32 accumulation, rtol/atol1e-3; does not reproduce CANN DEQF16 scale flag",
+    "api": {
+      "tile_cube_launch": {
+        "present": true,
+        "signature": "(a: triton.experimental.tle.language.dsa.types.buffer, b: triton.experimental.tle.language.dsa.types.buffer, acc: triton.experimental.tle.language.dsa.types.buffer, stage_a: triton.experimental.tle.language.dsa.types.buffer, stage_b: triton.experimental.tle.language.dsa.types.buffer, dst, transpose_a: bool = False, transpose_b: bool = False, init: bool = False, mma: str = '', _semantic=None, _generator=None)"
+      },
+      "tile_cube_wait": {
+        "present": true,
+        "signature": "(_semantic=None, _generator=None)"
+      },
+      "alloc": {
+        "present": true,
+        "signature": "(shape: List[triton.language.core.constexpr], dtype: triton.language.core.dtype, mem_addr_space: triton.experimental.tle.language.dsa.types.address_space, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer"
+      },
+      "copy": {
+        "present": true,
+        "signature": "(src, dst, shape, inter_no_alias=False, _semantic=None)"
+      },
+      "to_tensor": {
+        "present": true,
+        "signature": "(memref: triton.experimental.tle.language.dsa.types.buffer, writable: bool = True, target_shape=None, _semantic=None) -> triton.language.core.tensor"
+      },
+      "to_buffer": {
+        "present": true,
+        "signature": "(tensor: triton.language.core.tensor, space: triton.experimental.tle.language.dsa.types.address_space = None, bind_buffer: triton.experimental.tle.language.dsa.types.buffer = None, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer"
+      }
+    },
+    "output_representation": "Caller-owned tl.make_block_ptr passed directly as cube_launch dst; no GM enum allocation; backend acceptance checked by launch_control",
+    "environment": {
+      "torch": "2.10.0+cpu",
+      "triton": "3.5.1",
+      "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+      "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0"
+    },
+    "device": "Ascend910B4-1",
+    "source_triton": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "inputs": {
+      "raw_min": -4099,
+      "raw_max": 4099,
+      "negative_elements": 521
+    }
+  },
+  "pipeline_proven": false,
+  "arithmetic_mean_speedup": null
+}

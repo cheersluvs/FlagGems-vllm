@@ -1,0 +1,49 @@
+
+import triton
+import triton.language as tl
+import triton.experimental.tle as tle
+
+@triton.jit
+def explicit(A, B, W, Out, M:tl.constexpr, K:tl.constexpr, N:tl.constexpr,
+             MODE:tl.constexpr):
+    a = tle.dsa.alloc([M,K], tl.int8, tle.dsa.ascend.L1)
+    b = tle.dsa.alloc([K,N], tl.int8, tle.dsa.ascend.L1)
+    sa = tle.dsa.alloc([M,K], tl.int8, tle.dsa.ascend.L0A)
+    sb = tle.dsa.alloc([K,N], tl.int8, tle.dsa.ascend.L0B)
+    acc = tle.dsa.alloc([M,N], tl.int32, tle.dsa.ascend.L0C)
+    ap = tl.make_block_ptr(A, (M,K), (K,1), (0,0), (M,K), (1,0))
+    bp = tl.make_block_ptr(B, (K,N), (N,1), (0,0), (K,N), (1,0))
+    tle.dsa.copy(ap, a, [M,K])
+    tle.dsa.copy(bp, b, [K,N])
+    if MODE == 0:
+        op = tl.make_block_ptr(Out, (M,N), (N,1), (0,0), (M,N), (1,0))
+        tle.dsa.tile_cube_launch(a,b,acc,sa,sb,op,init=True)
+        tle.dsa.tile_cube_wait()
+    else:
+        middle = tle.dsa.alloc([M,N], tl.float16, tle.dsa.ascend.L1)
+        tle.dsa.tile_cube_launch(a,b,acc,sa,sb,middle,init=True)
+        tle.dsa.tile_cube_wait()
+        if MODE == 2:
+            positive = tl.maximum(tle.dsa.to_tensor(middle), 0.0).to(tl.float16)
+            middle = tle.dsa.to_buffer(positive, space=tle.dsa.ascend.L1)
+        weight = tle.dsa.alloc([M,M], tl.float16, tle.dsa.ascend.L1)
+        wp = tl.make_block_ptr(W, (M,M), (M,1), (0,0), (M,M), (1,0))
+        tle.dsa.copy(wp, weight, [M,M])
+        wa = tle.dsa.alloc([M,M], tl.float16, tle.dsa.ascend.L0A)
+        wb = tle.dsa.alloc([M,N], tl.float16, tle.dsa.ascend.L0B)
+        acc2 = tle.dsa.alloc([M,N], tl.float32, tle.dsa.ascend.L0C)
+        op = tl.make_block_ptr(Out, (M,N), (N,1), (0,0), (M,N), (1,0))
+        tle.dsa.tile_cube_launch(weight,middle,acc2,wa,wb,op,init=True)
+        tle.dsa.tile_cube_wait()
+
+@triton.jit
+def reference(A, B, W, Out, M:tl.constexpr, K:tl.constexpr, N:tl.constexpr):
+    m=tl.arange(0,M)
+    k=tl.arange(0,K)
+    n=tl.arange(0,N)
+    dot=tl.dot(tl.load(A+m[:,None]*K+k[None,:]),
+               tl.load(B+k[:,None]*N+n[None,:]),out_dtype=tl.int32)
+    positive=tl.maximum(dot.to(tl.float32),0.0).to(tl.float16)
+    w=tl.load(W+m[:,None]*M+m[None,:])
+    result=tl.dot(w,positive,out_dtype=tl.float32)
+    tl.store(Out+m[:,None]*N+n[None,:],result)

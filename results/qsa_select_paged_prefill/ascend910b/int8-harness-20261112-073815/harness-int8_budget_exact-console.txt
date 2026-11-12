@@ -1,0 +1,72 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+/tmp/qsa-ascend910b-int8-harness.qQKY6LSq/explicit-cube-kernels.py:19:64: error: failed to legalize unresolved materialization from ('memref<16x64xi32, strided<[64, 1], offset: ?>>') to ('!tt.ptr<tensor<16x64xi32>>') that remained live after conversion
+        op = tl.make_block_ptr(Out, (M,N), (N,1), (0,0), (M,N), (1,0))
+                                                               ^
+/tmp/qsa-ascend910b-int8-harness.qQKY6LSq/explicit-cube-kernels.py:20:47: note: see existing live user here: tile.cube_launch a(%alloc) b(%alloc_0) acc(%alloc_3) stage_a(%alloc_1) stage_b(%alloc_2) dst(%22) {init} : (memref<16x128xi8, #hivm.address_space<cbuf>>, memref<128x64xi8, #hivm.address_space<cbuf>>, memref<16x64xi32, #hivm.address_space<cc>>, memref<16x128xi8, #hivm.address_space<ca>>, memref<128x64xi8, #hivm.address_space<cb>>, <tensor<16x64xi32>>)
+        tle.dsa.tile_cube_launch(a,b,acc,sa,sb,op,init=True)
+                                              ^
+/tmp/qsa-ascend910b-int8-harness.qQKY6LSq/explicit-cube-kernels.py:7:0: error: failed to apply Conversion Patterns
+module attributes {hacc.target = #hacc.target<"Ascend910B4-1">} {
+  tt.func public @explicit(%arg0: !tt.ptr<i8> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<i8> {tt.divisibility = 16 : i32}, %arg2: !tt.ptr<f16> {tt.divisibility = 16 : i32}, %arg3: !tt.ptr<i32> {tt.divisibility = 16 : i32}) attributes {noinline = false} {
+    %c64_i64 = arith.constant 64 : i64
+    %c0_i32 = arith.constant 0 : i32
+    %c1_i64 = arith.constant 1 : i64
+    %c128_i64 = arith.constant 128 : i64
+    %c16_i64 = arith.constant 16 : i64
+    %0 = tile.alloc {space = 1 : i64} : <[16, 128], i8, l1>
+    %1 = tile.alloc {space = 1 : i64} : <[128, 64], i8, l1>
+    %2 = tile.alloc {space = 2 : i64} : <[16, 128], i8, l0a>
+    %3 = tile.alloc {space = 3 : i64} : <[128, 64], i8, l0b>
+    %4 = tile.alloc {space = 4 : i64} : <[16, 64], i32, l0c>
+    %5 = tt.make_tensor_ptr %arg0, [%c16_i64, %c128_i64], [%c128_i64, %c1_i64], [%c0_i32, %c0_i32] {order = array<i32: 1, 0>} : <tensor<16x128xi8>>
+    %6 = tt.make_tensor_ptr %arg1, [%c128_i64, %c64_i64], [%c64_i64, %c1_i64], [%c0_i32, %c0_i32] {order = array<i32: 1, 0>} : <tensor<128x64xi8>>
+    tile.copy %5 -> %0 : !tt.ptr<tensor<16x128xi8>>, !tile.buf<[16, 128], i8, l1>
+    tile.copy %6 -> %1 : !tt.ptr<tensor<128x64xi8>>, !tile.buf<[128, 64], i8, l1>
+    %7 = tt.make_tensor_ptr %arg3, [%c16_i64, %c64_i64], [%c64_i64, %c1_i64], [%c0_i32, %c0_i32] {order = array<i32: 1, 0>} : <tensor<16x64xi32>>
+    tile.cube_launch a(%0) b(%1) acc(%4) stage_a(%2) stage_b(%3) dst(%7) {init} : (!tile.buf<[16, 128], i8, l1>, !tile.buf<[128, 64], i8, l1>, !tile.buf<[16, 64], i32, l0c>, !tile.buf<[16, 128], i8, l0a>, !tile.buf<[128, 64], i8, l0b>, <tensor<16x64xi32>>)
+    tile.cube_wait
+    tt.return
+  }
+}
+
+{-#
+  external_resources: {
+    mlir_reproducer: {
+      pipeline: "builtin.module(auto-blockify{auto-blockify-size=1}, commonir-to-hivm, inline{default-pipeline=canonicalize inlining-threshold=4294967295 max-iterations=4 }, canonicalize{  max-iterations=10 max-num-rewrites=-1 region-simplify=normal test-convergence=false top-down=true}, triton-to-structured-incubated{enable-mask-fallback-conversion=false optimize-dynamic-offset=false}, discrete-mask-access-conversion{compile-on-910-95=false enable-sync-block-lock=false force-simt-template=false}, triton-to-annotation, triton-to-unstructure-incubated{compile-on-910-95=false force-scalarize-mode=false force-simt-template=false}, triton-to-hivm, triton-to-hfusion, triton-to-llvm, bubble-up-operation{enable-aggressive-mode=true}, triton-to-structured-incubated{enable-mask-fallback-conversion=false optimize-dynamic-offset=false}, reduce-sum-strength{enable=false split-factor=2}, triton-to-linalg-incubated{compile-on-910-95=false enable-nd2nz-on-vector=false enable-select-analysis=true global-kernel=false named-ops=true}, commonir-to-hivm, canonicalize{  max-iterations=10 max-num-rewrites=-1 region-simplify=normal test-convergence=false top-down=true}, cse, symbol-dce)",
+      disable_threading: false,
+      verify_each: true
+    }
+  }
+#-}
+/tmp/qsa-ascend910b-int8-harness.qQKY6LSq/explicit-cube-kernels.py:7:0: error: Failures have been detected while processing an MLIR pass pipeline
+/tmp/qsa-ascend910b-int8-harness.qQKY6LSq/explicit-cube-kernels.py:7:0: note: Pipeline failed while executing [`TritonToLinalgIncubated` on 'builtin.module' operation]: reproducer generated at `std::errs, please share the reproducer above with Triton project.`
+EXPLICIT_CUBE_RESULT {"status": "completed", "outcome": "blocked_launch_control", "stages": [{"mode": 0, "label": "launch_control", "phase": "compilation", "status": "compile_failed", "error": "Traceback (most recent call last):\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 330, in compile\n    next_module = compile_ir(module, metadata)\n                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 1130, in <lambda>\n    stages[\"ttadapter\"] = lambda src, metadata: ttir_to_linalg(src, metadata, options, named_ops=True)\n                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/compiler.py\", line 191, in ttir_to_linalg\n    pm.run(mod)\nRuntimeError: PassManager::run failed\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/tmp/flaggems-qsa-explicit-output.rhZRlR2k/code/tools/probe_qsa_explicit_cube_handoff_910b.py\", line 254, in run_probe\n    kernel = module.explicit.warmup(*args, grid=(1,), **kwargs)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 804, in warmup\n    return self.run(grid=grid, warmup=True, *map(MockTensor.wrap_dtype, args), **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 736, in run\n    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/runtime/jit.py\", line 864, in _do_compile\n    kernel = self.compile(src, target=target, options=options.__dict__)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py\", line 83, in tle_compile\n    compiled_kernel = original_compile_fn(src, target, options)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/spec/ascend/compiler/compiler.py\", line 351, in compile\n    raise MLIRCompilationError(stage_name, error_detail) from e\ntriton.compiler.errors.MLIRCompilationError: \n///------------------[ERROR][Triton][BEG]------------------\n[ConvertTritonIRToLinalgIR] encounters error:\nPassManager::run failed\n\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-explicit-output.rhZRlR2k/cache/QTFZJKLKBUQY6NOIWQUL2HNIKUMUIJCDJ3WWXAY2SCIM6WHBK2YQ\n\n///------------------[ERROR][Triton][END]------------------\n\n", "compiler_calls": []}], "timings": {}, "scope": "One program M16/K128/N64; explicit low-level API feasibility, no full operator acceptance", "numerical_contract": "Small signed INT8 values; QK exact INT32; FP16 cast/ReLU then half weights with FP32 accumulation, rtol/atol1e-3; does not reproduce CANN DEQF16 scale flag", "api": {"tile_cube_launch": {"present": true, "signature": "(a: triton.experimental.tle.language.dsa.types.buffer, b: triton.experimental.tle.language.dsa.types.buffer, acc: triton.experimental.tle.language.dsa.types.buffer, stage_a: triton.experimental.tle.language.dsa.types.buffer, stage_b: triton.experimental.tle.language.dsa.types.buffer, dst, transpose_a: bool = False, transpose_b: bool = False, init: bool = False, mma: str = '', _semantic=None, _generator=None)"}, "tile_cube_wait": {"present": true, "signature": "(_semantic=None, _generator=None)"}, "alloc": {"present": true, "signature": "(shape: List[triton.language.core.constexpr], dtype: triton.language.core.dtype, mem_addr_space: triton.experimental.tle.language.dsa.types.address_space, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer"}, "copy": {"present": true, "signature": "(src, dst, shape, inter_no_alias=False, _semantic=None)"}, "to_tensor": {"present": true, "signature": "(memref: triton.experimental.tle.language.dsa.types.buffer, writable: bool = True, target_shape=None, _semantic=None) -> triton.language.core.tensor"}, "to_buffer": {"present": true, "signature": "(tensor: triton.language.core.tensor, space: triton.experimental.tle.language.dsa.types.address_space = None, bind_buffer: triton.experimental.tle.language.dsa.types.buffer = None, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer"}}, "output_representation": "Caller-owned tl.make_block_ptr passed directly as cube_launch dst; no GM enum allocation; backend acceptance checked by launch_control", "environment": {"torch": "2.10.0+cpu", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0"}, "device": "Ascend910B4-1", "source_triton": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "inputs": {"raw_min": -4099, "raw_max": 4099, "negative_elements": 521}}
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-explicit-output.rhZRlR2k/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 5.87s
