@@ -618,9 +618,49 @@ def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
         assert torch.equal(original, selected), f"{name}: candidate indices differ"
         samples = sample_rows(plan)
         refs = [cpu_score(inputs, row)[1] for row in samples]
+        accuracy_checks = {}
         for label, indices in (("CANN V1", expected), ("candidate", selected)):
             checks, _ = check_selection(indices[samples], refs)
             assert checks["checks_passed"], (name, label, checks)
+            accuracy_checks[label] = checks
+        if os.environ.get("QSA_HARNESS_ACCEPTANCE") == "1":
+            source_paths = [
+                "tools/qsa_int8_shared_map_selection_910b_trial.py",
+                "tools/qsa_int8_selection_910b_trial.py",
+                "tools/qsa_int8_query_pack4_910b.py",
+                "tools/probe_qsa_int8_score_sol_910b.py",
+                "tools/qsa_int8_ten_workloads_910b.py",
+                "tools/qsa_prefill_fp8_workloads.py",
+            ]
+            record = dict(
+                case=name,
+                geometry=plan,
+                rows=rows,
+                width=width,
+                sampled_rows=samples,
+                accuracy=accuracy_checks,
+                structure="CANN V1/control/candidate checked on every output row",
+                scoring="Every chunk compared to frozen scorer when query16 is active",
+                candidate="Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+                topk_policy=policy,
+                topk_route=route,
+                topk_identity=topk.probe_identity,
+                query16_chunks=sum(candidate.query16_routes.values()),
+                direct_page_chunks=sum(
+                    r in ("bounded", "full")
+                    for r in candidate.direct_page_routes.values()
+                ),
+                total_chunks=len(candidate.chunks),
+                source_sha256={
+                    path: hashlib.sha256((root / path).read_bytes()).hexdigest()
+                    for path in source_paths
+                },
+            )
+            report_dir = Path(os.environ["QSA_HARNESS_REPORT"])
+            (report_dir / f"{name}-acceptance-checks.json").write_text(
+                json.dumps(record, indent=2)
+            )
+            print("QSA_INT8_ACCEPTANCE_CHECKS " + json.dumps(record), flush=True)
         print(
             f"QSA_INT8_HARNESS_PREFLIGHT {name} "
             f"direct_chunks={sum(r in ('bounded', 'full') for r in candidate.direct_page_routes.values())} "

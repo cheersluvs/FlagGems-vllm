@@ -48,6 +48,7 @@ def merge_case_reports(
     directory,
     *,
     stages=False,
+    acceptance_stages=False,
     tile_handoff=False,
     group_visible=False,
     group_visible_wall=False,
@@ -58,7 +59,7 @@ def merge_case_reports(
     for case in cases():
         name = case["name"]
         if (
-            (stages and name not in STAGE_CASES)
+            (stages and not acceptance_stages and name not in STAGE_CASES)
             or (tile_handoff and name != TILE_HANDOFF_CASE)
             or (group_visible and name not in GROUP_VISIBLE_CASES)
             or (group_visible_wall and name not in GROUP_VISIBLE_WALL_CASES)
@@ -111,11 +112,18 @@ def summarize(
     pytest_exit_code,
     *,
     stages=False,
+    acceptance_stages=False,
     short_score=False,
     tile_handoff=False,
     group_visible=False,
     group_visible_wall=False,
 ):
+    if acceptance_stages and (
+        not stages or short_score or tile_handoff or group_visible or group_visible_wall
+    ):
+        raise ValueError(
+            "Full acceptance requires all ten ordinary cases with candidate-only stage timing"
+        )
     if pytest_exit_code != 0:
         raise ValueError(f"pytest returned {pytest_exit_code}")
     entry = report[OP_NAME]
@@ -124,7 +132,7 @@ def summarize(
     expected = {
         case["name"]: case
         for case in cases()
-        if (not stages or case["name"] in STAGE_CASES)
+        if (not stages or acceptance_stages or case["name"] in STAGE_CASES)
         and (not tile_handoff or case["name"] == TILE_HANDOFF_CASE)
         and (not group_visible or case["name"] in GROUP_VISIBLE_CASES)
         and (not group_visible_wall or case["name"] in GROUP_VISIBLE_WALL_CASES)
@@ -183,7 +191,10 @@ def summarize(
         cases=[rows[name] for name in expected],
         arithmetic_mean_speedup=(
             None
-            if stages or tile_handoff or group_visible or group_visible_wall
+            if (stages and not acceptance_stages)
+            or tile_handoff
+            or group_visible
+            or group_visible_wall
             else statistics.mean(row["speedup"] for row in rows.values())
         ),
     )
@@ -247,6 +258,16 @@ def summarize(
                 "Score and TopK measured separately with the stock harness. "
                 "TopK reads materialized scores. CANN V1 is measured as a fused operator."
             )
+    if acceptance_stages:
+        summary.update(
+            acceptance_stages=True,
+            candidate="Unregistered PreparedSharedMapInt8Selection INT8 integrated entry",
+            acceptance_scope="All ten full inputs; arithmetic mean of stock harness kernel fused-call speedups",
+            correctness_scope=(
+                "All-row output structure; CPU selected-score reference on recorded sample rows; "
+                "all-chunk scorer control comparison where query16 is active"
+            ),
+        )
     if short_score:
         summary["short_score_trial"] = (
             "N64 query16 versus the current N128 score on the same tensors; "
@@ -382,6 +403,7 @@ def main():
     parser.add_argument("pytest_exit_code", type=int)
     parser.add_argument("--merge-case-reports", action="store_true")
     parser.add_argument("--stages", action="store_true")
+    parser.add_argument("--acceptance-stages", action="store_true")
     parser.add_argument("--short-score", action="store_true")
     parser.add_argument("--fused-binary", action="store_true")
     parser.add_argument("--online-topk", action="store_true")
@@ -396,6 +418,25 @@ def main():
     diagnostic.add_argument("--group-visible-full", action="store_true")
     diagnostic.add_argument("--group-visible-wall", action="store_true")
     args = parser.parse_args()
+    if args.acceptance_stages:
+        args.stages = True
+        if any(
+            (
+                args.short_score,
+                args.tile_handoff,
+                args.group_visible,
+                args.group_visible_full,
+                args.group_visible_wall,
+                args.fused_binary,
+                args.online_topk,
+                args.online_stages,
+                args.cann_serial,
+                args.fused_ten_chunks,
+            )
+        ):
+            parser.error(
+                "Acceptance cannot be combined with experimental or subset modes"
+            )
     if args.fused_ten_chunks and os.environ.get("QSA_GENERIC_LOCAL_HANDOFF") == "1":
         from tools.probe_qsa_generic_local_buffer_910b import summarize_probe
         return summarize_probe(args.report.parent, args.output, args.pytest_exit_code)
@@ -579,6 +620,7 @@ def main():
             report = merge_case_reports(
                 args.report.parent,
                 stages=args.stages,
+                acceptance_stages=args.acceptance_stages,
                 tile_handoff=args.tile_handoff,
                 group_visible=args.group_visible,
                 group_visible_wall=args.group_visible_wall,
@@ -590,11 +632,34 @@ def main():
             report,
             args.pytest_exit_code,
             stages=args.stages,
+            acceptance_stages=args.acceptance_stages,
             short_score=args.short_score,
             tile_handoff=args.tile_handoff,
             group_visible=args.group_visible,
             group_visible_wall=args.group_visible_wall,
         )
+        if args.acceptance_stages:
+            summary["correctness_records"] = {}
+            for row in summary["cases"]:
+                name = row["case"]
+                check = json.loads(
+                    (args.report.parent / f"{name}-acceptance-checks.json").read_text()
+                )
+                plan = next(p for p in cases() if p["name"] == name)
+                if (
+                    check["case"] != name
+                    or check["rows"] != plan["q_shape"][0]
+                    or check["width"] != plan["logits_width"]
+                    or not check["sampled_rows"]
+                    or check["topk_policy"] != "auto"
+                    or check["topk_route"] != row["topk_route"]
+                    or set(check["accuracy"]) != {"CANN V1", "candidate"}
+                    or not all(e["checks_passed"] for e in check["accuracy"].values())
+                ):
+                    raise ValueError(
+                        f"Incomplete full-input correctness record: {name}"
+                    )
+                summary["correctness_records"][name] = check
         if args.fused_binary or args.online_topk:
             prefix = "QSA_INT8_HARNESS_FUSED_BINARY "
             chunk_key = "fused_chunks"
@@ -709,9 +774,15 @@ def main():
                         f"{row['case']} | {row['score_control_ms']:.3f} | "
                         f"{row['score_ms']:.3f} | {row['score_speedup']:.6f}x"
                     )
-        print(
-            "QSA INT8 kernel stage profile complete; ten-case acceptance mean pending"
-        )
+        if args.acceptance_stages:
+            print(
+                f"QSA INT8 harness kernel arithmetic mean ({len(summary['cases'])} full cases): "
+                f"{summary['arithmetic_mean_speedup']:.6f}x [TopK {summary['topk_policy']}]"
+            )
+        else:
+            print(
+                "QSA INT8 kernel stage profile complete; ten-case acceptance mean pending"
+            )
     elif summary["exit_code"] == 0 and (args.fused_binary or args.online_topk):
         print("case | CANN V1 ms | current INT8 ms | candidate ms | vs CANN V1 | vs current")
         for row in summary["cases"]:

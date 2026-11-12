@@ -63,6 +63,23 @@ fi
 qsa_commit=$(git -C "$qsa_repo" rev-parse HEAD) || exit 1
 printf 'Code commit: %s\nReport: %s\n' "$qsa_commit" "$qsa_report"
 printf '%s\n' "$qsa_commit" > "$qsa_report/$qsa_commit_file"
+qsa_acceptance_flag=
+if [[ ${QSA_HARNESS_ACCEPTANCE:-0} == 1 ]]; then
+    if [[ "$qsa_kind" != int8-harness || ${QSA_HARNESS_TOPK_POLICY:-auto} != auto || ${QSA_HARNESS_SHORT_SCORE:-0} != 0 ]]; then
+        echo 'Acceptance requires --harness, automatic unchanged TopK, and no short-score trial flag'
+        exit 1
+    fi
+    for qsa_option in QSA_FUSED_TEN_CHUNKS QSA_HARNESS_ONLINE_STAGES QSA_HARNESS_FUSED_BINARY \
+        QSA_HARNESS_ONLINE_TOPK QSA_HARNESS_GROUP_VISIBLE QSA_HARNESS_TILE_HANDOFF \
+        QSA_HARNESS_REUSE_TOPK_SCRATCH QSA_HARNESS_TRUSTED_REQUEST_TABLE; do
+        if [[ -n ${!qsa_option:-} && ${!qsa_option} != 0 ]]; then
+            echo "Unset experimental flag for acceptance: $qsa_option"
+            exit 1
+        fi
+    done
+    export QSA_HARNESS_STAGES=1
+    qsa_acceptance_flag=--acceptance-stages
+fi
 qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel
 if [[ ${QSA_HARNESS_ONLINE_STAGES:-0} == 1 ]]; then
     qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages
@@ -105,6 +122,8 @@ elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "1":
     names = GROUP_VISIBLE_CASES
 elif os.environ.get("QSA_HARNESS_TILE_HANDOFF") == "1":
     names = (TILE_HANDOFF_CASE,)
+elif os.environ.get("QSA_HARNESS_ACCEPTANCE") == "1":
+    names = [case["name"] for case in cases()]
 elif os.environ.get("QSA_HARNESS_STAGES") == "1":
     names = STAGE_CASES
 else:
@@ -136,7 +155,11 @@ print("\n".join(names))
         fi
         if [[ ${QSA_HARNESS_STAGES:-0} == 1 ]]; then
             qsa_stage_flag=--stages
-            printf 'QSA INT8 stage profile: four diagnostic cases; no acceptance mean\n'
+            if [[ ${QSA_HARNESS_ACCEPTANCE:-0} == 1 ]]; then
+                printf 'QSA INT8 acceptance: all ten full cases, candidate stages and CANN V1 fused baseline\n'
+            else
+                printf 'QSA INT8 stage profile: four diagnostic cases; no acceptance mean\n'
+            fi
         fi
         if [[ ${QSA_HARNESS_SHORT_SCORE:-0} == 1 ]]; then
             qsa_short_score_flag=--short-score
@@ -203,7 +226,7 @@ print("\n".join(names))
         fi
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
-            --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
+            --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} ${qsa_acceptance_flag:+"$qsa_acceptance_flag"} \
             ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
             ${qsa_diagnostic_flag:+"$qsa_diagnostic_flag"} \
             ${qsa_mixed_flag:+"$qsa_mixed_flag"} ${qsa_recheck_flag:+"$qsa_recheck_flag"} ${qsa_replay_flag:+"$qsa_replay_flag"} ${qsa_ten_chunk_flag:+"$qsa_ten_chunk_flag"}
