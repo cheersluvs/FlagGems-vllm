@@ -266,3 +266,28 @@ gate：先验证单槽带诊断写回版本的每块点积、评分、排序与�
 | 无可用配置 | 所有证据回传，执行失败，禁止运行删减版或产生性能结论 |
 
 `QSA_MIXED_STRUCTURE_DIAG=1` 启用此流程，优先于旧编译前缀开关。普通默认参数仍为原mask页号+原ring布局。此轮两个假设来自此前已运行的混合kernel使用无mask的有效标量页号读取和连续16×64 tile交接，尚未证明它们与错误有因果关系。若两项都无效，不继续归因于TopK，保留完整编译证据再检查控制流/同步。
+
+
+### 2026-11-12：标量页号 mask 隔离结果与 UB workspace 版
+
+报告 `c4a270feb433d83d9b4c5ea394ac4bed079329a2`，代码 `968ea12875fe052497268091363266379e75d031`。
+
+| stage=-1 结构 | 原始ring | tile-major ring |
+| --- | --- | --- |
+| masked scalar table load | InjectSync失败 | InjectSync失败 |
+| clamped unmasked scalar table load | 编译成功 | 编译成功 |
+
+在本轮固定结构/编译选项下，去掉已clamp的标量页号mask足以使原始交接通过编译；改ring布局不能单独解决。此证据只定位了一个可绕过的编译触发条件，尚未解释编译器内部失败原因，也没有执行原始交接删减版本。
+
+两种ring布局的完整计时版均报UB超限：需要2318336 bits = 289792 bytes = 283 KiB，可用1572864 bits = 192 KiB，超出91 KiB。TRACE=True的完整版本均在编译阶段报 `Failed to obtain op buffer shape size which should be static`；尚未得到正确性或性能数据。仅按显式状态/输入/输出估算UB不足以预测编译器的临时缓冲和生命周期。
+
+下一版固定 TABLE_PLAIN=True、RING_TILE_MAJOR=False，继续第三步。只改诊断实现，不改生产src/编译器/编译选项。固定资源契约：QK INT32、评分FP32、两query/Vector、sort2048、内部Top2048、输出512不变。
+
+| 改写 | 目的与约束 |
+| --- | --- |
+| 两query的小循环改为static_range(2) | 将评分/状态subview的query偏移静态化；32个内部tile和外层块循环仍不展开。是否解决TRACE错误由编译结果确认 |
+| 合并输入workspace显式分配一次 | 每Vector核8192个FP32 word=32 KiB，两段各4096 word存old/local两条2048项列表；两段全部覆盖，随后barrier和raw消费 |
+| 不活跃列表的起点改为0 | 两个长度仍为0，active列表数量2，输入范围均有效；输出容量仍8192 word，仍提取前4096 word，状态容量不缩水 |
+| scratch跨query和外层块复用 | raw结果复制回独立状态后barrier，再处理下一query；workspace不与状态/score发生别名。真实峰值以新编译器资源检查为准 |
+
+`QSA_MIXED_WORKSPACE_DIAG=1` 固定此配置先编译完整slots1/2×TRACE0/1四项。任一失败则在同一次运行补编译评分/局部排序两个前缀并保存IR/日志，禁止删减版本执行和计时；四项全通过才继续已有中间值、最终索引及三组边界验证，两轮交错计时和报告回传。分离kernel的评分与TopK时间保留，融合收益与双缓冲收益分开。没有完整10shape结果前仍不是生产验收。

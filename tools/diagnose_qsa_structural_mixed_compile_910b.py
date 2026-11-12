@@ -145,3 +145,32 @@ def compile_structure_matrix(values, width, owners, report, case):
     result["status"] = "failed"
     save()
     raise RuntimeError("No mixed handoff structure compiled all four full variants; see structure matrix and compiler IR")
+
+
+def compile_workspace_matrix(values, width, owners, report, case):
+    """Compile the fixed compact-workspace algorithm before device execution."""
+    from qsa_cann_mixed_910b_trial import PreparedMixedOuter
+
+    report = Path(report)
+    structure = dict(TABLE_PLAIN=True, RING_TILE_MAJOR=False)
+    result = dict(status="running", structure=structure, full=[], prefixes=[],
+                  scratch_words=8192, active_lists=2, state_capacity=2048)
+    path = report / f"{case}-mixed-workspace-matrix.json"
+    for slots in (1, 2):
+        adapter = PreparedMixedOuter(values, width, slots=slots, request_ids=owners, structure=structure)
+        for trace in (False, True):
+            label = f"{case}-workspace-slots{slots}-trace{int(trace)}-full"
+            result["full"].append(_capture_variant(adapter, report, label, trace, 2))
+            path.write_text(json.dumps(result, indent=2))
+    if not all(entry["status"] == "compiled" for entry in result["full"]):
+        adapter = PreparedMixedOuter(values, width, slots=1, request_ids=owners, structure=structure)
+        for stage in (0, 1):
+            label = f"{case}-workspace-slots1-trace1-stage{stage}"
+            result["prefixes"].append(_capture_variant(adapter, report, label, True, stage))
+            path.write_text(json.dumps(result, indent=2))
+        result["status"] = "failed"
+        path.write_text(json.dumps(result, indent=2))
+        raise RuntimeError("Mixed compact workspace compilation failed; see full/prefix IR and resource logs")
+    result["status"] = "compiled"
+    path.write_text(json.dumps(result, indent=2))
+    return result
