@@ -121,18 +121,20 @@ def inspect_ir(text, mode):
         ):
             continue
         for shape in re.findall(
-            r"memref<((?:[0-9]+x)+)(?:i32|f16),[^>]*address_space<gm>", l
+            r"memref<((?:[0-9]+x)+)(?:i32|f16),.*address_space<gm>", l
         ):
             elements = math.prod(int(v) for v in shape.rstrip("x").split("x"))
             if elements >= 16:
                 gm_intermediates.append(dict(line=n, text=l.strip()))
+    half_mmads = [n for n, l in lines if n in mmads and "xf16" in l]
     return dict(
         passed=sections > 0
-        and len(mmads) == (1 if mode == 0 else 2)
-        and (mode == 0 or bool(direct) and not gm_intermediates)
+        and len(mmads) >= (1 if mode == 0 else 2)
+        and (mode == 0 or bool(half_mmads) and bool(direct) and not gm_intermediates)
         and (mode != 2 or bool(relu)),
         sections=sections,
         matmul_lines=mmads,
+        half_matmul_lines=half_mmads,
         fixpipe=fix,
         direct_int32_to_half_l1=direct,
         fused_relu=relu,
