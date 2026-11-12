@@ -1,0 +1,2139 @@
+{
+  "status": "completed",
+  "arms": {
+    "current_int8_integrated": {
+      "status": "captured",
+      "input_sha256": "862b87c67fa561471107703d7e448c0fcf9085c8bf35dd712fb97ebb9010811b",
+      "original_command": [
+        "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+        "/tmp/tmp1y70aqh2/kernel.mlir",
+        "--target=Ascend910B4-1",
+        "--enable-auto-multi-buffer=True",
+        "--enable-auto-bind-sub-block=True",
+        "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+        "--enable-auto-blockify-loop",
+        "--enable-hfusion-compile=true",
+        "--enable-hivm-compile=true",
+        "--enable-triton-kernel-compile=true",
+        "-o",
+        "/tmp/tmp1y70aqh2/kernel"
+      ],
+      "diagnostic_command": [
+        "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+        "/tmp/qsa-local-handoff-audit.UPJIJMyq/current_int8_integrated/kernel.mlir",
+        "--target=Ascend910B4-1",
+        "--enable-auto-multi-buffer=True",
+        "--enable-auto-bind-sub-block=True",
+        "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+        "--enable-auto-blockify-loop",
+        "--enable-hfusion-compile=true",
+        "--enable-hivm-compile=true",
+        "--enable-triton-kernel-compile=true",
+        "-o",
+        "/tmp/qsa-local-handoff-audit.UPJIJMyq/current_int8_integrated/kernel",
+        "--bishengir-print-ir-after=hivm-graph-sync-solver"
+      ],
+      "changed_options": [
+        "--bishengir-print-ir-after=hivm-graph-sync-solver"
+      ],
+      "device_execution": false,
+      "ordinary_score_us": 32.14666666666667,
+      "binary_comparison": {
+        "kernel.mix_aic.o": {
+          "original_sha256": "55d337d7aed4b56fbdc204d4e9ad6bde8357388414fd28e6aa9b349df10a5f6e",
+          "diagnostic_sha256": "55d337d7aed4b56fbdc204d4e9ad6bde8357388414fd28e6aa9b349df10a5f6e",
+          "identical": true
+        },
+        "kernel.mix_aiv.o": {
+          "original_sha256": "fe87814eed20c1ac611264dd2f408792529cd6d48cecf7d9f77027eebf820c90",
+          "diagnostic_sha256": "70599e7f1321177876630d5f1c3510b73b9cbe58612fc3b6a9cd59466f8eddbe",
+          "identical": false
+        },
+        "kernel.o": {
+          "original_sha256": "02b8335f7faabca408326492909483c570537f261208d143cb942b87bbf797bd",
+          "diagnostic_sha256": "870b1572a646808db845a83f7c7d3d332b7cb382a005bf82e327bd69187446bf",
+          "identical": false
+        },
+        "libkernel.so": {
+          "original_sha256": "3ab246b14fad4fb371406294902a737eee751edf1fd0e69772d75d21c92c685c",
+          "diagnostic_sha256": "3ab246b14fad4fb371406294902a737eee751edf1fd0e69772d75d21c92c685c",
+          "identical": true
+        }
+      },
+      "returncode": 0,
+      "stdout": {
+        "artifact": "current_int8_integrated-post-sync-stdout.txt",
+        "bytes": 0,
+        "truncated": false,
+        "summary": {
+          "after_solver_sections": 0,
+          "operations": {},
+          "examples": [],
+          "interpretation": "Static operations, not dynamic counts or timing. Inspect SSA producer/consumer buffers in full IR before asserting a GM or L1 handoff."
+        }
+      },
+      "stderr": {
+        "artifact": "current_int8_integrated-post-sync-stderr.txt",
+        "bytes": 61004,
+        "truncated": false,
+        "summary": {
+          "after_solver_sections": 2,
+          "operations": {
+            "hivm.hir.set_ffts_base_addr": 2,
+            "hivm.hir.get_block_idx": 2,
+            "hivm.hir.sync_block_set": 9,
+            "hivm.hir.set_flag": 34,
+            "hivm.hir.set_mask_norm": 2,
+            "hivm.hir.pointer_cast": 51,
+            "hivm.hir.wait_flag": 34,
+            "hivm.hir.vbrc": 11,
+            "hivm.hir.pipe_barrier": 25,
+            "hivm.hir.nd2nz": 2,
+            "memref_ext.alloc_workspace": 4,
+            "hivm.hir.sync_block_wait": 9,
+            "memref.load": 4,
+            "hivm.hir.mmadL1": 1,
+            "hivm.hir.fixpipe": 1,
+            "hivm.hir.varange": 1,
+            "hivm.hir.get_sub_block_idx": 1,
+            "hivm.hir.vcmp": 5,
+            "hivm.hir.load": 5,
+            "hivm.hir.vcast": 5,
+            "hivm.hir.vreduce": 2,
+            "hivm.hir.store": 2,
+            "hivm.hir.vadd": 1,
+            "hivm.hir.vnot": 5,
+            "hivm.hir.vmax": 3,
+            "hivm.hir.vand": 1,
+            "hivm.hir.vmul": 3,
+            "hivm.hir.vsel": 3
+          },
+          "examples": [
+            {
+              "line": 33,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 6"
+            },
+            {
+              "line": 35,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 36,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 37,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+            },
+            {
+              "line": 38,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+            },
+            {
+              "line": 39,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 77,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 79,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 83,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %17]"
+            },
+            {
+              "line": 85,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+            },
+            {
+              "line": 86,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "%30 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 87,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+            },
+            {
+              "line": 88,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "%31 = memref.load %30[%c0] {\"DuplicateTensorExtractForCube::newExtractLabel\" = 1 : i32, \"DuplicateTensorExtractForCube::visitedLabel\" = 1 : i32, \"PostCubeReplacement::visitedLabel\" = 1 : i32} : memref<1xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 89,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 6"
+            },
+            {
+              "line": 100,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+            },
+            {
+              "line": 110,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "%48 = memref.load %reinterpret_cast_4[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 111,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "%49 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 185,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 187,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 191,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %91]"
+            },
+            {
+              "line": 193,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+            },
+            {
+              "line": 196,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 198,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_6, %true, %27, %c128, %109 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64, %c-1_i64, %91, %72, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+            },
+            {
+              "line": 199,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+            },
+            {
+              "line": 202,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = %94"
+            },
+            {
+              "line": 203,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+            },
+            {
+              "line": 204,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_10 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%collapse_shape : memref<64x64xi32, strided<[64, 1], offset: ?>, #hivm.address_space<gm>>)"
+            },
+            {
+              "line": 205,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 206,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 5"
+            },
+            {
+              "line": 210,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, %17]"
+            },
+            {
+              "line": 213,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 214,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 215,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 216,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+            },
+            {
+              "line": 217,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+            },
+            {
+              "line": 218,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+            },
+            {
+              "line": 219,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+            },
+            {
+              "line": 220,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+            },
+            {
+              "line": 221,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+            },
+            {
+              "line": 282,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+            },
+            {
+              "line": 283,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+            },
+            {
+              "line": 284,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+            },
+            {
+              "line": 285,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+            },
+            {
+              "line": 299,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 300,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 301,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 302,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 303,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_S>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 326,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 327,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 329,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_4 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+            },
+            {
+              "line": 330,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 333,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 342,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 343,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 345,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.load ins(%subview_8 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_9 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+            },
+            {
+              "line": 346,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 349,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 362,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 363,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 365,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 366,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.load ins(%subview_12 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_13 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+            },
+            {
+              "line": 367,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 370,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_S>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 371,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 372,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 374,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_S>, <EVENT_ID0>]"
+            },
+            {
+              "line": 375,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_S>, <EVENT_ID0>]"
+            },
+            {
+              "line": 376,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "%35 = memref.load %33[%c0] {\"DuplicateTensorExtractForCube::visitedLabel\" = 1 : i32} : memref<1xi32, #hivm.address_space<ub>>"
+            },
+            {
+              "line": 377,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_S>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 378,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "%36 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 379,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 6"
+            },
+            {
+              "line": 381,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.store ins(%33 : memref<1xi32, #hivm.address_space<ub>>) outs(%36 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+            },
+            {
+              "line": 383,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 384,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+            },
+            {
+              "line": 408,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "%54 = memref.load %reinterpret_cast_16[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 409,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "%55 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 444,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 445,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 447,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 448,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.load ins(%subview_18 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_19 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+            },
+            {
+              "line": 449,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 451,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 453,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 526,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 5"
+            },
+            {
+              "line": 530,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 531,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.load ins(%collapse_shape_19 : memref<4096xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%collapse_shape_20 : memref<4096xi32, #hivm.address_space<ub>>) {\"inserted-load\", vector_producer_to_fuse_0} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+            },
+            {
+              "line": 532,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 533,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = %65"
+            },
+            {
+              "line": 536,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 552,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 595,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 598,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE3>, <EVENT_ID0>]"
+            },
+            {
+              "line": 602,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE3>, <EVENT_ID0>]"
+            },
+            {
+              "line": 604,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.store ins(%subview_44 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_45 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>) {op_to_tile_0_0}"
+            },
+            {
+              "line": 606,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 610,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 613,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_S>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 614,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 615,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 616,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 617,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 618,
+              "function": "_qsa_page64_prefix_chunk_full_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 6"
+            }
+          ],
+          "interpretation": "Static operations, not dynamic counts or timing. Inspect SSA producer/consumer buffers in full IR before asserting a GM or L1 handoff."
+        }
+      }
+    },
+    "query16_second_cube": {
+      "status": "captured",
+      "input_sha256": "61beb4a36d58be69d42679a26e8f29890b9902d2ccb6a0fe1546ba43b0efc7c0",
+      "original_command": [
+        "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+        "/tmp/tmpkkfsakx8/kernel.mlir",
+        "--target=Ascend910B4-1",
+        "--enable-auto-multi-buffer=True",
+        "--enable-auto-bind-sub-block=True",
+        "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+        "--enable-auto-blockify-loop",
+        "--enable-hfusion-compile=true",
+        "--enable-hivm-compile=true",
+        "--enable-triton-kernel-compile=true",
+        "-o",
+        "/tmp/tmpkkfsakx8/kernel"
+      ],
+      "diagnostic_command": [
+        "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+        "/tmp/qsa-local-handoff-audit.UPJIJMyq/query16_second_cube/kernel.mlir",
+        "--target=Ascend910B4-1",
+        "--enable-auto-multi-buffer=True",
+        "--enable-auto-bind-sub-block=True",
+        "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+        "--enable-auto-blockify-loop",
+        "--enable-hfusion-compile=true",
+        "--enable-hivm-compile=true",
+        "--enable-triton-kernel-compile=true",
+        "-o",
+        "/tmp/qsa-local-handoff-audit.UPJIJMyq/query16_second_cube/kernel",
+        "--bishengir-print-ir-after=hivm-graph-sync-solver"
+      ],
+      "changed_options": [
+        "--bishengir-print-ir-after=hivm-graph-sync-solver"
+      ],
+      "device_execution": false,
+      "ordinary_score_us": 49.88335,
+      "binary_comparison": {
+        "kernel.mix_aic.o": {
+          "original_sha256": "baa6a9128e7019fbc8304594dde4eba88e7d284ebb7a715950b7d627ee8d0cb1",
+          "diagnostic_sha256": "9115824c868e89fa4e835e97038f1623877ff391bc01d16f803d0ffb0f7d18e1",
+          "identical": false
+        },
+        "kernel.mix_aiv.o": {
+          "original_sha256": "4ca920870d0e31a1896490421d63919a297a2d4ce9066659d7af566bdbfdf64d",
+          "diagnostic_sha256": "2851811e2292a653e7b18807a3f33ae6ba8a3ddbdf9ad4e6ca0df6778a3f42f8",
+          "identical": false
+        },
+        "kernel.o": {
+          "original_sha256": "f3384b9eed30d031ba4653b374861d13ec00037ec2d982b3ebc28d52297d7881",
+          "diagnostic_sha256": "1a797462769e237bb8bf894af221b20d7888dd89a9c0b1ddc64747ba558b3f43",
+          "identical": false
+        },
+        "libkernel.so": {
+          "original_sha256": "f8305654812ec9cf130c4b5afbf622a12034e7f8dd87c514da50e1e997da3186",
+          "diagnostic_sha256": "f8305654812ec9cf130c4b5afbf622a12034e7f8dd87c514da50e1e997da3186",
+          "identical": true
+        }
+      },
+      "returncode": 0,
+      "stdout": {
+        "artifact": "query16_second_cube-post-sync-stdout.txt",
+        "bytes": 0,
+        "truncated": false,
+        "summary": {
+          "after_solver_sections": 0,
+          "operations": {},
+          "examples": [],
+          "interpretation": "Static operations, not dynamic counts or timing. Inspect SSA producer/consumer buffers in full IR before asserting a GM or L1 handoff."
+        }
+      },
+      "stderr": {
+        "artifact": "query16_second_cube-post-sync-stderr.txt",
+        "bytes": 77587,
+        "truncated": false,
+        "summary": {
+          "after_solver_sections": 2,
+          "operations": {
+            "hivm.hir.set_ffts_base_addr": 2,
+            "hivm.hir.get_block_idx": 2,
+            "hivm.hir.sync_block_set": 17,
+            "hivm.hir.set_flag": 47,
+            "hivm.hir.set_mask_norm": 2,
+            "hivm.hir.pointer_cast": 64,
+            "hivm.hir.wait_flag": 47,
+            "hivm.hir.vbrc": 12,
+            "hivm.hir.pipe_barrier": 34,
+            "hivm.hir.nd2nz": 4,
+            "memref_ext.alloc_workspace": 10,
+            "hivm.hir.sync_block_wait": 17,
+            "memref.load": 4,
+            "hivm.hir.mmadL1": 2,
+            "hivm.hir.fixpipe": 2,
+            "hivm.hir.varange": 2,
+            "hivm.hir.get_sub_block_idx": 1,
+            "hivm.hir.vcast": 9,
+            "hivm.hir.vdiv": 1,
+            "hivm.hir.vcmp": 6,
+            "hivm.hir.load": 6,
+            "hivm.hir.vreduce": 1,
+            "hivm.hir.store": 4,
+            "hivm.hir.vmul": 4,
+            "hivm.hir.vsel": 4,
+            "hivm.hir.vadd": 1,
+            "hivm.hir.vnot": 5,
+            "hivm.hir.vmax": 3,
+            "hivm.hir.vand": 1
+          },
+          "examples": [
+            {
+              "line": 43,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+            },
+            {
+              "line": 44,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+            },
+            {
+              "line": 45,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+            },
+            {
+              "line": 46,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+            },
+            {
+              "line": 47,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 5"
+            },
+            {
+              "line": 48,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 6"
+            },
+            {
+              "line": 49,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 7"
+            },
+            {
+              "line": 50,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = 8"
+            },
+            {
+              "line": 52,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 53,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 54,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+            },
+            {
+              "line": 55,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+            },
+            {
+              "line": 56,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID5>]"
+            },
+            {
+              "line": 57,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID6>]"
+            },
+            {
+              "line": 58,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 96,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 98,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 102,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %17]"
+            },
+            {
+              "line": 104,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+            },
+            {
+              "line": 105,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "%30 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 107,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 15"
+            },
+            {
+              "line": 108,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 14"
+            },
+            {
+              "line": 109,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+            },
+            {
+              "line": 110,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "%31 = memref.load %30[%c0] {\"DuplicateTensorExtractForCube::newExtractLabel\" = 1 : i32, \"DuplicateTensorExtractForCube::visitedLabel\" = 1 : i32, \"PostCubeReplacement::visitedLabel\" = 1 : i32} : memref<1xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 121,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+            },
+            {
+              "line": 131,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "%48 = memref.load %reinterpret_cast_6[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 132,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "%49 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xf16, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 133,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "%50 = memref_ext.alloc_workspace() from %arg2 offset = [%c57376] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 134,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "%51 = memref_ext.alloc_workspace() from %arg2 offset = [%c32800] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x16x64xf16, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 135,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "%52 = memref_ext.alloc_workspace() from %arg2 offset = [%c40992] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x16x64xf32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 207,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 209,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 213,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %94]"
+            },
+            {
+              "line": 215,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+            },
+            {
+              "line": 218,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 220,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.mmadL1 {b_transpose, fixpipe_for_result_already_inserted = true} ins(%cast, %cast_8, %true, %27, %c128, %110 : memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, memref<?x?x?x?xi8, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) sync_related_args(%c-1_i64, %c0_i64_0, %c-1_i64, %94, %75, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+            },
+            {
+              "line": 221,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+            },
+            {
+              "line": 224,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+            },
+            {
+              "line": 225,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_12 : memref<?x?x?x?xi32, #hivm.address_space<cc>>) outs(%collapse_shape : memref<64x64xi32, strided<[64, 1], offset: ?>, #hivm.address_space<gm>>)"
+            },
+            {
+              "line": 226,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 227,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 9"
+            },
+            {
+              "line": 230,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_wait[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 15"
+            },
+            {
+              "line": 231,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_S>, <PIPE_S>] flag = 14"
+            },
+            {
+              "line": 286,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %96]"
+            },
+            {
+              "line": 288,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID0>]"
+            },
+            {
+              "line": 289,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = %102"
+            },
+            {
+              "line": 292,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, %94]"
+            },
+            {
+              "line": 294,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_MTE1>, <EVENT_ID1>]"
+            },
+            {
+              "line": 295,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_MTE2>, <PIPE_S>] flag = %100"
+            },
+            {
+              "line": 298,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 300,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.mmadL1 {fixpipe_for_result_already_inserted = true} ins(%cast_8, %cast_10, %true, %c16, %c64, %c64 : memref<?x?x?x?xf16, #hivm.address_space<cbuf>>, memref<?x?x?x?xf16, #hivm.address_space<cbuf>>, i1, index, index, index) outs(%cast_11 : memref<?x?x?x?xf32, #hivm.address_space<cc>>) sync_related_args(%c0_i64, %c1_i64, %96, %94, %75, %c-1_i64, %c-1_i64 : i64, i64, i64, i64, i64, i64, i64)"
+            },
+            {
+              "line": 301,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+            },
+            {
+              "line": 304,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_M>, <PIPE_FIX>, <EVENT_ID0>]"
+            },
+            {
+              "line": 305,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.fixpipe {dma_mode = #hivm.dma_mode<nz2nd>} ins(%cast_11 : memref<?x?x?x?xf32, #hivm.address_space<cc>>) outs(%collapse_shape : memref<16x64xf32, strided<[64, 1], offset: ?>, #hivm.address_space<gm>>)"
+            },
+            {
+              "line": 306,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 307,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.sync_block_set[<CUBE>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+            },
+            {
+              "line": 311,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.set_flag[<PIPE_MTE1>, <PIPE_MTE2>, %17]"
+            },
+            {
+              "line": 314,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_FIX>, <PIPE_M>, <EVENT_ID0>]"
+            },
+            {
+              "line": 315,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 316,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 317,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID3>]"
+            },
+            {
+              "line": 318,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID4>]"
+            },
+            {
+              "line": 319,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID5>]"
+            },
+            {
+              "line": 320,
+              "function": "_qsa_query16_cube_reduction_mix_aic",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE1>, <PIPE_MTE2>, <EVENT_ID6>]"
+            },
+            {
+              "line": 442,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 443,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 444,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID2>]"
+            },
+            {
+              "line": 445,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 446,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 447,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_S>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 469,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 470,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 472,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.load ins(%subview : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_12 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_0 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+            },
+            {
+              "line": 473,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 475,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 483,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 484,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 486,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.load ins(%subview_14 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_15 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_0 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+            },
+            {
+              "line": 487,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 489,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 502,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 503,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID1>]"
+            },
+            {
+              "line": 505,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 506,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.load ins(%subview_17 : memref<?xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_18 : memref<?xi32, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %c0_i32 : i32 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+            },
+            {
+              "line": 507,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 510,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_S>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 511,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID2>]"
+            },
+            {
+              "line": 512,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 514,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_S>, <EVENT_ID0>]"
+            },
+            {
+              "line": 515,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_S>, <EVENT_ID0>]"
+            },
+            {
+              "line": 516,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "%44 = memref.load %42[%c0] {\"DuplicateTensorExtractForCube::visitedLabel\" = 1 : i32} : memref<1xi32, #hivm.address_space<ub>>"
+            },
+            {
+              "line": 517,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_S>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 518,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "%45 = memref_ext.alloc_workspace() from %arg2 offset = [%c0] : from memref<?xi8, #hivm.address_space<gm>> to memref<1xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 520,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 15"
+            },
+            {
+              "line": 521,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 14"
+            },
+            {
+              "line": 523,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.store ins(%42 : memref<1xi32, #hivm.address_space<ub>>) outs(%45 : memref<1xi32, #hivm.address_space<gm>>) {\"inserted-store\"}"
+            },
+            {
+              "line": 525,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID2>]"
+            },
+            {
+              "line": 526,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_MTE3>, <PIPE_S>] flag = 0"
+            },
+            {
+              "line": 547,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 554,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE3>, <EVENT_ID0>]"
+            },
+            {
+              "line": 557,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE3>, <EVENT_ID0>]"
+            },
+            {
+              "line": 567,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "%68 = memref.load %reinterpret_cast_24[%c0] : memref<1xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 568,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "%69 = memref_ext.alloc_workspace() from %arg2 offset = [%c32] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xf16, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 569,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "%70 = memref_ext.alloc_workspace() from %arg2 offset = [%c57376] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x64x64xi32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 570,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "%71 = memref_ext.alloc_workspace() from %arg2 offset = [%c32800] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x16x64xf16, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 571,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "%72 = memref_ext.alloc_workspace() from %arg2 offset = [%c40992] : from memref<?xi8, #hivm.address_space<gm>> to memref<4x16x64xf32, #hivm.address_space<gm>>"
+            },
+            {
+              "line": 607,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 608,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 610,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 611,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.load ins(%subview_26 : memref<?xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%subview_27 : memref<?xf16, strided<[1]>, #hivm.address_space<ub>>) pad_mode = <PadValue> pad_value = %cst_0 : f16 left_padding_num = %c0 : index init_out_buffer = false may_implicit_transpose_with_last_axis = false"
+            },
+            {
+              "line": 612,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 614,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 616,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 619,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = %82"
+            },
+            {
+              "line": 623,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.store ins(%collapse_shape_22 : memref<1024xf16, #hivm.address_space<ub>>) outs(%collapse_shape_47 : memref<1024xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>)"
+            },
+            {
+              "line": 684,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = %82"
+            },
+            {
+              "line": 685,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 9"
+            },
+            {
+              "line": 692,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 693,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.load ins(%collapse_shape_31 : memref<2048xi32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%collapse_shape_32 : memref<2048xi32, #hivm.address_space<ub>>) {\"inserted-load\", vector_producer_to_fuse_0} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+            },
+            {
+              "line": 694,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 697,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 719,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 722,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 731,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE3>, <EVENT_ID0>]"
+            },
+            {
+              "line": 733,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE3>, <EVENT_ID0>]"
+            },
+            {
+              "line": 736,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.store ins(%collapse_shape_41 : memref<2048xf16, #hivm.address_space<ub>>) outs(%collapse_shape_43 : memref<2048xf16, strided<[1], offset: ?>, #hivm.address_space<gm>>) {op_to_tile_0_0}"
+            },
+            {
+              "line": 738,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 742,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_set[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 15"
+            },
+            {
+              "line": 743,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_S>, <PIPE_S>] flag = 14"
+            },
+            {
+              "line": 752,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_FIX>, <PIPE_S>] flag = 0"
+            },
+            {
+              "line": 756,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 757,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.load ins(%collapse_shape_26 : memref<1024xf32, strided<[1], offset: ?>, #hivm.address_space<gm>>) outs(%collapse_shape_27 : memref<1024xf32, #hivm.address_space<ub>>) {\"inserted-load\", vector_producer_to_fuse_1} init_out_buffer = false may_implicit_transpose_with_last_axis = false core_type = <VECTOR>"
+            },
+            {
+              "line": 758,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 761,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE2>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 768,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 777,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 780,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE3>, <EVENT_ID0>]"
+            },
+            {
+              "line": 784,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE3>, <EVENT_ID0>]"
+            },
+            {
+              "line": 786,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.store ins(%subview_36 : memref<?x?xf32, strided<[64, 1]>, #hivm.address_space<ub>>) outs(%subview_37 : memref<?x?xf32, strided<[8192, 1], offset: ?>, #hivm.address_space<gm>>) {op_to_tile_1_0}"
+            },
+            {
+              "line": 788,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 792,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 793,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.set_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 796,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_S>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 797,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID0>]"
+            },
+            {
+              "line": 798,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_V>, <PIPE_MTE2>, <EVENT_ID2>]"
+            },
+            {
+              "line": 799,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID0>]"
+            },
+            {
+              "line": 800,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID1>]"
+            },
+            {
+              "line": 801,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.wait_flag[<PIPE_MTE3>, <PIPE_V>, <EVENT_ID2>]"
+            },
+            {
+              "line": 802,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 1"
+            },
+            {
+              "line": 803,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 2"
+            },
+            {
+              "line": 804,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 3"
+            },
+            {
+              "line": 805,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 4"
+            },
+            {
+              "line": 806,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 5"
+            },
+            {
+              "line": 807,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 6"
+            },
+            {
+              "line": 808,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 7"
+            },
+            {
+              "line": 809,
+              "function": "_qsa_query16_cube_reduction_mix_aiv",
+              "text": "hivm.hir.sync_block_wait[<VECTOR>, <PIPE_MTE2>, <PIPE_S>] flag = 8"
+            }
+          ],
+          "interpretation": "Static operations, not dynamic counts or timing. Inspect SSA producer/consumer buffers in full IR before asserting a GM or L1 handoff."
+        }
+      }
+    }
+  },
+  "scope": "Installed API and saved-IR audit; no new performance or correctness claim",
+  "source_report": "/tmp/qsa-ascend910b-int8-harness.2WQ9uD4p",
+  "source_commit": "889121172dbe56da4cba2bc97520f72b0f913e0b",
+  "source_record_sha256": "b5d333c14567365079c15d8b3d7f2287569092c78f6957fdd5a85284916a3621",
+  "api": {
+    "triton_version": "3.5.1",
+    "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py",
+    "tle_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/__init__.py",
+    "symbols": {
+      "dsa.alloc": {
+        "present": true,
+        "signature": "(shape: List[triton.language.core.constexpr], dtype: triton.language.core.dtype, mem_addr_space: triton.experimental.tle.language.dsa.types.address_space, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer",
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/core.py"
+      },
+      "dsa.copy": {
+        "present": true,
+        "signature": "(src, dst, shape, inter_no_alias=False, _semantic=None)",
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/core.py"
+      },
+      "dsa.to_buffer": {
+        "present": true,
+        "signature": "(tensor: triton.language.core.tensor, space: triton.experimental.tle.language.dsa.types.address_space = None, bind_buffer: triton.experimental.tle.language.dsa.types.buffer = None, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer",
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/core.py"
+      },
+      "dsa.to_tensor": {
+        "present": true,
+        "signature": "(memref: triton.experimental.tle.language.dsa.types.buffer, writable: bool = True, target_shape=None, _semantic=None) -> triton.language.core.tensor",
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/core.py"
+      },
+      "dsa.local_ptr": {
+        "present": false
+      },
+      "dsa.subview": {
+        "present": true,
+        "signature": "(src: triton.experimental.tle.language.dsa.types.buffer, offsets: List[triton.language.core.constexpr], sizes: List[triton.language.core.constexpr], strides: List[triton.language.core.constexpr], _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer",
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/core.py"
+      },
+      "dsa.matmul": {
+        "present": false
+      },
+      "ascend.UB": {
+        "present": true,
+        "representation": "<triton.language.extra.cann.extension.core.ascend_address_space_base object at 0xfffd47bf43d0>"
+      },
+      "ascend.L1": {
+        "present": true,
+        "representation": "<triton.language.extra.cann.extension.core.ascend_address_space_base object at 0xfffd47bf4f90>"
+      },
+      "ascend.L0A": {
+        "present": true,
+        "representation": "<triton.language.extra.cann.extension.core.ascend_address_space_base object at 0xfffd47bcc610>"
+      },
+      "ascend.L0B": {
+        "present": true,
+        "representation": "<triton.language.extra.cann.extension.core.ascend_address_space_base object at 0xfffd47bf7dd0>"
+      },
+      "ascend.L0C": {
+        "present": true,
+        "representation": "<triton.language.extra.cann.extension.core.ascend_address_space_base object at 0xfffd47bf7bd0>"
+      },
+      "ascend.raw": {
+        "present": true,
+        "representation": "<function custom at 0xfffd3b8379c0>"
+      }
+    },
+    "source_files": [
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/core.py",
+        "sha256": "1f3991f79b6330cdde336579630893b9ac15e08bfda3b6971027e49a45e246cb",
+        "bytes": 3086,
+        "hits": [
+          {
+            "line": 47,
+            "text": "        cache at all levels, \".cg\" stands for cache at global level (cache in L2 and below, not L1),"
+          }
+        ],
+        "artifact": "api-experimental_tle_language_core.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/__init__.py",
+        "sha256": "ac9cc140b03ed6d500f404b110713d6119d7aa5d71b1374b3b2c843187e2db3e",
+        "bytes": 910,
+        "hits": [
+          {
+            "line": 4,
+            "text": "from .core import (UB, L1, L0A, L0B, L0C, PIPE, SyncSpec, sub_vec_id, sub_vec_num, sync_block_set, sync_block_wait,"
+          },
+          {
+            "line": 12,
+            "text": "    \"L1\","
+          },
+          {
+            "line": 15,
+            "text": "    \"L0C\","
+          }
+        ],
+        "artifact": "api-experimental_tle_language_dsa_ascend___init__.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/core.py",
+        "sha256": "45b3c70e8f7cf83e9d43e6386047a71820dce5980bd90f45c05467c1368c871d",
+        "bytes": 1670,
+        "hits": [
+          {
+            "line": 10,
+            "text": "L1 = ascend_address_space.L1"
+          },
+          {
+            "line": 13,
+            "text": "L0C = ascend_address_space.L0C"
+          }
+        ],
+        "artifact": "api-experimental_tle_language_dsa_ascend_core.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/registry.py",
+        "sha256": "4c33c3883b47756facbaae73c13908e89ef385faf9f0cc539d407c709d7f3bce",
+        "bytes": 28612,
+        "hits": [
+          {
+            "line": 7,
+            "text": "CUSTOM_OPS_BITCODE = str(Path(__file__).with_name(\"custom_ops.bc\").resolve())"
+          },
+          {
+            "line": 65,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 75,
+            "text": "     *   indices, write them into an L1/CBUF tensor and perform the ND2NZ"
+          },
+          {
+            "line": 90,
+            "text": "     *   out: required 4D L1/CBUF fp16/bf16 destination tensor (same dtype as"
+          },
+          {
+            "line": 109,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 153,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 209,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 274,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 313,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 344,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 386,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 440,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 478,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 522,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 583,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          },
+          {
+            "line": 624,
+            "text": "        self.bitcode = CUSTOM_OPS_BITCODE"
+          }
+        ],
+        "artifact": "api-experimental_tle_language_dsa_ascend_custom_ops_registry.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/core.py",
+        "sha256": "94f29fd2250a2a3bde78c15f405dfbb83302952145d6ad8484dd43ea752cc5fe",
+        "bytes": 18506,
+        "hits": [
+          {
+            "line": 113,
+            "text": "def copy(src, dst, shape, inter_no_alias=False, _semantic=None):"
+          },
+          {
+            "line": 158,
+            "text": "def alloc(shape: List[tl.constexpr], dtype: tl.dtype, mem_addr_space: address_space, _semantic=None) -> buffer:"
+          },
+          {
+            "line": 167,
+            "text": "def to_buffer(tensor: tl.tensor, space: address_space = None, bind_buffer: buffer = None, _semantic=None) -> buffer:"
+          },
+          {
+            "line": 175,
+            "text": "def to_tensor(memref: buffer, writable: bool = True, target_shape=None, _semantic=None) -> tl.tensor:"
+          },
+          {
+            "line": 384,
+            "text": "    \"\"\"Launch a Cube matmul using CommonIR tile.cube_launch.\"\"\""
+          }
+        ],
+        "artifact": "api-experimental_tle_language_dsa_core.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/semantic.py",
+        "sha256": "1b871e247cb98e8a7ad3539ba2792c1608e781aeeb35d7e099828a4351ee2b64",
+        "bytes": 13739,
+        "hits": [
+          {
+            "line": 38,
+            "text": "def copy(src, dst, shape: List[Union[tl.constexpr, int]], inter_no_alias: bool, builder: ir.builder):"
+          },
+          {
+            "line": 97,
+            "text": "def alloc(etype: tl.dtype, shape: List[tl.constexpr], address_space: address_space, builder: ir.builder) -> buffer:"
+          },
+          {
+            "line": 102,
+            "text": "def to_buffer("
+          },
+          {
+            "line": 112,
+            "text": "def to_tensor(memref: buffer, writable: bool, builder: ir.builder, target_shape=None) -> tl.tensor:"
+          }
+        ],
+        "artifact": "api-experimental_tle_language_dsa_semantic.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/types.py",
+        "sha256": "3d43beef7ae6467d6866f272e3903ca35f9fbc54ad17475a249132d20fd0056e",
+        "bytes": 5230,
+        "hits": [
+          {
+            "line": 144,
+            "text": "    def to_tensor(self, writable=True, target_shape=None, _builder=None) -> tl.tensor:"
+          }
+        ],
+        "artifact": "api-experimental_tle_language_dsa_types.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/gpu/core.py",
+        "sha256": "d63bb33ccbae747145f1a27dd6d9e4d1fdab67834e434ff1e36876523ab6385f",
+        "bytes": 20179,
+        "hits": [
+          {
+            "line": 49,
+            "text": "def alloc("
+          },
+          {
+            "line": 173,
+            "text": "def copy("
+          }
+        ],
+        "artifact": "api-experimental_tle_language_gpu_core.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/language/extra/cann/extension/__init__.py",
+        "sha256": "5989bdb01da89bacc86855f4b59e8ba84966016aa88b0247858657c4eb045c90",
+        "bytes": 2892,
+        "hits": [
+          {
+            "line": 26,
+            "text": "    fixpipe,"
+          },
+          {
+            "line": 27,
+            "text": "    FixpipeDMAMode,"
+          },
+          {
+            "line": 28,
+            "text": "    FixpipeDualDstMode,"
+          },
+          {
+            "line": 29,
+            "text": "    FixpipePreQuantMode,"
+          },
+          {
+            "line": 30,
+            "text": "    FixpipePreReluMode,"
+          },
+          {
+            "line": 87,
+            "text": "    \"fixpipe\","
+          },
+          {
+            "line": 88,
+            "text": "    \"FixpipeDMAMode\","
+          },
+          {
+            "line": 89,
+            "text": "    \"FixpipeDualDstMode\","
+          },
+          {
+            "line": 90,
+            "text": "    \"FixpipePreQuantMode\","
+          },
+          {
+            "line": 91,
+            "text": "    \"FixpipePreReluMode\","
+          }
+        ],
+        "artifact": "api-language_extra_cann_extension___init__.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/language/extra/cann/extension/builder.py",
+        "sha256": "1bb485d8e07d95965a79e0dbde2e90bd5f465b37197160ae971ae7af703b7d40",
+        "bytes": 3346,
+        "hits": [
+          {
+            "line": 75,
+            "text": "        'create_fixpipe',"
+          }
+        ],
+        "artifact": "api-language_extra_cann_extension_builder.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/language/extra/cann/extension/core.py",
+        "sha256": "aeda04f20ad2e6888d099530c64d8f8bfcd5fcb57d922690fb8d50ceaf6761b8",
+        "bytes": 18862,
+        "hits": [
+          {
+            "line": 24,
+            "text": "    \"ascend_address_space\", \"builtin\", \"CORE\", \"copy_from_ub_to_l1\", \"copy\", \"debug_barrier\", \"fixpipe\","
+          },
+          {
+            "line": 25,
+            "text": "    \"FixpipeDMAMode\", \"FixpipeDualDstMode\", \"FixpipePreQuantMode\", \"FixpipePreReluMode\", \"int64\", \"is_builtin\", \"MODE\","
+          },
+          {
+            "line": 159,
+            "text": "    Copies data from the Unified Buffer (UB) to the L1 Buffer."
+          },
+          {
+            "line": 163,
+            "text": "    :param dst: The destination buffer located in L1 memory."
+          },
+          {
+            "line": 172,
+            "text": "def copy(src: Union[tl.tensor, bl.buffer], dst: Union[tl.tensor, bl.buffer], _semantic: None) -> None:"
+          },
+          {
+            "line": 174,
+            "text": "    Copies data from the Unified Buffer (UB) to the Unified Buffer (UB) or L1 Buffer."
+          },
+          {
+            "line": 178,
+            "text": "    :param dst: The destination buffer located Unified Buffer (UB) or L1 memory."
+          },
+          {
+            "line": 230,
+            "text": "class FixpipeDMAMode(enum.Enum):"
+          },
+          {
+            "line": 231,
+            "text": "    NZ2DN = ascend_ir.FixpipeDMAMode.NZ2DN"
+          },
+          {
+            "line": 232,
+            "text": "    NZ2ND = ascend_ir.FixpipeDMAMode.NZ2ND"
+          },
+          {
+            "line": 233,
+            "text": "    NZ2NZ = ascend_ir.FixpipeDMAMode.NZ2NZ"
+          },
+          {
+            "line": 236,
+            "text": "class FixpipeDualDstMode(enum.Enum):"
+          },
+          {
+            "line": 237,
+            "text": "    NO_DUAL = ascend_ir.FixpipeDualDstMode.NO_DUAL"
+          },
+          {
+            "line": 238,
+            "text": "    COLUMN_SPLIT = ascend_ir.FixpipeDualDstMode.COLUMN_SPLIT"
+          },
+          {
+            "line": 239,
+            "text": "    ROW_SPLIT = ascend_ir.FixpipeDualDstMode.ROW_SPLIT"
+          },
+          {
+            "line": 242,
+            "text": "class FixpipePreQuantMode(enum.Enum):"
+          },
+          {
+            "line": 243,
+            "text": "    NO_QUANT = ascend_ir.FixpipePreQuantMode.NO_QUANT"
+          },
+          {
+            "line": 244,
+            "text": "    F322BF16 = ascend_ir.FixpipePreQuantMode.F322BF16"
+          },
+          {
+            "line": 245,
+            "text": "    F322F16 = ascend_ir.FixpipePreQuantMode.F322F16"
+          },
+          {
+            "line": 246,
+            "text": "    S322I8 = ascend_ir.FixpipePreQuantMode.S322I8"
+          },
+          {
+            "line": 249,
+            "text": "class FixpipePreReluMode(enum.Enum):"
+          },
+          {
+            "line": 250,
+            "text": "    LEAKY_RELU = ascend_ir.FixpipePreReluMode.LEAKY_RELU"
+          },
+          {
+            "line": 251,
+            "text": "    NO_RELU = ascend_ir.FixpipePreReluMode.NO_RELU"
+          },
+          {
+            "line": 252,
+            "text": "    NORMAL_RELU = ascend_ir.FixpipePreReluMode.NORMAL_RELU"
+          },
+          {
+            "line": 253,
+            "text": "    P_RELU = ascend_ir.FixpipePreReluMode.P_RELU"
+          },
+          {
+            "line": 257,
+            "text": "def fixpipe("
+          },
+          {
+            "line": 260,
+            "text": "    dma_mode: FixpipeDMAMode = FixpipeDMAMode.NZ2ND,"
+          },
+          {
+            "line": 261,
+            "text": "    dual_dst_mode: FixpipeDualDstMode = FixpipeDualDstMode.NO_DUAL,"
+          },
+          {
+            "line": 265,
+            "text": "    Directly store a tensor on L0C to a local buffer via fixpipe."
+          },
+          {
+            "line": 266,
+            "text": "    Fixpipe is pipeline that performing data movement from L0C to other memory hierarchies."
+          },
+          {
+            "line": 268,
+            "text": "        - L0C to UB (for Ascend910_95 sereies)"
+          },
+          {
+            "line": 270,
+            "text": "    :param src: the source tensor, Must be located in the l0C memory region."
+          },
+          {
+            "line": 276,
+            "text": "    :type dma_mode: FixpipeDMAMode"
+          },
+          {
+            "line": 278,
+            "text": "    :type dual_dst_mode: FixpipeDualDstMode"
+          },
+          {
+            "line": 295,
+            "text": "                raise ValueError(\"32b Fixpipe last dim must be aligned to 8\")"
+          },
+          {
+            "line": 296,
+            "text": "            if (dma_mode != FixpipeDMAMode.NZ2ND) and (N % 16 != 0):"
+          },
+          {
+            "line": 297,
+            "text": "                raise ValueError(\"32b non-NZ2ND Fixpipe last dim must be aligned to 16\")"
+          },
+          {
+            "line": 298,
+            "text": "            if (dual_dst_mode == FixpipeDualDstMode.COLUMN_SPLIT) and (N % 32 != 0):"
+          },
+          {
+            "line": 299,
+            "text": "                raise ValueError(\"32b Column split dual Fixpipe last dim must be aligned to 32\")"
+          },
+          {
+            "line": 301,
+            "text": "            if (dma_mode == FixpipeDMAMode.NZ2DN) and (M % 8 != 0):"
+          },
+          {
+            "line": 302,
+            "text": "                raise ValueError(\"32b NZ2DN Fixpipe first dim must be aligned to 8\")"
+          },
+          {
+            "line": 308,
+            "text": "                raise ValueError(\"16b Fixpipe last dim must be aligned to 16\")"
+          },
+          {
+            "line": 310,
+            "text": "            if (dma_mode == FixpipeDMAMode.NZ2DN) and (M % 16 != 0):"
+          },
+          {
+            "line": 311,
+            "text": "                raise ValueError(\"16b NZ2DN Fixpipe first dim must be aligned to 16\")"
+          },
+          {
+            "line": 313,
+            "text": "    return semantic.fixpipe("
+          },
+          {
+            "line": 318,
+            "text": "        FixpipePreQuantMode.NO_QUANT,"
+          },
+          {
+            "line": 319,
+            "text": "        FixpipePreReluMode.NO_RELU,"
+          }
+        ],
+        "artifact": "api-language_extra_cann_extension_core.py.txt",
+        "truncated": false
+      },
+      {
+        "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/language/extra/cann/extension/semantic.py",
+        "sha256": "a29934a55ca5f38a8d1945c3fd69c7810527d91be04473541c24ca0224173507",
+        "bytes": 7920,
+        "hits": [
+          {
+            "line": 24,
+            "text": "    \"fixpipe\","
+          },
+          {
+            "line": 96,
+            "text": "        if dst.space != al.ascend_address_space.L1:"
+          },
+          {
+            "line": 97,
+            "text": "            raise TypeError(\"dst's AddressSpace must be L1\")"
+          },
+          {
+            "line": 103,
+            "text": "def copy(src: Union[tl.tensor, bl.buffer], dst: Union[tl.tensor, bl.buffer], _semantic=None):"
+          },
+          {
+            "line": 115,
+            "text": "        if dst.space not in (al.ascend_address_space.L1, al.ascend_address_space.UB):"
+          },
+          {
+            "line": 116,
+            "text": "            raise TypeError(\"dst's AddressSpace must be UB or L1\")"
+          },
+          {
+            "line": 122,
+            "text": "def fixpipe("
+          },
+          {
+            "line": 132,
+            "text": "        result = _semantic.builder._ascend_builder.create_fixpipe("
+          },
+          {
+            "line": 140,
+            "text": "        if dual_dst_mode == al.FixpipeDualDstMode.ROW_SPLIT:"
+          },
+          {
+            "line": 146,
+            "text": "        elif dual_dst_mode == al.FixpipeDualDstMode.COLUMN_SPLIT:"
+          },
+          {
+            "line": 155,
+            "text": "        _semantic.builder._ascend_builder.create_fixpipe("
+          }
+        ],
+        "artifact": "api-language_extra_cann_extension_semantic.py.txt",
+        "truncated": false
+      }
+    ],
+    "limitation": "Symbol/source presence only; no claim of supported transfers, compilation or device execution",
+    "custom_ops": {
+      "source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/__init__.py",
+      "exported_names": [
+        "SORT_IMPL_BASE",
+        "SORT_IMPL_S4096_K129_512",
+        "SORT_IMPL_S4096_K1_128_K2048",
+        "cast_int4_to_fp16",
+        "common",
+        "compare_scalar",
+        "duplicate_bitwise_mask",
+        "gather_gm_to_l1",
+        "gather_gm_to_ub",
+        "gather_mask_builtin_pattern",
+        "gather_mask_custom_pattern",
+        "merge_exhaust_sort4",
+        "mrgsort",
+        "pair_reduce_sum_continuous_mask",
+        "registry",
+        "sort32",
+        "sort_1d_pack",
+        "unpack_sort"
+      ]
+    }
+  }
+}
