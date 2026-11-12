@@ -14,6 +14,7 @@
 
 """Capture the exact mixed-kernel compiler inputs for four fixed variants."""
 
+import hashlib
 import json
 import os
 import subprocess
@@ -50,6 +51,30 @@ class CaptureCompiler:
 
     def save(self, stem, record, result):
         record["returncode"] = result.returncode
+        command = record["command"]
+        if os.environ.get("QSA_CAPTURE_COMPILER_OUTPUTS") == "1" and "-o" in command:
+            root = Path(command[command.index("-o") + 1]).parent
+            remaining = 2 * 1024 * 1024
+            artifacts = []
+            for path in sorted(root.rglob("*")):
+                if not path.is_file() or path.name == "kernel.mlir":
+                    continue
+                if path.suffix not in (".ll", ".mlir", ".s", ".cce", ".json", ".o", ".so", ".bin"):
+                    continue
+                data = path.read_bytes()
+                entry = dict(path=str(path.relative_to(root)), bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
+                if path.suffix in (".ll", ".mlir", ".s", ".cce", ".json"):
+                    limit = min(remaining, 512 * 1024)
+                    if limit:
+                        name = stem + "-output-" + str(path.relative_to(root)).replace("/", "_") + ".txt"
+                        (self.report / name).write_bytes(data[:limit])
+                        entry.update(file=name, truncated=len(data) > limit)
+                        remaining -= min(len(data), limit)
+                    else:
+                        entry["not_exported"] = "per-call text budget exhausted"
+                artifacts.append(entry)
+            record["output_artifacts"] = artifacts
+            record["output_capture_limit_bytes"] = 2 * 1024 * 1024
         for field in ("stdout", "stderr"):
             value = getattr(result, field, None)
             if value:

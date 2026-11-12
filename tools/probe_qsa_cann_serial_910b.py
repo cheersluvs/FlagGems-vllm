@@ -103,6 +103,20 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
         assert bad == 0, (case, entry)
 
     try:
+        if os.environ.get("QSA_FUSED_REPLAY_ONLY") == "1":
+            import hashlib
+            from probe_qsa_fused_second_cube_910b import run_qk_isolation, run_fused_probe
+            result.update(scope="independent raw-QK and fused scorer replay; no TopK timing or acceptance mean",
+                          replay_only=True, pid=os.getpid(), source_sha256=hashlib.sha256(
+                              Path(__file__).with_name("probe_qsa_fused_second_cube_910b.py").read_bytes()).hexdigest(),
+                          input_sha256={key: hashlib.sha256(inputs[key].contiguous().numpy().tobytes()).hexdigest()
+                              for key in ("q", "cache", "qs", "ks", "weights", "row_table", "visible")})
+            result["raw_qk_isolation"] = run_qk_isolation(inputs, values, width, report, case)
+            assert result["raw_qk_isolation"]["status"] == "passed", "Raw QK replay failed"
+            result["fused_second_cube_probe"] = run_fused_probe(inputs, values, refs, width, timer, report, case)
+            assert result["fused_second_cube_probe"]["status"] == "completed", "Both fused scorers must pass replay"
+            result.update(status="passed", correctness_status="passed", timing_status="fused_probe_only")
+            return result
         adapter.run(check=check)
         indices = adapter.output.cpu()
         verify_structure(indices, inputs["visible"])

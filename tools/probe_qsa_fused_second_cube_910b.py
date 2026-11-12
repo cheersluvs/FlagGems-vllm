@@ -17,6 +17,7 @@
 import hashlib
 import json
 import math
+import os
 import statistics
 from functools import partial
 from pathlib import Path
@@ -213,9 +214,11 @@ def run_qk_isolation(inputs, values, width, report, case):
                  ("full_repeat", 0, rows, 0, tiles))
         matrix = [(f"layout_q{int(q)}_raw{int(raw)}", 0, 4, 0, 1, q, raw, True)
                   for q, raw in ((False, False), (True, False), (False, True), (True, True))]
+        if os.environ.get("QSA_QK_REVERSE_MATRIX") == "1":
+            matrix.reverse()
         expanded = matrix + [(*spec, True, True, False) for spec in specs]
         for label, first, count, tile_base, tile_count, linear_q, linear_raw, is_control in expanded:
-            if not is_control and result["controls"][-1]["status"] != "passed":
+            if not is_control and next(e for e in result["controls"] if e["LINEAR_Q"] and e["LINEAR_RAW"])["status"] != "passed":
                 result["error"] = "Both-linear single-tile control failed; full-grid and reduction tests not attempted"
                 break
             entry = dict(LINEAR_Q=linear_q, LINEAR_RAW=linear_raw, fixture=label, first_row=first, rows=count, tile_base=tile_base,

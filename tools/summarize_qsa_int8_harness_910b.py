@@ -387,6 +387,7 @@ def main():
     parser.add_argument("--online-stages", action="store_true")
     parser.add_argument("--cann-serial", action="store_true")
     parser.add_argument("--cann-mixed-recheck", action="store_true")
+    parser.add_argument("--cann-fused-replay", action="store_true")
     diagnostic = parser.add_mutually_exclusive_group()
     diagnostic.add_argument("--tile-handoff", action="store_true")
     diagnostic.add_argument("--group-visible", action="store_true")
@@ -403,6 +404,18 @@ def main():
                 rows.append(record)
                 if record["status"] != "passed":
                     raise ValueError(f"Serial control failed: {name}")
+                if args.cann_fused_replay:
+                    if not record.get("replay_only") or record["raw_qk_isolation"]["status"] != "passed":
+                        raise ValueError("Missing or failed raw-QK replay")
+                    fused = record["fused_second_cube_probe"]
+                    if fused["status"] != "completed":
+                        raise ValueError("Both fused scorers must pass replay")
+                    for arm in ("qk_vector_fp32", "qk_second_cube"):
+                        entry = fused["arms"][arm]
+                        if entry["status"] != "passed" or len(entry["samples_ms"]) != 2 or not all(
+                            isinstance(x, (int, float)) and math.isfinite(x) and x > 0 for x in entry["samples_ms"]):
+                            raise ValueError(f"Invalid fused replay timings: {arm}")
+                    continue
                 required_stages = ("score", "topk", "serial", "production_control")
                 if record.get("compared_query_groups") == [4, 16]:
                     required_stages += ("peer_score", "peer_serial")

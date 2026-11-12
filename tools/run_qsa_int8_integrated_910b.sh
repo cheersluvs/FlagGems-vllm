@@ -184,12 +184,16 @@ print("\n".join(names))
         if [[ ${QSA_MIXED_RECHECK_PROFILE:-0} == 1 || ${QSA_SECOND_CUBE_PROBE:-0} == 1 || ${QSA_FUSED_SECOND_CUBE_PROBE:-0} == 1 ]]; then
             qsa_recheck_flag=--cann-mixed-recheck
         fi
+        qsa_replay_flag=
+        if [[ ${QSA_FUSED_REPLAY_ONLY:-0} == 1 ]]; then
+            qsa_replay_flag=--cann-fused-replay
+        fi
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
             ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
             ${qsa_diagnostic_flag:+"$qsa_diagnostic_flag"} \
-            ${qsa_mixed_flag:+"$qsa_mixed_flag"} ${qsa_recheck_flag:+"$qsa_recheck_flag"}
+            ${qsa_mixed_flag:+"$qsa_mixed_flag"} ${qsa_recheck_flag:+"$qsa_recheck_flag"} ${qsa_replay_flag:+"$qsa_replay_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"

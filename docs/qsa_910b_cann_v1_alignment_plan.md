@@ -388,3 +388,14 @@ QSA_FUSED_SECOND_CUBE_PROBE=1的下一轮固定budget_exact前32行，独立微�
 raw-only先执行单group单tile四项：旧/旧、线性Q/旧写回、旧Q/线性写回、线性Q/线性写回，各存controls。数值失败继续记录其他控制，编译/设备异常停止。只有最后一项精确通过，才运行七组线性布局grid检查；完整gate要求七组均有记录且通过，不允许空列表all()误判通过。旧布局失败不计入候选正确性，但不能被声称已修复。完整QK通过后才继续原FP32归约/第二Cube；精度失败不计时。最终scope仍仅诊断评分微实验，不改生产或TopK。
 
 保存每项IR/产物、原始编译命令及错误分布；需核对线性地址下三维reshape是否消失以及设备结果是否改变，不能提前认定编译器根因。Mac执行语法、所有组/行/head及尾部mask等价性检查，设备结论待回传。NVIDIA autotune不适用本轮Ascend诊断。
+
+
+### 独立进程重放与底层产物捕获
+
+报告fdd468671d4e9438ec63b6c54668c3452f6863e4（65b449b4）：四项布局控制和七项raw QK全部精确通过，包括旧/旧；完整与尾部评分均满足1e-3。FP32评分343.153us、第二Cube177.030us，相对本轮控制1.938x，并非生产或CANN加速比。旧/旧仍保留三维load/store reshape，本轮通过不能证明线性改写为此前故障的唯一修复原因。尚不整合生产。
+
+QSA_FUSED_REPLAY_ONLY=1从serial probe入口早返回，跳过混合kernel与其分离阶段重测，仅执行raw布局矩阵/七项QK及两种评分。已有benchmark fixture仍会准备输入及一次当前路径scratch，不作为TopK新计时。每轮保存PID、q/cache/qs/ks/weights/table/visible指纹与评分源文件SHA256。kernel AST保持冻结。两次独立runner产生两个全新pytest进程和互不相同的TRITON_CACHE_DIR，第二次QSA_QK_REVERSE_MATRIX=1倒序执行四项布局控制，候选gate显式查找双线性控制，不依赖最后一项。
+
+两臂各自两轮配对计时，full/tail输出精度通过才计时；任一runner失败则外层停止，不在设备异常后强行继续。每次独立上传一个结果分支。新增--cann-fused-replay摘要严格要求raw候选通过、两种评分completed/passed且均有两项有限正数计时，不要求没有执行的混合/TopK阶段。旧布局控制的失败仍在原始报告中保留，不当作已修复。scope为单场景诊断，不计算跨shape验收均值。
+
+QSA_CAPTURE_COMPILER_OUTPUTS=1在原bishengir命令完成后、临时目录删除前枚举-o所在目录的ll/mlir/s/cce/json与目标文件。文本每文件至多512KiB、每次编译至多2MiB，显式记录截断或预算耗尽；二进制记录字节数与SHA256。无额外编译选项，不修改kernel或反汇编。不能因未导出某个GM相关文本就认定无GM访问，只有拿到相应层级产物后再分析；缺失/截断标未知。生产代码与TopK不变。本轮省去非必要混合流水线复测，TopK没有新性能值。
