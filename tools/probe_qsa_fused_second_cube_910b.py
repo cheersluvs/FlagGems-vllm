@@ -129,7 +129,9 @@ def prepare_current_int8_score(values, visible, rows, width, output, report, lab
             bound = adapter.bind_query16_score(0, rows, output)
             grid = (min(20, triton.cdiv(rows, 16) * triton.cdiv(triton.cdiv(width, 64), 8)),)
             identity.update(cube_reduction_applied=reduction_mode == "cube", reduction_mode=reduction_mode, rewrite=rewrite, grid=list(grid), launch_kwargs=bound.keywords)
-            return partial(candidate[grid], *bound.args, **bound.keywords), identity
+            launch = partial(candidate[grid], *bound.args, **bound.keywords)
+            launch.qsa_warmup = partial(candidate.warmup, *bound.args, grid=grid, **bound.keywords)
+            return launch, identity
         if rows >= 16:
             raise NotImplementedError("Incremental reduction probe requires actual query16 route")
         identity["fallback_reason"] = "Partial query group: unchanged original fallback; no Cube reduction tested here"
@@ -141,6 +143,9 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
     from diagnose_qsa_structural_mixed_compile_910b import CaptureCompiler
 
     report = Path(report)
+    if os.environ.get("QSA_GENERIC_LOCAL_HANDOFF") == "1":
+        from probe_qsa_generic_local_buffer_910b import run_probe
+        return run_probe(inputs, values, refs, width, timer, report, case)
     path = report / f"{case}-fused-second-cube.json"
     result = dict(status="running", scope="single-launch scorer QK plus reduction; no TopK or full-shape acceptance",
                   query_group=4, cube_n=64, common_gm_qk_input=False,

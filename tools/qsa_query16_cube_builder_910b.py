@@ -44,7 +44,17 @@ scores = tl.sum(tl.reshape(weighted, (16, 4, BLOCK_N)), axis=1) * 1024.0 * key_s
 QK_SINK = """
 scores = tl.sum(tl.reshape(dot.to(tl.float32), (16, 4, BLOCK_N)), axis=1)
 """
-REPLACEMENTS = dict(cube=REPLACEMENT, half_vector=HALF_VECTOR, qk_sink=QK_SINK)
+LOCAL_L1 = REPLACEMENT.replace(
+    "scores = tl.dot(reduction_weights, reduction_input,",
+    "weights_l1 = tle.dsa.to_buffer(reduction_weights, space=tle.dsa.ascend.L1)\n"
+    "input_l1 = tle.dsa.to_buffer(reduction_input, space=tle.dsa.ascend.L1)\n"
+    "local_weights = tle.dsa.to_tensor(weights_l1)\n"
+    "local_input = tle.dsa.to_tensor(input_l1)\n"
+    "scores = tl.dot(local_weights, local_input,",
+)
+REPLACEMENTS = dict(
+    cube=REPLACEMENT, half_vector=HALF_VECTOR, qk_sink=QK_SINK, local_l1=LOCAL_L1
+)
 
 
 def rewrite_reduction(fn, mode="cube"):
@@ -74,7 +84,11 @@ def build_reduction_kernel(kernel, report, label, mode="cube"):
     changed, original = rewrite_reduction(fn, mode)
     changed.name = f"_qsa_query16_{mode}_reduction"
     module_text = (
-        "import triton\nimport triton.language as tl\n\n" + ast.unparse(changed) + "\n"
+        "import triton\nimport triton.language as tl\n"
+        + ("import triton.experimental.tle as tle\n" if mode == "local_l1" else "")
+        + "\n"
+        + ast.unparse(changed)
+        + "\n"
     )
     directory = report / "generated-reductions"
     directory.mkdir(exist_ok=True)

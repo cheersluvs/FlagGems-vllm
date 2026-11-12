@@ -93,7 +93,9 @@ from tools.qsa_int8_ten_workloads_910b import cases
 from tools.summarize_qsa_int8_harness_910b import GROUP_VISIBLE_CASES, GROUP_VISIBLE_WALL_CASES, STAGE_CASES, TILE_HANDOFF_CASE
 if os.environ.get("QSA_FUSED_TEN_CHUNKS") == "1":
     names = [case["name"] for case in cases()]
-    if os.environ.get("QSA_QUERY16_REDUCTION_DIAG") == "1":
+    if os.environ.get("QSA_GENERIC_LOCAL_HANDOFF") == "1":
+        names = ["int8_budget_exact"]
+    elif os.environ.get("QSA_QUERY16_REDUCTION_DIAG") == "1":
         names = ["int8_budget_exact", "int8_long100k"]
 elif os.environ.get("QSA_HARNESS_ONLINE_STAGES") == "1":
     names = ("int8_budget_exact",) if (os.environ.get("QSA_MIXED_RECHECK_PROFILE") == "1" or os.environ.get("QSA_SECOND_CUBE_PROBE") == "1" or os.environ.get("QSA_FUSED_SECOND_CUBE_PROBE") == "1") else ("int8_budget_exact", "int8_compact")

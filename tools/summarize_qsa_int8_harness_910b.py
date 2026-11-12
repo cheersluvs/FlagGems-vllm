@@ -396,6 +396,9 @@ def main():
     diagnostic.add_argument("--group-visible-full", action="store_true")
     diagnostic.add_argument("--group-visible-wall", action="store_true")
     args = parser.parse_args()
+    if args.fused_ten_chunks and os.environ.get("QSA_GENERIC_LOCAL_HANDOFF") == "1":
+        from tools.probe_qsa_generic_local_buffer_910b import summarize_probe
+        return summarize_probe(args.report.parent, args.output, args.pytest_exit_code)
     if args.fused_ten_chunks:
         records, error = [], None
         diagnostic = os.environ.get("QSA_QUERY16_REDUCTION_DIAG") == "1"
