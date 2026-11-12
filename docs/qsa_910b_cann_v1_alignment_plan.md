@@ -234,3 +234,35 @@ gate：先验证单槽带诊断写回版本的每块点积、评分、排序与�
 报告 `2b130a912252dc8bb946ea57cc7df87cd6f983c1`：首块剥离后，捕获IR中目标 `scf.if -> tensor` 已消失，但四项依旧相同InjectSync错误。因此该条件分支并非已证实的根因，停止沿此假设修改排程。
 
 下一轮 `QSA_MIXED_COMPILE_PREFIX=1` 固定slots1、TRACE=True，仅做4项warmup编译：stage=-1为原始INT32交接；stage=0加入FP32评分及UB分块写入；stage=1加入sort2048和状态写入（不做持续合并）；stage=2为完整算法。每项保存编译器输入IR/错误日志及成功产物。删减版本不执行、不计时、不作为正确候选；普通run始终使用默认stage=2。完整stage的计算和排程保持不变；若所有编译均通过，再按原gate只执行完整版本并验证后计时。
+
+
+### 2026-11-12：原始 INT32 交接也编译失败，隔离两个访存差异
+
+报告 `40b4b6df3e5c56a92e7f8fd3d36edbedeba436fb`，代码 `f713224e5f557460173aeb4f7127968d4daf1a35`：stage=-1/0/1/2 均报 `InjectSync Traverse IR Failed`。stage=-1 的输入IR只有359行，已无评分、UB分块写回、sort/merge自定义调用；因此这些操作不是本轮最早失败所必需的条件。错误仍可能来自Cube生产、ring访存、控制流或跨核交接，不能只凭错误名认定具体原因。无设备正确性或性能数据。
+
+本轮沿用前述项目真相、输入契约和验收口径，仅增加算子源码结构诊断；不修改编译器、编译选项、生产src或基线。
+
+| 项目真相补充 | 本轮冻结值 |
+| --- | --- |
+| 可编辑范围 | mixed trial、编译捕获、serial probe集成、本文；均为诊断工具 |
+| 编译/正确性/计时 | 先原始交接2×2编译，再完整算法slots1/2×TRACE0/1编译；通过才执行原逐块/最终/边界验证和两轮交错harness kernel计时 |
+| Active set | budget_exact/compact前32行和原三个边界fixture；不是完整10shape验收 |
+| 汇总 | 保留分离评分、TopK、query4/query16串行、生产control、mixed单槽/双槽；fusion和double-buffer两个比值分开 |
+| Autotune | 固定Ascend诊断对照，不适用NVIDIA生产autotune；本轮不修改正式调优配置 |
+| 环境/风险 | pinned FlagTree/CANN/OPP不变；Mac只能静态验证，设备编译及执行待卡上验证；仍可能无完整候选编译通过 |
+
+| 输入与数值契约补充 | 处理 |
+| --- | --- |
+| 页表列数 | 非空WIDTH，COLUMNS至少ceil(WIDTH/192)，页表物理页有效；索引始终clamp至COLUMNS-1 |
+| 不带mask的标量页号加载 | 只改变已clamp且有效的标量读取；K/scale的WIDTH mask保留，尾块无效位置仍为0/-inf |
+| ring tile-major | 同样32768个INT32/槽，将[16,2048]地址改为[32,16,64]；Cube和Vector同时改变地址公式，无数值计算变化 |
+| 精度和TopK | QK INT32，评分FP32，sort2048/Top2048/输出512不变；1e-3和原索引验证不变 |
+
+| 路径 | 行为 |
+| --- | --- |
+| 原始交接编译矩阵 | slots1、TRACE=True、stage=-1；原布局/仅无mask页号/仅tile-major ring/两项同时，各保存原IR和stderr |
+| 完整候选筛选 | 按上述固定顺序，对原始交接编译通过的候选编译完整四项；失败继续下一个，不按性能挑选 |
+| 同轮设备验证 | 首个完整四项编译通过的配置写入selection，冻结用于两种缓冲、边界与compact；所有正确性通过才计时，数值失败立即停止，不回落到其他候选 |
+| 无可用配置 | 所有证据回传，执行失败，禁止运行删减版或产生性能结论 |
+
+`QSA_MIXED_STRUCTURE_DIAG=1` 启用此流程，优先于旧编译前缀开关。普通默认参数仍为原mask页号+原ring布局。此轮两个假设来自此前已运行的混合kernel使用无mask的有效标量页号读取和连续16×64 tile交接，尚未证明它们与错误有因果关系。若两项都无效，不继续归因于TopK，保留完整编译证据再检查控制流/同步。

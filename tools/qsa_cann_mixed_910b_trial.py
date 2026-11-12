@@ -44,6 +44,7 @@ def _consume_outer2048(
     score_storage, state_storage, outer,
     ROWS: tl.constexpr, COLUMNS: tl.constexpr, WIDTH: tl.constexpr,
     BLOCKS: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, FIRST: tl.constexpr, STAGE: tl.constexpr,
+    TABLE_PLAIN: tl.constexpr, RING_TILE_MAJOR: tl.constexpr,
 ):
     pid = tl.program_id(0)
     h = tl.arange(0, 4)
@@ -52,14 +53,21 @@ def _consume_outer2048(
     al.sync_block_wait("cube", "vector", vector_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
     for inner in range(32):
         start = outer * 2048 + inner * 64
-        page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1), mask=start < WIDTH, other=0)
+        if TABLE_PLAIN:
+            page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1))
+        else:
+            page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1), mask=start < WIDTH, other=0)
         token = page * 192 + start % 192 + n
         key_scale = tl.load(KS + token, mask=start + n < WIDTH, other=0).to(tl.float32)
         for local_query in range(2):
             row = pid * 4 + al.sub_vec_id() * 2 + local_query
             head = al.sub_vec_id() * 8 + local_query * 4 + h
-            src = Ring + (pid * SLOTS + vector_slot) * 16 * 2048 + inner * 64
-            dots = tl.load(src + head[:, None] * 2048 + n[None, :])
+            if RING_TILE_MAJOR:
+                src = Ring + (pid * SLOTS + vector_slot) * 16 * 2048 + inner * 16 * 64
+                dots = tl.load(src + head[:, None] * 64 + n[None, :])
+            else:
+                src = Ring + (pid * SLOTS + vector_slot) * 16 * 2048 + inner * 64
+                dots = tl.load(src + head[:, None] * 2048 + n[None, :])
             if STAGE >= 0:
                 qs = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
                 weight = tl.load(Weight + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
@@ -112,6 +120,7 @@ def _mixed_outer2048(
     TDots, TScores, TLocal, TState, TCounts,
     ROWS: tl.constexpr, COLUMNS: tl.constexpr, WIDTH: tl.constexpr,
     BLOCKS: tl.constexpr, SLOTS: tl.constexpr, TRACE: tl.constexpr, STAGE: tl.constexpr = 2,
+    TABLE_PLAIN: tl.constexpr = False, RING_TILE_MAJOR: tl.constexpr = False,
 ):
     with al.scope(core_mode="cube"):
         pid = tl.program_id(0)
@@ -124,12 +133,19 @@ def _mixed_outer2048(
             al.sync_block_wait("vector", "cube", cube_slot, pipe.PIPE_MTE3, pipe.PIPE_FIX)
             for inner in range(32):
                 start = outer * 2048 + inner * 64
-                page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1), mask=start < WIDTH, other=0)
+                if TABLE_PLAIN:
+                    page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1))
+                else:
+                    page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1), mask=start < WIDTH, other=0)
                 token = page * 192 + start % 192 + n
                 key = tl.load(K + token[:, None] * 128 + d[None, :], mask=start + n[:, None] < WIDTH, other=0)
                 dot = tl.dot(query, tl.trans(key), out_dtype=tl.int32)
-                dst = Ring + (pid * SLOTS + cube_slot) * 16 * 2048 + inner * 64
-                tl.store(dst + m[:, None] * 2048 + n[None, :], dot)
+                if RING_TILE_MAJOR:
+                    dst = Ring + (pid * SLOTS + cube_slot) * 16 * 2048 + inner * 16 * 64
+                    tl.store(dst + m[:, None] * 64 + n[None, :], dot)
+                else:
+                    dst = Ring + (pid * SLOTS + cube_slot) * 16 * 2048 + inner * 64
+                    tl.store(dst + m[:, None] * 2048 + n[None, :], dot)
             al.sync_block_set("cube", "vector", cube_slot, pipe.PIPE_FIX, pipe.PIPE_MTE2)
         for drain in tl.static_range(SLOTS):
             al.sync_block_wait("vector", "cube", drain, pipe.PIPE_MTE3, pipe.PIPE_FIX)
@@ -145,13 +161,13 @@ def _mixed_outer2048(
         _consume_outer2048(
             QS, KS, Weight, Table, Visible, Ring, TDots, TScores, TLocal, TState, TCounts,
             score_storage, state_storage, 0,
-            ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, True, STAGE,
+            ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, True, STAGE, TABLE_PLAIN, RING_TILE_MAJOR,
         )
         for outer in range(1, BLOCKS):
             _consume_outer2048(
                 QS, KS, Weight, Table, Visible, Ring, TDots, TScores, TLocal, TState, TCounts,
                 score_storage, state_storage, outer,
-                ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, False, STAGE,
+                ROWS, COLUMNS, WIDTH, BLOCKS, SLOTS, TRACE, False, STAGE, TABLE_PLAIN, RING_TILE_MAJOR,
             )
         if STAGE >= 1:
             for local_query in range(2):
@@ -169,9 +185,16 @@ def _mixed_outer2048(
 
 
 class PreparedMixedOuter:
-    def __init__(self, values, width, *, slots, request_ids):
+    def __init__(self, values, width, *, slots, request_ids, structure=None):
         from qsa_cann_serial_910b_trial import PreparedCANNSerial
         proof = PreparedCANNSerial(values, width, query_group=4, request_ids=request_ids)
+        self.structure = dict(TABLE_PLAIN=False, RING_TILE_MAJOR=False)
+        if structure is not None:
+            if set(structure) != set(self.structure) or any(type(value) is not bool for value in structure.values()):
+                raise ValueError("Expected boolean TABLE_PLAIN and RING_TILE_MAJOR")
+            self.structure.update(structure)
+        if width <= 0 or values["row_table"].shape[1] < triton.cdiv(width, 192):
+            raise ValueError("Mixed probe requires nonempty width and sufficient page-table columns")
         self.rows, self.width, self.slots = proof.rows, width, slots
         self.blocks = triton.cdiv(width, 2048)
         device = values["q"].device
@@ -199,7 +222,7 @@ class PreparedMixedOuter:
                     *(tensor[first:first + count] for tensor in self.traces))
             self.launches.append(partial(_mixed_outer2048[(cores,)], *args,
                 ROWS=count, COLUMNS=values["row_table"].shape[1], WIDTH=width, BLOCKS=self.blocks,
-                SLOTS=slots, use_bytecode=True, disable_auto_cv_work_space_manage=True,
+                SLOTS=slots, **self.structure, use_bytecode=True, disable_auto_cv_work_space_manage=True,
                 disable_auto_inject_block_sync=True, enable_auto_bind_sub_block=False,
                 multibuffer=False, sync_solver=False, unit_flag=False))
 

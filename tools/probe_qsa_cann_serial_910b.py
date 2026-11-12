@@ -21,7 +21,7 @@ import statistics
 from pathlib import Path
 
 
-def run_probe(inputs, values, width, full_scores, control, timer, report, case, *, validate_only=False, query_group=None):
+def run_probe(inputs, values, width, full_scores, control, timer, report, case, *, validate_only=False, query_group=None, mixed_structure=None):
     import torch
     from qsa_cann_serial_910b_trial import PreparedCANNSerial
     from probe_qsa_int8_score_910b import reference
@@ -137,7 +137,14 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             result["peer_score_segments"] = peer.segments
         if os.environ.get("QSA_SERIAL_MIXED_CONTROL") == "1" and group == 4:
             from qsa_cann_mixed_910b_trial import PreparedMixedOuter
-            if os.environ.get("QSA_MIXED_COMPILE_DIAG") == "1":
+            if os.environ.get("QSA_MIXED_STRUCTURE_DIAG") == "1":
+                if mixed_structure is None:
+                    from diagnose_qsa_structural_mixed_compile_910b import compile_structure_matrix
+                    matrix = compile_structure_matrix(values, width, owners, report, case)
+                    result["mixed_structure_matrix"] = matrix
+                    mixed_structure = matrix["selected"]
+                result["mixed_structure"] = mixed_structure
+            elif os.environ.get("QSA_MIXED_COMPILE_DIAG") == "1":
                 from diagnose_qsa_structural_mixed_compile_910b import compile_matrix
                 matrix = compile_matrix(values, width, owners, report, case)
                 result["mixed_compile_matrix"] = matrix
@@ -146,7 +153,7 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             for slots, label in ((1, "mixed_serial"), (2, "mixed_double")):
                 active_group = 4
                 active_implementation = label
-                mixed = PreparedMixedOuter(values, width, slots=slots, request_ids=owners)
+                mixed = PreparedMixedOuter(values, width, slots=slots, request_ids=owners, structure=mixed_structure)
                 mixed_controls[label] = mixed
                 print(f"QSA MIXED COMPILE {case} {label}", flush=True)
                 mixed.run(check=check)
@@ -169,7 +176,7 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             result.update(status="passed", timing_status="not_requested")
             return result
         if case == "int8_budget_exact":
-            result["boundary_reports"] = run_boundaries(inputs, values, report)
+            result["boundary_reports"] = run_boundaries(inputs, values, report, mixed_structure=mixed_structure)
         result["timing_status"] = "running"
         result["timing_attempts"] = []
         functions = dict(score=adapter.score_only, topk=lambda: adapter.run(full_source=full_scores),
@@ -242,7 +249,7 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
     return result
 
 
-def run_boundaries(inputs, values, report):
+def run_boundaries(inputs, values, report, *, mixed_structure=None):
     import torch
 
     specifications = (
@@ -278,7 +285,7 @@ def run_boundaries(inputs, values, report):
         for group in groups:
             label = name if group is None else f"{name}_q{group}"
             entry = run_probe(edge, target, width, None, None, None, report, label,
-                              validate_only=True, query_group=group)
+                              validate_only=True, query_group=group, mixed_structure=mixed_structure)
             completed.append(dict(case=label, width=width, rows=count, request_lengths=request_lengths,
                                   query_group=entry["query_group"], tied_scores=ties, status=entry["status"]))
             print("QSA SERIAL BOUNDARY PASS " + json.dumps(completed[-1]), flush=True)

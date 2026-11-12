@@ -60,8 +60,28 @@ class CaptureCompiler:
                 record[field] = dict(file=name, bytes=len(data), truncated=len(data) > limit)
 
 
-def compile_matrix(values, width, owners, report, case):
+def _capture_variant(adapter, report, label, trace, stage):
     from triton.backends.ascend import compiler
+
+    capture = CaptureCompiler(report, label)
+    entry = dict(slots=adapter.slots, trace=trace, stage=stage,
+                 structure=adapter.structure, compile_only=True, status="failed")
+    try:
+        with patch.object(compiler, "subprocess", capture):
+            kernels = adapter.compile_variant(trace, stage)
+        entry.update(status="compiled", metadata=[str(kernel.metadata) for kernel in kernels])
+        for index, kernel in enumerate(kernels):
+            for kind, text in kernel.asm.items():
+                if isinstance(text, str):
+                    (report / f"{label}-{index}-{kind}.txt").write_text(text)
+    except Exception as exc:
+        entry["error"] = repr(exc)
+    entry["compiler_calls"] = capture.calls
+    print(f"QSA MIXED COMPILE {label} status={entry['status']}", flush=True)
+    return entry
+
+
+def compile_matrix(values, width, owners, report, case):
     from qsa_cann_mixed_910b_trial import PreparedMixedOuter
 
     report = Path(report)
@@ -72,20 +92,56 @@ def compile_matrix(values, width, owners, report, case):
         variants = [(True, stage) for stage in (-1, 0, 1, 2)] if prefix_probe else [(trace, 2) for trace in (False, True)]
         for trace, stage in variants:
             label = f"{case}-slots{slots}-trace{int(trace)}-stage{stage}"
-            capture = CaptureCompiler(report, label)
-            entry = dict(slots=slots, trace=trace, stage=stage, compile_only=True, status="failed")
-            try:
-                with patch.object(compiler, "subprocess", capture):
-                    kernels = adapter.compile_variant(trace, stage)
-                entry.update(status="compiled", metadata=[str(kernel.metadata) for kernel in kernels])
-                for index, kernel in enumerate(kernels):
-                    for kind, text in kernel.asm.items():
-                        if isinstance(text, str):
-                            (report / f"{label}-{index}-{kind}.txt").write_text(text)
-            except Exception as exc:
-                entry["error"] = repr(exc)
-            entry["compiler_calls"] = capture.calls
-            records.append(entry)
+            records.append(_capture_variant(adapter, report, label, trace, stage))
             (report / f"{case}-mixed-compile-matrix.json").write_text(json.dumps(records, indent=2))
-            print(f"QSA MIXED COMPILE MATRIX slots={slots} trace={trace} stage={stage} status={entry['status']}", flush=True)
     return records
+
+
+def compile_structure_matrix(values, width, owners, report, case):
+    """Isolate handoff structure; execute no reduced prefix kernels."""
+    from qsa_cann_mixed_910b_trial import PreparedMixedOuter
+
+    report = Path(report)
+    path = report / f"{case}-mixed-structure-matrix.json"
+    frozen_path = report / "mixed-structure-selection.json"
+    result = dict(status="running", raw=[], full=[], selected=None,
+                  selection_rule="first candidate compiling all four full variants; no timing selection")
+
+    def save():
+        path.write_text(json.dumps(result, indent=2, allow_nan=False))
+
+    if frozen_path.exists():
+        frozen = json.loads(frozen_path.read_text())
+        candidates = [frozen["structure"]]
+        result["frozen_from_case"] = frozen["case"]
+    else:
+        candidates = []
+        for plain, tiled in ((False, False), (True, False), (False, True), (True, True)):
+            structure = dict(TABLE_PLAIN=plain, RING_TILE_MAJOR=tiled)
+            adapter = PreparedMixedOuter(values, width, slots=1, request_ids=owners, structure=structure)
+            label = f"{case}-plain{int(plain)}-tiled{int(tiled)}-raw"
+            entry = _capture_variant(adapter, report, label, True, -1)
+            result["raw"].append(entry)
+            save()
+            if entry["status"] == "compiled":
+                candidates.append(structure)
+    for structure in candidates:
+        complete = []
+        for slots in (1, 2):
+            adapter = PreparedMixedOuter(values, width, slots=slots, request_ids=owners, structure=structure)
+            for trace in (False, True):
+                label = (f"{case}-plain{int(structure['TABLE_PLAIN'])}"
+                         f"-tiled{int(structure['RING_TILE_MAJOR'])}-slots{slots}-trace{int(trace)}-full")
+                complete.append(_capture_variant(adapter, report, label, trace, 2))
+                result["full"].append(complete[-1])
+                save()
+        if all(entry["status"] == "compiled" for entry in complete):
+            result.update(status="compiled", selected=structure)
+            save()
+            if not frozen_path.exists():
+                frozen_path.write_text(json.dumps(dict(case=case, structure=structure), indent=2))
+            print("QSA MIXED STRUCTURE SELECTED " + json.dumps(structure), flush=True)
+            return result
+    result["status"] = "failed"
+    save()
+    raise RuntimeError("No mixed handoff structure compiled all four full variants; see structure matrix and compiler IR")
