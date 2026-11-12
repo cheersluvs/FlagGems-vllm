@@ -1,0 +1,31 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+EXPLICIT_CUBE_RESULT {"status": "completed", "outcome": "missing_explicit_api", "stages": [], "timings": {}, "scope": "One program M16/K128/N64; explicit low-level API feasibility, no full operator acceptance", "numerical_contract": "Small signed INT8 values; QK exact INT32; FP16 cast/ReLU then half weights with FP32 accumulation, rtol/atol1e-3; does not reproduce CANN DEQF16 scale flag", "api": {"tile_cube_launch": {"present": true, "signature": "(a: triton.experimental.tle.language.dsa.types.buffer, b: triton.experimental.tle.language.dsa.types.buffer, acc: triton.experimental.tle.language.dsa.types.buffer, stage_a: triton.experimental.tle.language.dsa.types.buffer, stage_b: triton.experimental.tle.language.dsa.types.buffer, dst, transpose_a: bool = False, transpose_b: bool = False, init: bool = False, mma: str = '', _semantic=None, _generator=None)"}, "tile_cube_wait": {"present": true, "signature": "(_semantic=None, _generator=None)"}, "alloc": {"present": true, "signature": "(shape: List[triton.language.core.constexpr], dtype: triton.language.core.dtype, mem_addr_space: triton.experimental.tle.language.dsa.types.address_space, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer"}, "copy": {"present": true, "signature": "(src, dst, shape, inter_no_alias=False, _semantic=None)"}, "to_tensor": {"present": true, "signature": "(memref: triton.experimental.tle.language.dsa.types.buffer, writable: bool = True, target_shape=None, _semantic=None) -> triton.language.core.tensor"}, "to_buffer": {"present": true, "signature": "(tensor: triton.language.core.tensor, space: triton.experimental.tle.language.dsa.types.address_space = None, bind_buffer: triton.experimental.tle.language.dsa.types.buffer = None, _semantic=None) -> triton.experimental.tle.language.dsa.types.buffer"}, "GM": {"present": false}}, "environment": {"torch": "2.10.0+cpu", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0"}}
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-explicit-cube.AMhNjtnl/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 5.37s
