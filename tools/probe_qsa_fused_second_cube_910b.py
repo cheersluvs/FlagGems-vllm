@@ -31,22 +31,32 @@ import triton.language.extra.cann.extension as al
 @triton.jit
 def _qk_reduce(Q, K, QS, KS, W, Table, Visible, Out,
                ROWS: tl.constexpr, WIDTH: tl.constexpr, COLUMNS: tl.constexpr,
-               SECOND_CUBE: tl.constexpr, DOT_ONLY: tl.constexpr = False, TILE_BASE: tl.constexpr = 0):
+               SECOND_CUBE: tl.constexpr, DOT_ONLY: tl.constexpr = False, TILE_BASE: tl.constexpr = 0,
+               LINEAR_Q: tl.constexpr = True, LINEAR_RAW: tl.constexpr = True):
     base = tl.program_id(0) * 4
     start = (tl.program_id(1) + TILE_BASE) * 64
     n = start + tl.arange(0, 64)
     m = tl.arange(0, 16)
     d = tl.arange(0, 128)
     qrow = base + m // 4
-    q = tl.load(Q + (qrow[:, None] * 4 + m[:, None] % 4) * 128 + d[None, :],
-                mask=qrow[:, None] < ROWS, other=0)
+    if LINEAR_Q:
+        head = base * 4 + m
+        q = tl.load(Q + head[:, None] * 128 + d[None, :], mask=head[:, None] < ROWS * 4, other=0)
+    else:
+        q = tl.load(Q + (qrow[:, None] * 4 + m[:, None] % 4) * 128 + d[None, :],
+                    mask=qrow[:, None] < ROWS, other=0)
     page = tl.load(Table + tl.minimum(start // 192, COLUMNS - 1))
     token = page * 192 + start % 192 + tl.arange(0, 64)
     key = tl.load(K + token[:, None] * 128 + d[None, :], mask=n[:, None] < WIDTH, other=0)
     dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
     if DOT_ONLY:
-        tl.store(Out + (qrow[:, None] * 4 + m[:, None] % 4) * WIDTH + n[None, :], dot,
-                 mask=(qrow[:, None] < ROWS) & (n[None, :] < WIDTH))
+        if LINEAR_RAW:
+            head = base * 4 + m
+            tl.store(Out + head[:, None] * WIDTH + n[None, :], dot,
+                     mask=(head[:, None] < ROWS * 4) & (n[None, :] < WIDTH))
+        else:
+            tl.store(Out + (qrow[:, None] * 4 + m[:, None] % 4) * WIDTH + n[None, :], dot,
+                     mask=(qrow[:, None] < ROWS) & (n[None, :] < WIDTH))
     else:
         ks = tl.load(KS + token, mask=n < WIDTH, other=0).to(tl.float32)
         if SECOND_CUBE:
@@ -84,6 +94,7 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
     path = report / f"{case}-fused-second-cube.json"
     result = dict(status="running", scope="single-launch scorer QK plus reduction; no TopK or full-shape acceptance",
                   query_group=4, cube_n=64, common_gm_qk_input=False,
+                  q_load_layout="linear head index", raw_store_layout="linear head index",
                   compiler_gm_intermediate_status="unverified; inspect captured artifacts", arms={})
     funcs = {}
     try:
@@ -182,7 +193,8 @@ def run_qk_isolation(inputs, values, width, report, case):
 
     report = Path(report)
     path = report / f"{case}-raw-qk-isolation.json"
-    result = dict(status="running", scope="raw INT32 QK only; no reduction, TopK or performance claim", checks=[])
+    result = dict(status="running", scope="raw INT32 QK only; no reduction, TopK or performance claim", controls=[], checks=[],
+                  selected_layout=dict(LINEAR_Q=True, LINEAR_RAW=True))
     sentinel = 1515870810
     try:
         rows = inputs["q"].shape[0]
@@ -199,16 +211,23 @@ def run_qk_isolation(inputs, values, width, report, case):
                  ("all_groups_tile0", 0, rows, 0, 1),
                  ("full_first", 0, rows, 0, tiles),
                  ("full_repeat", 0, rows, 0, tiles))
-        for label, first, count, tile_base, tile_count in specs:
-            entry = dict(fixture=label, first_row=first, rows=count, tile_base=tile_base,
+        matrix = [(f"layout_q{int(q)}_raw{int(raw)}", 0, 4, 0, 1, q, raw, True)
+                  for q, raw in ((False, False), (True, False), (False, True), (True, True))]
+        expanded = matrix + [(*spec, True, True, False) for spec in specs]
+        for label, first, count, tile_base, tile_count, linear_q, linear_raw, is_control in expanded:
+            if not is_control and result["controls"][-1]["status"] != "passed":
+                result["error"] = "Both-linear single-tile control failed; full-grid and reduction tests not attempted"
+                break
+            entry = dict(LINEAR_Q=linear_q, LINEAR_RAW=linear_raw, fixture=label, first_row=first, rows=count, tile_base=tile_base,
                          tile_count=tile_count, grid=[count // 4, tile_count], phase="compilation")
-            result["checks"].append(entry)
+            result["controls" if is_control else "checks"].append(entry)
             path.write_text(json.dumps(result, indent=2))
             output = torch.full((count, 4, width), sentinel, device=values["q"].device, dtype=torch.int32)
             args = (values["q"][first:first + count], values["cache"], values["qs"][first:first + count], values["ks"],
                     values["weights"][first:first + count], values["row_table"][first], values["visible"][first:first + count], output)
             options = dict(ROWS=count, WIDTH=width, COLUMNS=values["row_table"].shape[1],
-                           SECOND_CUBE=False, DOT_ONLY=True, TILE_BASE=tile_base, use_bytecode=True)
+                           SECOND_CUBE=False, DOT_ONLY=True, TILE_BASE=tile_base,
+                           LINEAR_Q=linear_q, LINEAR_RAW=linear_raw, use_bytecode=True)
             grid = (count // 4, tile_count)
             capture = CaptureCompiler(report, f"{case}-raw-qk-{label}")
             with patch.object(compiler, "subprocess", capture):
@@ -235,7 +254,7 @@ def run_qk_isolation(inputs, values, width, report, case):
             entry["status"] = "passed" if entry["mismatches"] == 0 and entry["unexpected_writes"] == 0 else "failed"
             print("RAW_QK_CHECK " + json.dumps(entry), flush=True)
             path.write_text(json.dumps(result, indent=2))
-        result["status"] = "passed" if all(e["status"] == "passed" for e in result["checks"]) else "failed"
+        result["status"] = "passed" if len(result["checks"]) == len(specs) and all(e["status"] == "passed" for e in result["checks"]) else "failed"
     except Exception as exc:
         result.update(status="failed", error=repr(exc))
         raise

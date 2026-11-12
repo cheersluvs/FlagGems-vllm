@@ -377,3 +377,14 @@ QSA_FUSED_SECOND_CUBE_PROBE=1的下一轮固定budget_exact前32行，独立微�
 固定原WIDTH和输出stride，依次group0/tile0、group0/最后tile、最后group/tile0、group0/alltiles、allgroups/tile0、full、full_repeat。行视图改变时Q/qs/weights/visible一同偏移；共享实际页表需先验证。CPU使用同一INT8 Q/K做INT32矩阵乘参考，逐元素精确比较；valid dot绝对值<=2097152，所以1515870810 sentinel不可能是合法结果。检查已选区域未写入及非目标区域被写入；记录row/head、tile分布和前16个错误值。所有产物在设备执行前导出。逻辑数值错误继续记录全部7组，设备异常立即停止；任一raw组不通过即拒绝后续归约和候选计时。
 
 所有raw通过才在同次运行测试原FP32控制；评分错误额外保存行/tile分布及样例，FP32不通过立即拒绝第二次Cube执行。通过完整/尾部精度后才按原两轮harness kernel计时，无需用户另启步骤。原分阶段评分/TopK、当前生产分块及混合单槽/双槽对照仍保留，但不代表新候选通过。无全shape验收/生产集成结论；NVIDIA autotune不适用此Ascend诊断。Mac只做语法和索引模型验证，实际编译/正确性待卡上运行。
+
+
+### Q加载/原始写回2×2地址表达式隔离
+
+报告73cf575ad8cb43e263d8804b6db0ed3af6ba8522：七组raw QK均失败，单group单tile也768个错误；各group第一个query四head正确，后三个query几乎全错；无未写入/额外区域写入。full repeat相同错误数786418。归约gate已拦下。此结果排除了“仅大grid并发才触发”的解释，未定位究竟Q加载、点积还是结果写回。旧控制计时生产块798us/serial996us明显偏离历史，本轮性能不采用。
+
+本轮引入LINEAR_Q/LINEAR_RAW两个编译期参数。旧表达式是(qrow*4+m%4)，线性式为(base*4+m)；加载mask相应改为head<ROWS*4，原始写回mask同理，整数范围内数学等价。dtype、q4/N64、2D grid、页表、算术及编译选项不变。源码默认两参数True，后续两种评分路径使用同一个线性Q加载。
+
+raw-only先执行单group单tile四项：旧/旧、线性Q/旧写回、旧Q/线性写回、线性Q/线性写回，各存controls。数值失败继续记录其他控制，编译/设备异常停止。只有最后一项精确通过，才运行七组线性布局grid检查；完整gate要求七组均有记录且通过，不允许空列表all()误判通过。旧布局失败不计入候选正确性，但不能被声称已修复。完整QK通过后才继续原FP32归约/第二Cube；精度失败不计时。最终scope仍仅诊断评分微实验，不改生产或TopK。
+
+保存每项IR/产物、原始编译命令及错误分布；需核对线性地址下三维reshape是否消失以及设备结果是否改变，不能提前认定编译器根因。Mac执行语法、所有组/行/head及尾部mask等价性检查，设备结论待回传。NVIDIA autotune不适用本轮Ascend诊断。
