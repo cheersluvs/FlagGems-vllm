@@ -87,7 +87,7 @@ def _qk_reduce(Q, K, QS, KS, W, Table, Visible, Out,
                 tl.store(Out + row * WIDTH + n, score, mask=(row < ROWS) & (n < WIDTH))
 
 
-def prepare_current_int8_score(values, visible, rows, width, output, report, label, topk, *, reduction_cube=False):
+def prepare_current_int8_score(values, visible, rows, width, output, report, label, topk, *, reduction_cube=False, reduction_mode="cube"):
     """Bind the frozen integrated INT8 scorer, excluding preparation from timing."""
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
     from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
@@ -125,10 +125,10 @@ def prepare_current_int8_score(values, visible, rows, width, output, report, lab
                 from qsa_int8_query_pack4_910b import _qsa_page64_page_reuse_full_score, _qsa_page64_query16_score
                 original = _qsa_page64_page_reuse_full_score if adapter.page_reuse_full else _qsa_page64_query16_score
             from qsa_query16_cube_builder_910b import build_reduction_kernel
-            candidate, rewrite = build_reduction_kernel(original, report, label)
+            candidate, rewrite = build_reduction_kernel(original, report, label, mode=reduction_mode)
             bound = adapter.bind_query16_score(0, rows, output)
             grid = (min(20, triton.cdiv(rows, 16) * triton.cdiv(triton.cdiv(width, 64), 8)),)
-            identity.update(cube_reduction_applied=True, rewrite=rewrite, grid=list(grid), launch_kwargs=bound.keywords)
+            identity.update(cube_reduction_applied=reduction_mode == "cube", reduction_mode=reduction_mode, rewrite=rewrite, grid=list(grid), launch_kwargs=bound.keywords)
             return partial(candidate[grid], *bound.args, **bound.keywords), identity
         if rows >= 16:
             raise NotImplementedError("Incremental reduction probe requires actual query16 route")
@@ -303,6 +303,10 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                 entry["speedup_over_current_total"] = current["component_median_us"]["score_plus_topk"] / entry["component_median_us"]["score_plus_topk"]
                 print("VERSUS_CURRENT_INT8 " + json.dumps(dict(arm=name,
                     score_speedup=entry["speedup_over_current_score"], total_speedup=entry["speedup_over_current_total"])), flush=True)
+        if os.environ.get("QSA_QUERY16_REDUCTION_DIAG") == "1":
+            from probe_qsa_query16_reduction_diag_910b import run_diagnostics
+            result["reduction_diagnostics"] = run_diagnostics(
+                inputs, values, refs, width, timer, report, case, topk, funcs)
         result["status"] = "completed" if len(funcs) == len(arm_specs) else ("completed_with_candidate_rejection" if selection_mode else "completed_with_precision_rejection")
     except Exception as exc:
         result.update(status="failed", error=repr(exc))

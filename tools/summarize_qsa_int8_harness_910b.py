@@ -17,6 +17,7 @@
 import argparse
 import json
 import math
+import os
 import statistics
 from pathlib import Path
 
@@ -397,11 +398,15 @@ def main():
     args = parser.parse_args()
     if args.fused_ten_chunks:
         records, error = [], None
+        diagnostic = os.environ.get("QSA_QUERY16_REDUCTION_DIAG") == "1"
+        plans = [p for p in cases() if not diagnostic or p["name"] in ("int8_budget_exact", "int8_long100k")]
         try:
-            for plan in cases():
+            for plan in plans:
                 name = plan["name"]
                 record = json.loads((args.report.parent / f"{name}-fused-second-cube.json").read_text())
                 records.append(record)
+                if diagnostic and record.get("reduction_diagnostics", {}).get("status") != "completed":
+                    raise ValueError(f"Incomplete reduction diagnostics: {name}")
                 if record["status"] not in ("completed", "completed_with_candidate_rejection"):
                     raise ValueError(f"Incomplete probe: {name}")
                 for arm, entry in record["arms"].items():
@@ -424,10 +429,10 @@ def main():
             error = str(exc)
         rejected = [r for r in records if r["status"] != "completed"]
         result = dict(exit_code=int(error is not None), error=error, cases=records,
-            all_candidates_passed=not rejected and len(records)==10,
-            arithmetic_mean_speedup=None, scope="10 representative 32-row tail chunks; not full-input acceptance")
+            all_candidates_passed=error is None and not rejected and len(records)==len(plans),
+            arithmetic_mean_speedup=None, scope=f"{len(plans)} representative 32-row tail chunks; not full-input acceptance")
         args.output.write_text(json.dumps(result, indent=2, allow_nan=False))
-        for plan, record in zip(cases(), records):
+        for plan, record in zip(plans, records):
             print(plan["name"], record["status"])
             for arm, entry in record["arms"].items():
                 print(arm, entry["status"], "score us", entry.get("median_us"),
