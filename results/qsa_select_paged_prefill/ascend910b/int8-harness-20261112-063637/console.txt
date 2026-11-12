@@ -1,0 +1,485 @@
+QSA INT8 acceptance: all ten full cases, candidate stages and CANN V1 fused baseline
+QSA INT8 harness worker: int8_first_chunk
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_first_chunk
+QSA_INT8_HARNESS_SHORT_SCORE int8_first_chunk query16_chunks=128 bounded_chunks=112 total_chunks=128
+QSA_INT8_HARNESS_PREFLIGHT_START int8_first_chunk control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_first_chunk candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_first_chunk cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_first_chunk", "geometry": {"name": "int8_first_chunk", "nv_case": "fp8_first_chunk_float8_e4m3fn", "origin": "recorded_envelope", "query_lengths": [16384], "prefix_tokens": [0], "starts": [0, 16384], "batch_max_seq_len": 16384, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [22], "physical_pages": 22, "table_columns": 22, "q_shape": [16384, 4, 128], "cache_shape": [22, 192, 1, 128], "logits_width": 4096, "chunk_rows": 128, "score_and_dot_scratch_bytes": 10485760, "nv_original_page_size": 196, "nv_original_physical_pages": 2712, "nv_original_table_columns": 88, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 16384, "width": 4096, "sampled_rows": [0, 127, 128, 2046, 2047, 2048, 8192, 16256, 16383], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 9, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 9, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 128, "direct_page_chunks": 0, "total_chunks": 128, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_first_chunk direct_chunks=0 total_chunks=128
+QSA_INT8_HARNESS_STAGE_INPUT int8_first_chunk score_bytes=268435456
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            7.027456                 N/A          ('int8_first_chunk', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A            7.653179                 N/A          ('int8_first_chunk', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS               8.041386           15.538965               0.517          ('int8_first_chunk', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_first_chunk]
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/benchmark/test_qsa_select_paged_prefill_int8_perf.py:565: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    candidate_scores = torch.empty_like(scratch)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 95.76s (0:01:35)
+QSA INT8 harness worker: int8_budget_exact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_budget_exact
+QSA_INT8_HARNESS_PREFLIGHT_START int8_budget_exact control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_budget_exact candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_budget_exact cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_budget_exact", "geometry": {"name": "int8_budget_exact", "nv_case": "fp8_budget_exact_float8_e4m3fn", "origin": "recorded_envelope", "query_lengths": [16384], "prefix_tokens": [16384], "starts": [0, 16384], "batch_max_seq_len": 32768, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [43], "physical_pages": 43, "table_columns": 43, "q_shape": [16384, 4, 128], "cache_shape": [43, 192, 1, 128], "logits_width": 8192, "chunk_rows": 128, "score_and_dot_scratch_bytes": 20971520, "nv_original_page_size": 196, "nv_original_physical_pages": 2712, "nv_original_table_columns": 88, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 16384, "width": 8192, "sampled_rows": [0, 127, 128, 8192, 16256, 16383], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.003814697265625, "selected_score_max_rel_error_with_1e_minus3_floor": 0.00010177588410442695, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 128, "direct_page_chunks": 128, "total_chunks": 128, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_budget_exact direct_chunks=128 total_chunks=128
+QSA_INT8_HARNESS_STAGE_INPUT int8_budget_exact score_bytes=536870912
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           11.355305                 N/A          ('int8_budget_exact', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           11.715438                 N/A          ('int8_budget_exact', 'auto')
+
+QSA_INT8_HARNESS_TIMER one_ms=0.06866343333333333 three_ms=0.20579820000000001 ratio=2.997202295447893
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.283604           23.311007               0.613          ('int8_budget_exact', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 70.01s (0:01:10)
+QSA INT8 harness worker: int8_dominant_long
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_dominant_long
+QSA_INT8_HARNESS_PREFLIGHT_START int8_dominant_long control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_dominant_long candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_dominant_long cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_dominant_long", "geometry": {"name": "int8_dominant_long", "nv_case": "fp8_dominant_long_float8_e4m3fn", "origin": "recorded_envelope", "query_lengths": [16331], "prefix_tokens": [17511], "starts": [0, 16331], "batch_max_seq_len": 33842, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [45], "physical_pages": 45, "table_columns": 45, "q_shape": [16331, 4, 128], "cache_shape": [45, 192, 1, 128], "logits_width": 8512, "chunk_rows": 128, "score_and_dot_scratch_bytes": 21790720, "nv_original_page_size": 196, "nv_original_physical_pages": 2712, "nv_original_table_columns": 88, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 16331, "width": 8512, "sampled_rows": [0, 127, 128, 8165, 16256, 16330], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 128, "direct_page_chunks": 127, "total_chunks": 128, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_dominant_long direct_chunks=127 total_chunks=128
+QSA_INT8_HARNESS_STAGE_INPUT int8_dominant_long score_bytes=556037888
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           10.936410                 N/A          ('int8_dominant_long', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           14.906696                 N/A          ('int8_dominant_long', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.727142           25.705682               0.573          ('int8_dominant_long', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 75.96s (0:01:15)
+QSA INT8 harness worker: int8_tail112
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_tail112
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail112 control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail112 candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail112 cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_tail112", "geometry": {"name": "int8_tail112", "nv_case": "fp8_tail112_float8_e4m3fn", "origin": "recorded_envelope", "query_lengths": [16368], "prefix_tokens": [16485], "starts": [0, 16368], "batch_max_seq_len": 32853, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [43], "physical_pages": 43, "table_columns": 43, "q_shape": [16368, 4, 128], "cache_shape": [43, 192, 1, 128], "logits_width": 8256, "chunk_rows": 128, "score_and_dot_scratch_bytes": 21135360, "nv_original_page_size": 196, "nv_original_physical_pages": 2712, "nv_original_table_columns": 88, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 16368, "width": 8256, "sampled_rows": [0, 127, 128, 8184, 16256, 16367], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0064849853515625, "selected_score_max_rel_error_with_1e_minus3_floor": 0.00018945903866551816, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 128, "direct_page_chunks": 128, "total_chunks": 128, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_tail112 direct_chunks=128 total_chunks=128
+QSA_INT8_HARNESS_STAGE_INPUT int8_tail112 score_bytes=540536832
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           10.556602                 N/A          ('int8_tail112', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           15.091632                 N/A          ('int8_tail112', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.295453           25.983135               0.550          ('int8_tail112', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 69.00s (0:01:09)
+QSA INT8 harness worker: int8_tail113
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_tail113
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail113 control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail113 candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_tail113 cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_tail113", "geometry": {"name": "int8_tail113", "nv_case": "fp8_tail113_float8_e4m3fn", "origin": "recorded_envelope", "query_lengths": [16369], "prefix_tokens": [16482], "starts": [0, 16369], "batch_max_seq_len": 32851, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [43], "physical_pages": 43, "table_columns": 43, "q_shape": [16369, 4, 128], "cache_shape": [43, 192, 1, 128], "logits_width": 8256, "chunk_rows": 128, "score_and_dot_scratch_bytes": 21135360, "nv_original_page_size": 196, "nv_original_physical_pages": 2712, "nv_original_table_columns": 88, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 16369, "width": 8256, "sampled_rows": [0, 127, 128, 8184, 16256, 16368], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 6, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 128, "direct_page_chunks": 127, "total_chunks": 128, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_tail113 direct_chunks=127 total_chunks=128
+QSA_INT8_HARNESS_STAGE_INPUT int8_tail113 score_bytes=540569856
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           10.697865                 N/A          ('int8_tail113', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           14.904904                 N/A          ('int8_tail113', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.301214           25.467578               0.562          ('int8_tail113', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 33.15s
+QSA INT8 harness worker: int8_two_balanced
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_two_balanced
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_balanced control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_balanced candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_balanced cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_two_balanced", "geometry": {"name": "int8_two_balanced", "nv_case": "fp8_two_balanced_float8_e4m3fn", "origin": "recorded_envelope", "query_lengths": [10371, 5958], "prefix_tokens": [22561, 26974], "starts": [0, 10371, 16329], "batch_max_seq_len": 32932, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [43, 43], "physical_pages": 86, "table_columns": 43, "q_shape": [16329, 4, 128], "cache_shape": [86, 192, 1, 128], "logits_width": 8256, "chunk_rows": 128, "score_and_dot_scratch_bytes": 21135360, "nv_original_page_size": 196, "nv_original_physical_pages": 2712, "nv_original_table_columns": 88, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 16329, "width": 8256, "sampled_rows": [0, 127, 128, 8164, 10370, 10371, 16256, 16328], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 8, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 8, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 127, "direct_page_chunks": 126, "total_chunks": 128, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_two_balanced direct_chunks=126 total_chunks=128
+QSA_INT8_HARNESS_STAGE_INPUT int8_two_balanced score_bytes=539248896
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           13.979743                 N/A          ('int8_two_balanced', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           14.978869                 N/A          ('int8_two_balanced', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              15.570125           28.810378               0.540          ('int8_two_balanced', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 35.19s
+QSA INT8 harness worker: int8_two_skewed
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA_INT8_HARNESS_ENV {"device": "Ascend910B4-1", "torch": "2.10.0+cpu", "torch_npu": "2.10.0", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "ascend_opp": "/opt/qsa-opp-910b-qw4qRghU", "timer_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/testing.py", "timer_sha256": "a833ec28aa9eac2d995d6dfbef9f4b022845c2841457f5724ef7c36db919e67c", "timer_signature": "(funcs, warmup=5, active=30, clear_l2_cache=False, prof_dir=None, keep_res=False, target_kernel_name: Optional[str] = None)", "topk_source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "prefill_topk_identity": null, "topk_policy": "auto", "topk_route": "auto"}
+QSA_INT8_HARNESS_CASE int8_two_skewed
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_skewed control
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_skewed candidate
+QSA_INT8_HARNESS_PREFLIGHT_START int8_two_skewed cann_v1
+QSA_INT8_ACCEPTANCE_CHECKS {"case": "int8_two_skewed", "geometry": {"name": "int8_two_skewed", "nv_case": "fp8_two_skewed_float8_e4m3fn", "origin": "recorded_envelope", "query_lengths": [16330, 54], "prefix_tokens": [16492, 32768], "starts": [0, 16330, 16384], "batch_max_seq_len": 32822, "heads": 4, "dim": 128, "ratio": 4, "k": 512, "dtype": "int8", "page_size": 192, "pages_per_request": [43, 43], "physical_pages": 86, "table_columns": 43, "q_shape": [16384, 4, 128], "cache_shape": [86, 192, 1, 128], "logits_width": 8256, "chunk_rows": 128, "score_and_dot_scratch_bytes": 21135360, "nv_original_page_size": 196, "nv_original_physical_pages": 2712, "nv_original_table_columns": 88, "provenance": "NV logical workload migration; synthetic INT8 tensors and minimal repacked storage", "query_lengths_synthetic": false}, "rows": 16384, "width": 8256, "sampled_rows": [0, 127, 128, 8192, 16256, 16329, 16330, 16383], "accuracy": {"CANN V1": {"checked_all_rows": true, "rows": 8, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.000148773193359375, "selected_score_max_rel_error_with_1e_minus3_floor": 3.5525642942957347e-06, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}, "candidate": {"checked_all_rows": true, "rows": 8, "checks_passed": true, "failures": [], "selected_score_max_abs_error": 0.0, "selected_score_max_rel_error_with_1e_minus3_floor": 0.0, "rtol": 0.001, "atol": 0.001, "ordering_and_tied_index_identity_required": false}}, "structure": "CANN V1/control/candidate checked on every output row", "scoring": "Every chunk compared to frozen scorer when query16 is active", "candidate": "Unregistered PreparedSharedMapInt8Selection INT8 integrated entry", "topk_policy": "auto", "topk_route": "auto", "topk_identity": {"source": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/runtime/backend/_ascend/ops/persistent_topk.py", "sha256": "8d382406cfc02300af1646d39510c27eca191dbf23b592a0f2573aac80f45211", "utility": "/tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/triton_version_utils.py", "utility_sha256": "060607012a641121d5a2b6f7b41c049013d5dde1d0e0462fa39dd90b5acceb3d", "has_tle": true, "loader": "same source AST; only has_triton_tle import resolved directly from repository utility"}, "query16_chunks": 127, "direct_page_chunks": 127, "total_chunks": 128, "source_sha256": {"tools/qsa_int8_shared_map_selection_910b_trial.py": "a94797974fb19e5cc7bb94241602568f01ee4e2fd3f320e8f45ec0698f1f1ed7", "tools/qsa_int8_selection_910b_trial.py": "da053f4d363ecddb57441a4dd34604fc688382c8ebd3b91d95ec356c22862962", "tools/qsa_int8_query_pack4_910b.py": "62de4f89aeab4efb0b8121d5c2275e3ff7bebd6148fb8ba341a27d1b25716656", "tools/probe_qsa_int8_score_sol_910b.py": "245eb0a8d853d85bf2b58827e546adb8011b7d90af038b9374057a244517244f", "tools/qsa_int8_ten_workloads_910b.py": "07bc31e34bbdcdc32a195fd119290ced71922cabb0a30367e5433dcc4aedb7e0", "tools/qsa_prefill_fp8_workloads.py": "d312c58b21352589d4ca711a187dd301494632937e0f37374ca7343fb80e93a2"}}
+QSA_INT8_HARNESS_PREFLIGHT int8_two_skewed direct_chunks=127 total_chunks=128
+QSA_INT8_HARNESS_STAGE_INPUT int8_two_skewed score_bytes=541065216
+
+Operator: qsa_select_paged_prefill_int8_910b_score  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           13.419348                 N/A          ('int8_two_skewed', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b_topk  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS                    N/A           15.419034                 N/A          ('int8_two_skewed', 'auto')
+
+
+Operator: qsa_select_paged_prefill_int8_910b  Performance Test (dtype=torch.int8, mode=kernel,level=comprehensive)
+Status       Torch Latency (ms)    Gems Latency (ms)         Gems Speedup          Size Detail
+-----------------------------------------------------------------------------------------------
+SUCCESS              14.532934           28.540584               0.509          ('int8_two_skewed', 'auto')
+
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 19 warnings in 19.94s
+QSA INT8 harness worker: int8_short_tail
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+F
+=================================== FAILURES ===================================
+__________ test_qsa_select_paged_prefill_int8_kernel[int8_short_tail] __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfff9b1cd9650>
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-230/test_qsa_select_paged_prefill_0')
+case_name = 'int8_short_tail'
+
+    @pytest.mark.qsa_select_paged_prefill_int8_910b
+    @pytest.mark.parametrize("case_name", [shape[0] for shape in CASES])
+    @pytest.mark.skipif(
+        flaggems_vllm.vendor_name != "ascend", reason="Ascend 910B required"
+    )
+    def test_qsa_select_paged_prefill_int8_kernel(monkeypatch, tmp_path, case_name):
+        torch_npu = pytest.importorskip("torch_npu")
+        if not torch.npu.is_available():
+            pytest.skip("Ascend NPU unavailable")
+        device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+>       torch.npu.set_device(device_index)
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py:404: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+device = 0
+
+    def set_device(device):
+        device_id = _get_device_index(device, optional=True)
+        if device_id >= 0:
+>           torch_npu._C._npu_setDevice(device_id)
+E           RuntimeError: ExchangeDevice:../torch_npu/csrc/core/npu/sys_ctrl/npu_sys_ctrl.cpp:286 NPU function error: c10_npu::SetDevice(device), error code is 507033
+E           [ERROR] 2026-11-12-14:36:28 (PID:2092993, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+E           [Error]: Failed to start the device. 
+E                   Rectify the fault based on the error information in the ascend log.
+E           [PID: 2092993] 2026-11-12-14:36:26.633.949 Inner_Error_Device_Subprocess_Startup_Timeout(E39007): Starting a subprocess on the device timed out.
+E                   Possible Cause: 1.Failed to start the subprocess. 2. The HDC link is faulty.
+E                   Solution: Obtain the host and device logs, and contact technical support at https://www.hiascend.com/support.
+E           TraceBack (most recent call last):
+E                   tsd client wait response fail, hostpid:2092993, receive device response data failed, check hdc service.[FUNC:WaitRsp][FILE:process_mode_manager.cpp][LINE:378]
+E                   Starting a subprocess on the device timed out.
+E                   TsdOpen failed. devId=0, tdt error=31.[FUNC:PrintfTsdError][FILE:runtime.cc][LINE:1834]
+E                   Check param failed, dev can not be NULL![FUNC:DeviceRetain][FILE:runtime.cc][LINE:2773]
+E                   Check param failed, ctx can not be NULL![FUNC:PrimaryContextRetain][FILE:runtime.cc][LINE:2414]
+E                   rtSetDevice execution failed, reason=device retain error[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+
+/flagos/lib/python3.11/site-packages/torch_npu/npu/utils.py:91: RuntimeError
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-final-acceptance.XA6GKrZx/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_kernel[int8_short_tail]
+1 failed, 19 warnings in 174.76s (0:02:54)
+QSA INT8 harness worker failed: int8_short_tail (pytest exit 1)
+QSA INT8 harness summary unavailable: pytest returned 1
