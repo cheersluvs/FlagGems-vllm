@@ -1,0 +1,569 @@
+{
+  "status": "failed",
+  "raw": [
+    {
+      "slots": 1,
+      "trace": true,
+      "stage": -1,
+      "structure": {
+        "TABLE_PLAIN": false,
+        "RING_TILE_MAJOR": false
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'LLVM ERROR: InjectSync Traverse IR Failed! \\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\\nStack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):\\n0  bishengir-compile 0x0000aaae38e42a70\\n1  bishengir-compile 0x0000aaae38e405e4\\n2  bishengir-compile 0x0000aaae38e43238\\n3  linux-vdso.so.1   0x0000fffd19f607c0 __kernel_rt_sigreturn + 0\\n4  libc.so.6         0x0000fffd199b7608\\n5  libc.so.6         0x0000fffd1996cb3c gsignal + 28\\n6  libc.so.6         0x0000fffd19957e00 abort + 244\\n7  bishengir-compile 0x0000aaae38dea66c\\n8  bishengir-compile 0x0000aaae38dea47c\\n9  bishengir-compile 0x0000aaae36ce3cf4\\n10 bishengir-compile 0x0000aaae36cde99c\\n11 bishengir-compile 0x0000aaae36cdf0e8\\n12 bishengir-compile 0x0000aaae3823edf8\\n13 bishengir-compile 0x0000aaae3823f60c\\n14 bishengir-compile 0x0000aaae38244f5c\\n15 bishengir-compile 0x0000aaae38157224\\n16 bishengir-compile 0x0000aaae38157154\\n17 libc.so.6         0x0000fffd199babdc\\n18 bishengir-compile 0x0000aaae381576e0\\n19 bishengir-compile 0x0000aaae38157810\\n20 bishengir-compile 0x0000aaae38e0ec04\\n21 bishengir-compile 0x0000aaae38e0fa0c\\n22 libc.so.6         0x0000fffd199b595c\\n23 libc.so.6         0x0000fffd19a1b8dc\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/E3J7B73RUDSHNIOA67RYZGSM27WEPDMGZOLETKXNP62RKC4IZCUQ\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmp99ukuto1/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmp99ukuto1/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain0-tiled0-raw-compiler-1-input.mlir.txt",
+          "returncode": -6,
+          "stderr": {
+            "file": "int8_budget_exact-plain0-tiled0-raw-compiler-1-stderr.txt",
+            "bytes": 1308,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 1,
+      "trace": true,
+      "stage": -1,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": false
+      },
+      "compile_only": true,
+      "status": "compiled",
+      "metadata": [
+        "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=False, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=True, disable_auto_inject_block_sync=True, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=False, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='c2df1cc67fab38ab953eb93c60bb0906f39c02c928b81607e055f571f016457b', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_mixed_outer2048', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=False, name='_mixed_outer2048', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=32, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=False, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 2, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=False, use_bytecode=True, vf_merge_level=1, warp_size=32)"
+      ],
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmp7b6z2h6u/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmp7b6z2h6u/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled0-raw-compiler-1-input.mlir.txt",
+          "returncode": 0,
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled0-raw-compiler-1-stderr.txt",
+            "bytes": 1458,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 1,
+      "trace": true,
+      "stage": -1,
+      "structure": {
+        "TABLE_PLAIN": false,
+        "RING_TILE_MAJOR": true
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'LLVM ERROR: InjectSync Traverse IR Failed! \\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\\nStack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):\\n0  bishengir-compile 0x0000aaab37832a70\\n1  bishengir-compile 0x0000aaab378305e4\\n2  bishengir-compile 0x0000aaab37833238\\n3  linux-vdso.so.1   0x0000fffe22cf07c0 __kernel_rt_sigreturn + 0\\n4  libc.so.6         0x0000fffe22747608\\n5  libc.so.6         0x0000fffe226fcb3c gsignal + 28\\n6  libc.so.6         0x0000fffe226e7e00 abort + 244\\n7  bishengir-compile 0x0000aaab377da66c\\n8  bishengir-compile 0x0000aaab377da47c\\n9  bishengir-compile 0x0000aaab356d3cf4\\n10 bishengir-compile 0x0000aaab356ce99c\\n11 bishengir-compile 0x0000aaab356cf0e8\\n12 bishengir-compile 0x0000aaab36c2edf8\\n13 bishengir-compile 0x0000aaab36c2f60c\\n14 bishengir-compile 0x0000aaab36c34f5c\\n15 bishengir-compile 0x0000aaab36b47224\\n16 bishengir-compile 0x0000aaab36b47154\\n17 libc.so.6         0x0000fffe2274abdc\\n18 bishengir-compile 0x0000aaab36b476e0\\n19 bishengir-compile 0x0000aaab36b47810\\n20 bishengir-compile 0x0000aaab377fec04\\n21 bishengir-compile 0x0000aaab377ffa0c\\n22 libc.so.6         0x0000fffe2274595c\\n23 libc.so.6         0x0000fffe227ab8dc\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/JXDL2W53JB6AHPG6MPDCBQDNJLIR2KVLAULOSZ7NZAGCRCLHLTAA\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmphddxoqxv/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmphddxoqxv/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain0-tiled1-raw-compiler-1-input.mlir.txt",
+          "returncode": -6,
+          "stderr": {
+            "file": "int8_budget_exact-plain0-tiled1-raw-compiler-1-stderr.txt",
+            "bytes": 1308,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 1,
+      "trace": true,
+      "stage": -1,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": true
+      },
+      "compile_only": true,
+      "status": "compiled",
+      "metadata": [
+        "KernelMetadata(add_auto_scheduling=False, allow_fp8e4nv=False, allowed_dot_input_precisions=['ieee', 'hf32'], arch='Ascend910B4-1', auto_blockify_size=1, auto_tile_and_bind_subblock=False, auto_vectorize_v2_max_fused_ops_num=None, bisheng_options='-cce-link-aicore-ll-module /opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc', bitcodes=[], bs_task_type=32, cluster_dims=(1, 1, 1), compile_mode='simd', compile_on_910_95=False, debug=False, default_dot_input_precision='ieee', deprecated_fp8_dtypes=[], disable_auto_cv_work_space_manage=True, disable_auto_inject_block_sync=True, disable_fma=False, disable_size_align_for_cast=None, disable_tightly_coupled_buffer_reuse=False, enable_auto_bind_sub_block=False, enable_auto_blockify=None, enable_auto_vectorize_v2=None, enable_bishengir_simt_optimization=0, enable_cce_vf_auto_sync=None, enable_cce_vf_remove_membar=None, enable_drop_unit_dims=None, enable_dynamic_cv_pipeline=False, enable_flatten=None, enable_fp_fusion=True, enable_hivm_auto_cv_balance=None, enable_legacy_insert_load_store_for_mix_cv=None, enable_mask_fallback_conversion=False, enable_mixed_cv=None, enable_nd2nz_on_vector=False, enable_persistent=False, enable_preload=None, enable_reduce_sum_strength=False, enable_select_analysis=True, enable_simt_reorder_instruction=False, enable_sync_block_lock=False, enable_ubuf_saving=None, enable_vf_fusion=False, enable_warp_specialization=False, extern_libs=None, force_simt_only=False, force_simt_template=False, hash='987e5b9df789e319ad8bbaeac1ac2b5a50fd7ebd72ecff04169430864aca6fce', hfusion_enable_multiple_consumer_fusion=False, inject_barrier_all=None, inject_block_all=None, instrumentation_mode='', kernel_name='_mixed_outer2048', limit_auto_multi_buffer_of_local_buffer=None, limit_auto_multi_buffer_only_for_local_buffer=None, llvm_version=15, max_num_imprecise_acc_default=0, mix_mode='mix', multibuffer=False, name='_mixed_outer2048', num_buffers_warp_spec=0, num_consumer_groups=0, num_ctas=1, num_stages=2, num_warps=32, optimize_dynamic_offset=False, optimize_epilogue=False, parallel_mode='simd', prevec_max_fused_ops_num=None, reg_dec_producer=0, reg_inc_consumer=0, required_ub_bits=0, sanitize_overflow=True, set_workspace_multibuffer=None, shared=1, shared_mem_dynamic_size=221184, simt_stack_limit=None, stream=None, supported_fp8_dtypes=['fp8e5', 'fp8e4b15', 'fp8e4nv', 'fp8e4b8', 'fp8e5b16'], sync_solver=False, target=GPUTarget(backend='npu', arch='Ascend910B4-1', warp_size=0), tensor_kinds=[0, 0, 0, 2, 1], tile_mix_cube_loop=None, tile_mix_vector_loop=None, triton_version='3.5.1', unit_flag=False, use_bytecode=True, vf_merge_level=1, warp_size=32)"
+      ],
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmpzb2b5dp7/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmpzb2b5dp7/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled1-raw-compiler-1-input.mlir.txt",
+          "returncode": 0,
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled1-raw-compiler-1-stderr.txt",
+            "bytes": 1458,
+            "truncated": false
+          }
+        }
+      ]
+    }
+  ],
+  "full": [
+    {
+      "slots": 1,
+      "trace": false,
+      "stage": 2,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": false
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', '[NOTE] Ub overflow detected; automatically set enable-code-motion to false and retrying compilation.\\n[NOTE] Due to Ub overflow, automatically set enable-code-motion to false; compilation still failed.\\nloc(\"/tmp/flaggems-qsa-mixed-structure.beE5QlqM/code/tools/qsa_cann_mixed_910b_trial.py\":118:0): error: Failed to run BiShengHIR pipeline\\n\\nloc(\"/tmp/flaggems-qsa-mixed-structure.beE5QlqM/code/tools/qsa_cann_mixed_910b_trial.py\":118:0): error: ub overflow, requires 2318336 bits while 1572864 bits available! (possible reason: tiling basic block is too large or block number is more than what user expect due to multi-buffer feature is enabled and some ops need extra local buffer.)\\n[ERROR] Failed to run BiShengIR pipeline\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/HFTXJVEGMDSLBXN2YDWKNSYRQ5CUWW4ECKAWWBCJIHJI3KM5X6OA\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmp66r7kfom/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmp66r7kfom/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled0-slots1-trace0-full-compiler-1-input.mlir.txt",
+          "returncode": 1,
+          "stdout": {
+            "file": "int8_budget_exact-plain1-tiled0-slots1-trace0-full-compiler-1-stdout.txt",
+            "bytes": 355,
+            "truncated": false
+          },
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled0-slots1-trace0-full-compiler-1-stderr.txt",
+            "bytes": 724,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 1,
+      "trace": true,
+      "stage": 2,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": false
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'LLVM ERROR: Failed to obtain op buffer shape size which should be static.\\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\\nStack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):\\n0  bishengir-compile 0x0000aaaba5402a70\\n1  bishengir-compile 0x0000aaaba54005e4\\n2  bishengir-compile 0x0000aaaba5403238\\n3  linux-vdso.so.1   0x0000fffefa9707c0 __kernel_rt_sigreturn + 0\\n4  libc.so.6         0x0000fffefa3c7608\\n5  libc.so.6         0x0000fffefa37cb3c gsignal + 28\\n6  libc.so.6         0x0000fffefa367e00 abort + 244\\n7  bishengir-compile 0x0000aaaba53aa66c\\n8  bishengir-compile 0x0000aaaba53aa47c\\n9  bishengir-compile 0x0000aaaba357fe80\\n10 bishengir-compile 0x0000aaaba357dce0\\n11 bishengir-compile 0x0000aaaba357db34\\n12 bishengir-compile 0x0000aaaba358bea0\\n13 bishengir-compile 0x0000aaaba0f9d660\\n14 bishengir-compile 0x0000aaaba3579ff0\\n15 bishengir-compile 0x0000aaaba358bb7c\\n16 bishengir-compile 0x0000aaaba0f9d660\\n17 bishengir-compile 0x0000aaaba3579ff0\\n18 bishengir-compile 0x0000aaaba358bb7c\\n19 bishengir-compile 0x0000aaaba0f9d660\\n20 bishengir-compile 0x0000aaaba3578aa4\\n21 bishengir-compile 0x0000aaaba359524c\\n22 bishengir-compile 0x0000aaaba47fedf8\\n23 bishengir-compile 0x0000aaaba47ff60c\\n24 bishengir-compile 0x0000aaaba4804f5c\\n25 bishengir-compile 0x0000aaaba4717224\\n26 bishengir-compile 0x0000aaaba4717154\\n27 libc.so.6         0x0000fffefa3cabdc\\n28 bishengir-compile 0x0000aaaba47176e0\\n29 bishengir-compile 0x0000aaaba4717810\\n30 bishengir-compile 0x0000aaaba53cec04\\n31 bishengir-compile 0x0000aaaba53cfa0c\\n32 libc.so.6         0x0000fffefa3c595c\\n33 libc.so.6         0x0000fffefa42b8dc\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/KCANWRDED4WNAX4FDKHEBZBWY5NRXMNFUSZQOFD4RIIBBBB43USA\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmp3c355k4_/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmp3c355k4_/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled0-slots1-trace1-full-compiler-1-input.mlir.txt",
+          "returncode": -6,
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled0-slots1-trace1-full-compiler-1-stderr.txt",
+            "bytes": 1738,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 2,
+      "trace": false,
+      "stage": 2,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": false
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', '[NOTE] Ub overflow detected; automatically set enable-code-motion to false and retrying compilation.\\n[NOTE] Due to Ub overflow, automatically set enable-code-motion to false; compilation still failed.\\nloc(\"/tmp/flaggems-qsa-mixed-structure.beE5QlqM/code/tools/qsa_cann_mixed_910b_trial.py\":118:0): error: Failed to run BiShengHIR pipeline\\n\\nloc(\"/tmp/flaggems-qsa-mixed-structure.beE5QlqM/code/tools/qsa_cann_mixed_910b_trial.py\":118:0): error: ub overflow, requires 2318336 bits while 1572864 bits available! (possible reason: tiling basic block is too large or block number is more than what user expect due to multi-buffer feature is enabled and some ops need extra local buffer.)\\n[ERROR] Failed to run BiShengIR pipeline\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/B3JNYEQNFSNYXEHXHIKVNBRP7SWBHDU77TQPTVMULFXGX76TBTIA\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmpacsan0m3/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmpacsan0m3/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled0-slots2-trace0-full-compiler-1-input.mlir.txt",
+          "returncode": 1,
+          "stdout": {
+            "file": "int8_budget_exact-plain1-tiled0-slots2-trace0-full-compiler-1-stdout.txt",
+            "bytes": 355,
+            "truncated": false
+          },
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled0-slots2-trace0-full-compiler-1-stderr.txt",
+            "bytes": 724,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 2,
+      "trace": true,
+      "stage": 2,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": false
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'LLVM ERROR: Failed to obtain op buffer shape size which should be static.\\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\\nStack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):\\n0  bishengir-compile 0x0000aaac27c22a70\\n1  bishengir-compile 0x0000aaac27c205e4\\n2  bishengir-compile 0x0000aaac27c23238\\n3  linux-vdso.so.1   0x0000fffde6ba07c0 __kernel_rt_sigreturn + 0\\n4  libc.so.6         0x0000fffde65f7608\\n5  libc.so.6         0x0000fffde65acb3c gsignal + 28\\n6  libc.so.6         0x0000fffde6597e00 abort + 244\\n7  bishengir-compile 0x0000aaac27bca66c\\n8  bishengir-compile 0x0000aaac27bca47c\\n9  bishengir-compile 0x0000aaac25d9fe80\\n10 bishengir-compile 0x0000aaac25d9dce0\\n11 bishengir-compile 0x0000aaac25d9db34\\n12 bishengir-compile 0x0000aaac25dabea0\\n13 bishengir-compile 0x0000aaac237bd660\\n14 bishengir-compile 0x0000aaac25d99ff0\\n15 bishengir-compile 0x0000aaac25dabb7c\\n16 bishengir-compile 0x0000aaac237bd660\\n17 bishengir-compile 0x0000aaac25d99ff0\\n18 bishengir-compile 0x0000aaac25dabb7c\\n19 bishengir-compile 0x0000aaac237bd660\\n20 bishengir-compile 0x0000aaac25d98aa4\\n21 bishengir-compile 0x0000aaac25db524c\\n22 bishengir-compile 0x0000aaac2701edf8\\n23 bishengir-compile 0x0000aaac2701f60c\\n24 bishengir-compile 0x0000aaac27024f5c\\n25 bishengir-compile 0x0000aaac26f37224\\n26 bishengir-compile 0x0000aaac26f37154\\n27 libc.so.6         0x0000fffde65fabdc\\n28 bishengir-compile 0x0000aaac26f376e0\\n29 bishengir-compile 0x0000aaac26f37810\\n30 bishengir-compile 0x0000aaac27beec04\\n31 bishengir-compile 0x0000aaac27befa0c\\n32 libc.so.6         0x0000fffde65f595c\\n33 libc.so.6         0x0000fffde665b8dc\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/AMP2IU5JXCXNJGQFWZ2KGJT2K4EITK3XNDDRLS7SC2X3VL6R5MRQ\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmp484obem8/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmp484obem8/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled0-slots2-trace1-full-compiler-1-input.mlir.txt",
+          "returncode": -6,
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled0-slots2-trace1-full-compiler-1-stderr.txt",
+            "bytes": 1738,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 1,
+      "trace": false,
+      "stage": 2,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": true
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', '[NOTE] Ub overflow detected; automatically set enable-code-motion to false and retrying compilation.\\n[NOTE] Due to Ub overflow, automatically set enable-code-motion to false; compilation still failed.\\nloc(\"/tmp/flaggems-qsa-mixed-structure.beE5QlqM/code/tools/qsa_cann_mixed_910b_trial.py\":118:0): error: Failed to run BiShengHIR pipeline\\n\\nloc(\"/tmp/flaggems-qsa-mixed-structure.beE5QlqM/code/tools/qsa_cann_mixed_910b_trial.py\":118:0): error: ub overflow, requires 2318336 bits while 1572864 bits available! (possible reason: tiling basic block is too large or block number is more than what user expect due to multi-buffer feature is enabled and some ops need extra local buffer.)\\n[ERROR] Failed to run BiShengIR pipeline\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/AAT6JZH36IRVQHXFZTXLF7J5FZLR4XXJ3KVBUTRLDLVUURF7CLWA\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmpyrjzywt5/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmpyrjzywt5/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled1-slots1-trace0-full-compiler-1-input.mlir.txt",
+          "returncode": 1,
+          "stdout": {
+            "file": "int8_budget_exact-plain1-tiled1-slots1-trace0-full-compiler-1-stdout.txt",
+            "bytes": 355,
+            "truncated": false
+          },
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled1-slots1-trace0-full-compiler-1-stderr.txt",
+            "bytes": 724,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 1,
+      "trace": true,
+      "stage": 2,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": true
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'LLVM ERROR: Failed to obtain op buffer shape size which should be static.\\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\\nStack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):\\n0  bishengir-compile 0x0000aaabb3ac2a70\\n1  bishengir-compile 0x0000aaabb3ac05e4\\n2  bishengir-compile 0x0000aaabb3ac3238\\n3  linux-vdso.so.1   0x0000ffff3b9207c0 __kernel_rt_sigreturn + 0\\n4  libc.so.6         0x0000ffff3b377608\\n5  libc.so.6         0x0000ffff3b32cb3c gsignal + 28\\n6  libc.so.6         0x0000ffff3b317e00 abort + 244\\n7  bishengir-compile 0x0000aaabb3a6a66c\\n8  bishengir-compile 0x0000aaabb3a6a47c\\n9  bishengir-compile 0x0000aaabb1c3fe80\\n10 bishengir-compile 0x0000aaabb1c3dce0\\n11 bishengir-compile 0x0000aaabb1c3db34\\n12 bishengir-compile 0x0000aaabb1c4bea0\\n13 bishengir-compile 0x0000aaabaf65d660\\n14 bishengir-compile 0x0000aaabb1c39ff0\\n15 bishengir-compile 0x0000aaabb1c4bb7c\\n16 bishengir-compile 0x0000aaabaf65d660\\n17 bishengir-compile 0x0000aaabb1c39ff0\\n18 bishengir-compile 0x0000aaabb1c4bb7c\\n19 bishengir-compile 0x0000aaabaf65d660\\n20 bishengir-compile 0x0000aaabb1c38aa4\\n21 bishengir-compile 0x0000aaabb1c5524c\\n22 bishengir-compile 0x0000aaabb2ebedf8\\n23 bishengir-compile 0x0000aaabb2ebf60c\\n24 bishengir-compile 0x0000aaabb2ec4f5c\\n25 bishengir-compile 0x0000aaabb2dd7224\\n26 bishengir-compile 0x0000aaabb2dd7154\\n27 libc.so.6         0x0000ffff3b37abdc\\n28 bishengir-compile 0x0000aaabb2dd76e0\\n29 bishengir-compile 0x0000aaabb2dd7810\\n30 bishengir-compile 0x0000aaabb3a8ec04\\n31 bishengir-compile 0x0000aaabb3a8fa0c\\n32 libc.so.6         0x0000ffff3b37595c\\n33 libc.so.6         0x0000ffff3b3db8dc\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/72YADZACNJXN26NGJ4NN77Z22GSJCKKSWZ3NAA3PPBH3CDAYTEPQ\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmp7emnykq6/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmp7emnykq6/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled1-slots1-trace1-full-compiler-1-input.mlir.txt",
+          "returncode": -6,
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled1-slots1-trace1-full-compiler-1-stderr.txt",
+            "bytes": 1738,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 2,
+      "trace": false,
+      "stage": 2,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": true
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', '[NOTE] Ub overflow detected; automatically set enable-code-motion to false and retrying compilation.\\n[NOTE] Due to Ub overflow, automatically set enable-code-motion to false; compilation still failed.\\nloc(\"/tmp/flaggems-qsa-mixed-structure.beE5QlqM/code/tools/qsa_cann_mixed_910b_trial.py\":118:0): error: Failed to run BiShengHIR pipeline\\n\\nloc(\"/tmp/flaggems-qsa-mixed-structure.beE5QlqM/code/tools/qsa_cann_mixed_910b_trial.py\":118:0): error: ub overflow, requires 2318336 bits while 1572864 bits available! (possible reason: tiling basic block is too large or block number is more than what user expect due to multi-buffer feature is enabled and some ops need extra local buffer.)\\n[ERROR] Failed to run BiShengIR pipeline\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/XP5XUOJC5FMJCHCESFCNBXVUXUX5S6OTSVPDPH6A4OFVB3QE3INQ\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmpagp5tv3e/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmpagp5tv3e/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled1-slots2-trace0-full-compiler-1-input.mlir.txt",
+          "returncode": 1,
+          "stdout": {
+            "file": "int8_budget_exact-plain1-tiled1-slots2-trace0-full-compiler-1-stdout.txt",
+            "bytes": 355,
+            "truncated": false
+          },
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled1-slots2-trace0-full-compiler-1-stderr.txt",
+            "bytes": 724,
+            "truncated": false
+          }
+        }
+      ]
+    },
+    {
+      "slots": 2,
+      "trace": true,
+      "stage": 2,
+      "structure": {
+        "TABLE_PLAIN": true,
+        "RING_TILE_MAJOR": true
+      },
+      "compile_only": true,
+      "status": "failed",
+      "error": "MLIRCompilationError('ConvertLinalgIRToBinary', 'LLVM ERROR: Failed to obtain op buffer shape size which should be static.\\nPLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.\\nStack dump without symbol names (ensure you have llvm-symbolizer in your PATH or set the environment var `LLVM_SYMBOLIZER_PATH` to point to it):\\n0  bishengir-compile 0x0000aaae7a3a2a70\\n1  bishengir-compile 0x0000aaae7a3a05e4\\n2  bishengir-compile 0x0000aaae7a3a3238\\n3  linux-vdso.so.1   0x0000fffda97d07c0 __kernel_rt_sigreturn + 0\\n4  libc.so.6         0x0000fffda9227608\\n5  libc.so.6         0x0000fffda91dcb3c gsignal + 28\\n6  libc.so.6         0x0000fffda91c7e00 abort + 244\\n7  bishengir-compile 0x0000aaae7a34a66c\\n8  bishengir-compile 0x0000aaae7a34a47c\\n9  bishengir-compile 0x0000aaae7851fe80\\n10 bishengir-compile 0x0000aaae7851dce0\\n11 bishengir-compile 0x0000aaae7851db34\\n12 bishengir-compile 0x0000aaae7852bea0\\n13 bishengir-compile 0x0000aaae75f3d660\\n14 bishengir-compile 0x0000aaae78519ff0\\n15 bishengir-compile 0x0000aaae7852bb7c\\n16 bishengir-compile 0x0000aaae75f3d660\\n17 bishengir-compile 0x0000aaae78519ff0\\n18 bishengir-compile 0x0000aaae7852bb7c\\n19 bishengir-compile 0x0000aaae75f3d660\\n20 bishengir-compile 0x0000aaae78518aa4\\n21 bishengir-compile 0x0000aaae7853524c\\n22 bishengir-compile 0x0000aaae7979edf8\\n23 bishengir-compile 0x0000aaae7979f60c\\n24 bishengir-compile 0x0000aaae797a4f5c\\n25 bishengir-compile 0x0000aaae796b7224\\n26 bishengir-compile 0x0000aaae796b7154\\n27 libc.so.6         0x0000fffda922abdc\\n28 bishengir-compile 0x0000aaae796b76e0\\n29 bishengir-compile 0x0000aaae796b7810\\n30 bishengir-compile 0x0000aaae7a36ec04\\n31 bishengir-compile 0x0000aaae7a36fa0c\\n32 libc.so.6         0x0000fffda922595c\\n33 libc.so.6         0x0000fffda928b8dc\\n\\n\\n[INFO]: The compiled kernel cache is in /tmp/flaggems-qsa-mixed-structure.beE5QlqM/cache/NJTGNQMCD3QWTOJW2RTX6RQAXTSRIKNTY4LVKNZYSHBGGX3CHIKA\\n\\n')",
+      "compiler_calls": [
+        {
+          "command": [
+            "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/bishengir-compile",
+            "/tmp/tmp7aubb2ms/kernel.mlir",
+            "--target=Ascend910B4-1",
+            "--enable-auto-multi-buffer=False",
+            "--enable-auto-bind-sub-block=False",
+            "--enable-hivm-graph-sync-solver=False",
+            "--enable-hivm-cross-core-gss=False",
+            "--enable-hivm-unit-flag-sync=False",
+            "--disable-auto-inject-block-sync=True",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc",
+            "--link-aicore-bitcode=/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/backends/ascend/lib/libdevice.10.bc",
+            "--disable-auto-cv-work-space-manage=True",
+            "--enable-auto-blockify-loop",
+            "--enable-hfusion-compile=true",
+            "--enable-hivm-compile=true",
+            "--enable-triton-kernel-compile=true",
+            "-o",
+            "/tmp/tmp7aubb2ms/kernel"
+          ],
+          "input_ir": "int8_budget_exact-plain1-tiled1-slots2-trace1-full-compiler-1-input.mlir.txt",
+          "returncode": -6,
+          "stderr": {
+            "file": "int8_budget_exact-plain1-tiled1-slots2-trace1-full-compiler-1-stderr.txt",
+            "bytes": 1738,
+            "truncated": false
+          }
+        }
+      ]
+    }
+  ],
+  "selected": null,
+  "selection_rule": "first candidate compiling all four full variants; no timing selection"
+}
