@@ -410,3 +410,16 @@ QSA_CAPTURE_COMPILER_OUTPUTS=1在原bishengir命令完成后、临时目录删�
 每场景同CPU评分参考验证full chunk与3-query/193-key/含不可见行tail微fixture。两条路径使用同份仓库persistent_topk，FLAGGEMS_ASCEND_PTK_PATH=auto，block256、k512、32行、1MiBworkspace；TopK源码不修改。选出的索引按已有check_selection要求范围/唯一性/有效数量，并以FP32参考的所选分数与CPU Top512分数排序比较1e-3。索引身份和并列顺序不强制一致，但另列每行两个路径TopK集合重合数，以显示FP16舍入的选择影响。
 
 精度/选择均通过的臂才两轮反序harness kernel计时：评分、固定logits的TopK、score+TopK完整chunk调用。准备、CPU参考、日志不计入。没有CANN原生调用/没有完整输入验收均值，arithmetic_mean_speedup=None。FP32控制或编译/设备错误终止；FP16候选精度或选择不通过记录rejected状态，不计该候选性能，继续剩余场景。脚本exit0表示十组采集完成，不等于候选全部通过；摘要显式打印ALL_CANDIDATES_PASSED并列每组状态/计时。工具、benchmark诊断入口与runner可编辑；生产src/TopK/冻结shape表/编译器不变，NVIDIA autotune不适用。
+
+
+### 十个相同代表chunk对齐当前INT8整合评分入口
+
+报告2b0ac712af1e047756d3e99fcaf23c4a5d8ef408十组ALL_CANDIDATES_PASSED=True，FP16评分与Top512所选分数满足1e-3，320行中47行集合不同，最低510/512重合。相对微实验FP32评分控制，评分1.499–2.259x、两阶段1.315–2.103x，但尚无同chunk的当前INT8整合入口对照，不能作为生产或CANN收益。
+
+本轮QSA_COMPARE_CURRENT_INT8=1要求QSA_FUSED_TEN_CHUNKS=1，继续同一最长请求tail32选择、原WIDTH及full/tail精度fixture；新增current_int8_integrated臂，与qk_vector_fp32、qk_second_cube三臂共同交错计时。kernel AST与TopK源码不改。
+
+必须区分：当前对外注册的Ascend src/qsa_select_paged_prefill为BF16。本轮所谓当前生产对照指此前冻结、未注册的INT8整合工具PreparedSharedMapInt8Selection.score_into；不冒称已注册INT8正式入口。factory沿用已有benchmark的32行生产分块控制参数key_group4=True、single_page64=True、allow_short_query16=True、direct_page_kernels与shared_direct_page_proof=True。生成bound/full direct-page kernel及metadata proof均在计时前，保留原query16/shared/skip-invisible/direct-page路由并记录repr及工具源SHA256，不人为强制query4。每个fixture根据其实际count/scan/visible重新准备，不复用已变更输入的proof。
+
+三臂共享同一values设备输入、visible内容、扫描宽度、FP32 score输出契约；各有独立同形状输出buffer。各自接同一个原persistent_topk实现、同样block256/k512/workspace/auto路径；仅在精度和选择通过后计时。评分/TopK/score+TopK均为harness kernel模式两轮反序计时，增加speedup_over_current_score/total（当前INT8耗时除以该臂耗时）。索引集合与当前INT8臂的重合另记，精度阈值不变。当前INT8控制或微实验FP32控制失败立即停止；FP16候选被拒绝仍列状态，不能算通过。
+
+仍是10个代表chunk、不是完整请求/原生CANN对照，验收算术均值保持None；不修改生产src、TopK、原shape表、编译器/编译选项，NVIDIA autotune不适用。Mac仅核对冻结kernel AST、factory参数和摘要gate，实际route正确性与性能待卡上运行。

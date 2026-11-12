@@ -87,6 +87,36 @@ def _qk_reduce(Q, K, QS, KS, W, Table, Visible, Out,
                 tl.store(Out + row * WIDTH + n, score, mask=(row < ROWS) & (n < WIDTH))
 
 
+def prepare_current_int8_score(values, visible, rows, width, output, report, label, topk):
+    """Bind the frozen integrated INT8 scorer, excluding preparation from timing."""
+    from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+    from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
+    from probe_qsa_int8_score_sol_910b import build_direct_page_source
+
+    kernels = {}
+    for bounded in (True, False):
+        arm = "chunk_bounded" if bounded else "chunk_full"
+        kernels[bounded] = load_generated_prefix(report, label, arm,
+            build_direct_page_source(bounded, arm, precomputed_visibility=False))
+    target = dict(values)
+    for key in ("q", "qs", "weights", "row_table"):
+        target[key] = values[key][:rows]
+    target["visible"] = visible
+    indices = torch.empty((rows, 512), device=output.device, dtype=torch.int32)
+    workspace = torch.empty(1024**2, device=output.device, dtype=torch.uint8)
+    adapter = PreparedSharedMapInt8Selection(target, indices, output, workspace, topk, [0, rows],
+        key_group4=True, single_page64=True, allow_short_query16=True,
+        direct_page_kernels=kernels, shared_direct_page_proof=True)
+    identity = dict(entry="PreparedSharedMapInt8Selection.score_into", registration="unregistered INT8 integrated trial; public Ascend src entry is BF16",
+        flags=dict(key_group4=True, single_page64=True, allow_short_query16=True, shared_direct_page_proof=True),
+        routes={name:repr(getattr(adapter, name, None)) for name in
+            ("query16_routes", "shared_routes", "skip_invisible_routes", "direct_page_routes")})
+    root = Path(__file__).resolve().parent
+    identity["source_sha256"] = {name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in
+        ("qsa_int8_shared_map_selection_910b_trial.py", "qsa_int8_query_pack4_910b.py", "qsa_int8_selection_910b_trial.py")}
+    return partial(adapter.score_into, 0, rows, output), identity
+
+
 def run_fused_probe(inputs, values, refs, width, timer, report, case):
     from triton.backends.ascend import compiler
     from diagnose_qsa_structural_mixed_compile_910b import CaptureCompiler
@@ -111,7 +141,13 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
         assert bool(torch.isfinite(inputs["qs"]).all() and (inputs["qs"] > 0).all())
         assert bool(torch.isfinite(inputs["ks"]).all() and (inputs["ks"] > 0).all())
         rows = inputs["q"].shape[0]
-        for cube, name in ((False, "qk_vector_fp32"), (True, "qk_second_cube")):
+        arm_specs = [(False, "qk_vector_fp32"), (True, "qk_second_cube")]
+        compare_current = os.environ.get("QSA_COMPARE_CURRENT_INT8") == "1"
+        result["production_comparison_requested"] = compare_current
+        if compare_current:
+            assert selection_mode, "Current INT8 comparison requires selection-mode fixture"
+            arm_specs.insert(0, (None, "current_int8_integrated"))
+        for cube, name in arm_specs:
             entry = dict(status="running", checks=[], samples_ms=[])
             result["arms"][name] = entry
             for fixture, count, scan in (("full", rows, width), ("tail_visible", 3, min(width, 193))):
@@ -125,15 +161,22 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                     values["q"], values["cache"], values["qs"], values["ks"], values["weights"],
                     values["row_table"][0], visible, output,
                     ROWS=count, WIDTH=scan, COLUMNS=values["row_table"].shape[1], SECOND_CUBE=cube, use_bytecode=True)
+                if cube is None:
+                    fn, identity = prepare_current_int8_score(values, visible, count, scan, output,
+                        report, f"{case}_{fixture}", topk)
+                    entry.setdefault("current_identity", {})[fixture] = identity
                 capture = CaptureCompiler(report, f"{case}-{name}-{fixture}")
                 entry["phase"] = "compilation"
                 path.write_text(json.dumps(result, indent=2))
                 with patch.object(compiler, "subprocess", capture):
-                    compiled = _qk_reduce.warmup(*fn.args,
-                        grid=(triton.cdiv(count, 4), triton.cdiv(scan, 64)), **fn.keywords)
+                    if cube is None:
+                        compiled = fn()
+                    else:
+                        compiled = _qk_reduce.warmup(*fn.args,
+                            grid=(triton.cdiv(count, 4), triton.cdiv(scan, 64)), **fn.keywords)
                 entry.setdefault("compiler_calls", {})[fixture] = capture.calls
                 entry.setdefault("artifacts", {})[fixture] = {}
-                for kind, data in compiled.asm.items():
+                for kind, data in getattr(compiled, "asm", {}).items():
                     if isinstance(data, str):
                         filename = f"{case}-{name}-{fixture}-{kind}.txt"
                         (report / filename).write_text(data)
@@ -179,6 +222,10 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                             baseline_indices = selections["qk_vector_fp32"]
                             entry["exact_index_overlap_counts"] = [len(set(a[a >= 0].tolist()) & set(b[b >= 0].tolist()))
                                 for a,b in zip(baseline_indices, selected)]
+                        if name != "current_int8_integrated" and "current_int8_integrated" in selections:
+                            baseline_indices = selections["current_int8_integrated"]
+                            entry["exact_index_overlap_with_current"] = [len(set(a[a >= 0].tolist()) & set(b[b >= 0].tolist()))
+                                for a,b in zip(baseline_indices, selected)]
                         topk_funcs[name] = select
                         combined_funcs[name] = lambda score=fn, select=select: (score(), select())
                 print("FUSED_SECOND_CUBE_CHECK " + json.dumps(dict(arm=name, **check)), flush=True)
@@ -190,7 +237,7 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                 topk_funcs.pop(name, None)
                 combined_funcs.pop(name, None)
                 funcs.pop(name, None)
-                if name == "qk_vector_fp32":
+                if name in ("qk_vector_fp32", "current_int8_integrated"):
                     raise RuntimeError("FP32 control mismatch; preserving distributions and refusing second Cube execution")
         assert result["arms"]["qk_vector_fp32"]["status"] == "passed", "Fused FP32 control mismatch"
         for iteration in range(2):
@@ -223,7 +270,15 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                 entry = result["arms"][name]
                 entry["component_median_us"] = {stage: statistics.median(times)*1000 for stage,times in entry["component_samples_ms"].items()}
                 print("FUSED_SELECTION_TIME " + json.dumps(dict(arm=name, **entry["component_median_us"])), flush=True)
-        result["status"] = "completed" if len(funcs) == 2 else ("completed_with_candidate_rejection" if selection_mode else "completed_with_precision_rejection")
+        if compare_current:
+            current = result["arms"]["current_int8_integrated"]
+            for name in funcs:
+                entry = result["arms"][name]
+                entry["speedup_over_current_score"] = current["median_us"] / entry["median_us"]
+                entry["speedup_over_current_total"] = current["component_median_us"]["score_plus_topk"] / entry["component_median_us"]["score_plus_topk"]
+                print("VERSUS_CURRENT_INT8 " + json.dumps(dict(arm=name,
+                    score_speedup=entry["speedup_over_current_score"], total_speedup=entry["speedup_over_current_total"])), flush=True)
+        result["status"] = "completed" if len(funcs) == len(arm_specs) else ("completed_with_candidate_rejection" if selection_mode else "completed_with_precision_rejection")
     except Exception as exc:
         result.update(status="failed", error=repr(exc))
         raise
@@ -282,7 +337,7 @@ def run_qk_isolation(inputs, values, width, report, case):
                 compiled = _qk_reduce.warmup(*args, grid=grid, **options)
             entry["compiler_calls"] = capture.calls
             entry["metadata"] = str(compiled.metadata)
-            for kind, data in compiled.asm.items():
+            for kind, data in getattr(compiled, "asm", {}).items():
                 if isinstance(data, str):
                     (report / f"{case}-raw-qk-{label}-{kind}.txt").write_text(data)
             entry["phase"] = "device_execution"

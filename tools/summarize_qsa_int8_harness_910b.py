@@ -412,6 +412,9 @@ def main():
                     for times in (entry["samples_ms"], entry["component_samples_ms"]["topk"], entry["component_samples_ms"]["score_plus_topk"]):
                         if len(times) != 2 or not all(isinstance(x, (int, float)) and math.isfinite(x) and x > 0 for x in times):
                             raise ValueError(f"Invalid chunk timing: {name}/{arm}")
+                if record.get("production_comparison_requested"):
+                    if record["arms"]["current_int8_integrated"]["status"] != "passed":
+                        raise ValueError(f"Current integrated INT8 control failed: {name}")
                 if record["arms"]["qk_vector_fp32"]["status"] != "passed":
                     raise ValueError(f"FP32 control failed: {name}")
             if args.pytest_exit_code:
@@ -427,7 +430,7 @@ def main():
             print(plan["name"], record["status"])
             for arm, entry in record["arms"].items():
                 print(arm, entry["status"], "score us", entry.get("median_us"),
-                      "components us", entry.get("component_median_us"), "selection", entry.get("selection"))
+                      "components us", entry.get("component_median_us"), "selection", entry.get("selection"), "vs current score/total", entry.get("speedup_over_current_score"), entry.get("speedup_over_current_total"))
         print("ALL_CANDIDATES_PASSED", result["all_candidates_passed"])
         return result["exit_code"]
     if args.cann_serial:
