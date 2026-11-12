@@ -25,6 +25,7 @@ from unittest.mock import patch
 import torch
 import triton
 import triton.language as tl
+import triton.language.extra.cann.extension as al
 
 
 @triton.jit
@@ -58,16 +59,18 @@ def _qk_reduce(Q, K, QS, KS, W, Table, Visible, Out,
         tl.store(Out + r[:, None] * WIDTH + n[None, :], score,
                  mask=(r[:, None] < tl.minimum(base + 4, ROWS)) & (n[None, :] < WIDTH))
     else:
-        r = base + tl.arange(0, 4)
         h = tl.arange(0, 4)
-        qs = tl.load(QS + r[:, None] * 4 + h[None, :], mask=r[:, None] < ROWS, other=0).to(tl.float32)
-        w = tl.load(W + r[:, None] * 4 + h[None, :], mask=r[:, None] < ROWS, other=0).to(tl.float32)
-        products = tl.reshape(dot.to(tl.float32), (4, 4, 64))
-        dequant = products * qs[:, :, None] * ks[None, None, :]
-        total = tl.sum(tl.maximum(dequant, 0.0) * w[:, :, None], 1)
-        visible = tl.load(Visible + r, mask=r < ROWS, other=0)
-        score = tl.where(n[None, :] < visible[:, None], total, -float("inf"))
-        tl.store(Out + r[:, None] * WIDTH + n[None, :], score, mask=(r[:, None] < ROWS) & (n[None, :] < WIDTH))
+        for local_query in tl.static_range(4):
+            row = base + local_query
+            products = al.extract_slice(dot, (local_query * 4, 0), (4, 64), (1, 1)).to(tl.float32)
+            qs = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+            w = tl.load(W + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+            dequant = products * qs[:, None] * ks[None, :]
+            total = tl.sum(tl.maximum(dequant, 0.0) * w[:, None], 0)
+            visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+            score = tl.where(n < visible, total, -float("inf"))
+            tl.store(Out + row * WIDTH + n, score, mask=(row < ROWS) & (n < WIDTH))
+
 
 
 def run_fused_probe(inputs, values, refs, width, timer, report, case):
@@ -100,8 +103,24 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                     values["row_table"][0], visible, output,
                     ROWS=count, WIDTH=scan, COLUMNS=values["row_table"].shape[1], SECOND_CUBE=cube, use_bytecode=True)
                 capture = CaptureCompiler(report, f"{case}-{name}-{fixture}")
+                entry["phase"] = "compilation"
+                path.write_text(json.dumps(result, indent=2))
                 with patch.object(compiler, "subprocess", capture):
-                    compiled = fn()
+                    compiled = _qk_reduce.warmup(*fn.args,
+                        grid=(triton.cdiv(count, 4), triton.cdiv(scan, 64)), **fn.keywords)
+                entry.setdefault("compiler_calls", {})[fixture] = capture.calls
+                entry.setdefault("artifacts", {})[fixture] = {}
+                for kind, data in compiled.asm.items():
+                    if isinstance(data, str):
+                        filename = f"{case}-{name}-{fixture}-{kind}.txt"
+                        (report / filename).write_text(data)
+                        entry["artifacts"][fixture][kind] = dict(file=filename,
+                            linalg_matmul_count=data.count("linalg.matmul"), triton_dot_count=data.count("tt.dot"))
+                    elif isinstance(data, bytes):
+                        entry["artifacts"][fixture][kind] = dict(sha256=hashlib.sha256(data).hexdigest())
+                entry["phase"] = "device_execution"
+                path.write_text(json.dumps(result, indent=2))
+                fn()
                 actual = output.cpu()
                 expected = torch.full((count, scan), -float("inf"))
                 for row in range(count):
@@ -114,15 +133,6 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                     max_abs_error=error if math.isfinite(error) else None,
                     invalid_output=int((~torch.isfinite(actual[finite])).sum()), compiler_calls=capture.calls)
                 entry["checks"].append(check)
-                entry.setdefault("artifacts", {})[fixture] = {}
-                for kind, data in compiled.asm.items():
-                    if isinstance(data, str):
-                        filename = f"{case}-{name}-{fixture}-{kind}.txt"
-                        (report / filename).write_text(data)
-                        entry["artifacts"][fixture][kind] = dict(file=filename,
-                            linalg_matmul_count=data.count("linalg.matmul"), triton_dot_count=data.count("tt.dot"))
-                    elif isinstance(data, bytes):
-                        entry["artifacts"][fixture][kind] = dict(sha256=hashlib.sha256(data).hexdigest())
                 if fixture == "full":
                     funcs[name] = fn
                 print("FUSED_SECOND_CUBE_CHECK " + json.dumps(dict(arm=name, **check)), flush=True)

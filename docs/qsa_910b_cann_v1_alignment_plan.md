@@ -359,3 +359,10 @@ QSA_FUSED_SECOND_CUBE_PROBE=1的下一轮固定budget_exact前32行，独立微�
 源码仅显式写最终score，没有用户分配的GM点积workspace；不据此声称编译器消除了内部GM搬运。捕获原始编译器输入、命令、错误及完整asm文本/可用二进制SHA256，记录每种IR的matmul/dot数量供人工检查。compiler_gm_intermediate_status保持unverified，直到卡上产物证据得到分析。
 
 两侧先验证full 32-row原WIDTH，再验证3-query、WIDTH=min(193,WIDTH)尾部fixture（第一行visible=0，第二行visible最多191）。同原CPU参考逐元素rtol/atol=1e-3，含mask/-inf及非有限输出检查；Cube不通过则rejected_precision且不计时，不放宽阈值。FP32控制不通过或编译/设备异常直接停止并保存错误。通过的臂两轮反序配对harness kernel计时。原分离评分/TopK和混合单槽/双槽控制继续保留。报告仅单次调用评分微实验，无TopK候选和全shape验收结论。Mac验证语法及query/head/尾部索引模型；卡上编译、数值和计时待用户执行。
+
+
+### FP32控制的UB对齐故障隔离
+
+报告56cafd3d273d46e94f44b50d70990fddfd0234e7（88178da5）：第一个qk_vector_fp32 full调用编译完成，但output.cpu同步时报507015，设备日志给出VEC指令访问UB地址未对齐。qk_second_cube尚未编译/执行，无两种评分kernel的正确性/计时结果，不能归因于第二次Cube。此前混合kernel计时不代表新评分probe通过。
+
+下一轮仅将Vector分支reshape(4,4,64)+按中间轴sum改为逐query的二维4×64 extract_slice+head sum，算术顺序与FP32不变；两侧query4/N64/grid/QK输入不变。此为待验证的布局隔离，尚未通过故障PC反汇编定位根因。Cube分支不变；先控制后候选，设备异常仍立即终止。编译改用warmup，执行前保存asm、二进制hash、原始编译输入和命令，分别记录compilation/device_execution阶段，避免故障导致产物未导出。仍按原精度gate、full与tail fixture及两轮kernel计时，不改生产、TopK或编译器。
