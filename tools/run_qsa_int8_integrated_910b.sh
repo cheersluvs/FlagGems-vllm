@@ -97,6 +97,9 @@ fi
 if [[ ${QSA_FUSED_TEN_CHUNKS:-0} == 1 ]]; then
     qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_fused_second_cube_chunk_selection
 fi
+if [[ ${QSA_EXPLICIT_CUBE_HANDOFF:-0} == 1 ]]; then
+    qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_explicit_cube_handoff
+fi
 qsa_harness_diagnose() (
     cd -- "$qsa_repo" || exit 1
     ulimit -c 0 || exit 1
@@ -119,7 +122,9 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
 import os
 from tools.qsa_int8_ten_workloads_910b import cases
 from tools.summarize_qsa_int8_harness_910b import GROUP_VISIBLE_CASES, GROUP_VISIBLE_WALL_CASES, STAGE_CASES, TILE_HANDOFF_CASE
-if os.environ.get("QSA_FUSED_TEN_CHUNKS") == "1":
+if os.environ.get("QSA_EXPLICIT_CUBE_HANDOFF") == "1":
+    names = ["int8_budget_exact"]
+elif os.environ.get("QSA_FUSED_TEN_CHUNKS") == "1":
     names = [case["name"] for case in cases()]
     if os.environ.get("QSA_GENERIC_LOCAL_HANDOFF") == "1":
         names = ["int8_budget_exact"]

@@ -418,6 +418,10 @@ def main():
     diagnostic.add_argument("--group-visible-full", action="store_true")
     diagnostic.add_argument("--group-visible-wall", action="store_true")
     args = parser.parse_args()
+    if os.environ.get("QSA_EXPLICIT_CUBE_HANDOFF") == "1":
+        from tools.probe_qsa_explicit_cube_handoff_910b import summarize_probe
+
+        return summarize_probe(args.report.parent, args.output, args.pytest_exit_code)
     if args.acceptance_stages:
         args.stages = True
         if any(
