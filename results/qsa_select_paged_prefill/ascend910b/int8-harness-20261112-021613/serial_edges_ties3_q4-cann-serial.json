@@ -1,0 +1,113 @@
+{
+  "case": "serial_edges_ties3_q4",
+  "status": "passed",
+  "mode": "kernel",
+  "scope": "3-row serial structural probe",
+  "outer_keys": 2048,
+  "cube_n": 64,
+  "state_capacity": 2048,
+  "output_k": 512,
+  "score_dtype": "FP32",
+  "state_storage": "GM ping-pong, sequential kernel launches",
+  "blocks": [
+    0,
+    2048
+  ],
+  "checks": [
+    {
+      "stage": "score",
+      "key_start": 0,
+      "mismatches": 0,
+      "query_group": 4,
+      "implementation": "separated"
+    },
+    {
+      "stage": "sort",
+      "key_start": 0,
+      "mismatches": 0,
+      "query_group": 4,
+      "implementation": "separated"
+    },
+    {
+      "stage": "state",
+      "key_start": 0,
+      "mismatches": 0,
+      "query_group": 4,
+      "implementation": "separated"
+    },
+    {
+      "stage": "score",
+      "key_start": 2048,
+      "mismatches": 0,
+      "query_group": 4,
+      "implementation": "separated"
+    },
+    {
+      "stage": "sort",
+      "key_start": 2048,
+      "mismatches": 0,
+      "query_group": 4,
+      "implementation": "separated"
+    },
+    {
+      "stage": "state",
+      "key_start": 2048,
+      "mismatches": 0,
+      "query_group": 4,
+      "implementation": "separated"
+    }
+  ],
+  "query_group": 4,
+  "score_variant": "shared_n64",
+  "score_segments": [
+    [
+      0,
+      1,
+      4
+    ],
+    [
+      1,
+      2,
+      4
+    ]
+  ],
+  "mixed_structure": {
+    "TABLE_PLAIN": true,
+    "RING_TILE_MAJOR": false
+  },
+  "mixed_validation_scope": "noninstrumented final/prefix Top512; internal Top2048 snapshots unavailable",
+  "mixed_checks": [
+    {
+      "arm": "mixed_serial",
+      "slots": 1,
+      "status": "passed"
+    },
+    {
+      "arm": "mixed_double",
+      "slots": 2,
+      "status": "passed"
+    }
+  ],
+  "mixed_final_prefix_checks": {
+    "mixed_serial": [
+      {
+        "width": 2049,
+        "slots": 1,
+        "status": "passed",
+        "trace": false,
+        "output_k": 512
+      }
+    ],
+    "mixed_double": [
+      {
+        "width": 2049,
+        "slots": 2,
+        "status": "passed",
+        "trace": false,
+        "output_k": 512
+      }
+    ]
+  },
+  "correctness_status": "passed",
+  "timing_status": "not_requested"
+}

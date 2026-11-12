@@ -1,0 +1,482 @@
+QSA INT8 harness worker: int8_budget_exact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA MERGE REPRESENTATION tensor8192: four fixtures passed
+python3: /data/zhengyang/git/flag-llvm-project/llvm/include/llvm/Support/Casting.h:566: decltype(auto) llvm::cast(const From&) [with To = mlir::detail::TypedValue<mlir::bufferization::BufferLikeType>; From = mlir::Value]: Assertion `isa<To>(Val) && "cast<Ty>() argument of incompatible type!"' failed.
+module attributes {hacc.target = #hacc.target<"Ascend910B4-1">} {
+  tt.func public @_merge_representation_probe(%arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg2: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg3: !tt.ptr<i32> {tt.divisibility = 16 : i32}) attributes {noinline = false} {
+    %0 = tt.make_range {end = 4096 : i32, start = 0 : i32} : tensor<4096xi32>
+    %1 = tt.splat %arg0 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %2 = tt.addptr %1, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    %3 = tt.load %2 : tensor<4096x!tt.ptr<f32>>
+    %4 = tt.splat %arg1 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %5 = tt.addptr %4, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    %6 = tt.load %5 : tensor<4096x!tt.ptr<f32>>
+    %7 = tile.alloc {space = 5 : i64} : <[8192], f32, ub>
+    %8:2 = tt.call @"qsa_cann_mixed_910b_trial._merge_equal2048__fp32S4096S_fp32S4096S_Bfp32S8192S__(3,)cconstexpr_1_"(%3, %6, %7) : (tensor<4096xf32>, tensor<4096xf32>, !tile.buf<[8192], f32, ub>) -> (tensor<4096xf32>, tensor<4xi32>)
+    %9 = tt.splat %arg2 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %10 = tt.addptr %9, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    tt.store %10, %8#0 : tensor<4096x!tt.ptr<f32>>
+    %11 = tt.make_range {end = 4 : i32, start = 0 : i32} : tensor<4xi32>
+    %12 = tt.splat %arg3 : !tt.ptr<i32> -> tensor<4x!tt.ptr<i32>>
+    %13 = tt.addptr %12, %11 : tensor<4x!tt.ptr<i32>>, tensor<4xi32>
+    tt.store %13, %8#1 : tensor<4x!tt.ptr<i32>>
+    tt.return
+  }
+  tt.func private @"qsa_cann_mixed_910b_trial._merge_equal2048__fp32S4096S_fp32S4096S_Bfp32S8192S__(3,)cconstexpr_1_"(%arg0: tensor<4096xf32>, %arg1: tensor<4096xf32>, %arg2: !tile.buf<[8192], f32, ub>) -> (tensor<4096xf32>, tensor<4xi32>) attributes {noinline = false} {
+    %cst = arith.constant dense<0> : tensor<4xi32>
+    %cst_0 = arith.constant dense<0.000000e+00> : tensor<8192xf32>
+    %c4096 = arith.constant 4096 : index
+    %c2048_i32 = arith.constant 2048 : i32
+    %c2_i32 = arith.constant 2 : i32
+    %c0_i32 = arith.constant 0 : i32
+    %c0 = arith.constant 0 : index
+    %0 = tile.subview %arg2[%c0] [[4096]] [[1]] : <[8192], f32, ub> -> <[4096], f32, ub>
+    %1 = tile.subview %arg2[%c4096] [[4096]] [[1]] : <[8192], f32, ub> -> <[4096], f32, ub>
+    tile.store_tensor %arg0 -> %0 : tensor<4096xf32>, <[4096], f32, ub>
+    tile.store_tensor %arg1 -> %1 : tensor<4096xf32>, <[4096], f32, ub>
+    gpu.barrier
+    %2 = tile.to_tensor %arg2 {writable} : <[8192], f32, ub> -> tensor<8192xf32>
+    %3:2 = hivm.hir.custom {arg_attrs = [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}], bitcode = "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc", extra_buffers_sizes = [0], extra_buffers_types = [f16], hivm.pipe = #hivm.pipe<PIPE_V>, hivm.tcore_type = #hivm.tcore_type<VECTOR>, hivm.vf_mode = #hivm.vf_mode<SIMD>, symbol = "custom_merge_exhaust_sort4_float"} "merge_exhaust_sort4" ins(%2, %c2_i32, %c0_i32, %c2048_i32, %c0_i32, %c0_i32, %c2048_i32, %c2048_i32, %c0_i32, %c0_i32 : tensor<8192xf32>, i32, i32, i32, i32, i32, i32, i32, i32, i32) outs(%cst_0, %cst : tensor<8192xf32>, tensor<4xi32>) -> (tensor<8192xf32>, tensor<4xi32>)
+    %extracted_slice = tensor.extract_slice %3#0[0] [4096] [1] : tensor<8192xf32> to tensor<4096xf32>
+    tt.return %extracted_slice, %3#1 : tensor<4096xf32>, tensor<4xi32>
+  }
+}
+
+{-#
+  external_resources: {
+    mlir_reproducer: {
+      pipeline: "builtin.module(auto-blockify{auto-blockify-size=1}, commonir-to-hivm, inline{default-pipeline=canonicalize inlining-threshold=4294967295 max-iterations=4 }, canonicalize{  max-iterations=10 max-num-rewrites=-1 region-simplify=normal test-convergence=false top-down=true}, triton-to-structured-incubated{enable-mask-fallback-conversion=false optimize-dynamic-offset=false}, discrete-mask-access-conversion{compile-on-910-95=false enable-sync-block-lock=false force-simt-template=false}, triton-to-annotation, triton-to-unstructure-incubated{compile-on-910-95=false force-scalarize-mode=false force-simt-template=false}, triton-to-hivm, triton-to-hfusion, triton-to-llvm, bubble-up-operation{enable-aggressive-mode=true}, triton-to-structured-incubated{enable-mask-fallback-conversion=false optimize-dynamic-offset=false}, reduce-sum-strength{enable=false split-factor=2}, triton-to-linalg-incubated{compile-on-910-95=false enable-nd2nz-on-vector=false enable-select-analysis=true global-kernel=false named-ops=true}, commonir-to-hivm, canonicalize{  max-iterations=10 max-num-rewrites=-1 region-simplify=normal test-convergence=false top-down=true}, cse, symbol-dce)",
+      disable_threading: false,
+      verify_each: true
+    }
+  }
+#-}
+/tmp/flaggems-qsa-fused-second-cube.tuZ9j7Ro/code/tools/qsa_cann_mixed_910b_trial.py:53:0: error: Failures have been detected while processing an MLIR pass pipeline
+/tmp/flaggems-qsa-fused-second-cube.tuZ9j7Ro/code/tools/qsa_cann_mixed_910b_trial.py:53:0: note: Pipeline failed while executing [`CommonIRToHIVM` on 'builtin.module' operation]: reproducer generated at `std::errs, please share the reproducer above with Triton project.`
+QSA MERGE REPRESENTATION buffer8192: compile failed
+QSA MERGE REPRESENTATION tensor16384: four fixtures passed
+QSA MIXED COMPILE int8_budget_exact-final-slots1 status=compiled
+QSA MIXED COMPILE int8_budget_exact-final-slots2 status=compiled
+QSA MIXED COMPILE int8_budget_exact mixed_serial
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 191, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 192, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 193, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2047, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2048, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 8192, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS int8_budget_exact mixed_serial
+QSA MIXED COMPILE int8_budget_exact mixed_double
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 191, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 192, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 193, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2047, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2048, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 8192, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS int8_budget_exact mixed_double
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_unequal17_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 4097, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_unequal17_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_unequal17_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 4097, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_unequal17_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_unequal17_q4", "width": 4097, "rows": 17, "request_lengths": [3, 5, 9], "query_group": 4, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_unequal17_q16", "width": 4097, "rows": 17, "request_lengths": [3, 5, 9], "query_group": 16, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_ties3_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_ties3_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_ties3_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_ties3_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_ties3_q4", "width": 2049, "rows": 3, "request_lengths": [1, 2], "query_group": 4, "tied_scores": true, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_ties3_q16", "width": 2049, "rows": 3, "request_lengths": [1, 2], "query_group": 16, "tied_scores": true, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_invisible1_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_invisible1_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_invisible1_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_invisible1_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_invisible1_q4", "width": 1, "rows": 1, "request_lengths": [1], "query_group": 4, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_invisible1_q16", "width": 1, "rows": 1, "request_lengths": [1], "query_group": 16, "tied_scores": false, "status": "passed"}
+QSA MIXED RATIOS int8_budget_exact: fusion=1.0576x; double_buffer=1.1181x
+[W1112 10:16:07.484580628 CopyKernelOpApi.cpp:58] Warning: EZ9999: Inner Error!
+EZ9999[PID: 88947] 2026-11-12-10:16:07.039.799 (EZ9999):  The error from device(chipId:0, dieId:0), serial number is 713, there is an exception of fftsplus aivector error, core id is 0, error code = 0, dump info: pc start: 0x12400016d488, current: 0x12400016de90, vec error info: 0xb60000002a, mte error info: 0x40600008f, ifu error info: 0x212c041280600, ccu error info: 0xbc74b6ca00000000, cube error info: 0, biu error info: 0, aic error mask: 0x6500020bd00028c, para base: 0x12c100100080, aic cond: 0.
+The extend info: errcode:(0, 0x800, 0) errorStr: The UB address accessed by the VEC instruction is not aligned. fixp_error0 info: 0x600008f, fixp_error1 info: 0x4, fsmId:0, tslot:1, thread:0, ctxid:0, blk:15, sublk:1, subErrType:4.
+For details, see the troubleshooting document on the Ascend official website. Search for the keyword "AI Core Error".[FUNC:PrintCoreInfo][FILE:device_error_core_proc.cc][LINE:1060]
+TraceBack (most recent call last):
+       An error occurred in the kernel task, retCode=0x26, [aicore exception].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]
+       rtStreamSynchronize execution failed, reason=aicore exception[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+ (function copy_between_host_and_device_opapi)
+[E1112 10:16:07.613895482 OpParamMaker.cpp:454] operator():../third_party/op-plugin/op_plugin/ops/opapi/CatKernelNpuOpApi.cpp:148 NPU function error: call aclnnCat failed, error code is 507015
+[ERROR] 2026-11-12-10:16:07 (PID:88947, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+[Error]: The aicore execution is abnormal. 
+        Rectify the fault based on the error information in the ascend log.
+[PID: 88947] 2026-11-12-10:16:07.174.615 AclNN_Runtime_Error(EZ9903): aclrtLaunchKernelWithHostArgs failed, return: 507015
+        Solution: In this scenario, collect the plog when the fault occurs and locate the fault based on the plog.
+TraceBack (most recent call last):
+        Failed to submit kernel task, retCode=0x7150026.[FUNC:InternalLaunchKernelSubmit][FILE:aix_stars.cc][LINE:462]
+        kernel launch submit failed.[FUNC:StreamLaunchKernelV2][FILE:aix_stars.cc][LINE:609]
+        rtsLaunchKernelWithHostArgs execution failed, reason=aicore exception[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+        aclrtLaunchKernelWithHostArgs failed, return: 507015
+        Launch kernel failed.
+        KernelLaunch failed: /opt/qsa-opp-910b-qw4qRghU/built-in/op_impl/ai_core/tbe//kernel/ascend910b/ops_legacy/concat_d/ConcatD_297bfa6e609ce41a23313f1e0be68bae_high_performance.o
+        Kernel Run failed. opType: 8, ConcatD
+        launch failed for ConcatD, errno:361001.
+
+Exception raised from operator() at ../third_party/op-plugin/op_plugin/ops/opapi/CatKernelNpuOpApi.cpp:148 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0xc8 (0xfffe1c0f5978 in /flagos/lib/python3.11/site-packages/torch/lib/libc10.so)
+frame #1: c10::detail::torchCheckFail(char const*, char const*, unsigned int, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) + 0xc4 (0xfffe1c099adc in /flagos/lib/python3.11/site-packages/torch/lib/libc10.so)
+frame #2: <unknown function> + 0x1341cbc (0xfffc71c91cbc in /flagos/lib/python3.11/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #3: <unknown function> + 0x3a263b4 (0xfffc743763b4 in /flagos/lib/python3.11/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #4: <unknown function> + 0xca80f0 (0xfffc715f80f0 in /flagos/lib/python3.11/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #5: <unknown function> + 0xca8ccc (0xfffc715f8ccc in /flagos/lib/python3.11/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #6: <unknown function> + 0xca6be8 (0xfffc715f6be8 in /flagos/lib/python3.11/site-packages/torch_npu/lib/libtorch_npu.so)
+frame #7: <unknown function> + 0x7dcd24 (0xfffc7077cd24 in /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/lib64/libhccl.so)
+frame #8: <unknown function> + 0x8595c (0xfffe28b9595c in /lib/aarch64-linux-gnu/libc.so.6)
+frame #9: <unknown function> + 0xeb8dc (0xfffe28bfb8dc in /lib/aarch64-linux-gnu/libc.so.6)
+
+FE
+==================================== ERRORS ====================================
+_ ERROR at teardown of test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact] _
+  + Exception Group Traceback (most recent call last):
+  |   File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 361, in from_call
+  |     result: TResult | None = func()
+  |                              ^^^^^^
+  |   File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 250, in <lambda>
+  |     lambda: runtest_hook(item=item, **kwds),
+  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/flagos/lib/python3.11/site-packages/pluggy/_hooks.py", line 512, in __call__
+  |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/flagos/lib/python3.11/site-packages/pluggy/_manager.py", line 120, in _hookexec
+  |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 167, in _multicall
+  |     raise exception
+  |   File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+  |     teardown.throw(exception)
+  |   File "/flagos/lib/python3.11/site-packages/_pytest/logging.py", line 873, in pytest_runtest_teardown
+  |     yield
+  |   File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 139, in _multicall
+  |     teardown.throw(exception)
+  |   File "/flagos/lib/python3.11/site-packages/_pytest/capture.py", line 905, in pytest_runtest_teardown
+  |     return (yield)
+  |             ^^^^^
+  |   File "/flagos/lib/python3.11/site-packages/pluggy/_callers.py", line 121, in _multicall
+  |     res = hook_impl.function(*args)
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 199, in pytest_runtest_teardown
+  |     item.session._setupstate.teardown_exact(nextitem)
+  |   File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 581, in teardown_exact
+  |     raise BaseExceptionGroup("errors during test teardown", exceptions[::-1])
+  | ExceptionGroup: errors during test teardown (2 sub-exceptions)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 568, in teardown_exact
+    |     fin()
+    |   File "/flagos/lib/python3.11/site-packages/_pytest/fixtures.py", line 1166, in finish
+    |     raise exceptions[0]
+    |   File "/flagos/lib/python3.11/site-packages/_pytest/fixtures.py", line 1156, in finish
+    |     fin()
+    |   File "/flagos/lib/python3.11/site-packages/_pytest/fixtures.py", line 1014, in _teardown_yield_fixture
+    |     next(it)
+    |   File "/tmp/flaggems-qsa-fused-second-cube.tuZ9j7Ro/code/benchmark/conftest.py", line 343, in clear_module_cache
+    |     torch_device_fn.empty_cache()
+    |   File "/flagos/lib/python3.11/site-packages/torch_npu/npu/memory.py", line 180, in empty_cache
+    |     torch_npu._C._npu_emptyCache()
+    | RuntimeError: npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:576 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507015
+    | [ERROR] 2026-11-12-10:16:07 (PID:88947, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+    | [Error]: The aicore execution is abnormal. 
+    |         Rectify the fault based on the error information in the ascend log.
+    | EE9999: Inner Error!
+    | EE9999[PID: 88947] 2026-11-12-10:16:07.247.040 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=aicore exception[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+    | TraceBack (most recent call last):
+    | 
+    +---------------- 2 ----------------
+    | Traceback (most recent call last):
+    |   File "/flagos/lib/python3.11/site-packages/_pytest/runner.py", line 568, in teardown_exact
+    |     fin()
+    |   File "/flagos/lib/python3.11/site-packages/_pytest/fixtures.py", line 1166, in finish
+    |     raise exceptions[0]
+    |   File "/flagos/lib/python3.11/site-packages/_pytest/fixtures.py", line 1156, in finish
+    |     fin()
+    |   File "/flagos/lib/python3.11/site-packages/_pytest/fixtures.py", line 1014, in _teardown_yield_fixture
+    |     next(it)
+    |   File "/tmp/flaggems-qsa-fused-second-cube.tuZ9j7Ro/code/benchmark/conftest.py", line 337, in clear_function_cache
+    |     torch_device_fn.empty_cache()
+    |   File "/flagos/lib/python3.11/site-packages/torch_npu/npu/memory.py", line 180, in empty_cache
+    |     torch_npu._C._npu_emptyCache()
+    | RuntimeError: npuSynchronizeDevice:../torch_npu/csrc/core/npu/NPUStream.cpp:576 NPU function error: AclrtSynchronizeDeviceWithTimeout, error code is 507015
+    | [ERROR] 2026-11-12-10:16:07 (PID:88947, Device:0, RankID:-1) ERR00100 PTA call acl api failed
+    | [Error]: The aicore execution is abnormal. 
+    |         Rectify the fault based on the error information in the ascend log.
+    | EE9999: Inner Error!
+    | EE9999[PID: 88947] 2026-11-12-10:16:07.246.439 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=aicore exception[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+    | TraceBack (most recent call last):
+    | 
+    +------------------------------------
+=================================== FAILURES ===================================
+______ test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact] ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xfffbf3a30790>
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-217/test_qsa_select_paged_prefill_0')
+case_name = 'int8_budget_exact'
+
+    @pytest.mark.qsa_select_paged_prefill_int8_910b
+    @pytest.mark.parametrize("case_name", ("int8_budget_exact", "int8_compact"))
+    def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_name):
+        from types import SimpleNamespace
+    
+        pytest.importorskip("torch_npu")
+        if not torch.npu.is_available():
+            pytest.skip("Ascend NPU unavailable")
+        device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+        torch.npu.set_device(device_index)
+        if "910B" not in torch.npu.get_device_name(device_index):
+            pytest.skip("Ascend 910B required")
+        assert Config.mode == consts.BenchMode.KERNEL
+        assert os.environ.get("ASCEND_LAUNCH_BLOCKING") != "1"
+    
+        root = Path(__file__).resolve().parents[1]
+        monkeypatch.syspath_prepend(str(root / "tools"))
+        from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
+        from probe_qsa_int8_pipeline_910b import check_selection
+        from probe_qsa_int8_score_910b import reference as cpu_score
+        from probe_qsa_int8_score_sol_910b import build_direct_page_source
+        from probe_qsa_int8_ten_shapes_910b import verify_structure
+        from qsa_int8_online_topk_910b_trial import PreparedOnlineTopKSelection
+        from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
+        from qsa_prefill_pipeline_910b_trial import load_topk
+        from qsa_timeline_910b import collect
+    
+        plan = CASES[(case_name,)]
+        rows = 32
+        assert plan["query_lengths"][0] >= rows
+        width = plan["logits_width"]
+        inputs = make_inputs(plan)
+        for key in ("q", "qs", "weights", "row_table", "visible"):
+            inputs[key] = inputs[key][:rows].contiguous()
+        device = f"npu:{device_index}"
+        values = {key: value.to(device) for key, value in inputs.items()}
+        topk = load_topk()
+        policy = os.environ.get("QSA_HARNESS_TOPK_POLICY", "prefill_3seg")
+        route = topk_route(plan, policy)
+        assert route == "auto", "The two chunk controls use the automatic TopK route"
+        monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", "auto")
+        kernels = {}
+        for bounded in (True, False):
+            arm = "chunk_bounded" if bounded else "chunk_full"
+            kernels[bounded] = load_generated_prefix(
+                tmp_path, "chunk", arm,
+                build_direct_page_source(bounded, arm, precomputed_visibility=False),
+            )
+        output = torch.empty((rows, 512), device=device, dtype=torch.int32)
+        scratch = torch.empty((rows, width), device=device, dtype=torch.float32)
+        workspace = torch.empty(1024**2, device=device, dtype=torch.uint8)
+        current = PreparedSharedMapInt8Selection(
+            values, output, scratch, workspace, topk, [0, rows],
+            key_group4=True, single_page64=True, direct_page_kernels=kernels,
+            shared_direct_page_proof=True, allow_short_query16=True,
+        )
+        online = PreparedOnlineTopKSelection(
+            values, inputs["visible"], [0, rows], rows, scan_width=width,
+        )
+        assert current.chunks == [(0, rows)] and online.chunks == [(0, rows)]
+        if case_name == "int8_compact":
+            assert current.short_query16 and current.query16_routes[(0, rows)]
+    
+        def score():
+            current.score_into(0, rows, scratch)
+    
+        def select():
+            current.topk_all(scratch)
+    
+        def serial():
+            score()
+            select()
+    
+        if os.environ.get("QSA_HARNESS_CANN_SERIAL") == "1":
+            from probe_qsa_cann_serial_910b import run_probe
+            serial()
+            timer = QSAPrefillInt8Benchmark(
+                op_name=f"{OP_NAME}_cann_serial", case_name=case_name,
+                torch_op=None, gems_op=_call_candidate, input_fn=lambda *args: iter(()),
+                dtypes=[torch.int8], device=device,
+            )
+>           result = run_probe(inputs, values, width, scratch, serial, timer,
+                               Path(os.environ["QSA_HARNESS_REPORT"]), case_name)
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py:936: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tools/probe_qsa_cann_serial_910b.py:252: in run_probe
+    result["fused_second_cube_probe"] = run_fused_probe(inputs, values, refs, width, timer, report, case)
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+inputs = {'q': tensor([[[ -77,  -14,   33,  ...,    5,  127,  -53],
+         [ -40,  -68,  -31,  ...,  -49,   21,   22],
+      ...
+         [0.0203],
+         ...,
+         [0.0181],
+         [0.0240],
+         [0.0206]]], dtype=torch.float16), ...}
+values = {'q': <[RuntimeError('The Inner error is reported as above. The process exits for this inner error, and the current wo...ge_manage.cc][LINE:69]\nTraceBack (most recent call last):\n') raised in repr()] Tensor object at 0xfffbf3a6c730>, ...}
+refs = [tensor([ 4.4039, 36.1819, 41.5323,  ..., 11.3376, 63.1442, 31.7959]), tensor([30.1264, 14.3431, 13.7545,  ..., 45.323... 16.2649,  ..., 19.5529, 22.4058, 26.3220]), tensor([27.4732, 24.8575, 16.1372,  ..., 28.2849, 35.8021,  5.2231]), ...]
+width = 8192
+timer = <benchmark.test_qsa_select_paged_prefill_int8_perf.QSAPrefillInt8Benchmark object at 0xfffbf3fb7110>
+report = PosixPath('/tmp/qsa-ascend910b-int8-harness.8HUDwOoS')
+case = 'int8_budget_exact'
+
+    def run_fused_probe(inputs, values, refs, width, timer, report, case):
+        from triton.backends.ascend import compiler
+        from diagnose_qsa_structural_mixed_compile_910b import CaptureCompiler
+    
+        report = Path(report)
+        path = report / f"{case}-fused-second-cube.json"
+        result = dict(status="running", scope="single-launch scorer QK plus reduction; no TopK or full-shape acceptance",
+                      query_group=4, cube_n=64, common_gm_qk_input=False,
+                      compiler_gm_intermediate_status="unverified; inspect captured artifacts", arms={})
+        funcs = {}
+        try:
+            assert bool((inputs["row_table"] == inputs["row_table"][0]).all())
+            assert bool(torch.isfinite(inputs["qs"]).all() and (inputs["qs"] > 0).all())
+            assert bool(torch.isfinite(inputs["ks"]).all() and (inputs["ks"] > 0).all())
+            rows = inputs["q"].shape[0]
+            for cube, name in ((False, "qk_vector_fp32"), (True, "qk_second_cube")):
+                entry = dict(status="running", checks=[], samples_ms=[])
+                result["arms"][name] = entry
+                for fixture, count, scan in (("full", rows, width), ("tail_visible", 3, min(width, 193))):
+                    visible_cpu = inputs["visible"][:count].clone().clamp(max=scan)
+                    if fixture == "tail_visible":
+                        visible_cpu[0] = 0
+                        visible_cpu[1] = min(int(visible_cpu[1]), 191)
+                    visible = visible_cpu.to(values["q"].device)
+                    output = torch.empty((count, scan), device=values["q"].device, dtype=torch.float32)
+                    fn = partial(_qk_reduce[(triton.cdiv(count, 4), triton.cdiv(scan, 64))],
+                        values["q"], values["cache"], values["qs"], values["ks"], values["weights"],
+                        values["row_table"][0], visible, output,
+                        ROWS=count, WIDTH=scan, COLUMNS=values["row_table"].shape[1], SECOND_CUBE=cube, use_bytecode=True)
+                    capture = CaptureCompiler(report, f"{case}-{name}-{fixture}")
+                    with patch.object(compiler, "subprocess", capture):
+                        compiled = fn()
+>                   actual = output.cpu()
+                             ^^^^^^^^^^^^
+E                   RuntimeError: ACL stream synchronize failed, error code:507015
+
+tools/probe_qsa_fused_second_cube_910b.py:105: RuntimeError
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-fused-second-cube.tuZ9j7Ro/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+  /tmp/flaggems-qsa-fused-second-cube.tuZ9j7Ro/code/tools/qsa_cann_serial_910b_trial.py:257: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    self.local = torch.empty_like(self.states[0])
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+ERROR benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+1 failed, 20 warnings, 1 error in 705.82s (0:11:45)
+[W1112 10:16:08.752931888 NPUStream.cpp:596] Warning: NPU warning, error code is 507015[Error]: 
+[Error]: The aicore execution is abnormal. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 88947] 2026-11-12-10:16:08.309.492 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=aicore exception[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+TraceBack (most recent call last):
+ (function npuSynchronizeUsedDevices)
+[W1112 10:16:08.753782506 NPUStream.cpp:578] Warning: NPU warning, error code is 507015[Error]: 
+[Error]: The aicore execution is abnormal. 
+        Rectify the fault based on the error information in the ascend log.
+EE9999: Inner Error!
+EE9999[PID: 88947] 2026-11-12-10:16:08.325.168 (EE9999):  rtDeviceSynchronizeWithTimeout execution failed, reason=aicore exception[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+TraceBack (most recent call last):
+ (function npuSynchronizeDevice)
+QSA INT8 harness worker failed: int8_budget_exact (pytest exit 1)
+int8_budget_exact passed {'score': 0.19395641666666666, 'topk': 0.05866936666666667, 'serial': 0.25896763333333334, 'production_control': 0.05716858333333333, 'peer_score': 0.11095146666666666, 'peer_serial': 0.17471973333333335, 'mixed_serial': 0.24485455, 'mixed_double': 0.21900005} {'score': 0.7762053072919696, 'topk': 0.14237981092915028, 'serial': 0.7073213396423057, 'production_control': 0.5944407111714992, 'peer_score': 0.5279185133199299, 'peer_serial': 0.17811382496005684, 'mixed_serial': 0.030208410122110126, 'mixed_double': 0.008234396902344903}
+pytest returned 1
