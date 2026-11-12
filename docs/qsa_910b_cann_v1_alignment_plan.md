@@ -399,3 +399,14 @@ QSA_FUSED_REPLAY_ONLY=1从serial probe入口早返回，跳过混合kernel与其
 两臂各自两轮配对计时，full/tail输出精度通过才计时；任一runner失败则外层停止，不在设备异常后强行继续。每次独立上传一个结果分支。新增--cann-fused-replay摘要严格要求raw候选通过、两种评分completed/passed且均有两项有限正数计时，不要求没有执行的混合/TopK阶段。旧布局控制的失败仍在原始报告中保留，不当作已修复。scope为单场景诊断，不计算跨shape验收均值。
 
 QSA_CAPTURE_COMPILER_OUTPUTS=1在原bishengir命令完成后、临时目录删除前枚举-o所在目录的ll/mlir/s/cce/json与目标文件。文本每文件至多512KiB、每次编译至多2MiB，显式记录截断或预算耗尽；二进制记录字节数与SHA256。无额外编译选项，不修改kernel或反汇编。不能因未导出某个GM相关文本就认定无GM访问，只有拿到相应层级产物后再分析；缺失/截断标未知。生产代码与TopK不变。本轮省去非必要混合流水线复测，TopK没有新性能值。
+
+
+### 第四步：十场景代表chunk的评分与选择验证
+
+独立进程9290028/47a6915中输入及源码指纹一致，布局矩阵正序/倒序均重复出现旧Q加载768错误、线性Q加载正确，写回表达式不决定结果；线性完整七组QK及full/tail评分通过。Cube177.138/178.148us（相差0.57%），FP32控制340.354/378.932us（相差11.33%），比值1.921/2.127x，不固定单一收益值。Cube部分目标文件hash不同且没有可读低层产物，GM消除仍未证明。
+
+本轮QSA_FUSED_TEN_CHUNKS=1，kernel AST保持冻结，新增专用pytest诊断入口覆盖原十场景，各取最长请求尾部min(32,length)行，保留原logits_width、dtype/H/D/page/TopK参数。记录请求编号、全局首行、原行数及逐行visible；当前十场景所选请求都足够长。要求所选页表覆盖全部扫描列，不把-1页带入kernel。生成数据仍是冻结迁移fixture，不是真实设备抓取tensor。
+
+每场景同CPU评分参考验证full chunk与3-query/193-key/含不可见行tail微fixture。两条路径使用同份仓库persistent_topk，FLAGGEMS_ASCEND_PTK_PATH=auto，block256、k512、32行、1MiBworkspace；TopK源码不修改。选出的索引按已有check_selection要求范围/唯一性/有效数量，并以FP32参考的所选分数与CPU Top512分数排序比较1e-3。索引身份和并列顺序不强制一致，但另列每行两个路径TopK集合重合数，以显示FP16舍入的选择影响。
+
+精度/选择均通过的臂才两轮反序harness kernel计时：评分、固定logits的TopK、score+TopK完整chunk调用。准备、CPU参考、日志不计入。没有CANN原生调用/没有完整输入验收均值，arithmetic_mean_speedup=None。FP32控制或编译/设备错误终止；FP16候选精度或选择不通过记录rejected状态，不计该候选性能，继续剩余场景。脚本exit0表示十组采集完成，不等于候选全部通过；摘要显式打印ALL_CANDIDATES_PASSED并列每组状态/计时。工具、benchmark诊断入口与runner可编辑；生产src/TopK/冻结shape表/编译器不变，NVIDIA autotune不适用。

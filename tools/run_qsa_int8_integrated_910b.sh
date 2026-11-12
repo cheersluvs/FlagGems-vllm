@@ -67,6 +67,9 @@ qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_p
 if [[ ${QSA_HARNESS_ONLINE_STAGES:-0} == 1 ]]; then
     qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages
 fi
+if [[ ${QSA_FUSED_TEN_CHUNKS:-0} == 1 ]]; then
+    qsa_test=benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_fused_second_cube_chunk_selection
+fi
 qsa_harness_diagnose() (
     cd -- "$qsa_repo" || exit 1
     ulimit -c 0 || exit 1
@@ -88,7 +91,9 @@ elif [[ "$qsa_kind" == int8-harness ]]; then
 import os
 from tools.qsa_int8_ten_workloads_910b import cases
 from tools.summarize_qsa_int8_harness_910b import GROUP_VISIBLE_CASES, GROUP_VISIBLE_WALL_CASES, STAGE_CASES, TILE_HANDOFF_CASE
-if os.environ.get("QSA_HARNESS_ONLINE_STAGES") == "1":
+if os.environ.get("QSA_FUSED_TEN_CHUNKS") == "1":
+    names = [case["name"] for case in cases()]
+elif os.environ.get("QSA_HARNESS_ONLINE_STAGES") == "1":
     names = ("int8_budget_exact",) if (os.environ.get("QSA_MIXED_RECHECK_PROFILE") == "1" or os.environ.get("QSA_SECOND_CUBE_PROBE") == "1" or os.environ.get("QSA_FUSED_SECOND_CUBE_PROBE") == "1") else ("int8_budget_exact", "int8_compact")
 elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "wall":
     names = GROUP_VISIBLE_WALL_CASES
@@ -188,12 +193,16 @@ print("\n".join(names))
         if [[ ${QSA_FUSED_REPLAY_ONLY:-0} == 1 ]]; then
             qsa_replay_flag=--cann-fused-replay
         fi
+        qsa_ten_chunk_flag=
+        if [[ ${QSA_FUSED_TEN_CHUNKS:-0} == 1 ]]; then
+            qsa_ten_chunk_flag=--fused-ten-chunks
+        fi
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \
             "$qsa_report/harness.json" "$qsa_report/summary.json" "$qsa_pytest_status" \
             --merge-case-reports ${qsa_stage_flag:+"$qsa_stage_flag"} \
             ${qsa_short_score_flag:+"$qsa_short_score_flag"} \
             ${qsa_diagnostic_flag:+"$qsa_diagnostic_flag"} \
-            ${qsa_mixed_flag:+"$qsa_mixed_flag"} ${qsa_recheck_flag:+"$qsa_recheck_flag"} ${qsa_replay_flag:+"$qsa_replay_flag"}
+            ${qsa_mixed_flag:+"$qsa_mixed_flag"} ${qsa_recheck_flag:+"$qsa_recheck_flag"} ${qsa_replay_flag:+"$qsa_replay_flag"} ${qsa_ten_chunk_flag:+"$qsa_ten_chunk_flag"}
         qsa_summary_status=$?
         if [[ "$qsa_pytest_status" != 0 ]]; then
             exit "$qsa_pytest_status"

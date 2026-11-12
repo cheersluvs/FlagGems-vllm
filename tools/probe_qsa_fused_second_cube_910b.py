@@ -98,6 +98,14 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                   q_load_layout="linear head index", raw_store_layout="linear head index",
                   compiler_gm_intermediate_status="unverified; inspect captured artifacts", arms={})
     funcs = {}
+    topk_funcs, combined_funcs, selections = {}, {}, {}
+    selection_mode = os.environ.get("QSA_FUSED_TEN_CHUNKS") == "1"
+    if selection_mode:
+        from qsa_prefill_pipeline_910b_trial import load_topk
+        from probe_qsa_int8_pipeline_910b import check_selection
+        topk = load_topk()
+        result["topk_identity"] = topk.probe_identity
+        result["selection_contract"] = "existing selected-score tolerance 1e-3; exact index overlap reported separately"
     try:
         assert bool((inputs["row_table"] == inputs["row_table"][0]).all())
         assert bool(torch.isfinite(inputs["qs"]).all() and (inputs["qs"] > 0).all())
@@ -157,10 +165,30 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                 entry["checks"].append(check)
                 if fixture == "full":
                     funcs[name] = fn
+                    if selection_mode and bool(close.all()):
+                        indices = torch.empty((count, 512), device=output.device, dtype=torch.int32)
+                        workspace = torch.empty(1024**2, device=output.device, dtype=torch.uint8)
+                        select = partial(topk.persistent_topk, output, visible, indices, workspace,
+                                         k=512, max_seq_len=scan, block=256)
+                        select()
+                        selected = indices.cpu()
+                        selection, _ = check_selection(selected, refs)
+                        entry["selection"] = selection
+                        selections[name] = selected
+                        if name == "qk_second_cube" and "qk_vector_fp32" in selections:
+                            baseline_indices = selections["qk_vector_fp32"]
+                            entry["exact_index_overlap_counts"] = [len(set(a[a >= 0].tolist()) & set(b[b >= 0].tolist()))
+                                for a,b in zip(baseline_indices, selected)]
+                        topk_funcs[name] = select
+                        combined_funcs[name] = lambda score=fn, select=select: (score(), select())
                 print("FUSED_SECOND_CUBE_CHECK " + json.dumps(dict(arm=name, **check)), flush=True)
                 path.write_text(json.dumps(result, indent=2))
             entry["status"] = "passed" if all(c["mismatches"] == 0 for c in entry["checks"]) else "rejected_precision"
+            if selection_mode and entry["status"] == "passed" and not entry["selection"]["checks_passed"]:
+                entry["status"] = "rejected_selection"
             if entry["status"] != "passed":
+                topk_funcs.pop(name, None)
+                combined_funcs.pop(name, None)
                 funcs.pop(name, None)
                 if name == "qk_vector_fp32":
                     raise RuntimeError("FP32 control mismatch; preserving distributions and refusing second Cube execution")
@@ -178,7 +206,24 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
             e.update(median_us=statistics.median(e["samples_ms"]) * 1000,
                      speedup_over_fused_vector=base / statistics.median(e["samples_ms"]))
             print("FUSED_SECOND_CUBE_TIME " + json.dumps(dict(arm=name, **e)), flush=True)
-        result["status"] = "completed" if len(funcs) == 2 else "completed_with_precision_rejection"
+        if selection_mode:
+            result["component_timing_scope"] = "representative chunk only; no full-input or CANN acceptance ratio"
+            for name in funcs:
+                result["arms"][name]["component_samples_ms"] = dict(topk=[], score_plus_topk=[])
+            for iteration in range(2):
+                order = tuple(funcs) if iteration == 0 else tuple(reversed(funcs))
+                for name in order:
+                    stages = (("topk", topk_funcs[name]), ("score_plus_topk", combined_funcs[name]))
+                    for stage, function in (stages if iteration == 0 else tuple(reversed(stages))):
+                        value = float(timer.get_latency(function))
+                        if not math.isfinite(value) or value <= 0:
+                            raise RuntimeError(f"Invalid {name}/{stage} latency: {value}")
+                        result["arms"][name]["component_samples_ms"][stage].append(value)
+            for name in funcs:
+                entry = result["arms"][name]
+                entry["component_median_us"] = {stage: statistics.median(times)*1000 for stage,times in entry["component_samples_ms"].items()}
+                print("FUSED_SELECTION_TIME " + json.dumps(dict(arm=name, **entry["component_median_us"])), flush=True)
+        result["status"] = "completed" if len(funcs) == 2 else ("completed_with_candidate_rejection" if selection_mode else "completed_with_precision_rejection")
     except Exception as exc:
         result.update(status="failed", error=repr(exc))
         raise

@@ -388,12 +388,48 @@ def main():
     parser.add_argument("--cann-serial", action="store_true")
     parser.add_argument("--cann-mixed-recheck", action="store_true")
     parser.add_argument("--cann-fused-replay", action="store_true")
+    parser.add_argument("--fused-ten-chunks", action="store_true")
     diagnostic = parser.add_mutually_exclusive_group()
     diagnostic.add_argument("--tile-handoff", action="store_true")
     diagnostic.add_argument("--group-visible", action="store_true")
     diagnostic.add_argument("--group-visible-full", action="store_true")
     diagnostic.add_argument("--group-visible-wall", action="store_true")
     args = parser.parse_args()
+    if args.fused_ten_chunks:
+        records, error = [], None
+        try:
+            for plan in cases():
+                name = plan["name"]
+                record = json.loads((args.report.parent / f"{name}-fused-second-cube.json").read_text())
+                records.append(record)
+                if record["status"] not in ("completed", "completed_with_candidate_rejection"):
+                    raise ValueError(f"Incomplete probe: {name}")
+                for arm, entry in record["arms"].items():
+                    if entry["status"] != "passed":
+                        continue
+                    if not entry["selection"]["checks_passed"]:
+                        raise ValueError(f"Selection failed for accepted arm: {name}/{arm}")
+                    for times in (entry["samples_ms"], entry["component_samples_ms"]["topk"], entry["component_samples_ms"]["score_plus_topk"]):
+                        if len(times) != 2 or not all(isinstance(x, (int, float)) and math.isfinite(x) and x > 0 for x in times):
+                            raise ValueError(f"Invalid chunk timing: {name}/{arm}")
+                if record["arms"]["qk_vector_fp32"]["status"] != "passed":
+                    raise ValueError(f"FP32 control failed: {name}")
+            if args.pytest_exit_code:
+                raise ValueError(f"pytest returned {args.pytest_exit_code}")
+        except (OSError, KeyError, ValueError, TypeError) as exc:
+            error = str(exc)
+        rejected = [r for r in records if r["status"] != "completed"]
+        result = dict(exit_code=int(error is not None), error=error, cases=records,
+            all_candidates_passed=not rejected and len(records)==10,
+            arithmetic_mean_speedup=None, scope="10 representative 32-row tail chunks; not full-input acceptance")
+        args.output.write_text(json.dumps(result, indent=2, allow_nan=False))
+        for plan, record in zip(cases(), records):
+            print(plan["name"], record["status"])
+            for arm, entry in record["arms"].items():
+                print(arm, entry["status"], "score us", entry.get("median_us"),
+                      "components us", entry.get("component_median_us"), "selection", entry.get("selection"))
+        print("ALL_CANDIDATES_PASSED", result["all_candidates_passed"])
+        return result["exit_code"]
     if args.cann_serial:
         rows = []
         error = None

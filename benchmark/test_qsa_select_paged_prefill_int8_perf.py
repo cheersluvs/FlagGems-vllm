@@ -1227,3 +1227,46 @@ def test_qsa_select_paged_prefill_int8_chunk_stages(monkeypatch, tmp_path, case_
     except Exception as exc:
         profile.update(profile_status="failed", profile_error=repr(exc))
     (report / f"{case_name}-chunk-profile.json").write_text(json.dumps(profile, indent=2))
+
+
+@pytest.mark.qsa_select_paged_prefill_int8_910b
+@pytest.mark.parametrize("case_name", tuple(plan["name"] for plan in cases()))
+def test_qsa_fused_second_cube_chunk_selection(monkeypatch, case_name):
+    """Check one shared-map tail chunk per workload, not a full-input benchmark."""
+    pytest.importorskip("torch_npu")
+    if not torch.npu.is_available():
+        pytest.skip("Ascend NPU unavailable")
+    device_index = int(os.environ.get("QSA_DEVICE", torch.npu.current_device()))
+    torch.npu.set_device(device_index)
+    assert "910B" in torch.npu.get_device_name(device_index)
+    assert Config.mode == consts.BenchMode.KERNEL
+    assert os.environ.get("ASCEND_LAUNCH_BLOCKING") != "1"
+    assert os.environ.get("QSA_FUSED_TEN_CHUNKS") == "1"
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "tools"))
+    monkeypatch.setenv("FLAGGEMS_ASCEND_PTK_PATH", "auto")
+    from probe_qsa_fused_second_cube_910b import run_fused_probe
+    from probe_qsa_int8_score_910b import reference
+
+    plan = CASES[(case_name,)]
+    request = max(range(len(plan["query_lengths"])), key=lambda i: plan["query_lengths"][i])
+    length = plan["query_lengths"][request]
+    count = min(32, length)
+    first = plan["starts"][request] + length - count
+    inputs = make_inputs(plan)
+    for key in ("q", "qs", "weights", "row_table", "visible"):
+        inputs[key] = inputs[key][first:first + count].contiguous()
+    width = plan["logits_width"]
+    columns = triton.cdiv(width, 192)
+    assert bool((inputs["row_table"][:, :columns] >= 0).all()), "Selected request must have physical pages for full scan width"
+    values = {key: tensor.to(f"npu:{device_index}") for key,tensor in inputs.items()}
+    refs = [reference(inputs, row)[1] for row in range(count)]
+    timer = QSAPrefillInt8Benchmark(op_name=f"{OP_NAME}_fused_chunk", case_name=case_name,
+        torch_op=None, gems_op=_call_candidate, input_fn=lambda *args: iter(()),
+        dtypes=[torch.int8], device=f"npu:{device_index}")
+    report = Path(os.environ["QSA_HARNESS_REPORT"])
+    selection = dict(scope="longest-request tail chunk only", request=request, first_global_row=first,
+                     rows=count, original_rows=plan["q_shape"][0], width=width,
+                     visible=inputs["visible"].tolist())
+    (report / f"{case_name}-chunk-selection.json").write_text(json.dumps(selection, indent=2))
+    result = run_fused_probe(inputs, values, refs, width, timer, report, case_name)
+    assert result["status"] in ("completed", "completed_with_candidate_rejection")
