@@ -87,7 +87,7 @@ def _qk_reduce(Q, K, QS, KS, W, Table, Visible, Out,
                 tl.store(Out + row * WIDTH + n, score, mask=(row < ROWS) & (n < WIDTH))
 
 
-def prepare_current_int8_score(values, visible, rows, width, output, report, label, topk):
+def prepare_current_int8_score(values, visible, rows, width, output, report, label, topk, *, reduction_cube=False):
     """Bind the frozen integrated INT8 scorer, excluding preparation from timing."""
     from qsa_int8_shared_map_selection_910b_trial import PreparedSharedMapInt8Selection
     from probe_qsa_int8_page64_prefix_910b import load_generated_prefix
@@ -114,6 +114,25 @@ def prepare_current_int8_score(values, visible, rows, width, output, report, lab
     root = Path(__file__).resolve().parent
     identity["source_sha256"] = {name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in
         ("qsa_int8_shared_map_selection_910b_trial.py", "qsa_int8_query_pack4_910b.py", "qsa_int8_selection_910b_trial.py")}
+    identity["cube_reduction_applied"] = False
+    if reduction_cube:
+        if adapter.query16_routes.get((0, rows), False):
+            if adapter.direct_page_routes.get((0, rows)) in ("bounded", "full"):
+                original = kernels[adapter.skip_invisible_routes[0, rows]]
+            elif adapter.skip_invisible_routes.get((0, rows), False):
+                original = adapter.visibility_kernel
+            else:
+                from qsa_int8_query_pack4_910b import _qsa_page64_page_reuse_full_score, _qsa_page64_query16_score
+                original = _qsa_page64_page_reuse_full_score if adapter.page_reuse_full else _qsa_page64_query16_score
+            from qsa_query16_cube_builder_910b import build_reduction_kernel
+            candidate, rewrite = build_reduction_kernel(original, report, label)
+            bound = adapter.bind_query16_score(0, rows, output)
+            grid = (min(20, triton.cdiv(rows, 16) * triton.cdiv(triton.cdiv(width, 64), 8)),)
+            identity.update(cube_reduction_applied=True, rewrite=rewrite, grid=list(grid), launch_kwargs=bound.keywords)
+            return partial(candidate[grid], *bound.args, **bound.keywords), identity
+        if rows >= 16:
+            raise NotImplementedError("Incremental reduction probe requires actual query16 route")
+        identity["fallback_reason"] = "Partial query group: unchanged original fallback; no Cube reduction tested here"
     return partial(adapter.score_into, 0, rows, output), identity
 
 
@@ -147,6 +166,11 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
         if compare_current:
             assert selection_mode, "Current INT8 comparison requires selection-mode fixture"
             arm_specs.insert(0, (None, "current_int8_integrated"))
+        incremental_cube = os.environ.get("QSA_QUERY16_REDUCTION_CUBE") == "1"
+        result["incremental_query16_cube"] = incremental_cube
+        if incremental_cube:
+            assert compare_current, "Incremental probe requires current INT8 control"
+            arm_specs = [(None, "current_int8_integrated"), ("query16", "query16_second_cube")]
         for cube, name in arm_specs:
             entry = dict(status="running", checks=[], samples_ms=[])
             result["arms"][name] = entry
@@ -161,15 +185,15 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                     values["q"], values["cache"], values["qs"], values["ks"], values["weights"],
                     values["row_table"][0], visible, output,
                     ROWS=count, WIDTH=scan, COLUMNS=values["row_table"].shape[1], SECOND_CUBE=cube, use_bytecode=True)
-                if cube is None:
+                if cube is None or cube == "query16":
                     fn, identity = prepare_current_int8_score(values, visible, count, scan, output,
-                        report, f"{case}_{fixture}", topk)
+                        report, f"{case}_{name}_{fixture}", topk, reduction_cube=cube == "query16")
                     entry.setdefault("current_identity", {})[fixture] = identity
                 capture = CaptureCompiler(report, f"{case}-{name}-{fixture}")
                 entry["phase"] = "compilation"
                 path.write_text(json.dumps(result, indent=2))
                 with patch.object(compiler, "subprocess", capture):
-                    if cube is None:
+                    if cube is None or cube == "query16":
                         compiled = fn()
                     else:
                         compiled = _qk_reduce.warmup(*fn.args,
@@ -239,7 +263,8 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                 funcs.pop(name, None)
                 if name in ("qk_vector_fp32", "current_int8_integrated"):
                     raise RuntimeError("FP32 control mismatch; preserving distributions and refusing second Cube execution")
-        assert result["arms"]["qk_vector_fp32"]["status"] == "passed", "Fused FP32 control mismatch"
+        baseline_name = "current_int8_integrated" if incremental_cube else "qk_vector_fp32"
+        assert result["arms"][baseline_name]["status"] == "passed", "FP32 control mismatch"
         for iteration in range(2):
             names = tuple(funcs) if iteration == 0 else tuple(reversed(funcs))
             for name in names:
@@ -247,11 +272,11 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                 if not math.isfinite(latency) or latency <= 0:
                     raise RuntimeError(f"Invalid latency: {name} {latency}")
                 result["arms"][name]["samples_ms"].append(latency)
-        base = statistics.median(result["arms"]["qk_vector_fp32"]["samples_ms"])
+        base = statistics.median(result["arms"][baseline_name]["samples_ms"])
         for name in funcs:
             e = result["arms"][name]
             e.update(median_us=statistics.median(e["samples_ms"]) * 1000,
-                     speedup_over_fused_vector=base / statistics.median(e["samples_ms"]))
+                     speedup_over_scoring_control=base / statistics.median(e["samples_ms"]))
             print("FUSED_SECOND_CUBE_TIME " + json.dumps(dict(arm=name, **e)), flush=True)
         if selection_mode:
             result["component_timing_scope"] = "representative chunk only; no full-input or CANN acceptance ratio"

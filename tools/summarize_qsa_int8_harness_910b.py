@@ -415,7 +415,8 @@ def main():
                 if record.get("production_comparison_requested"):
                     if record["arms"]["current_int8_integrated"]["status"] != "passed":
                         raise ValueError(f"Current integrated INT8 control failed: {name}")
-                if record["arms"]["qk_vector_fp32"]["status"] != "passed":
+                baseline = "current_int8_integrated" if record.get("incremental_query16_cube") else "qk_vector_fp32"
+                if record["arms"][baseline]["status"] != "passed":
                     raise ValueError(f"FP32 control failed: {name}")
             if args.pytest_exit_code:
                 raise ValueError(f"pytest returned {args.pytest_exit_code}")

@@ -423,3 +423,16 @@ QSA_CAPTURE_COMPILER_OUTPUTS=1在原bishengir命令完成后、临时目录删�
 三臂共享同一values设备输入、visible内容、扫描宽度、FP32 score输出契约；各有独立同形状输出buffer。各自接同一个原persistent_topk实现、同样block256/k512/workspace/auto路径；仅在精度和选择通过后计时。评分/TopK/score+TopK均为harness kernel模式两轮反序计时，增加speedup_over_current_score/total（当前INT8耗时除以该臂耗时）。索引集合与当前INT8臂的重合另记，精度阈值不变。当前INT8控制或微实验FP32控制失败立即停止；FP16候选被拒绝仍列状态，不能算通过。
 
 仍是10个代表chunk、不是完整请求/原生CANN对照，验收算术均值保持None；不修改生产src、TopK、原shape表、编译器/编译选项，NVIDIA autotune不适用。Mac仅核对冻结kernel AST、factory参数和摘要gate，实际route正确性与性能待卡上运行。
+
+
+### 生产主干的增量head归约探测
+
+同输入报告28cd9966be82e6779de95edf5626b2009864ae43中，十组评分和TopK检查通过，但query4第二Cube对当前INT8整合实现评分仅0.135–0.541x、两阶段0.263–0.656x。其grid及query复用不同于整合入口，因此淘汰当前query4微实验实现，不整合生产；保留第二Cube的增量假设。
+
+本轮QSA_QUERY16_REDUCTION_CUBE=1与TEN_CHUNKS/COMPARE_CURRENT_INT8同时启用，只保留current_int8_integrated和query16_second_cube两臂，同十个tail32输入、同TopK和原两轮交错评分/TopK/合计计时。当前INT8基线仍指未注册PreparedSharedMapInt8Selection，并非BF16对外入口或CANN验收。
+
+准备阶段沿实际adapter的query16/skip/direct-page路由取得原kernel。bind_query16_score给出的args与kwargs直接复用，grid沿冻结公式min(20,ceil(rows/16)*ceil(ceil(width/64)/8))；页循环、KEY_TILES=8、QK矩阵M64/K128/N64、Q加载位置与num_warps不变，不增加编译选项。生成源只替换一处相邻三条dequant/weighted/scores赋值，源码AST必须与冻结公式完全匹配，否则拒绝生成。换成FP16块对角权重16×64乘relu(INT32dot)/1024的64×64 FP16矩阵，FP32累加与1024*key_scale恢复；所有构造/转换放在替换位置，计入kernel。只在既有正且有限qs/ks契约下测试，仍按原1e-3精度标准。
+
+记录原/候选源文本及SHA256、路由、grid、kwargs，Mac对AST逆向恢复验证：除该三赋值窗口无其他函数体变化。query16路由未命中且rows>=16则拒绝；3-row尾fixture使用原有回退，不声称Cube路径已覆盖部分query group，identity明确cube_reduction_applied=False/full应为True。生产源码、TopK、shape表及编译器不修改，NVIDIA autotune不适用。
+
+通过原评分/选择契约的臂才计时。原QK query16加载、页循环、grid及隐式编译器调度保留，不保证新增Cube能编译或消除GM，错误/资源超限保存并停止，不换tile/query数绕过。结果仍是代表chunk诊断，正式算术均值为None；须相对当前INT8整合入口有收益才推进完整输入或混合流水线。
