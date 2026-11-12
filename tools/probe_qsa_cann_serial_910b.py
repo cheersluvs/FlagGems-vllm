@@ -248,7 +248,10 @@ def run_probe(inputs, values, width, full_scores, control, timer, report, case, 
             print(f"QSA MIXED RATIOS {case}: fusion={result['fusion_speedup']:.4f}x; "
                   f"double_buffer={result['double_buffer_speedup']:.4f}x", flush=True)
         if os.environ.get("QSA_FUSED_SECOND_CUBE_PROBE") == "1" and case == "int8_budget_exact":
-            from probe_qsa_fused_second_cube_910b import run_fused_probe
+            from probe_qsa_fused_second_cube_910b import run_fused_probe, run_qk_isolation
+            if os.environ.get("QSA_FUSED_QK_ISOLATION") == "1":
+                result["raw_qk_isolation"] = run_qk_isolation(inputs, values, width, report, case)
+                assert result["raw_qk_isolation"]["status"] == "passed", "Raw QK mismatch; refusing reduction probes"
             result["fused_second_cube_probe"] = run_fused_probe(inputs, values, refs, width, timer, report, case)
         if os.environ.get("QSA_SECOND_CUBE_PROBE") == "1" and case == "int8_budget_exact":
             from probe_qsa_second_cube_910b import run_reduction_probe

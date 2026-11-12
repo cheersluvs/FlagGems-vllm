@@ -31,9 +31,9 @@ import triton.language.extra.cann.extension as al
 @triton.jit
 def _qk_reduce(Q, K, QS, KS, W, Table, Visible, Out,
                ROWS: tl.constexpr, WIDTH: tl.constexpr, COLUMNS: tl.constexpr,
-               SECOND_CUBE: tl.constexpr):
+               SECOND_CUBE: tl.constexpr, DOT_ONLY: tl.constexpr = False, TILE_BASE: tl.constexpr = 0):
     base = tl.program_id(0) * 4
-    start = tl.program_id(1) * 64
+    start = (tl.program_id(1) + TILE_BASE) * 64
     n = start + tl.arange(0, 64)
     m = tl.arange(0, 16)
     d = tl.arange(0, 128)
@@ -44,33 +44,36 @@ def _qk_reduce(Q, K, QS, KS, W, Table, Visible, Out,
     token = page * 192 + start % 192 + tl.arange(0, 64)
     key = tl.load(K + token[:, None] * 128 + d[None, :], mask=n[:, None] < WIDTH, other=0)
     dot = tl.dot(q, tl.trans(key), out_dtype=tl.int32)
-    ks = tl.load(KS + token, mask=n < WIDTH, other=0).to(tl.float32)
-    if SECOND_CUBE:
-        r = base + tl.arange(0, 16)
-        qs = tl.load(QS + r[:, None] * 4 + m[None, :] % 4,
-                     mask=r[:, None] < tl.minimum(base + 4, ROWS), other=0).to(tl.float32)
-        w = tl.load(W + r[:, None] * 4 + m[None, :] % 4,
-                    mask=r[:, None] < tl.minimum(base + 4, ROWS), other=0).to(tl.float32)
-        weights = tl.where(tl.arange(0, 16)[:, None] == m[None, :] // 4, qs * w, 0.0).to(tl.float16)
-        positive = (tl.maximum(dot.to(tl.float32), 0.0) * (1.0 / 1024.0)).to(tl.float16)
-        total = tl.dot(weights, positive, out_dtype=tl.float32)
-        visible = tl.load(Visible + r, mask=r < tl.minimum(base + 4, ROWS), other=0)
-        score = tl.where(n[None, :] < visible[:, None], total * 1024.0 * ks[None, :], -float("inf"))
-        tl.store(Out + r[:, None] * WIDTH + n[None, :], score,
-                 mask=(r[:, None] < tl.minimum(base + 4, ROWS)) & (n[None, :] < WIDTH))
+    if DOT_ONLY:
+        tl.store(Out + (qrow[:, None] * 4 + m[:, None] % 4) * WIDTH + n[None, :], dot,
+                 mask=(qrow[:, None] < ROWS) & (n[None, :] < WIDTH))
     else:
-        h = tl.arange(0, 4)
-        for local_query in tl.static_range(4):
-            row = base + local_query
-            products = al.extract_slice(dot, (local_query * 4, 0), (4, 64), (1, 1)).to(tl.float32)
-            qs = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
-            w = tl.load(W + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
-            dequant = products * qs[:, None] * ks[None, :]
-            total = tl.sum(tl.maximum(dequant, 0.0) * w[:, None], 0)
-            visible = tl.load(Visible + row, mask=row < ROWS, other=0)
-            score = tl.where(n < visible, total, -float("inf"))
-            tl.store(Out + row * WIDTH + n, score, mask=(row < ROWS) & (n < WIDTH))
-
+        ks = tl.load(KS + token, mask=n < WIDTH, other=0).to(tl.float32)
+        if SECOND_CUBE:
+            r = base + tl.arange(0, 16)
+            qs = tl.load(QS + r[:, None] * 4 + m[None, :] % 4,
+                         mask=r[:, None] < tl.minimum(base + 4, ROWS), other=0).to(tl.float32)
+            w = tl.load(W + r[:, None] * 4 + m[None, :] % 4,
+                        mask=r[:, None] < tl.minimum(base + 4, ROWS), other=0).to(tl.float32)
+            weights = tl.where(tl.arange(0, 16)[:, None] == m[None, :] // 4, qs * w, 0.0).to(tl.float16)
+            positive = (tl.maximum(dot.to(tl.float32), 0.0) * (1.0 / 1024.0)).to(tl.float16)
+            total = tl.dot(weights, positive, out_dtype=tl.float32)
+            visible = tl.load(Visible + r, mask=r < tl.minimum(base + 4, ROWS), other=0)
+            score = tl.where(n[None, :] < visible[:, None], total * 1024.0 * ks[None, :], -float("inf"))
+            tl.store(Out + r[:, None] * WIDTH + n[None, :], score,
+                     mask=(r[:, None] < tl.minimum(base + 4, ROWS)) & (n[None, :] < WIDTH))
+        else:
+            h = tl.arange(0, 4)
+            for local_query in tl.static_range(4):
+                row = base + local_query
+                products = al.extract_slice(dot, (local_query * 4, 0), (4, 64), (1, 1)).to(tl.float32)
+                qs = tl.load(QS + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+                w = tl.load(W + row * 4 + h, mask=row < ROWS, other=0).to(tl.float32)
+                dequant = products * qs[:, None] * ks[None, :]
+                total = tl.sum(tl.maximum(dequant, 0.0) * w[:, None], 0)
+                visible = tl.load(Visible + row, mask=row < ROWS, other=0)
+                score = tl.where(n < visible, total, -float("inf"))
+                tl.store(Out + row * WIDTH + n, score, mask=(row < ROWS) & (n < WIDTH))
 
 
 def run_fused_probe(inputs, values, refs, width, timer, report, case):
@@ -132,6 +135,13 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                 check = dict(fixture=fixture, rows=count, width=scan, mismatches=int((~close).sum()),
                     max_abs_error=error if math.isfinite(error) else None,
                     invalid_output=int((~torch.isfinite(actual[finite])).sum()), compiler_calls=capture.calls)
+                if not bool(close.all()):
+                    bad = ~close
+                    coords = bad.nonzero()[:16]
+                    check["mismatches_per_row"] = bad.sum(1).tolist()
+                    check["mismatches_per_tile"] = [int(bad[:, start:start + 64].sum()) for start in range(0, scan, 64)]
+                    check["examples"] = [dict(row=int(r), key=int(n), actual=float(actual[r,n]) if math.isfinite(float(actual[r,n])) else str(float(actual[r,n])),
+                        expected=float(expected[r,n]) if math.isfinite(float(expected[r,n])) else str(float(expected[r,n]))) for r,n in coords]
                 entry["checks"].append(check)
                 if fixture == "full":
                     funcs[name] = fn
@@ -140,6 +150,8 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
             entry["status"] = "passed" if all(c["mismatches"] == 0 for c in entry["checks"]) else "rejected_precision"
             if entry["status"] != "passed":
                 funcs.pop(name, None)
+                if name == "qk_vector_fp32":
+                    raise RuntimeError("FP32 control mismatch; preserving distributions and refusing second Cube execution")
         assert result["arms"]["qk_vector_fp32"]["status"] == "passed", "Fused FP32 control mismatch"
         for iteration in range(2):
             names = tuple(funcs) if iteration == 0 else tuple(reversed(funcs))
@@ -155,6 +167,75 @@ def run_fused_probe(inputs, values, refs, width, timer, report, case):
                      speedup_over_fused_vector=base / statistics.median(e["samples_ms"]))
             print("FUSED_SECOND_CUBE_TIME " + json.dumps(dict(arm=name, **e)), flush=True)
         result["status"] = "completed" if len(funcs) == 2 else "completed_with_precision_rejection"
+    except Exception as exc:
+        result.update(status="failed", error=repr(exc))
+        raise
+    finally:
+        path.write_text(json.dumps(result, indent=2, allow_nan=False))
+    return result
+
+
+def run_qk_isolation(inputs, values, width, report, case):
+    """Check exact raw QK over controlled query/tile launch extents."""
+    from triton.backends.ascend import compiler
+    from diagnose_qsa_structural_mixed_compile_910b import CaptureCompiler
+
+    report = Path(report)
+    path = report / f"{case}-raw-qk-isolation.json"
+    result = dict(status="running", scope="raw INT32 QK only; no reduction, TopK or performance claim", checks=[])
+    sentinel = 1515870810
+    try:
+        rows = inputs["q"].shape[0]
+        assert rows >= 4 and rows % 4 == 0
+        assert bool((inputs["row_table"] == inputs["row_table"][0]).all())
+        mapping = inputs["row_table"][0, :(width + 191) // 192].long()
+        keys = inputs["cache"][mapping, :, 0].reshape(-1, 128)[:width].int()
+        reference = (inputs["q"].reshape(-1, 128).int() @ keys.T).reshape(rows, 4, width)
+        tiles = triton.cdiv(width, 64)
+        specs = (("group0_tile0", 0, 4, 0, 1),
+                 ("group0_last_tile", 0, 4, tiles - 1, 1),
+                 ("last_group_tile0", rows - 4, 4, 0, 1),
+                 ("group0_all_tiles", 0, 4, 0, tiles),
+                 ("all_groups_tile0", 0, rows, 0, 1),
+                 ("full_first", 0, rows, 0, tiles),
+                 ("full_repeat", 0, rows, 0, tiles))
+        for label, first, count, tile_base, tile_count in specs:
+            entry = dict(fixture=label, first_row=first, rows=count, tile_base=tile_base,
+                         tile_count=tile_count, grid=[count // 4, tile_count], phase="compilation")
+            result["checks"].append(entry)
+            path.write_text(json.dumps(result, indent=2))
+            output = torch.full((count, 4, width), sentinel, device=values["q"].device, dtype=torch.int32)
+            args = (values["q"][first:first + count], values["cache"], values["qs"][first:first + count], values["ks"],
+                    values["weights"][first:first + count], values["row_table"][first], values["visible"][first:first + count], output)
+            options = dict(ROWS=count, WIDTH=width, COLUMNS=values["row_table"].shape[1],
+                           SECOND_CUBE=False, DOT_ONLY=True, TILE_BASE=tile_base, use_bytecode=True)
+            grid = (count // 4, tile_count)
+            capture = CaptureCompiler(report, f"{case}-raw-qk-{label}")
+            with patch.object(compiler, "subprocess", capture):
+                compiled = _qk_reduce.warmup(*args, grid=grid, **options)
+            entry["compiler_calls"] = capture.calls
+            entry["metadata"] = str(compiled.metadata)
+            for kind, data in compiled.asm.items():
+                if isinstance(data, str):
+                    (report / f"{case}-raw-qk-{label}-{kind}.txt").write_text(data)
+            entry["phase"] = "device_execution"
+            path.write_text(json.dumps(result, indent=2))
+            _qk_reduce[grid](*args, **options)
+            actual = output.cpu()
+            start, end = tile_base * 64, min(width, (tile_base + tile_count) * 64)
+            selected = actual[:, :, start:end]
+            expected = reference[first:first + count, :, start:end]
+            bad = selected != expected
+            entry.update(mismatches=int(bad.sum()), mismatches_per_row_head=bad.sum(2).tolist(),
+                mismatches_per_tile=[int(bad[:, :, off:off + 64].sum()) for off in range(0, end-start, 64)],
+                unwritten_selected=int((selected == sentinel).sum()),
+                unexpected_writes=int((actual[:, :, :start] != sentinel).sum()) + int((actual[:, :, end:] != sentinel).sum()))
+            entry["examples"] = [dict(row=first + int(r), head=int(h), key=start + int(n),
+                actual=int(selected[r,h,n]), expected=int(expected[r,h,n])) for r,h,n in bad.nonzero()[:16]]
+            entry["status"] = "passed" if entry["mismatches"] == 0 and entry["unexpected_writes"] == 0 else "failed"
+            print("RAW_QK_CHECK " + json.dumps(entry), flush=True)
+            path.write_text(json.dumps(result, indent=2))
+        result["status"] = "passed" if all(e["status"] == "passed" for e in result["checks"]) else "failed"
     except Exception as exc:
         result.update(status="failed", error=repr(exc))
         raise

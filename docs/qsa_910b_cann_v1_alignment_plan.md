@@ -366,3 +366,14 @@ QSA_FUSED_SECOND_CUBE_PROBE=1的下一轮固定budget_exact前32行，独立微�
 报告56cafd3d273d46e94f44b50d70990fddfd0234e7（88178da5）：第一个qk_vector_fp32 full调用编译完成，但output.cpu同步时报507015，设备日志给出VEC指令访问UB地址未对齐。qk_second_cube尚未编译/执行，无两种评分kernel的正确性/计时结果，不能归因于第二次Cube。此前混合kernel计时不代表新评分probe通过。
 
 下一轮仅将Vector分支reshape(4,4,64)+按中间轴sum改为逐query的二维4×64 extract_slice+head sum，算术顺序与FP32不变；两侧query4/N64/grid/QK输入不变。此为待验证的布局隔离，尚未通过故障PC反汇编定位根因。Cube分支不变；先控制后候选，设备异常仍立即终止。编译改用warmup，执行前保存asm、二进制hash、原始编译输入和命令，分别记录compilation/device_execution阶段，避免故障导致产物未导出。仍按原精度gate、full与tail fixture及两轮kernel计时，不改生产、TopK或编译器。
+
+
+### 原始INT32 QK的grid隔离
+
+报告bcfaf6ab72dbb90891aaf8c2fb56fd1028d0782a（29a42314）：二维Vector没有再次报UB对齐异常，但full评分90564处不匹配、max_abs95.29，tail193三query通过；secondCube full91578处错误、tail384处错误。编译输入分别有1和2次linalg.matmul，不能据此推断内部GM与交接正确。FP32控制出错，所以尚不能用此对照评价第二次Cube精度或速度。
+
+本轮只诊断工具，生产src、TopK、编译器及其选项不变。QSA_FUSED_QK_ISOLATION=1要求同时启用FUSED_SECOND_CUBE_PROBE。_qk_reduce新增编译期DOT_ONLY（默认False）与TILE_BASE（默认0），共用原Q/K加载、页表、INT8点积及2D grid，DOT_ONLY把原始INT32点积写到[rows,4,WIDTH]，不执行qs/ks/ReLU/归约，不计时。源码有常量分支，不能把raw-only通过当成score路径内部交接也已证明正确。
+
+固定原WIDTH和输出stride，依次group0/tile0、group0/最后tile、最后group/tile0、group0/alltiles、allgroups/tile0、full、full_repeat。行视图改变时Q/qs/weights/visible一同偏移；共享实际页表需先验证。CPU使用同一INT8 Q/K做INT32矩阵乘参考，逐元素精确比较；valid dot绝对值<=2097152，所以1515870810 sentinel不可能是合法结果。检查已选区域未写入及非目标区域被写入；记录row/head、tile分布和前16个错误值。所有产物在设备执行前导出。逻辑数值错误继续记录全部7组，设备异常立即停止；任一raw组不通过即拒绝后续归约和候选计时。
+
+所有raw通过才在同次运行测试原FP32控制；评分错误额外保存行/tile分布及样例，FP32不通过立即拒绝第二次Cube执行。通过完整/尾部精度后才按原两轮harness kernel计时，无需用户另启步骤。原分阶段评分/TopK、当前生产分块及混合单槽/双槽对照仍保留，但不代表新候选通过。无全shape验收/生产集成结论；NVIDIA autotune不适用此Ascend诊断。Mac只做语法和索引模型验证，实际编译/正确性待卡上运行。
