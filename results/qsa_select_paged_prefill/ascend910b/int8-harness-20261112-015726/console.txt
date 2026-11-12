@@ -1,0 +1,206 @@
+QSA INT8 harness worker: int8_budget_exact
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+[base-data] 未指定 --base-data，'vs Base' 列关闭。
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 6144, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA MERGE REPRESENTATION tensor8192: four fixtures passed
+python3: /data/zhengyang/git/flag-llvm-project/llvm/include/llvm/Support/Casting.h:566: decltype(auto) llvm::cast(const From&) [with To = mlir::detail::TypedValue<mlir::bufferization::BufferLikeType>; From = mlir::Value]: Assertion `isa<To>(Val) && "cast<Ty>() argument of incompatible type!"' failed.
+module attributes {hacc.target = #hacc.target<"Ascend910B4-1">} {
+  tt.func public @_merge_representation_probe(%arg0: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg1: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg2: !tt.ptr<f32> {tt.divisibility = 16 : i32}, %arg3: !tt.ptr<i32> {tt.divisibility = 16 : i32}) attributes {noinline = false} {
+    %0 = tt.make_range {end = 4096 : i32, start = 0 : i32} : tensor<4096xi32>
+    %1 = tt.splat %arg0 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %2 = tt.addptr %1, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    %3 = tt.load %2 : tensor<4096x!tt.ptr<f32>>
+    %4 = tt.splat %arg1 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %5 = tt.addptr %4, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    %6 = tt.load %5 : tensor<4096x!tt.ptr<f32>>
+    %7 = tile.alloc {space = 5 : i64} : <[8192], f32, ub>
+    %8:2 = tt.call @"qsa_cann_mixed_910b_trial._merge_equal2048__fp32S4096S_fp32S4096S_Bfp32S8192S__(3,)cconstexpr_1_"(%3, %6, %7) : (tensor<4096xf32>, tensor<4096xf32>, !tile.buf<[8192], f32, ub>) -> (tensor<4096xf32>, tensor<4xi32>)
+    %9 = tt.splat %arg2 : !tt.ptr<f32> -> tensor<4096x!tt.ptr<f32>>
+    %10 = tt.addptr %9, %0 : tensor<4096x!tt.ptr<f32>>, tensor<4096xi32>
+    tt.store %10, %8#0 : tensor<4096x!tt.ptr<f32>>
+    %11 = tt.make_range {end = 4 : i32, start = 0 : i32} : tensor<4xi32>
+    %12 = tt.splat %arg3 : !tt.ptr<i32> -> tensor<4x!tt.ptr<i32>>
+    %13 = tt.addptr %12, %11 : tensor<4x!tt.ptr<i32>>, tensor<4xi32>
+    tt.store %13, %8#1 : tensor<4x!tt.ptr<i32>>
+    tt.return
+  }
+  tt.func private @"qsa_cann_mixed_910b_trial._merge_equal2048__fp32S4096S_fp32S4096S_Bfp32S8192S__(3,)cconstexpr_1_"(%arg0: tensor<4096xf32>, %arg1: tensor<4096xf32>, %arg2: !tile.buf<[8192], f32, ub>) -> (tensor<4096xf32>, tensor<4xi32>) attributes {noinline = false} {
+    %cst = arith.constant dense<0> : tensor<4xi32>
+    %cst_0 = arith.constant dense<0.000000e+00> : tensor<8192xf32>
+    %c4096 = arith.constant 4096 : index
+    %c2048_i32 = arith.constant 2048 : i32
+    %c2_i32 = arith.constant 2 : i32
+    %c0_i32 = arith.constant 0 : i32
+    %c0 = arith.constant 0 : index
+    %0 = tile.subview %arg2[%c0] [[4096]] [[1]] : <[8192], f32, ub> -> <[4096], f32, ub>
+    %1 = tile.subview %arg2[%c4096] [[4096]] [[1]] : <[8192], f32, ub> -> <[4096], f32, ub>
+    tile.store_tensor %arg0 -> %0 : tensor<4096xf32>, <[4096], f32, ub>
+    tile.store_tensor %arg1 -> %1 : tensor<4096xf32>, <[4096], f32, ub>
+    gpu.barrier
+    %2 = tile.to_tensor %arg2 {writable} : <[8192], f32, ub> -> tensor<8192xf32>
+    %3:2 = hivm.hir.custom {arg_attrs = [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}], bitcode = "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/experimental/tle/language/dsa/ascend/custom_ops/custom_ops.bc", extra_buffers_sizes = [0], extra_buffers_types = [f16], hivm.pipe = #hivm.pipe<PIPE_V>, hivm.tcore_type = #hivm.tcore_type<VECTOR>, hivm.vf_mode = #hivm.vf_mode<SIMD>, symbol = "custom_merge_exhaust_sort4_float"} "merge_exhaust_sort4" ins(%2, %c2_i32, %c0_i32, %c2048_i32, %c0_i32, %c0_i32, %c2048_i32, %c2048_i32, %c0_i32, %c0_i32 : tensor<8192xf32>, i32, i32, i32, i32, i32, i32, i32, i32, i32) outs(%cst_0, %cst : tensor<8192xf32>, tensor<4xi32>) -> (tensor<8192xf32>, tensor<4xi32>)
+    %extracted_slice = tensor.extract_slice %3#0[0] [4096] [1] : tensor<8192xf32> to tensor<4096xf32>
+    tt.return %extracted_slice, %3#1 : tensor<4096xf32>, tensor<4xi32>
+  }
+}
+
+{-#
+  external_resources: {
+    mlir_reproducer: {
+      pipeline: "builtin.module(auto-blockify{auto-blockify-size=1}, commonir-to-hivm, inline{default-pipeline=canonicalize inlining-threshold=4294967295 max-iterations=4 }, canonicalize{  max-iterations=10 max-num-rewrites=-1 region-simplify=normal test-convergence=false top-down=true}, triton-to-structured-incubated{enable-mask-fallback-conversion=false optimize-dynamic-offset=false}, discrete-mask-access-conversion{compile-on-910-95=false enable-sync-block-lock=false force-simt-template=false}, triton-to-annotation, triton-to-unstructure-incubated{compile-on-910-95=false force-scalarize-mode=false force-simt-template=false}, triton-to-hivm, triton-to-hfusion, triton-to-llvm, bubble-up-operation{enable-aggressive-mode=true}, triton-to-structured-incubated{enable-mask-fallback-conversion=false optimize-dynamic-offset=false}, reduce-sum-strength{enable=false split-factor=2}, triton-to-linalg-incubated{compile-on-910-95=false enable-nd2nz-on-vector=false enable-select-analysis=true global-kernel=false named-ops=true}, commonir-to-hivm, canonicalize{  max-iterations=10 max-num-rewrites=-1 region-simplify=normal test-convergence=false top-down=true}, cse, symbol-dce)",
+      disable_threading: false,
+      verify_each: true
+    }
+  }
+#-}
+/tmp/flaggems-qsa-second-cube.hfX0gnTL/code/tools/qsa_cann_mixed_910b_trial.py:53:0: error: Failures have been detected while processing an MLIR pass pipeline
+/tmp/flaggems-qsa-second-cube.hfX0gnTL/code/tools/qsa_cann_mixed_910b_trial.py:53:0: note: Pipeline failed while executing [`CommonIRToHIVM` on 'builtin.module' operation]: reproducer generated at `std::errs, please share the reproducer above with Triton project.`
+QSA MERGE REPRESENTATION buffer8192: compile failed
+QSA MERGE REPRESENTATION tensor16384: four fixtures passed
+QSA MIXED COMPILE int8_budget_exact-final-slots1 status=compiled
+QSA MIXED COMPILE int8_budget_exact-final-slots2 status=compiled
+QSA MIXED COMPILE int8_budget_exact mixed_serial
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 191, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 192, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 193, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2047, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2048, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 8192, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS int8_budget_exact mixed_serial
+QSA MIXED COMPILE int8_budget_exact mixed_double
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 191, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 192, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 193, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2047, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2048, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED FINAL PREFIX {"width": 8192, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS int8_budget_exact mixed_double
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_unequal17_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 4097, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_unequal17_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_unequal17_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 4097, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_unequal17_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_unequal17_q4", "width": 4097, "rows": 17, "request_lengths": [3, 5, 9], "query_group": 4, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 4096, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_unequal17_q16", "width": 4097, "rows": 17, "request_lengths": [3, 5, 9], "query_group": 16, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_ties3_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_ties3_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_ties3_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 2049, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_ties3_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_ties3_q4", "width": 2049, "rows": 3, "request_lengths": [1, 2], "query_group": 4, "tied_scores": true, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 2048, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_ties3_q16", "width": 2049, "rows": 3, "request_lengths": [1, 2], "query_group": 16, "tied_scores": true, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 4, "implementation": "separated"}
+QSA MIXED COMPILE serial_edges_invisible1_q4 mixed_serial
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 1, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_invisible1_q4 mixed_serial
+QSA MIXED COMPILE serial_edges_invisible1_q4 mixed_double
+QSA MIXED FINAL PREFIX {"width": 1, "slots": 2, "status": "passed", "trace": false, "output_k": 512}
+QSA MIXED PASS serial_edges_invisible1_q4 mixed_double
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_invisible1_q4", "width": 1, "rows": 1, "request_lengths": [1], "query_group": 4, "tied_scores": false, "status": "passed"}
+QSA CANN SERIAL CHECK {"stage": "score", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "sort", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA CANN SERIAL CHECK {"stage": "state", "key_start": 0, "mismatches": 0, "query_group": 16, "implementation": "separated"}
+QSA SERIAL BOUNDARY PASS {"case": "serial_edges_invisible1_q16", "width": 1, "rows": 1, "request_lengths": [1], "query_group": 16, "tied_scores": false, "status": "passed"}
+QSA MIXED RATIOS int8_budget_exact: fusion=1.2622x; double_buffer=1.1447x
+SECOND_CUBE_CHECK {"arm": "vector_fp32", "status": "passed", "samples_ms": [], "mismatches": 0, "max_abs_error": 7.62939453125e-06, "invalid_output": 0}
+SECOND_CUBE_CHECK {"arm": "vector_late_key", "status": "passed", "samples_ms": [], "mismatches": 0, "max_abs_error": 1.52587890625e-05, "invalid_output": 0}
+SECOND_CUBE_CHECK {"arm": "cube_fp16", "status": "passed", "samples_ms": [], "mismatches": 0, "max_abs_error": 0.02451324462890625, "invalid_output": 0}
+SECOND_CUBE_TIME {"arm": "vector_fp32", "status": "passed", "samples_ms": [0.14577226666666665, 0.14581560000000002], "mismatches": 0, "max_abs_error": 7.62939453125e-06, "invalid_output": 0, "median_us": 145.79393333333334, "speedup_over_vector": 1.0}
+SECOND_CUBE_TIME {"arm": "vector_late_key", "status": "passed", "samples_ms": [0.14573223333333335, 0.14591226666666665], "mismatches": 0, "max_abs_error": 1.52587890625e-05, "invalid_output": 0, "median_us": 145.82225, "speedup_over_vector": 0.9998058138132785}
+SECOND_CUBE_TIME {"arm": "cube_fp16", "status": "passed", "samples_ms": [0.19728396666666667, 0.19845396666666668], "mismatches": 0, "max_abs_error": 0.02451324462890625, "invalid_output": 0, "median_us": 197.86896666666667, "speedup_over_vector": 0.7368206131027116}
+QSA QUERY4/16 int8_budget_exact: score speedup=0.5431x; serial speedup=0.6454x
+QSA CANN SERIAL us {"score": 200.16901666666666, "topk": 59.16368333333333, "serial": 274.09505, "production_control": 57.511516666666665, "peer_score": 108.72175, "peer_serial": 176.9104833333333, "mixed_serial": 217.16001666666668, "mixed_double": 189.71713333333335}
+.
+=============================== warnings summary ===============================
+../../../flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: 14 warnings
+  /flagos/lib/python3.11/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539
+  /flagos/lib/python3.11/site-packages/torch_npu/npu/__init__.py:539: UserWarning: You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. The return value of get_device_capability is only for compatibility with PyTorch and does not represent the actual capability of the NPU device.
+    warnings.warn(f"You can set the device capability via the environment variable TORCH_NPU_DEVICE_CAPABILITY. {warning_str}")
+
+src/flaggems_vllm/utils/device_info.py:60
+  /tmp/flaggems-qsa-second-cube.hfX0gnTL/code/src/flaggems_vllm/utils/device_info.py:60: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:728: DeprecationWarning: use_cuda_graph is deprecated; use benchmark_mode='replay' or benchmark_mode='event'
+    super().__init__(*args, **kwargs)
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/libentry.py:411: RuntimeWarning: active Triton backend does not provide a replay benchmarker; falling back to event timing
+    resolved_benchmark = resolve_benchmarker(
+
+../../../flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58
+  /flagos/lib/python3.11/site-packages/flag_gems/utils/device_info.py:58: UserWarning: [device_info] torch_device_fn.get_device_capability returned None for device_id=0, fallback to (0, 0).
+    warnings.warn(
+
+benchmark/test_qsa_select_paged_prefill_int8_perf.py::test_qsa_select_paged_prefill_int8_chunk_stages[int8_budget_exact]
+  /tmp/flaggems-qsa-second-cube.hfX0gnTL/code/tools/qsa_cann_serial_910b_trial.py:257: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:340.)
+    self.local = torch.empty_like(self.states[0])
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 20 warnings in 708.46s (0:11:48)
+int8_budget_exact passed {'score': 0.20016901666666667, 'topk': 0.059163683333333335, 'serial': 0.27409505, 'production_control': 0.057511516666666665, 'peer_score': 0.10872175, 'peer_serial': 0.1769104833333333, 'mixed_serial': 0.21716001666666668, 'mixed_double': 0.18971713333333334} {'score': 0.03165658088444197, 'topk': 0.4116827299179315, 'serial': 0.0017147336298207975, 'production_control': 0.11481758291310329, 'peer_score': 0.31226502516746324, 'peer_serial': 0.2044159998432352, 'mixed_serial': 0.08136856992013886, 'mixed_double': 0.02248962226922208}
