@@ -89,7 +89,7 @@ import os
 from tools.qsa_int8_ten_workloads_910b import cases
 from tools.summarize_qsa_int8_harness_910b import GROUP_VISIBLE_CASES, GROUP_VISIBLE_WALL_CASES, STAGE_CASES, TILE_HANDOFF_CASE
 if os.environ.get("QSA_HARNESS_ONLINE_STAGES") == "1":
-    names = ("int8_budget_exact",) if (os.environ.get("QSA_MIXED_RECHECK_PROFILE") == "1" or os.environ.get("QSA_SECOND_CUBE_PROBE") == "1") else ("int8_budget_exact", "int8_compact")
+    names = ("int8_budget_exact",) if (os.environ.get("QSA_MIXED_RECHECK_PROFILE") == "1" or os.environ.get("QSA_SECOND_CUBE_PROBE") == "1" or os.environ.get("QSA_FUSED_SECOND_CUBE_PROBE") == "1") else ("int8_budget_exact", "int8_compact")
 elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "wall":
     names = GROUP_VISIBLE_WALL_CASES
 elif os.environ.get("QSA_HARNESS_GROUP_VISIBLE") == "1":
@@ -181,7 +181,7 @@ print("\n".join(names))
             fi
         fi
         qsa_recheck_flag=
-        if [[ ${QSA_MIXED_RECHECK_PROFILE:-0} == 1 || ${QSA_SECOND_CUBE_PROBE:-0} == 1 ]]; then
+        if [[ ${QSA_MIXED_RECHECK_PROFILE:-0} == 1 || ${QSA_SECOND_CUBE_PROBE:-0} == 1 || ${QSA_FUSED_SECOND_CUBE_PROBE:-0} == 1 ]]; then
             qsa_recheck_flag=--cann-mixed-recheck
         fi
         "$qsa_python" -m tools.summarize_qsa_int8_harness_910b \

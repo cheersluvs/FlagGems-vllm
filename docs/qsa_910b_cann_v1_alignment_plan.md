@@ -348,3 +348,14 @@ CANN快照vector::Preprocess中half weights与half qScale相乘、Cube::FixpSToL
 QSA_SECOND_CUBE_PROBE=1仅对budget_exact前32行，在原正确性/分阶段计时之后执行独立后处理实验。公共INT32 QK由CPU参考预备，GM布局[rows,4,width]，要求共享实际页表且qs/ks为正且有限。三臂：原FP32 Vector；FP32合并qs*weight、key scale后移；FP16 Cube（relu(dot)/1024转half、qs*weight构造块对角half权重、FP32矩阵乘累加后乘1024*key_scale）。4query打包、M16/K16/N64，保留尾部/visible掩码和-inf。不是复刻CANN Fixpipe指令，也不是完整评分性能对照。
 
 转换、块对角权重构造、额外零填充计算和输出均在候选kernel内，计入harness kernel计时；公共QK的CPU计算/搬运和GPU resolved-key-scale准备在计时前完成，不计入，故不得用此速度比声称整算子收益。三臂先与原CPU评分参考按rtol/atol=1e-3逐元素比较，记录mismatch/max_abs_error/非有限输出；精度不通过则记录rejected_precision且不计时，不放宽阈值。编译或设备失败保存错误并停止。通过的臂两轮交错计时，原评分/TopK/生产控制及mixed单槽/双槽数据仍保留。生产kernel、TopK及原基线不变；无需NVIDIA autotune更新。Mac仅语法、地址分组和gate检查，卡上编译与精度待验证。
+
+
+### 第四步第二轮：单kernel内QK和第二次Cube
+
+独立后处理报告bee99add59cabd7bb37c7fb2ca7c6d579b67dad8：FP32 Vector145.794us，late-key145.822us，FP16 Cube197.869us（0.737x），均满足本fixture的1e-3阈值，Cube最大绝对误差0.024513。该结果不是完整评分或TopK精度验证。当前独立形式不整合生产。
+
+QSA_FUSED_SECOND_CUBE_PROBE=1的下一轮固定budget_exact前32行，独立微实验替换为同一评分kernel的编译期分支。两侧同query4、N64、grid、Q/K页表及原输入尺度，公共INT8 QK在kernel内计算；Vector侧按原顺序FP32 dequant/ReLU/weight/sum，Cube侧沿用上轮受检的FP16操作数缩放及FP32累加。转换、块对角权重构造、零填充及全部输出开销计入。生产src、基线、TopK和计时器不变，无NVIDIA autotune改动。
+
+源码仅显式写最终score，没有用户分配的GM点积workspace；不据此声称编译器消除了内部GM搬运。捕获原始编译器输入、命令、错误及完整asm文本/可用二进制SHA256，记录每种IR的matmul/dot数量供人工检查。compiler_gm_intermediate_status保持unverified，直到卡上产物证据得到分析。
+
+两侧先验证full 32-row原WIDTH，再验证3-query、WIDTH=min(193,WIDTH)尾部fixture（第一行visible=0，第二行visible最多191）。同原CPU参考逐元素rtol/atol=1e-3，含mask/-inf及非有限输出检查；Cube不通过则rejected_precision且不计时，不放宽阈值。FP32控制不通过或编译/设备异常直接停止并保存错误。通过的臂两轮反序配对harness kernel计时。原分离评分/TopK和混合单槽/双槽控制继续保留。报告仅单次调用评分微实验，无TopK候选和全shape验收结论。Mac验证语法及query/head/尾部索引模型；卡上编译、数值和计时待用户执行。
