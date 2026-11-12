@@ -29,7 +29,6 @@ KERNEL_SOURCE = """
 import triton
 import triton.language as tl
 import triton.experimental.tle as tle
-import triton.language.extra.cann.extension as al
 
 @triton.jit
 def explicit(A, B, W, Out, M:tl.constexpr, K:tl.constexpr, N:tl.constexpr,
@@ -44,11 +43,9 @@ def explicit(A, B, W, Out, M:tl.constexpr, K:tl.constexpr, N:tl.constexpr,
     tle.dsa.copy(ap, a, [M,K])
     tle.dsa.copy(bp, b, [K,N])
     if MODE == 0:
-        dst = tle.dsa.alloc([M,N], tl.int32, al.ascend_address_space.GM)
-        tle.dsa.tile_cube_launch(a,b,acc,sa,sb,dst,init=True)
-        tle.dsa.tile_cube_wait()
         op = tl.make_block_ptr(Out, (M,N), (N,1), (0,0), (M,N), (1,0))
-        tle.dsa.copy(dst, op, [M,N])
+        tle.dsa.tile_cube_launch(a,b,acc,sa,sb,op,init=True)
+        tle.dsa.tile_cube_wait()
     else:
         middle = tle.dsa.alloc([M,N], tl.float16, tle.dsa.ascend.L1)
         tle.dsa.tile_cube_launch(a,b,acc,sa,sb,middle,init=True)
@@ -62,11 +59,9 @@ def explicit(A, B, W, Out, M:tl.constexpr, K:tl.constexpr, N:tl.constexpr,
         wa = tle.dsa.alloc([M,M], tl.float16, tle.dsa.ascend.L0A)
         wb = tle.dsa.alloc([M,N], tl.float16, tle.dsa.ascend.L0B)
         acc2 = tle.dsa.alloc([M,N], tl.float32, tle.dsa.ascend.L0C)
-        dst2 = tle.dsa.alloc([M,N], tl.float32, al.ascend_address_space.GM)
-        tle.dsa.tile_cube_launch(weight,middle,acc2,wa,wb,dst2,init=True)
-        tle.dsa.tile_cube_wait()
         op = tl.make_block_ptr(Out, (M,N), (N,1), (0,0), (M,N), (1,0))
-        tle.dsa.copy(dst2, op, [M,N])
+        tle.dsa.tile_cube_launch(weight,middle,acc2,wa,wb,op,init=True)
+        tle.dsa.tile_cube_wait()
 
 @triton.jit
 def reference(A, B, W, Out, M:tl.constexpr, K:tl.constexpr, N:tl.constexpr):
@@ -184,7 +179,6 @@ def run_probe(report, device, timer):
 
         import triton
         import triton.experimental.tle as tle
-        import triton.language.extra.cann.extension as al
 
         result["api"] = {}
         for name in (
@@ -200,7 +194,10 @@ def run_probe(report, device, timer):
                 present=value is not None,
                 signature=str(inspect.signature(value)) if value is not None else None,
             )
-        result["api"]["GM"] = dict(present=hasattr(al.ascend_address_space, "GM"))
+        result["output_representation"] = (
+            "Caller-owned tl.make_block_ptr passed directly as cube_launch dst; "
+            "no GM enum allocation; backend acceptance checked by launch_control"
+        )
         result["environment"] = dict(
             torch=torch.__version__,
             triton=triton.__version__,

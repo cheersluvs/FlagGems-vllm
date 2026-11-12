@@ -44,3 +44,18 @@ three stages pass and paired timing exists. Device failures return nonzero.
 No production kernels, TopK implementation, installed packages or compiler source
 are changed. The existing autotune regime is not applicable to this fixed
 feasibility micro experiment.
+
+## Output-pointer correction after the first preflight
+
+Report 90d7c4f5 had all explicit DSA APIs but no
+al.ascend_address_space.GM. The initial probe incorrectly required this enum,
+so no compilation or device test occurred. This is a probe preflight bug, not
+evidence against 910B or generic TLE.
+
+The corrected expression uses a caller-owned output block pointer directly as
+tile_cube_launch's dst. The installed frontend intentionally validates a/b/acc/
+stage_a/stage_b as buffers but forwards dst.handle without that buffer check.
+The ordinary launch_control checks whether the installed backend accepts this
+output representation; no claim of backend support precedes that compile test.
+This also removes an unnecessary temporary GM allocation and GM-to-output copy.
+No numeric reference, L0C/L1 candidate or structural acceptance gate changes.
