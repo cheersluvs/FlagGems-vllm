@@ -21,6 +21,7 @@ from types import SimpleNamespace
 
 from qsa_finish_page64_probe_910b import source as finish_source
 from qsa_k_pack_2d_probe_910b import source as k_pack_source
+from qsa_qw_pack_2d_probe_910b import source as qw_pack_source
 from qsa_raw_score_chunks_910b import (
     check_address_ir,
     decoded_instructions,
@@ -36,6 +37,128 @@ def half(value):
 
 
 class RawScoreChunkTests(unittest.TestCase):
+    def test_qw_two_dimensional_query_addresses_from_actual_source(self):
+        class Index(int):
+            def __getitem__(self, _index):
+                return int(self)
+
+        tree = ast.parse(qw_pack_source())
+        fn = next(
+            n
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name == "raw_qw_2d_group"
+        )
+        loop = next(n for n in fn.body if isinstance(n, ast.For))
+        load = next(
+            n
+            for n in ast.walk(loop)
+            if isinstance(n, ast.Call) and ast.unparse(n.func) == "tl.load"
+        )
+        store = next(
+            n
+            for n in ast.walk(loop)
+            if isinstance(n, ast.Call) and ast.unparse(n.func) == "tl.store"
+        )
+        load_code = compile(ast.Expression(load.args[0]), "qw_load", "eval")
+        store_code = compile(ast.Expression(store.args[0]), "qw_store", "eval")
+        for group in (0, 1, 27, 31):
+            seen = set()
+            for block in range(4):
+                for head in range(16):
+                    for dim in range(32):
+                        scope = dict(
+                            Q=0,
+                            PQ=0,
+                            group=group,
+                            block=block,
+                            heads=Index(head),
+                            flat=Index(group * 16 + head),
+                            dims=Index(dim),
+                        )
+                        self.assertEqual(
+                            eval(load_code, scope),
+                            (group * 16 + head) * 128 + block * 32 + dim,
+                        )
+                        out = eval(store_code, scope)
+                        self.assertEqual(
+                            out,
+                            group * 2048 + nz_offset(head, block * 32 + dim, 16, 32),
+                        )
+                        self.assertNotIn(out, seen)
+                        seen.add(out)
+            self.assertEqual(seen, set(range(group * 2048, (group + 1) * 2048)))
+
+    def test_qw_two_dimensional_weight_transpose_and_partial_groups(self):
+        class Index(int):
+            def __getitem__(self, _index):
+                return int(self)
+
+        tree = ast.parse(qw_pack_source())
+        fn = next(
+            n
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name == "raw_qw_2d_group"
+        )
+        live = next(
+            n.value
+            for n in fn.body
+            if isinstance(n, ast.Assign) and n.targets[0].id == "live"
+        )
+        store = next(
+            n
+            for n in fn.body
+            if isinstance(n, ast.Expr)
+            and isinstance(n.value, ast.Call)
+            and ast.unparse(n.value.func) == "tl.store"
+        ).value
+        live_code = compile(ast.Expression(live), "qw_live", "eval")
+        out_code = compile(ast.Expression(store.args[0]), "qw_weight_store", "eval")
+        for rows in (1, 3, 4, 5, 112, 128):
+            for group in {0, (rows - 1) // 4}:
+                packed = [None] * 256
+                for head in range(16):
+                    coefficient = (
+                        half((group * 16 + head + 1) / 1024)
+                        if group * 16 + head < rows * 4
+                        else 0.0
+                    )
+                    for out_row in range(16):
+                        scope = dict(
+                            PW=0,
+                            group=group,
+                            heads=Index(head),
+                            out_rows=Index(out_row),
+                        )
+                        offset = eval(out_code, scope) - group * 256
+                        packed[offset] = coefficient if eval(live_code, scope) else 0.0
+                for out_row in range(16):
+                    for head in range(16):
+                        live_query = group * 4 + out_row < rows and out_row < 4
+                        expected = (
+                            half((group * 16 + head + 1) / 1024)
+                            if live_query and head // 4 == out_row
+                            else 0.0
+                        )
+                        self.assertEqual(packed[head * 16 + out_row], expected)
+
+    def test_qw_variants_keep_one_body_and_cover_group_tail(self):
+        tree = ast.parse(qw_pack_source())
+        fns = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+        for name in ("raw_qw_2d_grid", "raw_qw_2d_capped"):
+            calls = [
+                n
+                for n in ast.walk(fns[name])
+                if isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Name)
+                and n.func.id == "raw_qw_2d_group"
+            ]
+            self.assertEqual(len(calls), 1)
+        for rows in (1, 5, 112, 128):
+            groups = (rows + 3) // 4
+            cores = min(20, groups)
+            visited = [g for p in range(cores) for g in range(p, groups, cores)]
+            self.assertEqual(sorted(visited), list(range(groups)))
+
     def test_page64_finish_addresses_and_masks_from_generated_source(self):
         class Index(int):
             def to(self, _dtype):
