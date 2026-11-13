@@ -1,0 +1,99 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_finish_prefix_part(Raw, KS, Table, Visible, Out, row, tile,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,
+                           MAX_VISIBLE:tl.constexpr,MODE:tl.constexpr):
+    c = tl.arange(0,64)
+    first = tile*64
+    col = first+c
+    if MODE == 4:
+        visible = MAX_VISIBLE
+    else:
+        visible = tl.load(Visible+row)
+    live = (col<WIDTH)&(col<visible)
+    if MODE == 0:
+        value = tl.full((64,),0.0,tl.float32)
+    else:
+        if MODE == 2 or MODE == 3 or MODE == 4:
+            physical = tl.load(Table+tile//3,mask=(first<WIDTH)&(first<visible),other=0)
+            key_base = physical.to(tl.int64)*192+tile%3*64
+            ks = tl.load(KS+key_base+c,mask=live,other=0).to(tl.float32)
+        if MODE == 1 or MODE == 3 or MODE == 4:
+            raw_base = ((row//16)*RAW_TILES+tile)*1024+row%16*64
+            value = tl.load(Raw+raw_base+c,mask=live,other=0)
+        if MODE == 2:
+            value = ks
+        elif MODE == 3:
+            value = value+ks
+        elif MODE == 4:
+            value = value*ks
+    tl.store(Out+row*WIDTH+col,tl.where(live,value,-float("inf")),mask=col<WIDTH)
+
+@triton.jit
+def raw_finish_prefix_fill(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                             WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,
+                             MAX_VISIBLE:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,64),CORES):
+        row = unit//triton.cdiv(WIDTH,64)
+        tile = unit%triton.cdiv(WIDTH,64)
+        raw_finish_prefix_part(Raw,KS,Table,Visible,Out,row,tile,
+                               WIDTH,RAW_TILES,MAX_VISIBLE,0)
+
+@triton.jit
+def raw_finish_prefix_raw(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                             WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,
+                             MAX_VISIBLE:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,64),CORES):
+        row = unit//triton.cdiv(WIDTH,64)
+        tile = unit%triton.cdiv(WIDTH,64)
+        raw_finish_prefix_part(Raw,KS,Table,Visible,Out,row,tile,
+                               WIDTH,RAW_TILES,MAX_VISIBLE,1)
+
+@triton.jit
+def raw_finish_prefix_ks(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                             WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,
+                             MAX_VISIBLE:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,64),CORES):
+        row = unit//triton.cdiv(WIDTH,64)
+        tile = unit%triton.cdiv(WIDTH,64)
+        raw_finish_prefix_part(Raw,KS,Table,Visible,Out,row,tile,
+                               WIDTH,RAW_TILES,MAX_VISIBLE,2)
+
+@triton.jit
+def raw_finish_prefix_sum(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                             WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,
+                             MAX_VISIBLE:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,64),CORES):
+        row = unit//triton.cdiv(WIDTH,64)
+        tile = unit%triton.cdiv(WIDTH,64)
+        raw_finish_prefix_part(Raw,KS,Table,Visible,Out,row,tile,
+                               WIDTH,RAW_TILES,MAX_VISIBLE,3)
+
+@triton.jit
+def raw_finish_prefix_no_visible(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                             WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,
+                             MAX_VISIBLE:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,64),CORES):
+        row = unit//triton.cdiv(WIDTH,64)
+        tile = unit%triton.cdiv(WIDTH,64)
+        raw_finish_prefix_part(Raw,KS,Table,Visible,Out,row,tile,
+                               WIDTH,RAW_TILES,MAX_VISIBLE,4)
+
+@triton.jit
+def raw_finish_copy64(Dense, Out, ROWS:tl.constexpr,WIDTH:tl.constexpr,CORES:tl.constexpr):
+    c = tl.arange(0,64)
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,64),CORES):
+        row = unit//triton.cdiv(WIDTH,64)
+        col = unit%triton.cdiv(WIDTH,64)*64+c
+        value = tl.load(Dense+row*WIDTH+col,mask=col<WIDTH,other=0)
+        tl.store(Out+row*WIDTH+col,value,mask=col<WIDTH)
+
+@triton.jit
+def raw_finish_copy1024(Dense, Out, N:tl.constexpr,CORES:tl.constexpr):
+    c = tl.arange(0,1024)
+    for unit in range(tl.program_id(0),triton.cdiv(N,1024),CORES):
+        i = unit*1024+c
+        value = tl.load(Dense+i,mask=i<N,other=0)
+        tl.store(Out+i,value,mask=i<N)
