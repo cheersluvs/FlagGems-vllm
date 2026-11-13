@@ -1,0 +1,60 @@
+import triton
+import triton.language as tl
+import triton.language.extra.cann.extension as al
+import triton.experimental.tle.language.raw as raw
+
+@triton.jit
+def raw_pack_qw(Q, QS, W, PQ, PW, ROWS:tl.constexpr):
+    group = tl.program_id(0)
+    i = tl.arange(0,2048)
+    head = (i//32)%16
+    dim = (i//512)*32+i%32
+    flat = group*16+head
+    q = tl.load(Q+flat*128+dim, mask=flat<ROWS*4, other=0)
+    tl.store(PQ+group*2048+i,q)
+    j = tl.arange(0,256)
+    out_row = j//16
+    in_head = j%16
+    h = group*16+in_head
+    qs = tl.load(QS+h,mask=h<ROWS*4,other=0).to(tl.float32)
+    w = tl.load(W+h,mask=h<ROWS*4,other=0).to(tl.float32)
+    coefficient = tl.where((out_row<4)&(in_head//4==out_row),qs*w*1024.0,0.0)
+    tl.store(PW+group*256+j,coefficient.to(tl.float16))
+
+@triton.jit
+def raw_pack_k(K, Table, PK, MAX_VISIBLE:tl.constexpr):
+    part = tl.program_id(0)
+    tile = part//8
+    i = part%8*1024+tl.arange(0,1024)
+    col = tile*64+(i//32)%64
+    dim = i//2048*32+i%32
+    physical = tl.load(Table+tile//3)
+    token = physical.to(tl.int64)*192+col%192
+    value = tl.load(K+token*128+dim,mask=col<MAX_VISIBLE,other=0)
+    tl.store(PK+tile*8192+i,value)
+
+@triton.jit
+def raw_score_tiles(PQ, PK, PW, Raw, GROUPS:tl.constexpr, TILES:tl.constexpr, CORES:tl.constexpr):
+    with al.scope(core_mode="cube"):
+        for unit in range(tl.program_id(0),GROUPS*TILES,CORES):
+            group = unit//TILES
+            tile = unit%TILES
+            q = tl.cast(PQ+group*2048,tl.uint64)
+            key = tl.cast(PK+tile*8192,tl.uint64)
+            weight = tl.cast(PW+group*256,tl.uint64)
+            output = tl.cast(Raw+unit*1024,tl.uint64)
+            bits = tl.full((),0x3a800000,tl.int64)
+            raw.call(chain_op, [q, key, weight, bits, output], output_indices=[])
+
+@triton.jit
+def raw_finish(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr, WIDTH:tl.constexpr,
+               TILES:tl.constexpr, BLOCK:tl.constexpr):
+    row = tl.program_id(0)
+    col = tl.program_id(1)*BLOCK+tl.arange(0,BLOCK)
+    visible = tl.load(Visible+row)
+    live = (col<WIDTH)&(col<visible)
+    physical = tl.load(Table+col//192,mask=live,other=0)
+    ks = tl.load(KS+physical.to(tl.int64)*192+col%192,mask=live,other=0).to(tl.float32)
+    offset = ((row//4)*TILES+col//64)*1024+(row%4)*64+col%64
+    score = tl.load(Raw+offset,mask=live,other=0)*ks
+    tl.store(Out+row*WIDTH+col,tl.where(live,score,-float("inf")),mask=col<WIDTH)
