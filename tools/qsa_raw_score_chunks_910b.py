@@ -19,6 +19,7 @@ import gzip
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import re
 import shutil
@@ -38,6 +39,25 @@ CASES = ("int8_compact", "int8_budget_exact", "int8_long100k")
 def nz_offset(row, column, rows, c0):
     """Independent scalar check for the device packing address contract."""
     return (column // c0 * rows + row) * c0 + column % c0
+
+
+def check_address_ir(text):
+    """Reject extracting only the aligned base from an offset-bearing view."""
+    views = set(re.findall(r"(%[\w.]+)\s*=\s*memref\.reinterpret_cast\b", text))
+    extracts = re.findall(r"memref\.extract_aligned_pointer_as_index\s+(%[\w.]+)", text)
+    unsafe = sorted(views.intersection(extracts))
+    if unsafe or len(extracts) != 4:
+        raise RuntimeError(
+            f"Raw address IR requires four direct base extractions; "
+            f"found={len(extracts)}, offset_views={unsafe}"
+        )
+    return dict(
+        status="passed",
+        base_pointer_extractions=len(extracts),
+        offset_views_extracted=unsafe,
+        byte_strides=dict(query=2048, key=8192, weight=512, output=4096),
+        scope="Pre-native IR gate; actual addresses/output correctness still need device checks",
+    )
 
 
 def elf_identity(binary):
@@ -182,8 +202,9 @@ def raw_pack_qw(Q, QS, W, PQ, PW, ROWS:tl.constexpr):
     q = tl.load(Q+flat*128+dim, mask=flat<ROWS*4, other=0)
     tl.store(PQ+group*2048+i,q)
     j = tl.arange(0,256)
-    out_row = j//16
-    in_head = j%16
+    # Native LoadData2D transposes L1 weights into L0A: store W.T here.
+    out_row = j%16
+    in_head = j//16
     h = group*16+in_head
     qs = tl.load(QS+h,mask=h<ROWS*4,other=0).to(tl.float32)
     w = tl.load(W+h,mask=h<ROWS*4,other=0).to(tl.float32)
@@ -205,13 +226,18 @@ def raw_pack_k(K, Table, PK, MAX_VISIBLE:tl.constexpr):
 @triton.jit
 def raw_score_tiles(PQ, PK, PW, Raw, GROUPS:tl.constexpr, TILES:tl.constexpr, CORES:tl.constexpr):
     with al.scope(core_mode="cube"):
+        q_base = tl.cast(PQ,tl.uint64)
+        key_base = tl.cast(PK,tl.uint64)
+        weight_base = tl.cast(PW,tl.uint64)
+        output_base = tl.cast(Raw,tl.uint64)
         for unit in range(tl.program_id(0),GROUPS*TILES,CORES):
             group = unit//TILES
             tile = unit%TILES
-            q = tl.cast(PQ+group*2048,tl.uint64)
-            key = tl.cast(PK+tile*8192,tl.uint64)
-            weight = tl.cast(PW+group*256,tl.uint64)
-            output = tl.cast(Raw+unit*1024,tl.uint64)
+            # Add byte offsets after pointer conversion, never cast an offset view.
+            q = q_base+group.to(tl.uint64)*2048
+            key = key_base+tile.to(tl.uint64)*8192
+            weight = weight_base+group.to(tl.uint64)*512
+            output = output_base+unit.to(tl.uint64)*4096
             bits = tl.full((),0x3a800000,tl.int64)
             __CALL__
 
@@ -253,6 +279,12 @@ def compare_scores(torch, actual, expected):
     finite = torch.isfinite(expected)
     errors = (actual[finite] - expected[finite]).abs()
     nonfinite_errors = int((~torch.isfinite(errors)).sum())
+    locations = (~torch.isclose(actual, expected, rtol=1e-3, atol=1e-3)).nonzero()[:12]
+
+    def number(value):
+        value = float(value)
+        return value if math.isfinite(value) else str(value)
+
     return dict(
         passed=mask_ok and bool(torch.allclose(actual, expected, rtol=1e-3, atol=1e-3)),
         masks_equal=mask_ok,
@@ -262,6 +294,15 @@ def compare_scores(torch, actual, expected):
             else (float(errors.max()) if errors.numel() else 0.0)
         ),
         nonfinite_error_count=nonfinite_errors,
+        mismatch_samples=[
+            dict(
+                row=row,
+                column=column,
+                actual=number(actual[row, column]),
+                expected=number(expected[row, column]),
+            )
+            for row, column in locations.tolist()
+        ],
         mismatches=int((~torch.isclose(actual, expected, rtol=1e-3, atol=1e-3)).sum()),
         rtol=1e-3,
         atol=1e-3,
@@ -284,7 +325,7 @@ def check_packing(torch, cpu, packed, max_visible, pack_nz):
             weight[row, row * 4 : row * 4 + 4] = (
                 cpu["qs"][source].float() * cpu["weights"][source].float() * 1024
             ).half()
-        if not torch.equal(w[group], pack_nz(weight, 16)):
+        if not torch.equal(w[group], pack_nz(weight.T.contiguous(), 16)):
             raise AssertionError("Weight NZ packing mismatch")
     tiles = (max_visible + 63) // 64
     mapping = cpu["row_table"][0]
@@ -394,8 +435,8 @@ def run_case(
     pq = torch.empty((groups, 2048), dtype=torch.int8, device=output.device)
     pw = torch.empty((groups, 256), dtype=torch.float16, device=output.device)
     pk = torch.empty((tiles, 8192), dtype=torch.int8, device=output.device)
-    raw = torch.empty(
-        (groups, tiles, 16, 64), dtype=torch.float32, device=output.device
+    raw = torch.full(
+        (groups, tiles, 16, 64), float("nan"), dtype=torch.float32, device=output.device
     )
     adapter = PreparedSharedMapInt8Selection(
         values,
@@ -512,6 +553,8 @@ def run_case(
                     raise RuntimeError(
                         f"Unexpected raw tile-loop launch metadata: {metadata}"
                     )
+                record["address_ir"] = check_address_ir(kernel.asm.get("bcmlir", ""))
+                save()
                 raw_cube()
                 torch.npu.synchronize()
         record["native_audit"] = audit_binary(
@@ -520,6 +563,12 @@ def run_case(
         record["packing"] = check_packing(
             torch, cpu, (pq, pw, pk), max_visible, pack_nz
         )
+        raw_cpu = raw.cpu()
+        record["raw_output"] = dict(
+            elements=raw_cpu.numel(), nonfinite=int((~torch.isfinite(raw_cpu)).sum())
+        )
+        if record["raw_output"]["nonfinite"]:
+            raise AssertionError("Raw tile output contains unwritten/nonfinite values")
         record["correctness"] = compare_scores(torch, output.cpu(), reference.cpu())
         record["cpu_oracles"] = check_cpu(torch, cpu, reference.cpu(), output.cpu())
         print(

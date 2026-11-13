@@ -60,3 +60,36 @@ Prerequisite evidence: report 07937ddc2b5bb8a8d39d98f487b2b4fef4201c50 passed
 binaries were byte-identical to the preceding failed-metadata report; the
 isolated compiler metadata correction enabled normal AIC execution. That result
 does not establish numerical equivalence with the FP32 scoring contract below.
+
+## First chunk report and correction
+
+Report a44aa380c2dc238c6c265090f501f89c4bd48c23 compiled and ran all three
+chunks, but rejected every candidate before timing. All masks and Q/K packing
+checks passed; current matched the sampled FP32 oracle, while raw differed
+even from its own half oracle. budget_exact contained 4470 nonfinite scores.
+These are correctness failures, not evidence of a performance regression or
+ordinary FP16 rounding. No speedup was recorded.
+
+The newly added weight packer had omitted the transpose required by the native
+LoadData2D call. The passing micro probe already packed W.T; the chunk packer
+and its CPU packing check had incorrectly agreed on W. Both now use W.T.
+New CPU tests exercise the actual generated index expressions against the
+native transpose contract and fail against the previous source.
+
+The returned BCMLIR also placed dynamic offsets in memref.reinterpret_cast,
+then extracted only the underlying aligned pointer before the raw call. Per the
+[MLIR operation contract](https://mlir.llvm.org/docs/Dialects/MemRef/#memrefextract_aligned_pointer_as_index-memrefextractalignedpointerasindexop),
+this is not a proof that the effective address includes the view offset.
+The wrapper now casts each unsliced base once, then adds explicit uint64 byte
+offsets: Q2048, K8192, W512 and output4096. This is an operator-side expression
+change; no additional compiler patch is introduced. A pre-execution IR gate
+rejects aligned-pointer extraction from reinterpreted views. Device numerical
+checks remain the final gate; the exact effect of the old native address code
+has not been directly instrumented.
+
+Raw output is initialized to NaN outside timing and must be entirely finite.
+Score failures include coordinate/value samples. The retry retains all micro
+correctness checks but omits their already-verified micro timings; the three
+chunk comparisons still compile, validate and time in a single invocation.
+The installed llvm-objdump returned only <not available> instruction lines;
+final Fixpipe/ReLU decoding therefore remains unproven.

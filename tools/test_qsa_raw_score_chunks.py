@@ -17,8 +17,10 @@
 import ast
 import struct
 import unittest
+from types import SimpleNamespace
 
 from qsa_raw_score_chunks_910b import (
+    check_address_ir,
     decoded_instructions,
     elf_identity,
     kernel_source,
@@ -31,6 +33,95 @@ def half(value):
 
 
 class RawScoreChunkTests(unittest.TestCase):
+    def test_native_weight_load_contract_requires_transposed_storage(self):
+        tree = ast.parse(kernel_source("dialect-cann-bitcode"))
+        function = next(
+            n
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name == "raw_pack_qw"
+        )
+        assignments = {
+            n.targets[0].id: n.value for n in function.body if isinstance(n, ast.Assign)
+        }
+        packed = []
+        for j in range(256):
+            out_row = eval(
+                compile(ast.Expression(assignments["out_row"]), "packer", "eval"),
+                {"j": j},
+            )
+            in_head = eval(
+                compile(ast.Expression(assignments["in_head"]), "packer", "eval"),
+                {"j": j},
+            )
+            packed.append(100 * out_row + in_head)
+        # Native LoadData2D transpose consumes W.T from L1, not W.
+        for row in range(16):
+            for head in range(16):
+                self.assertEqual(packed[head * 16 + row], 100 * row + head)
+
+    def test_raw_base_casts_and_byte_offsets_for_every_operand(self):
+        class Index(int):
+            def to(self, _dtype):
+                return int(self)
+
+        tree = ast.parse(kernel_source("dialect-cann-bitcode"))
+        fn = next(
+            n
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name == "raw_score_tiles"
+        )
+        assignments = {
+            n.targets[0].id: n.value for n in ast.walk(fn) if isinstance(n, ast.Assign)
+        }
+        for name, operand in (
+            ("q_base", "PQ"),
+            ("key_base", "PK"),
+            ("weight_base", "PW"),
+            ("output_base", "Raw"),
+        ):
+            self.assertEqual(
+                ast.unparse(assignments[name]), f"tl.cast({operand}, tl.uint64)"
+            )
+        for unit in (0, 1, 5, 159):
+            group, tile = divmod(unit, 5)
+            scope = dict(
+                group=Index(group),
+                tile=Index(tile),
+                unit=Index(unit),
+                q_base=0x100000,
+                key_base=0x200000,
+                weight_base=0x300000,
+                output_base=0x400000,
+                tl=SimpleNamespace(uint64="u64"),
+            )
+            wanted = dict(
+                q=0x100000 + group * 16 * 128,
+                key=0x200000 + tile * 64 * 128,
+                weight=0x300000 + group * 16 * 16 * struct.calcsize("e"),
+                output=0x400000 + unit * 16 * 64 * struct.calcsize("f"),
+            )
+            for name, expected in wanted.items():
+                actual = eval(
+                    compile(ast.Expression(assignments[name]), "addresses", "eval"),
+                    scope,
+                )
+                self.assertEqual(actual, expected)
+
+    def test_ir_gate_rejects_the_returned_offset_view_lowering(self):
+        bad = (
+            "%view = memref.reinterpret_cast %arg0 to offset: [%delta]\n"
+            "%p = memref.extract_aligned_pointer_as_index %view : memref<1xf16> -> index"
+        )
+        with self.assertRaisesRegex(RuntimeError, "offset_views"):
+            check_address_ir(bad)
+        good = "\n".join(
+            f"%p{i} = memref.extract_aligned_pointer_as_index %arg{i} : memref<?xi8> -> index"
+            for i in range(4)
+        )
+        self.assertEqual(check_address_ir(good)["base_pointer_extractions"], 4)
+        with self.assertRaises(RuntimeError):
+            check_address_ir("")
+
     def test_nz_addresses_against_independent_block_enumeration(self):
         for rows, columns, c0 in ((16, 128, 32), (64, 128, 32), (16, 16, 16)):
             order = [

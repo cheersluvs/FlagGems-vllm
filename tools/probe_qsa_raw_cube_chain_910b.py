@@ -931,7 +931,7 @@ def execute(args, report, result, save):
                     flush=True,
                 )
                 save()
-                if seed != 13:
+                if seed != 13 or args.score_chunks:
                     continue
                 logical_q, logical_key, logical_weight = [
                     t.to(device) for t in (q, key, weight)
