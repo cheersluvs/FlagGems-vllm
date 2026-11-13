@@ -228,3 +228,15 @@ existing correctness and paired timing, consistently using the selected options.
 If neither configuration is coherent, report the matrix and execute no target
 kernel. This bounds the configuration experiment rather than trying unrelated
 compiler flags or injecting dummy Dot operations.
+
+## Configuration experiment closeout
+
+Report 428ef49099c3138fc271968664cd0b2efa9e9533 compiled all four entries,
+but both requested configurations returned mix_mode=aiv and bs_task_type=20.
+QK binaries are identical across configurations, as are the full-chain binaries.
+The installed parser overwrite and loader-mode dependency were confirmed from
+the actual source snapshots. No target kernel executed. Stop the public-option
+experiment here and retain this as a compiler metadata/registration limitation
+of the tested normal entry; it is not a hardware correctness or speedup result.
+See [the focused issue material](qsa_raw_cube_core_mode_issue_20261113.md) for
+the matrix, immutable evidence, source lines and proposed repair boundary.
