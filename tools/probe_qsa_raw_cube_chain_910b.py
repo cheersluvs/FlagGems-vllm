@@ -1,0 +1,626 @@
+# Copyright 2026 FlagOS Contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Check custom-op ABI, two-Cube local handoff, correctness and kernel timing."""
+
+import argparse
+import gzip
+import hashlib
+import importlib.util
+import inspect
+import json
+import math
+import os
+import re
+import shutil
+import statistics
+import subprocess
+import sys
+import traceback
+from pathlib import Path
+from unittest.mock import patch
+
+M, K, N = 16, 128, 64
+
+
+class MissingPrerequisite(RuntimeError):
+    pass
+
+
+def write_json(path, value):
+    temporary = path.with_suffix(".pending")
+    temporary.write_text(json.dumps(value, indent=2, allow_nan=False))
+    temporary.replace(path)
+
+
+def command(args, report, label, timeout=180):
+    (report / f"{label}-command.json").write_text(json.dumps(args, indent=2))
+    print(f"BUILD {label}: {args[0]}", flush=True)
+    try:
+        result = subprocess.run(args, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        for field in ("stdout", "stderr"):
+            (report / f"{label}-{field}.txt").write_bytes(getattr(exc, field) or b"")
+        raise
+    for field in ("stdout", "stderr"):
+        data = getattr(result, field)
+        (report / f"{label}-{field}.txt").write_bytes(data)
+    if result.returncode:
+        raise RuntimeError(
+            f"{label} exit={result.returncode}: "
+            + result.stderr.decode(errors="replace")[-6000:]
+        )
+    print(f"BUILD {label}: passed", flush=True)
+    return result.stdout.decode(errors="replace")
+
+
+def tool(name, ccec=None):
+    override = os.environ.get(name.upper().replace("-", "_"))
+    candidates = [override, shutil.which(name)]
+    if ccec:
+        candidates.insert(1, str(Path(ccec).parent / name))
+    if name == "ccec" and os.environ.get("TRITON_NPU_COMPILER_PATH"):
+        candidates.append(str(Path(os.environ["TRITON_NPU_COMPILER_PATH"]) / name))
+    return next((v for v in candidates if v and Path(v).is_file()), None)
+
+
+def include_dirs():
+    root = Path(
+        os.environ.get("ASCEND_HOME_PATH", "/usr/local/Ascend/ascend-toolkit/latest")
+    )
+    candidates = [
+        root / "compiler/tikcpp/tikcfw",
+        root / "include/ascendc",
+        root / "include",
+        root / "tools/tikcpp/tikcfw",
+    ]
+    extra = os.environ.get("QSA_CANN_INCLUDES", "")
+    candidates.extend(Path(v) for v in extra.split(os.pathsep) if v)
+    headers = []
+    for base in candidates:
+        if not base.is_dir():
+            continue
+        for relative in (
+            "kernel_operator.h",
+            "interface/kernel_operator.h",
+            "basic_api/kernel_operator.h",
+        ):
+            header = base / relative
+            if header.is_file():
+                headers.append(header)
+    if not headers:
+        raise MissingPrerequisite(
+            f"kernel_operator.h missing below {root}; set QSA_CANN_INCLUDES to its include directories"
+        )
+    dirs = set()
+    for header in headers:
+        base = header.parent
+        if base.name in ("interface", "basic_api"):
+            base = base.parent
+        dirs.update((base, base.parent, header.parent))
+        dirs.update(
+            base / name for name in ("interface", "impl", "basic_api", "adv_api")
+        )
+    dirs.update(Path(v) for v in extra.split(os.pathsep) if v)
+    return sorted(str(p.resolve()) for p in dirs if p.is_dir())
+
+
+def inspect_bitcode(text):
+    calls = [
+        line.strip()
+        for line in text.splitlines()
+        if re.search(r"\b(?:call|invoke)\b", line)
+    ]
+    patterns = dict(
+        matrix_calls=r"(?:mmad|mma[._]|matmul)",
+        cc_to_cbuf=r"(?:cc|l0c).*to.*(?:cbuf|l1)",
+        prequant=r"(?:set[._]?deq|set[._]?fpc|pre[._]?quant)",
+    )
+    found = {
+        name: [line for line in calls if re.search(pattern, line, re.I)]
+        for name, pattern in patterns.items()
+    }
+    # Attribute constants and final opcode interpretation still need human review;
+    # do not infer a fused ReLU solely from the numerical reference.
+    return dict(
+        exported_symbols=all(
+            f"_mlir_ciface_{name}" in text for name in ("qsa_raw_qk", "qsa_raw_chain")
+        ),
+        **found,
+        candidate_structure_present=(
+            len(found["matrix_calls"]) >= 2 and bool(found["cc_to_cbuf"])
+        ),
+        relu_mode="Requested by C++ DataCopyCO12DstParams.reluPre=1; retain LLVM arguments for review",
+        scope="Custom bitcode structure, not a hardware traffic or overlap measurement",
+    )
+
+
+def build_bitcode(report, result):
+    ccec = tool("ccec")
+    linker = tool("llvm-link", ccec)
+    dis = tool("llvm-dis", ccec)
+    if not all((ccec, linker, dis)):
+        raise MissingPrerequisite(
+            f"Need ccec/llvm-link/llvm-dis: {ccec}, {linker}, {dis}"
+        )
+    includes = include_dirs()
+    source = Path(__file__).with_name("qsa_raw_cube_chain_910b.cpp")
+    result["toolchain"] = dict(
+        ccec=ccec, llvm_link=linker, llvm_dis=dis, includes=includes
+    )
+    result["toolchain"]["version"] = command(
+        [ccec, "--version"], report, "ccec-version", 30
+    )
+    result["source_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
+    (report / "custom-source.cpp.txt").write_bytes(source.read_bytes())
+    common = [
+        ccec,
+        "-O2",
+        "-x",
+        "cce",
+        "--cce-auto-sync=off",
+        "--cce-aicore-only",
+        "--cce-generic-addrspace=off",
+        "-mllvm",
+        "-disable-llvm-optzns",
+        "--cce-aicore-arch=dav-c220-cube",
+        "-std=c++17",
+    ]
+    for directory in includes:
+        common.extend(["-I", directory])
+    paths = []
+    for name, extra in (
+        ("plain", []),
+        ("mix", ["-cce-enable-mix", "-mllvm", "-enable-mix=true"]),
+    ):
+        path = report / f"custom-{name}.bc"
+        command(
+            [*common, *extra, str(source), "-emit-llvm", "-c", "-o", str(path)],
+            report,
+            f"ccec-{name}",
+        )
+        paths.append(path)
+    output = report / "custom-linked.bc"
+    command([linker, *map(str, paths), "-o", str(output)], report, "llvm-link")
+    llvm = report / "custom-plain.ll.txt"
+    command([dis, str(paths[0]), "-o", str(llvm)], report, "llvm-dis")
+    result["bitcode_structure"] = inspect_bitcode(llvm.read_text())
+    result["bitcode_sha256"] = hashlib.sha256(output.read_bytes()).hexdigest()
+    for path in [*paths, output]:
+        with gzip.open(str(path) + ".gz", "wb") as stream:
+            stream.write(path.read_bytes())
+    return output
+
+
+def bind_ops(bitcode, result):
+    import triton.language.extra.cann.extension as al
+
+    try:
+        import triton.experimental.tle.language.raw as raw
+        from triton.experimental.tle.raw import dialect
+        from triton.experimental.tle.raw.cann import CANNJITFunction
+
+        if not callable(getattr(raw, "call", None)):
+            raise ImportError("tle language raw.call absent")
+    except ImportError as exc:
+        result["object_entry"] = dict(available=False, error=repr(exc))
+        result["entry"] = "process-local-registry-bitcode"
+        result["entry_scope"] = (
+            "Same bitcode, no installed package edits; object/source-JIT entry not proven"
+        )
+
+        def register(name):
+            def initialize(self, q, key, weight, scale_bits, out=None):
+                self.symbol, self.bitcode = name, str(bitcode)
+
+            cls = type(
+                name,
+                (),
+                dict(
+                    core=al.CORE.CUBE,
+                    pipe=al.PIPE.PIPE_M,
+                    mode=al.MODE.SIMD,
+                    __init__=initialize,
+                ),
+            )
+            al.register_custom_op(cls)
+
+        for name in ("qsa_raw_qk", "qsa_raw_chain"):
+            register(name)
+        return {}
+    result["object_entry"] = dict(
+        available=True,
+        runtime=inspect.getfile(CANNJITFunction),
+        signature=str(inspect.signature(CANNJITFunction)),
+    )
+    result["entry"] = "dialect-cann-bitcode"
+    result["entry_scope"] = (
+        "Operator-owned C++ compiled above; object bitcode path, not built-in source-JIT validation"
+    )
+    bound = {}
+    for name in ("qsa_raw_qk", "qsa_raw_chain"):
+
+        def stub(*args, **kwargs):
+            pass
+
+        stub.__name__ = name
+        bound[name] = dialect(
+            name="cann",
+            file=str(bitcode),
+            format="bitcode",
+            extern_func_name=name,
+            pipeline={"core": "cube", "pipe": "PIPE_M"},
+        )(stub)
+    return bound
+
+
+def wrapper_source(entry):
+    if entry == "dialect-cann-bitcode":
+        imports = "import triton.experimental.tle.language.raw as raw"
+        chain = "raw.call(chain_op, [q, key, weight, bits, output], output_indices=[4])"
+        qk = "raw.call(qk_op, [q, key, weight, bits, output], output_indices=[4])"
+    else:
+        imports = "import triton.experimental.tle as tle"
+        chain = 'tle.dsa.ascend.raw("qsa_raw_chain", q, key, weight, bits, out=output)'
+        qk = 'tle.dsa.ascend.raw("qsa_raw_qk", q, key, weight, bits, out=output)'
+    return f"""
+import triton
+import triton.language as tl
+{imports}
+
+@triton.jit
+def custom(Q, Key, Weight, Out, SCALE_BITS:tl.constexpr, CHAIN:tl.constexpr):
+    q, key, weight, output = Q, Key, Weight, Out
+    bits = tl.full((), SCALE_BITS, tl.int64)
+    if CHAIN:
+        {chain}
+    else:
+        {qk}
+
+@triton.jit
+def reference(Q, Key, Weight, Out, SCALE:tl.constexpr):
+    m = tl.arange(0,16)
+    k = tl.arange(0,128)
+    n = tl.arange(0,64)
+    q = tl.load(Q + m[:,None]*128 + k[None,:])
+    key = tl.load(Key + n[None,:]*128 + k[:,None])
+    dot = tl.dot(q, key, out_dtype=tl.int32)
+    positive = tl.maximum(dot.to(tl.float32)*SCALE, 0).to(tl.float16)
+    weight = tl.load(Weight + m[:,None]*16 + m[None,:])
+    out = tl.dot(weight, positive, out_dtype=tl.float32)
+    tl.store(Out + m[:,None]*64 + n[None,:], out)
+"""
+
+
+def pack_nz(value, c0):
+    rows, columns = value.shape
+    if rows % 16 or columns % c0:
+        raise ValueError("NZ pack requires aligned rows and columns")
+    return (
+        value.reshape(rows // 16, 16, columns // c0, c0)
+        .permute(2, 0, 1, 3)
+        .contiguous()
+        .flatten()
+    )
+
+
+def fixtures(torch):
+    for seed in (13, 71, 109):
+        gen = torch.Generator().manual_seed(seed)
+        q = torch.randint(-8, 9, (M, K), dtype=torch.int8, generator=gen)
+        key = torch.randint(-8, 9, (N, K), dtype=torch.int8, generator=gen)
+        q[0].fill_(8)
+        q[0, 0] = 7
+        q[1] = -q[0]
+        q[2].zero_()
+        key[0].fill_(4)
+        key[0, 0] = 5
+        key[1] = -key[0]
+        dot = q.int() @ key.int().T
+        assert int(dot[0, 0]) == 4099 and int(dot[1, 0]) == -4099
+        yield seed, q, key, dot
+
+
+def save_asm(kernel, report, label):
+    inventory = []
+    for name, data in kernel.asm.items():
+        if isinstance(data, str):
+            (report / f"{label}-{name}.txt").write_text(data)
+            inventory.append(dict(kind=name, bytes=len(data)))
+        elif isinstance(data, (bytes, bytearray)):
+            with gzip.open(report / f"{label}-{name}.bin.gz", "wb") as stream:
+                stream.write(data)
+            inventory.append(dict(kind=name, bytes=len(data), binary=True))
+    return inventory
+
+
+def execute(args, report, result, save):
+    import torch
+    import torch_npu  # noqa: F401
+    import triton
+    from diagnose_qsa_structural_mixed_compile_910b import CaptureCompiler
+    from triton.backends.ascend import compiler
+    from triton.backends.ascend.testing import do_bench_npu
+
+    torch.npu.set_device(args.device)
+    device = f"npu:{args.device}"
+    result["environment"] = dict(
+        torch=torch.__version__,
+        triton=triton.__version__,
+        triton_source=triton.__file__,
+        device=torch.npu.get_device_name(args.device),
+        ascend_home=os.environ.get("ASCEND_HOME_PATH"),
+        opp=os.environ.get("ASCEND_OPP_PATH"),
+    )
+    if "910B" not in result["environment"]["device"].upper():
+        raise MissingPrerequisite(
+            "This fixed dav-c220 probe requires an Ascend910B device"
+        )
+    bindings = bind_ops(report / "custom-linked.bc", result)
+    print("ENVIRONMENT " + json.dumps(result["environment"]), flush=True)
+    print(f"CUSTOM_ENTRY {result['entry']}", flush=True)
+    result["phase"] = "compile_operator_owned_bitcode"
+    save()
+    build_bitcode(report, result)
+    save()
+    source = report / "raw-kernels.py"
+    source.write_text(wrapper_source(result["entry"]))
+    (report / "raw-kernels-source.txt").write_bytes(source.read_bytes())
+    spec = importlib.util.spec_from_file_location("_qsa_raw_chain", source)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    if bindings:
+        module.qk_op, module.chain_op = (
+            bindings["qsa_raw_qk"],
+            bindings["qsa_raw_chain"],
+        )
+    signature = inspect.signature(do_bench_npu)
+    options = {
+        key: value
+        for key, value in dict(warmup=args.warmup, active=args.active).items()
+        if key in signature.parameters
+    }
+    if len(options) != 2:
+        raise MissingPrerequisite(
+            "do_bench_npu needs explicit warmup/active parameters"
+        )
+    if "clear_l2_cache" in signature.parameters:
+        options["clear_l2_cache"] = False
+    result["timer"] = dict(
+        name="triton.backends.ascend.testing.do_bench_npu",
+        signature=str(signature),
+        options=options,
+        scope="Single-program diagnostic; prepared NZ weights/inputs; not QSA acceptance",
+    )
+    result["checks"], result["timings"] = [], []
+    for seed, q, key, dot in fixtures(torch):
+        q_nz, key_nz = [pack_nz(t, 32).to(device) for t in (q, key)]
+        weights = {"identity": torch.eye(M, dtype=torch.float16)}
+        grouped = torch.zeros((M, M), dtype=torch.float16)
+        for row in range(4):
+            grouped[row, row * 4 : row * 4 + 4] = torch.tensor(
+                [0.25, 0.5, 1, 1.5]
+            ).half()
+        weights["grouped"] = grouped
+        for kind, weight in weights.items():
+            # L1 weights store W.T; the CANN LoadData2D transpose forms W in L0A.
+            w_nz = pack_nz(weight.T.contiguous(), 16).to(device)
+            if kind == "identity":
+                label = f"qk-seed{seed}"
+                result["phase"] = label
+                capture = CaptureCompiler(report, label)
+                raw = torch.full((M, N), 2**30, device=device, dtype=torch.int32)
+                try:
+                    with patch.object(compiler, "subprocess", capture):
+                        kernel = module.custom.warmup(
+                            q_nz, key_nz, w_nz, raw, 0x3F800000, False, grid=(1,)
+                        )
+                finally:
+                    result["last_compiler_calls"] = capture.calls
+                    save()
+                result["checks"].append(
+                    dict(
+                        label=label,
+                        status="compiled",
+                        compiler_calls=capture.calls,
+                        asm=save_asm(kernel, report, label),
+                    )
+                )
+                save()
+                module.custom[(1,)](q_nz, key_nz, w_nz, raw, 0x3F800000, False)
+                torch.npu.synchronize()
+                torch.testing.assert_close(raw.cpu(), dot, rtol=0, atol=0)
+                result["checks"][-1]["status"] = "passed"
+                print(
+                    f"QK seed={seed}: exact INT32 passed, min={int(dot.min())}, max={int(dot.max())}",
+                    flush=True,
+                )
+                save()
+            for scale_bits, scale in ((0x3F800000, 1.0), (0x3A800000, 1 / 1024)):
+                label = f"chain-{kind}-seed{seed}-scale{scale_bits:x}"
+                result["phase"] = label
+                output = torch.full((M, N), float("nan"), device=device)
+                reference_output = torch.empty_like(output)
+                expected = (
+                    weight.float() @ (dot.float() * scale).clamp_min(0).half().float()
+                )
+                capture = CaptureCompiler(report, label)
+                try:
+                    with patch.object(compiler, "subprocess", capture):
+                        compiled = module.custom.warmup(
+                            q_nz, key_nz, w_nz, output, scale_bits, True, grid=(1,)
+                        )
+                finally:
+                    result["last_compiler_calls"] = capture.calls
+                    save()
+                result["checks"].append(
+                    dict(
+                        label=label,
+                        status="compiled",
+                        compiler_calls=capture.calls,
+                        asm=save_asm(compiled, report, label),
+                    )
+                )
+                save()
+                custom = lambda: module.custom[(1,)](
+                    q_nz, key_nz, w_nz, output, scale_bits, True
+                )
+                custom()
+                torch.npu.synchronize()
+                actual = output.cpu()
+                torch.testing.assert_close(actual, expected, rtol=1e-3, atol=1e-3)
+                check = result["checks"][-1]
+                check.update(
+                    status="passed",
+                    max_abs_error=float((actual - expected).abs().max()),
+                )
+                print(
+                    f"CHAIN {label}: passed max_abs_error={check['max_abs_error']:.6g}",
+                    flush=True,
+                )
+                save()
+                if seed != 13:
+                    continue
+                logical_q, logical_key, logical_weight = [
+                    t.to(device) for t in (q, key, weight)
+                ]
+                reference = lambda: module.reference[(1,)](
+                    logical_q, logical_key, logical_weight, reference_output, scale
+                )
+                ref_kernel = module.reference.warmup(
+                    logical_q,
+                    logical_key,
+                    logical_weight,
+                    reference_output,
+                    scale,
+                    grid=(1,),
+                )
+                save_asm(ref_kernel, report, f"reference-{kind}-{scale_bits:x}")
+                reference()
+                torch.npu.synchronize()
+                torch.testing.assert_close(
+                    reference_output.cpu(), expected, rtol=1e-3, atol=1e-3
+                )
+                samples = dict(custom=[], reference=[])
+                for round_index in range(args.rounds):
+                    for name in (
+                        ("custom", "reference")
+                        if round_index % 2 == 0
+                        else ("reference", "custom")
+                    ):
+                        value = (
+                            float(
+                                do_bench_npu(
+                                    custom if name == "custom" else reference, **options
+                                )
+                            )
+                            * 1000
+                        )
+                        if not math.isfinite(value) or value <= 0:
+                            raise RuntimeError(f"Invalid kernel_us={value}")
+                        samples[name].append(value)
+                        print(
+                            f"TIME {label} round={round_index + 1} {name}={value:.3f} us",
+                            flush=True,
+                        )
+                ratio = statistics.median(samples["reference"]) / statistics.median(
+                    samples["custom"]
+                )
+                result["timings"].append(
+                    dict(label=label, kernel_us=samples, reference_over_custom=ratio)
+                )
+                print(
+                    f"RATIO {label}: reference/custom={ratio:.4f}x (micro probe)",
+                    flush=True,
+                )
+                save()
+    structural = result["bitcode_structure"]
+    result["numeric_chain_passed"] = True
+    result["local_chain_supported"] = bool(
+        structural["exported_symbols"] and structural["candidate_structure_present"]
+    )
+    result["pipeline_proven"] = False
+    result["pending_evidence"] = (
+        "Review CC-to-CBUF call arguments for DEQF16/ReLU and final generated code; no traffic or overlap measurement"
+    )
+    result["outcome"] = (
+        "passed_basic_structural_and_numerical_checks"
+        if result["local_chain_supported"]
+        else "numerically_passed_structure_needs_review"
+    )
+    if not result["local_chain_supported"]:
+        raise RuntimeError(
+            "Numerical checks passed; LLVM did not establish the requested local dataflow"
+        )
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--report", required=True, type=Path)
+    parser.add_argument("--device", default=0, type=int)
+    parser.add_argument("--rounds", default=2, type=int, choices=(1, 2, 3, 4))
+    parser.add_argument("--warmup", default=3, type=int)
+    parser.add_argument("--active", default=10, type=int)
+    args = parser.parse_args()
+    if args.warmup < 1 or args.active < 1:
+        parser.error("warmup and active must be positive")
+    args.report.mkdir(parents=True, exist_ok=True)
+    result = dict(
+        status="running",
+        phase="prerequisites",
+        pipeline_proven=False,
+        scope="Operator-owned native custom-op feasibility, no production changes",
+    )
+    path = args.report / "raw-cube-chain.json"
+    save = lambda: write_json(path, result)
+    save()
+    status = 0
+    try:
+        execute(args, args.report, result, save)
+        result["status"] = "passed"
+    except (MissingPrerequisite, ImportError) as exc:
+        result.update(status="prerequisites_missing", error=repr(exc))
+        status = 2
+    except Exception as exc:
+        result.update(status="failed", error=repr(exc))
+        (args.report / "failure-traceback.txt").write_text(traceback.format_exc())
+        traceback.print_exc()
+        status = 1
+    finally:
+        result["exit_code"] = status
+        save()
+        summary = {
+            key: result[key]
+            for key in (
+                "status",
+                "phase",
+                "entry",
+                "outcome",
+                "error",
+                "numeric_chain_passed",
+                "local_chain_supported",
+                "pipeline_proven",
+                "pending_evidence",
+                "exit_code",
+            )
+            if key in result
+        }
+        summary["report"] = str(path)
+        print("RAW_CUBE_SUMMARY " + json.dumps(summary, allow_nan=False), flush=True)
+    return status
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
