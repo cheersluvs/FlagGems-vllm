@@ -1,0 +1,81 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_finish_join1(Raw, KS, Table, row, tile, visible,
+                     WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    c = tl.arange(0,64)
+    first = tile*64
+    col = first+c
+    segment_live = (first<WIDTH)&(first<visible)
+    # Keep even the inactive pointer in bounds if scalar masked loads speculate.
+    page = tl.where(segment_live,tile//3,0)
+    physical = tl.load(Table+page,mask=segment_live,other=0)
+    safe_tile = tl.where(segment_live,tile,0)
+    key_base = physical.to(tl.int64)*192+safe_tile%3*64
+    raw_base = ((row//16)*RAW_TILES+safe_tile)*1024+row%16*64
+    live = (col<WIDTH)&(col<visible)
+    ks = tl.load(KS+key_base+c,mask=live,other=0).to(tl.float32)
+    value = tl.load(Raw+raw_base+c,mask=live,other=0)*ks
+    return tl.where(live,value,-float("inf"))
+
+@triton.jit
+def raw_finish_join2(Raw, KS, Table, row, tile, visible,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    left = raw_finish_join1(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
+    right = raw_finish_join1(Raw,KS,Table,row,tile+1,visible,WIDTH,RAW_TILES)
+    return tl.cat(left,right,can_reorder=False)
+
+@triton.jit
+def raw_finish_join4(Raw, KS, Table, row, tile, visible,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    left = raw_finish_join2(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
+    right = raw_finish_join2(Raw,KS,Table,row,tile+2,visible,WIDTH,RAW_TILES)
+    return tl.cat(left,right,can_reorder=False)
+
+@triton.jit
+def raw_finish_join8(Raw, KS, Table, row, tile, visible,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    left = raw_finish_join4(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
+    right = raw_finish_join4(Raw,KS,Table,row,tile+4,visible,WIDTH,RAW_TILES)
+    return tl.cat(left,right,can_reorder=False)
+
+@triton.jit
+def raw_finish_join16(Raw, KS, Table, row, tile, visible,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    left = raw_finish_join8(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
+    right = raw_finish_join8(Raw,KS,Table,row,tile+8,visible,WIDTH,RAW_TILES)
+    return tl.cat(left,right,can_reorder=False)
+
+@triton.jit
+def raw_finish_merge256(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,256),CORES):
+        row = unit//triton.cdiv(WIDTH,256)
+        block = unit%triton.cdiv(WIDTH,256)
+        visible = tl.load(Visible+row)
+        value = raw_finish_join4(Raw,KS,Table,row,block*4,visible,WIDTH,RAW_TILES)
+        col = block*256+tl.arange(0,256)
+        tl.store(Out+row*WIDTH+col,value,mask=col<WIDTH)
+
+@triton.jit
+def raw_finish_merge512(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,512),CORES):
+        row = unit//triton.cdiv(WIDTH,512)
+        block = unit%triton.cdiv(WIDTH,512)
+        visible = tl.load(Visible+row)
+        value = raw_finish_join8(Raw,KS,Table,row,block*8,visible,WIDTH,RAW_TILES)
+        col = block*512+tl.arange(0,512)
+        tl.store(Out+row*WIDTH+col,value,mask=col<WIDTH)
+
+@triton.jit
+def raw_finish_merge1024(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,1024),CORES):
+        row = unit//triton.cdiv(WIDTH,1024)
+        block = unit%triton.cdiv(WIDTH,1024)
+        visible = tl.load(Visible+row)
+        value = raw_finish_join16(Raw,KS,Table,row,block*16,visible,WIDTH,RAW_TILES)
+        col = block*1024+tl.arange(0,1024)
+        tl.store(Out+row*WIDTH+col,value,mask=col<WIDTH)

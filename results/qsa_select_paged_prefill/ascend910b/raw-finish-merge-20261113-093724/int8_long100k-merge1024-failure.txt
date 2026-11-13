@@ -1,0 +1,262 @@
+Traceback (most recent call last):
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1455, in call_Function
+    ret = fn(*args, **extra_kwargs, **kws)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/language/core.py", line 43, in wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/language/core.py", line 1789, in cat
+    return _semantic.cat(input, other, can_reorder)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/language/semantic.py", line 701, in cat
+    assert can_reorder, "current implementation of `cat` always may reorder elements"
+           ^^^^^^^^^^^
+AssertionError: current implementation of `cat` always may reorder elements
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1403, in call_JitFunction
+    generator.visit(fn.parse())
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 563, in visit_Module
+    ast.NodeVisitor.generic_visit(self, node)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 661, in visit_FunctionDef
+    self.visit_compound_statement(node.body)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 555, in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 588, in visit_Return
+    ret_value = self.visit(node.value)
+                ^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1510, in visit_Call
+    return self.call_Function(node, fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1472, in call_Function
+    raise CompilationError(self.jit_fn.src, node, repr(e)) from e
+triton.compiler.errors.CompilationError: at 5:11:
+def raw_finish_join2(Raw, KS, Table, row, tile, visible,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    left = raw_finish_join1(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
+    right = raw_finish_join1(Raw,KS,Table,row,tile+1,visible,WIDTH,RAW_TILES)
+    return tl.cat(left,right,can_reorder=False)
+           ^
+AssertionError('current implementation of `cat` always may reorder elements')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1403, in call_JitFunction
+    generator.visit(fn.parse())
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 563, in visit_Module
+    ast.NodeVisitor.generic_visit(self, node)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 661, in visit_FunctionDef
+    self.visit_compound_statement(node.body)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 555, in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 737, in visit_Assign
+    values = _sanitize_value(self.visit(node.value))
+                             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1510, in visit_Call
+    return self.call_Function(node, fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1428, in call_Function
+    return self.call_JitFunction(fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1408, in call_JitFunction
+    raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from e
+triton.compiler.errors.CompilationError: at 3:11:
+def raw_finish_join4(Raw, KS, Table, row, tile, visible,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    left = raw_finish_join2(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
+           ^
+CompilationError('def raw_finish_join2(Raw, KS, Table, row, tile, visible,\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\n    left = raw_finish_join1(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\n    right = raw_finish_join1(Raw,KS,Table,row,tile+1,visible,WIDTH,RAW_TILES)\n    return tl.cat(left,right,can_reorder=False)\n', <ast.Call object at 0xfffab4ad50f0>, "AssertionError('current implementation of `cat` always may reorder elements')")
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1403, in call_JitFunction
+    generator.visit(fn.parse())
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 563, in visit_Module
+    ast.NodeVisitor.generic_visit(self, node)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 661, in visit_FunctionDef
+    self.visit_compound_statement(node.body)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 555, in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 737, in visit_Assign
+    values = _sanitize_value(self.visit(node.value))
+                             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1510, in visit_Call
+    return self.call_Function(node, fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1428, in call_Function
+    return self.call_JitFunction(fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1408, in call_JitFunction
+    raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from e
+triton.compiler.errors.CompilationError: at 3:11:
+def raw_finish_join8(Raw, KS, Table, row, tile, visible,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    left = raw_finish_join4(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
+           ^
+CompilationError('def raw_finish_join4(Raw, KS, Table, row, tile, visible,\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\n    left = raw_finish_join2(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\n    right = raw_finish_join2(Raw,KS,Table,row,tile+2,visible,WIDTH,RAW_TILES)\n    return tl.cat(left,right,can_reorder=False)\n', <ast.Call object at 0xfffbafe41060>, 'CompilationError(\'def raw_finish_join2(Raw, KS, Table, row, tile, visible,\\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\\n    left = raw_finish_join1(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\\n    right = raw_finish_join1(Raw,KS,Table,row,tile+1,visible,WIDTH,RAW_TILES)\\n    return tl.cat(left,right,can_reorder=False)\\n\', <ast.Call object at 0xfffab4ad50f0>, "AssertionError(\'current implementation of `cat` always may reorder elements\')")')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1403, in call_JitFunction
+    generator.visit(fn.parse())
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 563, in visit_Module
+    ast.NodeVisitor.generic_visit(self, node)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 661, in visit_FunctionDef
+    self.visit_compound_statement(node.body)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 555, in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 737, in visit_Assign
+    values = _sanitize_value(self.visit(node.value))
+                             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1510, in visit_Call
+    return self.call_Function(node, fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1428, in call_Function
+    return self.call_JitFunction(fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1408, in call_JitFunction
+    raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from e
+triton.compiler.errors.CompilationError: at 3:11:
+def raw_finish_join16(Raw, KS, Table, row, tile, visible,
+                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):
+    left = raw_finish_join8(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)
+           ^
+CompilationError('def raw_finish_join8(Raw, KS, Table, row, tile, visible,\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\n    left = raw_finish_join4(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\n    right = raw_finish_join4(Raw,KS,Table,row,tile+4,visible,WIDTH,RAW_TILES)\n    return tl.cat(left,right,can_reorder=False)\n', <ast.Call object at 0xfffbafe0ed10>, 'CompilationError(\'def raw_finish_join4(Raw, KS, Table, row, tile, visible,\\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\\n    left = raw_finish_join2(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\\n    right = raw_finish_join2(Raw,KS,Table,row,tile+2,visible,WIDTH,RAW_TILES)\\n    return tl.cat(left,right,can_reorder=False)\\n\', <ast.Call object at 0xfffbafe41060>, \'CompilationError(\\\'def raw_finish_join2(Raw, KS, Table, row, tile, visible,\\\\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\\\\n    left = raw_finish_join1(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\\\\n    right = raw_finish_join1(Raw,KS,Table,row,tile+1,visible,WIDTH,RAW_TILES)\\\\n    return tl.cat(left,right,can_reorder=False)\\\\n\\\', <ast.Call object at 0xfffab4ad50f0>, "AssertionError(\\\'current implementation of `cat` always may reorder elements\\\')")\')')
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-finish-merge.aqRiSCpl/tools/qsa_finish_merge_probe_910b.py", line 224, in run_probe
+    kernel = launch()
+             ^^^^^^^^
+  File "/tmp/flaggems-qsa-finish-merge.aqRiSCpl/tools/qsa_finish_merge_probe_910b.py", line 132, in launch
+    return kernel[(cores,)](
+           ^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 420, in <lambda>
+    return lambda *args, **kwargs: self.run(grid=grid, warmup=False, *args, **kwargs)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 736, in run
+    kernel = self._do_compile(key, signature, device, constexprs, options, attrs, warmup)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/runtime/jit.py", line 864, in _do_compile
+    kernel = self.compile(src, target=target, options=options.__dict__)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/experimental/tle/__init__.py", line 83, in tle_compile
+    compiled_kernel = original_compile_fn(src, target, options)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/compiler.py", line 309, in compile
+    module = src.make_ir(target, options, codegen_fns, module_map, context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/compiler.py", line 83, in make_ir
+    return ast_to_ttir(self.fn, self, context=context, options=options, codegen_fns=codegen_fns,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1724, in ast_to_ttir
+    generator.visit(fn.parse())
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 563, in visit_Module
+    ast.NodeVisitor.generic_visit(self, node)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 661, in visit_FunctionDef
+    self.visit_compound_statement(node.body)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 555, in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1276, in visit_For
+    names, init_handles, init_tys = self._find_carries(node, liveins)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 516, in _find_carries
+    self.visit_compound_statement(node.body)
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 555, in visit_compound_statement
+    ret = self.visit(stmt)
+          ^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 737, in visit_Assign
+    values = _sanitize_value(self.visit(node.value))
+                             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1628, in visit
+    ret = super().visit(node)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1510, in visit_Call
+    return self.call_Function(node, fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1428, in call_Function
+    return self.call_JitFunction(fn, args, kws)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/qsa-raw-cube-chain.gZ4L5Skt/flagtree-corefix/triton/spec/ascend/compiler/code_generator.py", line 1408, in call_JitFunction
+    raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from e
+triton.compiler.errors.CompilationError: at 7:16:
+def raw_finish_merge1024(Raw, KS, Table, Visible, Out, ROWS:tl.constexpr,
+                            WIDTH:tl.constexpr,RAW_TILES:tl.constexpr,CORES:tl.constexpr):
+    for unit in range(tl.program_id(0),ROWS*triton.cdiv(WIDTH,1024),CORES):
+        row = unit//triton.cdiv(WIDTH,1024)
+        block = unit%triton.cdiv(WIDTH,1024)
+        visible = tl.load(Visible+row)
+        value = raw_finish_join16(Raw,KS,Table,row,block*16,visible,WIDTH,RAW_TILES)
+                ^
+CompilationError('def raw_finish_join16(Raw, KS, Table, row, tile, visible,\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\n    left = raw_finish_join8(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\n    right = raw_finish_join8(Raw,KS,Table,row,tile+8,visible,WIDTH,RAW_TILES)\n    return tl.cat(left,right,can_reorder=False)\n', <ast.Call object at 0xfffbafe0e7d0>, 'CompilationError(\'def raw_finish_join8(Raw, KS, Table, row, tile, visible,\\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\\n    left = raw_finish_join4(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\\n    right = raw_finish_join4(Raw,KS,Table,row,tile+4,visible,WIDTH,RAW_TILES)\\n    return tl.cat(left,right,can_reorder=False)\\n\', <ast.Call object at 0xfffbafe0ed10>, \'CompilationError(\\\'def raw_finish_join4(Raw, KS, Table, row, tile, visible,\\\\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\\\\n    left = raw_finish_join2(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\\\\n    right = raw_finish_join2(Raw,KS,Table,row,tile+2,visible,WIDTH,RAW_TILES)\\\\n    return tl.cat(left,right,can_reorder=False)\\\\n\\\', <ast.Call object at 0xfffbafe41060>, \\\'CompilationError(\\\\\\\'def raw_finish_join2(Raw, KS, Table, row, tile, visible,\\\\\\\\n                           WIDTH:tl.constexpr,RAW_TILES:tl.constexpr):\\\\\\\\n    left = raw_finish_join1(Raw,KS,Table,row,tile,visible,WIDTH,RAW_TILES)\\\\\\\\n    right = raw_finish_join1(Raw,KS,Table,row,tile+1,visible,WIDTH,RAW_TILES)\\\\\\\\n    return tl.cat(left,right,can_reorder=False)\\\\\\\\n\\\\\\\', <ast.Call object at 0xfffab4ad50f0>, "AssertionError(\\\\\\\'current implementation of `cat` always may reorder elements\\\\\\\')")\\\')\')')
