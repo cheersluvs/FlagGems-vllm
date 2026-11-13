@@ -1,0 +1,28 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_copy_k_grid(Src, Dst):
+    i = tl.program_id(0)*1024+tl.arange(0,1024)
+    tl.store(Dst+i,tl.load(Src+i))
+
+@triton.jit
+def raw_copy_out_grid(Src, Dst, WIDTH:tl.constexpr):
+    col = tl.program_id(1)*256+tl.arange(0,256)
+    i = tl.program_id(0)*WIDTH+col
+    value = tl.load(Src+i,mask=col<WIDTH,other=0)
+    tl.store(Dst+i,value,mask=col<WIDTH)
+
+@triton.jit
+def raw_copy_k_capped(Src, Dst, N:tl.constexpr, CORES:tl.constexpr):
+    for block in range(tl.program_id(0),triton.cdiv(N,1024),CORES):
+        i = block*1024+tl.arange(0,1024)
+        value = tl.load(Src+i,mask=i<N,other=0)
+        tl.store(Dst+i,value,mask=i<N)
+
+@triton.jit
+def raw_copy_out_capped(Src, Dst, N:tl.constexpr, CORES:tl.constexpr):
+    for block in range(tl.program_id(0),triton.cdiv(N,1024),CORES):
+        i = block*1024+tl.arange(0,1024)
+        value = tl.load(Src+i,mask=i<N,other=0)
+        tl.store(Dst+i,value,mask=i<N)
