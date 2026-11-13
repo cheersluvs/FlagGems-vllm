@@ -1004,6 +1004,23 @@ def execute(args, report, result, save):
         raise RuntimeError(
             "Numerical checks passed; LLVM did not establish the requested local dataflow"
         )
+    if args.score_chunks:
+        from qsa_raw_score_chunks_910b import run_chunks
+
+        result["phase"] = "representative-score-chunks"
+        save()
+        run_chunks(
+            args,
+            report,
+            result,
+            bindings,
+            compiler,
+            RawCompilerCapture,
+            save_asm,
+            record_launch_mode,
+            pack_nz,
+        )
+        save()
 
 
 def main():
@@ -1014,7 +1031,14 @@ def main():
     parser.add_argument("--rounds", default=2, type=int, choices=(1, 2, 3, 4))
     parser.add_argument("--warmup", default=3, type=int)
     parser.add_argument("--active", default=10, type=int)
+    parser.add_argument(
+        "--score-chunks",
+        action="store_true",
+        help="Audit final objects and compare three real INT8 chunks including device packing",
+    )
     args = parser.parse_args()
+    if args.score_chunks and args.abi != "address":
+        parser.error("--score-chunks requires the verified scalar-address ABI")
     if args.warmup < 1 or args.active < 1:
         parser.error("warmup and active must be positive")
     args.report.mkdir(parents=True, exist_ok=True)
@@ -1049,6 +1073,7 @@ def main():
                 "phase",
                 "entry",
                 "compiler_variant",
+                "score_chunks",
                 "outcome",
                 "error",
                 "numeric_chain_passed",

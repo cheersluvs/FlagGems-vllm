@@ -23,6 +23,13 @@ if [[ ${1:-} == --compiler-corefix ]]; then
     qsa_kind=raw-cube-corefix
     shift
 fi
+qsa_score_chunks=0
+for qsa_argument in "$@"; do
+    if [[ "$qsa_argument" == --score-chunks ]]; then
+        qsa_score_chunks=1
+        qsa_kind=raw-score-chunks
+    fi
+done
 # Re-activate after shell startup files have run; lock the environment at execution.
 if [[ -n "${QSA_ENV_ROOT:-}" ]]; then
     qsa_env_root=$(realpath -- "$QSA_ENV_ROOT") || exit 1
@@ -74,6 +81,11 @@ if [[ "$qsa_corefix" == 1 ]]; then
     fi
 fi
 printf 'Import check: %s\n' "$qsa_python"
+if [[ "$qsa_status" == 0 && "$qsa_score_chunks" == 1 ]]; then
+    "$qsa_python" -u "$qsa_repo/tools/test_qsa_raw_score_chunks.py" -v \
+        2>&1 | tee "$qsa_report/score-chunk-cpu-tests.txt"
+    qsa_status=${PIPESTATUS[0]}
+fi
 command -v timeout >/dev/null || { echo 'timeout is required'; exit 2; }
 if [[ "$qsa_status" == 0 ]]; then
     timeout --signal=TERM --kill-after=20 "$qsa_timeout" \
