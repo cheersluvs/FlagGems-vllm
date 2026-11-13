@@ -13,7 +13,7 @@ deep_opt.md are absent in this checkout.
 | Current op | QK INT8 -> L0C INT32 -> Fixpipe DEQF16/ReLU -> L1 half -> weighted half Cube -> GM FP32 |
 | Editable | New tools/probe_qsa_raw_cube_chain_910b.py, tools/qsa_raw_cube_chain_910b.cpp, tools/run_qsa_raw_cube_chain_910b.sh, this note |
 | Read-only | Production, existing tests, benchmark harness, CANN snapshots, installed compiler/packages |
-| Build | ccec ordinary/mix bitcode, llvm-link; bind through installed @dialect if available, otherwise explicit process-local registration |
+| Build | ccec ordinary AIC bitcode; pass directly to final kernel link through installed @dialect, otherwise explicit process-local registration |
 | Validation | Raw QK exact CPU INT32; identity and grouped-weight chains rtol=atol=1e-3; signed, zero, half-rounding fixtures |
 | Benchmark | Two reverse-order rounds, installed do_bench_npu (same timer as harness kernel mode), microseconds; larger ratio is faster |
 | Active set | One program M16/K128/N64, identity and grouped weights, three seeded fixtures, unit and 1/1024 prequant scales |
@@ -82,3 +82,22 @@ sibling compilation, not a disassembly of the linked bitcode. Preserve this
 evidence distinction; the actual linked bitcode, hash, compiler commands and
 final wrapper artifacts are still retained. No package installation or compiler
 modification is needed for this fallback.
+
+## Native header globals and the AIC-only module
+
+Report d33c12b65306ee578a8ce720b7422d554d73e310 (20261113-004453) compiled
+both the ordinary and mix C++ modules with ccec successfully. llvm-link then
+rejected their merge: g_tilingKey was multiply defined. There was no Triton
+wrapper compilation, device correctness check or timing. The successful C++
+compilations alone do not prove execution or the requested hardware dataflow.
+
+This experiment has only a Cube custom op and a pointer-only Triton wrapper,
+so it now supplies the single ordinary AIC bitcode directly to the final
+kernel compiler. It does not compile/merge the unused mix variant or require
+llvm-link. CANN globals are not stripped, renamed or patched. A future mixed
+AIC/AIV integration must independently resolve its module/ABI requirements;
+this probe does not establish that such an integration is supported.
+
+Save the successful bitcode archive before requesting LLVM text, so a failure
+later in text emission or Triton lowering/link still returns that artifact.
+The C++ math, memory allocation, scales and numerical comparisons are unchanged.

@@ -149,14 +149,17 @@ def inspect_bitcode(text):
 
 def build_bitcode(report, result):
     ccec = tool("ccec")
-    linker = tool("llvm-link", ccec)
     dis = tool("llvm-dis", ccec)
-    if not all((ccec, linker)):
-        raise MissingPrerequisite(f"Need ccec/llvm-link: {ccec}, {linker}")
+    if not ccec:
+        raise MissingPrerequisite("Need ccec")
     includes = include_dirs()
     source = Path(__file__).with_name("qsa_raw_cube_chain_910b.cpp")
     result["toolchain"] = dict(
-        ccec=ccec, llvm_link=linker, llvm_dis=dis, includes=includes
+        ccec=ccec,
+        llvm_dis=dis,
+        includes=includes,
+        bitcode_mode="ordinary-AIC-only",
+        mix_bitcode_merged=False,
     )
     result["toolchain"]["version"] = command(
         [ccec, "--version"], report, "ccec-version", 30
@@ -178,24 +181,25 @@ def build_bitcode(report, result):
     ]
     for directory in includes:
         common.extend(["-I", directory])
-    paths = []
-    for name, extra in (
-        ("plain", []),
-        ("mix", ["-cce-enable-mix", "-mllvm", "-enable-mix=true"]),
-    ):
-        path = report / f"custom-{name}.bc"
-        command(
-            [*common, *extra, str(source), "-emit-llvm", "-c", "-o", str(path)],
-            report,
-            f"ccec-{name}",
-        )
-        paths.append(path)
-    output = report / "custom-linked.bc"
-    command([linker, *map(str, paths), "-o", str(output)], report, "llvm-link")
+    # The pointer-only wrapper has one AIC custom op and no AIV scope. Use
+    # ordinary AIC bitcode directly. Native kernel_operator.h adds CANN globals
+    # (e.g. g_tilingKey); merging plain/mix copies duplicates those definitions.
+    # Do not strip or rename the globals to hide that ABI issue.
+    output = report / "custom-plain.bc"
+    command(
+        [*common, str(source), "-emit-llvm", "-c", "-o", str(output)],
+        report,
+        "ccec-plain",
+    )
+    result["bitcode_sha256"] = hashlib.sha256(output.read_bytes()).hexdigest()
+    # Preserve the successful native build even if text emission or a later
+    # Triton lowering/link fails. Only files at the report root are uploaded.
+    with gzip.open(str(output) + ".gz", "wb") as stream:
+        stream.write(output.read_bytes())
     llvm = report / "custom-plain.ll.txt"
     if dis:
         result["toolchain"]["llvm_text_method"] = "llvm-dis"
-        command([dis, str(paths[0]), "-o", str(llvm)], report, "llvm-dis")
+        command([dis, str(output), "-o", str(llvm)], report, "llvm-dis")
     else:
         # Some CANN distributions ship ccec/llvm-link but no llvm-dis. Emit
         # textual LLVM from the identical source/options instead of requiring
@@ -208,10 +212,6 @@ def build_bitcode(report, result):
             "ccec-llvm-text",
         )
     result["bitcode_structure"] = inspect_bitcode(llvm.read_text())
-    result["bitcode_sha256"] = hashlib.sha256(output.read_bytes()).hexdigest()
-    for path in [*paths, output]:
-        with gzip.open(str(path) + ".gz", "wb") as stream:
-            stream.write(path.read_bytes())
     return output
 
 
@@ -379,7 +379,7 @@ def execute(args, report, result, save):
         raise MissingPrerequisite(
             "This fixed dav-c220 probe requires an Ascend910B device"
         )
-    bindings = bind_ops(report / "custom-linked.bc", result)
+    bindings = bind_ops(report / "custom-plain.bc", result)
     print("ENVIRONMENT " + json.dumps(result["environment"]), flush=True)
     print(f"CUSTOM_ENTRY {result['entry']}", flush=True)
     result["phase"] = "compile_operator_owned_bitcode"
