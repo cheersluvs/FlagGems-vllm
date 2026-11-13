@@ -1,0 +1,26 @@
+[WARNING] triton.backends.ascend.utils not found. CANN version check skipped.
+ENVIRONMENT {"torch": "2.10.0+cpu", "triton": "3.5.1", "triton_source": "/opt/qsa-topk-env.ojEsoQz5/flagtree/triton/__init__.py", "device": "Ascend910B4-1", "ascend_home": "/opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0", "opp": "/opt/qsa-opp-910b-qw4qRghU"}
+CUSTOM_ENTRY dialect-cann-bitcode
+CALL_ABI address: {'qsa_raw_qk': 'qsa_raw_qk_address', 'qsa_raw_chain': 'qsa_raw_chain_address'}
+BUILD ccec-version: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD ccec-version: passed
+BUILD ccec-plain: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/ccec
+BUILD ccec-plain: passed
+BUILD llvm-link-text: /opt/qsa-topk-env.ojEsoQz5/cann/cann-9.1.0/bin/llvm-link
+BUILD llvm-link-text: passed
+BITCODE_STRUCTURE {"exported_symbols": true, "candidate_structure_present": true, "int8_mad_static_sites": 1, "half_mad_static_sites": 1, "direct_l1_static_sites": 8, "scope": "Static call sites, not executed instruction counts"}
+COMPILER_TRACE {"checked": true, "flags": ["--bishengir-print-ir-before=hivm-plan-memory", "--bishengir-print-ir-after=hivm-plan-memory"]}
+CORE_OPTION core-default-qk: status=compiled mix_mode=aiv bs_task_type=20 coherent=False
+CORE_OPTION core-default-chain: status=compiled mix_mode=aiv bs_task_type=20 coherent=False
+CORE_OPTION core-explicit-aic-qk: status=compiled mix_mode=aiv bs_task_type=20 coherent=False
+CORE_OPTION core-explicit-aic-chain: status=compiled mix_mode=aiv bs_task_type=20 coherent=False
+Traceback (most recent call last):
+  File "/tmp/flaggems-qsa-raw-core.tdFv6FJs/tools/probe_qsa_raw_cube_chain_910b.py", line 890, in main
+    execute(args, args.report, result, save)
+  File "/tmp/flaggems-qsa-raw-core.tdFv6FJs/tools/probe_qsa_raw_cube_chain_910b.py", line 683, in execute
+    launch_options = preflight_core_options(
+                     ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/flaggems-qsa-raw-core.tdFv6FJs/tools/probe_qsa_raw_cube_chain_910b.py", line 536, in preflight_core_options
+    raise RuntimeError(
+RuntimeError: Neither default nor the available public AIC option compiled both kernels with coherent Cube launch metadata; no target kernel executed. See core_option_matrix and installed runtime sources
+RAW_CUBE_SUMMARY {"status": "failed", "phase": "core-explicit-aic-chain", "entry": "dialect-cann-bitcode", "outcome": "no_coherent_public_core_configuration", "error": "RuntimeError('Neither default nor the available public AIC option compiled both kernels with coherent Cube launch metadata; no target kernel executed. See core_option_matrix and installed runtime sources')", "pipeline_proven": false, "exit_code": 1, "report": "/tmp/qsa-raw-cube-chain.6TjlZQY7/raw-cube-chain.json"}
