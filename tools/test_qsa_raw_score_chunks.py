@@ -19,6 +19,7 @@ import struct
 import unittest
 from types import SimpleNamespace
 
+from qsa_k_pack_2d_probe_910b import source as k_pack_source
 from qsa_raw_score_chunks_910b import (
     check_address_ir,
     decoded_instructions,
@@ -34,6 +35,69 @@ def half(value):
 
 
 class RawScoreChunkTests(unittest.TestCase):
+    def test_two_dimensional_part_matches_original_flat_nz_addresses(self):
+        tree = ast.parse(k_pack_source())
+        fn = next(
+            n
+            for n in tree.body
+            if isinstance(n, ast.FunctionDef) and n.name == "raw_k_2d_part"
+        )
+        expressions = {
+            n.targets[0].id: n.value for n in fn.body if isinstance(n, ast.Assign)
+        }
+        for part in list(range(32)) + [3200, 3207]:
+            fields = {
+                key: eval(
+                    compile(ast.Expression(expressions[key]), "k_part", "eval"),
+                    {"part": part},
+                )
+                for key in ("tile", "row_start", "dim_start")
+            }
+            for r in range(32):
+                for c in range(32):
+                    old_i = part % 8 * 1024 + r * 32 + c
+                    new_row = fields["tile"] * 64 + fields["row_start"] + r
+                    new_dim = fields["dim_start"] + c
+                    self.assertEqual(new_row, part // 8 * 64 + (old_i // 32) % 64)
+                    self.assertEqual(new_dim, old_i // 2048 * 32 + old_i % 32)
+                    self.assertEqual(
+                        part * 1024 + r * 32 + c, fields["tile"] * 8192 + old_i
+                    )
+                    self.assertEqual(new_row // 192, fields["tile"] // 3)
+
+    def test_two_dimensional_mask_at_row_tile_and_page_boundaries(self):
+        for visible in (0, 1, 31, 32, 33, 63, 64, 65, 191, 192, 193, 257):
+            seen = set()
+            for part in range(((visible + 63) // 64) * 8):
+                tile = part // 8
+                for r in range(32):
+                    row = tile * 64 + part % 2 * 32 + r
+                    for c in range(32):
+                        dimension = (part % 8 // 2) * 32 + c
+                        if row < visible:
+                            self.assertNotIn((row, dimension), seen)
+                            seen.add((row, dimension))
+            self.assertEqual(seen, {(r, c) for r in range(visible) for c in range(128)})
+
+    def test_two_dimensional_pack_variants_keep_identical_part_body(self):
+        tree = ast.parse(k_pack_source())
+        fns = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+        for name in ("raw_k_2d_grid", "raw_k_2d_capped"):
+            calls = [
+                n
+                for n in ast.walk(fns[name])
+                if isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Name)
+                and n.func.id == "raw_k_2d_part"
+            ]
+            self.assertEqual(len(calls), 1)
+        self.assertFalse(
+            any(isinstance(n, ast.For) for n in ast.walk(fns["raw_k_2d_grid"]))
+        )
+        self.assertEqual(
+            sum(isinstance(n, ast.For) for n in ast.walk(fns["raw_k_2d_capped"])), 1
+        )
+
     def test_profile_controls_preserve_payload_and_matched_grids(self):
         for rows, width, tiles in ((128, 1088, 5), (128, 8192, 65), (112, 29696, 401)):
             g = copy_geometry(rows, width, tiles)

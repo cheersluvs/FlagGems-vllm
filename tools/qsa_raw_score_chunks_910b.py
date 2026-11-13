@@ -583,6 +583,35 @@ def run_case(
             raise AssertionError(
                 "Raw score chunk differs from current/oracle; candidate rejected without timing"
             )
+        if args.probe_k_pack:
+            from qsa_k_pack_2d_probe_910b import run_probe
+
+            def score_with_packed(keys):
+                module.raw_score_tiles[(cores,)](pq, keys, pw, raw, **raw_options)
+                finish()
+
+            run_probe(
+                args,
+                name,
+                values,
+                pk,
+                output,
+                reference,
+                stages,
+                kernels,
+                score_with_packed,
+                record,
+                report,
+                compiler,
+                capture_type,
+                save_asm,
+                save,
+            )
+            record["postcheck"] = compare_scores(torch, output.cpu(), reference.cpu())
+            if not record["postcheck"]["passed"]:
+                raise AssertionError("Post-probe score mismatch")
+            record["status"] = "passed"
+            return record
         if args.profile_vectors:
             from qsa_raw_vector_profile_910b import profile_vectors
 
@@ -733,6 +762,7 @@ def run_chunks(
                 current_over_prepared=r.get("current_over_prepared"),
                 error=r.get("error"),
                 vector_profile_status=r.get("vector_profile", {}).get("status"),
+                k_pack_probe_status=r.get("k_pack_probe", {}).get("status"),
             )
             for r in records
         ],
@@ -744,8 +774,9 @@ def run_chunks(
         raise RuntimeError(
             "At least one raw score chunk rejected; see per-case diagnostics"
         )
-    result["outcome"] = (
-        "passed_micro_and_vector_profile"
-        if args.profile_vectors
-        else "passed_micro_and_representative_score_chunks"
-    )
+    if args.probe_k_pack:
+        result["outcome"] = "passed_micro_and_k_pack_probe"
+    elif args.profile_vectors:
+        result["outcome"] = "passed_micro_and_vector_profile"
+    else:
+        result["outcome"] = "passed_micro_and_representative_score_chunks"
