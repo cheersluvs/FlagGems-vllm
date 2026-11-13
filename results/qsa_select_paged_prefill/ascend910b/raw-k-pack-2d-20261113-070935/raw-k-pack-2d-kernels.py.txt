@@ -1,0 +1,25 @@
+import triton
+import triton.language as tl
+
+@triton.jit
+def raw_k_2d_part(K, Table, PK, part, MAX_VISIBLE:tl.constexpr):
+    tile = part//8
+    row_start = part%2*32
+    dim_start = (part%8//2)*32
+    r = tl.arange(0,32)
+    c = tl.arange(0,32)
+    physical = tl.load(Table+tile//3)
+    token = physical.to(tl.int64)*192+tile%3*64+row_start
+    global_row = tile*64+row_start+r
+    value = tl.load(K+(token+r[:,None])*128+dim_start+c[None,:],
+                    mask=global_row[:,None]<MAX_VISIBLE,other=0)
+    tl.store(PK+part*1024+r[:,None]*32+c[None,:],value)
+
+@triton.jit
+def raw_k_2d_grid(K, Table, PK, MAX_VISIBLE:tl.constexpr):
+    raw_k_2d_part(K,Table,PK,tl.program_id(0),MAX_VISIBLE)
+
+@triton.jit
+def raw_k_2d_capped(K, Table, PK, MAX_VISIBLE:tl.constexpr,TILES:tl.constexpr,CORES:tl.constexpr):
+    for part in range(tl.program_id(0),TILES*8,CORES):
+        raw_k_2d_part(K,Table,PK,part,MAX_VISIBLE)
