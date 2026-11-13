@@ -583,6 +583,33 @@ def run_case(
             raise AssertionError(
                 "Raw score chunk differs from current/oracle; candidate rejected without timing"
             )
+        if args.probe_finish_group4:
+            from qsa_finish_group4_probe_910b import run_probe
+
+            run_probe(
+                args,
+                name,
+                values,
+                pq,
+                pw,
+                pk,
+                raw,
+                output,
+                reference,
+                stages,
+                kernels,
+                record,
+                report,
+                compiler,
+                capture_type,
+                save_asm,
+                save,
+            )
+            record["postcheck"] = compare_scores(torch, output.cpu(), reference.cpu())
+            if not record["postcheck"]["passed"]:
+                raise AssertionError("Post-group4-probe score mismatch")
+            record["status"] = "passed"
+            return record
         if args.probe_qw_pack:
             from qsa_qw_pack_2d_probe_910b import run_probe
 
@@ -822,6 +849,9 @@ def run_chunks(
                 k_pack_probe_status=r.get("k_pack_probe", {}).get("status"),
                 finish_probe_status=r.get("finish_probe", {}).get("status"),
                 qw_pack_probe_status=r.get("qw_pack_probe", {}).get("status"),
+                finish_group4_probe_status=r.get("finish_group4_probe", {}).get(
+                    "status"
+                ),
             )
             for r in records
         ],
@@ -833,7 +863,9 @@ def run_chunks(
         raise RuntimeError(
             "At least one raw score chunk rejected; see per-case diagnostics"
         )
-    if args.probe_qw_pack:
+    if args.probe_finish_group4:
+        result["outcome"] = "passed_micro_and_group4_finish_probe"
+    elif args.probe_qw_pack:
         result["outcome"] = "passed_micro_and_qw_pack_probe"
     elif args.probe_finish:
         result["outcome"] = "passed_micro_and_page64_finish_probe"

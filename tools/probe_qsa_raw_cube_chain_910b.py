@@ -1046,6 +1046,7 @@ def main():
     parser.add_argument("--probe-k-pack", action="store_true")
     parser.add_argument("--probe-finish", action="store_true")
     parser.add_argument("--probe-qw-pack", action="store_true")
+    parser.add_argument("--probe-finish-group4", action="store_true")
     parser.add_argument("--counter-iterations", type=int, default=2)
     args = parser.parse_args()
     args.score_cases = list(dict.fromkeys(args.score_cases))
@@ -1057,6 +1058,8 @@ def main():
         parser.error("--probe-finish requires --score-chunks")
     if args.probe_qw_pack and not args.score_chunks:
         parser.error("--probe-qw-pack requires --score-chunks")
+    if args.probe_finish_group4 and not args.score_chunks:
+        parser.error("--probe-finish-group4 requires --score-chunks")
     if (
         sum(
             (
@@ -1064,12 +1067,14 @@ def main():
                 args.probe_k_pack,
                 args.probe_finish,
                 args.probe_qw_pack,
+                args.probe_finish_group4,
             )
         )
         > 1
     ):
         parser.error(
-            "Choose one of --profile-vectors, --probe-k-pack, --probe-finish or --probe-qw-pack"
+            "Choose one probe mode: --profile-vectors, --probe-k-pack, --probe-finish, "
+            "--probe-qw-pack or --probe-finish-group4"
         )
     if args.counter_iterations < 1:
         parser.error("counter iterations must be positive")

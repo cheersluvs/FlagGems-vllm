@@ -19,6 +19,7 @@ import struct
 import unittest
 from types import SimpleNamespace
 
+from qsa_finish_group4_probe_910b import source as group4_source
 from qsa_finish_page64_probe_910b import source as finish_source
 from qsa_k_pack_2d_probe_910b import source as k_pack_source
 from qsa_qw_pack_2d_probe_910b import source as qw_pack_source
@@ -37,6 +38,165 @@ def half(value):
 
 
 class RawScoreChunkTests(unittest.TestCase):
+    def test_group4_finish_load_bounds_and_individual_visibility(self):
+        class Index(int):
+            def __getitem__(self, _index):
+                return int(self)
+
+            def to(self, _dtype):
+                return int(self)
+
+        fn = next(
+            n
+            for n in ast.parse(group4_source()).body
+            if isinstance(n, ast.FunctionDef) and n.name == "raw_finish_group4_part"
+        )
+        expressions = {
+            n.targets[0].id: compile(ast.Expression(n.value), "group4", "eval")
+            for n in fn.body
+            if isinstance(n, ast.Assign)
+            and n.targets[0].id in ("key_base", "raw_base", "key_live", "live")
+        }
+        raw_load = next(
+            n
+            for n in ast.walk(fn)
+            if isinstance(n, ast.Call)
+            and ast.unparse(n.func) == "tl.load"
+            and ast.unparse(n.args[0]).startswith("Raw +")
+        )
+        read_mask = compile(
+            ast.Expression(next(k.value for k in raw_load.keywords if k.arg == "mask")),
+            "group4_mask",
+            "eval",
+        )
+        store = next(
+            n.value
+            for n in fn.body
+            if isinstance(n, ast.Expr)
+            and isinstance(n.value, ast.Call)
+            and ast.unparse(n.value.func) == "tl.store"
+        )
+        store_mask = compile(
+            ast.Expression(next(k.value for k in store.keywords if k.arg == "mask")),
+            "group4_store",
+            "eval",
+        )
+        shared_future_read = False
+        for width, lengths in (
+            (1, [0, 1, 1, 0, 1]),
+            (65, [0, 1, 63, 64, 65]),
+            (257, [0, 1, 63, 192, 193]),
+            (1088, [0, 1, 63, 192, 193]),
+        ):
+            rows = len(lengths)
+            groups = (rows + 3) // 4
+            raw_tiles = max(1, (min(width, max(lengths)) + 63) // 64)
+            stored = set()
+            for group in range(groups):
+                maximum = max(lengths[group * 4 : group * 4 + 4])
+                for tile in range((width + 63) // 64):
+                    physical = Index(
+                        (tile // 3 * 7 + 3) % 11
+                        if tile * 64 < min(width, maximum)
+                        else 0
+                    )
+                    base = dict(
+                        group=group,
+                        tile=tile,
+                        RAW_TILES=raw_tiles,
+                        WIDTH=width,
+                        ROWS=rows,
+                        maximum=maximum,
+                        physical=physical,
+                        tl=SimpleNamespace(int64="i64"),
+                    )
+                    raw_base = eval(expressions["raw_base"], base)
+                    key_base = eval(expressions["key_base"], base)
+                    for r in range(4):
+                        row = group * 4 + r
+                        visible = lengths[row] if row < rows else 0
+                        for c in range(64):
+                            column = tile * 64 + c
+                            scope = {
+                                **base,
+                                "rows": Index(row),
+                                "columns": Index(column),
+                                "visible": Index(visible),
+                            }
+                            key_live = eval(expressions["key_live"], scope)
+                            scope["key_live"] = Index(key_live)
+                            read = eval(read_mask, scope)
+                            live = eval(expressions["live"], scope)
+                            write = eval(store_mask, scope)
+                            self.assertEqual(
+                                bool(read), row < rows and column < min(width, maximum)
+                            )
+                            self.assertEqual(
+                                bool(live), column < width and column < visible
+                            )
+                            if read:
+                                expected = (
+                                    ((row // 4) * raw_tiles + column // 64) * 1024
+                                    + row % 4 * 64
+                                    + column % 64
+                                )
+                                self.assertEqual(raw_base + r * 64 + c, expected)
+                                self.assertLess(expected, groups * raw_tiles * 1024)
+                                self.assertEqual(
+                                    key_base + c, int(physical) * 192 + column % 192
+                                )
+                                shared_future_read |= not live
+                            if write:
+                                self.assertNotIn((row, column), stored)
+                                stored.add((row, column))
+            self.assertEqual(
+                stored, {(r, c) for r in range(rows) for c in range(width)}
+            )
+        self.assertTrue(shared_future_read)
+
+    def test_group4_finish_capped_units_and_partial_group(self):
+        for rows, width in ((5, 257), (128, 1088), (112, 29696)):
+            groups = (rows + 3) // 4
+            tiles = (width + 63) // 64
+            cores = min(20, groups * tiles)
+            visited = [
+                (u // tiles, u % tiles)
+                for p in range(cores)
+                for u in range(p, groups * tiles, cores)
+            ]
+            self.assertEqual(len(visited), len(set(visited)))
+            self.assertEqual(
+                set(visited), {(g, t) for g in range(groups) for t in range(tiles)}
+            )
+            if rows % 4 == 0:
+                self.assertEqual(groups * tiles * 4, rows * tiles)
+
+    def test_group4_finish_uses_one_shared_scale_load_and_body(self):
+        fns = {
+            n.name: n
+            for n in ast.parse(group4_source()).body
+            if isinstance(n, ast.FunctionDef)
+        }
+        body = fns["raw_finish_group4_part"]
+        loads = [
+            n
+            for n in ast.walk(body)
+            if isinstance(n, ast.Call) and ast.unparse(n.func) == "tl.load"
+        ]
+        for operand in ("Raw", "KS", "Table", "Visible"):
+            self.assertEqual(
+                sum(ast.unparse(n.args[0]).startswith(operand + " +") for n in loads), 1
+            )
+        for name in ("raw_finish_group4_grid", "raw_finish_group4_capped"):
+            calls = [
+                n
+                for n in ast.walk(fns[name])
+                if isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Name)
+                and n.func.id == "raw_finish_group4_part"
+            ]
+            self.assertEqual(len(calls), 1)
+
     def test_qw_two_dimensional_query_addresses_from_actual_source(self):
         class Index(int):
             def __getitem__(self, _index):
