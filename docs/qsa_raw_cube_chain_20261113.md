@@ -101,3 +101,29 @@ this probe does not establish that such an integration is supported.
 Save the successful bitcode archive before requesting LLVM text, so a failure
 later in text emission or Triton lowering/link still returns that artifact.
 The C++ math, memory allocation, scales and numerical comparisons are unchanged.
+
+## Inspect the existing bitcode instead of re-entering the CCE frontend
+
+Report 59a9f3ed4174586a42e4a9e4c6bfd7918ff0da44 (20261113-005133) generated
+the ordinary AIC module (105952 bytes, SHA256
+54fad612a0d6627a789e58e67914e6e62a429b462f36169b155855babff4318d).
+The proposed sibling source-to-text CCE invocation failed because this driver
+rejects -S -emit-llvm. That was an artifact-collection failure, before any
+Triton wrapper compilation or device execution.
+
+Use llvm-link -S with the single existing bitcode file when llvm-dis is absent.
+This writes LLVM text without combining ordinary/mix modules or recompiling
+the source. The final kernel continues to consume the original .bc. See the
+[LLVM command guide](https://llvm.org/docs/CommandGuide/llvm-link.html).
+Text-inspection failure is recorded but no longer suppresses device diagnostics;
+the final structural gate still cannot pass without evidence.
+
+The returned bitcode was also read on the Mac using the installed host clang
+as an LLVM reader. Its output changes the target triple, so it is used only for
+inspection and parser checks, never as device input. The actual module contains
+both exported functions and calls to llvm.hivm.MAD.s8,
+llvm.hivm.FIX.L0C.TO.L1.s322f16 (AS5 to AS2), llvm.hivm.SET.QUANT.PRE and
+llvm.hivm.MAD.f162f32. These are compiler-level evidence, not device execution
+or proof of ReLU mode. The parser now recognizes those observed intrinsic names
+and requires both matrix types and the explicit INT32-to-half L1 edge, instead
+of relying on a generic Mmad count.

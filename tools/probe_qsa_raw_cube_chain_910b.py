@@ -124,23 +124,37 @@ def inspect_bitcode(text):
         if re.search(r"\b(?:call|invoke)\b", line)
     ]
     patterns = dict(
-        matrix_calls=r"(?:mmad|mma[._]|matmul)",
+        matrix_calls=r"(?:mmad|mma[._]|[._]mad[._]|matmul)",
+        int8_matrix_calls=r"@llvm\.hivm\.MAD\.s8(?:[.(])",
+        half_matrix_calls=r"@llvm\.hivm\.MAD\.f162f32(?:[.(])",
         cc_to_cbuf=r"(?:cc|l0c).*to.*(?:cbuf|l1)",
-        prequant=r"(?:set[._]?deq|set[._]?fpc|pre[._]?quant)",
+        prequant=r"(?:set[._]?deq|set[._]?fpc|pre[._]?quant|set[._]quant[._]pre)",
     )
     found = {
         name: [line for line in calls if re.search(pattern, line, re.I)]
         for name, pattern in patterns.items()
     }
+    direct = [
+        line
+        for line in found["cc_to_cbuf"]
+        if re.search(r"FIX\.L0C\.TO\.L1\.s322f16", line, re.I)
+        and "addrspace(2)" in line
+        and "addrspace(5)" in line
+    ]
     # Attribute constants and final opcode interpretation still need human review;
     # do not infer a fused ReLU solely from the numerical reference.
     return dict(
         exported_symbols=all(
-            f"_mlir_ciface_{name}" in text for name in ("qsa_raw_qk", "qsa_raw_chain")
+            re.search(rf"^define[^\n]*@_mlir_ciface_{name}\(", text, re.M) is not None
+            for name in ("qsa_raw_qk", "qsa_raw_chain")
         ),
         **found,
+        direct_int32_to_half_l1=direct,
         candidate_structure_present=(
-            len(found["matrix_calls"]) >= 2 and bool(found["cc_to_cbuf"])
+            bool(found["int8_matrix_calls"])
+            and bool(found["half_matrix_calls"])
+            and bool(direct)
+            and bool(found["prequant"])
         ),
         relu_mode="Requested by C++ DataCopyCO12DstParams.reluPre=1; retain LLVM arguments for review",
         scope="Custom bitcode structure, not a hardware traffic or overlap measurement",
@@ -150,6 +164,7 @@ def inspect_bitcode(text):
 def build_bitcode(report, result):
     ccec = tool("ccec")
     dis = tool("llvm-dis", ccec)
+    linker = tool("llvm-link", ccec)
     if not ccec:
         raise MissingPrerequisite("Need ccec")
     includes = include_dirs()
@@ -157,6 +172,7 @@ def build_bitcode(report, result):
     result["toolchain"] = dict(
         ccec=ccec,
         llvm_dis=dis,
+        llvm_link=linker,
         includes=includes,
         bitcode_mode="ordinary-AIC-only",
         mix_bitcode_merged=False,
@@ -197,21 +213,36 @@ def build_bitcode(report, result):
     with gzip.open(str(output) + ".gz", "wb") as stream:
         stream.write(output.read_bytes())
     llvm = report / "custom-plain.ll.txt"
-    if dis:
-        result["toolchain"]["llvm_text_method"] = "llvm-dis"
-        command([dis, str(output), "-o", str(llvm)], report, "llvm-dis")
-    else:
-        # Some CANN distributions ship ccec/llvm-link but no llvm-dis. Emit
-        # textual LLVM from the identical source/options instead of requiring
-        # another LLVM installation. This is a sibling compilation, not a
-        # disassembly of custom-plain.bc; keep that distinction in the report.
-        result["toolchain"]["llvm_text_method"] = "ccec-source-sibling"
-        command(
-            [*common, str(source), "-S", "-emit-llvm", "-o", str(llvm)],
-            report,
-            "ccec-llvm-text",
+    try:
+        if dis:
+            result["toolchain"]["llvm_text_method"] = "llvm-dis"
+            command([dis, str(output), "-o", str(llvm)], report, "llvm-dis")
+        elif linker:
+            # llvm-link -S can serialize a single existing bitcode module as
+            # LLVM text. There is no second module and no duplicate definitions;
+            # the final kernel still consumes the original unchanged .bc file.
+            result["toolchain"]["llvm_text_method"] = "llvm-link-S-single-module"
+            command(
+                [linker, "-S", str(output), "-o", str(llvm)], report, "llvm-link-text"
+            )
+        else:
+            raise MissingPrerequisite(
+                "No llvm-dis or llvm-link for bitcode text inspection"
+            )
+        result["bitcode_structure"] = inspect_bitcode(llvm.read_text())
+    except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired) as exc:
+        # Artifact inspection must not suppress the kernel compile/device
+        # diagnostics. Missing structural evidence still fails the final gate.
+        result["bitcode_structure"] = dict(
+            status="unavailable",
+            error=repr(exc),
+            exported_symbols=False,
+            candidate_structure_present=False,
         )
-    result["bitcode_structure"] = inspect_bitcode(llvm.read_text())
+        print(
+            f"LLVM inspection unavailable: {exc}; continuing device diagnostics",
+            flush=True,
+        )
     return output
 
 
@@ -385,6 +416,23 @@ def execute(args, report, result, save):
     result["phase"] = "compile_operator_owned_bitcode"
     save()
     build_bitcode(report, result)
+    structure = result["bitcode_structure"]
+    print(
+        "BITCODE_STRUCTURE "
+        + json.dumps(
+            dict(
+                exported_symbols=structure["exported_symbols"],
+                candidate_structure_present=structure["candidate_structure_present"],
+                int8_mad_static_sites=len(structure.get("int8_matrix_calls", [])),
+                half_mad_static_sites=len(structure.get("half_matrix_calls", [])),
+                direct_l1_static_sites=len(
+                    structure.get("direct_int32_to_half_l1", [])
+                ),
+                scope="Static call sites, not executed instruction counts",
+            )
+        ),
+        flush=True,
+    )
     save()
     source = report / "raw-kernels.py"
     source.write_text(wrapper_source(result["entry"]))
@@ -432,6 +480,7 @@ def execute(args, report, result, save):
             if kind == "identity":
                 label = f"qk-seed{seed}"
                 result["phase"] = label
+                print(f"COMPILE {label}", flush=True)
                 capture = CaptureCompiler(report, label)
                 raw = torch.full((M, N), 2**30, device=device, dtype=torch.int32)
                 try:
@@ -463,6 +512,7 @@ def execute(args, report, result, save):
             for scale_bits, scale in ((0x3F800000, 1.0), (0x3A800000, 1 / 1024)):
                 label = f"chain-{kind}-seed{seed}-scale{scale_bits:x}"
                 result["phase"] = label
+                print(f"COMPILE {label}", flush=True)
                 output = torch.full((M, N), float("nan"), device=device)
                 reference_output = torch.empty_like(output)
                 expected = (
