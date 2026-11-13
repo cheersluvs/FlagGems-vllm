@@ -127,3 +127,26 @@ llvm.hivm.MAD.f162f32. These are compiler-level evidence, not device execution
 or proof of ReLU mode. The parser now recognizes those observed intrinsic names
 and requires both matrix types and the explicit INT32-to-half L1 edge, instead
 of relying on a generic Mmad count.
+
+## Destination pointer is an external argument, not a DPS output
+
+Report 974036b6dd9824a5e7100ba8510a246fe47d7bb3 (20261113-010029) passed
+native C++ compilation and single-module LLVM text inspection. Both exports,
+both matrix input types and the direct L0C INT32 -> L1 half edge were detected.
+The first QK Triton wrapper then failed TTIR verification: operand 4 in outs
+was a scalar !tt.ptr<i32>, while a DPS output must be a tensor or memref.
+No wrapper binary ran and there are still no timing or numerical results.
+
+The corrected call puts all five C++ arguments, including the destination GM
+pointer, in custom-op inputs and requests no DPS outputs/results. The registry
+variant calls its fifth ordinary parameter dst rather than the reserved out.
+This is a pointer-writing external function, not a tensor-returning primitive;
+the original ranked GM memref C ABI and C++ signature are unchanged.
+
+Do not annotate this opaque call no_side_effect. The inspected HIVM custom-op
+implementation conservatively models resource-level reads/writes in this form.
+The installed toolchain's behavior still needs checking: retain available IR,
+and require the sentinel-initialized GM destination to match all CPU QK and
+full-chain fixtures. A deleted/no-op custom call must fail those checks. This
+isolated wrapper contains no other device work with which it could be reordered.
+This does not establish alias/scheduling correctness for a future mixed kernel.

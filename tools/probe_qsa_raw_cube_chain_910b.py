@@ -264,7 +264,7 @@ def bind_ops(bitcode, result):
         )
 
         def register(name):
-            def initialize(self, q, key, weight, scale_bits, out=None):
+            def initialize(self, q, key, weight, scale_bits, dst):
                 self.symbol, self.bitcode = name, str(bitcode)
 
             cls = type(
@@ -311,12 +311,12 @@ def bind_ops(bitcode, result):
 def wrapper_source(entry):
     if entry == "dialect-cann-bitcode":
         imports = "import triton.experimental.tle.language.raw as raw"
-        chain = "raw.call(chain_op, [q, key, weight, bits, output], output_indices=[4])"
-        qk = "raw.call(qk_op, [q, key, weight, bits, output], output_indices=[4])"
+        chain = "raw.call(chain_op, [q, key, weight, bits, output], output_indices=[])"
+        qk = "raw.call(qk_op, [q, key, weight, bits, output], output_indices=[])"
     else:
         imports = "import triton.experimental.tle as tle"
-        chain = 'tle.dsa.ascend.raw("qsa_raw_chain", q, key, weight, bits, out=output)'
-        qk = 'tle.dsa.ascend.raw("qsa_raw_qk", q, key, weight, bits, out=output)'
+        chain = 'tle.dsa.ascend.raw("qsa_raw_chain", q, key, weight, bits, output)'
+        qk = 'tle.dsa.ascend.raw("qsa_raw_qk", q, key, weight, bits, output)'
     return f"""
 import triton
 import triton.language as tl
@@ -324,6 +324,9 @@ import triton.language as tl
 
 @triton.jit
 def custom(Q, Key, Weight, Out, SCALE_BITS:tl.constexpr, CHAIN:tl.constexpr):
+    # All five arguments are external-function operands. Out is a GM pointer,
+    # not a tensor-valued DPS result: the custom op has no outs/results. Leave
+    # no_side_effect unset so its opaque memory writes remain conservative.
     q, key, weight, output = Q, Key, Weight, Out
     bits = tl.full((), SCALE_BITS, tl.int64)
     if CHAIN:
@@ -411,6 +414,16 @@ def execute(args, report, result, save):
             "This fixed dav-c220 probe requires an Ascend910B device"
         )
     bindings = bind_ops(report / "custom-plain.bc", result)
+    result["call_abi"] = dict(
+        operands="Q GM pointer, K GM pointer, W GM pointer, i64 scale bits, destination GM pointer",
+        dps_outputs=0,
+        results=0,
+        destination="Fifth ordinary operand; C++ writes it through rank-one GM memref ABI",
+        side_effects=(
+            "Opaque custom op; no no_side_effect annotation; "
+            "inspect retained op and validate destination writes"
+        ),
+    )
     print("ENVIRONMENT " + json.dumps(result["environment"]), flush=True)
     print(f"CUSTOM_ENTRY {result['entry']}", flush=True)
     result["phase"] = "compile_operator_owned_bitcode"
