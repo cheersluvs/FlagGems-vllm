@@ -455,7 +455,8 @@ def run_probe(
     models = {}
     selected = {}
     passed = []
-    for queries in (16,) if args.probe_finish_prefix else (4, 8, 16):
+    finish_probe = args.probe_finish_prefix or args.probe_finish_merge
+    for queries in (16,) if finish_probe else (4, 8, 16):
         label = f"query{queries}"
         variant = probe["variants"][label] = dict(status="running", compiler={})
         save()
@@ -515,7 +516,7 @@ def run_probe(
                 raise AssertionError(f"{label} packing/score check failed")
             if queries == 4 and not torch.equal(arm["output"].cpu(), expected):
                 raise AssertionError("Frozen query4 output changed")
-            if name == args.score_cases[0] and not args.probe_finish_prefix:
+            if name == args.score_cases[0] and not finish_probe:
                 variant["boundary"] = boundary_checks(
                     module, queries, output.device, torch, pack_nz
                 )
@@ -538,10 +539,13 @@ def run_probe(
             save()
             if queries == 4:
                 raise
-    if args.probe_finish_prefix:
+    if finish_probe:
         if probe["errors"]:
             raise RuntimeError("Query16 preparation failed before finish diagnostics")
-        from qsa_finish_prefix_probe_910b import run_probe as run_finish_probe
+        if args.probe_finish_merge:
+            from qsa_finish_merge_probe_910b import run_probe as run_finish_probe
+        else:
+            from qsa_finish_prefix_probe_910b import run_probe as run_finish_probe
 
         run_finish_probe(
             args,
